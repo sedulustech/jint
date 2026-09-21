@@ -162,7 +162,7 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
     const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
-    expect(report.measurements).toHaveLength(5);
+    expect(report.measurements).toHaveLength(8);
     for (const m of report.measurements) {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
