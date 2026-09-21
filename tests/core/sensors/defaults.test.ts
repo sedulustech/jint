@@ -55,7 +55,8 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
         const value = readings[sensor.name];
         expect(typeof value).toBe("number");
         // Healthy code must never trip an ERROR; warns are legitimate nudges
-        // (e.g. keys.ts pins artifact names and earns a drift warn on purpose).
+        // (the self-lint corpus legitimately earns drift/consistency/
+        // complexity warns on the files those claims describe).
         expect(sensor.handle(value!)).not.toBe("error");
       }
     }
@@ -75,16 +76,18 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
         mutants.m1_bad_names!.is_vocabulary_consistent!,
       ),
     ).toBe("error");
-    // m3_comment_bloat: pure narration noise. The whole-diff reading (0.23)
-    // dilutes - the documented whole-diff low-pass effect - so the claim is
-    // anchored where jint actually runs, per file: the bloat slices read
-    // 0.47-0.56 against the healthy 0.09-0.19 and fire is_comment_narration.
+    // m3_comment_bloat: pure narration noise. The whole-diff reading (0.27
+    // under the multi-line claims) dilutes - the documented whole-diff
+    // low-pass effect - so the claim is anchored where jint actually runs,
+    // per file: the bloat slices read 0.44-0.55 against the healthy
+    // 0.09-0.21 and fire is_comment_narration (4 errors, 1 warn, 2 null).
     const m3Slices = Object.values(mutants.m3_comment_bloat_perfile!);
     expect(m3Slices.length).toBeGreaterThanOrEqual(6);
     const narrationSeverities = m3Slices.map((s) =>
       sensorDefaults.is_comment_narration!.handle(s.is_comment_narration!),
     );
-    expect(narrationSeverities.filter((s) => s === "error").length).toBe(5);
+    expect(narrationSeverities.filter((s) => s === "error").length).toBe(4);
+    expect(narrationSeverities.filter((s) => s === "warn").length).toBe(1);
     expect(narrationSeverities.filter((s) => s === null).length).toBe(2);
     // and the family's other attributes do not mistake bloat for their own claim
     expect(
