@@ -6,8 +6,16 @@ import { AppError, type Judge, type LintEvent, type Sensor } from "../../src/cor
 
 const baseConfig = defineConfig({ input: "", sensors: { ...sensorDefaults, disable: [] }, exclude: [] });
 
+/** The comment family at silent readings; tests spread over it so each case names only what it asserts about. */
+const SILENT_COMMENT_FAMILY = {
+  is_comment_business_context: 0.5,
+  is_comment_narration: 0.1,
+  is_comment_patching_readability: 0.1,
+  will_comment_drift: 0.1,
+};
+
 function judgeWith(values: Record<string, number>): Judge {
-  return async () => values;
+  return async () => ({ ...SILENT_COMMENT_FAMILY, ...values });
 }
 
 async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
@@ -21,12 +29,13 @@ describe("lint", () => {
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, is_comment_business_context: 1.0, cognitive_complexity: 0.3 }),
     }));
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    expect(measurements).toHaveLength(5);
-    // naming_precision 0.3 -> error; everything else null
+    expect(measurements).toHaveLength(8);
+    // naming_precision 0.3 -> error; everything else null - including
+    // business_context at 1.0 (measurement-only in v0, no handle)
     expect(signals).toHaveLength(1);
     expect(signals[0]!.signal).toEqual({ sensor: "naming_precision", input: "tests/fixtures/sample-file.ts", value: 0.3, severity: "error" });
   });
@@ -35,13 +44,14 @@ describe("lint", () => {
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.2, naming_consistency: 0.2, greppable_identifiers: 0.2, excessive_comments: 0.8, cognitive_complexity: 0.8 }),
+      judge: judgeWith({ naming_precision: 0.2, naming_consistency: 0.2, greppable_identifiers: 0.2, cognitive_complexity: 0.8 }),
     }));
     const kinds = events.map((e) => e.type);
     for (let i = 0; i < events.length; i++) {
       if (kinds[i] === "signal") expect(kinds[i - 1]).toBe("measurement");
     }
-    expect(events.filter((e) => e.type === "signal")).toHaveLength(5);
+    // four readings clear their handles (business_context never does)
+    expect(events.filter((e) => e.type === "signal")).toHaveLength(4);
   });
 
   test("--disable removes sensors by name before measuring", async () => {
@@ -50,7 +60,12 @@ describe("lint", () => {
       questionsSeen.push(Object.keys(questions));
       return { naming_precision: 0.7 };
     };
-    const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample-file.ts", disable: ["excessive_comments", "cognitive_complexity", "naming_consistency", "greppable_identifiers"], judge }));
+    const events = await drain(lint({
+      config: baseConfig,
+      input: "tests/fixtures/sample-file.ts",
+      disable: ["is_comment_business_context", "is_comment_narration", "is_comment_patching_readability", "will_comment_drift", "cognitive_complexity", "naming_consistency", "greppable_identifiers"],
+      judge,
+    }));
     expect(questionsSeen[0]).toEqual(["naming_precision"]);
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
@@ -59,13 +74,13 @@ describe("lint", () => {
     const states: unknown[] = [];
     const judge: Judge = async (state) => {
       states.push(state);
-      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+      return { ...SILENT_COMMENT_FAMILY, naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 };
     };
     const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }));
     const paths = states.map((s) => (s as { path: string }).path);
     expect(paths).toEqual(["src/tui/components/overlays/box.ts", "src/tui/components/overlays/help.ts"]); // deleted + binary skipped
     expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(10);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16);
   });
 
   test("per-unit failure becomes a diagnostic; the run continues", async () => {
@@ -73,7 +88,7 @@ describe("lint", () => {
     const judge: Judge = async () => {
       calls++;
       if (calls === 1) throw new AppError("JEV_UNAVAILABLE", "first unit hiccup");
-      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+      return { ...SILENT_COMMENT_FAMILY, naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 };
     };
     const events = await drain(lint({
       config: baseConfig,
@@ -83,7 +98,7 @@ describe("lint", () => {
     const diagnostics = events.filter((e): e is Extract<LintEvent, { type: "diagnostic" }> => e.type === "diagnostic");
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.diagnostic.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5); // second unit measured
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(8); // second unit measured
   });
 
   test("JEV_AUTH aborts the run after surfacing the diagnostic (no hammering)", async () => {
@@ -118,7 +133,7 @@ describe("lint", () => {
       input: "tests/fixtures/sample-dir",
       inputType: "dir",
       exclude: ["**/more.ts"],
-      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 }),
     }));
     const inputs = new Set(events.filter((e) => e.type === "measurement").map((e) => e.measurement.input));
     expect(inputs).toEqual(new Set(["good.ts"]));
@@ -137,9 +152,9 @@ describe("collectReport", () => {
     const report = await collectReport(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 }),
     }));
-    expect(report.measurements).toHaveLength(5);
+    expect(report.measurements).toHaveLength(8);
     expect(report.signals).toHaveLength(1);
     expect(report.diagnostics).toHaveLength(0);
   });

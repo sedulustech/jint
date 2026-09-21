@@ -9,7 +9,7 @@ describe("cli: in-process unit tests", () => {
     const asked: string[] = [];
     const fakeJudge = async (state: any, questions: any) => {
       Object.keys(questions).forEach(k => asked.push(k));
-      return { naming_consistency: 0.9, naming_precision: 0.9, greppable_identifiers: 0.9, excessive_comments: 0.1, cognitive_complexity: 0.1 };
+      return { naming_consistency: 0.9, naming_precision: 0.9, greppable_identifiers: 0.9, is_comment_business_context: 0.5, is_comment_narration: 0.1, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, cognitive_complexity: 0.1 };
     };
 
     const stream = lint({ config, disable: ["naming_consistency"], judge: fakeJudge as any });
@@ -22,7 +22,7 @@ describe("cli: in-process unit tests", () => {
     const asked: string[] = [];
     const fakeJudge = async (state: any, questions: any) => {
       asked.push(state.path);
-      return { naming_consistency: 0.9, naming_precision: 0.9, greppable_identifiers: 0.9, excessive_comments: 0.1, cognitive_complexity: 0.1 };
+      return { naming_consistency: 0.9, naming_precision: 0.9, greppable_identifiers: 0.9, is_comment_business_context: 0.5, is_comment_narration: 0.1, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, cognitive_complexity: 0.1 };
     };
 
     // tests/fixtures/sample-dir/good.ts

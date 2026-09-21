@@ -1,5 +1,3 @@
-/** Resolves one on-disk file to a measuring unit with state { path, content }. */
-
 import { stat } from "node:fs/promises";
 import { AppError, type Unit } from "../types.ts";
 

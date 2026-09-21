@@ -79,8 +79,9 @@ Options:
 
 Config precedence: flags > jint.config.ts > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
 Sensors: naming_precision, naming_consistency, greppable_identifiers (high = good),
-excessive_comments, cognitive_complexity (high = bad). Each carries an overridable
-handle: (value) => "error" | "warn" | null.
+is_comment_narration, is_comment_patching_readability, will_comment_drift, cognitive_complexity
+(high = bad), is_comment_business_context (measurement-only in v0). Each carries an
+overridable handle: (value) => "error" | "warn" | null.
 
 Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but failed.
 `;

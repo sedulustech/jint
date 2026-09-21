@@ -7,12 +7,12 @@ describe("defineConfig", () => {
   test("defaults spread + disable removes sensors by name (set membership)", () => {
     const config = defineConfig({
       input: "src/",
-      sensors: { ...sensorDefaults, disable: ["excessive_comments"] },
+      sensors: { ...sensorDefaults, disable: ["will_comment_drift"] },
       exclude: [],
     });
     const names = config.sensors.map((s) => s.name);
-    expect(names).toHaveLength(4);
-    expect(names).not.toContain("excessive_comments");
+    expect(names).toHaveLength(7);
+    expect(names).not.toContain("will_comment_drift");
   });
 
   test("re-declaring a sensor by name overrides the default (last wins)", () => {

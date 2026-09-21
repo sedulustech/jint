@@ -21,8 +21,8 @@ function isMeasurement(event: Measurement | Diagnostic): event is Measurement {
 
 describe("selectSensors", () => {
   test("kind narrows the sensor set", () => {
-    expect(selectSensors(allSensors, "file")).toHaveLength(5);
-    expect(selectSensors(allSensors, "diff")).toHaveLength(5);
+    expect(selectSensors(allSensors, "file")).toHaveLength(8);
+    expect(selectSensors(allSensors, "diff")).toHaveLength(8);
     expect(selectSensors([{ ...allSensors[0]!, inputTypes: ["file"] }], "diff")).toHaveLength(0);
   });
 });
@@ -42,13 +42,13 @@ describe("compileSensorQuestions", () => {
 describe("measureUnit", () => {
   test("ONE batched judge call per unit; one measurement per sensor", async () => {
     const calls: Unit[] = [];
-    const judge = judgeWith({ naming_precision: 0.7, naming_consistency: 0.8, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }, calls);
+    const judge = judgeWith({ naming_precision: 0.7, naming_consistency: 0.8, greppable_identifiers: 0.6, is_comment_business_context: 0.5, is_comment_narration: 0.2, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, cognitive_complexity: 0.3 }, calls);
     const events: (Measurement | Diagnostic)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
-    expect(events).toHaveLength(5);
+    expect(events).toHaveLength(8);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.sensor)).toContain("naming_precision");
-    expect(calls).toHaveLength(1); // one batched call, not five
+    expect(calls).toHaveLength(1); // one batched call, not eight
   });
 
   test("values pass through untouched", async () => {

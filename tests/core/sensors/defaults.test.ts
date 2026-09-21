@@ -24,17 +24,29 @@ describe("default handles: polarity", () => {
   });
 
   test("comment/complexity sensors are high=bad (error above threshold)", () => {
-    expect(sensorDefaults.excessive_comments!.handle(0.7)).toBe("error");
-    expect(sensorDefaults.excessive_comments!.handle(0.5)).toBe("warn");
-    expect(sensorDefaults.excessive_comments!.handle(0.3)).toBeNull();
+    expect(sensorDefaults.is_comment_narration!.handle(0.5)).toBe("error");
+    expect(sensorDefaults.is_comment_narration!.handle(0.35)).toBe("warn");
+    expect(sensorDefaults.is_comment_narration!.handle(0.25)).toBeNull();
+    expect(sensorDefaults.is_comment_patching_readability!.handle(0.6)).toBe("error");
+    expect(sensorDefaults.is_comment_patching_readability!.handle(0.45)).toBe("warn");
+    expect(sensorDefaults.is_comment_patching_readability!.handle(0.35)).toBeNull();
+    expect(sensorDefaults.will_comment_drift!.handle(0.75)).toBe("error");
+    expect(sensorDefaults.will_comment_drift!.handle(0.6)).toBe("warn");
+    expect(sensorDefaults.will_comment_drift!.handle(0.5)).toBeNull();
     expect(sensorDefaults.cognitive_complexity!.handle(0.7)).toBe("error");
     expect(sensorDefaults.cognitive_complexity!.handle(0.5)).toBe("warn");
     expect(sensorDefaults.cognitive_complexity!.handle(0.4)).toBeNull();
   });
+
+  test("is_comment_business_context is gentle: null handle in v0 (absence is not a defect)", () => {
+    for (const value of [0, 0.2, 0.5, 0.9, 1]) {
+      expect(sensorDefaults.is_comment_business_context!.handle(value)).toBeNull();
+    }
+  });
 });
 
 describe("calibration: healthy baselines must yield zero signals", () => {
-  test(`every file in ${CALIBRATION} passes all five handles silently`, async () => {
+  test(`every file in ${CALIBRATION} passes all default handles silently`, async () => {
     if (!(await Bun.file(CALIBRATION).exists())) return; // calibration artifacts live in gitignored tmp/
     const perFile = (await Bun.file(CALIBRATION).json()) as Record<string, Record<string, number>>;
     expect(Object.keys(perFile).length).toBeGreaterThan(0);
@@ -49,12 +61,23 @@ describe("calibration: healthy baselines must yield zero signals", () => {
 
   test(`mutants in ${SENSITIVITY} are caught by the right sensor tier`, async () => {
     if (!(await Bun.file(SENSITIVITY).exists())) return;
-    const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>>;
+    const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>> &
+      { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
     expect(sensorDefaults.naming_precision!.handle(mutants.m1_bad_names!.naming_precision!)).toBe("error");
     expect(sensorDefaults.naming_consistency!.handle(mutants.m1_bad_names!.naming_consistency!)).toBe("error");
-    // m3_comment_bloat: excessive_comments fires error
-    expect(sensorDefaults.excessive_comments!.handle(mutants.m3_comment_bloat!.excessive_comments!)).toBe("error");
+    // m3_comment_bloat: pure narration noise. The whole-diff reading (0.23)
+    // dilutes - the documented whole-diff low-pass effect - so the claim is
+    // anchored where jint actually runs, per file: the bloat slices read
+    // 0.47-0.56 against the healthy 0.09-0.19 and fire is_comment_narration.
+    const m3Slices = Object.values(mutants.m3_comment_bloat_perfile!);
+    expect(m3Slices.length).toBeGreaterThanOrEqual(6);
+    const narrationSeverities = m3Slices.map((s) => sensorDefaults.is_comment_narration!.handle(s.is_comment_narration!));
+    expect(narrationSeverities.filter((s) => s === "error").length).toBe(5);
+    expect(narrationSeverities.filter((s) => s === null).length).toBe(2);
+    // and the family's other attributes do not mistake bloat for their own claim
+    expect(sensorDefaults.is_comment_patching_readability!.handle(mutants.m3_comment_bloat!.is_comment_patching_readability!)).toBeNull();
+    expect(sensorDefaults.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!)).toBeNull();
     // m4_obfuscate: warns across naming + complexity
     const m4 = [
       sensorDefaults.naming_precision!.handle(mutants.m4_obfuscate!.naming_precision!),
@@ -77,13 +100,16 @@ describe("calibration: healthy baselines must yield zero signals", () => {
 });
 
 describe("sensor definitions", () => {
-  test("five sensors with calibrated claim descriptions", () => {
+  test("eight sensors with calibrated claim descriptions", () => {
     const names = Object.keys(sensorDefaults);
     expect(names).toEqual([
       "naming_precision",
       "naming_consistency",
       "greppable_identifiers",
-      "excessive_comments",
+      "is_comment_business_context",
+      "is_comment_narration",
+      "is_comment_patching_readability",
+      "will_comment_drift",
       "cognitive_complexity",
     ]);
     for (const sensor of Object.values(sensorDefaults)) {

@@ -35,7 +35,7 @@ describe("loadConfig", () => {
   test("loads a valid defineConfig file", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.ts");
     expect(config.input).toBe("tests/fixtures/sample-dir");
-    expect(config.sensors.map((s) => s.name)).not.toContain("excessive_comments");
+    expect(config.sensors.map((s) => s.name)).not.toContain("will_comment_drift");
     expect(config.exclude).toEqual(["**/more.ts"]);
   });
 
@@ -81,7 +81,7 @@ describe("validateConfig / defaultConfig", () => {
   test("defaultConfig carries every default sensor and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.sensors).toHaveLength(5);
+    expect(config.sensors).toHaveLength(8);
   });
 
   test("validateConfig rejects sensors that are not an array", () => {

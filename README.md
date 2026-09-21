@@ -54,10 +54,20 @@ Thresholds are anchored to the diff-v4 calibration baselines: healthy runs produ
 | `naming_precision` | high = good | < 0.4 | < 0.5 | 0.54 – 0.78 |
 | `naming_consistency` | high = good | < 0.7 | < 0.85 | 0.89 – 0.90 |
 | `greppable_identifiers` | high = good | < 0.60 | < 0.75 | 0.65 – 0.90 |
-| `excessive_comments` | high = bad | > 0.6 | > 0.45 | 0.10 – 0.28 |
+| `is_comment_business_context` | high = good | null in v0 | null in v0 | 0.32 – 0.86 |
+| `is_comment_narration` | high = bad | > 0.45 | > 0.30 | 0.09 – 0.19 |
+| `is_comment_patching_readability` | high = bad | > 0.55 | > 0.40 | 0.11 – 0.20 |
+| `will_comment_drift` | high = bad | > 0.7 | > 0.55 | 0.16 – 0.43 |
 | `cognitive_complexity` | high = bad | > 0.6 | > 0.45 | 0.18 – 0.40 |
 
-`cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing).
+`cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing). `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
+
+- `is_comment_business_context` — comments that explain WHY the code exists or why this approach was chosen. High is a virtue; low is not automatically bad (not all code needs recorded context), so its handle is null in v0: the measurement streams, nothing signals, and users who want to enforce context requirements override the handle.
+- `is_comment_narration` — comments that merely restate what the code already says. High = bad.
+- `is_comment_patching_readability` — comments compensating for code that should read itself. High = bad (code smell).
+- `will_comment_drift` — comments pinning specific artifacts by name (files, functions, parameters, constants) whose renaming silently invalidates the comment. High = bad.
+
+The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on per-file units (0.47–0.56 against the healthy 0.09–0.19); the whole-diff mutant reading dilutes, as whole-diff units always have.
 
 ## CLI
 
