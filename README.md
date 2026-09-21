@@ -53,7 +53,7 @@ Thresholds are anchored to the diff-v4 calibration baselines: healthy runs produ
 |---|---|---|---|---|
 | `naming_precision` | high = good | < 0.4 | < 0.5 | 0.54 – 0.78 |
 | `naming_consistency` | high = good | < 0.7 | < 0.85 | 0.89 – 0.90 |
-| `greppable_identifiers` | high = good | < 0.45 | < 0.55 | 0.56 – 0.64 |
+| `greppable_identifiers` | high = good | < 0.60 | < 0.75 | 0.65 – 0.90 |
 | `excessive_comments` | high = bad | > 0.6 | > 0.45 | 0.10 – 0.28 |
 | `cognitive_complexity` | high = bad | > 0.6 | > 0.45 | 0.18 – 0.40 |
 

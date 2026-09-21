@@ -14,39 +14,39 @@
 
 import { parseArgs } from "node:util";
 import { existsSync } from "node:fs";
-import { Type, type Static } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
-import pkg from "../package.json";
+import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
+import { Value as TypeBoxValue } from "@sinclair/typebox/value";
+import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
 import type { ResolvedConfig } from "./config/define.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { AppError, type InputKind } from "./core/types.ts";
 import { renderJson } from "./core/output/json.ts";
-import { renderStylish, type ColorMode } from "./core/output/stylish.ts";
+import { renderStylish } from "./core/output/stylish.ts";
 import { log, setLogLevel } from "./logger.ts";
 
-const ColorSchema = Type.Union([
-  Type.Literal("auto"),
-  Type.Literal("always"),
-  Type.Literal("never"),
+const ColorModeSchema = TypeBoxType.Union([
+  TypeBoxType.Literal("auto"),
+  TypeBoxType.Literal("always"),
+  TypeBoxType.Literal("never"),
 ]);
 
 /** CLI args boundary — validated with TypeBox like every external input. */
-const ArgsSchema = Type.Object({
-  file: Type.Optional(Type.Array(Type.String())),
-  dir: Type.Optional(Type.String()),
-  diff: Type.Optional(Type.String()),
-  config: Type.Optional(Type.String()),
-  json: Type.Optional(Type.Boolean()),
-  debug: Type.Optional(Type.Boolean()),
-  color: Type.Optional(ColorSchema),
-  exclude: Type.Optional(Type.Array(Type.String())),
-  disable: Type.Optional(Type.Array(Type.String())),
-  help: Type.Optional(Type.Boolean()),
-  version: Type.Optional(Type.Boolean()),
+const CliArgsSchema = TypeBoxType.Object({
+  file: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  dir: TypeBoxType.Optional(TypeBoxType.String()),
+  diff: TypeBoxType.Optional(TypeBoxType.String()),
+  config: TypeBoxType.Optional(TypeBoxType.String()),
+  json: TypeBoxType.Optional(TypeBoxType.Boolean()),
+  debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
+  color: TypeBoxType.Optional(ColorModeSchema),
+  exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  help: TypeBoxType.Optional(TypeBoxType.Boolean()),
+  version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
 
-type Args = Static<typeof ArgsSchema>;
+type CliArgs = TypeBoxStatic<typeof CliArgsSchema>;
 
 const HELP = `jint — jev lint: measures code with AI-classifier judgments; sensors in, signals out.
 
@@ -80,71 +80,76 @@ Options:
 Config precedence: flags > jint.config.ts > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
 Sensors: naming_precision, naming_consistency, greppable_identifiers (high = good),
 excessive_comments, cognitive_complexity (high = bad). Each carries an overridable
-handle: v => "error" | "warn" | null.
+handle: (value) => "error" | "warn" | null.
 
 Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but failed.
 `;
 
-export async function main(argv: string[]): Promise<number> {
-  const parsed = parseCliArgs(argv);
-  if (typeof parsed === "string") {
-    usageError(parsed);
+export async function runCli(cliArgv: string[]): Promise<number> {
+  const parsedCliArgs = parseCliArgs(cliArgv);
+  if (parsedCliArgs.outcome === "usage-error") {
+    usageError(parsedCliArgs.usageMessage);
     return 2;
   }
-  const args = parsed;
+  const cliArgs = parsedCliArgs.cliArgs;
 
-  if (args.help === true) {
+  if (cliArgs.help === true) {
     process.stdout.write(HELP);
     return 0;
   }
-  if (args.version === true) {
-    process.stdout.write(`${pkg.version}\n`);
+  if (cliArgs.version === true) {
+    process.stdout.write(`${packageJson.version}\n`);
     return 0;
   }
-  if (args.debug === true) setLogLevel("debug");
+  if (cliArgs.debug === true) setLogLevel("debug");
 
-  let config: ResolvedConfig;
+  let resolvedConfig: ResolvedConfig;
   try {
-    config = args.config !== undefined
-      ? await loadConfig(args.config)
+    resolvedConfig = cliArgs.config !== undefined
+      ? await loadConfig(cliArgs.config)
       : existsSync(DEFAULT_CONFIG_PATH)
         ? await loadConfig()
         : defaultConfig();
-  } catch (e) {
-    return fail(e);
+  } catch (thrown) {
+    return exitForThrown(thrown);
   }
 
-  const input = inputFrom(args);
-  if (typeof input === "string") {
-    usageError(input);
+  const cliInput = inputFromFlags(cliArgs);
+  if (cliInput.outcome === "usage-error") {
+    usageError(cliInput.usageMessage);
     return 2;
   }
 
   try {
-    const report = await collectReport(
+    const lintReport = await collectReport(
       lint({
-        config,
-        input: input.value,
-        inputType: input.kind,
-        exclude: args.exclude,
-        disable: args.disable,
+        config: resolvedConfig,
+        input: cliInput.input,
+        inputType: cliInput.inputType,
+        exclude: cliArgs.exclude,
+        disable: cliArgs.disable,
       }),
     );
-    const rendered = args.json === true
-      ? renderJson(report)
-      : renderStylish(report, (args.color as ColorMode | undefined) ?? "auto");
-    process.stdout.write(rendered);
-    return computeExit(report);
-  } catch (e) {
-    return fail(e);
+    const renderedReport = cliArgs.json === true
+      ? renderJson(lintReport)
+      : renderStylish(lintReport, cliArgs.color ?? "auto");
+    process.stdout.write(renderedReport);
+    return computeExit(lintReport);
+  } catch (thrown) {
+    return exitForThrown(thrown);
   }
 }
 
-function parseCliArgs(argv: string[]): Args | string {
-  let raw: ReturnType<typeof parseArgs>;
+/** parseCliArgs result: validated flags, or a ready-to-print usage message. */
+type CliArgsParse =
+  | { outcome: "parsed"; cliArgs: CliArgs }
+  | { outcome: "usage-error"; usageMessage: string };
+
+function parseCliArgs(cliArgv: string[]): CliArgsParse {
+  let nodeParsed: ReturnType<typeof parseArgs>;
   try {
-    raw = parseArgs({
-      args: argv,
+    nodeParsed = parseArgs({
+      args: cliArgv,
       options: {
         file: { type: "string", multiple: true },
         dir: { type: "string" },
@@ -161,60 +166,70 @@ function parseCliArgs(argv: string[]): Args | string {
       allowPositionals: true,
       strict: true,
     });
-  } catch (e) {
-    const detail = e instanceof Error ? e.message : String(e);
-    return `${detail} — see jint --help`;
+  } catch (thrown) {
+    const parseFailureDetail = thrown instanceof Error ? thrown.message : String(thrown);
+    return { outcome: "usage-error", usageMessage: `${parseFailureDetail} — see jint --help` };
   }
-  if (!Value.Check(ArgsSchema, raw.values)) {
-    const messages = [...Value.Errors(ArgsSchema, raw.values)].map((err) => `${err.path} ${err.message}`).join("; ");
-    return `invalid arguments: ${messages} — see jint --help`;
+  if (!TypeBoxValue.Check(CliArgsSchema, nodeParsed.values)) {
+    const validationMessages = [...TypeBoxValue.Errors(CliArgsSchema, nodeParsed.values)].map((validationIssue) => `${validationIssue.path} ${validationIssue.message}`).join("; ");
+    return { outcome: "usage-error", usageMessage: `invalid arguments: ${validationMessages} — see jint --help` };
   }
-  const positionals = raw.positionals as string[];
+  const positionals = nodeParsed.positionals as string[];
   if (positionals.length > 0) {
-    return `unexpected argument '${positionals[0]}' — jint takes input via --file/--dir/--diff (did you mean --file ${positionals[0]}?)`;
+    return { outcome: "usage-error", usageMessage: `unexpected argument '${positionals[0]}' — jint takes input via --file/--dir/--diff (did you mean --file ${positionals[0]}?)` };
   }
-  return raw.values as unknown as Args;
+  return { outcome: "parsed", cliArgs: nodeParsed.values as unknown as CliArgs };
 }
 
+/** The input the CLI flags select, in lint() terms — or a ready-to-print usage message. */
+type CliInputSelection =
+  | { outcome: "selected"; input: string | string[]; inputType?: InputKind }
+  | { outcome: "usage-error"; usageMessage: string };
+
 /** Resolve input from flags; exactly one of --file/--dir/--diff may be given. Returns a usage message on conflict. */
-function inputFrom(args: Args): { value: string | string[]; kind?: InputKind } | string {
-  const given = [args.file !== undefined && args.file.length > 0, args.dir !== undefined, args.diff !== undefined].filter(Boolean);
-  if (given.length > 1) return "use only one of --file, --dir, --diff";
-  if (args.diff !== undefined) return { value: args.diff, kind: "diff" };
-  if (args.file !== undefined && args.file.length > 0) return { value: args.file, kind: "file" };
-  if (args.dir !== undefined) return { value: args.dir, kind: "dir" };
-  return { value: "", kind: undefined }; // config decides; lint() errors if empty
+function inputFromFlags(cliArgs: CliArgs): CliInputSelection {
+  const selectedSources = [flagsSelectFiles(cliArgs), cliArgs.dir !== undefined, cliArgs.diff !== undefined].filter(Boolean);
+  if (selectedSources.length > 1) return { outcome: "usage-error", usageMessage: "use only one of --file, --dir, --diff" };
+  if (cliArgs.diff !== undefined) return { outcome: "selected", input: cliArgs.diff, inputType: "diff" };
+  if (cliArgs.file !== undefined && cliArgs.file.length > 0) return { outcome: "selected", input: cliArgs.file, inputType: "file" };
+  if (cliArgs.dir !== undefined) return { outcome: "selected", input: cliArgs.dir, inputType: "dir" };
+  return { outcome: "selected", input: "", inputType: undefined }; // config decides; lint() errors if empty
+}
+
+/** --file given with at least one path. */
+function flagsSelectFiles(cliArgs: CliArgs): boolean {
+  return cliArgs.file !== undefined && cliArgs.file.length > 0;
 }
 
 /** Exit invariant (design §7): error signals -> 1; diagnostics or zero measurements -> 4. */
-export function computeExit(report: LintReport): number {
-  if (report.signals.some((s) => s.severity === "error")) return 1;
-  if (report.diagnostics.length > 0 || report.measurements.length === 0) return 4;
+export function computeExit(lintReport: LintReport): number {
+  if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
+  if (lintReport.diagnostics.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
 }
 
 /** Boundary mapping, exactly once: config/entrypoint -> 2, internal -> 3, run-phase -> 4. */
-function fail(e: unknown): number {
-  const err = e instanceof AppError
-    ? e
-    : new AppError("INTERNAL", e instanceof Error ? e.message : String(e), { cause: e });
-  log("error", err.message, { errorCode: err.code });
-  process.stderr.write(`jint: ${err.code}: ${err.message}\n`);
-  if (err.code === "CONFIG_INVALID" || err.code === "ENTRYPOINT_NOT_FOUND" || err.code === "ENTRYPOINT_UNREADABLE") return 2;
-  if (err.code === "INTERNAL") return 3;
+function exitForThrown(thrown: unknown): number {
+  const appError = thrown instanceof AppError
+    ? thrown
+    : new AppError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), { cause: thrown });
+  log("error", appError.message, { errorCode: appError.code });
+  process.stderr.write(`jint: ${appError.code}: ${appError.message}\n`);
+  if (appError.code === "CONFIG_INVALID" || appError.code === "ENTRYPOINT_NOT_FOUND" || appError.code === "ENTRYPOINT_UNREADABLE") return 2;
+  if (appError.code === "INTERNAL") return 3;
   return 4; // JEV_* that escaped the stream: the run happened but failed
 }
 
-function usageError(message: string): void {
-  process.stderr.write(`jint: ${message}\n`);
+function usageError(usageMessage: string): void {
+  process.stderr.write(`jint: ${usageMessage}\n`);
 }
 
 if (import.meta.main) {
   // EPIPE (from `| head`) exits cleanly, no stack trace; SIGINT exits non-zero, promptly.
-  process.stdout.on("error", (e: NodeJS.ErrnoException) => {
-    if (e.code === "EPIPE") process.exit(0);
-    throw e;
+  process.stdout.on("error", (writeError: NodeJS.ErrnoException) => {
+    if (writeError.code === "EPIPE") process.exit(0);
+    throw writeError;
   });
   process.on("SIGINT", () => process.exit(130));
-  process.exitCode = await main(process.argv.slice(2));
+  process.exitCode = await runCli(process.argv.slice(2));
 }

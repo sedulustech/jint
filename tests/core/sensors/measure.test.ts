@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sensorsFor, compileQuestions, measureUnit, toDiagnostic } from "../../../src/core/sensors/measure.ts";
+import { selectSensors, compileSensorQuestions, measureUnit, toDiagnostic } from "../../../src/core/sensors/measure.ts";
 import { sensorDefaults } from "../../../src/core/sensors/defaults.ts";
 import { AppError, type Judge, type Measurement, type Diagnostic, type Sensor, type Unit } from "../../../src/core/types.ts";
 
@@ -19,17 +19,17 @@ function isMeasurement(event: Measurement | Diagnostic): event is Measurement {
   return "sensor" in event;
 }
 
-describe("sensorsFor", () => {
+describe("selectSensors", () => {
   test("kind narrows the sensor set", () => {
-    expect(sensorsFor(allSensors, "file")).toHaveLength(5);
-    expect(sensorsFor(allSensors, "diff")).toHaveLength(5);
-    expect(sensorsFor([{ ...allSensors[0]!, inputTypes: ["file"] }], "diff")).toHaveLength(0);
+    expect(selectSensors(allSensors, "file")).toHaveLength(5);
+    expect(selectSensors(allSensors, "diff")).toHaveLength(5);
+    expect(selectSensors([{ ...allSensors[0]!, inputTypes: ["file"] }], "diff")).toHaveLength(0);
   });
 });
 
-describe("compileQuestions", () => {
+describe("compileSensorQuestions", () => {
   test("uses the calibrated structured envelope", () => {
-    const questions = compileQuestions([sensorDefaults.naming_precision!]);
+    const questions = compileSensorQuestions([sensorDefaults.naming_precision!]);
     expect(questions.naming_precision!.type).toBe("noul");
     const instructions = questions.naming_precision!.instructions as Record<string, string>;
     expect(instructions.role).toBe("measurement");

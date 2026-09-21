@@ -21,7 +21,7 @@ describe("lint", () => {
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
     }));
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
@@ -59,7 +59,7 @@ describe("lint", () => {
     const states: unknown[] = [];
     const judge: Judge = async (state) => {
       states.push(state);
-      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 };
     };
     const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }));
     const paths = states.map((s) => (s as { path: string }).path);
@@ -73,7 +73,7 @@ describe("lint", () => {
     const judge: Judge = async () => {
       calls++;
       if (calls === 1) throw new AppError("JEV_UNAVAILABLE", "first unit hiccup");
-      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 };
     };
     const events = await drain(lint({
       config: baseConfig,
@@ -118,7 +118,7 @@ describe("lint", () => {
       input: "tests/fixtures/sample-dir",
       inputType: "dir",
       exclude: ["**/more.ts"],
-      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
     }));
     const inputs = new Set(events.filter((e) => e.type === "measurement").map((e) => e.measurement.input));
     expect(inputs).toEqual(new Set(["good.ts"]));
@@ -137,7 +137,7 @@ describe("collectReport", () => {
     const report = await collectReport(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
     }));
     expect(report.measurements).toHaveLength(5);
     expect(report.signals).toHaveLength(1);

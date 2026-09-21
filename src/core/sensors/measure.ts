@@ -8,15 +8,15 @@
  * the pipeline (design §7).
  */
 
-import { AppError, type Diagnostic, type Judge, type Measurement, type QuestionSpec, type Sensor, type Unit } from "../types.ts";
+import { AppError, type Diagnostic, type Judge, type Measurement, type QuestionSpec, type Sensor, type Unit, type UnitKind } from "../types.ts";
 
-/** Sensors whose inputTypes cover this unit kind — the inferred kind narrows the sensor set. */
-export function sensorsFor(sensors: readonly Sensor[], kind: Unit["kind"]): Sensor[] {
-  return sensors.filter((s) => s.inputTypes.includes(kind));
+/** The sensors whose inputTypes include this unitKind. */
+export function selectSensors(sensors: readonly Sensor[], unitKind: UnitKind): Sensor[] {
+  return sensors.filter((sensor) => sensor.inputTypes.includes(unitKind));
 }
 
-/** Compile sensors to noul questions using the calibrated structured envelope. */
-export function compileQuestions(sensors: readonly Sensor[]): Record<string, QuestionSpec> {
+/** Compile sensors to noul questions using the validated structured measurement envelope. */
+export function compileSensorQuestions(sensors: readonly Sensor[]): Record<string, QuestionSpec> {
   const questions: Record<string, QuestionSpec> = {};
   for (const sensor of sensors) {
     questions[sensor.name] = {
@@ -37,36 +37,41 @@ export async function* measureUnit(
   sensors: readonly Sensor[],
   judge: Judge,
 ): AsyncGenerator<Measurement | Diagnostic> {
-  const usable = sensorsFor(sensors, unit.kind);
-  if (usable.length === 0) return;
-  const questions = compileQuestions(usable);
+  const selectedSensors = selectSensors(sensors, unit.kind);
+  if (selectedSensors.length === 0) return;
+  const questions = compileSensorQuestions(selectedSensors);
   let answers: Record<string, number>;
   try {
     answers = await judge(unit.state, questions);
-  } catch (e) {
-    yield toDiagnostic(unit, e);
+  } catch (thrown) {
+    yield toDiagnostic(unit, thrown);
     return;
   }
-  for (const sensor of usable) {
+  for (const sensor of selectedSensors) {
     const value = answers[sensor.name];
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      yield {
-        input: unit.state.path,
-        code: "JEV_RESPONSE_INVALID",
-        message: `answer for '${sensor.name}' is missing or not a finite number`,
-      };
+      yield toInvalidAnswerDiagnostic(unit, sensor.name);
       continue;
     }
     yield { sensor: sensor.name, input: unit.state.path, value };
   }
 }
 
-export function toDiagnostic(unit: Unit, e: unknown): Diagnostic {
-  if (e instanceof AppError) {
-    return { input: unit.state.path, code: e.code, message: e.message };
+/** Diagnostic for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
+function toInvalidAnswerDiagnostic(unit: Unit, sensorName: string): Diagnostic {
+  return {
+    input: unit.state.path,
+    code: "JEV_RESPONSE_INVALID",
+    message: `answer for '${sensorName}' is missing or not a finite number`,
+  };
+}
+
+export function toDiagnostic(unit: Unit, thrown: unknown): Diagnostic {
+  if (thrown instanceof AppError) {
+    return { input: unit.state.path, code: thrown.code, message: thrown.message };
   }
-  if (e instanceof Error) {
-    return { input: unit.state.path, code: "INTERNAL", message: e.message };
+  if (thrown instanceof Error) {
+    return { input: unit.state.path, code: "INTERNAL", message: thrown.message };
   }
-  return { input: unit.state.path, code: "INTERNAL", message: String(e) };
+  return { input: unit.state.path, code: "INTERNAL", message: String(thrown) };
 }
