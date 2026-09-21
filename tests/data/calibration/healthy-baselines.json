@@ -1,0 +1,63 @@
+{
+  "src/tui/components/overlays/box.ts": {
+    "naming_precision": 0.78,
+    "naming_consistency": 0.89,
+    "greppable_identifiers": 0.81,
+    "cognitive_complexity": 0.18,
+    "is_comment_business_context": 0.61,
+    "is_comment_narration": 0.18,
+    "is_comment_patching_readability": 0.14,
+    "will_comment_drift": 0.47
+  },
+  "src/tui/components/overlays/help.ts": {
+    "naming_precision": 0.71,
+    "naming_consistency": 0.89,
+    "greppable_identifiers": 0.81,
+    "cognitive_complexity": 0.23,
+    "is_comment_business_context": 0.63,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.13,
+    "will_comment_drift": 0.37
+  },
+  "src/tui/components/overlays/models.ts": {
+    "naming_precision": 0.68,
+    "naming_consistency": 0.9,
+    "greppable_identifiers": 0.79,
+    "cognitive_complexity": 0.25,
+    "is_comment_business_context": 0.8,
+    "is_comment_narration": 0.16,
+    "is_comment_patching_readability": 0.16,
+    "will_comment_drift": 0.33
+  },
+  "src/tui/components/overlays/session-status.ts": {
+    "naming_precision": 0.7,
+    "naming_consistency": 0.9,
+    "greppable_identifiers": 0.75,
+    "cognitive_complexity": 0.23,
+    "is_comment_business_context": 0.49,
+    "is_comment_narration": 0.21,
+    "is_comment_patching_readability": 0.14,
+    "will_comment_drift": 0.5
+  },
+  "src/tui/components/overlays/sessions.ts": {
+    "naming_precision": 0.7,
+    "naming_consistency": 0.9,
+    "greppable_identifiers": 0.79,
+    "cognitive_complexity": 0.25,
+    "is_comment_business_context": 0.53,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.16,
+    "will_comment_drift": 0.25
+  },
+  "src/tui/keys.ts": {
+    "naming_precision": 0.65,
+    "naming_consistency": 0.89,
+    "greppable_identifiers": 0.78,
+    "cognitive_complexity": 0.35,
+    "is_comment_business_context": 0.71,
+    "is_comment_narration": 0.17,
+    "is_comment_patching_readability": 0.2,
+    "will_comment_drift": 0.7
+  },
+  "_provenance": "comment-family sensors (is_comment_*, will_comment_drift) measured under feat/comment-sensors claims"
+}

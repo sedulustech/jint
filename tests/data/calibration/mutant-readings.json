@@ -1,0 +1,96 @@
+{
+  "orig": {
+    "naming_precision": 0.69,
+    "naming_consistency": 0.89,
+    "greppable_identifiers": 0.64,
+    "cognitive_complexity": 0.38,
+    "is_comment_business_context": 0.79,
+    "is_comment_narration": 0.1,
+    "is_comment_patching_readability": 0.15,
+    "will_comment_drift": 0.31
+  },
+  "m1_bad_names": {
+    "naming_precision": 0.15,
+    "naming_consistency": 0.43,
+    "greppable_identifiers": 0.46,
+    "cognitive_complexity": 0.4,
+    "is_comment_business_context": 0.82,
+    "is_comment_narration": 0.11,
+    "is_comment_patching_readability": 0.26,
+    "will_comment_drift": 0.4
+  },
+  "m2_strip_comments": {
+    "naming_precision": 0.63,
+    "naming_consistency": 0.89,
+    "greppable_identifiers": 0.64,
+    "cognitive_complexity": 0.38,
+    "is_comment_business_context": 0.53,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.11,
+    "will_comment_drift": 0.21
+  },
+  "m3_comment_bloat": {
+    "naming_precision": 0.62,
+    "naming_consistency": 0.87,
+    "greppable_identifiers": 0.59,
+    "cognitive_complexity": 0.42,
+    "is_comment_business_context": 0.83,
+    "is_comment_narration": 0.23,
+    "is_comment_patching_readability": 0.26,
+    "will_comment_drift": 0.21
+  },
+  "m4_obfuscate": {
+    "naming_precision": 0.42,
+    "naming_consistency": 0.59,
+    "greppable_identifiers": 0.56,
+    "cognitive_complexity": 0.48,
+    "is_comment_business_context": 0.8,
+    "is_comment_narration": 0.11,
+    "is_comment_patching_readability": 0.25,
+    "will_comment_drift": 0.44
+  },
+  "m3_comment_bloat_perfile": {
+    "src/tui/components/overlays/box.ts": {
+      "is_comment_business_context": 0.82,
+      "is_comment_narration": 0.21,
+      "is_comment_patching_readability": 0.24,
+      "will_comment_drift": 0.14
+    },
+    "src/tui/components/overlays/help.ts": {
+      "is_comment_business_context": 0.44,
+      "is_comment_narration": 0.56,
+      "is_comment_patching_readability": 0.17,
+      "will_comment_drift": 0.15
+    },
+    "src/tui/components/overlays/models.ts": {
+      "is_comment_business_context": 0.5,
+      "is_comment_narration": 0.5,
+      "is_comment_patching_readability": 0.16,
+      "will_comment_drift": 0.19
+    },
+    "src/tui/components/overlays/session-status.ts": {
+      "is_comment_business_context": 0.41,
+      "is_comment_narration": 0.52,
+      "is_comment_patching_readability": 0.17,
+      "will_comment_drift": 0.17
+    },
+    "src/tui/components/overlays/sessions.ts": {
+      "is_comment_business_context": 0.45,
+      "is_comment_narration": 0.52,
+      "is_comment_patching_readability": 0.15,
+      "will_comment_drift": 0.16
+    },
+    "src/tui/keys-overlay-wedge.test.ts": {
+      "is_comment_business_context": 0.46,
+      "is_comment_narration": 0.47,
+      "is_comment_patching_readability": 0.27,
+      "will_comment_drift": 0.21
+    },
+    "src/tui/keys.ts": {
+      "is_comment_business_context": 0.85,
+      "is_comment_narration": 0.25,
+      "is_comment_patching_readability": 0.27,
+      "will_comment_drift": 0.27
+    }
+  }
+}

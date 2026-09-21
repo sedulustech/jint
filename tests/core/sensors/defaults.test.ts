@@ -2,8 +2,8 @@ import { describe, test, expect } from "bun:test";
 import { sensorDefaults } from "../../../src/core/sensors/defaults.ts";
 import type { Sensor } from "../../../src/core/types.ts";
 
-const CALIBRATION = "tmp/diff-v4/diff_v4_perfile.json";
-const SENSITIVITY = "tmp/diff-v4/diff_v4_sensitivity.json";
+const CALIBRATION = "tests/data/calibration/healthy-baselines.json";
+const SENSITIVITY = "tests/data/calibration/mutant-readings.json";
 
 function severities(sensor: Sensor, values: number[]): (string | null)[] {
   return values.map((v) => sensor.handle(v));
@@ -47,7 +47,6 @@ describe("default handles: polarity", () => {
 
 describe("calibration: healthy baselines must yield zero signals", () => {
   test(`every file in ${CALIBRATION} passes all default handles silently`, async () => {
-    if (!(await Bun.file(CALIBRATION).exists())) return; // calibration artifacts live in gitignored tmp/
     const perFile = (await Bun.file(CALIBRATION).json()) as Record<string, Record<string, number>>;
     expect(Object.keys(perFile).length).toBeGreaterThan(0);
     for (const readings of Object.values(perFile)) {
@@ -63,7 +62,6 @@ describe("calibration: healthy baselines must yield zero signals", () => {
   });
 
   test(`mutants in ${SENSITIVITY} are caught by the right sensor tier`, async () => {
-    if (!(await Bun.file(SENSITIVITY).exists())) return;
     const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>> &
       { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
