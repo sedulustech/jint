@@ -1,0 +1,146 @@
+import { describe, test, expect } from "bun:test";
+import { lint, collectReport } from "../../src/core/lint.ts";
+import { defineConfig } from "../../src/config/define.ts";
+import { sensorDefaults } from "../../src/core/sensors/defaults.ts";
+import { AppError, type Judge, type LintEvent, type Sensor } from "../../src/core/types.ts";
+
+const baseConfig = defineConfig({ input: "", sensors: { ...sensorDefaults, disable: [] }, exclude: [] });
+
+function judgeWith(values: Record<string, number>): Judge {
+  return async () => values;
+}
+
+async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
+  const out: LintEvent[] = [];
+  for await (const event of events) out.push(event);
+  return out;
+}
+
+describe("lint", () => {
+  test("streams measurement per (sensor, unit), signal only when the handle fires", async () => {
+    const events = await drain(lint({
+      config: baseConfig,
+      input: "tests/fixtures/sample-file.ts",
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+    }));
+    const measurements = events.filter((e) => e.type === "measurement");
+    const signals = events.filter((e) => e.type === "signal");
+    expect(measurements).toHaveLength(5);
+    // naming_precision 0.3 -> error; everything else null
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.signal).toEqual({ sensor: "naming_precision", input: "tests/fixtures/sample-file.ts", value: 0.3, severity: "error" });
+  });
+
+  test("every measurement precedes its signal (two-stage model)", async () => {
+    const events = await drain(lint({
+      config: baseConfig,
+      input: "tests/fixtures/sample-file.ts",
+      judge: judgeWith({ naming_precision: 0.2, naming_consistency: 0.2, greppable_identifiers: 0.2, excessive_comments: 0.8, cognitive_complexity: 0.8 }),
+    }));
+    const kinds = events.map((e) => e.type);
+    for (let i = 0; i < events.length; i++) {
+      if (kinds[i] === "signal") expect(kinds[i - 1]).toBe("measurement");
+    }
+    expect(events.filter((e) => e.type === "signal")).toHaveLength(5);
+  });
+
+  test("--disable removes sensors by name before measuring", async () => {
+    const questionsSeen: string[][] = [];
+    const judge: Judge = async (_state, questions) => {
+      questionsSeen.push(Object.keys(questions));
+      return { naming_precision: 0.7 };
+    };
+    const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample-file.ts", disable: ["excessive_comments", "cognitive_complexity", "naming_consistency", "greppable_identifiers"], judge }));
+    expect(questionsSeen[0]).toEqual(["naming_precision"]);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
+  });
+
+  test("diff input decomposes into per-file units with calibrated state", async () => {
+    const states: unknown[] = [];
+    const judge: Judge = async (state) => {
+      states.push(state);
+      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+    };
+    const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }));
+    const paths = states.map((s) => (s as { path: string }).path);
+    expect(paths).toEqual(["src/tui/components/overlays/box.ts", "src/tui/components/overlays/help.ts"]); // deleted + binary skipped
+    expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(10);
+  });
+
+  test("per-unit failure becomes a diagnostic; the run continues", async () => {
+    let calls = 0;
+    const judge: Judge = async () => {
+      calls++;
+      if (calls === 1) throw new AppError("JEV_UNAVAILABLE", "first unit hiccup");
+      return { naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 };
+    };
+    const events = await drain(lint({
+      config: baseConfig,
+      input: ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts"],
+      judge,
+    }));
+    const diagnostics = events.filter((e): e is Extract<LintEvent, { type: "diagnostic" }> => e.type === "diagnostic");
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]!.diagnostic.code).toBe("JEV_UNAVAILABLE");
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5); // second unit measured
+  });
+
+  test("JEV_AUTH aborts the run after surfacing the diagnostic (no hammering)", async () => {
+    let calls = 0;
+    const judge: Judge = async () => {
+      calls++;
+      throw new AppError("JEV_AUTH", "jev rejected the API key");
+    };
+    const events = await drain(lint({
+      config: baseConfig,
+      input: ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts", "tests/fixtures/sample-dir/sub/more.ts"],
+      judge,
+    }));
+    expect(calls).toBe(1); // aborted, not once per unit
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe("diagnostic");
+    if (events[0]!.type === "diagnostic") expect(events[0]!.diagnostic.code).toBe("JEV_AUTH");
+  });
+
+  test("empty input -> CONFIG_INVALID throw (setup error, not a diagnostic)", async () => {
+    try {
+      await drain(lint({ config: baseConfig, input: "", judge: judgeWith({}) }));
+      expect.unreachable();
+    } catch (e) {
+      expect((e as AppError).code).toBe("CONFIG_INVALID");
+    }
+  });
+
+  test("exclude patterns apply to dir walking", async () => {
+    const events = await drain(lint({
+      config: baseConfig,
+      input: "tests/fixtures/sample-dir",
+      inputType: "dir",
+      exclude: ["**/more.ts"],
+      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+    }));
+    const inputs = new Set(events.filter((e) => e.type === "measurement").map((e) => e.measurement.input));
+    expect(inputs).toEqual(new Set(["good.ts"]));
+  });
+
+  test("custom sensor set (selection = the sensor list itself)", async () => {
+    const only: Sensor[] = [sensorDefaults.naming_precision!];
+    const config = defineConfig({ input: "", sensors: [only[0]!] });
+    const events = await drain(lint({ config, input: "tests/fixtures/sample-file.ts", judge: judgeWith({ naming_precision: 0.7 }) }));
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
+  });
+});
+
+describe("collectReport", () => {
+  test("drains the stream into measurements/signals/diagnostics", async () => {
+    const report = await collectReport(lint({
+      config: baseConfig,
+      input: "tests/fixtures/sample-file.ts",
+      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.6, excessive_comments: 0.2, cognitive_complexity: 0.3 }),
+    }));
+    expect(report.measurements).toHaveLength(5);
+    expect(report.signals).toHaveLength(1);
+    expect(report.diagnostics).toHaveLength(0);
+  });
+});

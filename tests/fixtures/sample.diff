@@ -1,0 +1,57 @@
+commit 9f2c1ab7e3d4 (HEAD -> feature/greppable-fix, origin/feature/greppable-fix)
+Author: Julian Cruciani <julian@example.com>
+Date:   Sun Sep 20 10:12:44 2026 -0300
+
+    tui: surface overlay destroy failures through the log sink
+
+diff --git a/src/tui/components/overlays/box.ts b/src/tui/components/overlays/box.ts
+index 8a4c9d2..3e7f1b9 100644
+--- a/src/tui/components/overlays/box.ts
++++ b/src/tui/components/overlays/box.ts
+@@ -79,3 +79,18 @@ export function mountOverlay(
+     applyThemeToAll(box, theme, detectedBg);
+     renderer.root.add(box);
+   }
++
++/**
++ * Tear down an overlay box. Callers null their references FIRST so a throwing destroy can never
++ * leave an overlay half-alive (open=true, un-dismissable); this wrapper keeps the throw itself from
++ * escaping into the keypress dispatch — a failed destroy must not wedge input.
++ */
++export function unmountOverlay(overlay: BoxRenderable): void {
++  try {
++    overlay.destroy();
++  } catch (err) {
++    log.debug("overlay_destroy_failed", { error: err instanceof Error ? err.message : String(err) });
++  }
++}
+ 
+diff --git a/src/tui/components/overlays/help.ts b/src/tui/components/overlays/help.ts
+index 91b2c0d..77aa1e3 100644
+--- a/src/tui/components/overlays/help.ts
++++ b/src/tui/components/overlays/help.ts
+@@ -157,7 +157,8 @@ export class HelpOverlay {
+     }
+     dismiss(): void {
+       if (!this.overlay) return;
+-    this.overlay.destroy();
++    const overlay = this.overlay;
+       this.overlay = null;
++    unmountOverlay(overlay);
+     }
+   }
+ 
+diff --git a/src/tui/removed-legacy.ts b/src/tui/removed-legacy.ts
+deleted file mode 100644
+index 5c3d2e1..0000000
+--- a/src/tui/removed-legacy.ts
++++ /dev/null
+@@ -1,5 +0,0 @@
+-export function legacyRender() {
+-  return null;
+-}
+-
+-
+diff --git a/assets/logo.png b/assets/logo.png
+index 1a2b3c4..5d6e7f8 100644
+Binary files a/assets/logo.png and b/assets/logo.png differ

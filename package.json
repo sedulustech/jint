@@ -1,0 +1,21 @@
+{
+  "name": "jint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52",
+    "@typesafe-ai/sdk": "^0.6.0"
+  },
+  "scripts": {
+    "test": "bun test --parallel",
+    "typecheck": "tsc --noEmit"
+  }
+}

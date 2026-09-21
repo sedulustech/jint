@@ -1,0 +1,57 @@
+import { describe, test, expect } from "bun:test";
+import { defineConfig } from "../../src/config/define.ts";
+import { sensorDefaults } from "../../src/core/sensors/defaults.ts";
+import type { Sensor } from "../../src/core/types.ts";
+
+describe("defineConfig", () => {
+  test("defaults spread + disable removes sensors by name (set membership)", () => {
+    const config = defineConfig({
+      input: "src/",
+      sensors: { ...sensorDefaults, disable: ["excessive_comments"] },
+      exclude: [],
+    });
+    const names = config.sensors.map((s) => s.name);
+    expect(names).toHaveLength(4);
+    expect(names).not.toContain("excessive_comments");
+  });
+
+  test("re-declaring a sensor by name overrides the default (last wins)", () => {
+    const overridden: Sensor = { ...sensorDefaults.naming_precision!, handle: () => "error" };
+    const config = defineConfig({
+      input: "src/",
+      sensors: { ...sensorDefaults, naming_precision: overridden, disable: [] },
+    });
+    const sensor = config.sensors.find((s) => s.name === "naming_precision");
+    expect(sensor?.handle(0.9)).toBe("error");
+  });
+
+  test("plain array form is accepted", () => {
+    const sensor: Sensor = {
+      name: "custom",
+      description: "claim",
+      inputTypes: ["file"],
+      handle: () => null,
+    };
+    const config = defineConfig({ input: "a.ts", sensors: [sensor] });
+    expect(config.sensors).toEqual([sensor]);
+  });
+
+  test("resolved config is frozen data", () => {
+    const config = defineConfig({ input: "src/", sensors: { ...sensorDefaults, disable: [] } });
+    expect(Object.isFrozen(config)).toBe(true);
+    expect(Object.isFrozen(config.sensors)).toBe(true);
+  });
+
+  test("exclude and inputType round-trip", () => {
+    const config = defineConfig({ input: "x.patch", inputType: "diff", exclude: ["*.lock"] });
+    expect(config.inputType).toBe("diff");
+    expect(config.exclude).toEqual(["*.lock"]);
+  });
+
+  test("default sensors all declare file+diff inputTypes", () => {
+    for (const sensor of Object.values(sensorDefaults)) {
+      expect(sensor.inputTypes).toContain("file");
+      expect(sensor.inputTypes).toContain("diff");
+    }
+  });
+});
