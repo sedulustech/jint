@@ -6,7 +6,7 @@ type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 const state: UnitState = { path: "src/a.ts", content: "export const x = 1;\n" };
 const questions: Record<string, QuestionSpec> = {
-  naming_precision: { type: "noul", instructions: { role: "measurement", dimension: "naming_precision", claim: "names are precise", true_means: "the property holds" } },
+  is_name_purposeful: { type: "noul", instructions: { role: "measurement", dimension: "is_name_purposeful", claim: "names are precise", true_means: "the property holds" } },
 };
 
 /** Fake transport: answers the way POST /v1/systemone would. */
@@ -16,7 +16,7 @@ function fakeFetch(body: unknown, status = 200): FetchLike {
 
 const happyBody = {
   model: "jev-latest",
-  answers: { naming_precision: { type: "noul", noul: 0.72 } },
+  answers: { is_name_purposeful: { type: "noul", noul: 0.72 } },
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
@@ -35,7 +35,7 @@ function expectAppError(code: ErrorCode): (e: unknown) => void {
 describe("createJudge", () => {
   test("happy path: noul answers keyed by question name", async () => {
     const answers = await judgeOnce(fakeFetch(happyBody));
-    expect(answers.naming_precision).toBe(0.72);
+    expect(answers.is_name_purposeful).toBe(0.72);
   });
 
   test("sends questions in SDK noul shape over POST /v1/systemone", async () => {
@@ -47,8 +47,8 @@ describe("createJudge", () => {
     await judgeOnce(probe);
     expect(captured!.url).toContain("/v1/systemone");
     const body = JSON.parse(String(captured!.init.body));
-    expect(body.questions.naming_precision.type).toBe("noul");
-    expect(body.questions.naming_precision.instructions.claim).toBe("names are precise");
+    expect(body.questions.is_name_purposeful.type).toBe("noul");
+    expect(body.questions.is_name_purposeful.instructions.claim).toBe("names are precise");
     expect(body.state).toEqual({ path: "src/a.ts", content: "export const x = 1;\n" });
   });
 
@@ -116,8 +116,8 @@ describe("createJudge", () => {
 
   test("answer failing shape validation -> JEV_RESPONSE_INVALID", async () => {
     const cases: unknown[] = [
-      { model: "jev-latest", answers: { naming_precision: { type: "score", score: 3 } }, usage: { input_tokens: 1, output_tokens: 1 } },
-      { model: "jev-latest", answers: { naming_precision: { type: "noul", noul: 1.5 } }, usage: { input_tokens: 1, output_tokens: 1 } },
+      { model: "jev-latest", answers: { is_name_purposeful: { type: "score", score: 3 } }, usage: { input_tokens: 1, output_tokens: 1 } },
+      { model: "jev-latest", answers: { is_name_purposeful: { type: "noul", noul: 1.5 } }, usage: { input_tokens: 1, output_tokens: 1 } },
       { model: "jev-latest", answers: {}, usage: { input_tokens: 1, output_tokens: 1 } },
     ];
     for (const body of cases) {

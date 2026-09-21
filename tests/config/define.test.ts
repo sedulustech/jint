@@ -16,12 +16,12 @@ describe("defineConfig", () => {
   });
 
   test("re-declaring a sensor by name overrides the default (last wins)", () => {
-    const overridden: Sensor = { ...sensorDefaults.naming_precision!, handle: () => "error" };
+    const overridden: Sensor = { ...sensorDefaults.is_name_purposeful!, handle: () => "error" };
     const config = defineConfig({
       input: "src/",
-      sensors: { ...sensorDefaults, naming_precision: overridden, disable: [] },
+      sensors: { ...sensorDefaults, is_name_purposeful: overridden, disable: [] },
     });
-    const sensor = config.sensors.find((s) => s.name === "naming_precision");
+    const sensor = config.sensors.find((s) => s.name === "is_name_purposeful");
     expect(sensor?.handle(0.9)).toBe("error");
   });
 

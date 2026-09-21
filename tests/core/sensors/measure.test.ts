@@ -29,12 +29,12 @@ describe("selectSensors", () => {
 
 describe("compileSensorQuestions", () => {
   test("uses the calibrated structured envelope", () => {
-    const questions = compileSensorQuestions([sensorDefaults.naming_precision!]);
-    expect(questions.naming_precision!.type).toBe("noul");
-    const instructions = questions.naming_precision!.instructions as Record<string, string>;
+    const questions = compileSensorQuestions([sensorDefaults.is_name_purposeful!]);
+    expect(questions.is_name_purposeful!.type).toBe("noul");
+    const instructions = questions.is_name_purposeful!.instructions as Record<string, string>;
     expect(instructions.role).toBe("measurement");
-    expect(instructions.dimension).toBe("naming_precision");
-    expect(instructions.claim).toBe(sensorDefaults.naming_precision!.description);
+    expect(instructions.dimension).toBe("is_name_purposeful");
+    expect(instructions.claim).toBe(sensorDefaults.is_name_purposeful!.description);
     expect(instructions.true_means).toBe("the property holds in the added code");
   });
 });
@@ -42,35 +42,35 @@ describe("compileSensorQuestions", () => {
 describe("measureUnit", () => {
   test("ONE batched judge call per unit; one measurement per sensor", async () => {
     const calls: Unit[] = [];
-    const judge = judgeWith({ naming_precision: 0.7, naming_consistency: 0.8, greppable_identifiers: 0.6, is_comment_business_context: 0.5, is_comment_narration: 0.2, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, cognitive_complexity: 0.3 }, calls);
+    const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: 0.8, is_greppable: 0.6, is_comment_business_context: 0.5, is_comment_narration: 0.2, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, is_cognitively_complex: 0.3 }, calls);
     const events: (Measurement | Diagnostic)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
     expect(events).toHaveLength(8);
     expect(events.every(isMeasurement)).toBe(true);
-    expect((events as Measurement[]).map((m) => m.sensor)).toContain("naming_precision");
+    expect((events as Measurement[]).map((m) => m.sensor)).toContain("is_name_purposeful");
     expect(calls).toHaveLength(1); // one batched call, not eight
   });
 
   test("values pass through untouched", async () => {
-    const judge = judgeWith({ naming_precision: 0.5347219 });
-    for await (const event of measureUnit(fileUnit, [sensorDefaults.naming_precision!], judge)) {
+    const judge = judgeWith({ is_name_purposeful: 0.5347219 });
+    for await (const event of measureUnit(fileUnit, [sensorDefaults.is_name_purposeful!], judge)) {
       expect(isMeasurement(event) && event.value).toBe(0.5347219);
     }
   });
 
   test("missing or non-finite answer -> JEV_RESPONSE_INVALID diagnostic, siblings continue", async () => {
-    const judge = judgeWith({ naming_precision: 0.7, naming_consistency: Number.NaN });
+    const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: Number.NaN });
     const events: (Measurement | Diagnostic)[] = [];
-    for await (const event of measureUnit(fileUnit, [sensorDefaults.naming_precision!, sensorDefaults.naming_consistency!, sensorDefaults.greppable_identifiers!], judge)) {
+    for await (const event of measureUnit(fileUnit, [sensorDefaults.is_name_purposeful!, sensorDefaults.is_vocabulary_consistent!, sensorDefaults.is_greppable!], judge)) {
       events.push(event);
     }
     const diagnostics = events.filter((e): e is Diagnostic => !isMeasurement(e));
     const measurements = events.filter(isMeasurement);
-    expect(measurements.map((m) => m.sensor)).toEqual(["naming_precision"]);
-    expect(diagnostics).toHaveLength(2); // NaN for naming_consistency, missing greppable_identifiers
+    expect(measurements.map((m) => m.sensor)).toEqual(["is_name_purposeful"]);
+    expect(diagnostics).toHaveLength(2); // NaN for is_vocabulary_consistent, missing is_greppable
     expect(diagnostics[0]!.code).toBe("JEV_RESPONSE_INVALID");
-    expect(diagnostics[0]!.message).toContain("naming_consistency");
-    expect(diagnostics[1]!.message).toContain("greppable_identifiers");
+    expect(diagnostics[0]!.message).toContain("is_vocabulary_consistent");
+    expect(diagnostics[1]!.message).toContain("is_greppable");
   });
 
   test("judge throwing AppError -> diagnostic with the same code", async () => {
@@ -100,7 +100,7 @@ describe("measureUnit", () => {
       return {};
     };
     const events: (Measurement | Diagnostic)[] = [];
-    for await (const event of measureUnit(fileUnit, [{ ...sensorDefaults.naming_precision!, inputTypes: ["diff"] }], judge)) {
+    for await (const event of measureUnit(fileUnit, [{ ...sensorDefaults.is_name_purposeful!, inputTypes: ["diff"] }], judge)) {
       events.push(event);
     }
     expect(called).toBe(false);

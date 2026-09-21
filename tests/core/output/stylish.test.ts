@@ -3,10 +3,10 @@ import { renderStylish, shouldColor } from "../../../src/core/output/stylish.ts"
 import type { LintReport } from "../../../src/core/lint.ts";
 
 const report: LintReport = {
-  measurements: [{ sensor: "naming_precision", input: "src/a.ts", value: 0.5347 }],
+  measurements: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
   signals: [
-    { sensor: "naming_precision", input: "src/a.ts", value: 0.5347, severity: "warn" },
-    { sensor: "greppable_identifiers", input: "src/tui/deeply/nested/path.ts", value: 0.3, severity: "error" },
+    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
+    { sensor: "is_greppable", input: "src/tui/deeply/nested/path.ts", value: 0.3, severity: "error" },
   ],
   diagnostics: [{ input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" }],
 };
@@ -16,8 +16,8 @@ describe("renderStylish", () => {
     // columns: severity(5) 2sp value(5) 2sp sensor(21) 2sp input
     const out = renderStylish(report, "never");
     expect(out).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
-    expect(out).toContain("warn    0.53  naming_precision       src/a.ts");
-    expect(out).toContain("error   0.30  greppable_identifiers  src/tui/deeply/nested/path.ts");
+    expect(out).toContain("warn    0.53  is_name_purposeful  src/a.ts");
+    expect(out).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
     expect(out).toContain("2 problems (1 error, 1 warning)");
     expect(out).not.toContain("measurements:"); // measurements are not the human payload
   });

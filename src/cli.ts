@@ -78,8 +78,8 @@ Options:
   --version           print the version
 
 Config precedence: flags > jint.config.ts > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
-Sensors: naming_precision, naming_consistency, greppable_identifiers (high = good),
-is_comment_narration, is_comment_patching_readability, will_comment_drift, cognitive_complexity
+Sensors: is_name_purposeful, is_vocabulary_consistent, is_greppable (high = good),
+is_comment_narration, is_comment_patching_readability, will_comment_drift, is_cognitively_complex
 (high = bad), is_comment_business_context (measurement-only in v0). Each carries an
 overridable handle: (value) => "error" | "warn" | null.
 

@@ -11,16 +11,16 @@ function severities(sensor: Sensor, values: number[]): (string | null)[] {
 
 describe("default handles: polarity", () => {
   test("naming sensors are high=good (error below threshold)", () => {
-    expect(sensorDefaults.naming_precision!.handle(0.1)).toBe("error");
-    expect(sensorDefaults.naming_precision!.handle(0.45)).toBe("warn");
-    expect(sensorDefaults.naming_precision!.handle(0.6)).toBeNull();
-    expect(sensorDefaults.naming_consistency!.handle(0.5)).toBe("error");
-    expect(sensorDefaults.naming_consistency!.handle(0.8)).toBe("warn");
-    expect(sensorDefaults.naming_consistency!.handle(0.9)).toBeNull();
-    expect(sensorDefaults.greppable_identifiers!.handle(0.3)).toBe("error");
-    expect(sensorDefaults.greppable_identifiers!.handle(0.55)).toBe("error");
-    expect(sensorDefaults.greppable_identifiers!.handle(0.65)).toBe("warn");
-    expect(sensorDefaults.greppable_identifiers!.handle(0.8)).toBeNull();
+    expect(sensorDefaults.is_name_purposeful!.handle(0.1)).toBe("error");
+    expect(sensorDefaults.is_name_purposeful!.handle(0.45)).toBe("warn");
+    expect(sensorDefaults.is_name_purposeful!.handle(0.6)).toBeNull();
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.5)).toBe("error");
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.8)).toBe("warn");
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.9)).toBeNull();
+    expect(sensorDefaults.is_greppable!.handle(0.3)).toBe("error");
+    expect(sensorDefaults.is_greppable!.handle(0.55)).toBe("error");
+    expect(sensorDefaults.is_greppable!.handle(0.65)).toBe("warn");
+    expect(sensorDefaults.is_greppable!.handle(0.8)).toBeNull();
   });
 
   test("comment/complexity sensors are high=bad (error above threshold)", () => {
@@ -33,9 +33,9 @@ describe("default handles: polarity", () => {
     expect(sensorDefaults.will_comment_drift!.handle(0.75)).toBe("error");
     expect(sensorDefaults.will_comment_drift!.handle(0.6)).toBe("warn");
     expect(sensorDefaults.will_comment_drift!.handle(0.5)).toBeNull();
-    expect(sensorDefaults.cognitive_complexity!.handle(0.7)).toBe("error");
-    expect(sensorDefaults.cognitive_complexity!.handle(0.5)).toBe("warn");
-    expect(sensorDefaults.cognitive_complexity!.handle(0.4)).toBeNull();
+    expect(sensorDefaults.is_cognitively_complex!.handle(0.7)).toBe("error");
+    expect(sensorDefaults.is_cognitively_complex!.handle(0.5)).toBe("warn");
+    expect(sensorDefaults.is_cognitively_complex!.handle(0.4)).toBeNull();
   });
 
   test("is_comment_business_context is gentle: null handle in v0 (absence is not a defect)", () => {
@@ -65,8 +65,8 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>> &
       { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
-    expect(sensorDefaults.naming_precision!.handle(mutants.m1_bad_names!.naming_precision!)).toBe("error");
-    expect(sensorDefaults.naming_consistency!.handle(mutants.m1_bad_names!.naming_consistency!)).toBe("error");
+    expect(sensorDefaults.is_name_purposeful!.handle(mutants.m1_bad_names!.is_name_purposeful!)).toBe("error");
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(mutants.m1_bad_names!.is_vocabulary_consistent!)).toBe("error");
     // m3_comment_bloat: pure narration noise. The whole-diff reading (0.23)
     // dilutes - the documented whole-diff low-pass effect - so the claim is
     // anchored where jint actually runs, per file: the bloat slices read
@@ -81,9 +81,9 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     expect(sensorDefaults.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!)).toBeNull();
     // m4_obfuscate: warns across naming + complexity
     const m4 = [
-      sensorDefaults.naming_precision!.handle(mutants.m4_obfuscate!.naming_precision!),
-      sensorDefaults.naming_consistency!.handle(mutants.m4_obfuscate!.naming_consistency!),
-      sensorDefaults.cognitive_complexity!.handle(mutants.m4_obfuscate!.cognitive_complexity!),
+      sensorDefaults.is_name_purposeful!.handle(mutants.m4_obfuscate!.is_name_purposeful!),
+      sensorDefaults.is_vocabulary_consistent!.handle(mutants.m4_obfuscate!.is_vocabulary_consistent!),
+      sensorDefaults.is_cognitively_complex!.handle(mutants.m4_obfuscate!.is_cognitively_complex!),
     ];
     expect(m4).toContain("warn");
     // m2_strip_comments (removing comments) fires no comment/name errors.
@@ -91,7 +91,7 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // new thresholds it lands in warn, so the tier assertion is non-error.
     for (const sensor of Object.values(sensorDefaults)) {
       const severity = sensor.handle(mutants.m2_strip_comments![sensor.name]!);
-      if (sensor.name === "greppable_identifiers") {
+      if (sensor.name === "is_greppable") {
         expect(severity).not.toBe("error");
       } else {
         expect(severity).toBeNull();
@@ -104,14 +104,14 @@ describe("sensor definitions", () => {
   test("eight sensors with calibrated claim descriptions", () => {
     const names = Object.keys(sensorDefaults);
     expect(names).toEqual([
-      "naming_precision",
-      "naming_consistency",
-      "greppable_identifiers",
+      "is_name_purposeful",
+      "is_vocabulary_consistent",
+      "is_greppable",
       "is_comment_business_context",
       "is_comment_narration",
       "is_comment_patching_readability",
       "will_comment_drift",
-      "cognitive_complexity",
+      "is_cognitively_complex",
     ]);
     for (const sensor of Object.values(sensorDefaults)) {
       expect(sensor.description.length).toBeGreaterThan(20);

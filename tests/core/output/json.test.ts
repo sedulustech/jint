@@ -6,10 +6,10 @@ import { ReportSchema } from "../../../src/core/output/report-schema.ts";
 
 const report: LintReport = {
   measurements: [
-    { sensor: "naming_precision", input: "src/a.ts", value: 0.5347219 },
-    { sensor: "naming_consistency", input: "src/a.ts", value: 0.9 },
+    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
+    { sensor: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
-  signals: [{ sensor: "naming_precision", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
+  signals: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
   diagnostics: [{ input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" }],
 };
 

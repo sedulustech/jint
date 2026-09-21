@@ -4,6 +4,10 @@
  * replaced excessive_comments (retired - a superset of attributes that move
  * in opposite directions averages its own signal into noise).
  *
+ * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix):
+ * each sensor compiles to exactly one noul question, so its name reads as the
+ * yes/no claim the question asks.
+ *
  * Each description is the exact calibrated claim compiled by measure.ts into
  * the noul question's structured measurement envelope:
  *   { role: "measurement", dimension, claim, true_means }
@@ -13,39 +17,39 @@
  * bloat mutant is caught by is_comment_narration on per-file units):
  *
  *   sensor                            polarity    error    warn     healthy range
- *   naming_precision                  high = good < 0.4    < 0.5    0.54 - 0.78
- *   naming_consistency                high = good < 0.7    < 0.85   0.89 - 0.90
- *   greppable_identifiers             high = good < 0.60   < 0.75   0.65 - 0.90
+ *   is_name_purposeful                  high = good < 0.4    < 0.5    0.54 - 0.78
+ *   is_vocabulary_consistent                high = good < 0.7    < 0.85   0.89 - 0.90
+ *   is_greppable             high = good < 0.60   < 0.75   0.65 - 0.90
  *   is_comment_business_context       high = good null in v0   0.32 - 0.86 (absence is not a defect)
  *   is_comment_narration              high = bad  > 0.45   > 0.30   0.09 - 0.19
  *   is_comment_patching_readability   high = bad  > 0.55   > 0.40   0.11 - 0.20
  *   will_comment_drift                high = bad  > 0.7    > 0.55   0.16 - 0.43
- *   cognitive_complexity              high = bad  > 0.6    > 0.45   0.18 - 0.40
+ *   is_cognitively_complex              high = bad  > 0.6    > 0.45   0.18 - 0.40
  *
  * Override a handle by re-declaring the sensor by name in config:
- *   sensors: { ...sensors.defaults, naming_precision: { ...sensors.defaults.naming_precision, handle: (value) => (value < 0.5 ? "error" : null) } }
+ *   sensors: { ...sensors.defaults, is_name_purposeful: { ...sensors.defaults.is_name_purposeful, handle: (value) => (value < 0.5 ? "error" : null) } }
  */
 
 import type { Sensor } from "../types.ts";
 
-export const naming_precision: Sensor = {
-  name: "naming_precision",
+export const isNamePurposeful: Sensor = {
+  name: "is_name_purposeful",
   description:
     "From each new identifier name alone, it is easy to infer what it does or holds (the name states purpose, not implementation).",
   inputTypes: ["file", "diff"],
   handle: (value) => (value < 0.4 ? "error" : value < 0.5 ? "warn" : null),
 };
 
-export const naming_consistency: Sensor = {
-  name: "naming_consistency",
+export const isVocabularyConsistent: Sensor = {
+  name: "is_vocabulary_consistent",
   description:
     "New identifiers are consistent with each other and with the names this change touches: same concept keeps the same word, same role keeps the same suffix/verb convention.",
   inputTypes: ["file", "diff"],
   handle: (value) => (value < 0.7 ? "error" : value < 0.85 ? "warn" : null),
 };
 
-export const greppable_identifiers: Sensor = {
-  name: "greppable_identifiers",
+export const isGreppable: Sensor = {
+  name: "is_greppable",
   description:
     "The identifiers in this code - the names of functions, variables, types, constants, and exported symbols - are greppable: a maintainer who knows a thing by its name can find every place it is used by searching that name. This means identifiers are written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary so the same concept requires two different search strings, and specific enough (not bare words like data, handler, or util) that a search hit is genuinely a reference to this thing. Strings that are user-facing interface rather than code identifiers - CLI flag spellings, help text, log messages - are not part of this judgment; only code identifiers are.",
   inputTypes: ["file", "diff"],
@@ -92,8 +96,8 @@ export const will_comment_drift: Sensor = {
   handle: (value) => (value > 0.7 ? "error" : value > 0.55 ? "warn" : null),
 };
 
-export const cognitive_complexity: Sensor = {
-  name: "cognitive_complexity",
+export const isCognitivelyComplex: Sensor = {
+  name: "is_cognitively_complex",
   description:
     "The added code is cognitively complex: nesting, mixed concerns in one unit, state that must be held in mind, interruption of linear reading - hard to UNDERSTAND.",
   inputTypes: ["file", "diff"],
@@ -102,12 +106,12 @@ export const cognitive_complexity: Sensor = {
 
 /** All default sensors by name — the `sensors.defaults` record of the config surface. */
 export const sensorDefaults: Record<string, Sensor> = Object.freeze({
-  naming_precision,
-  naming_consistency,
-  greppable_identifiers,
+  is_name_purposeful: isNamePurposeful,
+  is_vocabulary_consistent: isVocabularyConsistent,
+  is_greppable: isGreppable,
   is_comment_business_context,
   is_comment_narration,
   is_comment_patching_readability,
   will_comment_drift,
-  cognitive_complexity,
+  is_cognitively_complex: isCognitivelyComplex,
 });

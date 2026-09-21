@@ -29,22 +29,22 @@ describe("lint", () => {
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, is_comment_business_context: 1.0, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ is_name_purposeful: 0.3, is_vocabulary_consistent: 0.9, is_greppable: 0.8, is_comment_business_context: 1.0, is_cognitively_complex: 0.3 }),
     }));
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
     expect(measurements).toHaveLength(8);
-    // naming_precision 0.3 -> error; everything else null - including
+    // is_name_purposeful 0.3 -> error; everything else null - including
     // business_context at 1.0 (measurement-only in v0, no handle)
     expect(signals).toHaveLength(1);
-    expect(signals[0]!.signal).toEqual({ sensor: "naming_precision", input: "tests/fixtures/sample-file.ts", value: 0.3, severity: "error" });
+    expect(signals[0]!.signal).toEqual({ sensor: "is_name_purposeful", input: "tests/fixtures/sample-file.ts", value: 0.3, severity: "error" });
   });
 
   test("every measurement precedes its signal (two-stage model)", async () => {
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.2, naming_consistency: 0.2, greppable_identifiers: 0.2, cognitive_complexity: 0.8 }),
+      judge: judgeWith({ is_name_purposeful: 0.2, is_vocabulary_consistent: 0.2, is_greppable: 0.2, is_cognitively_complex: 0.8 }),
     }));
     const kinds = events.map((e) => e.type);
     for (let i = 0; i < events.length; i++) {
@@ -58,15 +58,15 @@ describe("lint", () => {
     const questionsSeen: string[][] = [];
     const judge: Judge = async (_state, questions) => {
       questionsSeen.push(Object.keys(questions));
-      return { naming_precision: 0.7 };
+      return { is_name_purposeful: 0.7 };
     };
     const events = await drain(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      disable: ["is_comment_business_context", "is_comment_narration", "is_comment_patching_readability", "will_comment_drift", "cognitive_complexity", "naming_consistency", "greppable_identifiers"],
+      disable: ["is_comment_business_context", "is_comment_narration", "is_comment_patching_readability", "will_comment_drift", "is_cognitively_complex", "is_vocabulary_consistent", "is_greppable"],
       judge,
     }));
-    expect(questionsSeen[0]).toEqual(["naming_precision"]);
+    expect(questionsSeen[0]).toEqual(["is_name_purposeful"]);
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 
@@ -74,7 +74,7 @@ describe("lint", () => {
     const states: unknown[] = [];
     const judge: Judge = async (state) => {
       states.push(state);
-      return { ...SILENT_COMMENT_FAMILY, naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 };
+      return { ...SILENT_COMMENT_FAMILY, is_name_purposeful: 0.7, is_vocabulary_consistent: 0.9, is_greppable: 0.8, is_cognitively_complex: 0.3 };
     };
     const events = await drain(lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }));
     const paths = states.map((s) => (s as { path: string }).path);
@@ -88,7 +88,7 @@ describe("lint", () => {
     const judge: Judge = async () => {
       calls++;
       if (calls === 1) throw new AppError("JEV_UNAVAILABLE", "first unit hiccup");
-      return { ...SILENT_COMMENT_FAMILY, naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 };
+      return { ...SILENT_COMMENT_FAMILY, is_name_purposeful: 0.7, is_vocabulary_consistent: 0.9, is_greppable: 0.8, is_cognitively_complex: 0.3 };
     };
     const events = await drain(lint({
       config: baseConfig,
@@ -133,16 +133,16 @@ describe("lint", () => {
       input: "tests/fixtures/sample-dir",
       inputType: "dir",
       exclude: ["**/more.ts"],
-      judge: judgeWith({ naming_precision: 0.7, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: 0.9, is_greppable: 0.8, is_cognitively_complex: 0.3 }),
     }));
     const inputs = new Set(events.filter((e) => e.type === "measurement").map((e) => e.measurement.input));
     expect(inputs).toEqual(new Set(["good.ts"]));
   });
 
   test("custom sensor set (selection = the sensor list itself)", async () => {
-    const only: Sensor[] = [sensorDefaults.naming_precision!];
+    const only: Sensor[] = [sensorDefaults.is_name_purposeful!];
     const config = defineConfig({ input: "", sensors: [only[0]!] });
-    const events = await drain(lint({ config, input: "tests/fixtures/sample-file.ts", judge: judgeWith({ naming_precision: 0.7 }) }));
+    const events = await drain(lint({ config, input: "tests/fixtures/sample-file.ts", judge: judgeWith({ is_name_purposeful: 0.7 }) }));
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 });
@@ -152,7 +152,7 @@ describe("collectReport", () => {
     const report = await collectReport(lint({
       config: baseConfig,
       input: "tests/fixtures/sample-file.ts",
-      judge: judgeWith({ naming_precision: 0.3, naming_consistency: 0.9, greppable_identifiers: 0.8, cognitive_complexity: 0.3 }),
+      judge: judgeWith({ is_name_purposeful: 0.3, is_vocabulary_consistent: 0.9, is_greppable: 0.8, is_cognitively_complex: 0.3 }),
     }));
     expect(report.measurements).toHaveLength(8);
     expect(report.signals).toHaveLength(1);
