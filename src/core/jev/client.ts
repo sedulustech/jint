@@ -33,7 +33,7 @@ import {
 import { AppError, type Judge, type QuestionSpec } from "../types.ts";
 
 /** The answer boundary: exactly one calibrated probability per question. */
-const AnswerSchema = Type.Object({
+const ANSWER_SCHEMA = Type.Object({
   type: Type.Literal("noul"),
   noul: Type.Number({ minimum: 0, maximum: 1 }),
 });
@@ -96,13 +96,13 @@ function extractAnswers(
   const out: Record<string, number> = {};
   for (const name of Object.keys(questions)) {
     const answer: unknown = result.answers[name];
-    if (!Value.Check(AnswerSchema, answer)) {
+    if (!Value.Check(ANSWER_SCHEMA, answer)) {
       throw new AppError(
         "JEV_RESPONSE_INVALID",
         `jev answer '${name}' failed shape validation: expected { type: "noul", noul: number 0..1 }, got ${JSON.stringify(answer)}`,
       );
     }
-    out[name] = (answer as Static<typeof AnswerSchema>).noul;
+    out[name] = (answer as Static<typeof ANSWER_SCHEMA>).noul;
   }
   return out;
 }

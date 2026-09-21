@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
 import { renderJson, REPORT_FORMAT } from "../../../src/core/output/json.ts";
-import { ReportSchema } from "../../../src/core/output/report-schema.ts";
+import { REPORT_SCHEMA } from "../../../src/core/output/report-schema.ts";
 import type { LintReport } from "../../../src/core/lint.ts";
 
 const report: LintReport = {
@@ -19,7 +19,7 @@ describe("renderJson", () => {
   test("stable versioned shape", () => {
     const jsonStr = renderJson(report);
     const parsed = JSON.parse(jsonStr);
-    expect(Value.Check(ReportSchema, parsed)).toBe(true);
+    expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
     expect(parsed.tool).toBe("jint");
     expect(parsed.format).toBe(REPORT_FORMAT);
   });

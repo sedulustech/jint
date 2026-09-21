@@ -22,28 +22,28 @@ import { AppError, type InputKind } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
 import type { ResolvedConfig } from "./config/define.ts";
 
-const ColorModeSchema = TypeBoxType.Union([
+const COLOR_MODE_SCHEMA = TypeBoxType.Union([
   TypeBoxType.Literal("auto"),
   TypeBoxType.Literal("always"),
   TypeBoxType.Literal("never"),
 ]);
 
 /** CLI args boundary — validated with TypeBox like every external input. */
-const CliArgsSchema = TypeBoxType.Object({
+const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   file: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   dir: TypeBoxType.Optional(TypeBoxType.String()),
   diff: TypeBoxType.Optional(TypeBoxType.String()),
   config: TypeBoxType.Optional(TypeBoxType.String()),
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
-  color: TypeBoxType.Optional(ColorModeSchema),
+  color: TypeBoxType.Optional(COLOR_MODE_SCHEMA),
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
 
-type CliArgs = TypeBoxStatic<typeof CliArgsSchema>;
+type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
 
 const HELP = `jint — jev lint: measures code with AI-classifier judgments; sensors in, signals out.
 
@@ -171,8 +171,8 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
     const parseFailureDetail = thrown instanceof Error ? thrown.message : String(thrown);
     return { outcome: "usage-error", usageMessage: `${parseFailureDetail} — see jint --help` };
   }
-  if (!TypeBoxValue.Check(CliArgsSchema, nodeParsed.values)) {
-    const validationMessages = [...TypeBoxValue.Errors(CliArgsSchema, nodeParsed.values)]
+  if (!TypeBoxValue.Check(CLI_ARGS_SCHEMA, nodeParsed.values)) {
+    const validationMessages = [...TypeBoxValue.Errors(CLI_ARGS_SCHEMA, nodeParsed.values)]
       .map((validationIssue) => `${validationIssue.path} ${validationIssue.message}`)
       .join("; ");
     return {

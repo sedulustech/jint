@@ -16,9 +16,9 @@ import { defineConfig, type ResolvedConfig } from "./define.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.ts";
 
-const KindSchema = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
+const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
 
-const SensorSchema = Type.Object({
+const SENSOR_SCHEMA = Type.Object({
   name: Type.String(),
   description: Type.String(),
   inputTypes: Type.Array(Type.Union([Type.Literal("file"), Type.Literal("diff")])),
@@ -26,10 +26,10 @@ const SensorSchema = Type.Object({
 });
 
 /** Schema of a config file's default export — the normalized defineConfig() shape. */
-const ConfigSchema = Type.Object({
+const CONFIG_SCHEMA = Type.Object({
   input: Type.String(),
-  inputType: Type.Optional(KindSchema),
-  sensors: Type.Array(SensorSchema),
+  inputType: Type.Optional(KIND_SCHEMA),
+  sensors: Type.Array(SENSOR_SCHEMA),
   exclude: Type.Array(Type.String()),
 });
 
@@ -64,13 +64,13 @@ export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedCo
 
 /** Validates the boundary shape; static types derive from the same schema. */
 export function validateConfig(raw: unknown, source: string): ResolvedConfig {
-  if (!Value.Check(ConfigSchema, raw)) {
-    const messages = [...Value.Errors(ConfigSchema, raw)]
+  if (!Value.Check(CONFIG_SCHEMA, raw)) {
+    const messages = [...Value.Errors(CONFIG_SCHEMA, raw)]
       .map((err) => `${err.path === "" ? "/" : err.path} ${err.message}`)
       .join("; ");
     throw new AppError("CONFIG_INVALID", `invalid config ${source}: ${messages}`);
   }
-  const parsed = raw as Static<typeof ConfigSchema>;
+  const parsed = raw as Static<typeof CONFIG_SCHEMA>;
   for (const sensor of parsed.sensors) {
     if (typeof sensor.handle !== "function") {
       throw new AppError(
