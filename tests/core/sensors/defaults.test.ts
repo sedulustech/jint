@@ -45,8 +45,8 @@ describe("default handles: polarity", () => {
   });
 });
 
-describe("calibration: healthy baselines must yield zero signals", () => {
-  test(`every file in ${CALIBRATION} passes all default handles silently`, async () => {
+describe("ci gate simulation: known-good corpus passes, damaged corpus fails", () => {
+  test(`known-good readings produce no error-severity signals (consumer CI gate over a clean repo)`, async () => {
     const perFile = (await Bun.file(CALIBRATION).json()) as Record<string, Record<string, number>>;
     expect(Object.keys(perFile).length).toBeGreaterThan(0);
     for (const readings of Object.values(perFile)) {
@@ -61,7 +61,7 @@ describe("calibration: healthy baselines must yield zero signals", () => {
     }
   });
 
-  test(`mutants in ${SENSITIVITY} are caught by the right sensor tier`, async () => {
+  test(`damaged readings fire their sensors at the right tier (consumer CI gate over a broken repo)`, async () => {
     const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>> &
       { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
