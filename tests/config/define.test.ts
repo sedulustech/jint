@@ -11,7 +11,7 @@ describe("defineConfig", () => {
       exclude: [],
     });
     const names = config.sensors.map((s) => s.name);
-    expect(names).toHaveLength(7);
+    expect(names).toHaveLength(8);
     expect(names).not.toContain("will_comment_drift");
   });
 

@@ -2,62 +2,68 @@
   "src/tui/components/overlays/box.ts": {
     "is_name_purposeful": 0.87,
     "is_vocabulary_consistent": 0.89,
-    "is_greppable": 0.84,
-    "is_cognitively_complex": 0.19,
+    "is_greppable": 0.82,
+    "is_cognitively_complex": 0.17,
     "is_comment_business_context": 0.83,
     "is_comment_narration": 0.09,
     "is_comment_patching_readability": 0.15,
-    "will_comment_drift": 0.24
+    "will_comment_drift": 0.23,
+    "is_naming_convention_consistent": 0.89
   },
   "src/tui/components/overlays/help.ts": {
-    "is_name_purposeful": 0.87,
-    "is_vocabulary_consistent": 0.86,
+    "is_name_purposeful": 0.88,
+    "is_vocabulary_consistent": 0.88,
     "is_greppable": 0.81,
-    "is_cognitively_complex": 0.2,
-    "is_comment_business_context": 0.38,
-    "is_comment_narration": 0.2,
-    "is_comment_patching_readability": 0.12,
-    "will_comment_drift": 0.19
+    "is_cognitively_complex": 0.21,
+    "is_comment_business_context": 0.41,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.13,
+    "will_comment_drift": 0.18,
+    "is_naming_convention_consistent": 0.89
   },
   "src/tui/components/overlays/models.ts": {
-    "is_name_purposeful": 0.89,
-    "is_vocabulary_consistent": 0.87,
-    "is_greppable": 0.81,
-    "is_cognitively_complex": 0.23,
-    "is_comment_business_context": 0.31,
-    "is_comment_narration": 0.2,
-    "is_comment_patching_readability": 0.12,
-    "will_comment_drift": 0.2
-  },
-  "src/tui/components/overlays/session-status.ts": {
-    "is_name_purposeful": 0.86,
-    "is_vocabulary_consistent": 0.87,
-    "is_greppable": 0.81,
-    "is_cognitively_complex": 0.22,
+    "is_name_purposeful": 0.88,
+    "is_vocabulary_consistent": 0.86,
+    "is_greppable": 0.82,
+    "is_cognitively_complex": 0.25,
     "is_comment_business_context": 0.38,
     "is_comment_narration": 0.18,
-    "is_comment_patching_readability": 0.14,
-    "will_comment_drift": 0.23
+    "is_comment_patching_readability": 0.13,
+    "will_comment_drift": 0.2,
+    "is_naming_convention_consistent": 0.89
+  },
+  "src/tui/components/overlays/session-status.ts": {
+    "is_name_purposeful": 0.87,
+    "is_vocabulary_consistent": 0.86,
+    "is_greppable": 0.82,
+    "is_cognitively_complex": 0.22,
+    "is_comment_business_context": 0.37,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.13,
+    "will_comment_drift": 0.2,
+    "is_naming_convention_consistent": 0.9
   },
   "src/tui/components/overlays/sessions.ts": {
     "is_name_purposeful": 0.88,
-    "is_vocabulary_consistent": 0.87,
+    "is_vocabulary_consistent": 0.86,
     "is_greppable": 0.82,
-    "is_cognitively_complex": 0.23,
-    "is_comment_business_context": 0.33,
-    "is_comment_narration": 0.21,
-    "is_comment_patching_readability": 0.11,
-    "will_comment_drift": 0.2
+    "is_cognitively_complex": 0.22,
+    "is_comment_business_context": 0.31,
+    "is_comment_narration": 0.19,
+    "is_comment_patching_readability": 0.12,
+    "will_comment_drift": 0.2,
+    "is_naming_convention_consistent": 0.89
   },
   "src/tui/keys.ts": {
     "is_name_purposeful": 0.8,
-    "is_vocabulary_consistent": 0.87,
+    "is_vocabulary_consistent": 0.88,
     "is_greppable": 0.81,
     "is_cognitively_complex": 0.32,
-    "is_comment_business_context": 0.84,
+    "is_comment_business_context": 0.83,
     "is_comment_narration": 0.1,
     "is_comment_patching_readability": 0.15,
-    "will_comment_drift": 0.36
+    "will_comment_drift": 0.41,
+    "is_naming_convention_consistent": 0.91
   },
-  "_provenance": "Calibration corpora, in priority order: (1) PRIMARY - jint own src/ (self-lint corpus, see self-baselines fixture); (2) SECONDARY - seven files of a sibling private JS/TS application repo (healthy by review; mutants derived via the transforms described in the spike scripts). Readings are noul values under the sensor descriptions of the recorded instrument revision; re-measure after any description or model change. Instrument revisions: comment family recorded under the feat/comment-sensors claims; is_name_purposeful, is_vocabulary_consistent and is_cognitively_complex re-measured 2026-09-21 under the recalibrated claims; ALL EIGHT re-measured 2026-09-21 under multi-line claim wire text (template literals, leading/trailing newline + 5-space indent on the wire)."
+  "_provenance": "Calibration corpora, in priority order: (1) PRIMARY - jint own src/ (self-lint corpus, see self-baselines fixture); (2) SECONDARY - seven files of a sibling private JS/TS application repo (healthy by review; mutants derived via the transforms described in the spike scripts). Readings are noul values under the sensor descriptions of the recorded instrument revision; re-measure after any description or model change. Instrument revisions: comment family recorded under the feat/comment-sensors claims; is_name_purposeful, is_vocabulary_consistent and is_cognitively_complex re-measured 2026-09-21 under the recalibrated claims; ALL EIGHT re-measured 2026-09-21 under multi-line claim wire text (template literals, leading/trailing newline + 5-space indent on the wire); all nine re-measured 2026-09-21 with is_naming_convention_consistent in the shipped sensor set."
 }

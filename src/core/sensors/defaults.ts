@@ -40,6 +40,21 @@ export const isVocabularyConsistent: Sensor = {
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
+export const isNamingConventionConsistent: Sensor = {
+  name: "is_naming_convention_consistent",
+  description: `
+     Identifiers of the same kind follow one casing convention: functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE.
+     Each kind follows the convention the surrounding code already establishes, so a module that has settled on a different dominant form is judged against that form.
+     The failure is two forms for one kind within the same change or module: getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types - forcing a reader to learn two shapes for one kind.
+     Different kinds may use different conventions; casing is about form alone - word choice and name quality are other claims' territory.
+   `,
+  inputTypes: ["file", "diff"],
+  // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
+  // convention mixers and the consistent files; the clean corpus (mobius
+  // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
+  handle: (value) => (value < 0.65 ? "error" : value < 0.85 ? "warn" : null),
+};
+
 export const isGreppable: Sensor = {
   name: "is_greppable",
   description: `
@@ -121,6 +136,7 @@ export const isCognitivelyComplex: Sensor = {
 export const sensorDefaults: Record<string, Sensor> = Object.freeze({
   is_name_purposeful: isNamePurposeful,
   is_vocabulary_consistent: isVocabularyConsistent,
+  is_naming_convention_consistent: isNamingConventionConsistent,
   is_greppable: isGreppable,
   is_comment_business_context,
   is_comment_narration,

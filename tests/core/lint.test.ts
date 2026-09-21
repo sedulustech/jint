@@ -19,6 +19,7 @@ const SILENT_COMMENT_FAMILY = {
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
+  is_naming_convention_consistent: 0.9,
 };
 
 function judgeWith(values: Record<string, number>): Judge {
@@ -48,7 +49,7 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    expect(measurements).toHaveLength(8);
+    expect(measurements).toHaveLength(9);
     // is_name_purposeful 0.3 -> error; everything else null - including
     // business_context at 1.0 (measurement-only in v0, no handle)
     expect(signals).toHaveLength(1);
@@ -98,6 +99,7 @@ describe("lint", () => {
           "will_comment_drift",
           "is_cognitively_complex",
           "is_vocabulary_consistent",
+          "is_naming_convention_consistent",
           "is_greppable",
         ],
         judge,
@@ -128,7 +130,7 @@ describe("lint", () => {
       "src/tui/components/overlays/help.ts",
     ]); // deleted + binary skipped
     expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(18);
   });
 
   test("per-unit failure becomes a diagnostic; the run continues", async () => {
@@ -156,7 +158,7 @@ describe("lint", () => {
     );
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.diagnostic.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(8); // second unit measured
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(9); // second unit measured
   });
 
   test("JEV_AUTH aborts the run after surfacing the diagnostic (no hammering)", async () => {
@@ -240,7 +242,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(8);
+    expect(report.measurements).toHaveLength(9);
     expect(report.signals).toHaveLength(1);
     expect(report.diagnostics).toHaveLength(0);
   });

@@ -53,6 +53,7 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 | --------------------------------- | ----------- | ---------- | ---------- | ------------- |
 | `is_name_purposeful`              | high = good | < 0.5      | < 0.6      | 0.80 – 0.89   |
 | `is_vocabulary_consistent`        | high = good | < 0.6      | < 0.75     | 0.86 – 0.89   |
+| `is_naming_convention_consistent` | high = good | < 0.65     | < 0.85     | 0.89 – 0.91   |
 | `is_greppable`                    | high = good | < 0.60     | < 0.75     | 0.81 – 0.84   |
 | `is_comment_business_context`     | high = good | null in v0 | null in v0 | 0.31 – 0.84   |
 | `is_comment_narration`            | high = bad  | > 0.45     | > 0.30     | 0.09 – 0.21   |

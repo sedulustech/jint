@@ -1,6 +1,8 @@
 import { describe, test, expect, afterEach } from "bun:test";
 
-const ROOT = "/home/crjm/dev/sedulus/jint";
+// the repo this test file lives in - never a sibling checkout, so worktree
+// runs exercise the worktree's own sensors and calibration
+const ROOT = import.meta.dir + "/..";
 const CLI = "src/cli.ts";
 
 interface RunResult {
@@ -185,7 +187,7 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
     const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
-    expect(report.measurements).toHaveLength(8);
+    expect(report.measurements).toHaveLength(9);
     for (const m of report.measurements) {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
