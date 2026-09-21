@@ -1,57 +1,57 @@
 {
   "src/tui/components/overlays/box.ts": {
-    "is_name_purposeful": 0.78,
-    "is_vocabulary_consistent": 0.89,
+    "is_name_purposeful": 0.86,
+    "is_vocabulary_consistent": 0.88,
     "is_greppable": 0.81,
-    "is_cognitively_complex": 0.18,
+    "is_cognitively_complex": 0.17,
     "is_comment_business_context": 0.61,
     "is_comment_narration": 0.18,
     "is_comment_patching_readability": 0.14,
     "will_comment_drift": 0.47
   },
   "src/tui/components/overlays/help.ts": {
-    "is_name_purposeful": 0.71,
-    "is_vocabulary_consistent": 0.89,
+    "is_name_purposeful": 0.86,
+    "is_vocabulary_consistent": 0.85,
     "is_greppable": 0.81,
-    "is_cognitively_complex": 0.23,
+    "is_cognitively_complex": 0.19,
     "is_comment_business_context": 0.63,
     "is_comment_narration": 0.19,
     "is_comment_patching_readability": 0.13,
     "will_comment_drift": 0.37
   },
   "src/tui/components/overlays/models.ts": {
-    "is_name_purposeful": 0.68,
-    "is_vocabulary_consistent": 0.9,
+    "is_name_purposeful": 0.87,
+    "is_vocabulary_consistent": 0.86,
     "is_greppable": 0.79,
-    "is_cognitively_complex": 0.25,
+    "is_cognitively_complex": 0.23,
     "is_comment_business_context": 0.8,
     "is_comment_narration": 0.16,
     "is_comment_patching_readability": 0.16,
     "will_comment_drift": 0.33
   },
   "src/tui/components/overlays/session-status.ts": {
-    "is_name_purposeful": 0.7,
-    "is_vocabulary_consistent": 0.9,
+    "is_name_purposeful": 0.86,
+    "is_vocabulary_consistent": 0.85,
     "is_greppable": 0.75,
-    "is_cognitively_complex": 0.23,
+    "is_cognitively_complex": 0.21,
     "is_comment_business_context": 0.49,
     "is_comment_narration": 0.21,
     "is_comment_patching_readability": 0.14,
     "will_comment_drift": 0.5
   },
   "src/tui/components/overlays/sessions.ts": {
-    "is_name_purposeful": 0.7,
-    "is_vocabulary_consistent": 0.9,
+    "is_name_purposeful": 0.85,
+    "is_vocabulary_consistent": 0.85,
     "is_greppable": 0.79,
-    "is_cognitively_complex": 0.25,
+    "is_cognitively_complex": 0.22,
     "is_comment_business_context": 0.53,
     "is_comment_narration": 0.19,
     "is_comment_patching_readability": 0.16,
     "will_comment_drift": 0.25
   },
   "src/tui/keys.ts": {
-    "is_name_purposeful": 0.65,
-    "is_vocabulary_consistent": 0.89,
+    "is_name_purposeful": 0.79,
+    "is_vocabulary_consistent": 0.87,
     "is_greppable": 0.78,
     "is_cognitively_complex": 0.35,
     "is_comment_business_context": 0.71,
@@ -59,5 +59,5 @@
     "is_comment_patching_readability": 0.2,
     "will_comment_drift": 0.7
   },
-  "_provenance": "Calibration corpora, in priority order: (1) PRIMARY - jint own src/ (self-lint corpus, see self-baselines fixture); (2) SECONDARY - seven files of a sibling private JS/TS application repo (healthy by review; mutants derived via the transforms described in the spike scripts). Readings are noul values under the sensor descriptions of the recorded instrument revision; re-measure after any description or model change."
+  "_provenance": "Calibration corpora, in priority order: (1) PRIMARY - jint own src/ (self-lint corpus, see self-baselines fixture); (2) SECONDARY - seven files of a sibling private JS/TS application repo (healthy by review; mutants derived via the transforms described in the spike scripts). Readings are noul values under the sensor descriptions of the recorded instrument revision; re-measure after any description or model change. Instrument revisions: comment family recorded under the feat/comment-sensors claims; is_name_purposeful, is_vocabulary_consistent and is_cognitively_complex re-measured 2026-09-21 under the recalibrated claims of 'sensors: recalibrate the three weakest descriptions'."
 }

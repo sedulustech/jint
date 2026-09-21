@@ -12,11 +12,11 @@ function severities(sensor: Sensor, values: number[]): (string | null)[] {
 describe("default handles: polarity", () => {
   test("naming sensors are high=good (error below threshold)", () => {
     expect(sensorDefaults.is_name_purposeful!.handle(0.1)).toBe("error");
-    expect(sensorDefaults.is_name_purposeful!.handle(0.45)).toBe("warn");
-    expect(sensorDefaults.is_name_purposeful!.handle(0.6)).toBeNull();
+    expect(sensorDefaults.is_name_purposeful!.handle(0.55)).toBe("warn");
+    expect(sensorDefaults.is_name_purposeful!.handle(0.65)).toBeNull();
     expect(sensorDefaults.is_vocabulary_consistent!.handle(0.5)).toBe("error");
-    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.8)).toBe("warn");
-    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.9)).toBeNull();
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.7)).toBe("warn");
+    expect(sensorDefaults.is_vocabulary_consistent!.handle(0.8)).toBeNull();
     expect(sensorDefaults.is_greppable!.handle(0.3)).toBe("error");
     expect(sensorDefaults.is_greppable!.handle(0.55)).toBe("error");
     expect(sensorDefaults.is_greppable!.handle(0.65)).toBe("warn");
@@ -79,13 +79,15 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // and the family's other attributes do not mistake bloat for their own claim
     expect(sensorDefaults.is_comment_patching_readability!.handle(mutants.m3_comment_bloat!.is_comment_patching_readability!)).toBeNull();
     expect(sensorDefaults.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!)).toBeNull();
-    // m4_obfuscate: warns across naming + complexity
+    // m4_obfuscate: error on precision (single-letter locals read as
+    // implementation-revealing), warn on consistency + complexity
     const m4 = [
       sensorDefaults.is_name_purposeful!.handle(mutants.m4_obfuscate!.is_name_purposeful!),
       sensorDefaults.is_vocabulary_consistent!.handle(mutants.m4_obfuscate!.is_vocabulary_consistent!),
       sensorDefaults.is_cognitively_complex!.handle(mutants.m4_obfuscate!.is_cognitively_complex!),
     ];
-    expect(m4).toContain("warn");
+    expect(m4).toContain("error");
+    expect(m4.filter((s) => s === "warn").length).toBe(2);
     // m2_strip_comments (removing comments) fires no comment/name errors.
     // Its greppable reading (0.64) predates the scoped description; under the
     // new thresholds it lands in warn, so the tier assertion is non-error.

@@ -1,33 +1,22 @@
 /**
- * The eight default sensors, each shipping a visible, overridable handle.
- * One sensor measures one thing (tmp/design.md, "Default sensors"); the comment family
- * replaced excessive_comments (retired - a superset of attributes that move
- * in opposite directions averages its own signal into noise).
+ * The eight default sensors, each shipping a visible, overridable handle; one
+ * sensor measures one attribute. The comment family replaced the retired
+ * excessive_comments, whose attributes moved in opposite directions and
+ * averaged the aggregate signal into noise.
  *
  * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix):
  * each sensor compiles to exactly one noul question, so its name reads as the
  * yes/no claim the question asks.
  *
- * Each description is the exact calibrated claim compiled by measure.ts into
- * the noul question's structured measurement envelope:
- *   { role: "measurement", dimension, claim, true_means }
+ * Each description is the exact claim the measure step compiles into the
+ * question envelope: editing a description is a re-calibration event, since
+ * thresholds are anchored to readings taken under the claim text.
  *
- * Default handles: polarity per sensor, thresholds anchored to the diff-v4
- * calibration baselines (healthy runs must produce zero signals; the m3
- * bloat mutant is caught by is_comment_narration on per-file units):
- *
- *   sensor                            polarity    error    warn     healthy range
- *   is_name_purposeful                  high = good < 0.4    < 0.5    0.54 - 0.78
- *   is_vocabulary_consistent                high = good < 0.7    < 0.85   0.89 - 0.90
- *   is_greppable             high = good < 0.60   < 0.75   0.65 - 0.90
- *   is_comment_business_context       high = good null in v0   0.32 - 0.86 (absence is not a defect)
- *   is_comment_narration              high = bad  > 0.45   > 0.30   0.09 - 0.19
- *   is_comment_patching_readability   high = bad  > 0.55   > 0.40   0.11 - 0.20
- *   will_comment_drift                high = bad  > 0.7    > 0.55   0.16 - 0.43
- *   is_cognitively_complex              high = bad  > 0.6    > 0.45   0.18 - 0.40
- *
- * Override a handle by re-declaring the sensor by name in config:
- *   sensors: { ...sensors.defaults, is_name_purposeful: { ...sensors.defaults.is_name_purposeful, handle: (value) => (value < 0.5 ? "error" : null) } }
+ * Handle policy: a healthy run never errors; warns are legitimate nudges.
+ * High=good sensors error below the healthy floor, high=bad sensors above the
+ * healthy ceiling, anchored on the self-lint corpus with the sibling-repo
+ * calibration fixtures as the external check. Current thresholds and healthy
+ * ranges are documented in the README, next to the override examples.
  */
 
 import type { Sensor } from "../types.ts";
@@ -35,17 +24,17 @@ import type { Sensor } from "../types.ts";
 export const isNamePurposeful: Sensor = {
   name: "is_name_purposeful",
   description:
-    "From each new identifier name alone, it is easy to infer what it does or holds (the name states purpose, not implementation).",
+    "Each new identifier's name states what it does or holds, judged from the name alone: a reader should be able to infer the thing's purpose without reading the code around it. The failure modes: names that reveal implementation instead of purpose (naming how it works, not what it is for), bare generic words that could label anything (data, handler, util, temp), and names that mislead - promising behavior or a kind the thing does not have. The claim is about what the name communicates; casing and convention style are not naming failures.",
   inputTypes: ["file", "diff"],
-  handle: (value) => (value < 0.4 ? "error" : value < 0.5 ? "warn" : null),
+  handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
 };
 
 export const isVocabularyConsistent: Sensor = {
   name: "is_vocabulary_consistent",
   description:
-    "New identifiers are consistent with each other and with the names this change touches: same concept keeps the same word, same role keeps the same suffix/verb convention.",
+    "New identifiers keep one vocabulary with each other and with the names this change touches: the same concept keeps the same word, and the same role keeps the same suffix or verb convention. The boundary failure is synonym drift: the same concept referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are consistent; only same-concept drift is the failure.",
   inputTypes: ["file", "diff"],
-  handle: (value) => (value < 0.7 ? "error" : value < 0.85 ? "warn" : null),
+  handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
 export const isGreppable: Sensor = {
@@ -91,16 +80,19 @@ export const will_comment_drift: Sensor = {
     "The comments in this code are drift-prone: they pin specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and specific identifiers, not comments that are already wrong today. Comments that describe behavior, rationale, or constraints without naming specific artifacts cannot drift this way.",
   inputTypes: ["file", "diff"],
   // Anchored above the healthy distribution on purpose: comments that pin
-  // artifact names are common in healthy code (keys.ts reads 0.41), so the
-  // bar for "this is a drift problem" sits at strong assertions only.
+  // artifact names are common in healthy code, so the bar sits at strong
+  // assertions only.
   handle: (value) => (value > 0.7 ? "error" : value > 0.55 ? "warn" : null),
 };
 
 export const isCognitivelyComplex: Sensor = {
   name: "is_cognitively_complex",
   description:
-    "The added code is cognitively complex: nesting, mixed concerns in one unit, state that must be held in mind, interruption of linear reading - hard to UNDERSTAND.",
+    "The added code carries accidental complexity: difficulty the author could reduce without changing what the code does. The failure modes: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines to know what is happening, and a non-linear reading order that forces jumping around instead of flowing top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is excluded: the claim is about avoidable difficulty in how the solution is written, not unavoidable difficulty in the problem.",
   inputTypes: ["file", "diff"],
+  // Thresholds kept from the previous anchor: the scoped claim lowered the
+  // healthy ceiling on both calibration corpora, widening the margin to the
+  // bloat/obfuscate mutants, which land in the warn band.
   handle: (value) => (value > 0.6 ? "error" : value > 0.45 ? "warn" : null),
 };
 

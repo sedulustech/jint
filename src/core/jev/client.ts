@@ -1,16 +1,15 @@
 /**
- * The jev adapter — the ONLY file that imports @typesafe-ai/sdk (design §4.5).
- * This is the swappable-backend seam: lint() accepts any Judge, tests fake it.
+ * The jev adapter — the only file that imports the vendor SDK. This is the
+ * swappable-backend seam: the lint pipeline accepts any judge, tests fake it.
  *
- * Error mapping (once, here):
- *   missing TYPESAFE_API_KEY / 401 / 403  -> JEV_AUTH (fails loud at first call, never at import)
- *   400 / 422                             -> JEV_REQUEST_INVALID
- *   429 / 5xx / connection failures       -> JEV_UNAVAILABLE
- *   answer failing shape validation       -> JEV_RESPONSE_INVALID (TypeBox, design §3.5)
+ * Vendor transport failures map onto the project's error taxonomy exactly
+ * once, here: auth failures fail loud at the first call (never at import),
+ * rejected requests, rate limits and outages surface as unavailability, and a
+ * wrong-shaped answer is a response-invalid diagnostic. No vendor error type
+ * escapes past this seam.
  *
- * Nomenclature matches TypeSafe exactly: the call is systemOne(); the model is
- * jev-latest; a sensor compiles to a Noul question; the request parts are
- * state / questions; the response parts are answers with .noul probability.
+ * Vendor nomenclature stays at the boundary: one batched call per state, one
+ * structured question per sensor, each answer a single calibrated probability.
  */
 
 import {
@@ -34,17 +33,17 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { AppError, type Judge, type QuestionSpec } from "../types.ts";
 
-/** The answer boundary: a noul answer is { type: "noul", noul: number 0..1 }. */
+/** The answer boundary: exactly one calibrated probability per question. */
 const AnswerSchema = Type.Object({
   type: Type.Literal("noul"),
   noul: Type.Number({ minimum: 0, maximum: 1 }),
 });
 
 export interface JudgeConfig {
-  /** Overrides TYPESAFE_API_KEY; tests inject a fake transport instead. */
+  /** Overrides the environment key; tests inject a fake transport instead. */
   apiKey?: string;
   baseURL?: string;
-  /** Custom fetch for tests (structurally the SDK's Fetch). */
+  /** Custom fetch for tests (structurally the vendor client's fetch). */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 }
 
