@@ -62,28 +62,46 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
   });
 
   test(`damaged readings fire their sensors at the right tier (consumer CI gate over a broken repo)`, async () => {
-    const mutants = (await Bun.file(SENSITIVITY).json()) as Record<string, Record<string, number>> &
-      { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
+    const mutants = (await Bun.file(SENSITIVITY).json()) as Record<
+      string,
+      Record<string, number>
+    > & { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
-    expect(sensorDefaults.is_name_purposeful!.handle(mutants.m1_bad_names!.is_name_purposeful!)).toBe("error");
-    expect(sensorDefaults.is_vocabulary_consistent!.handle(mutants.m1_bad_names!.is_vocabulary_consistent!)).toBe("error");
+    expect(
+      sensorDefaults.is_name_purposeful!.handle(mutants.m1_bad_names!.is_name_purposeful!),
+    ).toBe("error");
+    expect(
+      sensorDefaults.is_vocabulary_consistent!.handle(
+        mutants.m1_bad_names!.is_vocabulary_consistent!,
+      ),
+    ).toBe("error");
     // m3_comment_bloat: pure narration noise. The whole-diff reading (0.23)
     // dilutes - the documented whole-diff low-pass effect - so the claim is
     // anchored where jint actually runs, per file: the bloat slices read
     // 0.47-0.56 against the healthy 0.09-0.19 and fire is_comment_narration.
     const m3Slices = Object.values(mutants.m3_comment_bloat_perfile!);
     expect(m3Slices.length).toBeGreaterThanOrEqual(6);
-    const narrationSeverities = m3Slices.map((s) => sensorDefaults.is_comment_narration!.handle(s.is_comment_narration!));
+    const narrationSeverities = m3Slices.map((s) =>
+      sensorDefaults.is_comment_narration!.handle(s.is_comment_narration!),
+    );
     expect(narrationSeverities.filter((s) => s === "error").length).toBe(5);
     expect(narrationSeverities.filter((s) => s === null).length).toBe(2);
     // and the family's other attributes do not mistake bloat for their own claim
-    expect(sensorDefaults.is_comment_patching_readability!.handle(mutants.m3_comment_bloat!.is_comment_patching_readability!)).toBeNull();
-    expect(sensorDefaults.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!)).toBeNull();
+    expect(
+      sensorDefaults.is_comment_patching_readability!.handle(
+        mutants.m3_comment_bloat!.is_comment_patching_readability!,
+      ),
+    ).toBeNull();
+    expect(
+      sensorDefaults.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!),
+    ).toBeNull();
     // m4_obfuscate: error on precision (single-letter locals read as
     // implementation-revealing), warn on consistency + complexity
     const m4 = [
       sensorDefaults.is_name_purposeful!.handle(mutants.m4_obfuscate!.is_name_purposeful!),
-      sensorDefaults.is_vocabulary_consistent!.handle(mutants.m4_obfuscate!.is_vocabulary_consistent!),
+      sensorDefaults.is_vocabulary_consistent!.handle(
+        mutants.m4_obfuscate!.is_vocabulary_consistent!,
+      ),
       sensorDefaults.is_cognitively_complex!.handle(mutants.m4_obfuscate!.is_cognitively_complex!),
     ];
     expect(m4).toContain("error");

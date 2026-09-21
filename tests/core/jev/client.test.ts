@@ -1,17 +1,31 @@
 import { describe, test, expect } from "bun:test";
 import { createJudge } from "../../../src/core/jev/client.ts";
-import { AppError, type ErrorCode, type QuestionSpec, type UnitState } from "../../../src/core/types.ts";
+import {
+  AppError,
+  type ErrorCode,
+  type QuestionSpec,
+  type UnitState,
+} from "../../../src/core/types.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 const state: UnitState = { path: "src/a.ts", content: "export const x = 1;\n" };
 const questions: Record<string, QuestionSpec> = {
-  is_name_purposeful: { type: "noul", instructions: { role: "measurement", dimension: "is_name_purposeful", claim: "names are precise", true_means: "the property holds" } },
+  is_name_purposeful: {
+    type: "noul",
+    instructions: {
+      role: "measurement",
+      dimension: "is_name_purposeful",
+      claim: "names are precise",
+      true_means: "the property holds",
+    },
+  },
 };
 
 /** Fake transport: answers the way POST /v1/systemone would. */
 function fakeFetch(body: unknown, status = 200): FetchLike {
-  return async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return async () =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
 const happyBody = {
@@ -42,7 +56,10 @@ describe("createJudge", () => {
     let captured: { url: string; init: RequestInit } | null = null;
     const probe: FetchLike = async (input, init) => {
       captured = { url: String(input), init: init ?? {} };
-      return new Response(JSON.stringify(happyBody), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify(happyBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
     await judgeOnce(probe);
     expect(captured!.url).toContain("/v1/systemone");
@@ -116,8 +133,16 @@ describe("createJudge", () => {
 
   test("answer failing shape validation -> JEV_RESPONSE_INVALID", async () => {
     const cases: unknown[] = [
-      { model: "jev-latest", answers: { is_name_purposeful: { type: "score", score: 3 } }, usage: { input_tokens: 1, output_tokens: 1 } },
-      { model: "jev-latest", answers: { is_name_purposeful: { type: "noul", noul: 1.5 } }, usage: { input_tokens: 1, output_tokens: 1 } },
+      {
+        model: "jev-latest",
+        answers: { is_name_purposeful: { type: "score", score: 3 } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+      {
+        model: "jev-latest",
+        answers: { is_name_purposeful: { type: "noul", noul: 1.5 } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
       { model: "jev-latest", answers: {}, usage: { input_tokens: 1, output_tokens: 1 } },
     ];
     for (const body of cases) {

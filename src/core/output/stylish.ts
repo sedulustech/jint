@@ -1,10 +1,9 @@
 /**
- * Human reporter: signals only (measurements are the raw "what is true";
- * signals are what mattered), plus run diagnostics. TTY-adaptive color per the
- * clig contract: color only when stdout is a TTY; NO_COLOR, TERM=dumb and
- * --color=never all suppress it; --color=always forces it.
+ * Human reporter: signals only (measurements are the raw "what is true"; signals are what
+ * mattered), plus run diagnostics. TTY-adaptive color per the clig contract: color only when stdout
+ * is a TTY; NO_COLOR, TERM=dumb and --color=never all suppress it; --color=always forces it.
  *
- * v0 renders a simple aligned table (the documented stub).
+ * V0 renders a simple aligned table (the documented stub).
  */
 
 import type { LintReport } from "../lint.ts";
@@ -58,16 +57,23 @@ function stylishSummary(report: LintReport): string | null {
     );
   }
   if (report.diagnostics.length > 0) {
-    parts.push(`${report.diagnostics.length} ${report.diagnostics.length === 1 ? "unit" : "units"} failed to measure`);
+    parts.push(
+      `${report.diagnostics.length} ${report.diagnostics.length === 1 ? "unit" : "units"} failed to measure`,
+    );
   }
   if (parts.length === 0 && report.measurements.length > 0) {
-    parts.push(`no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`);
+    parts.push(
+      `no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`,
+    );
   }
   return parts.length > 0 ? parts.join("; ") : null;
 }
 
 /** The TTY decision: explicit mode wins; otherwise stdout-is-TTY minus NO_COLOR/TERM=dumb. */
-export function shouldColor(mode: ColorMode, stream: { isTTY?: boolean } = process.stdout): boolean {
+export function shouldColor(
+  mode: ColorMode,
+  stream: { isTTY?: boolean } = process.stdout,
+): boolean {
   if (mode === "always") return true;
   if (mode === "never") return false;
   if (process.env.NO_COLOR !== undefined) return false;

@@ -16,7 +16,11 @@ function run(args: string[], envOverrides: Record<string, string | undefined> = 
     stderr: "pipe",
     env: { ...process.env, ...envOverrides },
   });
-  return { code: proc.exitCode ?? -1, stdout: proc.stdout.toString(), stderr: proc.stderr.toString() };
+  return {
+    code: proc.exitCode ?? -1,
+    stdout: proc.stdout.toString(),
+    stderr: proc.stderr.toString(),
+  };
 }
 
 const NO_KEY = { TYPESAFE_API_KEY: "" }; // SDK ignores empty env values -> missing key
@@ -72,7 +76,12 @@ describe("cli: contract basics", () => {
   });
 
   test("invalid config file -> CONFIG_INVALID, exit 2", () => {
-    const r = run(["--config", "tests/fixtures/configs/invalid.config.ts", "--file", "tests/fixtures/sample-file.ts"]);
+    const r = run([
+      "--config",
+      "tests/fixtures/configs/invalid.config.ts",
+      "--file",
+      "tests/fixtures/sample-file.ts",
+    ]);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("CONFIG_INVALID");
   });
@@ -104,9 +113,15 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
   });
 
   test("--diff - reads stdin (decomposition happens before the jev call)", () => {
-    const proc = Bun.spawnSync(["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --diff - --json`], {
-      cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY },
-    });
+    const proc = Bun.spawnSync(
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --diff - --json`],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, ...NO_KEY },
+      },
+    );
     expect(proc.exitCode).toBe(4);
     const report = JSON.parse(proc.stdout.toString());
     // the diff resolved and decomposed; the auth failure names a unit path
@@ -115,7 +130,16 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
   });
 
   test("--config selects an alternate config file (loads, then JEV_AUTH)", () => {
-    const r = run(["--config", "tests/fixtures/configs/valid.config.ts", "--file", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
+    const r = run(
+      [
+        "--config",
+        "tests/fixtures/configs/valid.config.ts",
+        "--file",
+        "tests/fixtures/sample-file.ts",
+        "--json",
+      ],
+      NO_KEY,
+    );
     // config itself loaded fine; the failure is auth (exit 4), not CONFIG_INVALID (exit 2)
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
@@ -143,17 +167,16 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     // Create a temp dir for a non-repo context
     const tmp = "/tmp/jint-test-non-repo";
     Bun.spawnSync(["mkdir", "-p", tmp]);
-    
+
     const proc = Bun.spawnSync(["bun", ROOT + "/src/cli.ts", "--diff", "bogus-rev"], {
       cwd: ROOT,
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, ...NO_KEY, "PWD": tmp },
+      env: { ...process.env, ...NO_KEY, PWD: tmp },
     });
     expect(proc.exitCode).toBe(2);
     expect(proc.stderr.toString()).toMatch(/ENTRYPOINT_NOT_FOUND|UNREADABLE/);
   });
-
 });
 
 describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {

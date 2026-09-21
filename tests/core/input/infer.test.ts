@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { inferKind, looksLikeDiff, looksLikeRevShaped, resolveInput } from "../../../src/core/input/infer.ts";
+import {
+  inferKind,
+  looksLikeDiff,
+  looksLikeRevShaped,
+  resolveInput,
+} from "../../../src/core/input/infer.ts";
 import { AppError, type FileState } from "../../../src/core/types.ts";
 
 describe("inferKind", () => {
@@ -38,7 +43,9 @@ describe("inferKind", () => {
 
 describe("looksLikeDiff", () => {
   test("git header (even after a commit-message preamble)", () => {
-    expect(looksLikeDiff("commit abc\n\n    msg\n\ndiff --git a/x.ts b/x.ts\nindex..\n")).toBe(true);
+    expect(looksLikeDiff("commit abc\n\n    msg\n\ndiff --git a/x.ts b/x.ts\nindex..\n")).toBe(
+      true,
+    );
     expect(looksLikeDiff("diff --git a/x.ts b/x.ts\n")).toBe(true);
   });
 
@@ -66,7 +73,9 @@ describe("looksLikeRevShaped", () => {
 describe("resolveInput", () => {
   test("array input resolves each explicit file in order", async () => {
     const units: string[] = [];
-    for await (const unit of resolveInput({ input: ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts"] })) {
+    for await (const unit of resolveInput({
+      input: ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts"],
+    })) {
       units.push(unit.state.path);
       expect(unit.kind).toBe("file");
       if (unit.kind === "file") expect((unit.state as FileState).content.length).toBeGreaterThan(0);

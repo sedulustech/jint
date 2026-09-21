@@ -1,26 +1,22 @@
 /**
- * Config loading. jint.config.ts is the default; --config names any other
- * (multiple configurations = multiple files, one per purpose).
+ * Config loading. jint.config.ts is the default; --config names any other (multiple configurations
+ * = multiple files, one per purpose).
  *
- * TypeBox validates the config file boundary; validation failure maps to
- * CONFIG_INVALID with joined error messages (design §3.5).
+ * TypeBox validates the config file boundary; validation failure maps to CONFIG_INVALID with joined
+ * error messages (design §3.5).
  */
 
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
+import { sensorDefaults } from "../core/sensors/defaults.ts";
 import { AppError } from "../core/types.ts";
 import { defineConfig, type ResolvedConfig } from "./define.ts";
-import { sensorDefaults } from "../core/sensors/defaults.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.ts";
 
-const KindSchema = Type.Union([
-  Type.Literal("file"),
-  Type.Literal("dir"),
-  Type.Literal("diff"),
-]);
+const KindSchema = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
 
 const SensorSchema = Type.Object({
   name: Type.String(),
@@ -52,11 +48,16 @@ export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedCo
       throw new AppError("CONFIG_INVALID", `config file not found: ${path}`, { cause: e });
     }
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError("CONFIG_INVALID", `config file failed to load: ${path}: ${detail}`, { cause: e });
+    throw new AppError("CONFIG_INVALID", `config file failed to load: ${path}: ${detail}`, {
+      cause: e,
+    });
   }
   const raw = (mod as { default?: unknown } | null)?.default;
   if (raw === undefined) {
-    throw new AppError("CONFIG_INVALID", `config file has no default export: ${path} (export default defineConfig({...}))`);
+    throw new AppError(
+      "CONFIG_INVALID",
+      `config file has no default export: ${path} (export default defineConfig({...}))`,
+    );
   }
   return validateConfig(raw, path);
 }
@@ -72,7 +73,10 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   const parsed = raw as Static<typeof ConfigSchema>;
   for (const sensor of parsed.sensors) {
     if (typeof sensor.handle !== "function") {
-      throw new AppError("CONFIG_INVALID", `invalid config ${source}: sensor '${sensor.name}' handle must be a function`);
+      throw new AppError(
+        "CONFIG_INVALID",
+        `invalid config ${source}: sensor '${sensor.name}' handle must be a function`,
+      );
     }
   }
   return parsed as ResolvedConfig;

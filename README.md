@@ -11,7 +11,7 @@ bun add @typesafe-ai/sdk @sinclair/typebox   # jint's own deps, for reference
 Three nouns, strictly separated:
 
 - **sensor** — the measuring mechanism: `{ name, description, inputTypes, handle }`. It holds one System One judgment (noul) over a state, plus a `handle` callback that reads the value.
-- **measurement** — the raw noul value from jev for (sensor, input). Always produced, never actionable by itself — *what is true*. A noul near 0.5 means undecided, not medium; values pass through untouched.
+- **measurement** — the raw noul value from jev for (sensor, input). Always produced, never actionable by itself — _what is true_. A noul near 0.5 means undecided, not medium; values pass through untouched.
 - **signal** — a measurement that cleared the sensor's handle: `{ sensor, input, value, severity }`. The only actionable thing: it drives the report and the exit code.
 
 A sensor measures; its handle decides; a signal is a measurement that mattered.
@@ -49,16 +49,16 @@ sensors: {
 
 Thresholds are anchored to the calibration corpora — jint's own src/ as the primary corpus, the sibling-repo baselines as the external cross-check: healthy runs produce zero errors; the calibration mutants (bad names, comment bloat, obfuscation) are caught.
 
-| sensor | polarity | error | warn | healthy range |
-|---|---|---|---|---|
-| `is_name_purposeful` | high = good | < 0.5 | < 0.6 | 0.79 – 0.87 |
-| `is_vocabulary_consistent` | high = good | < 0.6 | < 0.75 | 0.85 – 0.88 |
-| `is_greppable` | high = good | < 0.60 | < 0.75 | 0.65 – 0.90 |
-| `is_comment_business_context` | high = good | null in v0 | null in v0 | 0.32 – 0.86 |
-| `is_comment_narration` | high = bad | > 0.45 | > 0.30 | 0.09 – 0.19 |
-| `is_comment_patching_readability` | high = bad | > 0.55 | > 0.40 | 0.11 – 0.20 |
-| `will_comment_drift` | high = bad | > 0.7 | > 0.55 | 0.16 – 0.43 |
-| `is_cognitively_complex` | high = bad | > 0.6 | > 0.45 | 0.17 – 0.35 |
+| sensor                            | polarity    | error      | warn       | healthy range |
+| --------------------------------- | ----------- | ---------- | ---------- | ------------- |
+| `is_name_purposeful`              | high = good | < 0.5      | < 0.6      | 0.79 – 0.87   |
+| `is_vocabulary_consistent`        | high = good | < 0.6      | < 0.75     | 0.85 – 0.88   |
+| `is_greppable`                    | high = good | < 0.60     | < 0.75     | 0.65 – 0.90   |
+| `is_comment_business_context`     | high = good | null in v0 | null in v0 | 0.32 – 0.86   |
+| `is_comment_narration`            | high = bad  | > 0.45     | > 0.30     | 0.09 – 0.19   |
+| `is_comment_patching_readability` | high = bad  | > 0.55     | > 0.40     | 0.11 – 0.20   |
+| `will_comment_drift`              | high = bad  | > 0.7      | > 0.55     | 0.16 – 0.43   |
+| `is_cognitively_complex`          | high = bad  | > 0.6      | > 0.45     | 0.17 – 0.35   |
 
 `cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing). `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
 
@@ -90,13 +90,13 @@ A diff input decomposes into per-file units: added/modified files are measured, 
 
 ## Exit codes
 
-| code | meaning |
-|---|---|
-| 0 | clean (measurements, no error-severity signals) |
-| 1 | error-severity signals found |
-| 2 | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable) |
-| 3 | internal error |
-| 4 | ran but failed — any per-unit diagnostic, or zero measurements (CI can never pass an unmeasured diff) |
+| code | meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 0    | clean (measurements, no error-severity signals)                                                       |
+| 1    | error-severity signals found                                                                          |
+| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                     |
+| 3    | internal error                                                                                        |
+| 4    | ran but failed — any per-unit diagnostic, or zero measurements (CI can never pass an unmeasured diff) |
 
 ## Errors
 
@@ -114,8 +114,8 @@ import { defineConfig, sensors, lint, collectReport } from "jint";
 const report = await collectReport(
   lint({
     config: defineConfig({ input: "src/", sensors: { ...sensors.defaults, disable: [] } }),
-    input: "src/a.ts",          // optional override; inferred otherwise
-    judge: mySwappableJudge,    // optional; defaults to the jev adapter
+    input: "src/a.ts", // optional override; inferred otherwise
+    judge: mySwappableJudge, // optional; defaults to the jev adapter
   }),
 );
 // report: { measurements, signals, diagnostics }

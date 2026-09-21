@@ -1,14 +1,15 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - sensor      — the measuring mechanism: { name, description, inputTypes, handle }
- * - measurement — the raw noul value from jev for (sensor, input); always produced, never actionable by itself
- * - signal      — a measurement that cleared the sensor's handle; the only actionable output
- * - diagnostic  — a per-unit operational failure carried in the stream, never thrown past the pipeline
+ * - Sensor — the measuring mechanism: { name, description, inputTypes, handle }
+ * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
+ *   by itself
+ * - Signal — a measurement that cleared the sensor's handle; the only actionable output
+ * - Diagnostic — a per-unit operational failure carried in the stream, never thrown past the pipeline
  */
 
 export type Severity = "error" | "warn";
-/** handle's return type: "error" | "warn" | null (null = silent). */
+/** Handle's return type: "error" | "warn" | null (null = silent). */
 export type HandleResult = Severity | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before measuring. */
 export type InputKind = "file" | "dir" | "diff";
@@ -25,7 +26,10 @@ export type ErrorCode =
   | "JEV_RESPONSE_INVALID"
   | "INTERNAL";
 
-/** One base error type; variants differ by typed `code`, not by class (typescript/error-handling.md). */
+/**
+ * One base error type; variants differ by typed `code`, not by class
+ * (typescript/error-handling.md).
+ */
 export class AppError extends Error {
   constructor(
     readonly code: ErrorCode,
@@ -39,7 +43,10 @@ export class AppError extends Error {
   readonly isOperational = true;
 }
 
-/** A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the value. */
+/**
+ * A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the
+ * value.
+ */
 export interface Sensor {
   readonly name: string;
   /** The calibrated claim; compiles to the noul question's instructions. */
@@ -50,7 +57,10 @@ export interface Sensor {
   readonly handle: (value: number) => HandleResult;
 }
 
-/** The raw noul value for (sensor, input). Values pass through untouched — near 0.5 means undecided, not medium. */
+/**
+ * The raw noul value for (sensor, input). Values pass through untouched — near 0.5 means undecided,
+ * not medium.
+ */
 export interface Measurement {
   readonly sensor: string;
   readonly input: string;
@@ -99,7 +109,10 @@ export interface QuestionSpec {
   readonly instructions: string | Record<string, string>;
 }
 
-/** The swappable backend seam: answers keyed by question name. Implemented by jev/client.ts; faked in tests. */
+/**
+ * The swappable backend seam: answers keyed by question name. Implemented by jev/client.ts; faked
+ * in tests.
+ */
 export type Judge = (
   state: UnitState,
   questions: Record<string, QuestionSpec>,

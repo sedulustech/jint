@@ -1,7 +1,7 @@
 /**
- * defineConfig — the config author's constructor. Takes the user-shaped config
- * (see tmp/jint.config.v2.example.ts), normalizes sensors into a flat list, and
- * freezes the result: definitions are data.
+ * DefineConfig — the config author's constructor. Takes the user-shaped config (see
+ * tmp/jint.config.v2.example.ts), normalizes sensors into a flat list, and freezes the result:
+ * definitions are data.
  */
 
 import type { InputKind, Sensor } from "../core/types.ts";
@@ -18,8 +18,9 @@ export interface ResolvedConfig {
 export interface UserConfig {
   input: string;
   /** Optional override for ambiguous inputs only — the kind is otherwise inferred. */
+  // record form: sensor names -> sensor, plus the special "disable" key
   inputType?: InputKind;
-  sensors?: Sensor[] | Record<string, Sensor | string[]>; // record form: sensor names -> sensor, plus the special "disable" key
+  sensors?: Sensor[] | Record<string, Sensor | string[]>;
   exclude?: readonly string[];
 }
 

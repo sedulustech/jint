@@ -1,25 +1,53 @@
 /**
  * Directory walker: turns an on-disk directory into file units.
  *
- * Default exclusions: node_modules, .git, gitignored paths (the walker reads
- * .gitignore files it encounters), and binary files (extension + null-byte
- * sniff). Config/CLI exclude patterns prune on top.
+ * Default exclusions: node_modules, .git, gitignored paths (the walker reads .gitignore files it
+ * encounters), and binary files (extension + null-byte sniff). Config/CLI exclude patterns prune on
+ * top.
  */
 
 import { readdir, open, stat } from "node:fs/promises";
-import type { Dirent } from "node:fs";
 import { join } from "node:path";
 import { AppError, type Unit } from "../types.ts";
+import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
 
 const GITIGNORE_FILENAME = ".gitignore";
 
 const BINARY_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".pdf",
-  ".zip", ".tar", ".gz", ".bz2", ".7z", ".rar", ".jar", ".wasm",
-  ".woff", ".woff2", ".ttf", ".otf", ".eot", ".mp3", ".mp4", ".mov",
-  ".avi", ".sqlite", ".db", ".so", ".dylib", ".dll", ".exe", ".bin",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".bmp",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".bz2",
+  ".7z",
+  ".rar",
+  ".jar",
+  ".wasm",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
+  ".mp3",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".sqlite",
+  ".db",
+  ".so",
+  ".dylib",
+  ".dll",
+  ".exe",
+  ".bin",
 ]);
 
 const SNIFF_BYTES = 8192;
@@ -39,8 +67,13 @@ interface IgnoreScope {
 
 export async function* walkDir(root: string, exclude?: readonly string[]): AsyncGenerator<Unit> {
   const rootStat = await stat(root).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") throw new AppError("ENTRYPOINT_NOT_FOUND", `directory not found: ${root}`);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read directory: ${root}: ${error.message}`, { cause: error });
+    if (error.code === "ENOENT")
+      throw new AppError("ENTRYPOINT_NOT_FOUND", `directory not found: ${root}`);
+    throw new AppError(
+      "ENTRYPOINT_UNREADABLE",
+      `cannot read directory: ${root}: ${error.message}`,
+      { cause: error },
+    );
   });
   if (!rootStat.isDirectory()) {
     throw new AppError("ENTRYPOINT_NOT_FOUND", `not a directory: ${root} (use --file)`);
@@ -58,17 +91,36 @@ async function* walkDirectory(
   excludeRules: IgnoreRule[],
 ): AsyncGenerator<Unit> {
   const currentScopes = await withGitignore(absDir, relDir, inheritedScopes);
-  const entries = (await readdir(absDir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read directory: ${absDir}: ${error.message}`, { cause: error });
-  })).sort(compareByName);
+  const entries = (
+    await readdir(absDir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+      throw new AppError(
+        "ENTRYPOINT_UNREADABLE",
+        `cannot read directory: ${absDir}: ${error.message}`,
+        { cause: error },
+      );
+    })
+  ).sort(compareByName);
 
   for (const entry of entries) {
     const relativePath = joinRelativePath(relDir, entry.name);
     const absolutePath = join(absDir, entry.name);
     if (entry.isDirectory()) {
-      yield* descendIntoDirectory(entry, absolutePath, relativePath, inheritedScopes, currentScopes, excludeRules);
+      yield* descendIntoDirectory(
+        entry,
+        absolutePath,
+        relativePath,
+        inheritedScopes,
+        currentScopes,
+        excludeRules,
+      );
     } else if (entry.isFile()) {
-      const unit = await readFileUnit(entry, absolutePath, relativePath, currentScopes, excludeRules);
+      const unit = await readFileUnit(
+        entry,
+        absolutePath,
+        relativePath,
+        currentScopes,
+        excludeRules,
+      );
       if (unit !== null) yield unit;
     }
   }
@@ -97,7 +149,8 @@ async function readFileUnit(
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
 ): Promise<Unit | null> {
-  if (entry.name === GITIGNORE_FILENAME) return null; // walker config, not measured code
+  // walker config, not measured code
+  if (entry.name === GITIGNORE_FILENAME) return null;
   if (matchesAnyExcludeRule(excludeRules, relativePath, false)) return null;
   if (isGitignored(relativePath, false, currentScopes)) return null;
   if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
@@ -106,13 +159,18 @@ async function readFileUnit(
 }
 
 /** Push this directory's .gitignore rules (if any) as the deepest scope. */
-async function withGitignore(absDir: string, relDir: string, inheritedScopes: IgnoreScope[]): Promise<IgnoreScope[]> {
+async function withGitignore(
+  absDir: string,
+  relDir: string,
+  inheritedScopes: IgnoreScope[],
+): Promise<IgnoreScope[]> {
   const path = join(absDir, GITIGNORE_FILENAME);
   let text: string;
   try {
     text = await Bun.file(path).text();
   } catch {
-    return inheritedScopes; // no .gitignore here — the catch-and-continue IS the not-present case
+    // no .gitignore here — the catch-and-continue IS the not-present case
+    return inheritedScopes;
   }
   const rules = parseGitignore(text);
   if (rules.length === 0) return inheritedScopes;
@@ -149,11 +207,19 @@ export function parseGitignore(text: string): IgnoreRule[] {
   return rules;
 }
 
-/** Last matching rule wins within a scope; the deepest scope with a match decides (git semantics, bounded). */
+/**
+ * Last matching rule wins within a scope; the deepest scope with a match decides (git semantics,
+ * bounded).
+ */
 function isGitignored(relativePath: string, isDirectory: boolean, scopes: IgnoreScope[]): boolean {
   for (let scopeIndex = scopes.length - 1; scopeIndex >= 0; scopeIndex--) {
     const scope = scopes[scopeIndex]!;
-    const pathFromScopeBase = scope.base === "" ? relativePath : relativePath.startsWith(`${scope.base}/`) ? relativePath.slice(scope.base.length + 1) : "";
+    const pathFromScopeBase =
+      scope.base === ""
+        ? relativePath
+        : relativePath.startsWith(`${scope.base}/`)
+          ? relativePath.slice(scope.base.length + 1)
+          : "";
     if (pathFromScopeBase === "") continue;
     for (let ruleIndex = scope.rules.length - 1; ruleIndex >= 0; ruleIndex--) {
       const rule = scope.rules[ruleIndex]!;
@@ -165,8 +231,14 @@ function isGitignored(relativePath: string, isDirectory: boolean, scopes: Ignore
 }
 
 /** True when any non-negated exclude rule matches (config/CLI patterns, not gitignore scopes). */
-function matchesAnyExcludeRule(rules: IgnoreRule[], relativePath: string, isDirectory: boolean): boolean {
-  return rules.some((rule) => !rule.negated && !(rule.dirOnly && !isDirectory) && rule.re.test(relativePath));
+function matchesAnyExcludeRule(
+  rules: IgnoreRule[],
+  relativePath: string,
+  isDirectory: boolean,
+): boolean {
+  return rules.some(
+    (rule) => !rule.negated && !(rule.dirOnly && !isDirectory) && rule.re.test(relativePath),
+  );
 }
 
 /** Compile one gitignore-flavored glob to an anchored RegExp over a relative path. */
@@ -236,6 +308,8 @@ async function readTextFile(absolutePath: string): Promise<string> {
     return await Bun.file(absolutePath).text();
   } catch (thrown) {
     const detail = thrown instanceof Error ? thrown.message : String(thrown);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, { cause: thrown });
+    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, {
+      cause: thrown,
+    });
   }
 }

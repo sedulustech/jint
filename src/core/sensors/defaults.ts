@@ -1,22 +1,19 @@
 /**
- * The eight default sensors, each shipping a visible, overridable handle; one
- * sensor measures one attribute. The comment family replaced the retired
- * excessive_comments, whose attributes moved in opposite directions and
- * averaged the aggregate signal into noise.
+ * The eight default sensors, each shipping a visible, overridable handle; one sensor measures one
+ * attribute. The comment family replaced the retired excessive_comments, whose attributes moved in
+ * opposite directions and averaged the aggregate signal into noise.
  *
- * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix):
- * each sensor compiles to exactly one noul question, so its name reads as the
- * yes/no claim the question asks.
+ * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix): each sensor compiles to
+ * exactly one noul question, so its name reads as the yes/no claim the question asks.
  *
- * Each description is the exact claim the measure step compiles into the
- * question envelope: editing a description is a re-calibration event, since
- * thresholds are anchored to readings taken under the claim text.
+ * Each description is the exact claim the measure step compiles into the question envelope: editing
+ * a description is a re-calibration event, since thresholds are anchored to readings taken under
+ * the claim text.
  *
- * Handle policy: a healthy run never errors; warns are legitimate nudges.
- * High=good sensors error below the healthy floor, high=bad sensors above the
- * healthy ceiling, anchored on the self-lint corpus with the sibling-repo
- * calibration fixtures as the external check. Current thresholds and healthy
- * ranges are documented in the README, next to the override examples.
+ * Handle policy: a healthy run never errors; warns are legitimate nudges. High=good sensors error
+ * below the healthy floor, high=bad sensors above the healthy ceiling, anchored on the self-lint
+ * corpus with the sibling-repo calibration fixtures as the external check. Current thresholds and
+ * healthy ranges are documented in the README, next to the override examples.
  */
 
 import type { Sensor } from "../types.ts";
@@ -42,7 +39,7 @@ export const isGreppable: Sensor = {
   description:
     "The identifiers in this code - the names of functions, variables, types, constants, and exported symbols - are greppable: a maintainer who knows a thing by its name can find every place it is used by searching that name. This means identifiers are written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary so the same concept requires two different search strings, and specific enough (not bare words like data, handler, or util) that a search hit is genuinely a reference to this thing. Strings that are user-facing interface rather than code identifiers - CLI flag spellings, help text, log messages - are not part of this judgment; only code identifiers are.",
   inputTypes: ["file", "diff"],
-  handle: (value) => (value < 0.60 ? "error" : value < 0.75 ? "warn" : null),
+  handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
 export const is_comment_business_context: Sensor = {
@@ -63,7 +60,7 @@ export const is_comment_narration: Sensor = {
   description:
     "The comments in this code narrate: they merely restate what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return). The comment is duplicate information; removing it loses nothing a reader could not get from the code itself. Comments that state why the code exists, record a constraint, or flag a non-obvious trap say what the code cannot and are not narration.",
   inputTypes: ["file", "diff"],
-  handle: (value) => (value > 0.45 ? "error" : value > 0.30 ? "warn" : null),
+  handle: (value) => (value > 0.45 ? "error" : value > 0.3 ? "warn" : null),
 };
 
 export const is_comment_patching_readability: Sensor = {
@@ -71,7 +68,7 @@ export const is_comment_patching_readability: Sensor = {
   description:
     "The comments in this code patch for readability: they exist to explain code that should read itself, compensating for confusing code - dense expressions, tangled control flow, misleading names - with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens. Comments that add what code cannot carry - rationale, constraints, external contracts - are not readability patches, even when the surrounding code is also hard to read.",
   inputTypes: ["file", "diff"],
-  handle: (value) => (value > 0.55 ? "error" : value > 0.40 ? "warn" : null),
+  handle: (value) => (value > 0.55 ? "error" : value > 0.4 ? "warn" : null),
 };
 
 export const will_comment_drift: Sensor = {

@@ -1,11 +1,10 @@
 /**
- * Diff inputs: "-" (stdin, the primitive), an on-disk patch file, or a
- * rev-looking expression (sugar that shells out to git — fails loudly when git
- * is absent; pipe through "-" instead).
+ * Diff inputs: "-" (stdin, the primitive), an on-disk patch file, or a rev-looking expression
+ * (sugar that shells out to git — fails loudly when git is absent; pipe through "-" instead).
  *
- * A unified diff is decomposed into per-file units: added/modified files are
- * measured, deleted and binary files are skipped, and the commit message (when
- * available via git) is shared state for every unit of the run (design §4).
+ * A unified diff is decomposed into per-file units: added/modified files are measured, deleted and
+ * binary files are skipped, and the commit message (when available via git) is shared state for
+ * every unit of the run (design §4).
  */
 
 import { stat, readFile } from "node:fs/promises";
@@ -22,7 +21,10 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
     return { text: await Bun.stdin.text(), commitMessage: null };
   }
   if (spec.startsWith("-") || spec.includes("\0")) {
-    throw new AppError("ENTRYPOINT_NOT_FOUND", `unknown diff input: ${spec} (use "-" for stdin, a patch path, or a git rev)`);
+    throw new AppError(
+      "ENTRYPOINT_NOT_FOUND",
+      `unknown diff input: ${spec} (use "-" for stdin, a patch path, or a git rev)`,
+    );
   }
   const info = await stat(spec).catch(() => null);
   if (info?.isFile()) {
@@ -32,8 +34,8 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
 }
 
 /**
- * Rev sugar — requires the git binary (documented stub); a missing git fails
- * loudly with the primitive as the next step.
+ * Rev sugar — requires the git binary (documented stub); a missing git fails loudly with the
+ * primitive as the next step.
  */
 async function gitDiffSource(expr: string): Promise<DiffSource> {
   const git = Bun.which("git", { PATH: process.env.PATH });
@@ -45,7 +47,10 @@ async function gitDiffSource(expr: string): Promise<DiffSource> {
   }
   const [text, code, err] = await runGit(["diff", "--no-color", "--no-ext-diff", expr]);
   if (code !== 0) {
-    throw new AppError("ENTRYPOINT_UNREADABLE", `git diff ${expr} failed (exit ${code}): ${err.trim() || "git error"}`);
+    throw new AppError(
+      "ENTRYPOINT_UNREADABLE",
+      `git diff ${expr} failed (exit ${code}): ${err.trim() || "git error"}`,
+    );
   }
   return { text, commitMessage: await gitCommitMessage(expr) };
 }
@@ -72,7 +77,9 @@ async function readText(path: string): Promise<string> {
     return await readFile(path, "utf8");
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, { cause: e });
+    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, {
+      cause: e,
+    });
   }
 }
 
@@ -81,8 +88,9 @@ export function splitDiffBlocks(text: string): string[] {
   const lines = text.split("\n");
   const gitFormat = /^diff --git /m.test(text);
   const blocks: string[] = [];
+  // a ---/+++ pair is in progress in the current (git-less) block
   let current: string[] = [];
-  let pairOpen = false; // a ---/+++ pair is in progress in the current (git-less) block
+  let pairOpen = false;
   const flush = () => {
     if (current.some((l) => l.trim() !== "")) blocks.push(current.join("\n"));
     current = [];
@@ -123,7 +131,10 @@ export function parseDiffBlock(block: string): BlockMeta | null {
       // deletion: the surviving path lives on the --- side
       deleted = true;
       const minus = lines.find((l) => l.startsWith("--- "));
-      rawPath = minus === undefined ? null : minus.slice(4).split("\t")[0]!.trim().replace(/^a\//, "") || null;
+      rawPath =
+        minus === undefined
+          ? null
+          : minus.slice(4).split("\t")[0]!.trim().replace(/^a\//, "") || null;
     } else {
       rawPath = target;
     }

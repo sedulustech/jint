@@ -1,14 +1,22 @@
 /**
- * measure — compiles sensors to noul questions and batches them into ONE
- * systemOne call per state (sequential in v0). Emits Measurement { sensor,
- * input, value }: no thresholds, no handle invocation here — interpretation is
- * the handle callback's job (design §4.5).
+ * Measure — compiles sensors to noul questions and batches them into ONE systemOne call per state
+ * (sequential in v0). Emits Measurement { sensor, input, value }: no thresholds, no handle
+ * invocation here — interpretation is the handle callback's job (design §4.5).
  *
- * Per-unit failures come back as Diagnostics in the stream, never thrown past
- * the pipeline (design §7).
+ * Per-unit failures come back as Diagnostics in the stream, never thrown past the pipeline (design
+ * §7).
  */
 
-import { AppError, type Diagnostic, type Judge, type Measurement, type QuestionSpec, type Sensor, type Unit, type UnitKind } from "../types.ts";
+import {
+  AppError,
+  type Diagnostic,
+  type Judge,
+  type Measurement,
+  type QuestionSpec,
+  type Sensor,
+  type Unit,
+  type UnitKind,
+} from "../types.ts";
 
 /** The sensors whose inputTypes include this unitKind. */
 export function selectSensors(sensors: readonly Sensor[], unitKind: UnitKind): Sensor[] {

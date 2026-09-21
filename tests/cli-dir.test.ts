@@ -11,7 +11,11 @@ function run(args: string[], env: Record<string, string | undefined> = {}) {
     stderr: "pipe",
     env: { ...process.env, ...NO_KEY, ...env },
   });
-  return { code: proc.exitCode ?? -1, stdout: proc.stdout.toString(), stderr: proc.stderr.toString() };
+  return {
+    code: proc.exitCode ?? -1,
+    stdout: proc.stdout.toString(),
+    stderr: proc.stderr.toString(),
+  };
 }
 
 describe("cli: --dir ignores", () => {
@@ -39,7 +43,10 @@ describe("cli: --dir ignores", () => {
       return;
     }
     const proc = Bun.spawnSync(["bun", CLI, "--dir", "tests/fixtures/sample-dir", "--json"], {
-      cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env },
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env },
     });
     const report = JSON.parse(proc.stdout.toString());
     const paths = (report.measurements ?? []).map((m: any) => m.input);

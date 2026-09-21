@@ -12,10 +12,10 @@ describe("walkDir", () => {
     const paths = await collect("tests/fixtures/sample-dir");
     expect(paths).toContain("good.ts");
     expect(paths).toContain("sub/more.ts");
-    expect(paths).not.toContain("ignored.ts");          // .gitignore
+    expect(paths).not.toContain("ignored.ts"); // .gitignore
     expect(paths).not.toContain("node_modules/dep.js"); // default skip
-    expect(paths).not.toContain("blob.bin");            // null-byte sniff
-    expect(paths).not.toContain("photo.png");           // extension
+    expect(paths).not.toContain("blob.bin"); // null-byte sniff
+    expect(paths).not.toContain("photo.png"); // extension
   });
 
   test("file units carry { path, content } with paths relative to the root", async () => {

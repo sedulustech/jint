@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { loadConfig, defaultConfig, validateConfig, DEFAULT_CONFIG_PATH } from "../../src/config/load.ts";
+import { loadConfig, defaultConfig, validateConfig } from "../../src/config/load.ts";
 import { AppError } from "../../src/core/types.ts";
 
 const ROOT = "/home/crjm/dev/sedulus/jint";
@@ -7,13 +7,16 @@ describe("loadConfig", () => {
   test("loads from jint.config.ts in current dir", async () => {
     const tmpDir = "/tmp/jint-config-test-" + Math.random().toString(36).substring(7);
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
-    Bun.write(tmpDir + "/jint.config.ts", 'export default { input: ".", sensors: [{ name: "noop", description: "noop sensor", inputTypes: ["file"], handle: () => null }], exclude: [] };');
-    
+    Bun.write(
+      tmpDir + "/jint.config.ts",
+      'export default { input: ".", sensors: [{ name: "noop", description: "noop sensor", inputTypes: ["file"], handle: () => null }], exclude: [] };',
+    );
+
     // Should exit 4 (JEV_AUTH) because key is empty
     Bun.write(tmpDir + "/input.ts", "// content");
     const proc = Bun.spawnSync(["bun", ROOT + "/src/cli.ts", "--file", "input.ts", "--json"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" }
+      env: { ...process.env, TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(4);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
@@ -22,11 +25,11 @@ describe("loadConfig", () => {
   test("broken jint.config.ts exits 2 CONFIG_INVALID", async () => {
     const tmpDir = "/tmp/jint-config-broken-" + Math.random().toString(36).substring(7);
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
-    Bun.write(tmpDir + "/jint.config.ts", 'export default { broken: true };');
-    
+    Bun.write(tmpDir + "/jint.config.ts", "export default { broken: true };");
+
     const proc = Bun.spawnSync(["bun", ROOT + "/src/cli.ts", "--json"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" }
+      env: { ...process.env, TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);

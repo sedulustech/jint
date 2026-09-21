@@ -1,7 +1,6 @@
 /**
- * JSON reporter — the machine shape. Stability promise: this shape is versioned
- * (format field); never break it in a patch release. stdout carries nothing but
- * this when --json is set.
+ * JSON reporter — the machine shape. Stability promise: this shape is versioned (format field);
+ * never break it in a patch release. stdout carries nothing but this when --json is set.
  */
 
 import pkg from "../../../package.json";
@@ -16,9 +15,22 @@ export function renderJson(report: LintReport): string {
         tool: "jint",
         format: REPORT_FORMAT,
         version: pkg.version,
-        measurements: report.measurements.map((m) => ({ sensor: m.sensor, input: m.input, value: m.value })),
-        signals: report.signals.map((s) => ({ sensor: s.sensor, input: s.input, value: s.value, severity: s.severity })),
-        diagnostics: report.diagnostics.map((d) => ({ input: d.input, code: d.code, message: d.message })),
+        measurements: report.measurements.map((m) => ({
+          sensor: m.sensor,
+          input: m.input,
+          value: m.value,
+        })),
+        signals: report.signals.map((s) => ({
+          sensor: s.sensor,
+          input: s.input,
+          value: s.value,
+          severity: s.severity,
+        })),
+        diagnostics: report.diagnostics.map((d) => ({
+          input: d.input,
+          code: d.code,
+          message: d.message,
+        })),
       },
       null,
       2,

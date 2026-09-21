@@ -1,17 +1,18 @@
 /**
- * The jev adapter — the only file that imports the vendor SDK. This is the
- * swappable-backend seam: the lint pipeline accepts any judge, tests fake it.
+ * The jev adapter — the only file that imports the vendor SDK. This is the swappable-backend seam:
+ * the lint pipeline accepts any judge, tests fake it.
  *
- * Vendor transport failures map onto the project's error taxonomy exactly
- * once, here: auth failures fail loud at the first call (never at import),
- * rejected requests, rate limits and outages surface as unavailability, and a
- * wrong-shaped answer is a response-invalid diagnostic. No vendor error type
- * escapes past this seam.
+ * Vendor transport failures map onto the project's error taxonomy exactly once, here: auth failures
+ * fail loud at the first call (never at import), rejected requests, rate limits and outages surface
+ * as unavailability, and a wrong-shaped answer is a response-invalid diagnostic. No vendor error
+ * type escapes past this seam.
  *
- * Vendor nomenclature stays at the boundary: one batched call per state, one
- * structured question per sensor, each answer a single calibrated probability.
+ * Vendor nomenclature stays at the boundary: one batched call per state, one structured question
+ * per sensor, each answer a single calibrated probability.
  */
 
+import { Type, type Static } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
 import {
   APIConnectionError,
   APIError,
@@ -29,8 +30,6 @@ import {
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { Type, type Static } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
 import { AppError, type Judge, type QuestionSpec } from "../types.ts";
 
 /** The answer boundary: exactly one calibrated probability per question. */
@@ -54,7 +53,10 @@ export function createJudge(config?: JudgeConfig): Judge {
     const sdkQuestions = compileQuestions(questions);
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
-      result = await client.systemOne({ state: state as unknown as EntryType, questions: sdkQuestions });
+      result = await client.systemOne({
+        state: state as unknown as EntryType,
+        questions: sdkQuestions,
+      });
     } catch (e) {
       throw mapTransportError(e);
     }
@@ -110,7 +112,9 @@ function mapTransportError(e: unknown): AppError {
     return new AppError("JEV_AUTH", `jev rejected the API key: ${e.message}`, { cause: e });
   }
   if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {
-    return new AppError("JEV_REQUEST_INVALID", `jev rejected the request: ${e.message}`, { cause: e });
+    return new AppError("JEV_REQUEST_INVALID", `jev rejected the request: ${e.message}`, {
+      cause: e,
+    });
   }
   if (e instanceof RateLimitError || e instanceof InternalServerError || e instanceof APIError) {
     return new AppError("JEV_UNAVAILABLE", `jev unavailable: ${e.message}`, { cause: e });

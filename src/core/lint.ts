@@ -1,17 +1,26 @@
 /**
- * lint — the one function most consumers need. State-in/signals-out: resolves
- * the input, measures each unit through the judge, runs each sensor's handle,
- * streams Measurements and Signals (and per-unit Diagnostics).
+ * Lint — the one function most consumers need. State-in/signals-out: resolves the input, measures
+ * each unit through the judge, runs each sensor's handle, streams Measurements and Signals (and
+ * per-unit Diagnostics).
  *
- * The pipeline never resolves paths it wasn't given, never knows about the
- * terminal, and never throws for per-unit failures (design §1, §7).
+ * The pipeline never resolves paths it wasn't given, never knows about the terminal, and never
+ * throws for per-unit failures (design §1, §7).
  */
 
-import type { ResolvedConfig } from "../config/define.ts";
-import { AppError, type InputKind, type Judge, type LintEvent, type Measurement, type Signal, type Diagnostic, type Sensor } from "./types.ts";
 import { resolveInput } from "./input/infer.ts";
-import { measureUnit } from "./sensors/measure.ts";
 import { createJudge } from "./jev/client.ts";
+import { measureUnit } from "./sensors/measure.ts";
+import {
+  AppError,
+  type InputKind,
+  type Judge,
+  type LintEvent,
+  type Measurement,
+  type Signal,
+  type Diagnostic,
+  type Sensor,
+} from "./types.ts";
+import type { ResolvedConfig } from "../config/define.ts";
 
 export interface LintOptions {
   config: ResolvedConfig;
@@ -37,7 +46,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   const sensors = pickSensors(options.config.sensors, options.disable);
-  const units = resolveInput({ input, inputType: options.inputType ?? options.config.inputType, exclude });
+  const units = resolveInput({
+    input,
+    inputType: options.inputType ?? options.config.inputType,
+    exclude,
+  });
   const byName = new Map(sensors.map((s) => [s.name, s]));
 
   for await (const unit of units) {
@@ -62,7 +75,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
 }
 
-function pickSensors(sensors: readonly Sensor[], disable: readonly string[] | undefined): readonly Sensor[] {
+function pickSensors(
+  sensors: readonly Sensor[],
+  disable: readonly string[] | undefined,
+): readonly Sensor[] {
   if (disable === undefined || disable.length === 0) return sensors;
   const disabled = new Set(disable);
   return sensors.filter((s) => !disabled.has(s.name));

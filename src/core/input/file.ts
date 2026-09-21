@@ -6,7 +6,9 @@ export async function fileUnit(path: string): Promise<Unit> {
     if (e.code === "ENOENT") {
       throw new AppError("ENTRYPOINT_NOT_FOUND", `file not found: ${path}`);
     }
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${e.message}`, { cause: e });
+    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${e.message}`, {
+      cause: e,
+    });
   });
   if (info.isDirectory()) {
     throw new AppError("ENTRYPOINT_NOT_FOUND", `not a file: ${path} is a directory (use --dir)`);
@@ -16,7 +18,9 @@ export async function fileUnit(path: string): Promise<Unit> {
     content = await Bun.file(path).text();
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, { cause: e });
+    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, {
+      cause: e,
+    });
   }
   return { kind: "file", state: { path, content } };
 }

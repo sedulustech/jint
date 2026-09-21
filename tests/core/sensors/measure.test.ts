@@ -1,10 +1,28 @@
 import { describe, test, expect } from "bun:test";
-import { selectSensors, compileSensorQuestions, measureUnit, toDiagnostic } from "../../../src/core/sensors/measure.ts";
 import { sensorDefaults } from "../../../src/core/sensors/defaults.ts";
-import { AppError, type Judge, type Measurement, type Diagnostic, type Sensor, type Unit } from "../../../src/core/types.ts";
+import {
+  selectSensors,
+  compileSensorQuestions,
+  measureUnit,
+  toDiagnostic,
+} from "../../../src/core/sensors/measure.ts";
+import {
+  AppError,
+  type Judge,
+  type Measurement,
+  type Diagnostic,
+  type Sensor,
+  type Unit,
+} from "../../../src/core/types.ts";
 
-const fileUnit: Unit = { kind: "file", state: { path: "src/a.ts", content: "export const x = 1;\n" } };
-const diffUnit: Unit = { kind: "diff", state: { path: "src/a.ts", diff: "@@ -1 +1 @@", commit_message: null } };
+const fileUnit: Unit = {
+  kind: "file",
+  state: { path: "src/a.ts", content: "export const x = 1;\n" },
+};
+const diffUnit: Unit = {
+  kind: "diff",
+  state: { path: "src/a.ts", diff: "@@ -1 +1 @@", commit_message: null },
+};
 
 const allSensors: readonly Sensor[] = Object.values(sensorDefaults);
 
@@ -42,7 +60,19 @@ describe("compileSensorQuestions", () => {
 describe("measureUnit", () => {
   test("ONE batched judge call per unit; one measurement per sensor", async () => {
     const calls: Unit[] = [];
-    const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: 0.8, is_greppable: 0.6, is_comment_business_context: 0.5, is_comment_narration: 0.2, is_comment_patching_readability: 0.1, will_comment_drift: 0.1, is_cognitively_complex: 0.3 }, calls);
+    const judge = judgeWith(
+      {
+        is_name_purposeful: 0.7,
+        is_vocabulary_consistent: 0.8,
+        is_greppable: 0.6,
+        is_comment_business_context: 0.5,
+        is_comment_narration: 0.2,
+        is_comment_patching_readability: 0.1,
+        will_comment_drift: 0.1,
+        is_cognitively_complex: 0.3,
+      },
+      calls,
+    );
     const events: (Measurement | Diagnostic)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
     expect(events).toHaveLength(8);
@@ -61,7 +91,15 @@ describe("measureUnit", () => {
   test("missing or non-finite answer -> JEV_RESPONSE_INVALID diagnostic, siblings continue", async () => {
     const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: Number.NaN });
     const events: (Measurement | Diagnostic)[] = [];
-    for await (const event of measureUnit(fileUnit, [sensorDefaults.is_name_purposeful!, sensorDefaults.is_vocabulary_consistent!, sensorDefaults.is_greppable!], judge)) {
+    for await (const event of measureUnit(
+      fileUnit,
+      [
+        sensorDefaults.is_name_purposeful!,
+        sensorDefaults.is_vocabulary_consistent!,
+        sensorDefaults.is_greppable!,
+      ],
+      judge,
+    )) {
       events.push(event);
     }
     const diagnostics = events.filter((e): e is Diagnostic => !isMeasurement(e));
@@ -100,7 +138,11 @@ describe("measureUnit", () => {
       return {};
     };
     const events: (Measurement | Diagnostic)[] = [];
-    for await (const event of measureUnit(fileUnit, [{ ...sensorDefaults.is_name_purposeful!, inputTypes: ["diff"] }], judge)) {
+    for await (const event of measureUnit(
+      fileUnit,
+      [{ ...sensorDefaults.is_name_purposeful!, inputTypes: ["diff"] }],
+      judge,
+    )) {
       events.push(event);
     }
     expect(called).toBe(false);

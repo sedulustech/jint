@@ -1,10 +1,10 @@
 /**
- * jint's public barrel — the SDK surface (design §2):
+ * Jint's public barrel — the SDK surface (design §2):
  *
- *   import { defineConfig, sensors, lint } from "jint";
+ * Import { defineConfig, sensors, lint } from "jint";
  *
- * The CLI resolves input through the same code path lint() uses — no drift
- * between `jint --dir x` and `lint({ input: "x" })`.
+ * The CLI resolves input through the same code path lint() uses — no drift between `jint --dir x`
+ * and `lint({ input: "x" })`.
  */
 
 import { sensorDefaults } from "./core/sensors/defaults.ts";

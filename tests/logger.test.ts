@@ -29,7 +29,12 @@ describe("logger", () => {
     log("debug", "unit failed", { file: "a.ts", errorCode: "JEV_UNAVAILABLE" });
     expect(captured).toHaveLength(1);
     const entry = JSON.parse(captured[0]![0] as string);
-    expect(entry).toEqual({ level: "debug", msg: "unit failed", file: "a.ts", errorCode: "JEV_UNAVAILABLE" });
+    expect(entry).toEqual({
+      level: "debug",
+      msg: "unit failed",
+      file: "a.ts",
+      errorCode: "JEV_UNAVAILABLE",
+    });
   });
 
   test("threshold filters lower levels", () => {

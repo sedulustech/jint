@@ -2,20 +2,29 @@
   "name": "jint",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./src/index.ts",
-  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "src"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "bun test --parallel",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
+  },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",
     "@typesafe-ai/sdk": "^0.6.0"
   },
-  "scripts": {
-    "test": "bun test --parallel",
-    "typecheck": "tsc --noEmit"
+  "devDependencies": {
+    "@oxlint/plugins": "1.78.0",
+    "oxfmt": "^0.58.0",
+    "oxlint": "^1.79.0",
+    "oxlint-tsgolint": "^7.0.2001"
   }
 }

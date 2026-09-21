@@ -1,15 +1,17 @@
 import { describe, test, expect } from "bun:test";
-import { renderJson, REPORT_FORMAT } from "../../../src/core/output/json.ts";
-import type { LintReport } from "../../../src/core/lint.ts";
 import { Value } from "@sinclair/typebox/value";
+import { renderJson, REPORT_FORMAT } from "../../../src/core/output/json.ts";
 import { ReportSchema } from "../../../src/core/output/report-schema.ts";
+import type { LintReport } from "../../../src/core/lint.ts";
 
 const report: LintReport = {
   measurements: [
     { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
     { sensor: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
-  signals: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
+  signals: [
+    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" },
+  ],
   diagnostics: [{ input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" }],
 };
 

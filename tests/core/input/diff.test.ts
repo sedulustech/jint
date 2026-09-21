@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { readDiffSource, decomposeDiff, splitDiffBlocks, parseDiffBlock } from "../../../src/core/input/diff.ts";
+import {
+  readDiffSource,
+  decomposeDiff,
+  splitDiffBlocks,
+  parseDiffBlock,
+} from "../../../src/core/input/diff.ts";
 import { AppError, type DiffState } from "../../../src/core/types.ts";
 
 const COMMIT = "commit abc123\nAuthor: Someone\n\n    fix: the thing\n";
@@ -38,7 +43,8 @@ describe("splitDiffBlocks", () => {
   });
 
   test("git-less diffs split on ---/+++ pairs", () => {
-    const classic = "--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n-c\n+d\n";
+    const classic =
+      "--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n-c\n+d\n";
     const blocks = splitDiffBlocks(classic);
     expect(blocks).toHaveLength(2);
     expect(blocks[0]!).toContain("x.ts");
@@ -46,7 +52,8 @@ describe("splitDiffBlocks", () => {
   });
 
   test("git-format hunk bodies starting with --- stay intact", () => {
-    const tricky = "diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n--- --- weird\n+ok\ndiff --git a/y.ts b/y.ts\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n+a\n";
+    const tricky =
+      "diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n--- --- weird\n+ok\ndiff --git a/y.ts b/y.ts\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n+a\n";
     const blocks = splitDiffBlocks(tricky);
     expect(blocks.filter((b) => b.startsWith("diff --git"))).toHaveLength(2);
   });
@@ -122,7 +129,13 @@ describe("readDiffSource", () => {
   test("git rev resolves a real range with the commit message shared", async () => {
     if (Bun.which("git") === null) return; // documented stub requires the git binary
     const dir = `/tmp/jint-diff-test-${Date.now()}`;
-    const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "t",
+      GIT_AUTHOR_EMAIL: "t@t",
+      GIT_COMMITTER_NAME: "t",
+      GIT_COMMITTER_EMAIL: "t@t",
+    };
     const git = (args: string[]) =>
       Bun.spawnSync(["git", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe", env });
     Bun.spawnSync(["mkdir", "-p", dir]);
@@ -137,10 +150,10 @@ describe("readDiffSource", () => {
     const probe = [
       'import { readDiffSource } from "/home/crjm/dev/sedulus/jint/src/core/input/diff.ts";',
       'const source = await readDiffSource("HEAD~1..HEAD");',
-      'console.log(JSON.stringify({',
-        '  hasDiff: source.text.includes("diff --git a/f.txt b/f.txt"),',
-        '  message: (source.commitMessage ?? "").includes("second: add a line"),',
-      '}));',
+      "console.log(JSON.stringify({",
+      '  hasDiff: source.text.includes("diff --git a/f.txt b/f.txt"),',
+      '  message: (source.commitMessage ?? "").includes("second: add a line"),',
+      "}));",
     ].join("\n");
     Bun.write(`${dir}/probe.ts`, probe);
     try {

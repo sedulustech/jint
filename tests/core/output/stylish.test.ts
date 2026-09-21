@@ -6,7 +6,12 @@ const report: LintReport = {
   measurements: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
   signals: [
     { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
-    { sensor: "is_greppable", input: "src/tui/deeply/nested/path.ts", value: 0.3, severity: "error" },
+    {
+      sensor: "is_greppable",
+      input: "src/tui/deeply/nested/path.ts",
+      value: 0.3,
+      severity: "error",
+    },
   ],
   diagnostics: [{ input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" }],
 };
@@ -23,7 +28,10 @@ describe("renderStylish", () => {
   });
 
   test("summary line for a clean run mentions the measurement count", () => {
-    const out = renderStylish({ measurements: [{ sensor: "s", input: "i", value: 0.5 }], signals: [], diagnostics: [] }, "never");
+    const out = renderStylish(
+      { measurements: [{ sensor: "s", input: "i", value: 0.5 }], signals: [], diagnostics: [] },
+      "never",
+    );
     expect(out).toContain("no signals — 1 measurement clean");
   });
 
