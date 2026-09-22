@@ -9,8 +9,8 @@
  *
  * Sweep readings are candidates, never verdicts: a reading crossing the sensor's sweep threshold
  * makes its block a candidate, and sweep measurements are stage-tagged so lint never runs a handle
- * on them. Sweep thresholds are anchored generously for recall (see SWEEP_THRESHOLDS for the
- * derivation) and are PROVISIONAL pending a sweep-regime calibration pass.
+ * on them. Sweep thresholds are set generously for recall (see SWEEP_THRESHOLDS for the derivation)
+ * and are PROVISIONAL pending a sweep-regime calibration pass.
  *
  * Stage 2 — confirm: each candidate leaf is re-measured ISOLATED (leaf content as the whole state,
  * all its sensors batched in one call) using the existing handles and thresholds unchanged, so the
@@ -63,7 +63,7 @@ const sweepClause = (label: string): string => `Judge only the code block labele
  * healthy client.ts blocks read <=0.5 drift, <=0.4 narration in the array regime); elsewhere the
  * handle's warn boundary stands in. Note the narration clamp: the flagged A/B blocks read
  * 0.43-0.49, so the 0.50 cut trades recall for zero healthy-band overlap — provisional, to be
- * re-anchored by a sweep-regime calibration pass.
+ * re-calibrated by a sweep-regime calibration pass.
  */
 const SWEEP_THRESHOLDS: Record<string, number> = {
   will_comment_drift: 0.6,
