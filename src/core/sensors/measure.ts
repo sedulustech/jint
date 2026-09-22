@@ -15,13 +15,7 @@ import {
   type QuestionSpec,
   type Sensor,
   type Unit,
-  type UnitKind,
 } from "../types.ts";
-
-/** The sensors whose inputTypes include this unitKind. */
-export function selectSensors(sensors: readonly Sensor[], unitKind: UnitKind): Sensor[] {
-  return sensors.filter((sensor) => sensor.inputTypes.includes(unitKind));
-}
 
 /** Compile sensors to noul questions using the validated structured measurement envelope. */
 export function compileSensorQuestions(sensors: readonly Sensor[]): Record<string, QuestionSpec> {
@@ -45,9 +39,9 @@ export async function* measureUnit(
   sensors: readonly Sensor[],
   judge: Judge,
 ): AsyncGenerator<Measurement | Diagnostic> {
-  const selectedSensors = selectSensors(sensors, unit.kind);
-  if (selectedSensors.length === 0) return;
-  const questions = compileSensorQuestions(selectedSensors);
+  if (sensors.length === 0) return;
+  // Any acquisition resolves into target instances upstream, so every sensor participates.
+  const questions = compileSensorQuestions(sensors);
   let answers: Record<string, number>;
   try {
     answers = await judge(unit.state, questions);
@@ -55,7 +49,7 @@ export async function* measureUnit(
     yield toDiagnostic(unit, thrown);
     return;
   }
-  for (const sensor of selectedSensors) {
+  for (const sensor of sensors) {
     const value = answers[sensor.name];
     if (typeof value !== "number" || !Number.isFinite(value)) {
       yield toInvalidAnswerDiagnostic(unit, sensor.name);

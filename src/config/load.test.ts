@@ -2,14 +2,14 @@ import { describe, test, expect } from "bun:test";
 import { AppError } from "../core/types.ts";
 import { loadConfig, defaultConfig, validateConfig } from "./load.ts";
 
-const ROOT = "/home/crjm/dev/sedulus/jint";
+const ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
 describe("loadConfig", () => {
   test("loads from jint.config.ts in current dir", async () => {
     const tmpDir = "/tmp/jint-config-test-" + Math.random().toString(36).substring(7);
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(
       tmpDir + "/jint.config.ts",
-      'export default { input: ".", sensors: [{ name: "noop", description: "noop sensor", inputTypes: ["file"], handle: () => null }], exclude: [] };',
+      'export default { input: ".", sensors: [{ name: "noop", description: "noop sensor", target: "files", handle: () => null }], exclude: [] };',
     );
 
     // Should exit 4 (JEV_AUTH) because key is empty

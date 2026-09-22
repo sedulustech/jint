@@ -187,7 +187,7 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
     const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
-    // funnel: 2 file-granularity + 6 sweep questions minimum; sweeps flag candidates, so the
+    // funnel: 2 files-target + 6 sweep questions minimum; sweeps flag candidates, so the
     // exact total depends on the real readings
     expect(report.measurements.length).toBeGreaterThanOrEqual(8);
     for (const m of report.measurements) {

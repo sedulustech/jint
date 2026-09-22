@@ -55,8 +55,5 @@ function namedToList(spec: Record<string, Sensor | string[]>): readonly Sensor[]
 }
 
 function freezeSensor(sensor: Sensor): Sensor {
-  return Object.freeze({
-    ...sensor,
-    inputTypes: Object.freeze([...sensor.inputTypes]),
-  });
+  return Object.freeze({ ...sensor });
 }

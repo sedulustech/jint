@@ -154,7 +154,7 @@ describe("sensor definitions", () => {
     ]);
     for (const sensor of Object.values(sensorDefaults)) {
       expect(sensor.description.length).toBeGreaterThan(20);
-      expect(sensor.inputTypes).toEqual(["file", "diff"]);
+      expect(["files", "definitions", "comments", "imports", "diffs"]).toContain(sensor.target);
     }
   });
 

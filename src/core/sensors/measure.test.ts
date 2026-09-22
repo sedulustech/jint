@@ -9,7 +9,7 @@ import {
   type UnitState,
 } from "../types.ts";
 import { sensorDefaults } from "./defaults.ts";
-import { selectSensors, compileSensorQuestions, measureUnit, toDiagnostic } from "./measure.ts";
+import { compileSensorQuestions, measureUnit, toDiagnostic } from "./measure.ts";
 
 const fileUnit: Unit = {
   kind: "file",
@@ -32,14 +32,6 @@ function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
 function isMeasurement(event: Measurement | Diagnostic): event is Measurement {
   return "sensor" in event;
 }
-
-describe("selectSensors", () => {
-  test("kind narrows the sensor set", () => {
-    expect(selectSensors(allSensors, "file")).toHaveLength(9);
-    expect(selectSensors(allSensors, "diff")).toHaveLength(9);
-    expect(selectSensors([{ ...allSensors[0]!, inputTypes: ["file"] }], "diff")).toHaveLength(0);
-  });
-});
 
 describe("compileSensorQuestions", () => {
   test("uses the calibrated structured envelope", () => {
@@ -128,18 +120,14 @@ describe("measureUnit", () => {
     expect((events[0] as Diagnostic).code).toBe("INTERNAL");
   });
 
-  test("no input-compatible sensors -> judge never called", async () => {
+  test("no sensors -> judge never called", async () => {
     let called = false;
     const judge: Judge = async () => {
       called = true;
       return {};
     };
     const events: (Measurement | Diagnostic)[] = [];
-    for await (const event of measureUnit(
-      fileUnit,
-      [{ ...sensorDefaults.is_name_purposeful!, inputTypes: ["diff"] }],
-      judge,
-    )) {
+    for await (const event of measureUnit(fileUnit, [], judge)) {
       events.push(event);
     }
     expect(called).toBe(false);

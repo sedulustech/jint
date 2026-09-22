@@ -29,8 +29,7 @@ describe("defineConfig", () => {
     const sensor: Sensor = {
       name: "custom",
       description: "claim",
-      inputTypes: ["file"],
-      granularity: "file",
+      target: "files",
       handle: () => null,
     };
     const config = defineConfig({ input: "a.ts", sensors: [sensor] });
@@ -49,10 +48,10 @@ describe("defineConfig", () => {
     expect(config.exclude).toEqual(["*.lock"]);
   });
 
-  test("default sensors all declare file+diff inputTypes", () => {
+  test("default sensors all declare a valid target", () => {
+    const targets = new Set(["files", "definitions", "comments", "imports", "diffs"]);
     for (const sensor of Object.values(sensorDefaults)) {
-      expect(sensor.inputTypes).toContain("file");
-      expect(sensor.inputTypes).toContain("diff");
+      expect(targets.has(sensor.target)).toBe(true);
     }
   });
 });

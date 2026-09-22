@@ -2,7 +2,7 @@
  * The two-stage measurement funnel (tmp/design.md §7.7).
  *
  * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of labeled blocks
- * (definitions with their attached comments, standalone comment groups), plus the file-granularity
+ * (definitions with their attached comments, standalone comment groups), plus the files-target
  * sensors' own whole-content call (they are relational and have no leaf form). Sweep questions are
  * keyed "block-N.<sensor>" and append the FROZEN scoping clause to the claim — the clause is part
  * of the sweep regime's calibration text; changing it is a re-calibration event.
@@ -42,9 +42,9 @@ export type FunnelStage = "file" | "sweep" | "confirm";
 const sweepClause = (label: string): string => `Judge only the code block labeled ${label}.`;
 
 /**
- * Sweep (stage-1) candidate thresholds per sensor, keyed by sensor name. A leaf-granularity sensor
- * without an entry never sweeps (and so never confirms) — deliberately conservative for custom
- * sensors until they are calibrated for the array regime.
+ * Sweep (stage-1) candidate thresholds per sensor, keyed by sensor name. A sweeping
+ * (non-files-target) sensor without an entry never sweeps (and so never confirms) — deliberately
+ * conservative for custom sensors until they are calibrated for the array regime.
  *
  * Derivation — start at the sensor's error threshold pulled 0.15 toward the healthy side (the array
  * regime dampens flagged blocks by -0.1..-0.2 relative to isolated, design §7.6), then clamp at
@@ -91,12 +91,13 @@ interface Candidate {
 }
 
 /**
- * Every leaf-granularity sensor sweeps every block-leaf (design section 7.7): comment-family
- * sensors read definition-attached docblocks too - drift-prone artifact pinning lives there, and
- * the A/B probes (design section 7.6) measured exactly these blocks with the comment family.
+ * Every sweeping sensor (target other than "files") sweeps every block-leaf (design section 7.7):
+ * comment-family sensors read definition-attached docblocks too - drift-prone artifact pinning
+ * lives there, and the A/B probes (design section 7.6) measured exactly these blocks with the
+ * comment family.
  */
 const blockSensors = (sensors: readonly Sensor[]): Sensor[] =>
-  sensors.filter((s) => s.granularity !== "file" && s.inputTypes.includes("file"));
+  sensors.filter((s) => s.target !== "files");
 
 /** A confirmed (stage-2) reading, awaiting per-file aggregation in lint. */
 export interface ConfirmedReading {
@@ -138,7 +139,7 @@ export async function measureFile(
       : String((state as unknown as Record<string, unknown>).diff ?? "");
 
   // Decomposition is best-effort: an unmapped or uncuttable file degrades to the coarsest
-  // granularity - one whole-content leaf - with a warn diagnostic. It is not a legacy path;
+  // target - one whole-content leaf - with a warn diagnostic. It is not a legacy path;
   // it is the same funnel run over a single leaf (design section 7.2).
   let leaves: UnitLeaf[] = [];
   let degraded: string | null = null;
@@ -182,10 +183,8 @@ export async function measureFile(
     events.push({ event, stage });
   };
 
-  // File-granularity sensors: relational claims, their own whole-content call, handles as today.
-  const fileSensors = sensors.filter(
-    (s) => s.granularity === "file" && s.inputTypes.includes("file"),
-  );
+  // Files-target sensors: relational claims, their own whole-content call, handles as today.
+  const fileSensors = sensors.filter((s) => s.target === "files");
   if (fileSensors.length > 0) {
     const file = await call(state, compileSensorQuestions(fileSensors), judge, state.path);
     collect(

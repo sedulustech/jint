@@ -66,7 +66,7 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
 }
 
 describe("lint — funnel shape", () => {
-  test("one sweep call per file with array state + labeled questions; file-granularity call separate", async () => {
+  test("one sweep call per file with array state + labeled questions; files-target call separate", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, judge: loggingJudge({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
@@ -79,11 +79,11 @@ describe("lint — funnel shape", () => {
         { label: "block-1", content: expect.stringContaining("formatDuration") },
       ],
     });
-    // one question per (block-leaf, non-file-granularity sensor): 2 definitions x 7
+    // one question per (block-leaf, non-files-target sensor): 2 definitions x 7
     expect(sweep.questions).toHaveLength(14);
     expect(sweep.questions).toContain("block-0.is_name_purposeful");
     expect(sweep.questions).toContain("block-1.is_cognitively_complex");
-    // the file-granularity sensors keep their own whole-content call
+    // the files-target sensors keep their own whole-content call
     const whole = log.calls.filter((c) => !isSweep(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
     expect(whole[0]!.questions).toEqual(
@@ -184,8 +184,8 @@ describe("lint — funnel shape", () => {
       const events = await drain(
         lint({ config: baseConfig, input: empty, judge: loggingJudge({}, log) }),
       );
-      // two calls: file-granularity sensors on whole content, then the sweep over ONE
-      // whole-file leaf - the coarsest granularity, not a legacy path (design 7.2)
+      // two calls: files-target sensors on whole content, then the sweep over ONE
+      // whole-file leaf - the coarsest target, not a legacy path (design 7.2)
       expect(log.calls).toHaveLength(2);
       expect(isSweep(log.calls[0]!.state)).toBe(false);
       expect(isSweep(log.calls[1]!.state)).toBe(true);
@@ -282,7 +282,7 @@ describe("lint", () => {
         judge: loggingJudge({ is_name_purposeful: 0.7 }, log),
       }),
     );
-    // purposeful is definition-granularity: sweep only, no whole-content call, no confirm
+    // purposeful targets definitions: sweep only, no whole-content call, no confirm
     // (0.7 is above the sweep anchor)
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toEqual([
@@ -307,7 +307,7 @@ describe("lint", () => {
     const events = await drain(
       lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }),
     );
-    // two judge calls per file (file-granularity + sweep), same path - dedupe for the assertion
+    // two judge calls per file (files-target + sweep), same path - dedupe for the assertion
     const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",
@@ -410,7 +410,7 @@ describe("lint", () => {
         judge: judgeWith({ is_name_purposeful: 0.7 }),
       }),
     );
-    // definition-granularity: 2 sweep questions, no candidates at 0.7
+    // definitions target: 2 sweep questions, no candidates at 0.7
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 });

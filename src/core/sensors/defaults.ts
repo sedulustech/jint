@@ -25,8 +25,7 @@ export const isNamePurposeful: Sensor = {
      The failure modes: names that reveal implementation instead of purpose (naming how it works, not what it is for), bare generic words that could label anything (data, handler, util, temp), and names that mislead - promising behavior or a kind the thing does not have.
      The claim is about what the name communicates; casing and convention style are not naming failures.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "definition",
+  target: "definitions",
   handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
 };
 
@@ -37,8 +36,7 @@ export const isVocabularyConsistent: Sensor = {
      The boundary failure is synonym drift: the same concept referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea.
      Different words for genuinely different concepts are consistent; only same-concept drift is the failure.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "file",
+  target: "files",
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
@@ -50,8 +48,7 @@ export const isNamingConventionConsistent: Sensor = {
      The failure is two forms for one kind within the same change or module: getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types - forcing a reader to learn two shapes for one kind.
      Different kinds may use different conventions; casing is about form alone - word choice and name quality are other claims' territory.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "definition",
+  target: "definitions",
   // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
   // convention mixers and the consistent files; the clean corpus (mobius
   // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
@@ -65,8 +62,7 @@ export const isGreppable: Sensor = {
      This means identifiers are written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary so the same concept requires two different search strings, and specific enough (not bare words like data, handler, or util) that a search hit is genuinely a reference to this thing.
      Strings that are user-facing interface rather than code identifiers - CLI flag spellings, help text, log messages - are not part of this judgment; only code identifiers are.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "file",
+  target: "files",
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
@@ -77,8 +73,7 @@ export const is_comment_business_context: Sensor = {
      The claim is about knowledge a maintainer cannot recover from the code alone.
      Comments that describe what the code does, docstrings that restate a signature, or style notes are not business context.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "comment",
+  target: "comments",
   // Null in v0, deliberately: high readings are a virtue and low readings are
   // not a defect (not all code needs recorded context), so no reading is
   // evidence of a problem - any threshold would flag healthy code. The
@@ -94,8 +89,7 @@ export const is_comment_narration: Sensor = {
      The comment is duplicate information; removing it loses nothing a reader could not get from the code itself.
      Comments that state why the code exists, record a constraint, or flag a non-obvious trap say what the code cannot and are not narration.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "comment",
+  target: "comments",
   handle: (value) => (value > 0.45 ? "error" : value > 0.3 ? "warn" : null),
 };
 
@@ -106,8 +100,7 @@ export const is_comment_patching_readability: Sensor = {
      This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.
      Comments that add what code cannot carry - rationale, constraints, external contracts - are not readability patches, even when the surrounding code is also hard to read.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "comment",
+  target: "comments",
   handle: (value) => (value > 0.55 ? "error" : value > 0.4 ? "warn" : null),
 };
 
@@ -118,8 +111,7 @@ export const will_comment_drift: Sensor = {
      The claim is coupling between the comment's wording and specific identifiers, not comments that are already wrong today.
      Comments that describe behavior, rationale, or constraints without naming specific artifacts cannot drift this way.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "comment",
+  target: "comments",
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
@@ -133,8 +125,7 @@ export const isCognitivelyComplex: Sensor = {
      The failure modes: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines to know what is happening, and a non-linear reading order that forces jumping around instead of flowing top to bottom.
      Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is excluded: the claim is about avoidable difficulty in how the solution is written, not unavoidable difficulty in the problem.
    `,
-  inputTypes: ["file", "diff"],
-  granularity: "definition",
+  target: "definitions",
   // Thresholds kept from the previous anchor: the scoped claim lowered the
   // healthy ceiling on both calibration corpora, widening the margin to the
   // bloat/obfuscate mutants, which land in the warn band.

@@ -1,7 +1,7 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - Sensor — the measuring mechanism: { name, description, inputTypes, granularity, handle }
+ * - Sensor — the measuring mechanism: { name, description, target, handle }
  * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
  *   by itself
  * - Signal — a measurement that cleared the sensor's handle; the only actionable output
@@ -45,6 +45,14 @@ export class AppError extends Error {
 }
 
 /**
+ * Which decomposition instance a sensor judges (design.md §7.1): decomposition of an acquired file
+ * yields target instances - one whole-file slice, N definition leaves, M standalone comment leaves,
+ * 1 merged import leaf - and the target selects which of them the sensor's question runs over.
+ * "diffs" is the diff blob itself (no sensor uses it yet).
+ */
+export type SensorTarget = "files" | "definitions" | "comments" | "imports" | "diffs";
+
+/**
  * A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the
  * value.
  */
@@ -52,14 +60,8 @@ export interface Sensor {
   readonly name: string;
   /** The calibrated claim; compiles to the noul question's instructions. */
   readonly description: string;
-  /** Which unit kinds this sensor can measure; the inferred input kind narrows which sensors run. */
-  readonly inputTypes: readonly UnitKind[];
-  /**
-   * Which decomposition of the state this sensor judges (design.md §7.1): "file" needs the whole
-   * set in one state; finer granularities ("definition", "comment", "import") judge individual
-   * decompose() leaves. Every sensor ships "file" until the Stage-2 funnel lands.
-   */
-  readonly granularity: "file" | "definition" | "comment" | "import";
+  /** Which decomposition instances this sensor judges; the funnel routes on it (design.md §7.1). */
+  readonly target: SensorTarget;
   /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
   readonly handle: (value: number) => HandleResult;
 }
@@ -84,7 +86,7 @@ export interface Signal {
   readonly severity: Severity;
   /**
    * Exact leaf location for confirmed funnel signals (design.md §7.3): the labeled block plus its
-   * byte/line span into the source. Absent for file-granularity signals (relational, file-shaped).
+   * byte/line span into the source. Absent for files-target signals (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
 }
