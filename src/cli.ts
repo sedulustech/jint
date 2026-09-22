@@ -41,6 +41,7 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   color: TypeBoxType.Optional(COLOR_MODE_SCHEMA),
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  sensor: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
@@ -70,6 +71,7 @@ Options:
   --config <path>     config file (default: jint.config.ts)
   --exclude <glob>    input exclusion, on top of config (repeatable)
   --disable <name>    sensor removal by name, on top of config (repeatable)
+  --sensor <name>     run ONLY these sensors (repeatable); overrides --disable for the named set
   --json              machine report (jint-report/v1) instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
@@ -130,6 +132,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         inputType: cliInput.inputType,
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
+        only: cliArgs.sensor,
       }),
     );
     // JSON: the document is data (errors/degradations ride in it) — stdout only, stderr untouched.
@@ -166,6 +169,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         color: { type: "string" },
         exclude: { type: "string", multiple: true },
         disable: { type: "string", multiple: true },
+        sensor: { type: "string", multiple: true },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },

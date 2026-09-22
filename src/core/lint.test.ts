@@ -50,7 +50,12 @@ function judgeWith(values: Record<string, number>): Judge {
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
       const sensor = sensorOf(key);
-      out[key] = values[key] ?? values[sensor] ?? SILENT[sensor as keyof typeof SILENT] ?? 0.5;
+      out[key] =
+        values[key] ??
+        (sensor !== "" ? values[sensor] : undefined) ??
+        (sensor !== "" ? SILENT[sensor as keyof typeof SILENT] : undefined) ??
+        Object.values(values)[0] ??
+        0.5;
     }
     return out;
   };
@@ -69,6 +74,11 @@ function loggingJudge(values: Record<string, number>, log: CallLog): Judge {
       questions: Object.keys(questions),
       specs: questions as unknown as Record<string, unknown>,
     });
+    if (process.env.DBG)
+      console.log(
+        "CALL",
+        JSON.stringify({ isSweep: "blocks" in state, keys: Object.keys(questions) }),
+      );
     return inner(state, questions);
   };
 }
@@ -332,7 +342,7 @@ describe("lint", () => {
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toHaveLength(2);
     for (const key of log.calls[0]!.questions) {
-      expect(key).toMatch(/^is_name_purposeful in [0-9a-f]{8}$/);
+      expect(key).toMatch(/^[0-9a-f]{8}$/); // single sensor -> bare unit-id keys
     }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });

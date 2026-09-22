@@ -32,7 +32,10 @@ function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
     calls.push({ kind: "file", state: state as UnitState });
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
-      const sensor = key.slice(0, key.indexOf(" in "));
+      // keys are "<sensor> in <unitId>" (multi-sensor) or the bare unitId (single sensor)
+      const sensor = key.includes(" in ")
+        ? key.slice(0, key.indexOf(" in "))
+        : Object.keys(values)[0]!;
       if (sensor in values) out[key] = values[sensor]!;
     }
     return out;
@@ -47,11 +50,11 @@ describe("compileSensorQuestions", () => {
   test("whole-file unit: criteria passthrough, instructions is the one-element id array", () => {
     const sensor = sensorDefaults.is_name_purposeful!;
     const { questions, attribution } = compileSensorQuestions([sensor], FILE_ID);
-    const spec = questions[`is_name_purposeful in ${FILE_ID}`]!;
+    const spec = questions[FILE_ID]!;
     expect(spec.type).toBe("noul");
     expect(spec.instructions).toEqual([FILE_ID]);
     expect(spec.criteria).toBe(sensor.criteria);
-    expect(attribution.get(`is_name_purposeful in ${FILE_ID}`)).toEqual({
+    expect(attribution.get(FILE_ID)).toEqual({
       sensor: "is_name_purposeful",
       blockId: FILE_ID,
     });
@@ -60,10 +63,10 @@ describe("compileSensorQuestions", () => {
   test("block-scoped: '<sensor> in <unitId>' ids, wire id as the sole instruction", () => {
     const sensor = sensorDefaults.is_name_purposeful!;
     const { questions, attribution } = compileSensorQuestions([sensor], "block-3");
-    const spec = questions["is_name_purposeful in block-3"]!;
+    const spec = questions["block-3"]!;
     expect(spec.instructions).toEqual(["block-3"]);
     expect(spec.criteria).toBe(sensor.criteria);
-    expect(attribution.get("is_name_purposeful in block-3")).toEqual({
+    expect(attribution.get("block-3")).toEqual({
       sensor: "is_name_purposeful",
       blockId: "block-3",
     });
@@ -179,5 +182,31 @@ describe("toRequestError", () => {
     const error = toRequestError("src/a.ts", thrown);
     expect(error.code).toBe("JEV_AUTH");
     expect(error.input).toBe("src/a.ts");
+  });
+});
+
+describe("compileSensorQuestions — single-sensor bare keys", () => {
+  test("with one sensor, question keys are the bare unit id (no composite key)", () => {
+    const { questions, attribution } = compileSensorQuestions(
+      [sensorDefaults.will_comment_drift!],
+      "a1b2c3d4",
+    );
+    const keys = Object.keys(questions);
+    expect(keys).toEqual(["a1b2c3d4"]);
+    expect(attribution.get("a1b2c3d4")).toEqual({
+      sensor: "will_comment_drift",
+      blockId: "a1b2c3d4",
+    });
+  });
+
+  test("with multiple sensors, keys stay composite", () => {
+    const { questions } = compileSensorQuestions(
+      [sensorDefaults.will_comment_drift!, sensorDefaults.is_comment_narration!],
+      "a1b2c3d4",
+    );
+    expect(Object.keys(questions).sort()).toEqual([
+      "is_comment_narration in a1b2c3d4",
+      "will_comment_drift in a1b2c3d4",
+    ]);
   });
 });

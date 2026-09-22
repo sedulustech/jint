@@ -45,8 +45,11 @@ export function questionKey(sensorName: string, blockId: string): string {
 export function compileSensorQuestions(sensors: readonly Sensor[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
   const attribution = new Map<string, QuestionAttribution>();
+  // single-sensor runs key questions by bare unit id: one sensor means no ambiguity, and the
+  // capture json groups by unit id without a composite key (question ids are never sent).
+  const bareKeys = sensors.length === 1;
   for (const sensor of sensors) {
-    const key = questionKey(sensor.name, unitId);
+    const key = bareKeys ? unitId : questionKey(sensor.name, unitId);
     questions[key] = {
       type: "noul",
       instructions: [unitId],
@@ -73,16 +76,17 @@ export async function* measureUnit(
   if (sensors.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every sensor participates.
   const unitId = "id" in unit.state ? unit.state.id : blockWireId(unit.state.diff);
-  const { questions } = compileSensorQuestions(sensors, unitId);
+  const batch = compileSensorQuestions(sensors, unitId);
   let answers: Record<string, number>;
   try {
-    answers = await judge(unit.state, questions);
+    answers = await judge(unit.state, batch.questions);
   } catch (thrown) {
     yield toRequestError(unit.state.path, thrown);
     return;
   }
   for (const sensor of sensors) {
-    const value = answers[questionKey(sensor.name, unitId)];
+    const key = [...batch.attribution.entries()].find(([, a]) => a.sensor === sensor.name)![0];
+    const value = answers[key];
     if (typeof value !== "number" || !Number.isFinite(value)) {
       yield invalidAnswerError(unit.state.path, sensor.name);
       continue;

@@ -44,6 +44,8 @@ export interface LintOptions {
   exclude?: readonly string[];
   /** Sensors removed by name (CLI --disable). */
   disable?: readonly string[];
+  /** If set, ONLY these sensors run (CLI --sensor, repeatable). Applied after disable. */
+  only?: readonly string[];
   /** Swappable judge; defaults to the TypeSafe System One adapter. */
   judge?: Judge;
 }
@@ -58,7 +60,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const sensors = pickSensors(options.config.sensors, options.disable);
+  const sensors = pickSensors(options.config.sensors, options.disable, options.only);
   const units = await collectUnits(
     resolveInput({ input, inputType: options.inputType ?? options.config.inputType, exclude }),
   );
@@ -158,10 +160,18 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
 function pickSensors(
   sensors: readonly Sensor[],
   disable: readonly string[] | undefined,
+  only: readonly string[] | undefined,
 ): readonly Sensor[] {
-  if (disable === undefined || disable.length === 0) return sensors;
-  const disabled = new Set(disable);
-  return sensors.filter((s) => !disabled.has(s.name));
+  let out = sensors;
+  if (disable !== undefined && disable.length > 0) {
+    const disabled = new Set(disable);
+    out = out.filter((s) => !disabled.has(s.name));
+  }
+  if (only !== undefined && only.length > 0) {
+    const wanted = new Set(only);
+    out = out.filter((s) => wanted.has(s.name));
+  }
+  return out;
 }
 
 export interface LintReport {
