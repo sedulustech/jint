@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { isVocabularyConsistent } from "../../../src/core/sensors/defaults.ts";
-import type { Sensor } from "../../../src/core/types.ts";
+import { isVocabularyConsistent } from "../../../sensors/defaults.ts";
+import type { Sensor } from "../../../types.ts";
 
 /** Doc for thing. */
 export const thing: Sensor = isVocabularyConsistent;

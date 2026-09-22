@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
-import { log, setLogLevel } from "../src/logger.ts";
+import { log, setLogLevel } from "./logger.ts";
 
 const originalError = console.error;
 let captured: unknown[][] = [];

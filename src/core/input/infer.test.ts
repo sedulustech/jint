@@ -1,11 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import {
-  inferKind,
-  looksLikeDiff,
-  looksLikeRevShaped,
-  resolveInput,
-} from "../../../src/core/input/infer.ts";
-import { AppError, type FileState } from "../../../src/core/types.ts";
+import { AppError, type FileState } from "../types.ts";
+import { inferKind, looksLikeDiff, looksLikeRevShaped, resolveInput } from "./infer.ts";
 
 describe("inferKind", () => {
   test("on-disk directory -> dir", async () => {

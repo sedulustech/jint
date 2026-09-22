@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
-import { defineConfig } from "../../src/config/define.ts";
-import { lint, collectReport } from "../../src/core/lint.ts";
-import { sensorDefaults } from "../../src/core/sensors/defaults.ts";
-import { AppError, type Judge, type LintEvent, type Sensor } from "../../src/core/types.ts";
+import { defineConfig } from "../config/define.ts";
+import { lint, collectReport } from "../core/lint.ts";
+import { sensorDefaults } from "../core/sensors/defaults.ts";
+import { AppError, type Judge, type LintEvent, type Sensor } from "../core/types.ts";
 
 const baseConfig = defineConfig({
   input: "",

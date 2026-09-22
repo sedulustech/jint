@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { renderStylish, shouldColor } from "../../../src/core/output/stylish.ts";
-import type { LintReport } from "../../../src/core/lint.ts";
+import { renderStylish, shouldColor } from "./stylish.ts";
+import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
   measurements: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],

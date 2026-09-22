@@ -1,11 +1,4 @@
 import { describe, test, expect } from "bun:test";
-import { sensorDefaults } from "../../../src/core/sensors/defaults.ts";
-import {
-  selectSensors,
-  compileSensorQuestions,
-  measureUnit,
-  toDiagnostic,
-} from "../../../src/core/sensors/measure.ts";
 import {
   AppError,
   type Judge,
@@ -13,7 +6,9 @@ import {
   type Diagnostic,
   type Sensor,
   type Unit,
-} from "../../../src/core/types.ts";
+} from "../types.ts";
+import { sensorDefaults } from "./defaults.ts";
+import { selectSensors, compileSensorQuestions, measureUnit, toDiagnostic } from "./measure.ts";
 
 const fileUnit: Unit = {
   kind: "file",

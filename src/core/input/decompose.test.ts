@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
-import { decompose, type Inventory } from "../../../src/core/input/decompose.ts";
+import { decompose, type Inventory } from "./decompose.ts";
 
 const GOLDEN = "src/core/types.ts";
 
@@ -92,7 +92,7 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
 
 describe("decompose — imports fixture", () => {
   test("groups all imports into one merged leaf", async () => {
-    const source = await Bun.file("tests/fixtures/unit-tree/imports.ts").text();
+    const source = await Bun.file("src/core/input/fixtures/unit-tree/imports.ts").text();
     const inv = await decompose(source, "typescript");
     expect(inv.imports).toHaveLength(1);
     const merged = inv.imports[0];
@@ -116,7 +116,7 @@ describe("decompose — imports fixture", () => {
 
 describe("decompose — standalone-comment fixture", () => {
   test("separated and trailing comments land standalone, never attached", async () => {
-    const source = await Bun.file("tests/fixtures/unit-tree/standalone-comment.ts").text();
+    const source = await Bun.file("src/core/input/fixtures/unit-tree/standalone-comment.ts").text();
     const inv = await decompose(source, "typescript");
     expect(inv.comments).toHaveLength(2);
     expect(inv.comments[0]?.content).toContain("file-header comment");
@@ -127,7 +127,7 @@ describe("decompose — standalone-comment fixture", () => {
 
 describe("decompose — comment-orphan fixture", () => {
   test("orphans land standalone; comments before imports never attach", async () => {
-    const source = await Bun.file("tests/fixtures/unit-tree/comment-orphan.ts").text();
+    const source = await Bun.file("src/core/input/fixtures/unit-tree/comment-orphan.ts").text();
     const inv = await decompose(source, "typescript");
     expect(attachedCount(inv)).toBe(0);
     expect(inv.comments).toHaveLength(2);

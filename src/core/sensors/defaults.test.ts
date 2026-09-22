@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { sensorDefaults } from "../../../src/core/sensors/defaults.ts";
-import type { Sensor } from "../../../src/core/types.ts";
+import { sensorDefaults } from "./defaults.ts";
+import type { Sensor } from "../types.ts";
 
 const CALIBRATION = "tests/data/calibration/healthy-baselines.json";
 const SENSITIVITY = "tests/data/calibration/mutant-readings.json";

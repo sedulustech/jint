@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { defineConfig } from "../../src/config/define.ts";
-import { sensorDefaults } from "../../src/core/sensors/defaults.ts";
-import type { Sensor } from "../../src/core/types.ts";
+import { sensorDefaults } from "../core/sensors/defaults.ts";
+import { defineConfig } from "./define.ts";
+import type { Sensor } from "../core/types.ts";
 
 describe("defineConfig", () => {
   test("defaults spread + disable removes sensors by name (set membership)", () => {

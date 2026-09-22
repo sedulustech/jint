@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { walkDir, parseGitignore, compilePattern } from "../../../src/core/input/dir.ts";
+import { walkDir, parseGitignore, compilePattern } from "./dir.ts";
 
 async function collect(root: string, exclude?: readonly string[]): Promise<string[]> {
   const paths: string[] = [];

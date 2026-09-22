@@ -1,11 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import {
-  readDiffSource,
-  decomposeDiff,
-  splitDiffBlocks,
-  parseDiffBlock,
-} from "../../../src/core/input/diff.ts";
-import { AppError, type DiffState } from "../../../src/core/types.ts";
+import { AppError, type DiffState } from "../types.ts";
+import { readDiffSource, decomposeDiff, splitDiffBlocks, parseDiffBlock } from "./diff.ts";
 
 const COMMIT = "commit abc123\nAuthor: Someone\n\n    fix: the thing\n";
 const GIT_DIFF = `${COMMIT}

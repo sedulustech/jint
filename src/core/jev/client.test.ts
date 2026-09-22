@@ -1,11 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { createJudge } from "../../../src/core/jev/client.ts";
-import {
-  AppError,
-  type ErrorCode,
-  type QuestionSpec,
-  type UnitState,
-} from "../../../src/core/types.ts";
+import { AppError, type ErrorCode, type QuestionSpec, type UnitState } from "../types.ts";
+import { createJudge } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { loadConfig, defaultConfig, validateConfig } from "../../src/config/load.ts";
-import { AppError } from "../../src/core/types.ts";
+import { AppError } from "../core/types.ts";
+import { loadConfig, defaultConfig, validateConfig } from "./load.ts";
 
 const ROOT = "/home/crjm/dev/sedulus/jint";
 describe("loadConfig", () => {

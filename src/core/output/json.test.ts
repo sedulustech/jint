@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { renderJson, REPORT_FORMAT } from "../../../src/core/output/json.ts";
-import { REPORT_SCHEMA } from "../../../src/core/output/report-schema.ts";
-import type { LintReport } from "../../../src/core/lint.ts";
+import { renderJson, REPORT_FORMAT } from "./json.ts";
+import { REPORT_SCHEMA } from "./report-schema.ts";
+import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
   measurements: [
