@@ -4,6 +4,9 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   sensor: Type.String(),
   input: Type.String(),
   value: Type.Number(),
+  stage: Type.Optional(
+    Type.Union([Type.Literal("file"), Type.Literal("sweep"), Type.Literal("confirm")]),
+  ),
 });
 
 export const SIGNAL_SCHEMA = Type.Object({
@@ -17,6 +20,7 @@ export const DIAGNOSTIC_SCHEMA = Type.Object({
   input: Type.String(),
   code: Type.String(),
   message: Type.String(),
+  severity: Type.Optional(Type.Union([Type.Literal("error"), Type.Literal("warn")])),
 });
 
 export const REPORT_SCHEMA = Type.Object({

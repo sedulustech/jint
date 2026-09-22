@@ -72,6 +72,8 @@ export interface Measurement {
   readonly sensor: string;
   readonly input: string;
   readonly value: number;
+  /** Which funnel regime produced it (absent = whole-unit path). */
+  readonly stage?: "file" | "sweep" | "confirm";
 }
 
 /** A measurement that mattered: it cleared the sensor's handle and carries the returned severity. */

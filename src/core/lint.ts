@@ -77,7 +77,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           yield { type: "diagnostic", diagnostic: event };
           continue;
         }
-        yield { type: "measurement", measurement: event };
+        yield { type: "measurement", measurement: { ...event, stage } };
         // Sweep readings are candidates; confirmed leaf readings decide via aggregation below.
         if (stage !== "file") continue;
         const handle = byName.get(event.sensor)?.handle;
