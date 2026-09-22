@@ -85,8 +85,8 @@ export interface Signal {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Exact leaf location for confirmed funnel signals (design.md §7.3): the labeled block plus its
-   * byte/line span into the source. Absent for files-target signals (relational, file-shaped).
+   * Exact leaf location for confirmed funnel signals (design.md §7.3): the identified block plus
+   * its byte/line span into the source. Absent for files-target signals (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
 }
@@ -114,13 +114,13 @@ export interface FileState {
   readonly content: string;
 }
 
-/** One block of the sweep's array state (design.md §7.7); label is "block-N", positional. */
+/** One block of the sweep's array state (design.md §7.7); id is "block-N", positional. */
 export interface SweepBlock {
-  readonly label: string;
+  readonly id: string;
   readonly content: string;
 }
 
-/** Stage-1 sweep state: one file mapped into an array of labeled blocks, judged in ONE call. */
+/** Stage-1 sweep state: one file mapped into an array of blocks, judged in ONE call. */
 export interface SweepState {
   readonly path: string;
   readonly blocks: readonly SweepBlock[];
@@ -143,10 +143,16 @@ export interface Unit {
   readonly state: UnitState;
 }
 
-/** Structurally compatible with the SDK's NoulQuestion; the jev adapter owns the real SDK type. */
+/**
+ * The documented noul question (docs: primitives/noul); structurally compatible with the SDK's
+ * NoulQuestion — the jev adapter owns the real SDK type. `instructions` is the plain-string yes/no
+ * question; `criteria` describes what true and false mean. Question ids (the record keys) are never
+ * sent to the model — they only correlate answers.
+ */
 export interface QuestionSpec {
   readonly type: "noul";
-  readonly instructions: string | Record<string, string>;
+  readonly instructions: string;
+  readonly criteria?: { readonly true: string; readonly false: string };
 }
 
 /**

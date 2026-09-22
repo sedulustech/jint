@@ -8,12 +8,8 @@ const state: UnitState = { path: "src/a.ts", content: "export const x = 1;\n" };
 const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
     type: "noul",
-    instructions: {
-      role: "measurement",
-      dimension: "is_name_purposeful",
-      claim: "names are precise",
-      true_means: "the property holds",
-    },
+    instructions: "names are precise",
+    criteria: { true: "the property holds", false: "the property does not hold" },
   },
 };
 
@@ -60,7 +56,11 @@ describe("createJudge", () => {
     expect(captured!.url).toContain("/v1/systemone");
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_name_purposeful.type).toBe("noul");
-    expect(body.questions.is_name_purposeful.instructions.claim).toBe("names are precise");
+    expect(body.questions.is_name_purposeful.instructions).toBe("names are precise");
+    expect(body.questions.is_name_purposeful.criteria).toEqual({
+      true: "the property holds",
+      false: "the property does not hold",
+    });
     expect(body.state).toEqual({ path: "src/a.ts", content: "export const x = 1;\n" });
   });
 

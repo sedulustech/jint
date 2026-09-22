@@ -34,14 +34,39 @@ function isMeasurement(event: Measurement | Diagnostic): event is Measurement {
 }
 
 describe("compileSensorQuestions", () => {
-  test("uses the calibrated structured envelope", () => {
-    const questions = compileSensorQuestions([sensorDefaults.is_name_purposeful!]);
-    expect(questions.is_name_purposeful!.type).toBe("noul");
-    const instructions = questions.is_name_purposeful!.instructions as Record<string, string>;
-    expect(instructions.role).toBe("measurement");
-    expect(instructions.dimension).toBe("is_name_purposeful");
-    expect(instructions.claim).toBe(sensorDefaults.is_name_purposeful!.description);
-    expect(instructions.true_means).toBe("the property holds in the added code");
+  test("whole-unit: documented noul shape, plain sensor-name ids", () => {
+    const { questions, attribution } = compileSensorQuestions([sensorDefaults.is_name_purposeful!]);
+    const spec = questions.is_name_purposeful!;
+    expect(spec.type).toBe("noul");
+    expect(typeof spec.instructions).toBe("string");
+    expect(spec.instructions).toBe(sensorDefaults.is_name_purposeful!.description);
+    expect(spec.criteria).toEqual({
+      true: "the described property holds in the code",
+      false: "the described property does not hold in the code",
+    });
+    expect(attribution.get("is_name_purposeful")).toEqual({
+      sensor: "is_name_purposeful",
+      blockId: null,
+    });
+  });
+
+  test("block-scoped: '<sensor> in <blockId>' ids, scoping sentence, block criteria", () => {
+    const { questions, attribution } = compileSensorQuestions(
+      [sensorDefaults.is_name_purposeful!],
+      "block-3",
+    );
+    const spec = questions["is_name_purposeful in block-3"]!;
+    expect(spec.instructions).toBe(
+      `${sensorDefaults.is_name_purposeful!.description} Judge only the code block with id block-3.`,
+    );
+    expect(spec.criteria).toEqual({
+      true: "the described property holds in that code block",
+      false: "the described property does not hold in that code block",
+    });
+    expect(attribution.get("is_name_purposeful in block-3")).toEqual({
+      sensor: "is_name_purposeful",
+      blockId: "block-3",
+    });
   });
 });
 

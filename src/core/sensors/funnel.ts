@@ -1,11 +1,13 @@
 /**
  * The two-stage measurement funnel (tmp/design.md §7.7).
  *
- * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of labeled blocks
+ * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of blocks
  * (definitions with their attached comments, standalone comment groups), plus the files-target
- * sensors' own whole-content call (they are relational and have no leaf form). Sweep questions are
- * keyed "block-N.<sensor>" and append the FROZEN scoping clause to the claim — the clause is part
- * of the sweep regime's calibration text; changing it is a re-calibration event.
+ * sensors' own whole-content call (they are relational and have no leaf form). Sweep questions use
+ * ids "<sensor> in block-N" and append the FROZEN scoping sentence to the instructions — it is part
+ * of the sweep regime's calibration text; changing it is a re-calibration event. Ids are never sent
+ * to the model: a parallel attribution map (built at question-construction time) attributes each
+ * answer to its (sensor, block).
  *
  * Sweep readings are candidates, never verdicts: a reading crossing the sensor's sweep threshold
  * makes its block a candidate, and sweep measurements are stage-tagged so lint never runs a handle
@@ -32,14 +34,11 @@ import {
   type Judge,
   type Measurement,
 } from "../types.ts";
-import { compileSensorQuestions } from "./measure.ts";
+import { compileSensorQuestions, type QuestionAttribution } from "./measure.ts";
 import type { QuestionSpec, Sensor, Span, SweepBlock, Unit } from "../types.ts";
 
 /** Which regime produced an event; sweep measurements are candidates and never run handles. */
 export type FunnelStage = "file" | "sweep" | "confirm";
-
-/** The frozen sweep scoping clause; only the label interpolates (design §7.7, wire-text note). */
-const sweepClause = (label: string): string => `Judge only the code block labeled ${label}.`;
 
 /**
  * Sweep (stage-1) candidate thresholds per sensor, keyed by sensor name. A sweeping
@@ -87,7 +86,7 @@ export const isHighGood = (sensorName: string): boolean => HIGH_GOOD.has(sensorN
 /** One sweep candidate: the flagged leaf, ready for isolated confirmation. */
 interface Candidate {
   readonly leaf: UnitLeaf;
-  readonly label: string;
+  readonly blockId: string;
 }
 
 /**
@@ -103,7 +102,7 @@ const blockSensors = (sensors: readonly Sensor[]): Sensor[] =>
 export interface ConfirmedReading {
   readonly sensor: string;
   readonly value: number;
-  /** The labeled measurement input, "path#block-N". */
+  /** The block-scoped measurement input, "path#block-N". */
   readonly input: string;
   readonly span: Span;
 }
@@ -163,7 +162,7 @@ export async function measureFile(
     const lines = content.split("\n").length;
     leaves = [
       {
-        label: "f0",
+        label: "block-0",
         span: {
           start: { line: 1, column: 0 },
           end: { line: lines, column: 0 },
@@ -186,7 +185,12 @@ export async function measureFile(
   // Files-target sensors: relational claims, their own whole-content call, handles as today.
   const fileSensors = sensors.filter((s) => s.target === "files");
   if (fileSensors.length > 0) {
-    const file = await call(state, compileSensorQuestions(fileSensors), judge, state.path);
+    const file = await call(
+      state,
+      compileSensorQuestions(fileSensors).questions,
+      judge,
+      state.path,
+    );
     collect(
       push,
       "file",
@@ -212,64 +216,59 @@ export async function measureFile(
   // Stage 1: the array state, one question per (block-leaf, sweeping sensor).
   const blocks: SweepBlock[] = [];
   const questions: Record<string, QuestionSpec> = {};
-  const blockByLabel = new Map<string, UnitLeaf>();
+  const blockById = new Map<string, UnitLeaf>();
+  const sweepAttribution = new Map<string, QuestionAttribution>();
   let n = 0;
   for (const leaf of leaves) {
     const granSensors = blockSensors(sensors);
     if (granSensors.length === 0) continue;
-    const label = `block-${n++}`;
-    blocks.push({ label, content: leafContent(leaf) });
-    blockByLabel.set(label, leaf);
-    for (const sensor of granSensors) {
-      questions[`${label}.${sensor.name}`] = {
-        type: "noul",
-        instructions: {
-          role: "measurement",
-          dimension: sensor.name,
-          claim: `${sensor.description}\n${sweepClause(label)}`,
-          true_means: `the property holds in the code block labeled ${label}.`,
-        },
-      };
-    }
+    const blockId = `block-${n++}`;
+    blocks.push({ id: blockId, content: leafContent(leaf) });
+    blockById.set(blockId, leaf);
+    const batch = compileSensorQuestions(granSensors, blockId);
+    Object.assign(questions, batch.questions);
+    for (const [key, attr] of batch.attribution) sweepAttribution.set(key, attr);
   }
   if (blocks.length === 0 || isAborted()) return { events, confirmed, fatal: false };
 
   const sweep = await call({ path: state.path, blocks }, questions, judge, state.path);
   if (sweep.error !== null) push(sweep.error, "sweep");
   for (const [key, value] of Object.entries(sweep.answers)) {
-    const dot = key.indexOf(".");
-    const sensor = key.slice(dot + 1);
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      push(invalidAnswer(state.path, sensor), "sweep");
+    const attr = sweepAttribution.get(key);
+    if (attr === undefined) {
+      push(invalidAnswer(state.path, key), "sweep");
       continue;
     }
-    push({ sensor, input: `${state.path}#${key.slice(0, dot)}`, value }, "sweep");
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      push(invalidAnswer(state.path, attr.sensor), "sweep");
+      continue;
+    }
+    push({ sensor: attr.sensor, input: `${state.path}#${attr.blockId}`, value }, "sweep");
   }
   if (fatalIn(events)) return { events, confirmed, fatal: true };
 
   // Candidates: sweep readings crossing the generous sweep threshold — recall, not verdicts.
   const candidates = new Map<string, Candidate>();
   for (const [key, value] of Object.entries(sweep.answers)) {
-    const dot = key.indexOf(".");
-    const sensorName = key.slice(dot + 1);
-    const threshold = SWEEP_THRESHOLDS[sensorName];
+    const attr = sweepAttribution.get(key);
+    if (attr === undefined || attr.blockId === null) continue;
+    const threshold = SWEEP_THRESHOLDS[attr.sensor];
     if (threshold === undefined) continue;
-    const crosses = HIGH_GOOD.has(sensorName) ? value < threshold : value > threshold;
-    const label = key.slice(0, dot);
-    const leaf = blockByLabel.get(label);
-    if (crosses && leaf && !candidates.has(label)) {
-      candidates.set(label, { leaf, label });
+    const crosses = HIGH_GOOD.has(attr.sensor) ? value < threshold : value > threshold;
+    const leaf = blockById.get(attr.blockId);
+    if (crosses && leaf && !candidates.has(attr.blockId)) {
+      candidates.set(attr.blockId, { leaf, blockId: attr.blockId });
     }
   }
 
   // Stage 2: confirm flagged leaves isolated — sensors batched per leaf, handles unchanged.
-  for (const { leaf, label } of candidates.values()) {
+  for (const { leaf, blockId } of candidates.values()) {
     if (isAborted()) break;
     const granSensors = blockSensors(sensors);
-    const input = `${state.path}#${label}`;
+    const input = `${state.path}#${blockId}`;
     const isolated = await call(
       { path: state.path, content: leafContent(leaf) },
-      compileSensorQuestions(granSensors),
+      compileSensorQuestions(granSensors).questions,
       judge,
       input,
     );

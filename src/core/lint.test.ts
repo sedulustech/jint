@@ -29,15 +29,19 @@ const SILENT = {
 };
 
 /**
- * Same fixed per-sensor answers for every call, keyed by the asked question name (sweep questions
- * are "block-N.<sensor>", everything else plain "<sensor>") — exactly how the real judge answers.
+ * Same fixed per-sensor answers for every call, keyed by the asked question id (sweep questions are
+ * "<sensor> in block-N", everything else plain "<sensor>") — exactly how the real judge answers.
  */
+function sensorOf(key: string): string {
+  const sep = key.indexOf(" in ");
+  return sep === -1 ? key : key.slice(0, sep);
+}
+
 function judgeWith(values: Record<string, number>): Judge {
   return async (_state, questions) => {
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
-      const dot = key.indexOf(".");
-      const sensor = dot === -1 ? key : key.slice(dot + 1);
+      const sensor = sensorOf(key);
       out[key] = values[key] ?? values[sensor] ?? SILENT[sensor as keyof typeof SILENT] ?? 0.5;
     }
     return out;
@@ -45,14 +49,18 @@ function judgeWith(values: Record<string, number>): Judge {
 }
 
 interface CallLog {
-  calls: Array<{ state: AnyState; questions: string[] }>;
+  calls: Array<{ state: AnyState; questions: string[]; specs: Record<string, unknown> }>;
 }
 
 /** A judge that records every call (state shape + question keys) — funnel-shape assertions. */
 function loggingJudge(values: Record<string, number>, log: CallLog): Judge {
   const inner = judgeWith(values);
   return async (state, questions) => {
-    log.calls.push({ state, questions: Object.keys(questions) });
+    log.calls.push({
+      state,
+      questions: Object.keys(questions),
+      specs: questions as unknown as Record<string, unknown>,
+    });
     return inner(state, questions);
   };
 }
@@ -66,7 +74,7 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
 }
 
 describe("lint — funnel shape", () => {
-  test("one sweep call per file with array state + labeled questions; files-target call separate", async () => {
+  test("one sweep call per file with array state + documented noul questions; files-target call separate", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, judge: loggingJudge({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
@@ -75,14 +83,25 @@ describe("lint — funnel shape", () => {
     expect(sweep.state).toEqual({
       path: FILE,
       blocks: [
-        { label: "block-0", content: expect.stringContaining("addSeconds") },
-        { label: "block-1", content: expect.stringContaining("formatDuration") },
+        { id: "block-0", content: expect.stringContaining("addSeconds") },
+        { id: "block-1", content: expect.stringContaining("formatDuration") },
       ],
     });
     // one question per (block-leaf, non-files-target sensor): 2 definitions x 7
     expect(sweep.questions).toHaveLength(14);
-    expect(sweep.questions).toContain("block-0.is_name_purposeful");
-    expect(sweep.questions).toContain("block-1.is_cognitively_complex");
+    expect(sweep.questions).toContain("is_name_purposeful in block-0");
+    expect(sweep.questions).toContain("is_cognitively_complex in block-1");
+    // documented noul shape: string instructions with the scoping sentence, criteria present
+    for (const [key, spec] of Object.entries(sweep.specs)) {
+      const s = spec as { type: string; instructions: string; criteria?: unknown };
+      expect(s.type).toBe("noul");
+      expect(typeof s.instructions).toBe("string");
+      expect(s.criteria).toBeDefined();
+      if (key.includes(" in ")) {
+        const blockId = key.slice(key.indexOf(" in ") + 4);
+        expect(s.instructions).toContain(`Judge only the code block with id ${blockId}.`);
+      }
+    }
     // the files-target sensors keep their own whole-content call
     const whole = log.calls.filter((c) => !isSweep(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
@@ -128,7 +147,7 @@ describe("lint — funnel shape", () => {
       const leaf = !sweep && "content" in state && state.content.includes("formatDuration");
       const out: Record<string, number> = {};
       for (const key of Object.keys(questions)) {
-        const sensor = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
+        const sensor = sensorOf(key);
         let value = SILENT[sensor as keyof typeof SILENT];
         if (sensor === "is_cognitively_complex") value = sweep ? 0.9 : leaf ? 0.9 : 0.5;
         out[key] = value;
@@ -167,8 +186,8 @@ describe("lint — funnel shape", () => {
         config: baseConfig,
         input: FILE,
         judge: judgeWith({
-          "block-0.is_name_purposeful": 0.49,
-          "block-1.is_name_purposeful": 0.49,
+          "is_name_purposeful in block-0": 0.49,
+          "is_name_purposeful in block-1": 0.49,
           is_name_purposeful: 0.7,
         }),
       }),
@@ -286,8 +305,8 @@ describe("lint", () => {
     // (0.7 is above the sweep anchor)
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toEqual([
-      "block-0.is_name_purposeful",
-      "block-1.is_name_purposeful",
+      "is_name_purposeful in block-0",
+      "is_name_purposeful in block-1",
     ]);
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });

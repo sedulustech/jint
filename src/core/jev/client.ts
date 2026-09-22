@@ -84,7 +84,7 @@ function makeClient(config: JudgeConfig | undefined): TypeSafeClient {
 function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
   const out: Record<string, NoulQuestion> = {};
   for (const [name, spec] of Object.entries(questions)) {
-    out[name] = noul(spec.instructions);
+    out[name] = noul(spec.instructions, spec.criteria);
   }
   return out;
 }

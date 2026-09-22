@@ -17,21 +17,52 @@ import {
   type Unit,
 } from "../types.ts";
 
-/** Compile sensors to noul questions using the validated structured measurement envelope. */
-export function compileSensorQuestions(sensors: readonly Sensor[]): Record<string, QuestionSpec> {
+/** Which sensor and block a question id belongs to; blockId is null for whole-unit questions. */
+export interface QuestionAttribution {
+  readonly sensor: string;
+  readonly blockId: string | null;
+}
+
+/**
+ * A compiled question batch: the judge-facing questions plus the id -> attribution map. Question
+ * ids are never sent to the model — this map is the only way answers are attributed.
+ */
+export interface QuestionBatch {
+  readonly questions: Record<string, QuestionSpec>;
+  readonly attribution: Map<string, QuestionAttribution>;
+}
+
+/** The id of the question for (sensor, blockId); block ids stay out of the payload's questions. */
+export function questionKey(sensorName: string, blockId: string): string {
+  return `${sensorName} in ${blockId}`;
+}
+
+/**
+ * Compile sensors to noul questions in the documented shape (docs: primitives/noul): instructions
+ * is the plain-string question, criteria describes the outcomes. Block-scoped questions append a
+ * scoping sentence naming the block id; whole-unit questions judge the code as-is.
+ */
+export function compileSensorQuestions(
+  sensors: readonly Sensor[],
+  blockId: string | null = null,
+): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
+  const attribution = new Map<string, QuestionAttribution>();
   for (const sensor of sensors) {
-    questions[sensor.name] = {
+    const where = blockId === null ? "in the code" : "in that code block";
+    const scope = blockId === null ? "" : ` Judge only the code block with id ${blockId}.`;
+    const key = blockId === null ? sensor.name : questionKey(sensor.name, blockId);
+    questions[key] = {
       type: "noul",
-      instructions: {
-        role: "measurement",
-        dimension: sensor.name,
-        claim: sensor.description,
-        true_means: "the property holds in the added code",
+      instructions: `${sensor.description}${scope}`,
+      criteria: {
+        true: `the described property holds ${where}`,
+        false: `the described property does not hold ${where}`,
       },
     };
+    attribution.set(key, { sensor: sensor.name, blockId });
   }
-  return questions;
+  return { questions, attribution };
 }
 
 export async function* measureUnit(
@@ -41,7 +72,7 @@ export async function* measureUnit(
 ): AsyncGenerator<Measurement | Diagnostic> {
   if (sensors.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every sensor participates.
-  const questions = compileSensorQuestions(sensors);
+  const { questions } = compileSensorQuestions(sensors);
   let answers: Record<string, number>;
   try {
     answers = await judge(unit.state, questions);
