@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+bun run validate
+# Informational agent-format render; never blocks (stderr hidden).
+bunx --bun oxlint --format=agent src/ tests/ 2>/dev/null || true

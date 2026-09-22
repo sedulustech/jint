@@ -13,6 +13,7 @@
   "scripts": {
     "test": "bun test --parallel",
     "typecheck": "tsc --noEmit",
+    "validate": "bun run typecheck && bun run lint",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"

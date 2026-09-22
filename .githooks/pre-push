@@ -1,0 +1,10 @@
+#!/bin/sh
+# Gate: the repo lint must pass before anything is pushed. This is the
+# composition-point check - commits authored on a branch against an older
+# config are only caught once the merged tree is linted, which is what this runs.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if ! (bunx --bun oxlint --type-aware src/ tests/ && bunx --bun oxfmt --check); then
+  echo "pre-push: repo lint failed - fix violations before pushing" >&2
+  exit 1
+fi
+exit 0
