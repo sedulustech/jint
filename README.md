@@ -10,7 +10,7 @@ bun add @typesafe-ai/sdk @sinclair/typebox   # jint's own deps, for reference
 
 Three nouns, strictly separated:
 
-- **sensor** — the measuring mechanism: `{ name, description, target, handle }`. It holds one System One judgment (noul) over a state, plus a `handle` callback that reads the value.
+- **sensor** — the measuring mechanism: `{ name, criteria: { true, false }, target, handle }`. It holds one System One judgment (noul) over a state — criteria-as-rule: `true` is what makes the unit a 1, `false` what makes it a 0 (boundary cases live here) — plus a `handle` callback that reads the value.
 - **measurement** — the raw noul value from jev for (sensor, input). Always produced, never actionable by itself — _what is true_. A noul near 0.5 means undecided, not medium; values pass through untouched.
 - **signal** — a measurement that cleared the sensor's handle: `{ sensor, input, value, severity }`. The only actionable thing: it drives the report and the exit code.
 

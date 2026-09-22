@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { sensorDefaults } from "../core/sensors/defaults.ts";
+import { blockWireId } from "../core/sensors/funnel.ts";
 import {
   RequestError,
   SetupError,
@@ -37,7 +38,7 @@ const SILENT = {
 
 /**
  * Same fixed per-sensor answers for every call, keyed by the asked question id (sweep questions are
- * "<sensor> in block-N", everything else plain "<sensor>") — exactly how the real judge answers.
+ * "<sensor> in <sha8 wire id>", everything else plain "<sensor>") — how the real judge answers.
  */
 function sensorOf(key: string): string {
   const sep = key.indexOf(" in ");
@@ -87,34 +88,48 @@ describe("lint — funnel shape", () => {
     const sweeps = log.calls.filter((c) => isSweep(c.state));
     expect(sweeps).toHaveLength(1);
     const sweep = sweeps[0]!;
-    expect(sweep.state).toEqual({
-      path: FILE,
-      blocks: [
-        { id: "block-0", content: expect.stringContaining("addSeconds") },
-        { id: "block-1", content: expect.stringContaining("formatDuration") },
-      ],
-    });
+    // wire ids are content-hashed; the positional "block-N" labels live only in reports
+    const sweepState = sweep.state as unknown as {
+      blocks: ReadonlyArray<{ id: string; content: string }>;
+    };
+    expect(sweepState.blocks).toEqual([
+      {
+        id: expect.stringMatching(/^[0-9a-f]{8}$/),
+        content: expect.stringContaining("addSeconds"),
+      },
+      {
+        id: expect.stringMatching(/^[0-9a-f]{8}$/),
+        content: expect.stringContaining("formatDuration"),
+      },
+    ]);
+    // wire ids are the content hash of each block's swept content
+    const blockIds = sweepState.blocks.map((b) => b.id);
+    expect(blockIds).toEqual(sweepState.blocks.map((b) => blockWireId(b.content)));
     // one question per (block-leaf, non-files-target sensor): 2 definitions x 7
     expect(sweep.questions).toHaveLength(14);
-    expect(sweep.questions).toContain("is_name_purposeful in block-0");
-    expect(sweep.questions).toContain("is_cognitively_complex in block-1");
-    // documented noul shape: string instructions with the scoping sentence, criteria present
+    expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
+    expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
+    // criteria-as-rule: instructions is the one-element wire-id array, criteria is the rule
     for (const [key, spec] of Object.entries(sweep.specs)) {
-      const s = spec as { type: string; instructions: string; criteria?: unknown };
+      const s = spec as {
+        type: string;
+        instructions: unknown;
+        criteria?: { true: string; false: string };
+      };
       expect(s.type).toBe("noul");
-      expect(typeof s.instructions).toBe("string");
+      const unitId = key.slice(key.indexOf(" in ") + 4);
+      expect(s.instructions).toEqual([unitId]);
       expect(s.criteria).toBeDefined();
-      if (key.includes(" in ")) {
-        const blockId = key.slice(key.indexOf(" in ") + 4);
-        expect(s.instructions).toContain(`Judge only the code block with id ${blockId}.`);
-      }
+      // criteria is the sensor's actual rule, never the generic form
+      expect(s.criteria!.true).not.toContain("described property");
     }
     // the files-target sensors keep their own whole-content call
     const whole = log.calls.filter((c) => !isSweep(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
-    expect(whole[0]!.questions).toEqual(
-      expect.arrayContaining(["is_vocabulary_consistent", "is_greppable"]),
-    );
+    // whole-content call questions are keyed "<sensor> in <file id>" (the content hash)
+    for (const key of whole[0]!.questions) {
+      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in [0-9a-f]{8}$/);
+    }
   });
 
   test("isolated confirm calls happen only for sweep candidates", async () => {
@@ -134,15 +149,11 @@ describe("lint — funnel shape", () => {
     );
     expect(leafCalls).toHaveLength(2); // one per flagged leaf, no others
     for (const c of leafCalls) {
-      expect(c.questions).toEqual([
-        "is_name_purposeful",
-        "is_naming_convention_consistent",
-        "is_comment_business_context",
-        "is_comment_narration",
-        "is_comment_patching_readability",
-        "will_comment_drift",
-        "is_cognitively_complex",
-      ]);
+      // confirm questions are keyed "<sensor> in <leaf wire id>" — the same sha the sweep used
+      expect(c.questions).toHaveLength(7);
+      for (const key of c.questions) {
+        expect(key).toMatch(/^\S+ in [0-9a-f]{8}$/);
+      }
     }
   });
 
@@ -192,11 +203,20 @@ describe("lint — funnel shape", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: judgeWith({
-          "is_name_purposeful in block-0": 0.49,
-          "is_name_purposeful in block-1": 0.49,
-          is_name_purposeful: 0.7,
-        }),
+        judge: async (state, questions) => {
+          const sweep = "blocks" in state;
+          const out: Record<string, number> = {};
+          for (const key of Object.keys(questions)) {
+            const sensor = sensorOf(key);
+            out[key] =
+              sensor === "is_name_purposeful"
+                ? sweep
+                  ? 0.49
+                  : 0.7
+                : (SILENT[sensor as keyof typeof SILENT] ?? 0.5);
+          }
+          return out;
+        },
       }),
     );
     expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
@@ -310,10 +330,10 @@ describe("lint", () => {
     // purposeful targets definitions: sweep only, no whole-content call, no confirm
     // (0.7 is above the sweep anchor)
     expect(log.calls).toHaveLength(1);
-    expect(log.calls[0]!.questions).toEqual([
-      "is_name_purposeful in block-0",
-      "is_name_purposeful in block-1",
-    ]);
+    expect(log.calls[0]!.questions).toHaveLength(2);
+    for (const key of log.calls[0]!.questions) {
+      expect(key).toMatch(/^is_name_purposeful in [0-9a-f]{8}$/);
+    }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 

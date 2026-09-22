@@ -8,11 +8,15 @@ import {
   type UnitState,
 } from "../types.ts";
 import { sensorDefaults } from "./defaults.ts";
-import { compileSensorQuestions, measureUnit, toRequestError } from "./measure.ts";
+import { blockWireId, compileSensorQuestions, measureUnit, toRequestError } from "./measure.ts";
 
 const fileUnit: Unit = {
   kind: "file",
-  state: { path: "src/a.ts", content: "export const x = 1;\n" },
+  state: {
+    path: "src/a.ts",
+    content: "export const x = 1;\n",
+    id: blockWireId("export const x = 1;\n"),
+  },
 };
 const diffUnit: Unit = {
   kind: "diff",
@@ -21,10 +25,17 @@ const diffUnit: Unit = {
 
 const allSensors: readonly Sensor[] = Object.values(sensorDefaults);
 
+const FILE_ID = blockWireId("export const x = 1;\n");
+
 function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
-  return async (state) => {
+  return async (state, questions) => {
     calls.push({ kind: "file", state: state as UnitState });
-    return values;
+    const out: Record<string, number> = {};
+    for (const key of Object.keys(questions)) {
+      const sensor = key.slice(0, key.indexOf(" in "));
+      if (sensor in values) out[key] = values[sensor]!;
+    }
+    return out;
   };
 }
 
@@ -33,39 +44,35 @@ function isMeasurement(event: Measurement | RequestError): event is Measurement 
 }
 
 describe("compileSensorQuestions", () => {
-  test("whole-unit: documented noul shape, plain sensor-name ids", () => {
-    const { questions, attribution } = compileSensorQuestions([sensorDefaults.is_name_purposeful!]);
-    const spec = questions.is_name_purposeful!;
+  test("whole-file unit: criteria passthrough, instructions is the one-element id array", () => {
+    const sensor = sensorDefaults.is_name_purposeful!;
+    const { questions, attribution } = compileSensorQuestions([sensor], FILE_ID);
+    const spec = questions[`is_name_purposeful in ${FILE_ID}`]!;
     expect(spec.type).toBe("noul");
-    expect(typeof spec.instructions).toBe("string");
-    expect(spec.instructions).toBe(sensorDefaults.is_name_purposeful!.description);
-    expect(spec.criteria).toEqual({
-      true: "the described property holds in the code",
-      false: "the described property does not hold in the code",
-    });
-    expect(attribution.get("is_name_purposeful")).toEqual({
+    expect(spec.instructions).toEqual([FILE_ID]);
+    expect(spec.criteria).toBe(sensor.criteria);
+    expect(attribution.get(`is_name_purposeful in ${FILE_ID}`)).toEqual({
       sensor: "is_name_purposeful",
-      blockId: null,
+      blockId: FILE_ID,
     });
   });
 
-  test("block-scoped: '<sensor> in <blockId>' ids, scoping sentence, block criteria", () => {
-    const { questions, attribution } = compileSensorQuestions(
-      [sensorDefaults.is_name_purposeful!],
-      "block-3",
-    );
+  test("block-scoped: '<sensor> in <unitId>' ids, wire id as the sole instruction", () => {
+    const sensor = sensorDefaults.is_name_purposeful!;
+    const { questions, attribution } = compileSensorQuestions([sensor], "block-3");
     const spec = questions["is_name_purposeful in block-3"]!;
-    expect(spec.instructions).toBe(
-      `${sensorDefaults.is_name_purposeful!.description} Judge only the code block with id block-3.`,
-    );
-    expect(spec.criteria).toEqual({
-      true: "the described property holds in that code block",
-      false: "the described property does not hold in that code block",
-    });
+    expect(spec.instructions).toEqual(["block-3"]);
+    expect(spec.criteria).toBe(sensor.criteria);
     expect(attribution.get("is_name_purposeful in block-3")).toEqual({
       sensor: "is_name_purposeful",
       blockId: "block-3",
     });
+  });
+
+  test("blockWireId: first 8 hex chars of sha256 of the content", () => {
+    expect(blockWireId("export const x = 1;\\n")).toMatch(/^[0-9a-f]{8}$/);
+    expect(blockWireId("a")).toBe(blockWireId("a"));
+    expect(blockWireId("a")).not.toBe(blockWireId("b"));
   });
 });
 

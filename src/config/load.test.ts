@@ -9,7 +9,7 @@ describe("loadConfig", () => {
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(
       tmpDir + "/jint.config.ts",
-      'export default { input: ".", sensors: [{ name: "noop", description: "noop sensor", target: "files", handle: () => null }], exclude: [] };',
+      'export default { input: ".", sensors: [{ name: "noop", criteria: { true: "noop holds", false: "it does not" }, target: "files", handle: () => null }], exclude: [] };',
     );
 
     // Should exit 4 (JEV_AUTH) because key is empty

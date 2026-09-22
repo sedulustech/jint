@@ -1,7 +1,7 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - Sensor — the measuring mechanism: { name, description, target, handle }
+ * - Sensor — the measuring mechanism: { name, criteria, target, handle }
  * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
  *   by itself
  * - Signal — a measurement that cleared the sensor's handle; the only actionable output
@@ -104,8 +104,13 @@ export type SensorTarget = "files" | "definitions" | "comments" | "imports" | "d
  */
 export interface Sensor {
   readonly name: string;
-  /** The calibrated claim; compiles to the noul question's instructions. */
-  readonly description: string;
+  /**
+   * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
+   * cases belong in false. Passes straight through to the noul question's criteria; editing either
+   * side is a re-calibration event, since thresholds are anchored to readings taken under the rule
+   * text.
+   */
+  readonly criteria: { readonly true: string; readonly false: string };
   /** Which decomposition instances this sensor judges; the funnel routes on it (design.md §7.1). */
   readonly target: SensorTarget;
   /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
@@ -149,10 +154,13 @@ export interface Span {
 export interface FileState {
   readonly path: string;
   readonly content: string;
+  /** Content-addressed unit id: first 8 hex chars of sha256(content) (see blockWireId). */
+  readonly id: string;
 }
 
-/** One block of the sweep's array state (design.md §7.7); id is "block-N", positional. */
+/** One block of the sweep's array state (design.md §7.7); id is the content-hashed wire id. */
 export interface SweepBlock {
+  /** Content-hashed wire id (first 8 hex chars of sha256 of content); reports show "block-N". */
   readonly id: string;
   readonly content: string;
 }
@@ -182,13 +190,14 @@ export interface Unit {
 
 /**
  * The documented noul question (docs: primitives/noul); structurally compatible with the SDK's
- * NoulQuestion — the jev adapter owns the real SDK type. `instructions` is the plain-string yes/no
- * question; `criteria` describes what true and false mean. Question ids (the record keys) are never
- * sent to the model — they only correlate answers.
+ * NoulQuestion — the jev adapter owns the real SDK type. `instructions` is a one-element array
+ * naming the unit to judge (criteria-as-rule: the rule lives in criteria, not here); `criteria`
+ * describes what true and false mean. Question ids (the record keys) are never sent to the model —
+ * they only correlate answers.
  */
 export interface QuestionSpec {
   readonly type: "noul";
-  readonly instructions: string;
+  readonly instructions: readonly string[];
   readonly criteria?: { readonly true: string; readonly false: string };
 }
 

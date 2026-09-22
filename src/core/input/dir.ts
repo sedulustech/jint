@@ -8,6 +8,7 @@
 
 import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { blockWireId } from "../sensors/measure.ts";
 import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
 
@@ -155,7 +156,8 @@ async function readFileUnit(
   if (isGitignored(relativePath, false, currentScopes)) return null;
   if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
   if (await looksBinary(absolutePath)) return null;
-  return { kind: "file", state: { path: relativePath, content: await readTextFile(absolutePath) } };
+  const content = await readTextFile(absolutePath);
+  return { kind: "file", state: { path: relativePath, content, id: blockWireId(content) } };
 }
 
 /** Push this directory's .gitignore rules (if any) as the deepest scope. */

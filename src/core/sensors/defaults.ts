@@ -6,9 +6,9 @@
  * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix): each sensor compiles to
  * exactly one noul question, so its name reads as the yes/no claim the question asks.
  *
- * Each description is the exact claim the measure step compiles into the question envelope: editing
- * a description is a re-calibration event, since thresholds are anchored to readings taken under
- * the claim text.
+ * Each sensor ships its rule as criteria — the explicit 1-rule and 0-rule that compile straight
+ * into the noul question's criteria (criteria-as-rule). Editing either side is a re-calibration
+ * event, since thresholds are anchored to readings taken under the rule text.
  *
  * Handle policy: a healthy run never errors; warns are legitimate nudges. High=good sensors error
  * below the healthy floor, high=bad sensors above the healthy ceiling, anchored on the self-lint
@@ -20,34 +20,33 @@ import type { Sensor } from "../types.ts";
 
 export const isNamePurposeful: Sensor = {
   name: "is_name_purposeful",
-  description: `
-     Each new identifier's name states what it does or holds, judged from the name alone: a reader should be able to infer the thing's purpose without reading the code around it.
-     The failure modes: names that reveal implementation instead of purpose (naming how it works, not what it is for), bare generic words that could label anything (data, handler, util, temp), and names that mislead - promising behavior or a kind the thing does not have.
-     The claim is about what the name communicates; casing and convention style are not naming failures.
-   `,
+  criteria: {
+    true: "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
+    false:
+      "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
+  },
   target: "definitions",
   handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
 };
 
 export const isVocabularyConsistent: Sensor = {
   name: "is_vocabulary_consistent",
-  description: `
-     New identifiers keep one vocabulary with each other and with the names this change touches: the same concept keeps the same word, and the same role keeps the same suffix or verb convention.
-     The boundary failure is synonym drift: the same concept referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea.
-     Different words for genuinely different concepts are consistent; only same-concept drift is the failure.
-   `,
+  criteria: {
+    true: "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
+    false:
+      "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift.",
+  },
   target: "files",
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
 export const isNamingConventionConsistent: Sensor = {
   name: "is_naming_convention_consistent",
-  description: `
-     Identifiers of the same kind follow one casing convention: functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE.
-     Each kind follows the convention the surrounding code already establishes, so a module that has settled on a different dominant form is judged against that form.
-     The failure is two forms for one kind within the same change or module: getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types - forcing a reader to learn two shapes for one kind.
-     Different kinds may use different conventions; casing is about form alone - word choice and name quality are other claims' territory.
-   `,
+  criteria: {
+    true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
+    false:
+      "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
+  },
   target: "definitions",
   // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
   // convention mixers and the consistent files; the clean corpus (mobius
@@ -57,22 +56,22 @@ export const isNamingConventionConsistent: Sensor = {
 
 export const isGreppable: Sensor = {
   name: "is_greppable",
-  description: `
-     The identifiers in this code - the names of functions, variables, types, constants, and exported symbols - are greppable: a maintainer who knows a thing by its name can find every place it is used by searching that name.
-     This means identifiers are written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary so the same concept requires two different search strings, and specific enough (not bare words like data, handler, or util) that a search hit is genuinely a reference to this thing.
-     Strings that are user-facing interface rather than code identifiers - CLI flag spellings, help text, log messages - are not part of this judgment; only code identifiers are.
-   `,
+  criteria: {
+    true: "The code identifiers here - functions, variables, types, constants, exported symbols - are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+    false:
+      "At least one identifier cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
+  },
   target: "files",
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
 export const is_comment_business_context: Sensor = {
   name: "is_comment_business_context",
-  description: `
-     The comments in this code carry business context: they explain why the code exists or why this approach was chosen - the requirement, constraint, or decision the code serves, a pointer to where that decision lives (ticket, spec, incident, upstream contract), or a warning that the code must stay consistent with something outside itself.
-     The claim is about knowledge a maintainer cannot recover from the code alone.
-     Comments that describe what the code does, docstrings that restate a signature, or style notes are not business context.
-   `,
+  criteria: {
+    true: "The comments here carry business context a maintainer cannot recover from the code alone: why the code exists or why this approach was chosen - the requirement, constraint, or decision it serves, a pointer to where that decision lives (ticket, spec, incident, upstream contract), or a warning that the code must stay consistent with something outside itself.",
+    false:
+      "The comments only describe what the code does: docstrings restating a signature, prose narration of the statements, or style notes - nothing a maintainer could not recover from the code itself.",
+  },
   target: "comments",
   // Null in v0, deliberately: high readings are a virtue and low readings are
   // not a defect (not all code needs recorded context), so no reading is
@@ -84,33 +83,33 @@ export const is_comment_business_context: Sensor = {
 
 export const is_comment_narration: Sensor = {
   name: "is_comment_narration",
-  description: `
-     The comments in this code narrate: they merely restate what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return).
-     The comment is duplicate information; removing it loses nothing a reader could not get from the code itself.
-     Comments that state why the code exists, record a constraint, or flag a non-obvious trap say what the code cannot and are not narration.
-   `,
+  criteria: {
+    true: "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
+    false:
+      "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
+  },
   target: "comments",
   handle: (value) => (value > 0.45 ? "error" : value > 0.3 ? "warn" : null),
 };
 
 export const is_comment_patching_readability: Sensor = {
   name: "is_comment_patching_readability",
-  description: `
-     The comments in this code patch for readability: they exist to explain code that should read itself, compensating for confusing code - dense expressions, tangled control flow, misleading names - with prose instead of the code being made readable.
-     This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.
-     Comments that add what code cannot carry - rationale, constraints, external contracts - are not readability patches, even when the surrounding code is also hard to read.
-   `,
+  criteria: {
+    true: "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
+    false:
+      "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read.",
+  },
   target: "comments",
   handle: (value) => (value > 0.55 ? "error" : value > 0.4 ? "warn" : null),
 };
 
 export const will_comment_drift: Sensor = {
   name: "will_comment_drift",
-  description: `
-     The comments in this code are drift-prone: they pin specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working.
-     The claim is coupling between the comment's wording and specific identifiers, not comments that are already wrong today.
-     Comments that describe behavior, rationale, or constraints without naming specific artifacts cannot drift this way.
-   `,
+  criteria: {
+    true: "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
+    false:
+      "No comment here is coupled to specific artifacts by name: every comment describes behavior, rationale, or constraints without pinning identifiers, so renaming or removing code can never silently invalidate it.",
+  },
   target: "comments",
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
@@ -120,11 +119,11 @@ export const will_comment_drift: Sensor = {
 
 export const isCognitivelyComplex: Sensor = {
   name: "is_cognitively_complex",
-  description: `
-     The added code carries accidental complexity: difficulty the author could reduce without changing what the code does.
-     The failure modes: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines to know what is happening, and a non-linear reading order that forces jumping around instead of flowing top to bottom.
-     Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is excluded: the claim is about avoidable difficulty in how the solution is written, not unavoidable difficulty in the problem.
-   `,
+  criteria: {
+    true: "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
+    false:
+      "The code's difficulty is inherent to the problem: every case genuinely exists, the data is what the domain forces, and the solution reads top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is not this failure.",
+  },
   target: "definitions",
   // Thresholds kept from the previous anchor: the scoped claim lowered the
   // healthy ceiling on both calibration corpora, widening the margin to the

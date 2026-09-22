@@ -16,7 +16,7 @@ import {
   type Unit,
 } from "../types.ts";
 
-/** Which sensor and block a question id belongs to; blockId is null for whole-unit questions. */
+/** Which sensor and unit (block wire id or file id) a question id belongs to. */
 export interface QuestionAttribution {
   readonly sensor: string;
   readonly blockId: string | null;
@@ -37,31 +37,32 @@ export function questionKey(sensorName: string, blockId: string): string {
 }
 
 /**
- * Compile sensors to noul questions in the documented shape (docs: primitives/noul): instructions
- * is the plain-string question, criteria describes the outcomes. Block-scoped questions append a
- * scoping sentence naming the block id; whole-unit questions judge the code as-is.
+ * Compile sensors to noul questions, criteria-as-rule (docs: primitives/noul): instructions is a
+ * one-element array naming the unit to judge — the content-addressed unit id (a sweep block's wire
+ * id, or the file's content hash); criteria is the sensor's actual rule, passed straight through.
+ * The unit id goes to the model as the target; question ids (record keys) are never sent.
  */
-export function compileSensorQuestions(
-  sensors: readonly Sensor[],
-  blockId: string | null = null,
-): QuestionBatch {
+export function compileSensorQuestions(sensors: readonly Sensor[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const sensor of sensors) {
-    const where = blockId === null ? "in the code" : "in that code block";
-    const scope = blockId === null ? "" : ` Judge only the code block with id ${blockId}.`;
-    const key = blockId === null ? sensor.name : questionKey(sensor.name, blockId);
+    const key = questionKey(sensor.name, unitId);
     questions[key] = {
       type: "noul",
-      instructions: `${sensor.description}${scope}`,
-      criteria: {
-        true: `the described property holds ${where}`,
-        false: `the described property does not hold ${where}`,
-      },
+      instructions: [unitId],
+      criteria: sensor.criteria,
     };
-    attribution.set(key, { sensor: sensor.name, blockId });
+    attribution.set(key, { sensor: sensor.name, blockId: unitId });
   }
   return { questions, attribution };
+}
+
+/**
+ * The content-addressed wire id for any judged content: first 8 hex chars of sha256. Used for sweep
+ * block ids and FileState ids alike. Re-exported from funnel.ts, the sweep's owner.
+ */
+export function blockWireId(content: string): string {
+  return new Bun.CryptoHasher("sha256").update(content).digest("hex").slice(0, 8);
 }
 
 export async function* measureUnit(
@@ -71,7 +72,8 @@ export async function* measureUnit(
 ): AsyncGenerator<Measurement | RequestError> {
   if (sensors.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every sensor participates.
-  const { questions } = compileSensorQuestions(sensors);
+  const unitId = "id" in unit.state ? unit.state.id : blockWireId(unit.state.diff);
+  const { questions } = compileSensorQuestions(sensors, unitId);
   let answers: Record<string, number>;
   try {
     answers = await judge(unit.state, questions);
@@ -80,7 +82,7 @@ export async function* measureUnit(
     return;
   }
   for (const sensor of sensors) {
-    const value = answers[sensor.name];
+    const value = answers[questionKey(sensor.name, unitId)];
     if (typeof value !== "number" || !Number.isFinite(value)) {
       yield invalidAnswerError(unit.state.path, sensor.name);
       continue;

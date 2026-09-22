@@ -57,5 +57,5 @@ describe("cli: --dir ignores", () => {
     expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
     expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
     expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
-  });
+  }, 30000); // live jev round trip: real network latency, above bun's 5s default
 });

@@ -20,7 +20,7 @@ const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.
 
 const SENSOR_SCHEMA = Type.Object({
   name: Type.String(),
-  description: Type.String(),
+  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
   target: Type.Union([
     Type.Literal("files"),
     Type.Literal("definitions"),

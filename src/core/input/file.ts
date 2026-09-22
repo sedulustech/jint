@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { blockWireId } from "../sensors/measure.ts";
 import { SetupError, type Unit } from "../types.ts";
 
 export async function fileUnit(path: string): Promise<Unit> {
@@ -22,5 +23,5 @@ export async function fileUnit(path: string): Promise<Unit> {
       cause: e,
     });
   }
-  return { kind: "file", state: { path, content } };
+  return { kind: "file", state: { path, content, id: blockWireId(content) } };
 }

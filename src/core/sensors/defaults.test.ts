@@ -139,7 +139,7 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
 });
 
 describe("sensor definitions", () => {
-  test("nine sensors with calibrated claim descriptions", () => {
+  test("nine sensors with calibrated criteria rules", () => {
     const names = Object.keys(sensorDefaults);
     expect(names).toEqual([
       "is_name_purposeful",
@@ -153,7 +153,8 @@ describe("sensor definitions", () => {
       "is_cognitively_complex",
     ]);
     for (const sensor of Object.values(sensorDefaults)) {
-      expect(sensor.description.length).toBeGreaterThan(20);
+      expect(sensor.criteria.true.length).toBeGreaterThan(20);
+      expect(sensor.criteria.false.length).toBeGreaterThan(20);
       expect(["files", "definitions", "comments", "imports", "diffs"]).toContain(sensor.target);
     }
   });

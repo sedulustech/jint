@@ -28,7 +28,7 @@ describe("defineConfig", () => {
   test("plain array form is accepted", () => {
     const sensor: Sensor = {
       name: "custom",
-      description: "claim",
+      criteria: { true: "when the claim holds", false: "otherwise" },
       target: "files",
       handle: () => null,
     };

@@ -9,11 +9,17 @@ import { createJudge } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-const state: UnitState = { path: "src/a.ts", content: "export const x = 1;\n" };
+import { blockWireId } from "../sensors/measure.ts";
+
+const state: UnitState = {
+  path: "src/a.ts",
+  content: "export const x = 1;\n",
+  id: blockWireId("export const x = 1;\n"),
+};
 const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
     type: "noul",
-    instructions: "names are precise",
+    instructions: ["a1b2c3d4"],
     criteria: { true: "the property holds", false: "the property does not hold" },
   },
 };
@@ -61,12 +67,16 @@ describe("createJudge", () => {
     expect(captured!.url).toContain("/v1/systemone");
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_name_purposeful.type).toBe("noul");
-    expect(body.questions.is_name_purposeful.instructions).toBe("names are precise");
+    expect(body.questions.is_name_purposeful.instructions).toEqual(["a1b2c3d4"]);
     expect(body.questions.is_name_purposeful.criteria).toEqual({
       true: "the property holds",
       false: "the property does not hold",
     });
-    expect(body.state).toEqual({ path: "src/a.ts", content: "export const x = 1;\n" });
+    expect(body.state).toEqual({
+      path: "src/a.ts",
+      content: "export const x = 1;\n",
+      id: blockWireId("export const x = 1;\n"),
+    });
   });
 
   test("missing TYPESAFE_API_KEY fails loud JEV_AUTH at first call, not at import", async () => {

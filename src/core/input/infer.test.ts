@@ -78,9 +78,9 @@ describe("resolveInput", () => {
     expect(units).toEqual(["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts"]);
   });
 
-  test("explicit file units carry { path, content } state", async () => {
+  test("explicit file units carry { path, content, id } state", async () => {
     for await (const unit of resolveInput({ input: "tests/fixtures/sample-file.ts" })) {
-      expect(Object.keys(unit.state).sort()).toEqual(["content", "path"]);
+      expect(Object.keys(unit.state).sort()).toEqual(["content", "id", "path"]);
     }
   });
 

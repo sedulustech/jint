@@ -35,8 +35,10 @@ import {
   type Measurement,
 } from "../types.ts";
 import {
+  blockWireId,
   compileSensorQuestions,
   invalidAnswerError,
+  questionKey,
   toRequestError,
   type QuestionAttribution,
 } from "./measure.ts";
@@ -52,30 +54,35 @@ export type FunnelStage = "file" | "sweep" | "confirm";
  *
  * Derivation — start at the sensor's error threshold pulled 0.15 toward the healthy side (the array
  * regime dampens flagged blocks by -0.1..-0.2 relative to isolated, design §7.6), then clamp at
- * least 0.1 beyond the healthy band so healthy blocks cannot become candidates:
+ * least 0.1 beyond the healthy band so healthy blocks cannot become candidates. Each block-sensor
+ * threshold is then shifted up by +0.05 from the pre-criteria-rule derivation — the measured mean
+ * uplift from the criteria-as-rule probe (will_comment_drift 0.770 -> 0.820, batch-of-4, 4 draws),
+ * applied uniformly to all six block sensors.
+ *
+ * PROVISIONAL: these are the pre-recalibration values plus that flat +0.05; a sweep-regime
+ * calibration pass on the criteria-as-rule form must re-derive them.
  *
  * | sensor                          | error | -0.15 | healthy band        | sweep |
  * | ------------------------------- | ----- | ----- | ------------------- | ----- |
- * | will_comment_drift (high=bad)   | >0.70 | 0.55  | <=0.50 (A/B)        | 0.60  |
- * | is_comment_narration (high=bad) | >0.45 | 0.30  | <=0.40 (A/B)        | 0.50  |
- * | is_comment_patching_readability | >0.55 | 0.40  | <=0.40 (warn bound) | 0.50  |
- * | is_cognitively_complex (hi=bad) | >0.60 | 0.45  | <=0.45 (warn bound) | 0.55  |
- * | is_name_purposeful (high=good)  | <0.50 | 0.65  | >=0.60 (warn bound) | 0.50  |
- * | is_naming_convention_consistent | <0.65 | 0.80  | >=0.85 (warn bound) | 0.75  |
+ * | will_comment_drift (high=bad)   | >0.70 | 0.55  | <=0.50 (A/B)        | 0.65  |
+ * | is_comment_narration (high=bad) | >0.45 | 0.30  | <=0.40 (A/B)        | 0.55  |
+ * | is_comment_patching_readability | >0.55 | 0.40  | <=0.40 (warn bound) | 0.55  |
+ * | is_cognitively_complex (hi=bad) | >0.60 | 0.45  | <=0.45 (warn bound) | 0.60  |
+ * | is_name_purposeful (high=good)  | <0.50 | 0.65  | >=0.60 (warn bound) | 0.55  |
+ * | is_naming_convention_consistent | <0.65 | 0.80  | >=0.85 (warn bound) | 0.80  |
  *
  * The healthy bands for drift and narration are the measured A/B ceilings (granularity-ab.md:
  * healthy client.ts blocks read <=0.5 drift, <=0.4 narration in the array regime); elsewhere the
- * handle's warn boundary stands in. Note the narration clamp: the flagged A/B blocks read
- * 0.43-0.49, so the 0.50 cut trades recall for zero healthy-band overlap — provisional, to be
- * re-calibrated by a sweep-regime calibration pass.
+ * handle's warn boundary stands in. Note the narration clamp: flagged A/B blocks read 0.43-0.49, so
+ * the cut trades recall for zero healthy-band overlap — provisional, see above.
  */
 const SWEEP_THRESHOLDS: Record<string, number> = {
-  will_comment_drift: 0.6,
-  is_comment_narration: 0.5,
-  is_comment_patching_readability: 0.5,
-  is_cognitively_complex: 0.55,
-  is_name_purposeful: 0.5,
-  is_naming_convention_consistent: 0.75,
+  will_comment_drift: 0.65,
+  is_comment_narration: 0.55,
+  is_comment_patching_readability: 0.55,
+  is_cognitively_complex: 0.6,
+  is_name_purposeful: 0.55,
+  is_naming_convention_consistent: 0.8,
 };
 
 /** High=good sensors error below their threshold; the extreme leaf reading is their minimum. */
@@ -87,6 +94,9 @@ const HIGH_GOOD: ReadonlySet<string> = new Set([
 ]);
 
 export const isHighGood = (sensorName: string): boolean => HIGH_GOOD.has(sensorName);
+
+/** Content-addressed wire id for swept block content (re-export; defined in measure.ts). */
+export { blockWireId };
 
 /** One sweep candidate: the flagged leaf, ready for isolated confirmation. */
 interface Candidate {
@@ -189,10 +199,11 @@ export async function measureFile(
 
   // Files-target sensors: relational claims, their own whole-content call, handles as today.
   const fileSensors = sensors.filter((s) => s.target === "files");
+  const fileId = "id" in state ? state.id : blockWireId(state.diff);
   if (fileSensors.length > 0) {
     const file = await call(
       state,
-      compileSensorQuestions(fileSensors).questions,
+      compileSensorQuestions(fileSensors, fileId).questions,
       judge,
       state.path,
     );
@@ -200,7 +211,7 @@ export async function measureFile(
       push,
       "file",
       file,
-      fileSensors.map((s) => s.name),
+      fileSensors.map((s) => questionKey(s.name, fileId)),
       state.path,
     );
     if (fatalIn(events)) return { events, confirmed, fatal: true };
@@ -222,14 +233,22 @@ export async function measureFile(
   const questions: Record<string, QuestionSpec> = {};
   const blockById = new Map<string, UnitLeaf>();
   const sweepAttribution = new Map<string, QuestionAttribution>();
+  // Wire ids are content hashes; reports/inputs keep the positional "block-N" labels.
+  const wireLabels = new Map<string, string>();
   let n = 0;
   for (const leaf of leaves) {
     const granSensors = blockSensors(sensors);
     if (granSensors.length === 0) continue;
-    const blockId = `block-${n++}`;
-    blocks.push({ id: blockId, content: leafContent(leaf) });
-    blockById.set(blockId, leaf);
-    const batch = compileSensorQuestions(granSensors, blockId);
+    const humanLabel = `block-${n++}`;
+    const content = leafContent(leaf);
+    const hash = blockWireId(content);
+    let wireId = hash;
+    // collision guard: a same-hash leaf in the same file gets a counter suffix
+    for (let k = 2; wireLabels.has(wireId); k++) wireId = `${hash}-${k}`;
+    wireLabels.set(wireId, humanLabel);
+    blocks.push({ id: wireId, content });
+    blockById.set(wireId, leaf);
+    const batch = compileSensorQuestions(granSensors, wireId);
     Object.assign(questions, batch.questions);
     for (const [key, attr] of batch.attribution) sweepAttribution.set(key, attr);
   }
@@ -247,7 +266,15 @@ export async function measureFile(
       push(invalidAnswerError(state.path, attr.sensor), "sweep");
       continue;
     }
-    push({ sensor: attr.sensor, input: `${state.path}#${attr.blockId}`, value }, "sweep");
+    push(
+      // sweep attribution is always block-scoped; reports keep the positional label
+      {
+        sensor: attr.sensor,
+        input: `${state.path}#${wireLabels.get(attr.blockId ?? "")}`,
+        value,
+      },
+      "sweep",
+    );
   }
   if (fatalIn(events)) return { events, confirmed, fatal: true };
 
@@ -269,10 +296,10 @@ export async function measureFile(
   for (const { leaf, blockId } of candidates.values()) {
     if (isAborted()) break;
     const granSensors = blockSensors(sensors);
-    const input = `${state.path}#${blockId}`;
+    const input = `${state.path}#${wireLabels.get(blockId)}`;
     const isolated = await call(
-      { path: state.path, content: leafContent(leaf) },
-      compileSensorQuestions(granSensors).questions,
+      { path: state.path, content: leafContent(leaf), id: blockId },
+      compileSensorQuestions(granSensors, blockId).questions,
       judge,
       input,
     );
@@ -280,11 +307,11 @@ export async function measureFile(
       push,
       "confirm",
       isolated,
-      granSensors.map((s) => s.name),
+      granSensors.map((s) => questionKey(s.name, blockId)),
       input,
     );
     for (const sensor of granSensors) {
-      const value = isolated.answers[sensor.name];
+      const value = isolated.answers[questionKey(sensor.name, blockId)];
       if (typeof value !== "number" || !Number.isFinite(value)) continue;
       confirmed.push({ sensor: sensor.name, value, input, span: leaf.span });
     }
@@ -328,13 +355,15 @@ function collect(
     push(result.error, stage);
     return;
   }
-  for (const name of questionNames) {
-    const value = result.answers[name];
+  for (const key of questionNames) {
+    const value = result.answers[key];
+    // question keys are "<sensor> in <unitId>"; the sensor is the part before the unit id
+    const sensor = key.slice(0, key.indexOf(" in "));
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      push(invalidAnswerError(input, name), stage);
+      push(invalidAnswerError(input, sensor), stage);
       continue;
     }
-    push({ sensor: name, input, value }, stage);
+    push({ sensor, input, value }, stage);
   }
 }
 

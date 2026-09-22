@@ -18,9 +18,9 @@ describe("walkDir", () => {
     expect(paths).not.toContain("photo.png"); // extension
   });
 
-  test("file units carry { path, content } with paths relative to the root", async () => {
+  test("file units carry { path, content, id } with paths relative to the root", async () => {
     for await (const unit of walkDir("tests/fixtures/sample-dir")) {
-      expect(Object.keys(unit.state).sort()).toEqual(["content", "path"]);
+      expect(Object.keys(unit.state).sort()).toEqual(["content", "id", "path"]);
       expect(unit.state.path.startsWith("tests/fixtures")).toBe(false);
     }
   });
