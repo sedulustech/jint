@@ -1,6 +1,8 @@
 import { describe, test, expect } from "bun:test";
 
-const ROOT = "/home/crjm/dev/sedulus/jint";
+// the repo this test file lives in - never a sibling checkout, so worktree
+// runs exercise the worktree's own sensors and calibration
+const ROOT = import.meta.dir + "/..";
 const CLI = "src/cli.ts";
 const NO_KEY = { TYPESAFE_API_KEY: "" };
 

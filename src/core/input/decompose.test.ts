@@ -47,16 +47,16 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
-    // 17 top-level definitions, no imports in this file.
-    expect(inv.definitions).toHaveLength(17);
+    // 21 top-level definitions, no imports in this file.
+    expect(inv.definitions).toHaveLength(21);
     expect(inv.imports).toHaveLength(0);
     // 19 comment nodes total, all accounted for: 14 attached as leading docs, 1 standalone
     // (the file header, separated from the first declaration by a blank line), and 4 nested
     // member-doc comments inside the Sensor interface body, consumed into that definition leaf.
-    expect(accountedComments(inv)).toBe(19);
-    expect(attachedCount(inv)).toBe(14);
+    expect(accountedComments(inv)).toBe(24);
+    expect(attachedCount(inv)).toBe(18);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(4);
+    expect(internalCount(inv)).toBe(5);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),

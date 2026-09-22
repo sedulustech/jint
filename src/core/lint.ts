@@ -1,7 +1,10 @@
 /**
  * Lint — the one function most consumers need. State-in/signals-out: resolves the input, measures
- * each unit through the judge, runs each sensor's handle, streams Measurements and Signals (and
- * per-unit Diagnostics).
+ * each unit — files through the two-stage funnel, diffs through the legacy whole-unit path — runs
+ * each sensor's handle, streams Measurements and Signals (and per-unit Diagnostics).
+ *
+ * Files fan out in waves of at most FILE_CONCURRENCY in-flight judge pipelines (design §7.4 cost
+ * control); events stream per file as its wave completes, measurements before signals.
  *
  * The pipeline never resolves paths it wasn't given, never knows about the terminal, and never
  * throws for per-unit failures (design §1, §7).
@@ -9,18 +12,27 @@
 
 import { resolveInput } from "./input/infer.ts";
 import { createJudge } from "./jev/client.ts";
-import { measureUnit } from "./sensors/measure.ts";
+import {
+  measureFile,
+  isHighGood,
+  type ConfirmedReading,
+  type FunnelEvent,
+} from "./sensors/funnel.ts";
 import {
   AppError,
+  type Diagnostic,
   type InputKind,
   type Judge,
   type LintEvent,
   type Measurement,
   type Signal,
-  type Diagnostic,
   type Sensor,
+  type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/define.ts";
+
+/** Max files with an in-flight funnel at once (sweep fan-out bound, design §7.4). */
+const FILE_CONCURRENCY = 4;
 
 export interface LintOptions {
   config: ResolvedConfig;
@@ -46,33 +58,96 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   const sensors = pickSensors(options.config.sensors, options.disable);
-  const units = resolveInput({
-    input,
-    inputType: options.inputType ?? options.config.inputType,
-    exclude,
-  });
+  const units = await collectUnits(
+    resolveInput({ input, inputType: options.inputType ?? options.config.inputType, exclude }),
+  );
   const byName = new Map(sensors.map((s) => [s.name, s]));
+  let aborted = false;
 
-  for await (const unit of units) {
-    for await (const event of measureUnit(unit, sensors, judge)) {
-      if ("code" in event) {
-        yield { type: "diagnostic", diagnostic: event };
-        // A rejected API key fails every unit identically: abort the run after
-        // surfacing the diagnostic — do not hammer the API N times.
-        if (event.code === "JEV_AUTH") return;
-        continue;
+  for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
+    const results = await Promise.all(
+      units
+        .slice(i, i + FILE_CONCURRENCY)
+        .map((unit) => runUnit(unit, sensors, judge, () => aborted)),
+    );
+    for (const result of results) {
+      if (result.abort) aborted = true;
+      for (const { event, stage } of result.events) {
+        if ("code" in event) {
+          yield { type: "diagnostic", diagnostic: event };
+          continue;
+        }
+        yield { type: "measurement", measurement: event };
+        // Sweep readings are candidates; confirmed leaf readings decide via aggregation below.
+        if (stage !== "file") continue;
+        const handle = byName.get(event.sensor)?.handle;
+        const severity = handle?.(event.value) ?? null;
+        if (severity !== null) {
+          yield {
+            type: "signal",
+            signal: { sensor: event.sensor, input: event.input, value: event.value, severity },
+          };
+        }
       }
-      yield { type: "measurement", measurement: event };
-      const sensor = byName.get(event.sensor);
-      const severity = sensor?.handle(event.value) ?? null;
-      if (severity !== null) {
+      // Confirmed leaf signals aggregate per (file, sensor): max for high=bad, min for
+      // high=good — never a mean (design §7.3) — and carry the extreme leaf's location.
+      for (const [sensorName, readings] of result.confirmedBySensor) {
+        const sensor = byName.get(sensorName);
+        if (sensor === undefined) continue;
+        const extreme = extremeReading(readings, isHighGood(sensorName));
+        const severity = sensor.handle(extreme.value);
+        if (severity === null) continue;
         yield {
           type: "signal",
-          signal: { sensor: event.sensor, input: event.input, value: event.value, severity },
+          signal: {
+            sensor: sensorName,
+            input: extreme.input,
+            value: extreme.value,
+            severity,
+            location: { input: extreme.input, span: extreme.span },
+          },
         };
       }
     }
   }
+}
+
+/** One unit's pipeline outcome: streamed events plus its confirmed leaf readings by sensor. */
+interface UnitResult {
+  events: FunnelEvent[];
+  confirmedBySensor: Map<string, ConfirmedReading[]>;
+  abort: boolean;
+}
+
+async function runUnit(
+  unit: Unit,
+  sensors: readonly Sensor[],
+  judge: Judge,
+  isAborted: () => boolean,
+): Promise<UnitResult> {
+  const funnel = await measureFile(unit, sensors, judge, isAborted);
+  const confirmedBySensor = new Map<string, ConfirmedReading[]>();
+  for (const reading of funnel.confirmed) {
+    const list = confirmedBySensor.get(reading.sensor) ?? [];
+    list.push(reading);
+    confirmedBySensor.set(reading.sensor, list);
+  }
+  return { events: funnel.events, confirmedBySensor, abort: funnel.fatal };
+}
+
+function extremeReading(
+  readings: readonly ConfirmedReading[],
+  highGood: boolean,
+): ConfirmedReading {
+  return readings.reduce((a, b) =>
+    highGood ? (b.value < a.value ? b : a) : b.value > a.value ? b : a,
+  );
+}
+
+async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const u of units) out.push(u);
+  return out;
 }
 
 function pickSensors(

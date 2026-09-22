@@ -79,6 +79,19 @@ export interface Signal {
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
+  /**
+   * Exact leaf location for confirmed funnel signals (design.md §7.3): the labeled block plus its
+   * byte/line span into the source. Absent for file-granularity signals (relational, file-shaped).
+   */
+  readonly location?: { readonly input: string; readonly span: Span };
+}
+
+/** Exact location of a leaf: line+col points and byte offsets into the source. */
+export interface Span {
+  readonly start: { readonly line: number; readonly column: number };
+  readonly end: { readonly line: number; readonly column: number };
+  readonly startByte: number;
+  readonly endByte: number;
 }
 
 /** A per-unit operational failure (unreadable file, jev hiccup); one bad unit never kills the run. */
@@ -94,6 +107,18 @@ export interface FileState {
   readonly content: string;
 }
 
+/** One block of the sweep's array state (design.md §7.7); label is "block-N", positional. */
+export interface SweepBlock {
+  readonly label: string;
+  readonly content: string;
+}
+
+/** Stage-1 sweep state: one file mapped into an array of labeled blocks, judged in ONE call. */
+export interface SweepState {
+  readonly path: string;
+  readonly blocks: readonly SweepBlock[];
+}
+
 /** State for diff units — the calibrated tmp/diff-v4 shape, so the validated numbers transfer. */
 export interface DiffState {
   readonly path: string;
@@ -102,6 +127,8 @@ export interface DiffState {
 }
 
 export type UnitState = FileState | DiffState;
+/** Everything the judge may be handed: whole-file/diff units, plus the sweep's array state. */
+export type AnyState = UnitState | SweepState;
 
 /** A resolved thing to measure: its kind picks the sensors; its state feeds the judge. */
 export interface Unit {
@@ -120,7 +147,7 @@ export interface QuestionSpec {
  * in tests.
  */
 export type Judge = (
-  state: UnitState,
+  state: AnyState,
   questions: Record<string, QuestionSpec>,
 ) => Promise<Record<string, number>>;
 

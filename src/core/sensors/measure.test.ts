@@ -6,6 +6,7 @@ import {
   type Diagnostic,
   type Sensor,
   type Unit,
+  type UnitState,
 } from "../types.ts";
 import { sensorDefaults } from "./defaults.ts";
 import { selectSensors, compileSensorQuestions, measureUnit, toDiagnostic } from "./measure.ts";
@@ -23,7 +24,7 @@ const allSensors: readonly Sensor[] = Object.values(sensorDefaults);
 
 function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
   return async (state) => {
-    calls.push({ kind: "file", state });
+    calls.push({ kind: "file", state: state as UnitState });
     return values;
   };
 }

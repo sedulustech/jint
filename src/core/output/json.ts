@@ -25,6 +25,10 @@ export function renderJson(report: LintReport): string {
           input: s.input,
           value: s.value,
           severity: s.severity,
+          // Additive (jint-report/v1): confirmed funnel signals carry the leaf's exact span.
+          ...(s.location !== undefined && {
+            location: { input: s.location.input, span: s.location.span },
+          }),
         })),
         diagnostics: report.diagnostics.map((d) => ({
           input: d.input,
