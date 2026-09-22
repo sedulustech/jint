@@ -31,6 +31,7 @@ import {
   type Questions,
 } from "@typesafe-ai/sdk";
 import { AppError, type Judge, type QuestionSpec } from "../types.ts";
+import { requestDebug } from "./debug.ts";
 
 /** The answer boundary: exactly one calibrated probability per question. */
 const ANSWER_SCHEMA = Type.Object({
@@ -49,7 +50,7 @@ export interface JudgeConfig {
 export function createJudge(config?: JudgeConfig): Judge {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
-    if (client === null) client = makeClient(config);
+    if (client === null) client = makeClient(requestDebug(config));
     const sdkQuestions = compileQuestions(questions);
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
