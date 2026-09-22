@@ -38,7 +38,7 @@ export default defineConfig({
 
     "typescript/unbound-method": "off",
   },
-  ignorePatterns: ["**/node_modules", "**/tmp", "**/*.d.ts"],
+  ignorePatterns: ["**/node_modules", "**/tmp", "**/*.d.ts", "**/fixtures/**"],
   overrides: [
     {
       // src/logger.ts is the single console.* choke point (structured stderr

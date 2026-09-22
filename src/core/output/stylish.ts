@@ -15,8 +15,9 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): str
   const out: string[] = [];
 
   for (const d of report.diagnostics) {
-    const line = `error ${d.code} ${d.input}: ${d.message}`;
-    out.push(colorize ? red(line) : line);
+    const severity = d.severity ?? "error";
+    const line = `${severity} ${d.code} ${d.input}: ${d.message}`;
+    out.push(colorize ? (severity === "warn" ? yellow(line) : red(line)) : line);
   }
 
   if (report.signals.length > 0) {
@@ -56,9 +57,14 @@ function stylishSummary(report: LintReport): string | null {
         ` (${errors} ${errors === 1 ? "error" : "errors"}, ${warnings} ${warnings === 1 ? "warning" : "warnings"})`,
     );
   }
-  if (report.diagnostics.length > 0) {
+  const failures = report.diagnostics.filter((d) => (d.severity ?? "error") === "error");
+  const degraded = report.diagnostics.filter((d) => d.severity === "warn");
+  if (failures.length > 0) {
+    parts.push(`${failures.length} ${failures.length === 1 ? "unit" : "units"} failed to measure`);
+  }
+  if (degraded.length > 0) {
     parts.push(
-      `${report.diagnostics.length} ${report.diagnostics.length === 1 ? "unit" : "units"} failed to measure`,
+      `${degraded.length} ${degraded.length === 1 ? "file" : "files"} measured whole (decomposition degraded)`,
     );
   }
   if (parts.length === 0 && report.measurements.length > 0) {

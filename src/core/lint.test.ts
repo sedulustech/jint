@@ -176,7 +176,7 @@ describe("lint — funnel shape", () => {
     expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
   });
 
-  test("fallback: a file with no leaves measures whole-file, as before the funnel", async () => {
+  test("degenerate file: degrades to the coarsest leaf (whole file) with a warn diagnostic", async () => {
     const empty = "tests/fixtures/tmp-empty.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
@@ -184,11 +184,23 @@ describe("lint — funnel shape", () => {
       const events = await drain(
         lint({ config: baseConfig, input: empty, judge: loggingJudge({}, log) }),
       );
-      // single whole-content call carrying every sensor question, no sweep, no blocks
-      expect(log.calls).toHaveLength(1);
+      // two calls: file-granularity sensors on whole content, then the sweep over ONE
+      // whole-file leaf - the coarsest granularity, not a legacy path (design 7.2)
+      expect(log.calls).toHaveLength(2);
       expect(isSweep(log.calls[0]!.state)).toBe(false);
-      expect(log.calls[0]!.questions).toHaveLength(9);
-      expect(events.filter((e) => e.type === "measurement")).toHaveLength(9);
+      expect(isSweep(log.calls[1]!.state)).toBe(true);
+      const sweep = log.calls[1]!;
+      const blocks = (sweep.state as unknown as { blocks: unknown[] }).blocks;
+      expect(blocks).toHaveLength(1);
+      const measurements = events.filter((e) => e.type === "measurement");
+      expect(measurements).toHaveLength(9);
+      const diags = events.filter(
+        (e) =>
+          e.type === "diagnostic" &&
+          (e.diagnostic as { code?: string }).code === "DECOMPOSITION_DEGRADED",
+      );
+      expect(diags).toHaveLength(1);
+      expect((diags[0] as { diagnostic: { severity?: string } }).diagnostic.severity).toBe("warn");
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);
       expect(shell.exitCode).toBe(0);
@@ -291,17 +303,12 @@ describe("lint", () => {
     const judge: Judge = async (state, questions) => {
       states.push(state);
       return inner(state, questions);
-      return judgeWith({
-        is_name_purposeful: 0.7,
-        is_vocabulary_consistent: 0.9,
-        is_greppable: 0.8,
-        is_cognitively_complex: 0.3,
-      })(state, questions);
     };
     const events = await drain(
       lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }),
     );
-    const paths = states.map((s) => (s as { path: string }).path);
+    // two judge calls per file (file-granularity + sweep), same path - dedupe for the assertion
+    const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",
       "src/tui/components/overlays/help.ts",

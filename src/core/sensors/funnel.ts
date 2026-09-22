@@ -32,7 +32,7 @@ import {
   type Judge,
   type Measurement,
 } from "../types.ts";
-import { compileSensorQuestions, measureUnit } from "./measure.ts";
+import { compileSensorQuestions } from "./measure.ts";
 import type { QuestionSpec, Sensor, Span, SweepBlock, Unit } from "../types.ts";
 
 /** Which regime produced an event; sweep measurements are candidates and never run handles. */
@@ -132,21 +132,49 @@ export async function measureFile(
   isAborted: () => boolean = () => false,
 ): Promise<FunnelResult> {
   const state = unit.state;
-  if (unit.kind !== "file" || !("content" in state)) return legacy(unit, sensors, judge);
-  const language = languageOf(state.path);
-  if (language === null) return legacy(unit, sensors, judge);
+  const content =
+    "content" in state && typeof state.content === "string"
+      ? state.content
+      : String((state as unknown as Record<string, unknown>).diff ?? "");
 
-  let definitions: UnitLeaf[] = [];
-  let comments: UnitLeaf[] = [];
-  try {
-    const inventory = await decompose(state.content, language);
-    definitions = inventory.definitions;
-    comments = inventory.comments;
-  } catch {
-    return legacy(unit, sensors, judge);
+  // Decomposition is best-effort: an unmapped or uncuttable file degrades to the coarsest
+  // granularity - one whole-content leaf - with a warn diagnostic. It is not a legacy path;
+  // it is the same funnel run over a single leaf (design section 7.2).
+  let leaves: UnitLeaf[] = [];
+  let degraded: string | null = null;
+  if (unit.kind !== "file") {
+    degraded = "non-file unit";
+  } else {
+    const language = languageOf(state.path);
+    if (language === null) {
+      degraded = "no grammar mapping for extension";
+    } else {
+      try {
+        const inventory = await decompose(content, language);
+        leaves = [...inventory.definitions, ...inventory.comments];
+        if (leaves.length === 0) degraded = "no definitions or comments found";
+      } catch {
+        degraded = "parse failed";
+      }
+    }
   }
-  const leaves: UnitLeaf[] = [...definitions, ...comments];
-  if (leaves.length === 0) return legacy(unit, sensors, judge);
+  if (degraded !== null) {
+    const lines = content.split("\n").length;
+    leaves = [
+      {
+        label: "f0",
+        span: {
+          start: { line: 1, column: 0 },
+          end: { line: lines, column: 0 },
+          startByte: 0,
+          endByte: content.length,
+        },
+        content,
+        nodeType: "whole-file",
+        internalCommentCount: 0,
+      },
+    ];
+  }
 
   const events: FunnelEvent[] = [];
   const confirmed: ConfirmedReading[] = [];
@@ -168,6 +196,18 @@ export async function measureFile(
       state.path,
     );
     if (fatalIn(events)) return { events, confirmed, fatal: true };
+  }
+
+  if (degraded !== null) {
+    push(
+      {
+        input: state.path,
+        code: "DECOMPOSITION_DEGRADED",
+        severity: "warn",
+        message: `measured whole: ${degraded}`,
+      },
+      "file",
+    );
   }
 
   // Stage 1: the array state, one question per (block-leaf, sweeping sensor).
@@ -249,15 +289,6 @@ export async function measureFile(
   }
 
   return { events, confirmed, fatal: false };
-}
-
-/** Legacy whole-file path: exactly the pre-funnel behavior for one unit. */
-async function legacy(unit: Unit, sensors: readonly Sensor[], judge: Judge): Promise<FunnelResult> {
-  const events: FunnelEvent[] = [];
-  for await (const event of measureUnit(unit, sensors, judge)) {
-    events.push({ event, stage: "file" });
-  }
-  return { events, confirmed: [], fatal: fatalIn(events) };
 }
 
 /** A definition's attached docblock is consumed into the leaf (design §7.2) — it reads as written. */

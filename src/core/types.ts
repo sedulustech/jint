@@ -24,6 +24,7 @@ export type ErrorCode =
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
+  | "DECOMPOSITION_DEGRADED"
   | "INTERNAL";
 
 /**
@@ -99,6 +100,8 @@ export interface Diagnostic {
   readonly input: string;
   readonly code: ErrorCode;
   readonly message: string;
+  /** "warn" diagnostics inform (e.g. degraded decomposition) and never fail the run. */
+  readonly severity?: "error" | "warn";
 }
 
 /** State for file units — exactly the shape the model judges. */

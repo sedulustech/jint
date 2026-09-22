@@ -50,13 +50,13 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     // 21 top-level definitions, no imports in this file.
     expect(inv.definitions).toHaveLength(21);
     expect(inv.imports).toHaveLength(0);
-    // 19 comment nodes total, all accounted for: 14 attached as leading docs, 1 standalone
-    // (the file header, separated from the first declaration by a blank line), and 4 nested
-    // member-doc comments inside the Sensor interface body, consumed into that definition leaf.
-    expect(accountedComments(inv)).toBe(24);
+    // 25 comment nodes total, all accounted for: 18 attached as leading docs, 1 standalone
+    // (the file header, separated from the first declaration by a blank line), and 6 nested
+    // member-doc comments inside declaration bodies, consumed into their definition leaves.
+    expect(accountedComments(inv)).toBe(25);
     expect(attachedCount(inv)).toBe(18);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(5);
+    expect(internalCount(inv)).toBe(6);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),

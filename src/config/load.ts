@@ -44,7 +44,11 @@ const CONFIG_SCHEMA = Type.Object({
 
 /** The built-in config used when no config file exists: no input, all default sensors. */
 export function defaultConfig(): ResolvedConfig {
-  return defineConfig({ input: "", sensors: Object.values(sensorDefaults), exclude: [] });
+  return defineConfig({
+    input: "",
+    sensors: Object.values(sensorDefaults),
+    exclude: ["**/fixtures/**"],
+  });
 }
 
 export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedConfig> {

@@ -225,7 +225,11 @@ function flagsSelectFiles(cliArgs: CliArgs): boolean {
 /** Exit invariant (design §7): error signals -> 1; diagnostics or zero measurements -> 4. */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
-  if (lintReport.diagnostics.length > 0 || lintReport.measurements.length === 0) return 4;
+  if (
+    lintReport.diagnostics.some((d) => (d.severity ?? "error") === "error") ||
+    lintReport.measurements.length === 0
+  )
+    return 4;
   return 0;
 }
 
