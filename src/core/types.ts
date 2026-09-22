@@ -1,7 +1,7 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - Sensor — the measuring mechanism: { name, description, inputTypes, handle }
+ * - Sensor — the measuring mechanism: { name, description, inputTypes, granularity, handle }
  * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
  *   by itself
  * - Signal — a measurement that cleared the sensor's handle; the only actionable output
@@ -53,6 +53,12 @@ export interface Sensor {
   readonly description: string;
   /** Which unit kinds this sensor can measure; the inferred input kind narrows which sensors run. */
   readonly inputTypes: readonly UnitKind[];
+  /**
+   * Which decomposition of the state this sensor judges (design.md §7.1): "file" needs the whole
+   * set in one state; finer granularities ("definition", "comment", "import") judge individual
+   * decompose() leaves. Every sensor ships "file" until the Stage-2 funnel lands.
+   */
+  readonly granularity: "file" | "definition" | "comment" | "import";
   /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
   readonly handle: (value: number) => HandleResult;
 }

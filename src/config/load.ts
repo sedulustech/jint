@@ -22,6 +22,15 @@ const SENSOR_SCHEMA = Type.Object({
   name: Type.String(),
   description: Type.String(),
   inputTypes: Type.Array(Type.Union([Type.Literal("file"), Type.Literal("diff")])),
+  // Optional at the boundary for pre-0.2 configs; normalized to "file" below (design §7.1).
+  granularity: Type.Optional(
+    Type.Union([
+      Type.Literal("file"),
+      Type.Literal("definition"),
+      Type.Literal("comment"),
+      Type.Literal("import"),
+    ]),
+  ),
   handle: Type.Unknown(),
 });
 
@@ -79,7 +88,12 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
       );
     }
   }
-  return parsed as ResolvedConfig;
+  // Normalize granularity once, at the boundary: configs written before 0.2 get "file".
+  const normalized = {
+    ...parsed,
+    sensors: parsed.sensors.map((s) => ({ ...s, granularity: s.granularity ?? "file" })),
+  };
+  return normalized as ResolvedConfig;
 }
 
 function isModuleNotFound(e: unknown): boolean {

@@ -30,6 +30,7 @@ describe("defineConfig", () => {
       name: "custom",
       description: "claim",
       inputTypes: ["file"],
+      granularity: "file",
       handle: () => null,
     };
     const config = defineConfig({ input: "a.ts", sensors: [sensor] });

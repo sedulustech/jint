@@ -23,8 +23,11 @@
   },
   "devDependencies": {
     "@oxlint/plugins": "1.78.0",
+    "bun-types": "^1.4.2",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.79.0",
-    "oxlint-tsgolint": "^7.0.2001"
+    "oxlint-tsgolint": "^7.0.2001",
+    "tree-sitter-typescript": "^0.23.2",
+    "web-tree-sitter": "^0.27.0"
   }
 }
