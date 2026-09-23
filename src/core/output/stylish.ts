@@ -111,7 +111,7 @@ function runSummaryOf(report: LintReport): string | null {
   }
   if (report.degradations.length > 0) {
     parts.push(
-      `${report.degradations.length} ${report.degradations.length === 1 ? "file" : "files"} measured whole (decomposition degraded)`,
+      `${report.degradations.length} ${report.degradations.length === 1 ? "file" : "files"} not swept (no units derived)`,
     );
   }
   return parts.length > 0 ? parts.join("; ") : null;

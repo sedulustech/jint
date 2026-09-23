@@ -2,10 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { sensorDefaults } from "../core/sensors/defaults.ts";
-import {
-  UNIT_TASK,
-  blockWireId,
-} from "../core/sensors/measure.ts";
+import { UNIT_TASK } from "../core/sensors/measure.ts";
 import {
   RequestError,
   SetupError,
@@ -37,6 +34,7 @@ const SILENT = {
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
   is_cognitively_complex: 0.3,
+  is_function_srp: 0.9,
 };
 
 /**
@@ -162,7 +160,7 @@ describe("lint — funnel shape", () => {
     expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
     // per (block-leaf, target-matched sensor): L2-L4 carries the module docblock -> 7 sensors,
     // L6-L11 is a bare definition -> 3 definition-target sensors (design 7.7 targeting)
-    expect(sweep.questions).toHaveLength(10);
+    expect(sweep.questions).toHaveLength(12);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
     expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
     // criteria-as-rule: instructions maps the unit id to the task, criteria is the rule
@@ -281,7 +279,7 @@ describe("lint — funnel shape", () => {
     expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
   });
 
-  test("degenerate file: degrades to the coarsest leaf (whole file) with a degradation", async () => {
+  test("degenerate file: no leaves, nothing swept - no whole-file judgment", async () => {
     const empty = "tests/fixtures/tmp-empty.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
@@ -289,22 +287,60 @@ describe("lint — funnel shape", () => {
       const events = await drain(
         lint({ config: baseConfig, input: empty, judge: loggingJudge({}, log) }),
       );
-      // two calls: files-target sensors on whole content, then the sweep over ONE
-      // whole-file leaf - the coarsest target, not a legacy path (design 7.2)
-      expect(log.calls).toHaveLength(2);
+      // one call only: files-target sensors on whole content. No sweep call at all -
+      // an unparseable file yields no leaves and there is no whole-file leaf judgment.
+      expect(log.calls).toHaveLength(1);
       expect(isSweep(log.calls[0]!.state)).toBe(false);
-      expect(isSweep(log.calls[1]!.state)).toBe(true);
-      const sweep = log.calls[1]!;
-      const blocks = (sweep.state as unknown as { blocks: unknown[] }).blocks;
-      expect(blocks).toHaveLength(1);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(5); // files 2 + degraded leaf x 3 sweep (silent 0.5 never crosses, no confirm)
+      expect(measurements).toHaveLength(2); // whole-unit sensors only
       const degradations = events.filter(
         (e): e is Extract<LintEvent, { type: "degradation" }> => e.type === "degradation",
       );
-      expect(degraded).toHaveLength(1);
-      expect(degraded[0]!.degradation.code).toBe("DECOMPOSITION_DEGRADED");
-      expect(degraded[0]!.degradation.message).toContain("measured whole");
+      expect(degradations).toHaveLength(1);
+      expect(degradations[0]!.degradation.code).toBe("MAPPING_DEGRADED");
+      expect(degradations[0]!.degradation.message).toContain("not swept");
+    } finally {
+      const shell = Bun.spawnSync(["rm", empty]);
+      expect(shell.exitCode).toBe(0);
+    }
+  });
+
+  test("sweep never hands a whole-file leaf to any target, functions included", async () => {
+    const log: CallLog = { calls: [] };
+    await drain(lint({ config: baseConfig, input: FILE, judge: loggingJudge({}, log) }));
+    const sweeps = log.calls.filter((c) => isSweep(c.state));
+    expect(sweeps.length).toBeGreaterThan(0);
+    const src = await Bun.file(FILE).text();
+    for (const c of sweeps) {
+      const blocks = (c.state as unknown as { blocks: { id: string; content: string }[] }).blocks;
+      for (const block of blocks) {
+        // no block IS the whole file - targets route over leaves, never a file-shaped leaf
+        expect(block.content).not.toBe(src);
+        expect(block.id).not.toBe("L1-L" + src.split("\n").length);
+      }
+    }
+  });
+
+  test("empty sweep state (no leaves) produces no questions and no crash", async () => {
+    const { measureFile } = await import("./sensors/funnel.ts");
+    const empty = "tests/fixtures/tmp-empty-funnel.ts";
+    await Bun.write(empty, String.fromCharCode(10));
+    try {
+      const calls: unknown[] = [];
+      const result = await measureFile(
+        { kind: "file", state: { path: empty, content: "", id: "L1" } },
+        Object.values(sensorDefaults),
+        async (state, questions) => {
+          calls.push({ state, questions });
+          return {};
+        },
+      );
+      // files-target call only; the sweep is skipped entirely (empty blocks -> early return)
+      expect(calls).toHaveLength(1);
+      expect(result.confirmed).toEqual([]);
+      expect(result.fatal).toBe(false);
+      const sweepCalls = calls.filter((c) => isSweep((c as { state: AnyState }).state));
+      expect(sweepCalls).toHaveLength(0);
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);
       expect(shell.exitCode).toBe(0);
@@ -330,7 +366,7 @@ describe("lint", () => {
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
     // file call 2 + sweep 10 (7 docblock leaf + 3 bare leaf) + confirm 10 (both flagged by 0.3)
-    expect(measurements).toHaveLength(22);
+    expect(measurements).toHaveLength(26);
     // purposeful 0.3 -> one aggregated error at the extreme leaf; business_context at 1.0
     // never fires (measurement-only in v0)
     expect(signals).toHaveLength(1);
@@ -382,6 +418,7 @@ describe("lint", () => {
           "is_vocabulary_consistent",
           "is_naming_convention_consistent",
           "is_greppable",
+          "is_function_srp",
         ],
         judge: loggingJudge({ is_name_purposeful: 0.7 }, log),
       }),
@@ -396,7 +433,7 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 
-  test("diff input decomposes into per-file units with calibrated state (legacy path)", async () => {
+  test("diff input splits into per-file units with calibrated state", async () => {
     const states: unknown[] = [];
     const inner = judgeWith({
       is_name_purposeful: 0.7,
@@ -411,14 +448,15 @@ describe("lint", () => {
     const events = await drain(
       lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }),
     );
-    // two judge calls per file (files-target + sweep), same path - dedupe for the assertion
+    // diff units map to no leaf units (quick path): only the whole-unit call runs per file
+    // (2 sensors x 2 files); no sweep, no whole-file leaf judgment
     const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",
       "src/tui/components/overlays/help.ts",
     ]); // deleted + binary skipped
     expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(10);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {
@@ -445,7 +483,7 @@ describe("lint", () => {
     // both of the failed file's calls (whole-content + sweep) surface an error
     expect(errors).toHaveLength(2);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(12); // second unit: 2 file + 10 sweep
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(14); // second unit: 2 file + 12 sweep
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -534,7 +572,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(22);
+    expect(report.measurements).toHaveLength(26);
     expect(report.signals).toHaveLength(1);
     expect(report.errors).toHaveLength(0);
     expect(report.degradations).toHaveLength(0);

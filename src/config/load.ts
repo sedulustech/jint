@@ -23,6 +23,7 @@ const SENSOR_SCHEMA = Type.Object({
   criteria: Type.Object({ true: Type.String(), false: Type.String() }),
   target: Type.Union([
     Type.Literal("files"),
+    Type.Literal("functions"),
     Type.Literal("definitions"),
     Type.Literal("comments"),
     Type.Literal("imports"),

@@ -2,7 +2,7 @@
  * Diff inputs: "-" (stdin, the primitive), an on-disk patch file, or a rev-looking expression
  * (sugar that shells out to git — fails loudly when git is absent; pipe through "-" instead).
  *
- * A unified diff is decomposed into per-file units: added/modified files are measured, deleted and
+ * A unified diff is split into per-file units: added/modified files are measured, deleted and
  * binary files are skipped, and the commit message (when available via git) is shared state for
  * every unit of the run (design §4).
  */

@@ -84,7 +84,7 @@ describe("validateConfig / defaultConfig", () => {
   test("defaultConfig carries every default sensor and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.sensors).toHaveLength(9);
+    expect(config.sensors).toHaveLength(10);
   });
 
   test("validateConfig rejects sensors that are not an array", () => {

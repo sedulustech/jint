@@ -29,6 +29,18 @@ export const isNamePurposeful: Sensor = {
   handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
 };
 
+export const isFunctionSrp: Sensor = {
+  name: "is_function_srp",
+  criteria: {
+    true: "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
+    false:
+      "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.",
+  },
+  target: "functions",
+  // provisional: high = SRP holds (high = good); anchored to the self-corpus after calibration
+  handle: (value) => (value < 0.4 ? "error" : value < 0.55 ? "warn" : null),
+};
+
 export const isVocabularyConsistent: Sensor = {
   name: "is_vocabulary_consistent",
   criteria: {
@@ -142,4 +154,5 @@ export const sensorDefaults: Record<string, Sensor> = Object.freeze({
   is_comment_patching_readability,
   will_comment_drift,
   is_cognitively_complex: isCognitivelyComplex,
+  is_function_srp: isFunctionSrp,
 });

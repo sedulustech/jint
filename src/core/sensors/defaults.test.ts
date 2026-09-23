@@ -56,6 +56,7 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
       if (typeof readings !== "object" || readings === null) continue; // provenance notes
       for (const sensor of Object.values(sensorDefaults)) {
         const value = readings[sensor.name];
+        if (value === undefined) continue; // fixture predates the sensor
         expect(typeof value).toBe("number");
         // Healthy code must never trip an ERROR; warns are legitimate nudges
         // (the self-lint corpus legitimately earns drift/consistency/
@@ -139,7 +140,28 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
 });
 
 describe("sensor definitions", () => {
-  test("nine sensors with calibrated criteria rules", () => {
+  const sensorFires = (s: Sensor): boolean => s.handle(0.05) !== null || s.handle(0.95) !== null;
+
+  test("every block-target sensor has a funnel sweep anchor and polarity", async () => {
+    const funnel = await import("./funnel.ts");
+    const SWEEP_THRESHOLDS = funnel.SWEEP_THRESHOLDS;
+    const HIGH_GOOD = funnel.HIGH_GOOD;
+    for (const sensor of Object.values(sensorDefaults)) {
+      if (sensor.target === "files" || sensor.target === "imports" || sensor.target === "diffs")
+        continue;
+      const missing = Object.values(sensorDefaults)
+        .filter((s) => s.target !== "files" && s.target !== "imports" && s.target !== "diffs")
+        // a firing sensor without an anchor can never sweep -> never confirms; missing anchor
+        .filter((s) => sensorFires(s) && typeof SWEEP_THRESHOLDS[s.name] !== "number");
+      expect(missing.map((s) => s.name)).toEqual([]);
+      // polarity: high-good handles fire on LOW values and are in HIGH_GOOD; high-bad the reverse
+      const firesLow = sensor.handle(0.05) !== null;
+      const firesHigh = sensor.handle(0.95) !== null;
+      expect(HIGH_GOOD.has(sensor.name)).toBe(firesLow && !firesHigh);
+    }
+  });
+
+  test("ten sensors with calibrated criteria rules", () => {
     const names = Object.keys(sensorDefaults);
     expect(names).toEqual([
       "is_name_purposeful",
@@ -151,11 +173,14 @@ describe("sensor definitions", () => {
       "is_comment_patching_readability",
       "will_comment_drift",
       "is_cognitively_complex",
+      "is_function_srp",
     ]);
     for (const sensor of Object.values(sensorDefaults)) {
       expect(sensor.criteria.true.length).toBeGreaterThan(20);
       expect(sensor.criteria.false.length).toBeGreaterThan(20);
-      expect(["files", "definitions", "comments", "imports", "diffs"]).toContain(sensor.target);
+      expect(["files", "functions", "definitions", "comments", "imports", "diffs"]).toContain(
+        sensor.target,
+      );
     }
   });
 

@@ -1,5 +1,5 @@
 /**
- * Tree-sitter-based decomposition of a source file into a unit inventory (tmp/design.md §7.2):
+ * Tree-sitter-based mapping of a source file into a unit inventory (tmp/design.md §7.2):
  * definitions, comments, and imports, top-level only.
  *
  * Extraction is flag-independent: which files are acquired is decided elsewhere; the parse and the
@@ -39,6 +39,8 @@ export interface UnitLeaf {
   readonly span: UnitSpan;
   readonly content: string;
   readonly nodeType: string;
+  /** The abstracted noun this leaf is ("function" | "type" for definitions; "comment"). */
+  readonly role: NodeRole;
   /** The comment node(s) consumed into this definition's leading run (outside its content span). */
   readonly attachedComment?: readonly string[];
   /** Comment nodes nested inside this definition's body; consumed into the leaf by construction. */
@@ -83,28 +85,36 @@ export interface Inventory {
 }
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
+/**
+ * The language-independent noun a grammar node abstracts into. Sensors and the funnel route on
+ * roles, never on grammar node names — adding a language is adding one roleTable entry, never
+ * touching the walker (design: language adapter, measured in tmp/langsurvey).
+ */
+export type NodeRole = "function" | "type" | "import" | "comment";
+
 interface LanguageMapping {
-  readonly definitionNodeTypes: readonly string[];
-  readonly commentType: string;
-  readonly importNodeTypes: readonly string[];
+  /** Grammar node type -> abstract role. Unlisted top-level node types are skipped. */
+  readonly roleTable: Readonly<Record<string, NodeRole>>;
   /** Wrapper nodes unwrapped to their inner declaration (e.g. export_statement). */
   readonly wrapperTypes: readonly string[];
 }
 
 const TYPESCRIPT: LanguageMapping = {
-  definitionNodeTypes: [
-    "class_declaration",
-    "abstract_class_declaration",
-    "function_declaration",
-    "generator_function_declaration",
-    "lexical_declaration",
-    "variable_declaration",
-    "interface_declaration",
-    "type_alias_declaration",
-    "enum_declaration",
-  ],
-  commentType: "comment",
-  importNodeTypes: ["import_statement", "ts_import_equals_declaration"],
+  roleTable: {
+    function_declaration: "function",
+    generator_function_declaration: "function",
+    // lexical_declaration: const f = () => {}; data consts judged as functions in v0
+    lexical_declaration: "function",
+    variable_declaration: "function",
+    class_declaration: "type",
+    abstract_class_declaration: "type",
+    interface_declaration: "type",
+    type_alias_declaration: "type",
+    enum_declaration: "type",
+    comment: "comment",
+    import_statement: "import",
+    ts_import_equals_declaration: "import",
+  },
   wrapperTypes: ["export_statement"],
 };
 
@@ -145,6 +155,7 @@ interface RawLeaf {
   readonly span: UnitSpan;
   readonly content: string;
   readonly nodeType: string;
+  readonly role: NodeRole;
   readonly attachedComment?: readonly string[];
   readonly internalCommentCount: number;
 }
@@ -186,7 +197,8 @@ export async function decompose(source: string, language: string): Promise<Inven
       comments.push({
         label: "",
         content: p.text,
-        nodeType: mapping.commentType,
+        nodeType: "comment",
+        role: "comment",
         span: p.span,
         internalCommentCount: 0,
       });
@@ -197,16 +209,17 @@ export async function decompose(source: string, language: string): Promise<Inven
     // Unwrap wrappers, but keep the top-level node's span and text: content must stay
     // complete ("export" and all), spans must stay exact.
     const { node, type } = unwrap(child, mapping.wrapperTypes);
-    if (type === mapping.commentType) {
+    if (mapping.roleTable[type] === "comment") {
       pending.push({ text: node.text, span: spanOf(node) });
       continue;
     }
-    if (mapping.importNodeTypes.includes(type)) {
+    if (mapping.roleTable[type] === "import") {
       flushStandalone();
       importNodes.push({ nodeType: type, text: node.text, span: spanOf(node) });
       continue;
     }
-    if (mapping.definitionNodeTypes.includes(type)) {
+    const role = mapping.roleTable[type];
+    if (role === "function" || role === "type") {
       // A comment run attaches only when it directly precedes the declaration
       // with no blank line in between; otherwise it stays standalone.
       const last = pending.at(-1);
@@ -218,6 +231,7 @@ export async function decompose(source: string, language: string): Promise<Inven
           span: spanOf(child),
           content: child.text,
           nodeType: type,
+          role,
           attachedComment: pending.map((p) => p.text),
           internalCommentCount: countInternalComments(node),
         });
@@ -229,6 +243,7 @@ export async function decompose(source: string, language: string): Promise<Inven
           span: spanOf(child),
           content: child.text,
           nodeType: type,
+          role,
           internalCommentCount: countInternalComments(node),
         });
       }
@@ -253,6 +268,7 @@ export async function decompose(source: string, language: string): Promise<Inven
       },
       content: importNodes.map((n) => n.text).join("\n"),
       nodeType: first.nodeType,
+      role: "import",
       internalCommentCount: 0,
     };
   }

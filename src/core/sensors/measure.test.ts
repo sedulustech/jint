@@ -99,12 +99,13 @@ describe("measureUnit", () => {
         is_comment_patching_readability: 0.1,
         will_comment_drift: 0.1,
         is_cognitively_complex: 0.3,
+        is_function_srp: 0.8,
       },
       calls,
     );
     const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
-    expect(events).toHaveLength(9);
+    expect(events).toHaveLength(10);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.sensor)).toContain("is_name_purposeful");
     expect(calls).toHaveLength(1); // one batched call, not nine

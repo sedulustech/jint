@@ -11,7 +11,7 @@ describe("defineConfig", () => {
       exclude: [],
     });
     const names = config.sensors.map((s) => s.name);
-    expect(names).toHaveLength(8);
+    expect(names).toHaveLength(9);
     expect(names).not.toContain("will_comment_drift");
   });
 
@@ -49,7 +49,7 @@ describe("defineConfig", () => {
   });
 
   test("default sensors all declare a valid target", () => {
-    const targets = new Set(["files", "definitions", "comments", "imports", "diffs"]);
+    const targets = new Set(["files", "functions", "definitions", "comments", "imports", "diffs"]);
     for (const sensor of Object.values(sensorDefaults)) {
       expect(targets.has(sensor.target)).toBe(true);
     }

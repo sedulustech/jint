@@ -21,8 +21,9 @@
  * high=bad sensors take the max leaf, high=good the min — one signal per (file, sensor), located at
  * the extreme leaf.
  *
- * Fallback: a file with no leaves (empty, unparseable), an unmapped language, or a failing
- * decomposition falls back to the legacy whole-file measurement for that file.
+ * No fallback: a file with no leaves (empty, unparseable), an unmapped language, or a failure to
+ * derive units yields no leaves and nothing is swept — there is no whole-file leaf judgment. Only
+ * the whole-unit sensors' own whole-content call still runs for such a file.
  */
 
 import { decompose, type UnitLeaf } from "../input/decompose.ts";
@@ -77,20 +78,23 @@ export type FunnelStage = "file" | "sweep" | "confirm";
  * handle's warn boundary stands in. Note the narration clamp: flagged A/B blocks read 0.43-0.49, so
  * the cut trades recall for zero healthy-band overlap — provisional, see above.
  */
-const SWEEP_THRESHOLDS: Record<string, number> = {
+export const SWEEP_THRESHOLDS: Record<string, number> = {
   will_comment_drift: 0.65,
   is_comment_narration: 0.55,
   is_comment_patching_readability: 0.55,
   is_cognitively_complex: 0.6,
   is_name_purposeful: 0.55,
   is_naming_convention_consistent: 0.8,
+  // provisional anchor, high = SRP holds
+  is_function_srp: 0.55,
 };
 
 /** High=good sensors error below their threshold; the extreme leaf reading is their minimum. */
-const HIGH_GOOD: ReadonlySet<string> = new Set([
+export const HIGH_GOOD: ReadonlySet<string> = new Set([
   "is_name_purposeful",
   "is_vocabulary_consistent",
   "is_naming_convention_consistent",
+  "is_function_srp",
   "is_greppable",
 ]);
 
@@ -112,10 +116,16 @@ interface Candidate {
  * (drift-prone artifact pinning lives there). Files-target sensors never sweep.
  */
 const sensorsForLeaf = (sensors: readonly Sensor[], leaf: UnitLeaf): Sensor[] => {
-  const commentLeaf = leaf.nodeType === "comment";
+  const commentLeaf = leaf.role === "comment";
   const carriesComment = commentLeaf || (leaf.attachedComment?.length ?? 0) > 0;
   return sensors.filter((s) =>
-    s.target === "comments" ? carriesComment : s.target === "definitions" ? !commentLeaf : false,
+    s.target === "comments"
+      ? carriesComment
+      : s.target === "functions"
+        ? !commentLeaf && leaf.role === "function"
+        : s.target === "definitions"
+          ? !commentLeaf
+          : false,
   );
 };
 
@@ -142,9 +152,9 @@ export interface FunnelResult {
 }
 
 /**
- * Measure one file unit through the funnel; falls back to the legacy whole-file behavior when the
- * file cannot be decomposed into leaves. isAborted lets an in-flight file stop before further judge
- * calls once the run is aborting (JEV_AUTH elsewhere in the wave).
+ * Measure one file unit through the funnel; a file that maps to no leaf units yields no sweep at
+ * all (no whole-file judgment). isAborted lets an in-flight file stop before further judge calls
+ * once the run is aborting (JEV_AUTH elsewhere in the wave).
  */
 export async function measureFile(
   unit: Unit,
@@ -158,9 +168,9 @@ export async function measureFile(
       ? state.content
       : String((state as unknown as Record<string, unknown>).diff ?? "");
 
-  // Decomposition is best-effort: an unmapped or uncuttable file degrades to the coarsest
-  // target - one whole-content leaf - with a degradation. It is not a legacy path;
-  // it is the same funnel run over a single leaf (design section 7.2).
+  // Mapping a file to units is best-effort: an unmapped or unparseable file yields no leaves and
+  // nothing is swept (no whole-file judgment) - only a degradation informs. Whole-unit sensors
+  // keep their own whole-content call below; that is their leaf form, not a fallback leaf.
   let leaves: UnitLeaf[] = [];
   let degraded: string | null = null;
   if (unit.kind !== "file") {
@@ -179,37 +189,23 @@ export async function measureFile(
       }
     }
   }
-  if (degraded !== null) {
-    const lines = content.split("\n").length;
-    leaves = [
-      {
-        label: "leaf-0",
-        span: {
-          start: { line: 1, column: 0 },
-          end: { line: lines, column: 0 },
-          startByte: 0,
-          endByte: content.length,
-        },
-        content,
-        nodeType: "whole-file",
-        internalCommentCount: 0,
-      },
-    ];
-  }
-
   const events: FunnelEvent[] = [];
   const confirmed: ConfirmedReading[] = [];
   const push = (event: Measurement | RequestError | Degradation, stage: FunnelStage): void => {
     events.push({ event, stage });
   };
 
-  // Files-target sensors: relational claims, their own whole-content call, handles as today.
-  const fileSensors = sensors.filter((s) => s.target === "files");
+  // Whole-unit sensors: files-target sensors are relational claims judged over the whole unit;
+  // on a diff unit the diffs-target sensors join, judging the raw diff string as one unit
+  // (quick path: verbatim, no parsing, no per-unit ids - design §4 Diff units).
+  const wholeSensors = sensors.filter(
+    (s) => s.target === "files" || (s.target === "diffs" && unit.kind === "diff"),
+  );
   const fileId = "id" in state ? state.id : contentHash(state.diff);
-  if (fileSensors.length > 0) {
+  if (wholeSensors.length > 0) {
     const file = await call(
       state,
-      compileSensorQuestions(fileSensors, fileId).questions,
+      compileSensorQuestions(wholeSensors, fileId).questions,
       judge,
       state.path,
     );
@@ -217,7 +213,7 @@ export async function measureFile(
       push,
       "file",
       file,
-      fileSensors.map((s) => questionKey(s.name, fileId)),
+      wholeSensors.map((s) => questionKey(s.name, fileId)),
       state.path,
     );
     if (fatalIn(events)) return { events, confirmed, fatal: true };
@@ -227,8 +223,8 @@ export async function measureFile(
     push(
       {
         input: state.path,
-        code: "DECOMPOSITION_DEGRADED",
-        message: `measured whole: ${degraded}`,
+        code: "MAPPING_DEGRADED",
+        message: `not swept: ${degraded}`,
       },
       "file",
     );
@@ -261,7 +257,7 @@ export async function measureFile(
   // so the sweep splits into <=50-question calls run concurrently (measured: 207 answers in
   // 26s unchunked vs 3.2s chunked; answers stable at mean |delta| 0.02 across shapes).
   const sweepAnswers: Record<string, number> = {};
-  const sweepErrors: Diagnostic[] = [];
+  const sweepErrors: RequestError[] = [];
   const sweepKeys = Object.keys(questions);
   const SWEEP_CHUNK = 50;
   const chunks: string[][] = [];

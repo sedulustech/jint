@@ -18,8 +18,8 @@ const report: LintReport = {
   degradations: [
     {
       input: "src/c.ts",
-      code: "DECOMPOSITION_DEGRADED",
-      message: "measured whole: no grammar mapping for extension",
+      code: "MAPPING_DEGRADED",
+      message: "not swept: no grammar mapping for extension",
     } satisfies Degradation,
   ],
 };
@@ -33,16 +33,16 @@ describe("renderStylish", () => {
     expect(stdout).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
     expect(stdout).toContain("2 problems (1 error, 1 warning)");
     expect(stdout).not.toContain("JEV_UNAVAILABLE");
-    expect(stdout).not.toContain("DECOMPOSITION_DEGRADED");
+    expect(stdout).not.toContain("MAPPING_DEGRADED");
     expect(stdout).not.toContain("failed to measure");
     expect(stdout).not.toContain("measurements:"); // measurements are not the human payload
     // stderr: run errors and diagnostics only
     expect(stderr).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
     expect(stderr).toContain(
-      "warn DECOMPOSITION_DEGRADED src/c.ts: measured whole: no grammar mapping for extension",
+      "MAPPING_DEGRADED src/c.ts: not swept: no grammar mapping for extension",
     );
     expect(stderr).toContain("1 unit failed to measure");
-    expect(stderr).toContain("1 file measured whole (decomposition degraded)");
+    expect(stderr).toContain("1 file not swept (no units derived)");
     expect(stderr).not.toContain("is_name_purposeful");
     expect(stderr).not.toContain("problems");
   });

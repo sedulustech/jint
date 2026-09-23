@@ -1,9 +1,9 @@
 /**
  * Input inference and resolution (design §3, §4): the kind is inferred, not configured —
  *
- * On-disk directory -> dir (walked into file units) on-disk file, diff content -> diff (decomposed
- * into per-file units) on-disk file, any other -> file rev-looking non-path -> diff via git "-" ->
- * diff from stdin (the primitive)
+ * On-disk directory -> dir (walked into file units) on-disk file, diff content -> diff (split into
+ * per-file units) on-disk file, any other -> file rev-looking non-path -> diff via git "-" -> diff
+ * from stdin (the primitive)
  *
  * The CLI's --file/--dir/--diff flags are this same resolver in override form. Both the CLI and the
  * SDK go through resolveInput — no drift.

@@ -76,8 +76,8 @@ export class RequestError extends Error {
   }
 }
 
-/** Codes a streamed Degradation carries; one member today (rename rides another branch). */
-export type DegradationCode = "DECOMPOSITION_DEGRADED";
+/** Codes a streamed Degradation carries. */
+export type DegradationCode = "MAPPING_DEGRADED";
 
 /**
  * A per-unit degradation: the unit still measured, but degraded (e.g. measured whole instead of
@@ -91,12 +91,13 @@ export interface Degradation {
 }
 
 /**
- * Which decomposition instance a sensor judges (design.md §7.1): decomposition of an acquired file
- * yields target instances - one whole-file slice, N definition leaves, M standalone comment leaves,
- * 1 merged import leaf - and the target selects which of them the sensor's question runs over.
- * "diffs" is the diff blob itself (no sensor uses it yet).
+ * Which unit instance a sensor judges (design.md §7.1): mapping an acquired file to units yields
+ * target instances - one whole-file slice, N definition leaves, M standalone comment leaves, 1
+ * merged import leaf - and the target selects which of them the sensor's question runs over.
+ * "diffs" is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4
+ * Diff units).
  */
-export type SensorTarget = "files" | "definitions" | "comments" | "imports" | "diffs";
+export type SensorTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
 
 /**
  * A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the
@@ -111,7 +112,7 @@ export interface Sensor {
    * text.
    */
   readonly criteria: { readonly true: string; readonly false: string };
-  /** Which decomposition instances this sensor judges; the funnel routes on it (design.md §7.1). */
+  /** Which unit instances this sensor judges; the funnel routes on it (design.md §7.1). */
   readonly target: SensorTarget;
   /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
   readonly handle: (value: number) => HandleResult;
