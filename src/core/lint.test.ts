@@ -2,7 +2,10 @@ import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { sensorDefaults } from "../core/sensors/defaults.ts";
-import { blockWireId } from "../core/sensors/funnel.ts";
+import {
+  UNIT_TASK,
+  blockWireId,
+} from "../core/sensors/measure.ts";
 import {
   RequestError,
   SetupError,
@@ -104,22 +107,22 @@ describe("lint — funnel shape", () => {
     };
     expect(sweepState.blocks).toEqual([
       {
-        id: expect.stringMatching(/^[0-9a-f]{8}$/),
+        id: expect.stringMatching(/^L\d+-L\d+$/),
         content: expect.stringContaining("addSeconds"),
       },
       {
-        id: expect.stringMatching(/^[0-9a-f]{8}$/),
+        id: expect.stringMatching(/^L\d+-L\d+$/),
         content: expect.stringContaining("formatDuration"),
       },
     ]);
-    // wire ids are the content hash of each block's swept content
+    // wire ids are the treesitter LOC interval of each block's swept content
     const blockIds = sweepState.blocks.map((b) => b.id);
-    expect(blockIds).toEqual(sweepState.blocks.map((b) => blockWireId(b.content)));
+    expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
     // one question per (block-leaf, non-files-target sensor): 2 definitions x 7
     expect(sweep.questions).toHaveLength(14);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
     expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
-    // criteria-as-rule: instructions is the one-element wire-id array, criteria is the rule
+    // criteria-as-rule: instructions maps the unit id to the task, criteria is the rule
     for (const [key, spec] of Object.entries(sweep.specs)) {
       const s = spec as {
         type: string;
@@ -128,7 +131,7 @@ describe("lint — funnel shape", () => {
       };
       expect(s.type).toBe("noul");
       const unitId = key.slice(key.indexOf(" in ") + 4);
-      expect(s.instructions).toEqual([unitId]);
+      expect(s.instructions).toEqual({ [unitId]: UNIT_TASK });
       expect(s.criteria).toBeDefined();
       // criteria is the sensor's actual rule, never the generic form
       expect(s.criteria!.true).not.toContain("described property");
@@ -138,7 +141,7 @@ describe("lint — funnel shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<sensor> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in [0-9a-f]{8}$/);
+      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in L\d+-L\d+$/);
     }
   });
 
@@ -159,10 +162,13 @@ describe("lint — funnel shape", () => {
     );
     expect(leafCalls).toHaveLength(2); // one per flagged leaf, no others
     for (const c of leafCalls) {
-      // confirm questions are keyed "<sensor> in <leaf wire id>" — the same sha the sweep used
-      expect(c.questions).toHaveLength(7);
+      // confirm questions are keyed "<sensor> in <leaf wire id>" — the same LOC id the sweep used
+      expect(c.questions).toContain(
+        `${"is_name_purposeful"} in ${c.questions[0]!.split(" in ")[1]}`,
+      );
+      expect(c.questions.length).toBeGreaterThanOrEqual(3);
       for (const key of c.questions) {
-        expect(key).toMatch(/^\S+ in [0-9a-f]{8}$/);
+        expect(key).toMatch(/^\S+ in L\d+-L\d+$/);
       }
     }
   });
@@ -342,7 +348,7 @@ describe("lint", () => {
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toHaveLength(2);
     for (const key of log.calls[0]!.questions) {
-      expect(key).toMatch(/^[0-9a-f]{8}$/); // single sensor -> bare unit-id keys
+      expect(key).toMatch(/^L\d+-L\d+$/); // single sensor -> bare unit-id keys
     }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });

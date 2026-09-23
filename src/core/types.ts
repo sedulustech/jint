@@ -154,13 +154,13 @@ export interface Span {
 export interface FileState {
   readonly path: string;
   readonly content: string;
-  /** Content-addressed unit id: first 8 hex chars of sha256(content) (see blockWireId). */
+  /** Wire id for a whole file: its full LOC interval (see blockWireId). */
   readonly id: string;
 }
 
 /** One block of the sweep's array state (design.md §7.7); id is the content-hashed wire id. */
 export interface SweepBlock {
-  /** Content-hashed wire id (first 8 hex chars of sha256 of content); reports show "block-N". */
+  /** LOC-interval wire id (treesitter span); reports keep the positional "block-N" labels. */
   readonly id: string;
   readonly content: string;
 }
@@ -190,14 +190,14 @@ export interface Unit {
 
 /**
  * The documented noul question (docs: primitives/noul); structurally compatible with the SDK's
- * NoulQuestion — the jev adapter owns the real SDK type. `instructions` is a one-element array
- * naming the unit to judge (criteria-as-rule: the rule lives in criteria, not here); `criteria`
+ * NoulQuestion — the jev adapter owns the real SDK type. `instructions` maps unit ids to their task
+ * sentence ({[unitId]: task}; criteria-as-rule: the rule lives in criteria, not here); `criteria`
  * describes what true and false mean. Question ids (the record keys) are never sent to the model —
  * they only correlate answers.
  */
 export interface QuestionSpec {
   readonly type: "noul";
-  readonly instructions: readonly string[];
+  readonly instructions: Readonly<Record<string, string>>;
   readonly criteria?: { readonly true: string; readonly false: string };
 }
 

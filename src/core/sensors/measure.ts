@@ -36,11 +36,14 @@ export function questionKey(sensorName: string, blockId: string): string {
   return `${sensorName} in ${blockId}`;
 }
 
+/** The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). */
+export const UNIT_TASK = "Judge the syntax unit mapped to this id against the criteria.";
+
 /**
- * Compile sensors to noul questions, criteria-as-rule (docs: primitives/noul): instructions is a
- * one-element array naming the unit to judge — the content-addressed unit id (a sweep block's wire
- * id, or the file's content hash); criteria is the sensor's actual rule, passed straight through.
- * The unit id goes to the model as the target; question ids (record keys) are never sent.
+ * Compile sensors to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps
+ * the unit id to the task sentence ({id: task}), criteria is the sensor's actual rule passed
+ * straight through. The unit id is the model's routing target (measured: object form is equal to
+ * the keyed form at mean delta 0.024, tmp probes); question ids (record keys) are never sent.
  */
 export function compileSensorQuestions(sensors: readonly Sensor[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
@@ -52,7 +55,7 @@ export function compileSensorQuestions(sensors: readonly Sensor[], unitId: strin
     const key = bareKeys ? unitId : questionKey(sensor.name, unitId);
     questions[key] = {
       type: "noul",
-      instructions: [unitId],
+      instructions: { [unitId]: UNIT_TASK },
       criteria: sensor.criteria,
     };
     attribution.set(key, { sensor: sensor.name, blockId: unitId });
@@ -61,10 +64,28 @@ export function compileSensorQuestions(sensors: readonly Sensor[], unitId: strin
 }
 
 /**
- * The content-addressed wire id for any judged content: first 8 hex chars of sha256. Used for sweep
- * block ids and FileState ids alike. Re-exported from funnel.ts, the sweep's owner.
+ * The wire id for a judged span of a file: the treesitter LOC interval, 1-based, e.g. "L19-L28".
+ * Spans of top-level leaves are disjoint, so ids are unique within a file and point straight at the
+ * source (measured: readings equal the content-hash id at mean delta 0.027, tmp probes).
+ */
+export function spanWireId(span: {
+  readonly start: { readonly line: number };
+  readonly end: { readonly line: number };
+}): string {
+  return `L${span.start.line}-L${span.end.line}`;
+}
+
+/**
+ * The wire id for a whole file's content: its full LOC interval. Kept for the diff fallback: diff
+ * content has no line identity, so it stays content-addressed (first 8 hex of sha256).
  */
 export function blockWireId(content: string): string {
+  const lines = content.split("\n").length;
+  return `L1-L${lines}`;
+}
+
+/** Legacy content hash — only for diff states, which have no line identity. */
+export function contentHash(content: string): string {
   return new Bun.CryptoHasher("sha256").update(content).digest("hex").slice(0, 8);
 }
 

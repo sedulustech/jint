@@ -36,6 +36,8 @@ import {
 } from "../types.ts";
 import {
   blockWireId,
+  contentHash,
+  spanWireId,
   compileSensorQuestions,
   invalidAnswerError,
   questionKey,
@@ -96,7 +98,7 @@ const HIGH_GOOD: ReadonlySet<string> = new Set([
 export const isHighGood = (sensorName: string): boolean => HIGH_GOOD.has(sensorName);
 
 /** Content-addressed wire id for swept block content (re-export; defined in measure.ts). */
-export { blockWireId };
+export { blockWireId, contentHash };
 
 /** One sweep candidate: the flagged leaf, ready for isolated confirmation. */
 interface Candidate {
@@ -199,7 +201,7 @@ export async function measureFile(
 
   // Files-target sensors: relational claims, their own whole-content call, handles as today.
   const fileSensors = sensors.filter((s) => s.target === "files");
-  const fileId = "id" in state ? state.id : blockWireId(state.diff);
+  const fileId = "id" in state ? state.id : contentHash(state.diff);
   if (fileSensors.length > 0) {
     const file = await call(
       state,
@@ -233,7 +235,7 @@ export async function measureFile(
   const questions: Record<string, QuestionSpec> = {};
   const blockById = new Map<string, UnitLeaf>();
   const sweepAttribution = new Map<string, QuestionAttribution>();
-  // Wire ids are content hashes; reports/inputs keep the positional "block-N" labels.
+  // Wire ids are LOC intervals (treesitter spans, disjoint per file); reports keep block-N labels.
   const wireLabels = new Map<string, string>();
   let n = 0;
   for (const leaf of leaves) {
@@ -241,10 +243,7 @@ export async function measureFile(
     if (granSensors.length === 0) continue;
     const humanLabel = `block-${n++}`;
     const content = leafContent(leaf);
-    const hash = blockWireId(content);
-    let wireId = hash;
-    // collision guard: a same-hash leaf in the same file gets a counter suffix
-    for (let k = 2; wireLabels.has(wireId); k++) wireId = `${hash}-${k}`;
+    const wireId = spanWireId(leaf.span);
     wireLabels.set(wireId, humanLabel);
     blocks.push({ id: wireId, content });
     blockById.set(wireId, leaf);
@@ -254,8 +253,26 @@ export async function measureFile(
   }
   if (blocks.length === 0 || isAborted()) return { events, confirmed, fatal: false };
 
-  const sweep = await call({ path: state.path, blocks }, questions, judge, state.path);
-  if (sweep.error !== null) push(sweep.error, "sweep");
+  // Chunked fan-out: a single response serializes answers past ~20-50 questions (~0.12s each),
+  // so the sweep splits into <=50-question calls run concurrently (measured: 207 answers in
+  // 26s unchunked vs 3.2s chunked; answers stable at mean |delta| 0.02 across shapes).
+  const sweepAnswers: Record<string, number> = {};
+  const sweepErrors: Diagnostic[] = [];
+  const sweepKeys = Object.keys(questions);
+  const SWEEP_CHUNK = 50;
+  const chunks: string[][] = [];
+  for (let i = 0; i < sweepKeys.length; i += SWEEP_CHUNK)
+    chunks.push(sweepKeys.slice(i, i + SWEEP_CHUNK));
+  await Promise.all(
+    chunks.map(async (chunkKeys) => {
+      const chunkQuestions = Object.fromEntries(chunkKeys.map((k) => [k, questions[k]!]));
+      const result = await call({ path: state.path, blocks }, chunkQuestions, judge, state.path);
+      if (result.error !== null) sweepErrors.push(result.error);
+      Object.assign(sweepAnswers, result.answers);
+    }),
+  );
+  for (const err of sweepErrors) push(err, "sweep");
+  const sweep = { answers: sweepAnswers };
   for (const [key, value] of Object.entries(sweep.answers)) {
     const attr = sweepAttribution.get(key);
     if (attr === undefined) {
@@ -288,7 +305,10 @@ export async function measureFile(
     const crosses = HIGH_GOOD.has(attr.sensor) ? value < threshold : value > threshold;
     const leaf = blockById.get(attr.blockId);
     if (crosses && leaf && !candidates.has(attr.blockId)) {
-      candidates.set(attr.blockId, { leaf, blockId: attr.blockId });
+      candidates.set(attr.blockId, {
+        leaf,
+        blockId: attr.blockId,
+      });
     }
   }
 

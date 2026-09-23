@@ -8,7 +8,13 @@ import {
   type UnitState,
 } from "../types.ts";
 import { sensorDefaults } from "./defaults.ts";
-import { blockWireId, compileSensorQuestions, measureUnit, toRequestError } from "./measure.ts";
+import {
+  UNIT_TASK,
+  blockWireId,
+  compileSensorQuestions,
+  measureUnit,
+  toRequestError,
+} from "./measure.ts";
 
 const fileUnit: Unit = {
   kind: "file",
@@ -47,12 +53,12 @@ function isMeasurement(event: Measurement | RequestError): event is Measurement 
 }
 
 describe("compileSensorQuestions", () => {
-  test("whole-file unit: criteria passthrough, instructions is the one-element id array", () => {
+  test("whole-file unit: criteria passthrough, instructions maps the unit id to the task sentence", () => {
     const sensor = sensorDefaults.is_name_purposeful!;
     const { questions, attribution } = compileSensorQuestions([sensor], FILE_ID);
     const spec = questions[FILE_ID]!;
     expect(spec.type).toBe("noul");
-    expect(spec.instructions).toEqual([FILE_ID]);
+    expect(spec.instructions).toEqual({ [FILE_ID]: UNIT_TASK });
     expect(spec.criteria).toBe(sensor.criteria);
     expect(attribution.get(FILE_ID)).toEqual({
       sensor: "is_name_purposeful",
@@ -60,11 +66,11 @@ describe("compileSensorQuestions", () => {
     });
   });
 
-  test("block-scoped: '<sensor> in <unitId>' ids, wire id as the sole instruction", () => {
+  test("block-scoped: '<sensor> in <unitId>' ids, wire id keyed in instructions", () => {
     const sensor = sensorDefaults.is_name_purposeful!;
     const { questions, attribution } = compileSensorQuestions([sensor], "block-3");
     const spec = questions["block-3"]!;
-    expect(spec.instructions).toEqual(["block-3"]);
+    expect(spec.instructions).toEqual({ "block-3": UNIT_TASK });
     expect(spec.criteria).toBe(sensor.criteria);
     expect(attribution.get("block-3")).toEqual({
       sensor: "is_name_purposeful",
@@ -72,10 +78,9 @@ describe("compileSensorQuestions", () => {
     });
   });
 
-  test("blockWireId: first 8 hex chars of sha256 of the content", () => {
-    expect(blockWireId("export const x = 1;\\n")).toMatch(/^[0-9a-f]{8}$/);
-    expect(blockWireId("a")).toBe(blockWireId("a"));
-    expect(blockWireId("a")).not.toBe(blockWireId("b"));
+  test("blockWireId: full LOC interval of the content", () => {
+    expect(blockWireId("export const x = 1;\n")).toBe("L1-L2");
+    expect(blockWireId("a\nb\nc")).toBe("L1-L3");
   });
 });
 

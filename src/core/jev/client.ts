@@ -86,8 +86,8 @@ function makeClient(config: JudgeConfig | undefined, input: string): TypeSafeCli
 function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
   const out: Record<string, NoulQuestion> = {};
   for (const [name, spec] of Object.entries(questions)) {
-    // instructions is a one-element array (the unit id); the SDK's EntryType accepts arrays.
-    out[name] = noul([...spec.instructions], spec.criteria);
+    // instructions is the {unitId: task} map; the SDK's EntryType accepts JSON objects.
+    out[name] = noul(spec.instructions, spec.criteria);
   }
   return out;
 }
