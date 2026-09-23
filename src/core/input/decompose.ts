@@ -7,7 +7,7 @@
  * 2's funnel can consume it unchanged.
  *
  * Graceful degradation: a file whose parse sets rootNode.hasError still yields whatever top-level
- * blocks parsed (tree-sitter recovers per-node, so partial structure survives). Unparseable
+ * elements parsed (tree-sitter recovers per-node, so partial structure survives). Unparseable
  * stretches surface as ERROR nodes, which the walker skips; everything that did parse is accounted
  * for. This matters for future diff hunks, which routinely parse partially.
  *
@@ -24,7 +24,7 @@ export interface UnitPoint {
   readonly column: number;
 }
 
-/** Exact location of a leaf: line+col points and byte offsets into the source. */
+/** Exact location of a element: line+col points and byte offsets into the source. */
 export interface UnitSpan {
   readonly start: UnitPoint;
   readonly end: UnitPoint;
@@ -32,18 +32,18 @@ export interface UnitSpan {
   readonly endByte: number;
 }
 
-/** A leaf of the inventory; src.slice(span.startByte, span.endByte) === content. */
-export interface UnitLeaf {
+/** A element of the inventory; src.slice(span.startByte, span.endByte) === content. */
+export interface InventoryElement {
   /** Stable positional label: "d0", "d1", "c0", "i0". */
   readonly label: string;
   readonly span: UnitSpan;
   readonly content: string;
   readonly nodeType: string;
-  /** The abstracted noun this leaf is ("function" | "type" for definitions; "comment"). */
+  /** The abstracted noun this element is ("function" | "type" for definitions; "comment"). */
   readonly role: NodeRole;
   /** The comment node(s) consumed into this definition's leading run (outside its content span). */
   readonly attachedComment?: readonly string[];
-  /** Comment nodes nested inside this definition's body; consumed into the leaf by construction. */
+  /** Comment nodes nested inside this definition's body; consumed into the element by construction. */
   readonly internalCommentCount: number;
 }
 
@@ -76,12 +76,12 @@ function unwrap(
 
 /** The structured unit inventory for one file (design.md §7.2). */
 export interface Inventory {
-  /** True when tree-sitter flagged the parse (partial syntax); the yielded blocks are still exact. */
+  /** True when tree-sitter flagged the parse (partial syntax); the yielded elements are still exact. */
   readonly hasError: boolean;
-  readonly definitions: UnitLeaf[];
-  readonly comments: UnitLeaf[];
-  /** Exactly one merged leaf when the file has imports; empty otherwise. */
-  readonly imports: UnitLeaf[];
+  readonly definitions: InventoryElement[];
+  readonly comments: InventoryElement[];
+  /** Exactly one merged element when the file has imports; empty otherwise. */
+  readonly imports: InventoryElement[];
 }
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
@@ -150,7 +150,7 @@ async function parserFor(language: string): Promise<Parser> {
   return created;
 }
 
-interface RawLeaf {
+interface RawElement {
   readonly label: string;
   readonly span: UnitSpan;
   readonly content: string;
@@ -187,8 +187,8 @@ export async function decompose(source: string, language: string): Promise<Inven
   const tree = parser.parse(source);
   if (!tree) return { hasError: true, definitions: [], comments: [], imports: [] };
 
-  const definitions: RawLeaf[] = [];
-  const comments: RawLeaf[] = [];
+  const definitions: RawElement[] = [];
+  const comments: RawElement[] = [];
   const importNodes: Array<{ nodeType: string; text: string; span: UnitSpan }> = [];
   // Comments awaiting a definition to attach to, in document order.
   let pending: Array<{ text: string; span: UnitSpan }> = [];
@@ -253,11 +253,11 @@ export async function decompose(source: string, language: string): Promise<Inven
   }
   flushStandalone();
 
-  let importLeaf: UnitLeaf | undefined;
+  let importElement: InventoryElement | undefined;
   if (importNodes.length > 0) {
     const first = importNodes[0]!;
     const last = importNodes.at(-1)!;
-    importLeaf = {
+    importElement = {
       label: "i0",
       // Span covers the first through last import node.
       span: {
@@ -273,12 +273,12 @@ export async function decompose(source: string, language: string): Promise<Inven
     };
   }
 
-  const label = (leaves: RawLeaf[], prefix: string) =>
-    leaves.map((leaf, i) => ({ ...leaf, label: prefix + String(i) }));
+  const label = (elements: RawElement[], prefix: string) =>
+    elements.map((element, i) => ({ ...element, label: prefix + String(i) }));
   return {
     hasError: tree.rootNode.hasError,
     definitions: label(definitions, "d"),
     comments: label(comments, "c"),
-    imports: importLeaf ? [importLeaf] : [],
+    imports: importElement ? [importElement] : [],
   };
 }

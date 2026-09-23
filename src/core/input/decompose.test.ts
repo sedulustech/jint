@@ -33,12 +33,12 @@ function accountedComments(inv: Inventory): number {
   return attachedCount(inv) + inv.comments.length + internalCount(inv);
 }
 
-/** Every leaf's byte span must round-trip: src.slice(startByte, endByte) === content. */
+/** Every element's byte span must round-trip: src.slice(startByte, endByte) === content. */
 function expectSpansRoundTrip(source: string, inv: Inventory): void {
-  const leaves = [...inv.definitions, ...inv.comments, ...inv.imports];
-  for (const leaf of leaves) {
-    expect(leaf.label).toMatch(/^[dci][0-9]+$/);
-    expect(source.slice(leaf.span.startByte, leaf.span.endByte)).toBe(leaf.content);
+  const elements = [...inv.definitions, ...inv.comments, ...inv.imports];
+  for (const element of elements) {
+    expect(element.label).toMatch(/^[dci][0-9]+$/);
+    expect(source.slice(element.span.startByte, element.span.endByte)).toBe(element.content);
   }
 }
 
@@ -52,7 +52,7 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     expect(inv.imports).toHaveLength(0);
     // 31 comment nodes total, all accounted for: 23 attached as leading docs, 1 standalone
     // (the file header, separated from the first declaration by a blank line), and 7 nested
-    // member-doc comments inside declaration bodies, consumed into their definition leaves.
+    // member-doc comments inside declaration bodies, consumed into their definition elements.
     expect(accountedComments(inv)).toBe(31);
     expect(attachedCount(inv)).toBe(23);
     expect(inv.comments).toHaveLength(1);
@@ -75,7 +75,7 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     expect(inv.definitions[6]?.attachedComment).toEqual([setupErrorDoc]);
   });
 
-  test("comment-accounting invariant: AST comment count === comments accounted in leaves", async () => {
+  test("comment-accounting invariant: AST comment count === comments accounted in elements", async () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(accountedComments(inv)).toBe(await countCommentNodes(source));
@@ -85,22 +85,22 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expectSpansRoundTrip(source, inv);
-    // Line numbers are one-based and point at the leaf's first line.
+    // Line numbers are one-based and point at the element's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
     expect(inv.definitions[0]?.span.start.line).toBe(15);
   });
 });
 
 describe("decompose — imports fixture", () => {
-  test("groups all imports into one merged leaf", async () => {
+  test("groups all imports into one merged element", async () => {
     const source = await Bun.file("src/core/input/fixtures/unit-tree/imports.ts").text();
     const inv = await decompose(source, "typescript");
     expect(inv.imports).toHaveLength(1);
     const merged = inv.imports[0];
-    if (!merged) throw new Error("imports fixture must yield one merged leaf");
+    if (!merged) throw new Error("imports fixture must yield one merged element");
     expect(merged.label).toBe("i0");
     expect(merged.nodeType).toBe("import_statement");
-    // One leaf per file: every import's text is inside the single merged leaf.
+    // One element per file: every import's text is inside the single merged element.
     for (const line of source.split("\n").filter((l) => l.startsWith("import "))) {
       expect(merged.content).toContain(line);
     }
@@ -137,7 +137,7 @@ describe("decompose — comment-orphan fixture", () => {
 });
 
 describe("decompose — graceful degradation", () => {
-  test("a parse with errors still yields the blocks that parsed, flagged via hasError", async () => {
+  test("a parse with errors still yields the elements that parsed, flagged via hasError", async () => {
     const source = [
       "export const fine = 1;",
       "export const broken = ;;;;", // syntax error from here on

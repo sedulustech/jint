@@ -65,26 +65,17 @@ export function compileRuleQuestions(rules: readonly Rule[], unitId: string): Qu
 
 /**
  * The wire id for a judged span of a file: the treesitter LOC interval, 1-based — "L19" for a
- * single line, "L19-L28" for a range. Spans of top-level leaves are disjoint, so ids are unique
+ * single line, "L19-L28" for a range. Spans of top-level elements are disjoint, so ids are unique
  * within a file and point straight at the source (measured: readings equal the content-hash id at
  * mean delta 0.027, tmp probes).
  */
-export function spanWireId(span: {
+export function elementWireId(span: {
   readonly start: { readonly line: number };
   readonly end: { readonly line: number };
 }): string {
   return span.start.line === span.end.line
     ? `L${span.start.line}`
     : `L${span.start.line}-L${span.end.line}`;
-}
-
-/**
- * The wire id for a whole file's content: its full LOC interval. Kept for the diff fallback: diff
- * content has no line identity, so it stays content-addressed (first 8 hex of sha256).
- */
-export function blockWireId(content: string): string {
-  const lines = content.split("\n").length;
-  return `L1-L${lines}`;
 }
 
 /** Legacy content hash — only for diff states, which have no line identity. */
@@ -99,7 +90,10 @@ export async function* classifyUnit(
 ): AsyncGenerator<Measurement | RequestError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
-  const unitId = "id" in unit.state ? unit.state.id : blockWireId(unit.state.diff);
+  const unitId =
+    "id" in unit.state
+      ? unit.state.id
+      : elementWireId({ start: { line: 1 }, end: { line: unit.state.diff.split(`\n`).length } });
   const batch = compileRuleQuestions(rules, unitId);
   let answers: Record<string, number>;
   try {

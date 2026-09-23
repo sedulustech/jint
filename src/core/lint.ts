@@ -85,7 +85,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           continue;
         }
         yield { type: "measurement", measurement: { ...event, stage } };
-        // Sweep readings are candidates; confirmed leaf readings decide via aggregation below.
+        // Sweep readings are candidates; confirmed element readings decide via aggregation below.
         if (stage !== "file") continue;
         const handle = byName.get(event.rule)?.handle;
         const severity = handle?.(event.value) ?? null;
@@ -96,8 +96,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           };
         }
       }
-      // Confirmed leaf signals aggregate per (file, rule): max for high=bad, min for
-      // high=good — never a mean (design §7.3) — and carry the extreme leaf's location.
+      // Confirmed element signals aggregate per (file, rule): max for high=bad, min for
+      // high=good — never a mean (design §7.3) — and carry the extreme element's location.
       for (const [sensorName, readings] of result.confirmedBySensor) {
         const rule = byName.get(sensorName);
         if (rule === undefined) continue;
@@ -119,7 +119,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
 }
 
-/** One unit's pipeline outcome: streamed events plus its confirmed leaf readings by rule. */
+/** One unit's pipeline outcome: streamed events plus its confirmed element readings by rule. */
 interface UnitResult {
   events: FunnelEvent[];
   confirmedBySensor: Map<string, ConfirmedReading[]>;

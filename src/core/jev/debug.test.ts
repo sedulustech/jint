@@ -72,9 +72,9 @@ describe("requestDebug", () => {
     expect(capture.response.model).toBe("jev-1.0");
   });
 
-  test("state shape drives the kind: blocks -> sweep, 2 questions -> files, else confirm", async () => {
+  test("state shape drives the kind: elements -> sweep, 2 questions -> files, else confirm", async () => {
     const config = requestDebug({ fetch: passthrough() });
-    await captureOnce(config, { path: "a.ts", blocks: [{ id: "ab12cd34", content: "x" }] });
+    await captureOnce(config, { path: "a.ts", elements: [{ id: "ab12cd34", content: "x" }] });
     await captureOnce(config, { path: "b.ts", content: "x" });
 
     const list = listCaptures(DIR);

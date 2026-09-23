@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { spanWireId } from "../sensors/classify.ts";
+import { elementWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 
 export async function fileUnit(path: string): Promise<Unit> {
@@ -28,7 +28,7 @@ export async function fileUnit(path: string): Promise<Unit> {
     state: {
       path,
       content,
-      id: spanWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
+      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
     },
   };
 }

@@ -9,7 +9,7 @@ import {
 } from "../types.ts";
 import {
   UNIT_TASK,
-  blockWireId,
+  elementWireId,
   compileRuleQuestions,
   classifyUnit,
   toRequestError,
@@ -21,7 +21,7 @@ const fileUnit: Unit = {
   state: {
     path: "src/a.ts",
     content: "export const x = 1;\n",
-    id: blockWireId("export const x = 1;\n"),
+    id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
   },
 };
 const diffUnit: Unit = {
@@ -31,7 +31,7 @@ const diffUnit: Unit = {
 
 const allSensors: readonly Rule[] = Object.values(defaultRules);
 
-const FILE_ID = blockWireId("export const x = 1;\n");
+const FILE_ID = elementWireId({ start: { line: 1 }, end: { line: 2 } });
 
 function classifierWith(values: Record<string, number>, calls: Unit[] = []): Classifier {
   return async (state, questions) => {
@@ -78,10 +78,10 @@ describe("compileRuleQuestions", () => {
     });
   });
 
-  test("blockWireId: full LOC interval of the content", () => {
-    expect(blockWireId("export const x = 1;\n")).toBe("L1-L2");
-    expect(blockWireId("a\nb\nc")).toBe("L1-L3");
-    expect(blockWireId("a")).toBe("L1-L1");
+  test("elementWireId: LOC interval from the span", () => {
+    expect(elementWireId({ start: { line: 1 }, end: { line: 2 } })).toBe("L1-L2");
+    expect(elementWireId({ start: { line: 1 }, end: { line: 3 } })).toBe("L1-L3");
+    expect(elementWireId({ start: { line: 7 }, end: { line: 7 } })).toBe("L7");
   });
 });
 

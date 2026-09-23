@@ -9,12 +9,12 @@ import { createClassifier } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-import { blockWireId } from "../sensors/classify.ts";
+import { elementWireId } from "../sensors/classify.ts";
 
 const state: UnitState = {
   path: "src/a.ts",
   content: "export const x = 1;\n",
-  id: blockWireId("export const x = 1;\n"),
+  id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
 };
 const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
@@ -79,7 +79,7 @@ describe("createClassifier", () => {
     expect(body.state).toEqual({
       path: "src/a.ts",
       content: "export const x = 1;\n",
-      id: blockWireId("export const x = 1;\n"),
+      id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
     });
   });
 

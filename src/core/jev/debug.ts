@@ -49,7 +49,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       mkdirSync(dir, { recursive: true });
       const state = (capture.request as { state?: Record<string, unknown> }).state ?? {};
       const kind =
-        "blocks" in state
+        "elements" in state
           ? "sweep"
           : Object.keys((capture.request as { questions?: object }).questions ?? {}).length === 2
             ? "files"

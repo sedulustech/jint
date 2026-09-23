@@ -8,7 +8,7 @@
 
 import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { spanWireId } from "../sensors/classify.ts";
+import { elementWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
 
@@ -162,7 +162,7 @@ async function readFileUnit(
     state: {
       path: relativePath,
       content,
-      id: spanWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
+      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
     },
   };
 }

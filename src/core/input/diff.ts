@@ -83,16 +83,16 @@ async function readText(path: string): Promise<string> {
   }
 }
 
-/** Split a unified diff into per-file blocks keyed on git headers, falling back to ---/+++ pairs. */
+/** Split a unified diff into per-file elements keyed on git headers, falling back to ---/+++ pairs. */
 export function splitDiffBlocks(text: string): string[] {
   const lines = text.split("\n");
   const gitFormat = /^diff --git /m.test(text);
-  const blocks: string[] = [];
+  const elements: string[] = [];
   // a ---/+++ pair is in progress in the current (git-less) block
   let current: string[] = [];
   let pairOpen = false;
   const flush = () => {
-    if (current.some((l) => l.trim() !== "")) blocks.push(current.join("\n"));
+    if (current.some((l) => l.trim() !== "")) elements.push(current.join("\n"));
     current = [];
     pairOpen = false;
   };
@@ -109,7 +109,7 @@ export function splitDiffBlocks(text: string): string[] {
     current.push(line);
   }
   flush();
-  return blocks;
+  return elements;
 }
 
 interface BlockMeta {

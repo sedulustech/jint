@@ -78,13 +78,13 @@ function loggingClassifier(values: Record<string, number>, log: CallLog): Classi
     if (process.env.DBG)
       console.log(
         "CALL",
-        JSON.stringify({ isSweep: "blocks" in state, keys: Object.keys(questions) }),
+        JSON.stringify({ isSweep: "elements" in state, keys: Object.keys(questions) }),
       );
     return inner(state, questions);
   };
 }
 
-const isSweep = (state: AnyState): boolean => "blocks" in state;
+const isSweep = (state: AnyState): boolean => "elements" in state;
 
 const COMMENT_SENSORS = [
   "is_comment_business_context",
@@ -98,7 +98,7 @@ const DEFINITION_SENSORS = [
   "is_cognitively_complex",
 ];
 
-test("sweep respects rule targets: comment rules never classifier bare definitions, definition rules never classifier comment leaves", async () => {
+test("sweep respects rule targets: comment rules never classifier bare definitions, definition rules never classifier comment elements", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
@@ -108,18 +108,18 @@ test("sweep respects rule targets: comment rules never classifier bare definitio
     }),
   );
   const sweep = log.calls.filter((c) => isSweep(c.state))[0]!;
-  const blocks = (
-    sweep.state as unknown as { blocks: ReadonlyArray<{ id: string; content: string }> }
-  ).blocks;
-  const isCommentBlock = new Map(blocks.map((b) => [b.id, !b.content.includes("export ")]));
+  const elements = (
+    sweep.state as unknown as { elements: ReadonlyArray<{ id: string; content: string }> }
+  ).elements;
+  const isCommentBlock = new Map(elements.map((b) => [b.id, !b.content.includes("export ")]));
   for (const key of sweep.questions) {
     const rule = key.slice(0, key.indexOf(" in "));
     const unitId = key.slice(key.indexOf(" in ") + 4);
     const commentBlock = isCommentBlock.get(unitId)!;
     if (COMMENT_SENSORS.includes(rule)) {
-      // comment-family rules may classifier comment leaves and definitions WITH attached docblocks,
+      // comment-family rules may classifier comment elements and definitions WITH attached docblocks,
       // but never a bare definition (nothing to classifier)
-      const content = blocks.find((b) => b.id === unitId)?.content ?? "";
+      const content = elements.find((b) => b.id === unitId)?.content ?? "";
       expect(commentBlock || content.includes("//")).toBe(true);
     }
     if (DEFINITION_SENSORS.includes(rule)) {
@@ -143,9 +143,9 @@ describe("lint — funnel shape", () => {
     const sweep = sweeps[0]!;
     // wire ids are LOC intervals, used verbatim in report inputs
     const sweepState = sweep.state as unknown as {
-      blocks: ReadonlyArray<{ id: string; content: string }>;
+      elements: ReadonlyArray<{ id: string; content: string }>;
     };
-    expect(sweepState.blocks).toEqual([
+    expect(sweepState.elements).toEqual([
       {
         id: expect.stringMatching(/^L\d+(-L\d+)?$/),
         content: expect.stringContaining("addSeconds"),
@@ -156,9 +156,9 @@ describe("lint — funnel shape", () => {
       },
     ]);
     // wire ids are the treesitter LOC interval of each block's swept content
-    const blockIds = sweepState.blocks.map((b) => b.id);
+    const blockIds = sweepState.elements.map((b) => b.id);
     expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
-    // per (block-leaf, target-matched rule): L2-L4 carries the module docblock -> 7 rules,
+    // per (element, target-matched rule): L2-L4 carries the module docblock -> 7 rules,
     // L6-L11 is a bare definition -> 3 definition-target rules (design 7.7 targeting)
     expect(sweep.questions).toHaveLength(12);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
@@ -188,7 +188,7 @@ describe("lint — funnel shape", () => {
 
   test("isolated confirm calls happen only for sweep candidates", async () => {
     const log: CallLog = { calls: [] };
-    // purposeful 0.3 sweeps below 0.5 -> both blocks candidates; complex 0.3 stays quiet
+    // purposeful 0.3 sweeps below 0.5 -> both elements candidates; complex 0.3 stays quiet
     await drain(
       lint({
         config: baseConfig,
@@ -204,9 +204,9 @@ describe("lint — funnel shape", () => {
     const leafCalls = log.calls.filter(
       (c) => !isSweep(c.state) && "content" in c.state && c.state.content !== source,
     );
-    expect(leafCalls).toHaveLength(2); // one per flagged leaf, no others
+    expect(leafCalls).toHaveLength(2); // one per flagged element, no others
     for (const c of leafCalls) {
-      // confirm questions are keyed "<rule> in <leaf wire id>" — the same LOC id the sweep used
+      // confirm questions are keyed "<rule> in <element wire id>" — the same LOC id the sweep used
       expect(c.questions).toContain(
         `${"is_name_purposeful"} in ${c.questions[0]!.split(" in ")[1]}`,
       );
@@ -217,17 +217,17 @@ describe("lint — funnel shape", () => {
     }
   });
 
-  test("confirmed signals aggregate max over leaves (high=bad) and carry block locations", async () => {
-    // complex sweeps above 0.55 -> both blocks; confirmed per block: 0.5 and 0.9 -> max 0.9.
-    // The isolated calls ask plain rule names, so block identity routes on the leaf content.
+  test("confirmed signals aggregate max over elements (high=bad) and carry block locations", async () => {
+    // complex sweeps above 0.55 -> both elements; confirmed per block: 0.5 and 0.9 -> max 0.9.
+    // The isolated calls ask plain rule names, so block identity routes on the element content.
     const classifier: Classifier = async (state, questions) => {
-      const sweep = "blocks" in state;
-      const leaf = !sweep && "content" in state && state.content.includes("formatDuration");
+      const sweep = "elements" in state;
+      const element = !sweep && "content" in state && state.content.includes("formatDuration");
       const out: Record<string, number> = {};
       for (const key of Object.keys(questions)) {
         const rule = sensorOf(key);
         let value = SILENT[rule as keyof typeof SILENT];
-        if (rule === "is_cognitively_complex") value = sweep ? 0.9 : leaf ? 0.9 : 0.5;
+        if (rule === "is_cognitively_complex") value = sweep ? 0.9 : element ? 0.9 : 0.5;
         out[key] = value;
       }
       return out;
@@ -239,12 +239,12 @@ describe("lint — funnel shape", () => {
     expect(s.rule).toBe("is_cognitively_complex");
     expect(s.value).toBe(0.9);
     expect(s.severity).toBe("error");
-    expect(s.input).toBe(FILE + "#L6-L11"); // the extreme leaf's location
+    expect(s.input).toBe(FILE + "#L6-L11"); // the extreme element's location
     expect(s.location).toEqual({ input: FILE + "#L6-L11", span: expect.any(Object) });
   });
 
-  test("high=good rules aggregate min over leaves", async () => {
-    // purposeful 0.3 sweeps both blocks; confirmed 0.3 everywhere -> min, one signal
+  test("high=good rules aggregate min over elements", async () => {
+    // purposeful 0.3 sweeps both elements; confirmed 0.3 everywhere -> min, one signal
     const events = await drain(
       lint({
         config: baseConfig,
@@ -268,7 +268,7 @@ describe("lint — funnel shape", () => {
         config: baseConfig,
         input: FILE,
         classifier: async (state, questions) => {
-          const sweep = "blocks" in state;
+          const sweep = "elements" in state;
           const out: Record<string, number> = {};
           for (const key of Object.keys(questions)) {
             const rule = sensorOf(key);
@@ -286,7 +286,7 @@ describe("lint — funnel shape", () => {
     expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
   });
 
-  test("degenerate file: no leaves, nothing swept - no whole-file judgment", async () => {
+  test("degenerate file: no elements, nothing swept - no whole-file judgment", async () => {
     const empty = "tests/fixtures/tmp-empty.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
@@ -295,7 +295,7 @@ describe("lint — funnel shape", () => {
         lint({ config: baseConfig, input: empty, classifier: loggingClassifier({}, log) }),
       );
       // one call only: files-target rules on whole content. No sweep call at all -
-      // an unparseable file yields no leaves and there is no whole-file leaf judgment.
+      // an unparseable file yields no elements and there is no whole-file element judgment.
       expect(log.calls).toHaveLength(1);
       expect(isSweep(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
@@ -312,23 +312,24 @@ describe("lint — funnel shape", () => {
     }
   });
 
-  test("sweep never hands a whole-file leaf to any target, functions included", async () => {
+  test("sweep never hands a whole-file element to any target, functions included", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
     expect(sweeps.length).toBeGreaterThan(0);
     const src = await Bun.file(FILE).text();
     for (const c of sweeps) {
-      const blocks = (c.state as unknown as { blocks: { id: string; content: string }[] }).blocks;
-      for (const block of blocks) {
-        // no block IS the whole file - targets route over leaves, never a file-shaped leaf
+      const elements = (c.state as unknown as { elements: { id: string; content: string }[] })
+        .elements;
+      for (const block of elements) {
+        // no block IS the whole file - targets route over elements, never a file-shaped element
         expect(block.content).not.toBe(src);
         expect(block.id).not.toBe("L1-L" + src.split("\n").length);
       }
     }
   });
 
-  test("empty sweep state (no leaves) produces no questions and no crash", async () => {
+  test("empty sweep state (no elements) produces no questions and no crash", async () => {
     const { classifyFile } = await import("./sensors/funnel.ts");
     const empty = "tests/fixtures/tmp-empty-funnel.ts";
     await Bun.write(empty, String.fromCharCode(10));
@@ -342,7 +343,7 @@ describe("lint — funnel shape", () => {
           return {};
         },
       );
-      // files-target call only; the sweep is skipped entirely (empty blocks -> early return)
+      // files-target call only; the sweep is skipped entirely (empty elements -> early return)
       expect(calls).toHaveLength(1);
       expect(result.confirmed).toEqual([]);
       expect(result.fatal).toBe(false);
@@ -372,9 +373,9 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    // file call 2 + sweep 10 (7 docblock leaf + 3 bare leaf) + confirm 10 (both flagged by 0.3)
+    // file call 2 + sweep 10 (7 docblock element + 3 bare element) + confirm 10 (both flagged by 0.3)
     expect(measurements).toHaveLength(26);
-    // purposeful 0.3 -> one aggregated error at the extreme leaf; business_context at 1.0
+    // purposeful 0.3 -> one aggregated error at the extreme element; business_context at 1.0
     // never fires (measurement-only in v0)
     expect(signals).toHaveLength(1);
     expect(signals[0]!.signal).toEqual({
@@ -406,7 +407,7 @@ describe("lint", () => {
       if (kinds[i] === "signal") expect(kinds.slice(0, i).includes("measurement")).toBe(true);
     }
     // vocabulary 0.2 + greppable 0.2 (file call) + complex 0.8 (max over two confirmed
-    // leaves, error) + purposeful 0.2 (min, error)
+    // elements, error) + purposeful 0.2 (min, error)
     expect(events.filter((e) => e.type === "signal")).toHaveLength(4);
   });
 
@@ -460,8 +461,8 @@ describe("lint", () => {
         classifier,
       }),
     );
-    // diff units map to no leaf units (quick path): only the whole-unit call runs per file
-    // (2 rules x 2 files); no sweep, no whole-file leaf judgment
+    // diff units map to no element units (quick path): only the whole-unit call runs per file
+    // (2 rules x 2 files); no sweep, no whole-file element judgment
     const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",

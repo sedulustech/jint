@@ -81,7 +81,7 @@ export type DegradationCode = "MAPPING_DEGRADED";
 
 /**
  * A per-unit degradation: the unit still measured, but degraded (e.g. measured whole instead of
- * per-leaf). A plain value — never thrown, never an Error, nothing failed; a run never exits
+ * per-element). A plain value — never thrown, never an Error, nothing failed; a run never exits
  * non-zero for a degradation.
  */
 export interface Degradation {
@@ -92,10 +92,10 @@ export interface Degradation {
 
 /**
  * Which unit instance a rule judges (design.md §7.1): mapping an acquired file to units yields
- * target instances - one whole-file slice, N definition leaves, M standalone comment leaves, 1
- * merged import leaf - and the target selects which of them the rule's question runs over. "diffs"
- * is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4 Diff
- * units).
+ * target instances - one whole-file slice, N definition elements, M standalone comment elements, 1
+ * merged import element - and the target selects which of them the rule's question runs over.
+ * "diffs" is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4
+ * Diff units).
  */
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
 
@@ -137,13 +137,13 @@ export interface Signal {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Exact leaf location for confirmed funnel signals (design.md §7.3): the identified block plus
+   * Exact element location for confirmed funnel signals (design.md §7.3): the identified block plus
    * its byte/line span into the source. Absent for files-target signals (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
 }
 
-/** Exact location of a leaf: line+col points and byte offsets into the source. */
+/** Exact location of a element: line+col points and byte offsets into the source. */
 export interface Span {
   readonly start: { readonly line: number; readonly column: number };
   readonly end: { readonly line: number; readonly column: number };
@@ -160,16 +160,16 @@ export interface FileState {
 }
 
 /** One block of the sweep's array state (design.md §7.7); id is the content-hashed wire id. */
-export interface SweepBlock {
-  /** LOC-interval wire id (treesitter span); reports address blocks by the same id. */
+export interface ElementState {
+  /** LOC-interval wire id (treesitter span); reports address elements by the same id. */
   readonly id: string;
   readonly content: string;
 }
 
-/** Stage-1 sweep state: one file mapped into an array of blocks, judged in ONE call. */
+/** Stage-1 sweep state: one file mapped into an array of elements, judged in ONE call. */
 export interface SweepState {
   readonly path: string;
-  readonly blocks: readonly SweepBlock[];
+  readonly elements: readonly ElementState[];
 }
 
 /** State for diff units — the calibrated tmp/diff-v4 shape, so the validated numbers transfer. */

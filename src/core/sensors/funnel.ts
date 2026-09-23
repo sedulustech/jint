@@ -1,9 +1,9 @@
 /**
  * The two-stage measurement funnel (tmp/design.md §7.7).
  *
- * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of blocks
+ * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of elements
  * (definitions with their attached comments, standalone comment groups), plus the files-target
- * rules' own whole-content call (they are relational and have no leaf form). Sweep questions are
+ * rules' own whole-content call (they are relational and have no element form). Sweep questions are
  * keyed "<rule> in <unitId>" (unitId = LOC interval); question keys never reach the model — a
  * parallel attribution map (built at question-construction time) attributes each answer to its
  * (rule, unit).
@@ -13,20 +13,20 @@
  * on them. Sweep thresholds are set generously for recall (see SWEEP_THRESHOLDS for the derivation)
  * and are PROVISIONAL pending a sweep-regime calibration pass.
  *
- * Stage 2 — confirm: each candidate leaf is re-measured ISOLATED (leaf content as the whole state,
- * all its rules batched in one call) using the existing handles and thresholds unchanged, so the
- * confirm regime inherits today's calibration exactly.
+ * Stage 2 — confirm: each candidate element is re-measured ISOLATED (element content as the whole
+ * state, all its rules batched in one call) using the existing handles and thresholds unchanged, so
+ * the confirm regime inherits today's calibration exactly.
  *
- * Aggregation is never a mean (design §7.3): among a file's confirmed leaf readings for one rule,
- * high=bad rules take the max leaf, high=good the min — one signal per (file, rule), located at the
- * extreme leaf.
+ * Aggregation is never a mean (design §7.3): among a file's confirmed element readings for one
+ * rule, high=bad rules take the max element, high=good the min — one signal per (file, rule),
+ * located at the extreme element.
  *
- * No fallback: a file with no leaves (empty, unparseable), an unmapped language, or a failure to
- * derive units yields no leaves and nothing is swept — there is no whole-file leaf judgment. Only
- * the whole-unit rules' own whole-content call still runs for such a file.
+ * No fallback: a file with no elements (empty, unparseable), an unmapped language, or a failure to
+ * derive units yields no elements and nothing is swept — there is no whole-file element judgment.
+ * Only the whole-unit rules' own whole-content call still runs for such a file.
  */
 
-import { decompose, type UnitLeaf } from "../input/decompose.ts";
+import { decompose, type InventoryElement } from "../input/decompose.ts";
 import {
   RequestError,
   type AnyState,
@@ -35,16 +35,15 @@ import {
   type Measurement,
 } from "../types.ts";
 import {
-  blockWireId,
   contentHash,
-  spanWireId,
+  elementWireId,
   compileRuleQuestions,
   invalidAnswerError,
   questionKey,
   toRequestError,
   type QuestionAttribution,
 } from "./classify.ts";
-import type { QuestionSpec, Rule, Span, SweepBlock, Unit } from "../types.ts";
+import type { QuestionSpec, Rule, Span, ElementState, Unit } from "../types.ts";
 
 /** Which regime produced an event; sweep measurements are candidates and never run handles. */
 export type FunnelStage = "file" | "sweep" | "confirm";
@@ -55,8 +54,8 @@ export type FunnelStage = "file" | "sweep" | "confirm";
  * rules until they are calibrated for the array regime.
  *
  * Derivation — start at the rule's error threshold pulled 0.15 toward the healthy side (the array
- * regime dampens flagged blocks by -0.1..-0.2 relative to isolated, design §7.6), then clamp at
- * least 0.1 beyond the healthy band so healthy blocks cannot become candidates. Each block-rule
+ * regime dampens flagged elements by -0.1..-0.2 relative to isolated, design §7.6), then clamp at
+ * least 0.1 beyond the healthy band so healthy elements cannot become candidates. Each block-rule
  * threshold is then shifted up by +0.05 from the pre-criteria-rule derivation — the measured mean
  * uplift from the criteria-as-rule probe (will_comment_drift 0.770 -> 0.820, batch-of-4, 4 draws),
  * applied uniformly to all six block rules.
@@ -74,9 +73,9 @@ export type FunnelStage = "file" | "sweep" | "confirm";
  * | is_naming_convention_consistent | <0.65 | 0.80  | >=0.85 (warn bound) | 0.80  |
  *
  * The healthy bands for drift and narration are the measured A/B ceilings (granularity-ab.md:
- * healthy client.ts blocks read <=0.5 drift, <=0.4 narration in the array regime); elsewhere the
- * handle's warn boundary stands in. Note the narration clamp: flagged A/B blocks read 0.43-0.49, so
- * the cut trades recall for zero healthy-band overlap — provisional, see above.
+ * healthy client.ts elements read <=0.5 drift, <=0.4 narration in the array regime); elsewhere the
+ * handle's warn boundary stands in. Note the narration clamp: flagged A/B elements read 0.43-0.49,
+ * so the cut trades recall for zero healthy-band overlap — provisional, see above.
  */
 export const SWEEP_THRESHOLDS: Record<string, number> = {
   will_comment_drift: 0.65,
@@ -89,7 +88,7 @@ export const SWEEP_THRESHOLDS: Record<string, number> = {
   is_function_srp: 0.55,
 };
 
-/** High=good rules error below their threshold; the extreme leaf reading is their minimum. */
+/** High=good rules error below their threshold; the extreme element reading is their minimum. */
 export const HIGH_GOOD: ReadonlySet<string> = new Set([
   "is_name_purposeful",
   "is_vocabulary_consistent",
@@ -100,31 +99,31 @@ export const HIGH_GOOD: ReadonlySet<string> = new Set([
 
 export const isHighGood = (ruleName: string): boolean => HIGH_GOOD.has(ruleName);
 
-/** Content-addressed wire id for swept block content (re-export; defined in measure.ts). */
-export { blockWireId, contentHash };
+/** Content-addressed wire id for diff-element content (re-export; defined in classify.ts). */
+export { contentHash };
 
-/** One sweep candidate: the flagged leaf, ready for isolated confirmation. */
+/** One sweep candidate: the flagged element, ready for isolated confirmation. */
 interface Candidate {
-  readonly leaf: UnitLeaf;
+  readonly element: InventoryElement;
   readonly blockId: string;
   readonly rules: readonly Rule[];
 }
 
 /**
- * Sensors whose target matches a leaf's kind. "definitions" rules take definition leaves;
- * "comments" rules take standalone comment leaves and definitions carrying attached docblocks
+ * Sensors whose target matches a element's kind. "definitions" rules take definition elements;
+ * "comments" rules take standalone comment elements and definitions carrying attached docblocks
  * (drift-prone artifact pinning lives there). Files-target rules never sweep.
  */
-const sensorsForLeaf = (rules: readonly Rule[], leaf: UnitLeaf): Rule[] => {
-  const commentLeaf = leaf.role === "comment";
-  const carriesComment = commentLeaf || (leaf.attachedComment?.length ?? 0) > 0;
+const sensorsForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
+  const commentElement = element.role === "comment";
+  const carriesComment = commentElement || (element.attachedComment?.length ?? 0) > 0;
   return rules.filter((s) =>
     s.target === "comments"
       ? carriesComment
       : s.target === "functions"
-        ? !commentLeaf && leaf.role === "function"
+        ? !commentElement && element.role === "function"
         : s.target === "definitions"
-          ? !commentLeaf
+          ? !commentElement
           : false,
   );
 };
@@ -152,7 +151,7 @@ export interface FunnelResult {
 }
 
 /**
- * Measure one file unit through the funnel; a file that maps to no leaf units yields no sweep at
+ * Measure one file unit through the funnel; a file that maps to no element units yields no sweep at
  * all (no whole-file judgment). isAborted lets an in-flight file stop before further classifier
  * calls once the run is aborting (JEV_AUTH elsewhere in the wave).
  */
@@ -168,10 +167,10 @@ export async function classifyFile(
       ? state.content
       : String((state as unknown as Record<string, unknown>).diff ?? "");
 
-  // Mapping a file to units is best-effort: an unmapped or unparseable file yields no leaves and
+  // Mapping a file to units is best-effort: an unmapped or unparseable file yields no elements and
   // nothing is swept (no whole-file judgment) - only a degradation informs. Whole-unit rules
-  // keep their own whole-content call below; that is their leaf form, not a fallback leaf.
-  let leaves: UnitLeaf[] = [];
+  // keep their own whole-content call below; that is their element form, not a fallback element.
+  let inventory: InventoryElement[] = [];
   let degraded: string | null = null;
   if (unit.kind !== "file") {
     degraded = "non-file unit";
@@ -181,9 +180,9 @@ export async function classifyFile(
       degraded = "no grammar mapping for extension";
     } else {
       try {
-        const inventory = await decompose(content, language);
-        leaves = [...inventory.definitions, ...inventory.comments];
-        if (leaves.length === 0) degraded = "no definitions or comments found";
+        const parsed = await decompose(content, language);
+        inventory = [...parsed.definitions, ...parsed.comments];
+        if (inventory.length === 0) degraded = "no definitions or comments found";
       } catch {
         degraded = "parse failed";
       }
@@ -230,28 +229,28 @@ export async function classifyFile(
     );
   }
 
-  // Stage 1: the array state, one question per (block-leaf, sweeping rule).
-  const blocks: SweepBlock[] = [];
+  // Stage 1: the array state, one question per (element, sweeping rule).
+  const sweepElements: ElementState[] = [];
   const questions: Record<string, QuestionSpec> = {};
-  const blockById = new Map<string, UnitLeaf>();
+  const elementById = new Map<string, InventoryElement>();
   const sweepAttribution = new Map<string, QuestionAttribution>();
   // Wire ids are LOC intervals (treesitter spans, disjoint per file); reports keep block-N labels.
   const wireLabels = new Map<string, string>();
   let n = 0;
-  for (const leaf of leaves) {
-    const granSensors = sensorsForLeaf(rules, leaf);
+  for (const element of inventory) {
+    const granSensors = sensorsForElement(rules, element);
     if (granSensors.length === 0) continue;
-    const humanLabel = `block-${n++}`;
-    const content = leafContent(leaf);
-    const wireId = spanWireId(leaf.span);
+    const humanLabel = `element-${n++}`;
+    const content = elementContent(element);
+    const wireId = elementWireId(element.span);
     wireLabels.set(wireId, humanLabel);
-    blocks.push({ id: wireId, content });
-    blockById.set(wireId, leaf);
+    sweepElements.push({ id: wireId, content });
+    elementById.set(wireId, element);
     const batch = compileRuleQuestions(granSensors, wireId);
     Object.assign(questions, batch.questions);
     for (const [key, attr] of batch.attribution) sweepAttribution.set(key, attr);
   }
-  if (blocks.length === 0 || isAborted()) return { events, confirmed, fatal: false };
+  if (sweepElements.length === 0 || isAborted()) return { events, confirmed, fatal: false };
 
   // Chunked fan-out: a single response serializes answers past ~20-50 questions (~0.12s each),
   // so the sweep splits into <=50-question calls run concurrently (measured: 207 answers in
@@ -267,7 +266,7 @@ export async function classifyFile(
     chunks.map(async (chunkKeys) => {
       const chunkQuestions = Object.fromEntries(chunkKeys.map((k) => [k, questions[k]!]));
       const result = await call(
-        { path: state.path, blocks },
+        { path: state.path, elements: sweepElements },
         chunkQuestions,
         classifier,
         state.path,
@@ -308,22 +307,22 @@ export async function classifyFile(
     const threshold = SWEEP_THRESHOLDS[attr.rule];
     if (threshold === undefined) continue;
     const crosses = HIGH_GOOD.has(attr.rule) ? value < threshold : value > threshold;
-    const leaf = blockById.get(attr.blockId);
-    if (crosses && leaf && !candidates.has(attr.blockId)) {
+    const element = elementById.get(attr.blockId);
+    if (crosses && element && !candidates.has(attr.blockId)) {
       candidates.set(attr.blockId, {
-        leaf,
+        element,
         blockId: attr.blockId,
-        rules: sensorsForLeaf(rules, leaf),
+        rules: sensorsForElement(rules, element),
       });
     }
   }
 
-  // Stage 2: confirm flagged leaves isolated — rules batched per leaf, handles unchanged.
-  for (const { leaf, blockId, rules: granSensors } of candidates.values()) {
+  // Stage 2: confirm flagged elements isolated — rules batched per element, handles unchanged.
+  for (const { element, blockId, rules: granSensors } of candidates.values()) {
     if (isAborted()) break;
     const input = `${state.path}#${blockId}`;
     const isolated = await call(
-      { path: state.path, content: leafContent(leaf), id: blockId },
+      { path: state.path, content: elementContent(element), id: blockId },
       compileRuleQuestions(granSensors, blockId).questions,
       classifier,
       input,
@@ -338,16 +337,19 @@ export async function classifyFile(
     for (const rule of granSensors) {
       const value = isolated.answers[questionKey(rule.name, blockId)];
       if (typeof value !== "number" || !Number.isFinite(value)) continue;
-      confirmed.push({ rule: rule.name, value, input, span: leaf.span });
+      confirmed.push({ rule: rule.name, value, input, span: element.span });
     }
   }
 
   return { events, confirmed, fatal: false };
 }
 
-/** A definition's attached docblock is consumed into the leaf (design §7.2) — it reads as written. */
-function leafContent(leaf: UnitLeaf): string {
-  return [...(leaf.attachedComment ?? []), leaf.content].join("\n");
+/**
+ * A definition's attached docblock is consumed into the element (design §7.2) — it reads as
+ * written.
+ */
+function elementContent(element: InventoryElement): string {
+  return [...(element.attachedComment ?? []), element.content].join("\n");
 }
 
 interface CallResult {

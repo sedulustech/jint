@@ -32,25 +32,25 @@ index 666..777 100644
 
 describe("splitDiffBlocks", () => {
   test("splits on git headers; preamble is its own block (later skipped)", () => {
-    const blocks = splitDiffBlocks(GIT_DIFF);
-    const withHeaders = blocks.filter((b) => b.startsWith("diff --git "));
+    const elements = splitDiffBlocks(GIT_DIFF);
+    const withHeaders = elements.filter((b) => b.startsWith("diff --git "));
     expect(withHeaders).toHaveLength(4);
   });
 
   test("git-less diffs split on ---/+++ pairs", () => {
     const classic =
       "--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n-c\n+d\n";
-    const blocks = splitDiffBlocks(classic);
-    expect(blocks).toHaveLength(2);
-    expect(blocks[0]!).toContain("x.ts");
-    expect(blocks[1]!).toContain("y.ts");
+    const elements = splitDiffBlocks(classic);
+    expect(elements).toHaveLength(2);
+    expect(elements[0]!).toContain("x.ts");
+    expect(elements[1]!).toContain("y.ts");
   });
 
   test("git-format hunk bodies starting with --- stay intact", () => {
     const tricky =
       "diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n--- --- weird\n+ok\ndiff --git a/y.ts b/y.ts\n--- a/y.ts\n+++ b/y.ts\n@@ -1 +1 @@\n+a\n";
-    const blocks = splitDiffBlocks(tricky);
-    expect(blocks.filter((b) => b.startsWith("diff --git"))).toHaveLength(2);
+    const elements = splitDiffBlocks(tricky);
+    expect(elements.filter((b) => b.startsWith("diff --git"))).toHaveLength(2);
   });
 });
 
