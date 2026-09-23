@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { RequestError } from "../types.ts";
+import { MeasureError } from "../types.ts";
 import { renderJson, REPORT_FORMAT } from "./json.ts";
 import { REPORT_SCHEMA } from "./report-schema.ts";
 import type { LintReport } from "../lint.ts";
@@ -11,8 +11,7 @@ const report: LintReport = {
     { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
   signals: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
-  errors: [new RequestError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
-  degradations: [],
+  errors: [new MeasureError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
 };
 
 describe("renderJson", () => {
@@ -25,7 +24,6 @@ describe("renderJson", () => {
     expect(parsed.errors).toEqual([
       { input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" },
     ]);
-    expect(parsed.degradations).toEqual([]);
   });
 
   test("values pass through untouched (no rounding)", () => {
@@ -34,13 +32,10 @@ describe("renderJson", () => {
   });
 
   test("empty report renders with empty arrays", () => {
-    const parsed = JSON.parse(
-      renderJson({ measurements: [], signals: [], errors: [], degradations: [] }),
-    );
+    const parsed = JSON.parse(renderJson({ measurements: [], signals: [], errors: [] }));
     expect(parsed.measurements).toEqual([]);
     expect(parsed.signals).toEqual([]);
     expect(parsed.errors).toEqual([]);
-    expect(parsed.degradations).toEqual([]);
   });
 
   test("output contains no ANSI escape codes", () => {

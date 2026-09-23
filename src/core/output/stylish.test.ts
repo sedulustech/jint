@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { RequestError, type Degradation } from "../types.ts";
+import { MeasureError } from "../types.ts";
 import { renderStylish, shouldColor } from "./stylish.ts";
 import type { LintReport } from "../lint.ts";
 
@@ -14,14 +14,7 @@ const report: LintReport = {
       severity: "error",
     },
   ],
-  errors: [new RequestError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
-  degradations: [
-    {
-      input: "src/c.ts",
-      code: "MAPPING_DEGRADED",
-      message: "not swept: no grammar mapping for extension",
-    } satisfies Degradation,
-  ],
+  errors: [new MeasureError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
 };
 
 describe("renderStylish", () => {
@@ -33,16 +26,11 @@ describe("renderStylish", () => {
     expect(stdout).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
     expect(stdout).toContain("2 problems (1 error, 1 warning)");
     expect(stdout).not.toContain("JEV_UNAVAILABLE");
-    expect(stdout).not.toContain("MAPPING_DEGRADED");
     expect(stdout).not.toContain("failed to measure");
     expect(stdout).not.toContain("measurements:"); // measurements are not the human payload
     // stderr: run errors and diagnostics only
     expect(stderr).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
-    expect(stderr).toContain(
-      "MAPPING_DEGRADED src/c.ts: not swept: no grammar mapping for extension",
-    );
     expect(stderr).toContain("1 unit failed to measure");
-    expect(stderr).toContain("1 file not swept (no units derived)");
     expect(stderr).not.toContain("is_name_purposeful");
     expect(stderr).not.toContain("problems");
   });
@@ -58,13 +46,12 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: [],
-        degradations: [],
       },
       "never",
     );
     expect(clean.stderr).toBe("");
     const failedOnly = renderStylish(
-      { measurements: [], signals: [], errors: report.errors, degradations: [] },
+      { measurements: [], signals: [], errors: report.errors },
       "never",
     );
     expect(failedOnly.stdout).toBe("");
@@ -77,7 +64,6 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: [],
-        degradations: [],
       },
       "never",
     );
@@ -90,7 +76,6 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: report.errors,
-        degradations: [],
       },
       "never",
     );
@@ -100,7 +85,7 @@ describe("renderStylish", () => {
 
   test("completely empty report renders empty on both streams", () => {
     const { stdout, stderr } = renderStylish(
-      { measurements: [], signals: [], errors: [], degradations: [] },
+      { measurements: [], signals: [], errors: [] },
       "never",
     );
     expect(stdout).toBe("");
@@ -114,8 +99,7 @@ describe("renderStylish", () => {
     const forced = renderStylish(report, "always");
     expect(forced.stdout).toContain("\x1b[31m"); // red signal rows (error severity)
     expect(forced.stdout).toContain("\x1b[33m"); // yellow signal rows (warn severity)
-    expect(forced.stderr).toContain("\x1b[31m"); // red RequestError lines
-    expect(forced.stderr).toContain("\x1b[33m"); // yellow degradation lines
+    expect(forced.stderr).toContain("\x1b[31m"); // red MeasureError lines
   });
 });
 

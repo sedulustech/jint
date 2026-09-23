@@ -16,13 +16,7 @@ export const SIGNAL_SCHEMA = Type.Object({
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),
 });
 
-export const REQUEST_ERROR_SCHEMA = Type.Object({
-  input: Type.String(),
-  code: Type.String(),
-  message: Type.String(),
-});
-
-export const DEGRADATION_SCHEMA = Type.Object({
+export const MEASURE_ERROR_SCHEMA = Type.Object({
   input: Type.String(),
   code: Type.String(),
   message: Type.String(),
@@ -34,8 +28,7 @@ export const REPORT_SCHEMA = Type.Object({
   version: Type.String(),
   measurements: Type.Array(MEASUREMENT_SCHEMA),
   signals: Type.Array(SIGNAL_SCHEMA),
-  errors: Type.Array(REQUEST_ERROR_SCHEMA),
-  degradations: Type.Array(DEGRADATION_SCHEMA),
+  errors: Type.Array(MEASURE_ERROR_SCHEMA),
 });
 
 export type Report = Static<typeof REPORT_SCHEMA>;

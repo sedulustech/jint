@@ -5,10 +5,9 @@
  * - Measurement — the raw noul value from jev for (rule, input); always produced, never actionable by
  *   itself
  * - Signal — a measurement that cleared the rule's handle; the only actionable output
- * - RequestError — a per-unit failure of the request to the classifier: no judgment ever exists for
- *   the unit; carried in the stream as a value, never thrown past the pipeline
- * - Degradation — a per-unit degradation: the unit still measured, but degraded (a value, never an
- *   Error — nothing failed)
+ * - MeasureError — a per-unit failure to produce a measurement: a failed request to the classifier,
+ *   or a unit that could not be mapped to elements; carried in the stream as a value, never thrown
+ *   past the pipeline, never failing the run by itself
  * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants)
  */
 
@@ -28,15 +27,17 @@ export type SetupErrorCode =
   | "INTERNAL";
 
 /**
- * Codes a streamed RequestError carries: per-unit failures of the request exchange with the
- * classifier. INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"),
- * while a classifier-adjacent failure of unknown shape streams as RequestError("INTERNAL").
+ * Codes a streamed MeasureError carries: per-unit failures to produce a measurement. JEV_* codes
+ * name request-layer causes; MAPPING_FAILED names a unit that could not be mapped to elements.
+ * INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"), while a
+ * classifier-adjacent failure of unknown shape streams as MeasureError("INTERNAL").
  */
-export type RequestErrorCode =
+export type MeasureErrorCode =
   | "JEV_AUTH"
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
+  | "MAPPING_FAILED"
   | "INTERNAL";
 
 /**
@@ -57,37 +58,23 @@ export class SetupError extends Error {
 }
 
 /**
- * A per-unit failure of the request to the classifier (jev hiccup, unmeasurable unit): the request
- * itself failed, so no judgment ever exists for the unit. One bad unit never kills the run. The
- * classifier seam throws it on transport/shape failures and the pipeline catches it and carries it
- * in the stream — it never escapes the pipeline boundary (design §7). Every RequestError is a
- * failure: the unit produced no measurement.
+ * A per-unit failure to produce a measurement: the request to the classifier failed (JEV_*), or the
+ * unit could not be mapped to elements (MAPPING_FAILED). Either way no judgment exists for the
+ * unit. One bad unit never kills the run and never fails it by itself — the error streams as a
+ * value and the run is failed only by findings. The seam throws it and the pipeline catches it into
+ * the stream; it never escapes the pipeline boundary (design §7).
  */
-export class RequestError extends Error {
+export class MeasureError extends Error {
   constructor(
-    readonly code: RequestErrorCode,
+    readonly code: MeasureErrorCode,
     readonly input: string,
     message: string,
     options?: { cause?: unknown },
   ) {
     super(message, options);
-    this.name = "RequestError";
+    this.name = "MeasureError";
     Object.setPrototypeOf(this, new.target.prototype);
   }
-}
-
-/** Codes a streamed Degradation carries. */
-export type DegradationCode = "MAPPING_DEGRADED";
-
-/**
- * A per-unit degradation: the unit still measured, but degraded (e.g. measured whole instead of
- * per-element). A plain value — never thrown, never an Error, nothing failed; a run never exits
- * non-zero for a degradation.
- */
-export interface Degradation {
-  readonly input: string;
-  readonly code: DegradationCode;
-  readonly message: string;
 }
 
 /**
@@ -99,10 +86,7 @@ export interface Degradation {
  */
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
 
-/**
- * A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the
- * value.
- */
+/** A rule: one System One judgment (noul) over a state, plus a handle that reads the value. */
 export interface Rule {
   readonly name: string;
   /**
@@ -215,5 +199,4 @@ export type Classifier = (
 export type LintEvent =
   | { type: "measurement"; measurement: Measurement }
   | { type: "signal"; signal: Signal }
-  | { type: "error"; error: RequestError }
-  | { type: "degradation"; degradation: Degradation };
+  | { type: "error"; error: MeasureError };

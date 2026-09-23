@@ -104,8 +104,7 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]!.code).toBe("JEV_AUTH");
     expect(report.measurements).toEqual([]);
-    expect(report.degradations).toEqual([]);
-    // errors/degradations are data in the document; no human-facing operational noise on stderr
+    // errors are data in the document; no human-facing operational noise on stderr
     expect(r.stderr).toBe("");
     expect(r.stdout).not.toContain("failed to measure");
   });

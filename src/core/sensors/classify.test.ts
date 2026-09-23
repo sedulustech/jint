@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import {
-  RequestError,
+  MeasureError,
   type Classifier,
   type Measurement,
   type Rule,
@@ -12,7 +12,7 @@ import {
   elementWireId,
   compileRuleQuestions,
   classifyUnit,
-  toRequestError,
+  toMeasureError,
 } from "./classify.ts";
 import { defaultRules } from "./defaults.ts";
 
@@ -48,7 +48,7 @@ function classifierWith(values: Record<string, number>, calls: Unit[] = []): Cla
   };
 }
 
-function isMeasurement(event: Measurement | RequestError): event is Measurement {
+function isMeasurement(event: Measurement | MeasureError): event is Measurement {
   return "rule" in event;
 }
 
@@ -103,7 +103,7 @@ describe("classifyUnit", () => {
       },
       calls,
     );
-    const events: (Measurement | RequestError)[] = [];
+    const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
     expect(events).toHaveLength(10);
     expect(events.every(isMeasurement)).toBe(true);
@@ -127,7 +127,7 @@ describe("classifyUnit", () => {
       is_name_purposeful: 0.7,
       is_vocabulary_consistent: Number.NaN,
     });
-    const events: (Measurement | RequestError)[] = [];
+    const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(
       fileUnit,
       [
@@ -139,7 +139,7 @@ describe("classifyUnit", () => {
     )) {
       events.push(event);
     }
-    const errors = events.filter((e): e is RequestError => !isMeasurement(e));
+    const errors = events.filter((e): e is MeasureError => !isMeasurement(e));
     const measurements = events.filter(isMeasurement);
     expect(measurements.map((m) => m.rule)).toEqual(["is_name_purposeful"]);
     expect(errors).toHaveLength(2); // NaN for is_vocabulary_consistent, missing is_greppable
@@ -148,24 +148,24 @@ describe("classifyUnit", () => {
     expect(errors[1]!.message).toContain("is_greppable");
   });
 
-  test("classifier throwing RequestError -> streamed error with the same code", async () => {
+  test("classifier throwing MeasureError -> streamed error with the same code", async () => {
     const classifier: Classifier = async () => {
-      throw new RequestError("JEV_UNAVAILABLE", "src/a.ts", "jev unreachable: boom");
+      throw new MeasureError("JEV_UNAVAILABLE", "src/a.ts", "jev unreachable: boom");
     };
-    const events: (Measurement | RequestError)[] = [];
+    const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
     expect(events).toHaveLength(1);
-    expect((events[0] as RequestError).code).toBe("JEV_UNAVAILABLE");
-    expect((events[0] as RequestError).input).toBe("src/a.ts");
+    expect((events[0] as MeasureError).code).toBe("JEV_UNAVAILABLE");
+    expect((events[0] as MeasureError).input).toBe("src/a.ts");
   });
 
   test("classifier throwing a plain Error -> INTERNAL error, never thrown past the pipeline", async () => {
     const classifier: Classifier = async () => {
       throw new Error("surprise");
     };
-    const events: (Measurement | RequestError)[] = [];
+    const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(diffUnit, allSensors, classifier)) events.push(event);
-    expect((events[0] as RequestError).code).toBe("INTERNAL");
+    expect((events[0] as MeasureError).code).toBe("INTERNAL");
   });
 
   test("no rules -> classifier never called", async () => {
@@ -174,7 +174,7 @@ describe("classifyUnit", () => {
       called = true;
       return {};
     };
-    const events: (Measurement | RequestError)[] = [];
+    const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(fileUnit, [], classifier)) {
       events.push(event);
     }
@@ -183,17 +183,17 @@ describe("classifyUnit", () => {
   });
 });
 
-describe("toRequestError", () => {
+describe("toMeasureError", () => {
   test("non-Error throwables become INTERNAL errors", () => {
-    const error = toRequestError(fileUnit.state.path, "a string was thrown");
+    const error = toMeasureError(fileUnit.state.path, "a string was thrown");
     expect(error.code).toBe("INTERNAL");
     expect(error.message).toBe("a string was thrown");
     expect(error.input).toBe("src/a.ts");
   });
 
-  test("a thrown RequestError keeps its code; input is refined", () => {
-    const thrown = new RequestError("JEV_AUTH", "other.ts", "rejected");
-    const error = toRequestError("src/a.ts", thrown);
+  test("a thrown MeasureError keeps its code; input is refined", () => {
+    const thrown = new MeasureError("JEV_AUTH", "other.ts", "rejected");
+    const error = toMeasureError("src/a.ts", thrown);
     expect(error.code).toBe("JEV_AUTH");
     expect(error.input).toBe("src/a.ts");
   });

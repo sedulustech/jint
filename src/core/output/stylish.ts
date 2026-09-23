@@ -1,8 +1,7 @@
 /**
  * Human reporter. Stream discipline (clig): stdout carries the findings — the signal table and the
  * findings summary; stderr carries the run's own errors and diagnostics — failed units
- * (RequestError lines), degradations, and their summary. Either stream stays usable when the other
- * is discarded.
+ * (MeasureError lines) and their summary. Either stream stays usable when the other is discarded.
  *
  * Severity wording stays "error"/"warn" on both streams (decided: no rename). TTY-adaptive color
  * per the clig contract: each stream is colored only when it itself is a TTY; NO_COLOR, TERM=dumb
@@ -19,10 +18,7 @@ export type ColorMode = "auto" | "always" | "never";
 export interface StylishRender {
   /** Findings: signal table + findings summary. Empty when nothing was flagged. */
   readonly stdout: string;
-  /**
-   * Run errors and diagnostics: failed units, degradations, run summary. Empty when the run was
-   * clean.
-   */
+  /** Run errors and their summary: failed units. Empty when the run was clean. */
   readonly stderr: string;
 }
 
@@ -32,16 +28,13 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
   const out: string[] = [];
   const err: string[] = [];
 
-  // Run errors and diagnostics — stderr, never the findings report. Errors are failed requests to
-  // the classifier (always error severity); degradations inform in yellow.
+  // Run errors — stderr, never the findings report. A MeasureError is a unit the linter
+  // could not measure, not a lint finding; it always renders as an error line.
   for (const e of report.errors) {
     const line = `error ${e.code} ${e.input}: ${e.message}`;
     err.push(errColor ? red(line) : line);
   }
-  for (const d of report.degradations) {
-    const line = `warn ${d.code} ${d.input}: ${d.message}`;
-    err.push(errColor ? yellow(line) : line);
-  }
+
   const runSummary = runSummaryOf(report);
   if (runSummary !== null) {
     err.push("");
@@ -89,13 +82,9 @@ function findingsSummaryOf(report: LintReport): string | null {
       ` (${errors} ${errors === 1 ? "error" : "errors"}, ${warnings} ${warnings === 1 ? "warning" : "warnings"})`
     );
   }
-  // The clean-run line fires only when nothing else is reported anywhere (same cases as before the
-  // stream split): a run with failed units or degradations never claims "clean".
-  if (
-    report.errors.length === 0 &&
-    report.degradations.length === 0 &&
-    report.measurements.length > 0
-  ) {
+  // The clean-run line fires only when nothing else is reported anywhere: a run with failed
+  // units never claims "clean".
+  if (report.errors.length === 0 && report.measurements.length > 0) {
     return `no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`;
   }
   return null;
@@ -109,11 +98,7 @@ function runSummaryOf(report: LintReport): string | null {
       `${report.errors.length} ${report.errors.length === 1 ? "unit" : "units"} failed to measure`,
     );
   }
-  if (report.degradations.length > 0) {
-    parts.push(
-      `${report.degradations.length} ${report.degradations.length === 1 ? "file" : "files"} not swept (no units derived)`,
-    );
-  }
+
   return parts.length > 0 ? parts.join("; ") : null;
 }
 

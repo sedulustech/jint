@@ -3,12 +3,12 @@
  * (sequential in v0). Emits Measurement { rule, input, value }: no thresholds, no handle invocation
  * here — interpretation is the handle callback's job (design §4.5).
  *
- * Per-unit failures come back as RequestErrors in the stream, never thrown past the pipeline
+ * Per-unit failures come back as MeasureErrors in the stream, never thrown past the pipeline
  * (design §7).
  */
 
 import {
-  RequestError,
+  MeasureError,
   type Classifier,
   type Measurement,
   type QuestionSpec,
@@ -87,7 +87,7 @@ export async function* classifyUnit(
   unit: Unit,
   rules: readonly Rule[],
   classifier: Classifier,
-): AsyncGenerator<Measurement | RequestError> {
+): AsyncGenerator<Measurement | MeasureError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId =
@@ -99,7 +99,7 @@ export async function* classifyUnit(
   try {
     answers = await classifier(unit.state, batch.questions);
   } catch (thrown) {
-    yield toRequestError(unit.state.path, thrown);
+    yield toMeasureError(unit.state.path, thrown);
     return;
   }
   for (const rule of rules) {
@@ -113,9 +113,9 @@ export async function* classifyUnit(
   }
 }
 
-/** RequestError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
-export function invalidAnswerError(input: string, ruleName: string): RequestError {
-  return new RequestError(
+/** MeasureError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
+export function invalidAnswerError(input: string, ruleName: string): MeasureError {
+  return new MeasureError(
     "JEV_RESPONSE_INVALID",
     input,
     `answer for '${ruleName}' is missing or not a finite number`,
@@ -123,14 +123,14 @@ export function invalidAnswerError(input: string, ruleName: string): RequestErro
 }
 
 /**
- * Map anything a classifier threw into a streamed RequestError; the seam's code survives (design
+ * Map anything a classifier threw into a streamed MeasureError; the seam's code survives (design
  * §7).
  */
-export function toRequestError(input: string, thrown: unknown): RequestError {
-  if (thrown instanceof RequestError) {
+export function toMeasureError(input: string, thrown: unknown): MeasureError {
+  if (thrown instanceof MeasureError) {
     // The seam throws with the state path; the funnel refines block-scoped inputs (path#block-N).
-    return new RequestError(thrown.code, input, thrown.message, { cause: thrown });
+    return new MeasureError(thrown.code, input, thrown.message, { cause: thrown });
   }
-  if (thrown instanceof Error) return new RequestError("INTERNAL", input, thrown.message);
-  return new RequestError("INTERNAL", input, String(thrown));
+  if (thrown instanceof Error) return new MeasureError("INTERNAL", input, thrown.message);
+  return new MeasureError("INTERNAL", input, String(thrown));
 }

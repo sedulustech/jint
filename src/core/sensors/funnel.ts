@@ -27,20 +27,14 @@
  */
 
 import { decompose, type InventoryElement } from "../input/decompose.ts";
-import {
-  RequestError,
-  type AnyState,
-  type Degradation,
-  type Classifier,
-  type Measurement,
-} from "../types.ts";
+import { MeasureError, type AnyState, type Classifier, type Measurement } from "../types.ts";
 import {
   contentHash,
   elementWireId,
   compileRuleQuestions,
   invalidAnswerError,
   questionKey,
-  toRequestError,
+  toMeasureError,
   type QuestionAttribution,
 } from "./classify.ts";
 import type { QuestionSpec, Rule, Span, ElementState, Unit } from "../types.ts";
@@ -139,7 +133,7 @@ export interface ConfirmedReading {
 
 /** One streamed event plus the regime that produced it. */
 export interface FunnelEvent {
-  readonly event: Measurement | RequestError | Degradation;
+  readonly event: Measurement | MeasureError;
   readonly stage: FunnelStage;
 }
 
@@ -167,9 +161,10 @@ export async function classifyFile(
       ? state.content
       : String((state as unknown as Record<string, unknown>).diff ?? "");
 
-  // Mapping a file to units is best-effort: an unmapped or unparseable file yields no elements and
-  // nothing is swept (no whole-file judgment) - only a degradation informs. Whole-unit rules
-  // keep their own whole-content call below; that is their element form, not a fallback element.
+  // Mapping a file to elements is best-effort: an unmapped or unparseable file maps to no
+  // elements, so nothing is swept and its inventory-scoped rules fail with a per-unit error
+  // (no whole-file judgment, no fallback). Whole-unit rules keep their own whole-content call
+  // below; their target never needed parsing, so they proceed untouched.
   let inventory: InventoryElement[] = [];
   let degraded: string | null = null;
   if (unit.kind !== "file") {
@@ -190,7 +185,7 @@ export async function classifyFile(
   }
   const events: FunnelEvent[] = [];
   const confirmed: ConfirmedReading[] = [];
-  const push = (event: Measurement | RequestError | Degradation, stage: FunnelStage): void => {
+  const push = (event: Measurement | MeasureError, stage: FunnelStage): void => {
     events.push({ event, stage });
   };
 
@@ -218,13 +213,12 @@ export async function classifyFile(
     if (fatalIn(events)) return { events, confirmed, fatal: true };
   }
 
-  if (degraded !== null) {
+  // No-fallback policy: the unit could not be mapped to elements, so every inventory-scoped
+  // rule fails for it with one per-unit error. Unit-scoped rules (files/diffs) proceed above —
+  // their target never needed parsing; that is not a fallback.
+  if (degraded !== null && unit.kind === "file") {
     push(
-      {
-        input: state.path,
-        code: "MAPPING_DEGRADED",
-        message: `not swept: ${degraded}`,
-      },
+      new MeasureError("MAPPING_FAILED", state.path, `cannot map to elements: ${degraded}`),
       "file",
     );
   }
@@ -256,7 +250,7 @@ export async function classifyFile(
   // so the sweep splits into <=50-question calls run concurrently (measured: 207 answers in
   // 26s unchunked vs 3.2s chunked; answers stable at mean |delta| 0.02 across shapes).
   const sweepAnswers: Record<string, number> = {};
-  const sweepErrors: RequestError[] = [];
+  const sweepErrors: MeasureError[] = [];
   const sweepKeys = Object.keys(questions);
   const SWEEP_CHUNK = 50;
   const chunks: string[][] = [];
@@ -354,7 +348,7 @@ function elementContent(element: InventoryElement): string {
 
 interface CallResult {
   readonly answers: Record<string, number>;
-  readonly error: RequestError | null;
+  readonly error: MeasureError | null;
 }
 
 async function call(
@@ -366,13 +360,13 @@ async function call(
   try {
     return { answers: await classifier(state, questions), error: null };
   } catch (thrown) {
-    return { answers: {}, error: toRequestError(input, thrown) };
+    return { answers: {}, error: toMeasureError(input, thrown) };
   }
 }
 
 /** Distribute one call's answers as measurements keyed by the given question names. */
 function collect(
-  push: (event: Measurement | RequestError | Degradation, stage: FunnelStage) => void,
+  push: (event: Measurement | MeasureError, stage: FunnelStage) => void,
   stage: FunnelStage,
   result: CallResult,
   questionNames: readonly string[],
@@ -395,7 +389,7 @@ function collect(
 }
 
 function fatalIn(events: FunnelEvent[]): boolean {
-  return events.some((e) => e.event instanceof RequestError && e.event.code === "JEV_AUTH");
+  return events.some((e) => e.event instanceof MeasureError && e.event.code === "JEV_AUTH");
 }
 
 /** The funnel's languages: the tree-sitter grammars actually mapped by decompose (design §7.2). */

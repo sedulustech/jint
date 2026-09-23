@@ -89,27 +89,27 @@ Flags: `--file` `--dir` `--diff` `--config` `--exclude <glob>` `--disable <name>
 
 Precedence: flags > `TYPESAFE_*` environment > `jint.config.ts` > defaults.
 
-Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors/degradations ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units, degradations — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
+Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
 
 A diff input decomposes into per-file units: added/modified files are measured, deleted and binary files are skipped, and the commit message (when available via git) is shared state for every unit.
 
 ## Exit codes
 
-| code | meaning                                                                                                     |
-| ---- | ----------------------------------------------------------------------------------------------------------- |
-| 0    | clean (measurements, no error-severity signals)                                                             |
-| 1    | error-severity signals found                                                                                |
-| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                           |
-| 3    | internal error                                                                                              |
-| 4    | ran but failed — any per-unit classifier error, or zero measurements (CI can never pass an unmeasured diff) |
+| code | meaning                                                                                                                                                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | clean (measurements, no error-severity signals)                                                                                                                   |
+| 1    | error-severity signals found                                                                                                                                      |
+| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                                                                                 |
+| 3    | internal error                                                                                                                                                    |
+| 4    | ran but measured nothing — zero measurements (CI can never pass an unmeasured diff). Per-unit errors are signalled on stderr but never fail the run by themselves |
 
 ## Errors
 
-Classify before handling: cannot-start failures throw; per-unit failures stream; degradations inform.
+Classify before handling: cannot-start failures throw; per-unit failures stream as values and never fail the run by themselves — the run is failed only by findings. There is no degradation tier: a unit the linter cannot measure (including one that cannot be parsed into elements) is a per-unit error, not a partial result.
 
 - **SetupError** (thrown) — the run cannot start: `CONFIG_INVALID`, `ENTRYPOINT_NOT_FOUND`, `ENTRYPOINT_UNREADABLE`, and `INTERNAL` for invariant violations (exit 2/3).
-- **RequestError** (streamed value) — the request to the classifier for one unit failed, so no judgment ever exists for that unit: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID`, plus `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run; they land in `report.errors` (exit 4).
-- **Degradation** (streamed value, never an Error — nothing failed) — the unit measured, but degraded: `DECOMPOSITION_DEGRADED` (measured whole). Lands in `report.degradations`, never fails the run.
+- **MeasureError** (streamed value) — one unit failed to produce a measurement, so no judgment ever exists for it: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID` name request-layer causes; `MAPPING_FAILED` names a unit that could not be mapped to elements (unmapped language, unparseable source); `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run and never fails it by itself; they land in `report.errors` and print on stderr.
+  There is no whole-file fallback: if a file cannot be mapped to elements, its inventory-scoped rules fail for that unit (a `MAPPING_FAILED` error in `report.errors`); unit-scoped rules (`files`/`diffs`) judge the unit itself and were never affected.
 
 jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions })`, model `jev-latest`, one batched call per input). `TYPESAFE_API_KEY` is required; a missing or rejected key fails loud (`JEV_AUTH`) at the first call. `src/core/jev/client.ts` is the only file importing the SDK — the swappable backend seam (`lint()` accepts any `classifier`).
 
@@ -127,10 +127,10 @@ const report = await collectReport(
     classifier: mySwappableJudge, // optional; defaults to the jev adapter
   }),
 );
-// report: { measurements, signals, errors, degradations }
+// report: { measurements, signals, errors }
 ```
 
-`lint()` is an AsyncIterable of events (`measurement` / `signal` / `error` / `degradation`) — results stream as they are judged.
+`lint()` is an AsyncIterable of events (`measurement` / `signal` / `error`) — results stream as they are judged.
 
 ## Development
 

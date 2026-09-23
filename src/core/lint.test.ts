@@ -4,7 +4,7 @@ import { lint, collectReport } from "../core/lint.ts";
 import { UNIT_TASK } from "../core/sensors/classify.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
-  RequestError,
+  MeasureError,
   SetupError,
   type AnyState,
   type Classifier,
@@ -300,12 +300,12 @@ describe("lint — funnel shape", () => {
       expect(isSweep(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
       expect(measurements).toHaveLength(2); // whole-unit rules only
-      const degradations = events.filter(
-        (e): e is Extract<LintEvent, { type: "degradation" }> => e.type === "degradation",
+      const errors = events.filter(
+        (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
-      expect(degradations).toHaveLength(1);
-      expect(degradations[0]!.degradation.code).toBe("MAPPING_DEGRADED");
-      expect(degradations[0]!.degradation.message).toContain("not swept");
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.error.code).toBe("MAPPING_FAILED");
+      expect(errors[0]!.error.message).toContain("cannot map to elements");
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);
       expect(shell.exitCode).toBe(0);
@@ -475,7 +475,7 @@ describe("lint", () => {
   test("per-unit failure becomes a streamed error; the run continues", async () => {
     const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
-        throw new RequestError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
+        throw new MeasureError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
       return classifierWith({
         is_name_purposeful: 0.7,
         is_vocabulary_consistent: 0.9,
@@ -503,7 +503,7 @@ describe("lint", () => {
     let calls = 0;
     const classifier: Classifier = async (state) => {
       calls++;
-      throw new RequestError("JEV_AUTH", state.path, "jev rejected the API key");
+      throw new MeasureError("JEV_AUTH", state.path, "jev rejected the API key");
     };
     const events = await drain(
       lint({
@@ -572,7 +572,7 @@ describe("lint", () => {
 });
 
 describe("collectReport", () => {
-  test("drains the stream into measurements/signals/errors/degradations", async () => {
+  test("drains the stream into measurements/signals/errors", async () => {
     const report = await collectReport(
       lint({
         config: baseConfig,
@@ -588,6 +588,5 @@ describe("collectReport", () => {
     expect(report.measurements).toHaveLength(26);
     expect(report.signals).toHaveLength(1);
     expect(report.errors).toHaveLength(0);
-    expect(report.degradations).toHaveLength(0);
   });
 });

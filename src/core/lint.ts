@@ -1,7 +1,8 @@
 /**
  * Lint — the one function most consumers need. State-in/signals-out: resolves the input, measures
  * each unit — files through the two-stage funnel, diffs through the legacy whole-unit path — runs
- * each rule's handle, streams Measurements, Signals, per-unit RequestErrors and degradations.
+ * each rule's handle, streams Measurements, Signals and per-unit MeasureErrors (signalled, but
+ * never run-failing).
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
  * cost control); events stream per file as its wave completes, measurements before signals.
@@ -19,9 +20,8 @@ import {
   type FunnelEvent,
 } from "./sensors/funnel.ts";
 import {
-  RequestError,
+  MeasureError,
   SetupError,
-  type Degradation,
   type InputKind,
   type Classifier,
   type LintEvent,
@@ -76,14 +76,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (const result of results) {
       if (result.abort) aborted = true;
       for (const { event, stage } of result.events) {
-        if (event instanceof RequestError) {
+        if (event instanceof MeasureError) {
           yield { type: "error", error: event };
           continue;
         }
-        if ("code" in event) {
-          yield { type: "degradation", degradation: event };
-          continue;
-        }
+
         yield { type: "measurement", measurement: { ...event, stage } };
         // Sweep readings are candidates; confirmed element readings decide via aggregation below.
         if (stage !== "file") continue;
@@ -178,19 +175,16 @@ export interface LintReport {
   measurements: Measurement[];
   signals: Signal[];
   /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
-  errors: RequestError[];
-  /** Per-unit degradations: the unit measured, but degraded. Never fails the run. */
-  degradations: Degradation[];
+  errors: MeasureError[];
 }
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], signals: [], errors: [], degradations: [] };
+  const report: LintReport = { measurements: [], signals: [], errors: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "signal") report.signals.push(event.signal);
     else if (event.type === "error") report.errors.push(event.error);
-    else report.degradations.push(event.degradation);
   }
   return report;
 }

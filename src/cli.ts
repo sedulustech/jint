@@ -3,12 +3,12 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity signals 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but failed (any classifier error, or
- * zero measurements — CI never passes unmeasured)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements zero
+ * measurements — CI never passes unmeasured)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
- * the run's own errors and diagnostics — setup failures, failed units, degradations — plus
- * structured logs (default silent; --debug). Either stream stays usable with the other discarded.
+ * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
+ * (default silent; --debug). Either stream stays usable with the other discarded.
  */
 
 import { existsSync } from "node:fs";
@@ -20,7 +20,7 @@ import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
-import { RequestError, SetupError, type InputKind } from "./core/types.ts";
+import { MeasureError, SetupError, type InputKind } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
 import type { ResolvedConfig } from "./config/define.ts";
 
@@ -85,7 +85,7 @@ is_comment_narration, is_comment_patching_readability, will_comment_drift, is_co
 (high = bad), is_comment_business_context (measurement-only in v0). Each carries an
 overridable handle: (value) => "error" | "warn" | null.
 
-Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but failed.
+Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but measured nothing.
 `;
 
 export async function runCli(cliArgv: string[]): Promise<number> {
@@ -135,7 +135,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         only: cliArgs.rule,
       }),
     );
-    // JSON: the document is data (errors/degradations ride in it) — stdout only, stderr untouched.
+    // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
     // Stylish: findings on stdout, run errors/diagnostics on stderr.
     const rendered =
       cliArgs.json === true
@@ -231,17 +231,21 @@ function flagsSelectFiles(cliArgs: CliArgs): boolean {
   return cliArgs.file !== undefined && cliArgs.file.length > 0;
 }
 
-/** Exit invariant (design §7): error signals -> 1; classifier errors or zero measurements -> 4. */
+/**
+ * Exit invariant: findings only — error-severity signals -> 1; zero measurements -> 4. Per-unit
+ * MeasureErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
+ * linter could not measure is reported, not treated as a lint violation.
+ */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
-  if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
+  if (lintReport.measurements.length === 0) return 4;
   return 0;
 }
 
 /** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped measure error -> 4. */
 function exitForThrown(thrown: unknown): number {
   const error =
-    thrown instanceof SetupError || thrown instanceof RequestError
+    thrown instanceof SetupError || thrown instanceof MeasureError
       ? thrown
       : new SetupError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), {
           cause: thrown,
@@ -254,8 +258,8 @@ function exitForThrown(thrown: unknown): number {
     error.code === "ENTRYPOINT_UNREADABLE"
   )
     return 2;
-  // A RequestError that escaped the stream: the run happened but failed
-  if (error instanceof RequestError) return 4;
+  // A MeasureError that escaped the stream: the run happened but produced nothing
+  if (error instanceof MeasureError) return 4;
   if (error.code === "INTERNAL") return 3;
   return 4;
 }
