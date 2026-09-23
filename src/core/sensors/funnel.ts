@@ -3,11 +3,10 @@
  *
  * Stage 1 — sweep: one file maps into ONE systemOne call whose state is an array of blocks
  * (definitions with their attached comments, standalone comment groups), plus the files-target
- * sensors' own whole-content call (they are relational and have no leaf form). Sweep questions use
- * ids "<sensor> in block-N" and append the FROZEN scoping sentence to the instructions — it is part
- * of the sweep regime's calibration text; changing it is a re-calibration event. Ids are never sent
- * to the model: a parallel attribution map (built at question-construction time) attributes each
- * answer to its (sensor, block).
+ * sensors' own whole-content call (they are relational and have no leaf form). Sweep questions are
+ * keyed "<sensor> in <unitId>" (unitId = LOC interval); question keys never reach the model — a
+ * parallel attribution map (built at question-construction time) attributes each answer to its
+ * (sensor, unit).
  *
  * Sweep readings are candidates, never verdicts: a reading crossing the sensor's sweep threshold
  * makes its block a candidate, and sweep measurements are stage-tagged so lint never runs a handle
@@ -124,7 +123,7 @@ const sensorsForLeaf = (sensors: readonly Sensor[], leaf: UnitLeaf): Sensor[] =>
 export interface ConfirmedReading {
   readonly sensor: string;
   readonly value: number;
-  /** The block-scoped measurement input, "path#block-N". */
+  /** The block-scoped measurement input, "path#L19-L28". */
   readonly input: string;
   readonly span: Span;
 }
@@ -184,7 +183,7 @@ export async function measureFile(
     const lines = content.split("\n").length;
     leaves = [
       {
-        label: "block-0",
+        label: "leaf-0",
         span: {
           start: { line: 1, column: 0 },
           end: { line: lines, column: 0 },
@@ -289,10 +288,10 @@ export async function measureFile(
       continue;
     }
     push(
-      // sweep attribution is always block-scoped; reports keep the positional label
+      // sweep attribution is always block-scoped; reports address the block by its LOC id
       {
         sensor: attr.sensor,
-        input: `${state.path}#${wireLabels.get(attr.blockId ?? "")}`,
+        input: `${state.path}#${attr.blockId}`,
         value,
       },
       "sweep",
@@ -321,7 +320,7 @@ export async function measureFile(
   // Stage 2: confirm flagged leaves isolated — sensors batched per leaf, handles unchanged.
   for (const { leaf, blockId, sensors: granSensors } of candidates.values()) {
     if (isAborted()) break;
-    const input = `${state.path}#${wireLabels.get(blockId)}`;
+    const input = `${state.path}#${blockId}`;
     const isolated = await call(
       { path: state.path, content: leafContent(leaf), id: blockId },
       compileSensorQuestions(granSensors, blockId).questions,

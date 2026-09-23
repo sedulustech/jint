@@ -160,7 +160,7 @@ export interface FileState {
 
 /** One block of the sweep's array state (design.md §7.7); id is the content-hashed wire id. */
 export interface SweepBlock {
-  /** LOC-interval wire id (treesitter span); reports keep the positional "block-N" labels. */
+  /** LOC-interval wire id (treesitter span); reports address blocks by the same id. */
   readonly id: string;
   readonly content: string;
 }

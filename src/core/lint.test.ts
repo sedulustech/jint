@@ -143,17 +143,17 @@ describe("lint — funnel shape", () => {
     const sweeps = log.calls.filter((c) => isSweep(c.state));
     expect(sweeps).toHaveLength(1);
     const sweep = sweeps[0]!;
-    // wire ids are content-hashed; the positional "block-N" labels live only in reports
+    // wire ids are LOC intervals, used verbatim in report inputs
     const sweepState = sweep.state as unknown as {
       blocks: ReadonlyArray<{ id: string; content: string }>;
     };
     expect(sweepState.blocks).toEqual([
       {
-        id: expect.stringMatching(/^L\d+-L\d+$/),
+        id: expect.stringMatching(/^L\d+(-L\d+)?$/),
         content: expect.stringContaining("addSeconds"),
       },
       {
-        id: expect.stringMatching(/^L\d+-L\d+$/),
+        id: expect.stringMatching(/^L\d+(-L\d+)?$/),
         content: expect.stringContaining("formatDuration"),
       },
     ]);
@@ -184,7 +184,7 @@ describe("lint — funnel shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<sensor> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in L\d+-L\d+$/);
+      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in L\d+(-L\d+)?$/);
     }
   });
 
@@ -211,7 +211,7 @@ describe("lint — funnel shape", () => {
       );
       expect(c.questions.length).toBeGreaterThanOrEqual(3);
       for (const key of c.questions) {
-        expect(key).toMatch(/^\S+ in L\d+-L\d+$/);
+        expect(key).toMatch(/^\S+ in L\d+(-L\d+)?$/);
       }
     }
   });
@@ -238,8 +238,8 @@ describe("lint — funnel shape", () => {
     expect(s.sensor).toBe("is_cognitively_complex");
     expect(s.value).toBe(0.9);
     expect(s.severity).toBe("error");
-    expect(s.input).toBe(FILE + "#block-1"); // the extreme leaf's location
-    expect(s.location).toEqual({ input: FILE + "#block-1", span: expect.any(Object) });
+    expect(s.input).toBe(FILE + "#L6-L11"); // the extreme leaf's location
+    expect(s.location).toEqual({ input: FILE + "#L6-L11", span: expect.any(Object) });
   });
 
   test("high=good sensors aggregate min over leaves", async () => {
@@ -252,7 +252,7 @@ describe("lint — funnel shape", () => {
     const s = signals[0]!.signal as unknown as Record<string, unknown>;
     expect(s.value).toBe(0.3);
     expect(s.severity).toBe("error");
-    expect(s.input).toBe(FILE + "#block-0");
+    expect(s.input).toBe(FILE + "#L2-L4");
   });
 
   test("sweep flags are not verdicts: signals come only from the confirm regime", async () => {
@@ -336,10 +336,10 @@ describe("lint", () => {
     expect(signals).toHaveLength(1);
     expect(signals[0]!.signal).toEqual({
       sensor: "is_name_purposeful",
-      input: FILE + "#block-0",
+      input: FILE + "#L2-L4",
       value: 0.3,
       severity: "error",
-      location: { input: FILE + "#block-0", span: expect.any(Object) },
+      location: { input: FILE + "#L2-L4", span: expect.any(Object) },
     });
   });
 
@@ -391,7 +391,7 @@ describe("lint", () => {
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toHaveLength(2);
     for (const key of log.calls[0]!.questions) {
-      expect(key).toMatch(/^L\d+-L\d+$/); // single sensor -> bare unit-id keys
+      expect(key).toMatch(/^L\d+(-L\d+)?$/); // single sensor -> bare unit-id keys
     }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
@@ -502,7 +502,7 @@ describe("lint", () => {
     const inputs = new Set(
       events.filter((e) => e.type === "measurement").map((e) => e.measurement.input),
     );
-    expect(inputs).toEqual(new Set(["good.ts", "good.ts#block-0", "good.ts#block-1"]));
+    expect(inputs).toEqual(new Set(["good.ts", "good.ts#L2", "good.ts#L4-L6"]));
   });
 
   test("custom sensor set (selection = the sensor list itself)", async () => {

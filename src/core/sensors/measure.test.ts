@@ -81,6 +81,7 @@ describe("compileSensorQuestions", () => {
   test("blockWireId: full LOC interval of the content", () => {
     expect(blockWireId("export const x = 1;\n")).toBe("L1-L2");
     expect(blockWireId("a\nb\nc")).toBe("L1-L3");
+    expect(blockWireId("a")).toBe("L1-L1");
   });
 });
 

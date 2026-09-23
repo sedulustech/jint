@@ -64,15 +64,18 @@ export function compileSensorQuestions(sensors: readonly Sensor[], unitId: strin
 }
 
 /**
- * The wire id for a judged span of a file: the treesitter LOC interval, 1-based, e.g. "L19-L28".
- * Spans of top-level leaves are disjoint, so ids are unique within a file and point straight at the
- * source (measured: readings equal the content-hash id at mean delta 0.027, tmp probes).
+ * The wire id for a judged span of a file: the treesitter LOC interval, 1-based — "L19" for a
+ * single line, "L19-L28" for a range. Spans of top-level leaves are disjoint, so ids are unique
+ * within a file and point straight at the source (measured: readings equal the content-hash id at
+ * mean delta 0.027, tmp probes).
  */
 export function spanWireId(span: {
   readonly start: { readonly line: number };
   readonly end: { readonly line: number };
 }): string {
-  return `L${span.start.line}-L${span.end.line}`;
+  return span.start.line === span.end.line
+    ? `L${span.start.line}`
+    : `L${span.start.line}-L${span.end.line}`;
 }
 
 /**
