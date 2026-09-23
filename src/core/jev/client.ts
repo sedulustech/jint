@@ -4,8 +4,8 @@
  *
  * Vendor transport failures map onto the project's error taxonomy exactly once, here: auth failures
  * fail loud at the first call (never at import), rejected requests, rate limits and outages surface
- * as unavailability, and a wrong-shaped answer is a response-invalid diagnostic. No vendor error
- * type escapes past this seam.
+ * as unavailability, and a wrong-shaped answer is a response-invalid error. No vendor error type
+ * escapes past this seam.
  *
  * Vendor nomenclature stays at the boundary: one batched call per state, one structured question
  * per sensor, each answer a single calibrated probability.
@@ -30,7 +30,7 @@ import {
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { AppError, type Judge, type QuestionSpec } from "../types.ts";
+import { RequestError, type Judge, type QuestionSpec } from "../types.ts";
 import { requestDebug } from "./debug.ts";
 
 /** The answer boundary: exactly one calibrated probability per question. */
@@ -50,7 +50,7 @@ export interface JudgeConfig {
 export function createJudge(config?: JudgeConfig): Judge {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
-    if (client === null) client = makeClient(requestDebug(config));
+    if (client === null) client = makeClient(requestDebug(config), state.path);
     const sdkQuestions = compileQuestions(questions);
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
@@ -59,13 +59,13 @@ export function createJudge(config?: JudgeConfig): Judge {
         questions: sdkQuestions,
       });
     } catch (e) {
-      throw mapTransportError(e);
+      throw mapTransportError(e, state.path);
     }
-    return extractAnswers(result, questions);
+    return extractAnswers(result, questions, state.path);
   };
 }
 
-function makeClient(config: JudgeConfig | undefined): TypeSafeClient {
+function makeClient(config: JudgeConfig | undefined, input: string): TypeSafeClient {
   try {
     return new TypeSafeClient({
       ...(config?.apiKey !== undefined && { apiKey: config.apiKey }),
@@ -74,8 +74,9 @@ function makeClient(config: JudgeConfig | undefined): TypeSafeClient {
     });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError(
+    throw new RequestError(
       "JEV_AUTH",
+      input,
       `jev unavailable at startup: ${detail} — set TYPESAFE_API_KEY to a valid key`,
       { cause: e },
     );
@@ -93,13 +94,15 @@ function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
 function extractAnswers(
   result: SystemOneResult<Questions>,
   questions: Record<string, QuestionSpec>,
+  input: string,
 ): Record<string, number> {
   const out: Record<string, number> = {};
   for (const name of Object.keys(questions)) {
     const answer: unknown = result.answers[name];
     if (!Value.Check(ANSWER_SCHEMA, answer)) {
-      throw new AppError(
+      throw new RequestError(
         "JEV_RESPONSE_INVALID",
+        input,
         `jev answer '${name}' failed shape validation: expected { type: "noul", noul: number 0..1 }, got ${JSON.stringify(answer)}`,
       );
     }
@@ -108,26 +111,43 @@ function extractAnswers(
   return out;
 }
 
-function mapTransportError(e: unknown): AppError {
+function mapTransportError(e: unknown, input: string): RequestError {
   if (e instanceof AuthenticationError || e instanceof PermissionDeniedError) {
-    return new AppError("JEV_AUTH", `jev rejected the API key: ${e.message}`, { cause: e });
-  }
-  if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {
-    return new AppError("JEV_REQUEST_INVALID", `jev rejected the request: ${e.message}`, {
+    return new RequestError("JEV_AUTH", input, `jev rejected the API key: ${e.message}`, {
       cause: e,
     });
   }
+  if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {
+    return new RequestError(
+      "JEV_REQUEST_INVALID",
+      input,
+      `jev rejected the request: ${e.message}`,
+      {
+        cause: e,
+      },
+    );
+  }
   if (e instanceof RateLimitError || e instanceof InternalServerError || e instanceof APIError) {
-    return new AppError("JEV_UNAVAILABLE", `jev unavailable: ${e.message}`, { cause: e });
+    return new RequestError("JEV_UNAVAILABLE", input, `jev unavailable: ${e.message}`, {
+      cause: e,
+    });
   }
   if (e instanceof APIConnectionError) {
-    return new AppError("JEV_UNAVAILABLE", `jev unreachable: ${e.message}`, { cause: e });
+    return new RequestError("JEV_UNAVAILABLE", input, `jev unreachable: ${e.message}`, {
+      cause: e,
+    });
   }
   if (e instanceof TypeSafeError) {
-    return new AppError("JEV_UNAVAILABLE", `jev call failed: ${e.message}`, { cause: e });
+    return new RequestError("JEV_UNAVAILABLE", input, `jev call failed: ${e.message}`, {
+      cause: e,
+    });
   }
   if (e instanceof Error) {
-    return new AppError("INTERNAL", `unexpected jev transport error: ${e.message}`, { cause: e });
+    return new RequestError("INTERNAL", input, `unexpected jev transport error: ${e.message}`, {
+      cause: e,
+    });
   }
-  return new AppError("INTERNAL", `unexpected jev transport error: ${String(e)}`, { cause: e });
+  return new RequestError("INTERNAL", input, `unexpected jev transport error: ${String(e)}`, {
+    cause: e,
+  });
 }

@@ -10,7 +10,7 @@
  */
 
 import { stat } from "node:fs/promises";
-import { AppError, type InputKind, type Unit } from "../types.ts";
+import { SetupError, type InputKind, type Unit } from "../types.ts";
 import { readDiffSource, decomposeDiff } from "./diff.ts";
 import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
@@ -31,7 +31,7 @@ export async function inferKind(input: string): Promise<InputKind> {
     // git decides for real; failure surfaces loudly there
   }
   if (looksLikeRev(input)) return "diff";
-  throw new AppError(
+  throw new SetupError(
     "ENTRYPOINT_NOT_FOUND",
     `input not found: ${input}` +
       (looksLikeRevShaped(input) ? " (git could not resolve it as a rev, either)" : ""),

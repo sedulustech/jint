@@ -1,15 +1,14 @@
 import { describe, test, expect } from "bun:test";
 import {
-  AppError,
+  RequestError,
   type Judge,
   type Measurement,
-  type Diagnostic,
   type Sensor,
   type Unit,
   type UnitState,
 } from "../types.ts";
 import { sensorDefaults } from "./defaults.ts";
-import { compileSensorQuestions, measureUnit, toDiagnostic } from "./measure.ts";
+import { compileSensorQuestions, measureUnit, toRequestError } from "./measure.ts";
 
 const fileUnit: Unit = {
   kind: "file",
@@ -29,7 +28,7 @@ function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
   };
 }
 
-function isMeasurement(event: Measurement | Diagnostic): event is Measurement {
+function isMeasurement(event: Measurement | RequestError): event is Measurement {
   return "sensor" in event;
 }
 
@@ -87,7 +86,7 @@ describe("measureUnit", () => {
       },
       calls,
     );
-    const events: (Measurement | Diagnostic)[] = [];
+    const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
     expect(events).toHaveLength(9);
     expect(events.every(isMeasurement)).toBe(true);
@@ -102,9 +101,9 @@ describe("measureUnit", () => {
     }
   });
 
-  test("missing or non-finite answer -> JEV_RESPONSE_INVALID diagnostic, siblings continue", async () => {
+  test("missing or non-finite answer -> JEV_RESPONSE_INVALID error, siblings continue", async () => {
     const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: Number.NaN });
-    const events: (Measurement | Diagnostic)[] = [];
+    const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(
       fileUnit,
       [
@@ -116,33 +115,33 @@ describe("measureUnit", () => {
     )) {
       events.push(event);
     }
-    const diagnostics = events.filter((e): e is Diagnostic => !isMeasurement(e));
+    const errors = events.filter((e): e is RequestError => !isMeasurement(e));
     const measurements = events.filter(isMeasurement);
     expect(measurements.map((m) => m.sensor)).toEqual(["is_name_purposeful"]);
-    expect(diagnostics).toHaveLength(2); // NaN for is_vocabulary_consistent, missing is_greppable
-    expect(diagnostics[0]!.code).toBe("JEV_RESPONSE_INVALID");
-    expect(diagnostics[0]!.message).toContain("is_vocabulary_consistent");
-    expect(diagnostics[1]!.message).toContain("is_greppable");
+    expect(errors).toHaveLength(2); // NaN for is_vocabulary_consistent, missing is_greppable
+    expect(errors[0]!.code).toBe("JEV_RESPONSE_INVALID");
+    expect(errors[0]!.message).toContain("is_vocabulary_consistent");
+    expect(errors[1]!.message).toContain("is_greppable");
   });
 
-  test("judge throwing AppError -> diagnostic with the same code", async () => {
+  test("judge throwing RequestError -> streamed error with the same code", async () => {
     const judge: Judge = async () => {
-      throw new AppError("JEV_UNAVAILABLE", "jev unreachable: boom");
+      throw new RequestError("JEV_UNAVAILABLE", "src/a.ts", "jev unreachable: boom");
     };
-    const events: (Measurement | Diagnostic)[] = [];
+    const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
     expect(events).toHaveLength(1);
-    expect((events[0] as Diagnostic).code).toBe("JEV_UNAVAILABLE");
-    expect((events[0] as Diagnostic).input).toBe("src/a.ts");
+    expect((events[0] as RequestError).code).toBe("JEV_UNAVAILABLE");
+    expect((events[0] as RequestError).input).toBe("src/a.ts");
   });
 
-  test("judge throwing a plain Error -> INTERNAL diagnostic, never thrown past the pipeline", async () => {
+  test("judge throwing a plain Error -> INTERNAL error, never thrown past the pipeline", async () => {
     const judge: Judge = async () => {
       throw new Error("surprise");
     };
-    const events: (Measurement | Diagnostic)[] = [];
+    const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(diffUnit, allSensors, judge)) events.push(event);
-    expect((events[0] as Diagnostic).code).toBe("INTERNAL");
+    expect((events[0] as RequestError).code).toBe("INTERNAL");
   });
 
   test("no sensors -> judge never called", async () => {
@@ -151,7 +150,7 @@ describe("measureUnit", () => {
       called = true;
       return {};
     };
-    const events: (Measurement | Diagnostic)[] = [];
+    const events: (Measurement | RequestError)[] = [];
     for await (const event of measureUnit(fileUnit, [], judge)) {
       events.push(event);
     }
@@ -160,10 +159,18 @@ describe("measureUnit", () => {
   });
 });
 
-describe("toDiagnostic", () => {
-  test("non-Error throwables become INTERNAL diagnostics", () => {
-    const diagnostic = toDiagnostic(fileUnit, "a string was thrown");
-    expect(diagnostic.code).toBe("INTERNAL");
-    expect(diagnostic.message).toBe("a string was thrown");
+describe("toRequestError", () => {
+  test("non-Error throwables become INTERNAL errors", () => {
+    const error = toRequestError(fileUnit.state.path, "a string was thrown");
+    expect(error.code).toBe("INTERNAL");
+    expect(error.message).toBe("a string was thrown");
+    expect(error.input).toBe("src/a.ts");
+  });
+
+  test("a thrown RequestError keeps its code; input is refined", () => {
+    const thrown = new RequestError("JEV_AUTH", "other.ts", "rejected");
+    const error = toRequestError("src/a.ts", thrown);
+    expect(error.code).toBe("JEV_AUTH");
+    expect(error.input).toBe("src/a.ts");
   });
 });

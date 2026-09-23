@@ -1,7 +1,7 @@
 /**
  * Lint — the one function most consumers need. State-in/signals-out: resolves the input, measures
  * each unit — files through the two-stage funnel, diffs through the legacy whole-unit path — runs
- * each sensor's handle, streams Measurements and Signals (and per-unit Diagnostics).
+ * each sensor's handle, streams Measurements, Signals, per-unit RequestErrors and degradations.
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight judge pipelines (design §7.4 cost
  * control); events stream per file as its wave completes, measurements before signals.
@@ -19,8 +19,9 @@ import {
   type FunnelEvent,
 } from "./sensors/funnel.ts";
 import {
-  AppError,
-  type Diagnostic,
+  RequestError,
+  SetupError,
+  type Degradation,
   type InputKind,
   type Judge,
   type LintEvent,
@@ -51,7 +52,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const judge = options.judge ?? createJudge();
   const input = options.input ?? options.config.input;
   if (input === "" || (Array.isArray(input) && input.length === 0)) {
-    throw new AppError(
+    throw new SetupError(
       "CONFIG_INVALID",
       "no input: pass --file/--dir/--diff or set input in jint.config.ts",
     );
@@ -73,8 +74,12 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (const result of results) {
       if (result.abort) aborted = true;
       for (const { event, stage } of result.events) {
+        if (event instanceof RequestError) {
+          yield { type: "error", error: event };
+          continue;
+        }
         if ("code" in event) {
-          yield { type: "diagnostic", diagnostic: event };
+          yield { type: "degradation", degradation: event };
           continue;
         }
         yield { type: "measurement", measurement: { ...event, stage } };
@@ -162,16 +167,20 @@ function pickSensors(
 export interface LintReport {
   measurements: Measurement[];
   signals: Signal[];
-  diagnostics: Diagnostic[];
+  /** Per-unit failures of the request to the judge: the unit produced no measurement. */
+  errors: RequestError[];
+  /** Per-unit degradations: the unit measured, but degraded. Never fails the run. */
+  degradations: Degradation[];
 }
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], signals: [], diagnostics: [] };
+  const report: LintReport = { measurements: [], signals: [], errors: [], degradations: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "signal") report.signals.push(event.signal);
-    else report.diagnostics.push(event.diagnostic);
+    else if (event.type === "error") report.errors.push(event.error);
+    else report.degradations.push(event.degradation);
   }
   return report;
 }

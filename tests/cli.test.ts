@@ -96,22 +96,29 @@ describe("cli: contract basics", () => {
 });
 
 describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
-  test("--file without TYPESAFE_API_KEY: JEV_AUTH diagnostic, exit 4, stdout still pipe-clean", () => {
+  test("--file without TYPESAFE_API_KEY --json: stdout parses, stderr silent (clig)", () => {
     const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
     expect(r.code).toBe(4); // ran but failed: zero measurements, CI never passes unmeasured
+    // stdout is exactly the machine document — parses cleanly, no human output mixed in
     const report = JSON.parse(r.stdout);
-    expect(report.diagnostics).toHaveLength(1);
-    expect(report.diagnostics[0]!.code).toBe("JEV_AUTH");
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]!.code).toBe("JEV_AUTH");
     expect(report.measurements).toEqual([]);
-    // diagnostics are report content (stdout); stderr stays silent by default
+    expect(report.degradations).toEqual([]);
+    // errors/degradations are data in the document; no human-facing operational noise on stderr
     expect(r.stderr).toBe("");
+    expect(r.stdout).not.toContain("failed to measure");
   });
 
-  test("default stylish report renders the JEV_AUTH diagnostic", () => {
+  test("default stylish report: findings stdout, run errors stderr (clig)", () => {
     const r = run(["--file", "tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(4);
-    expect(r.stdout).toContain("JEV_AUTH");
-    expect(r.stdout).toContain("1 unit failed to measure");
+    // stderr: the run's own errors and their summary
+    expect(r.stderr).toContain("error JEV_AUTH");
+    expect(r.stderr).toContain("1 unit failed to measure");
+    // stdout: findings only — this run has none, and no operational content leaks there
+    expect(r.stdout).not.toContain("JEV_AUTH");
+    expect(r.stdout).not.toContain("failed to measure");
   });
 
   test("--diff - reads stdin (decomposition happens before the jev call)", () => {
@@ -127,8 +134,8 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(proc.exitCode).toBe(4);
     const report = JSON.parse(proc.stdout.toString());
     // the diff resolved and decomposed; the auth failure names a unit path
-    expect(report.diagnostics[0]!.input).toBe("src/tui/components/overlays/box.ts");
-    expect(report.diagnostics[0]!.code).toBe("JEV_AUTH");
+    expect(report.errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
+    expect(report.errors[0]!.code).toBe("JEV_AUTH");
   });
 
   test("--config selects an alternate config file (loads, then JEV_AUTH)", () => {
@@ -145,24 +152,24 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     // config itself loaded fine; the failure is auth (exit 4), not CONFIG_INVALID (exit 2)
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    expect(report.diagnostics[0]!.code).toBe("JEV_AUTH");
+    expect(report.errors[0]!.code).toBe("JEV_AUTH");
   });
 
-  test("--dir <fixture> : respects .gitignore, diagnostics JEV_AUTH, exit 4", () => {
+  test("--dir <fixture> : respects .gitignore, errors JEV_AUTH, exit 4", () => {
     // tests/fixtures/ignore-test contains a .gitignore that ignores 'binary'
     const r = run(["--dir", "tests/fixtures/sample-dir", "--json", "--debug"], NO_KEY);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     // Should contain measurements for the non-ignored files
     // If it crashed on binaries, the exit code would be 3 (internal)
-    expect(report.diagnostics.length).toBeGreaterThan(0);
+    expect(report.errors.length).toBeGreaterThan(0);
   });
 
   test("--diff <patch> : parses before jev call, JEV_AUTH, exit 4", () => {
     const r = run(["--diff", "tests/fixtures/sample.diff", "--json"], NO_KEY);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    expect(report.diagnostics[0]!.code).toBe("JEV_AUTH");
+    expect(report.errors[0]!.code).toBe("JEV_AUTH");
   });
 
   test("--diff <bogus-rev> : fails with exit 2", () => {
@@ -194,5 +201,5 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
     }
-  });
+  }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
 });

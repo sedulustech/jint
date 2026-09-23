@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { RequestError, type Degradation } from "../types.ts";
 import { renderStylish, shouldColor } from "./stylish.ts";
 import type { LintReport } from "../lint.ts";
 
@@ -13,36 +14,108 @@ const report: LintReport = {
       severity: "error",
     },
   ],
-  diagnostics: [{ input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" }],
+  errors: [new RequestError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
+  degradations: [
+    {
+      input: "src/c.ts",
+      code: "DECOMPOSITION_DEGRADED",
+      message: "measured whole: no grammar mapping for extension",
+    } satisfies Degradation,
+  ],
 };
 
 describe("renderStylish", () => {
-  test("signals only, aligned columns, diagnostics surfaced", () => {
+  test("stream discipline: findings stdout, run errors/diagnostics stderr (clig)", () => {
     // columns: severity(5) 2sp value(5) 2sp sensor(21) 2sp input
-    const out = renderStylish(report, "never");
-    expect(out).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
-    expect(out).toContain("warn    0.53  is_name_purposeful  src/a.ts");
-    expect(out).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
-    expect(out).toContain("2 problems (1 error, 1 warning)");
-    expect(out).not.toContain("measurements:"); // measurements are not the human payload
+    const { stdout, stderr } = renderStylish(report, "never");
+    // stdout: findings only — the signal table and the findings summary
+    expect(stdout).toContain("warn    0.53  is_name_purposeful  src/a.ts");
+    expect(stdout).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
+    expect(stdout).toContain("2 problems (1 error, 1 warning)");
+    expect(stdout).not.toContain("JEV_UNAVAILABLE");
+    expect(stdout).not.toContain("DECOMPOSITION_DEGRADED");
+    expect(stdout).not.toContain("failed to measure");
+    expect(stdout).not.toContain("measurements:"); // measurements are not the human payload
+    // stderr: run errors and diagnostics only
+    expect(stderr).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
+    expect(stderr).toContain(
+      "warn DECOMPOSITION_DEGRADED src/c.ts: measured whole: no grammar mapping for extension",
+    );
+    expect(stderr).toContain("1 unit failed to measure");
+    expect(stderr).toContain("1 file measured whole (decomposition degraded)");
+    expect(stderr).not.toContain("is_name_purposeful");
+    expect(stderr).not.toContain("problems");
+  });
+
+  test("stdout stays usable when stderr is discarded, and vice versa", () => {
+    const { stdout, stderr } = renderStylish(report, "never");
+    // each stream is self-contained: discard one, the other still tells its whole story
+    expect(stdout).toContain("2 problems (1 error, 1 warning)");
+    expect(stderr).toContain("JEV_UNAVAILABLE");
+    // a findings-only report renders nothing on stderr; an error-only report nothing on stdout
+    const clean = renderStylish(
+      {
+        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        signals: [],
+        errors: [],
+        degradations: [],
+      },
+      "never",
+    );
+    expect(clean.stderr).toBe("");
+    const failedOnly = renderStylish(
+      { measurements: [], signals: [], errors: report.errors, degradations: [] },
+      "never",
+    );
+    expect(failedOnly.stdout).toBe("");
+    expect(failedOnly.stderr).toContain("1 unit failed to measure");
   });
 
   test("summary line for a clean run mentions the measurement count", () => {
-    const out = renderStylish(
-      { measurements: [{ sensor: "s", input: "i", value: 0.5 }], signals: [], diagnostics: [] },
+    const { stdout } = renderStylish(
+      {
+        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        signals: [],
+        errors: [],
+        degradations: [],
+      },
       "never",
     );
-    expect(out).toContain("no signals — 1 measurement clean");
+    expect(stdout).toContain("no signals — 1 measurement clean");
   });
 
-  test("completely empty report renders empty", () => {
-    expect(renderStylish({ measurements: [], signals: [], diagnostics: [] }, "never")).toBe("");
+  test("a run with failed units never claims clean on stdout", () => {
+    const { stdout, stderr } = renderStylish(
+      {
+        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        signals: [],
+        errors: report.errors,
+        degradations: [],
+      },
+      "never",
+    );
+    expect(stdout).toBe("");
+    expect(stderr).toContain("1 unit failed to measure");
   });
 
-  test("color modes: never strips, always forces", () => {
-    expect(renderStylish(report, "never")).not.toContain("\x1b");
-    expect(renderStylish(report, "always")).toContain("\x1b[31m"); // red error rows
-    expect(renderStylish(report, "always")).toContain("\x1b[33m"); // yellow warn rows
+  test("completely empty report renders empty on both streams", () => {
+    const { stdout, stderr } = renderStylish(
+      { measurements: [], signals: [], errors: [], degradations: [] },
+      "never",
+    );
+    expect(stdout).toBe("");
+    expect(stderr).toBe("");
+  });
+
+  test("color modes: never strips, always forces — on both streams", () => {
+    const plain = renderStylish(report, "never");
+    expect(plain.stdout).not.toContain("\x1b");
+    expect(plain.stderr).not.toContain("\x1b");
+    const forced = renderStylish(report, "always");
+    expect(forced.stdout).toContain("\x1b[31m"); // red signal rows (error severity)
+    expect(forced.stdout).toContain("\x1b[33m"); // yellow signal rows (warn severity)
+    expect(forced.stderr).toContain("\x1b[31m"); // red RequestError lines
+    expect(forced.stderr).toContain("\x1b[33m"); // yellow degradation lines
   });
 });
 

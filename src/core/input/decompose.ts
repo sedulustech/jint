@@ -16,7 +16,7 @@
  */
 
 import { Language, Parser, type Language as LanguageType } from "web-tree-sitter";
-import { AppError } from "../types.ts";
+import { SetupError } from "../types.ts";
 
 /** One-based line, zero-based column — raw tree-sitter position semantics. */
 export interface UnitPoint {
@@ -125,7 +125,7 @@ async function parserFor(language: string): Promise<Parser> {
   if (cached) return cached;
   const wasm = WASM_PATHS[language];
   if (!LANGUAGES[language] || !wasm) {
-    throw new AppError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
+    throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
   }
   const created = (async () => {
     initPromise ??= Parser.init({
@@ -170,7 +170,7 @@ function spanOf(node: {
 export async function decompose(source: string, language: string): Promise<Inventory> {
   const mapping = LANGUAGES[language];
   if (!mapping) {
-    throw new AppError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
+    throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
   }
   const parser = await parserFor(language);
   const tree = parser.parse(source);

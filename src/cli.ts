@@ -3,10 +3,12 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity signals 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but failed (any diagnostic, or zero
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but failed (any judge error, or zero
  * measurements — CI never passes unmeasured)
  *
- * Stdout carries only the report; logs go to stderr (default silent; --debug).
+ * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
+ * the run's own errors and diagnostics — setup failures, failed units, degradations — plus
+ * structured logs (default silent; --debug). Either stream stays usable with the other discarded.
  */
 
 import { existsSync } from "node:fs";
@@ -18,7 +20,7 @@ import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
-import { AppError, type InputKind } from "./core/types.ts";
+import { RequestError, SetupError, type InputKind } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
 import type { ResolvedConfig } from "./config/define.ts";
 
@@ -130,11 +132,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         disable: cliArgs.disable,
       }),
     );
-    const renderedReport =
+    // JSON: the document is data (errors/degradations ride in it) — stdout only, stderr untouched.
+    // Stylish: findings on stdout, run errors/diagnostics on stderr.
+    const rendered =
       cliArgs.json === true
-        ? renderJson(lintReport)
+        ? { stdout: renderJson(lintReport), stderr: "" }
         : renderStylish(lintReport, cliArgs.color ?? "auto");
-    process.stdout.write(renderedReport);
+    process.stdout.write(rendered.stdout);
+    process.stderr.write(rendered.stderr);
     return computeExit(lintReport);
   } catch (thrown) {
     return exitForThrown(thrown);
@@ -222,35 +227,32 @@ function flagsSelectFiles(cliArgs: CliArgs): boolean {
   return cliArgs.file !== undefined && cliArgs.file.length > 0;
 }
 
-/** Exit invariant (design §7): error signals -> 1; diagnostics or zero measurements -> 4. */
+/** Exit invariant (design §7): error signals -> 1; judge errors or zero measurements -> 4. */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
-  if (
-    lintReport.diagnostics.some((d) => (d.severity ?? "error") === "error") ||
-    lintReport.measurements.length === 0
-  )
-    return 4;
+  if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
 }
 
-/** Boundary mapping, exactly once: config/entrypoint -> 2, internal -> 3, run-phase -> 4. */
+/** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped measure error -> 4. */
 function exitForThrown(thrown: unknown): number {
-  const appError =
-    thrown instanceof AppError
+  const error =
+    thrown instanceof SetupError || thrown instanceof RequestError
       ? thrown
-      : new AppError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), {
+      : new SetupError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), {
           cause: thrown,
         });
-  log("error", appError.message, { errorCode: appError.code });
-  process.stderr.write(`jint: ${appError.code}: ${appError.message}\n`);
+  log("error", error.message, { errorCode: error.code });
+  process.stderr.write(`jint: ${error.code}: ${error.message}\n`);
   if (
-    appError.code === "CONFIG_INVALID" ||
-    appError.code === "ENTRYPOINT_NOT_FOUND" ||
-    appError.code === "ENTRYPOINT_UNREADABLE"
+    error.code === "CONFIG_INVALID" ||
+    error.code === "ENTRYPOINT_NOT_FOUND" ||
+    error.code === "ENTRYPOINT_UNREADABLE"
   )
     return 2;
-  // JEV_* that escaped the stream: the run happened but failed
-  if (appError.code === "INTERNAL") return 3;
+  // A RequestError that escaped the stream: the run happened but failed
+  if (error instanceof RequestError) return 4;
+  if (error.code === "INTERNAL") return 3;
   return 4;
 }
 

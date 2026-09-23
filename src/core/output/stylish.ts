@@ -1,7 +1,12 @@
 /**
- * Human reporter: signals only (measurements are the raw "what is true"; signals are what
- * mattered), plus run diagnostics. TTY-adaptive color per the clig contract: color only when stdout
- * is a TTY; NO_COLOR, TERM=dumb and --color=never all suppress it; --color=always forces it.
+ * Human reporter. Stream discipline (clig): stdout carries the findings — the signal table and the
+ * findings summary; stderr carries the run's own errors and diagnostics — failed units
+ * (RequestError lines), degradations, and their summary. Either stream stays usable when the other
+ * is discarded.
+ *
+ * Severity wording stays "error"/"warn" on both streams (decided: no rename). TTY-adaptive color
+ * per the clig contract: each stream is colored only when it itself is a TTY; NO_COLOR, TERM=dumb
+ * and --color=never suppress it everywhere; --color=always forces it.
  *
  * V0 renders a simple aligned table (the documented stub).
  */
@@ -10,16 +15,40 @@ import type { LintReport } from "../lint.ts";
 
 export type ColorMode = "auto" | "always" | "never";
 
-export function renderStylish(report: LintReport, mode: ColorMode = "auto"): string {
-  const colorize = shouldColor(mode);
-  const out: string[] = [];
+/** The two rendered streams: findings for stdout, run errors/diagnostics for stderr. */
+export interface StylishRender {
+  /** Findings: signal table + findings summary. Empty when nothing was flagged. */
+  readonly stdout: string;
+  /**
+   * Run errors and diagnostics: failed units, degradations, run summary. Empty when the run was
+   * clean.
+   */
+  readonly stderr: string;
+}
 
-  for (const d of report.diagnostics) {
-    const severity = d.severity ?? "error";
-    const line = `${severity} ${d.code} ${d.input}: ${d.message}`;
-    out.push(colorize ? (severity === "warn" ? yellow(line) : red(line)) : line);
+export function renderStylish(report: LintReport, mode: ColorMode = "auto"): StylishRender {
+  const outColor = shouldColor(mode, process.stdout);
+  const errColor = shouldColor(mode, process.stderr);
+  const out: string[] = [];
+  const err: string[] = [];
+
+  // Run errors and diagnostics — stderr, never the findings report. Errors are failed requests to
+  // the judge (always error severity); degradations inform in yellow.
+  for (const e of report.errors) {
+    const line = `error ${e.code} ${e.input}: ${e.message}`;
+    err.push(errColor ? red(line) : line);
+  }
+  for (const d of report.degradations) {
+    const line = `warn ${d.code} ${d.input}: ${d.message}`;
+    err.push(errColor ? yellow(line) : line);
+  }
+  const runSummary = runSummaryOf(report);
+  if (runSummary !== null) {
+    err.push("");
+    err.push(errColor ? bold(runSummary) : runSummary);
   }
 
+  // Findings — stdout.
   if (report.signals.length > 0) {
     const rows = report.signals.map((s) => ({
       severity: s.severity,
@@ -35,47 +64,60 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): str
       const val = r.value.padStart(wVal);
       const sensor = r.sensor.padEnd(wSensor);
       const line = `${sev}  ${val}  ${sensor}  ${r.input}`;
-      out.push(colorize ? (r.severity === "error" ? red(line) : yellow(line)) : line);
+      out.push(outColor ? (r.severity === "error" ? red(line) : yellow(line)) : line);
     }
   }
-
-  const summary = stylishSummary(report);
-  if (summary !== null) {
+  const findings = findingsSummaryOf(report);
+  if (findings !== null) {
     out.push("");
-    out.push(colorize ? bold(summary) : summary);
+    out.push(outColor ? bold(findings) : findings);
   }
-  return out.length > 0 ? out.join("\n") + "\n" : "";
+
+  return {
+    stdout: out.length > 0 ? out.join("\n") + "\n" : "",
+    stderr: err.length > 0 ? err.join("\n") + "\n" : "",
+  };
 }
 
-function stylishSummary(report: LintReport): string | null {
-  const parts: string[] = [];
-  const errors = report.signals.filter((s) => s.severity === "error").length;
-  const warnings = report.signals.length - errors;
+/** Findings summary (stdout): what the sensors flagged, or the clean-run measurement count. */
+function findingsSummaryOf(report: LintReport): string | null {
   if (report.signals.length > 0) {
-    parts.push(
+    const errors = report.signals.filter((s) => s.severity === "error").length;
+    const warnings = report.signals.length - errors;
+    return (
       `${report.signals.length} ${report.signals.length === 1 ? "problem" : "problems"}` +
-        ` (${errors} ${errors === 1 ? "error" : "errors"}, ${warnings} ${warnings === 1 ? "warning" : "warnings"})`,
+      ` (${errors} ${errors === 1 ? "error" : "errors"}, ${warnings} ${warnings === 1 ? "warning" : "warnings"})`
     );
   }
-  const failures = report.diagnostics.filter((d) => (d.severity ?? "error") === "error");
-  const degraded = report.diagnostics.filter((d) => d.severity === "warn");
-  if (failures.length > 0) {
-    parts.push(`${failures.length} ${failures.length === 1 ? "unit" : "units"} failed to measure`);
+  // The clean-run line fires only when nothing else is reported anywhere (same cases as before the
+  // stream split): a run with failed units or degradations never claims "clean".
+  if (
+    report.errors.length === 0 &&
+    report.degradations.length === 0 &&
+    report.measurements.length > 0
+  ) {
+    return `no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`;
   }
-  if (degraded.length > 0) {
+  return null;
+}
+
+/** Run summary (stderr): what failed or degraded about the run itself. */
+function runSummaryOf(report: LintReport): string | null {
+  const parts: string[] = [];
+  if (report.errors.length > 0) {
     parts.push(
-      `${degraded.length} ${degraded.length === 1 ? "file" : "files"} measured whole (decomposition degraded)`,
+      `${report.errors.length} ${report.errors.length === 1 ? "unit" : "units"} failed to measure`,
     );
   }
-  if (parts.length === 0 && report.measurements.length > 0) {
+  if (report.degradations.length > 0) {
     parts.push(
-      `no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`,
+      `${report.degradations.length} ${report.degradations.length === 1 ? "file" : "files"} measured whole (decomposition degraded)`,
     );
   }
   return parts.length > 0 ? parts.join("; ") : null;
 }
 
-/** The TTY decision: explicit mode wins; otherwise stdout-is-TTY minus NO_COLOR/TERM=dumb. */
+/** The TTY decision: explicit mode wins; otherwise the stream is a TTY minus NO_COLOR/TERM=dumb. */
 export function shouldColor(
   mode: ColorMode,
   stream: { isTTY?: boolean } = process.stdout,

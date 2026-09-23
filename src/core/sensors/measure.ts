@@ -3,13 +3,12 @@
  * (sequential in v0). Emits Measurement { sensor, input, value }: no thresholds, no handle
  * invocation here — interpretation is the handle callback's job (design §4.5).
  *
- * Per-unit failures come back as Diagnostics in the stream, never thrown past the pipeline (design
- * §7).
+ * Per-unit failures come back as RequestErrors in the stream, never thrown past the pipeline
+ * (design §7).
  */
 
 import {
-  AppError,
-  type Diagnostic,
+  RequestError,
   type Judge,
   type Measurement,
   type QuestionSpec,
@@ -69,7 +68,7 @@ export async function* measureUnit(
   unit: Unit,
   sensors: readonly Sensor[],
   judge: Judge,
-): AsyncGenerator<Measurement | Diagnostic> {
+): AsyncGenerator<Measurement | RequestError> {
   if (sensors.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every sensor participates.
   const { questions } = compileSensorQuestions(sensors);
@@ -77,34 +76,34 @@ export async function* measureUnit(
   try {
     answers = await judge(unit.state, questions);
   } catch (thrown) {
-    yield toDiagnostic(unit, thrown);
+    yield toRequestError(unit.state.path, thrown);
     return;
   }
   for (const sensor of sensors) {
     const value = answers[sensor.name];
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      yield toInvalidAnswerDiagnostic(unit, sensor.name);
+      yield invalidAnswerError(unit.state.path, sensor.name);
       continue;
     }
     yield { sensor: sensor.name, input: unit.state.path, value };
   }
 }
 
-/** Diagnostic for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
-function toInvalidAnswerDiagnostic(unit: Unit, sensorName: string): Diagnostic {
-  return {
-    input: unit.state.path,
-    code: "JEV_RESPONSE_INVALID",
-    message: `answer for '${sensorName}' is missing or not a finite number`,
-  };
+/** RequestError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
+export function invalidAnswerError(input: string, sensorName: string): RequestError {
+  return new RequestError(
+    "JEV_RESPONSE_INVALID",
+    input,
+    `answer for '${sensorName}' is missing or not a finite number`,
+  );
 }
 
-export function toDiagnostic(unit: Unit, thrown: unknown): Diagnostic {
-  if (thrown instanceof AppError) {
-    return { input: unit.state.path, code: thrown.code, message: thrown.message };
+/** Map anything a judge threw into a streamed RequestError; the seam's code survives (design §7). */
+export function toRequestError(input: string, thrown: unknown): RequestError {
+  if (thrown instanceof RequestError) {
+    // The seam throws with the state path; the funnel refines block-scoped inputs (path#block-N).
+    return new RequestError(thrown.code, input, thrown.message, { cause: thrown });
   }
-  if (thrown instanceof Error) {
-    return { input: unit.state.path, code: "INTERNAL", message: thrown.message };
-  }
-  return { input: unit.state.path, code: "INTERNAL", message: String(thrown) };
+  if (thrown instanceof Error) return new RequestError("INTERNAL", input, thrown.message);
+  return new RequestError("INTERNAL", input, String(thrown));
 }

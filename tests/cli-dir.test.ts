@@ -29,7 +29,7 @@ describe("cli: --dir ignores", () => {
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
       ...(report.measurements ?? []).map((m: any) => m.input),
-      ...(report.diagnostics ?? []).map((d: any) => d.input),
+      ...(report.errors ?? []).map((d: any) => d.input),
     ].filter(Boolean);
     for (const p of attempted) {
       expect(p.includes("ignored.ts")).toBe(false);

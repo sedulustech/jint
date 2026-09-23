@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { AppError, type DiffState } from "../types.ts";
+import { SetupError, type DiffState } from "../types.ts";
 import { readDiffSource, decomposeDiff, splitDiffBlocks, parseDiffBlock } from "./diff.ts";
 
 const COMMIT = "commit abc123\nAuthor: Someone\n\n    fix: the thing\n";
@@ -113,8 +113,8 @@ describe("readDiffSource", () => {
         await readDiffSource("HEAD~2..HEAD");
         expect.unreachable();
       } catch (e) {
-        expect((e as AppError).code).toBe("ENTRYPOINT_UNREADABLE");
-        expect((e as AppError).message).toContain("--diff -");
+        expect((e as SetupError).code).toBe("ENTRYPOINT_UNREADABLE");
+        expect((e as SetupError).message).toContain("--diff -");
       }
     } finally {
       process.env.PATH = previousPath;

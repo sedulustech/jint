@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { sensorDefaults } from "../core/sensors/defaults.ts";
-import { AppError } from "../core/types.ts";
+import { SetupError } from "../core/types.ts";
 import { defineConfig, type ResolvedConfig } from "./define.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.ts";
@@ -55,16 +55,16 @@ export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedCo
     mod = await import(pathToFileURL(abs).href);
   } catch (e) {
     if (isModuleNotFound(e)) {
-      throw new AppError("CONFIG_INVALID", `config file not found: ${path}`, { cause: e });
+      throw new SetupError("CONFIG_INVALID", `config file not found: ${path}`, { cause: e });
     }
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError("CONFIG_INVALID", `config file failed to load: ${path}: ${detail}`, {
+    throw new SetupError("CONFIG_INVALID", `config file failed to load: ${path}: ${detail}`, {
       cause: e,
     });
   }
   const raw = (mod as { default?: unknown } | null)?.default;
   if (raw === undefined) {
-    throw new AppError(
+    throw new SetupError(
       "CONFIG_INVALID",
       `config file has no default export: ${path} (export default defineConfig({...}))`,
     );
@@ -78,12 +78,12 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     const messages = [...Value.Errors(CONFIG_SCHEMA, raw)]
       .map((err) => `${err.path === "" ? "/" : err.path} ${err.message}`)
       .join("; ");
-    throw new AppError("CONFIG_INVALID", `invalid config ${source}: ${messages}`);
+    throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${messages}`);
   }
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
   for (const sensor of parsed.sensors) {
     if (typeof sensor.handle !== "function") {
-      throw new AppError(
+      throw new SetupError(
         "CONFIG_INVALID",
         `invalid config ${source}: sensor '${sensor.name}' handle must be a function`,
       );

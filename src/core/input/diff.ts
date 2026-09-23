@@ -8,7 +8,7 @@
  */
 
 import { stat, readFile } from "node:fs/promises";
-import { AppError, type Unit } from "../types.ts";
+import { SetupError, type Unit } from "../types.ts";
 import { compilePattern, type IgnoreRule } from "./dir.ts";
 
 export interface DiffSource {
@@ -21,7 +21,7 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
     return { text: await Bun.stdin.text(), commitMessage: null };
   }
   if (spec.startsWith("-") || spec.includes("\0")) {
-    throw new AppError(
+    throw new SetupError(
       "ENTRYPOINT_NOT_FOUND",
       `unknown diff input: ${spec} (use "-" for stdin, a patch path, or a git rev)`,
     );
@@ -40,14 +40,14 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
 async function gitDiffSource(expr: string): Promise<DiffSource> {
   const git = Bun.which("git", { PATH: process.env.PATH });
   if (!git) {
-    throw new AppError(
+    throw new SetupError(
       "ENTRYPOINT_UNREADABLE",
       `git executable not found: cannot resolve diff '${expr}' — pipe the diff instead: git diff ${expr} | jint --diff -`,
     );
   }
   const [text, code, err] = await runGit(["diff", "--no-color", "--no-ext-diff", expr]);
   if (code !== 0) {
-    throw new AppError(
+    throw new SetupError(
       "ENTRYPOINT_UNREADABLE",
       `git diff ${expr} failed (exit ${code}): ${err.trim() || "git error"}`,
     );
@@ -77,7 +77,7 @@ async function readText(path: string): Promise<string> {
     return await readFile(path, "utf8");
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, {
+    throw new SetupError("ENTRYPOINT_UNREADABLE", `cannot read file: ${path}: ${detail}`, {
       cause: e,
     });
   }

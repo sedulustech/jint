@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { AppError, type FileState } from "../types.ts";
+import { SetupError, type FileState } from "../types.ts";
 import { inferKind, looksLikeDiff, looksLikeRevShaped, resolveInput } from "./infer.ts";
 
 describe("inferKind", () => {
@@ -31,7 +31,7 @@ describe("inferKind", () => {
       await inferKind("definitely/not/here.ts");
       expect.unreachable();
     } catch (e) {
-      expect((e as AppError).code).toBe("ENTRYPOINT_NOT_FOUND");
+      expect((e as SetupError).code).toBe("ENTRYPOINT_NOT_FOUND");
     }
   });
 });

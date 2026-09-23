@@ -8,7 +8,7 @@
 
 import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { AppError, type Unit } from "../types.ts";
+import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
@@ -68,15 +68,15 @@ interface IgnoreScope {
 export async function* walkDir(root: string, exclude?: readonly string[]): AsyncGenerator<Unit> {
   const rootStat = await stat(root).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT")
-      throw new AppError("ENTRYPOINT_NOT_FOUND", `directory not found: ${root}`);
-    throw new AppError(
+      throw new SetupError("ENTRYPOINT_NOT_FOUND", `directory not found: ${root}`);
+    throw new SetupError(
       "ENTRYPOINT_UNREADABLE",
       `cannot read directory: ${root}: ${error.message}`,
       { cause: error },
     );
   });
   if (!rootStat.isDirectory()) {
-    throw new AppError("ENTRYPOINT_NOT_FOUND", `not a directory: ${root} (use --file)`);
+    throw new SetupError("ENTRYPOINT_NOT_FOUND", `not a directory: ${root} (use --file)`);
   }
   const normalizedRoot = root.replace(/\/+$/, "");
   const excludeRules = (exclude ?? []).map(compilePattern);
@@ -93,7 +93,7 @@ async function* walkDirectory(
   const currentScopes = await withGitignore(absDir, relDir, inheritedScopes);
   const entries = (
     await readdir(absDir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
-      throw new AppError(
+      throw new SetupError(
         "ENTRYPOINT_UNREADABLE",
         `cannot read directory: ${absDir}: ${error.message}`,
         { cause: error },
@@ -302,13 +302,16 @@ async function looksBinary(absolutePath: string): Promise<boolean> {
   }
 }
 
-/** Read the unit's text, or fail loud: an unreadable entrypoint is setup, not a per-unit diagnostic. */
+/**
+ * Read the unit's text, or fail loud: an unreadable entrypoint is setup, not a per-unit measure
+ * error.
+ */
 async function readTextFile(absolutePath: string): Promise<string> {
   try {
     return await Bun.file(absolutePath).text();
   } catch (thrown) {
     const detail = thrown instanceof Error ? thrown.message : String(thrown);
-    throw new AppError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, {
+    throw new SetupError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, {
       cause: thrown,
     });
   }
