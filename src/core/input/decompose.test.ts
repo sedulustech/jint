@@ -47,16 +47,16 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
-    // 22 top-level definitions, no imports in this file.
-    expect(inv.definitions).toHaveLength(22);
+    // 25 top-level definitions, no imports in this file.
+    expect(inv.definitions).toHaveLength(25);
     expect(inv.imports).toHaveLength(0);
-    // 26 comment nodes total, all accounted for: 18 attached as leading docs, 1 standalone
-    // (the file header, separated from the first declaration by a blank line), and 6 nested
+    // 29 comment nodes total, all accounted for: 23 attached as leading docs, 1 standalone
+    // (the file header, separated from the first declaration by a blank line), and 5 nested
     // member-doc comments inside declaration bodies, consumed into their definition leaves.
-    expect(accountedComments(inv)).toBe(26);
-    expect(attachedCount(inv)).toBe(19);
+    expect(accountedComments(inv)).toBe(29);
+    expect(attachedCount(inv)).toBe(23);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(6);
+    expect(internalCount(inv)).toBe(5);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
@@ -65,13 +65,14 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     // The leading declarations, in order; the export wrapper's full text is the content.
     expect(inv.definitions[0]?.nodeType).toBe("type_alias_declaration");
     expect(inv.definitions[0]?.content).toBe('export type Severity = "error" | "warn";');
-    const appErrorDoc = [
+    const setupErrorDoc = [
       "/**",
-      " * One base error type; variants differ by typed `code`, not by class",
-      " * (typescript/error-handling.md).",
+      " * A thrown setup/infrastructure failure: invalid config, missing/unreadable entrypoints, invariant",
+      " * violations. A real thrown Error — it escapes the pipeline boundary, and the CLI maps its code to",
+      " * exit codes exactly once (cli.ts).",
       " */",
     ].join("\n");
-    expect(inv.definitions[5]?.attachedComment).toEqual([appErrorDoc]);
+    expect(inv.definitions[6]?.attachedComment).toEqual([setupErrorDoc]);
   });
 
   test("comment-accounting invariant: AST comment count === comments accounted in leaves", async () => {
@@ -86,7 +87,7 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     expectSpansRoundTrip(source, inv);
     // Line numbers are one-based and point at the leaf's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(11);
+    expect(inv.definitions[0]?.span.start.line).toBe(15);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { AppError } from "../core/types.ts";
+import { SetupError } from "../core/types.ts";
 import { loadConfig, defaultConfig, validateConfig } from "./load.ts";
 
 const ROOT = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
@@ -43,7 +43,7 @@ describe("loadConfig", () => {
   });
 
   test("missing file -> CONFIG_INVALID", async () => {
-    expect(loadConfig("no/such/config.ts")).rejects.toThrow(AppError);
+    expect(loadConfig("no/such/config.ts")).rejects.toThrow(SetupError);
     expect(loadConfig("no/such/config.ts")).rejects.toThrow(/config file not found/);
   });
 
@@ -52,10 +52,10 @@ describe("loadConfig", () => {
       await loadConfig("tests/fixtures/configs/invalid.config.ts");
       expect.unreachable();
     } catch (e) {
-      expect(e).toBeInstanceOf(AppError);
-      expect((e as AppError).code).toBe("CONFIG_INVALID");
-      expect((e as AppError).message).toContain("invalid.config.ts");
-      expect((e as AppError).message).toContain("input");
+      expect(e).toBeInstanceOf(SetupError);
+      expect((e as SetupError).code).toBe("CONFIG_INVALID");
+      expect((e as SetupError).message).toContain("invalid.config.ts");
+      expect((e as SetupError).message).toContain("input");
     }
   });
 
@@ -64,8 +64,8 @@ describe("loadConfig", () => {
       await loadConfig("tests/fixtures/configs/nohandle.config.ts");
       expect.unreachable();
     } catch (e) {
-      expect((e as AppError).code).toBe("CONFIG_INVALID");
-      expect((e as AppError).message).toContain("handle must be a function");
+      expect((e as SetupError).code).toBe("CONFIG_INVALID");
+      expect((e as SetupError).message).toContain("handle must be a function");
     }
   });
 
@@ -74,8 +74,8 @@ describe("loadConfig", () => {
       await loadConfig("tests/fixtures/configs/noexport.config.ts");
       expect.unreachable();
     } catch (e) {
-      expect((e as AppError).code).toBe("CONFIG_INVALID");
-      expect((e as AppError).message).toContain("default export");
+      expect((e as SetupError).code).toBe("CONFIG_INVALID");
+      expect((e as SetupError).message).toContain("default export");
     }
   });
 });
@@ -92,7 +92,7 @@ describe("validateConfig / defaultConfig", () => {
       validateConfig({ input: "x", sensors: {}, exclude: [] }, "inline");
       expect.unreachable();
     } catch (e) {
-      expect((e as AppError).code).toBe("CONFIG_INVALID");
+      expect((e as SetupError).code).toBe("CONFIG_INVALID");
     }
   });
 });

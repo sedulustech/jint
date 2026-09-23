@@ -2,7 +2,14 @@ import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { sensorDefaults } from "../core/sensors/defaults.ts";
-import { AppError, type AnyState, type Judge, type LintEvent, type Sensor } from "../core/types.ts";
+import {
+  RequestError,
+  SetupError,
+  type AnyState,
+  type Judge,
+  type LintEvent,
+  type Sensor,
+} from "../core/types.ts";
 
 const baseConfig = defineConfig({
   input: "",
@@ -195,7 +202,7 @@ describe("lint — funnel shape", () => {
     expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
   });
 
-  test("degenerate file: degrades to the coarsest leaf (whole file) with a warn diagnostic", async () => {
+  test("degenerate file: degrades to the coarsest leaf (whole file) with a degradation", async () => {
     const empty = "tests/fixtures/tmp-empty.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
@@ -213,13 +220,12 @@ describe("lint — funnel shape", () => {
       expect(blocks).toHaveLength(1);
       const measurements = events.filter((e) => e.type === "measurement");
       expect(measurements).toHaveLength(9);
-      const diags = events.filter(
-        (e) =>
-          e.type === "diagnostic" &&
-          (e.diagnostic as { code?: string }).code === "DECOMPOSITION_DEGRADED",
+      const degraded = events.filter(
+        (e): e is Extract<LintEvent, { type: "degradation" }> => e.type === "degradation",
       );
-      expect(diags).toHaveLength(1);
-      expect((diags[0] as { diagnostic: { severity?: string } }).diagnostic.severity).toBe("warn");
+      expect(degraded).toHaveLength(1);
+      expect(degraded[0]!.degradation.code).toBe("DECOMPOSITION_DEGRADED");
+      expect(degraded[0]!.degradation.message).toContain("measured whole");
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);
       expect(shell.exitCode).toBe(0);
@@ -336,9 +342,10 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(18);
   });
 
-  test("per-unit failure becomes a diagnostic; the run continues", async () => {
+  test("per-unit failure becomes a streamed error; the run continues", async () => {
     const judge: Judge = async (state, questions) => {
-      if (state.path === FILE) throw new AppError("JEV_UNAVAILABLE", "first unit hiccup");
+      if (state.path === FILE)
+        throw new RequestError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
       return judgeWith({
         is_name_purposeful: 0.7,
         is_vocabulary_consistent: 0.9,
@@ -353,20 +360,20 @@ describe("lint", () => {
         judge,
       }),
     );
-    const diagnostics = events.filter(
-      (e): e is Extract<LintEvent, { type: "diagnostic" }> => e.type === "diagnostic",
+    const errors = events.filter(
+      (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
-    // both of the failed file's calls (whole-content + sweep) surface a diagnostic
-    expect(diagnostics).toHaveLength(2);
-    expect(diagnostics[0]!.diagnostic.code).toBe("JEV_UNAVAILABLE");
+    // both of the failed file's calls (whole-content + sweep) surface an error
+    expect(errors).toHaveLength(2);
+    expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(16); // second unit: 2 file + 14 sweep
   });
 
-  test("JEV_AUTH aborts the run after surfacing the diagnostics (bounded, no hammering)", async () => {
+  test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
     let calls = 0;
-    const judge: Judge = async () => {
+    const judge: Judge = async (state) => {
       calls++;
-      throw new AppError("JEV_AUTH", "jev rejected the API key");
+      throw new RequestError("JEV_AUTH", state.path, "jev rejected the API key");
     };
     const events = await drain(
       lint({
@@ -384,17 +391,17 @@ describe("lint", () => {
     expect(calls).toBe(3);
     expect(events).toHaveLength(3);
     for (const e of events) {
-      expect(e.type).toBe("diagnostic");
-      if (e.type === "diagnostic") expect(e.diagnostic.code).toBe("JEV_AUTH");
+      expect(e.type).toBe("error");
+      if (e.type === "error") expect(e.error.code).toBe("JEV_AUTH");
     }
   });
 
-  test("empty input -> CONFIG_INVALID throw (setup error, not a diagnostic)", async () => {
+  test("empty input -> CONFIG_INVALID throw (SetupError, not a streamed error)", async () => {
     try {
       await drain(lint({ config: baseConfig, input: "", judge: judgeWith({}) }));
       expect.unreachable();
     } catch (e) {
-      expect((e as AppError).code).toBe("CONFIG_INVALID");
+      expect((e as SetupError).code).toBe("CONFIG_INVALID");
     }
   });
 
@@ -435,7 +442,7 @@ describe("lint", () => {
 });
 
 describe("collectReport", () => {
-  test("drains the stream into measurements/signals/diagnostics", async () => {
+  test("drains the stream into measurements/signals/errors/degradations", async () => {
     const report = await collectReport(
       lint({
         config: baseConfig,
@@ -450,6 +457,7 @@ describe("collectReport", () => {
     );
     expect(report.measurements).toHaveLength(30);
     expect(report.signals).toHaveLength(1);
-    expect(report.diagnostics).toHaveLength(0);
+    expect(report.errors).toHaveLength(0);
+    expect(report.degradations).toHaveLength(0);
   });
 });

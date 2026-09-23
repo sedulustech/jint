@@ -14,13 +14,16 @@ export { loadConfig, defaultConfig, validateConfig, DEFAULT_CONFIG_PATH } from "
 export { lint, collectReport, type LintOptions, type LintReport } from "./core/lint.ts";
 export { sensorDefaults } from "./core/sensors/defaults.ts";
 export {
-  AppError,
-  type ErrorCode,
+  RequestError,
+  SetupError,
+  type RequestErrorCode,
+  type SetupErrorCode,
+  type Degradation,
+  type DegradationCode,
   type Sensor,
   type Measurement,
   type Signal,
   type Severity,
-  type Diagnostic,
   type InputKind,
   type Unit,
   type UnitState,

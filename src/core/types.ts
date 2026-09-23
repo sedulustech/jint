@@ -5,7 +5,11 @@
  * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
  *   by itself
  * - Signal — a measurement that cleared the sensor's handle; the only actionable output
- * - Diagnostic — a per-unit operational failure carried in the stream, never thrown past the pipeline
+ * - RequestError — a per-unit failure of the request to the judge: no judgment ever exists for the
+ *   unit; carried in the stream as a value, never thrown past the pipeline
+ * - Degradation — a per-unit degradation: the unit still measured, but degraded (a value, never an
+ *   Error — nothing failed)
+ * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants)
  */
 
 export type Severity = "error" | "warn";
@@ -16,32 +20,74 @@ export type InputKind = "file" | "dir" | "diff";
 /** The kind of a resolved measuring unit. */
 export type UnitKind = "file" | "diff";
 
-export type ErrorCode =
+/** Codes a thrown SetupError carries: setup/infrastructure failures. */
+export type SetupErrorCode =
   | "CONFIG_INVALID"
   | "ENTRYPOINT_NOT_FOUND"
   | "ENTRYPOINT_UNREADABLE"
+  | "INTERNAL";
+
+/**
+ * Codes a streamed RequestError carries: per-unit failures of the request exchange with the judge.
+ * INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"), while a
+ * judge-adjacent failure of unknown shape streams as RequestError("INTERNAL").
+ */
+export type RequestErrorCode =
   | "JEV_AUTH"
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
-  | "DECOMPOSITION_DEGRADED"
   | "INTERNAL";
 
 /**
- * One base error type; variants differ by typed `code`, not by class
- * (typescript/error-handling.md).
+ * A thrown setup/infrastructure failure: invalid config, missing/unreadable entrypoints, invariant
+ * violations. A real thrown Error — it escapes the pipeline boundary, and the CLI maps its code to
+ * exit codes exactly once (cli.ts).
  */
-export class AppError extends Error {
+export class SetupError extends Error {
   constructor(
-    readonly code: ErrorCode,
+    readonly code: SetupErrorCode,
     message: string,
     options?: { cause?: unknown },
   ) {
     super(message, options);
-    this.name = "AppError";
+    this.name = "SetupError";
     Object.setPrototypeOf(this, new.target.prototype);
   }
-  readonly isOperational = true;
+}
+
+/**
+ * A per-unit failure of the request to the judge (jev hiccup, unmeasurable unit): the request
+ * itself failed, so no judgment ever exists for the unit. One bad unit never kills the run. The
+ * judge seam throws it on transport/shape failures and the pipeline catches it and carries it in
+ * the stream — it never escapes the pipeline boundary (design §7). Every RequestError is a failure:
+ * the unit produced no measurement.
+ */
+export class RequestError extends Error {
+  constructor(
+    readonly code: RequestErrorCode,
+    readonly input: string,
+    message: string,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
+    this.name = "RequestError";
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** Codes a streamed Degradation carries; one member today (rename rides another branch). */
+export type DegradationCode = "DECOMPOSITION_DEGRADED";
+
+/**
+ * A per-unit degradation: the unit still measured, but degraded (e.g. measured whole instead of
+ * per-leaf). A plain value — never thrown, never an Error, nothing failed; a run never exits
+ * non-zero for a degradation.
+ */
+export interface Degradation {
+  readonly input: string;
+  readonly code: DegradationCode;
+  readonly message: string;
 }
 
 /**
@@ -97,15 +143,6 @@ export interface Span {
   readonly end: { readonly line: number; readonly column: number };
   readonly startByte: number;
   readonly endByte: number;
-}
-
-/** A per-unit operational failure (unreadable file, jev hiccup); one bad unit never kills the run. */
-export interface Diagnostic {
-  readonly input: string;
-  readonly code: ErrorCode;
-  readonly message: string;
-  /** "warn" diagnostics inform (e.g. degraded decomposition) and never fail the run. */
-  readonly severity?: "error" | "warn";
 }
 
 /** State for file units — exactly the shape the model judges. */
@@ -168,4 +205,5 @@ export type Judge = (
 export type LintEvent =
   | { type: "measurement"; measurement: Measurement }
   | { type: "signal"; signal: Signal }
-  | { type: "diagnostic"; diagnostic: Diagnostic };
+  | { type: "error"; error: RequestError }
+  | { type: "degradation"; degradation: Degradation };

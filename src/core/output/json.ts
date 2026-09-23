@@ -1,6 +1,8 @@
 /**
  * JSON reporter — the machine shape. Stability promise: this shape is versioned (format field);
- * never break it in a patch release. stdout carries nothing but this when --json is set.
+ * never break it in a patch release. stdout carries nothing but this when --json is set. Stream
+ * discipline (clig): the document is data — errors/degradations ride in it; human-facing
+ * operational messages are a stylish-mode concern (stderr) and are never embedded here.
  */
 
 import pkg from "../../../package.json";
@@ -31,7 +33,12 @@ export function renderJson(report: LintReport): string {
             location: { input: s.location.input, span: s.location.span },
           }),
         })),
-        diagnostics: report.diagnostics.map((d) => ({
+        errors: report.errors.map((e) => ({
+          input: e.input,
+          code: e.code,
+          message: e.message,
+        })),
+        degradations: report.degradations.map((d) => ({
           input: d.input,
           code: d.code,
           message: d.message,

@@ -28,13 +28,18 @@
 
 import { decompose, type UnitLeaf } from "../input/decompose.ts";
 import {
-  AppError,
+  RequestError,
   type AnyState,
-  type Diagnostic,
+  type Degradation,
   type Judge,
   type Measurement,
 } from "../types.ts";
-import { compileSensorQuestions, type QuestionAttribution } from "./measure.ts";
+import {
+  compileSensorQuestions,
+  invalidAnswerError,
+  toRequestError,
+  type QuestionAttribution,
+} from "./measure.ts";
 import type { QuestionSpec, Sensor, Span, SweepBlock, Unit } from "../types.ts";
 
 /** Which regime produced an event; sweep measurements are candidates and never run handles. */
@@ -109,14 +114,14 @@ export interface ConfirmedReading {
 
 /** One streamed event plus the regime that produced it. */
 export interface FunnelEvent {
-  readonly event: Measurement | Diagnostic;
+  readonly event: Measurement | RequestError | Degradation;
   readonly stage: FunnelStage;
 }
 
 export interface FunnelResult {
   readonly events: FunnelEvent[];
   readonly confirmed: ConfirmedReading[];
-  /** A JEV_AUTH diagnostic aborts the whole run (same contract as the legacy path). */
+  /** A JEV_AUTH error aborts the whole run (same contract as the legacy path). */
   readonly fatal: boolean;
 }
 
@@ -138,7 +143,7 @@ export async function measureFile(
       : String((state as unknown as Record<string, unknown>).diff ?? "");
 
   // Decomposition is best-effort: an unmapped or uncuttable file degrades to the coarsest
-  // target - one whole-content leaf - with a warn diagnostic. It is not a legacy path;
+  // target - one whole-content leaf - with a degradation. It is not a legacy path;
   // it is the same funnel run over a single leaf (design section 7.2).
   let leaves: UnitLeaf[] = [];
   let degraded: string | null = null;
@@ -178,7 +183,7 @@ export async function measureFile(
 
   const events: FunnelEvent[] = [];
   const confirmed: ConfirmedReading[] = [];
-  const push = (event: Measurement | Diagnostic, stage: FunnelStage): void => {
+  const push = (event: Measurement | RequestError | Degradation, stage: FunnelStage): void => {
     events.push({ event, stage });
   };
 
@@ -206,7 +211,6 @@ export async function measureFile(
       {
         input: state.path,
         code: "DECOMPOSITION_DEGRADED",
-        severity: "warn",
         message: `measured whole: ${degraded}`,
       },
       "file",
@@ -236,11 +240,11 @@ export async function measureFile(
   for (const [key, value] of Object.entries(sweep.answers)) {
     const attr = sweepAttribution.get(key);
     if (attr === undefined) {
-      push(invalidAnswer(state.path, key), "sweep");
+      push(invalidAnswerError(state.path, key), "sweep");
       continue;
     }
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      push(invalidAnswer(state.path, attr.sensor), "sweep");
+      push(invalidAnswerError(state.path, attr.sensor), "sweep");
       continue;
     }
     push({ sensor: attr.sensor, input: `${state.path}#${attr.blockId}`, value }, "sweep");
@@ -296,7 +300,7 @@ function leafContent(leaf: UnitLeaf): string {
 
 interface CallResult {
   readonly answers: Record<string, number>;
-  readonly error: Diagnostic | null;
+  readonly error: RequestError | null;
 }
 
 async function call(
@@ -308,13 +312,13 @@ async function call(
   try {
     return { answers: await judge(state, questions), error: null };
   } catch (thrown) {
-    return { answers: {}, error: toDiagnostic(input, thrown) };
+    return { answers: {}, error: toRequestError(input, thrown) };
   }
 }
 
 /** Distribute one call's answers as measurements keyed by the given question names. */
 function collect(
-  push: (event: Measurement | Diagnostic, stage: FunnelStage) => void,
+  push: (event: Measurement | RequestError | Degradation, stage: FunnelStage) => void,
   stage: FunnelStage,
   result: CallResult,
   questionNames: readonly string[],
@@ -327,31 +331,15 @@ function collect(
   for (const name of questionNames) {
     const value = result.answers[name];
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      push(invalidAnswer(input, name), stage);
+      push(invalidAnswerError(input, name), stage);
       continue;
     }
     push({ sensor: name, input, value }, stage);
   }
 }
 
-function invalidAnswer(input: string, sensorName: string): Diagnostic {
-  return {
-    input,
-    code: "JEV_RESPONSE_INVALID",
-    message: `answer for '${sensorName}' is missing or not a finite number`,
-  };
-}
-
 function fatalIn(events: FunnelEvent[]): boolean {
-  return events.some((e) => "code" in e.event && e.event.code === "JEV_AUTH");
-}
-
-function toDiagnostic(input: string, thrown: unknown): Diagnostic {
-  if (thrown instanceof AppError) {
-    return { input, code: thrown.code, message: thrown.message };
-  }
-  if (thrown instanceof Error) return { input, code: "INTERNAL", message: thrown.message };
-  return { input, code: "INTERNAL", message: String(thrown) };
+  return events.some((e) => e.event instanceof RequestError && e.event.code === "JEV_AUTH");
 }
 
 /** The funnel's languages: the tree-sitter grammars actually mapped by decompose (design §7.2). */

@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { AppError, type ErrorCode, type QuestionSpec, type UnitState } from "../types.ts";
+import {
+  RequestError,
+  type RequestErrorCode,
+  type QuestionSpec,
+  type UnitState,
+} from "../types.ts";
 import { createJudge } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -30,10 +35,10 @@ async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, number>> 
   return await judge(state, questions);
 }
 
-function expectAppError(code: ErrorCode): (e: unknown) => void {
+function expectRequestError(code: RequestErrorCode): (e: unknown) => void {
   return (e) => {
-    expect(e).toBeInstanceOf(AppError);
-    expect((e as AppError).code).toBe(code);
+    expect(e).toBeInstanceOf(RequestError);
+    expect((e as RequestError).code).toBe(code);
   };
 }
 
@@ -73,8 +78,8 @@ describe("createJudge", () => {
         await judge(state, questions);
         expect.unreachable();
       } catch (e) {
-        expectAppError("JEV_AUTH")(e);
-        expect((e as AppError).message).toContain("TYPESAFE_API_KEY");
+        expectRequestError("JEV_AUTH")(e);
+        expect((e as RequestError).message).toContain("TYPESAFE_API_KEY");
       }
     } finally {
       if (saved !== undefined) process.env.TYPESAFE_API_KEY = saved;
@@ -86,7 +91,7 @@ describe("createJudge", () => {
       await judgeOnce(fakeFetch({ error: "bad key" }, 401));
       expect.unreachable();
     } catch (e) {
-      expectAppError("JEV_AUTH")(e);
+      expectRequestError("JEV_AUTH")(e);
     }
   });
 
@@ -95,7 +100,7 @@ describe("createJudge", () => {
       await judgeOnce(fakeFetch({ error: "bad question" }, 422));
       expect.unreachable();
     } catch (e) {
-      expectAppError("JEV_REQUEST_INVALID")(e);
+      expectRequestError("JEV_REQUEST_INVALID")(e);
     }
   });
 
@@ -104,13 +109,13 @@ describe("createJudge", () => {
       await judgeOnce(fakeFetch({ error: "rate limited" }, 429));
       expect.unreachable();
     } catch (e) {
-      expectAppError("JEV_UNAVAILABLE")(e);
+      expectRequestError("JEV_UNAVAILABLE")(e);
     }
     try {
       await judgeOnce(fakeFetch({ error: "server exploded" }, 500));
       expect.unreachable();
     } catch (e) {
-      expectAppError("JEV_UNAVAILABLE")(e);
+      expectRequestError("JEV_UNAVAILABLE")(e);
     }
   });
 
@@ -122,7 +127,7 @@ describe("createJudge", () => {
       await judgeOnce(broken);
       expect.unreachable();
     } catch (e) {
-      expectAppError("JEV_UNAVAILABLE")(e);
+      expectRequestError("JEV_UNAVAILABLE")(e);
     }
   });
 
@@ -145,7 +150,7 @@ describe("createJudge", () => {
         await judgeOnce(fakeFetch(body));
         expect.unreachable();
       } catch (e) {
-        expectAppError("JEV_RESPONSE_INVALID")(e);
+        expectRequestError("JEV_RESPONSE_INVALID")(e);
       }
     }
   });
