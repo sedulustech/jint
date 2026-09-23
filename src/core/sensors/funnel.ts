@@ -104,16 +104,21 @@ export { blockWireId, contentHash };
 interface Candidate {
   readonly leaf: UnitLeaf;
   readonly blockId: string;
+  readonly sensors: readonly Sensor[];
 }
 
 /**
- * Every sweeping sensor (target other than "files") sweeps every block-leaf (design section 7.7):
- * comment-family sensors read definition-attached docblocks too - drift-prone artifact pinning
- * lives there, and the A/B probes (design section 7.6) measured exactly these blocks with the
- * comment family.
+ * Sensors whose target matches a leaf's kind. "definitions" sensors take definition leaves;
+ * "comments" sensors take standalone comment leaves and definitions carrying attached docblocks
+ * (drift-prone artifact pinning lives there). Files-target sensors never sweep.
  */
-const blockSensors = (sensors: readonly Sensor[]): Sensor[] =>
-  sensors.filter((s) => s.target !== "files");
+const sensorsForLeaf = (sensors: readonly Sensor[], leaf: UnitLeaf): Sensor[] => {
+  const commentLeaf = leaf.nodeType === "comment";
+  const carriesComment = commentLeaf || (leaf.attachedComment?.length ?? 0) > 0;
+  return sensors.filter((s) =>
+    s.target === "comments" ? carriesComment : s.target === "definitions" ? !commentLeaf : false,
+  );
+};
 
 /** A confirmed (stage-2) reading, awaiting per-file aggregation in lint. */
 export interface ConfirmedReading {
@@ -239,7 +244,7 @@ export async function measureFile(
   const wireLabels = new Map<string, string>();
   let n = 0;
   for (const leaf of leaves) {
-    const granSensors = blockSensors(sensors);
+    const granSensors = sensorsForLeaf(sensors, leaf);
     if (granSensors.length === 0) continue;
     const humanLabel = `block-${n++}`;
     const content = leafContent(leaf);
@@ -308,14 +313,14 @@ export async function measureFile(
       candidates.set(attr.blockId, {
         leaf,
         blockId: attr.blockId,
+        sensors: sensorsForLeaf(sensors, leaf),
       });
     }
   }
 
   // Stage 2: confirm flagged leaves isolated — sensors batched per leaf, handles unchanged.
-  for (const { leaf, blockId } of candidates.values()) {
+  for (const { leaf, blockId, sensors: granSensors } of candidates.values()) {
     if (isAborted()) break;
-    const granSensors = blockSensors(sensors);
     const input = `${state.path}#${wireLabels.get(blockId)}`;
     const isolated = await call(
       { path: state.path, content: leafContent(leaf), id: blockId },

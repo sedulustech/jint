@@ -88,6 +88,48 @@ function loggingJudge(values: Record<string, number>, log: CallLog): Judge {
 
 const isSweep = (state: AnyState): boolean => "blocks" in state;
 
+const COMMENT_SENSORS = [
+  "is_comment_business_context",
+  "is_comment_narration",
+  "is_comment_patching_readability",
+  "will_comment_drift",
+];
+const DEFINITION_SENSORS = [
+  "is_name_purposeful",
+  "is_naming_convention_consistent",
+  "is_cognitively_complex",
+];
+
+test("sweep respects sensor targets: comment sensors never judge bare definitions, definition sensors never judge comment leaves", async () => {
+  const log: CallLog = { calls: [] };
+  await drain(
+    lint({
+      config: baseConfig,
+      input: "tests/fixtures/targeted-file.ts",
+      judge: loggingJudge({}, log),
+    }),
+  );
+  const sweep = log.calls.filter((c) => isSweep(c.state))[0]!;
+  const blocks = (
+    sweep.state as unknown as { blocks: ReadonlyArray<{ id: string; content: string }> }
+  ).blocks;
+  const isCommentBlock = new Map(blocks.map((b) => [b.id, !b.content.includes("export ")]));
+  for (const key of sweep.questions) {
+    const sensor = key.slice(0, key.indexOf(" in "));
+    const unitId = key.slice(key.indexOf(" in ") + 4);
+    const commentBlock = isCommentBlock.get(unitId)!;
+    if (COMMENT_SENSORS.includes(sensor)) {
+      // comment-family sensors may judge comment leaves and definitions WITH attached docblocks,
+      // but never a bare definition (nothing to judge)
+      const content = blocks.find((b) => b.id === unitId)?.content ?? "";
+      expect(commentBlock || content.includes("//")).toBe(true);
+    }
+    if (DEFINITION_SENSORS.includes(sensor)) {
+      expect(commentBlock).toBe(false);
+    }
+  }
+});
+
 async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
   const out: LintEvent[] = [];
   for await (const event of events) out.push(event);
@@ -118,8 +160,9 @@ describe("lint — funnel shape", () => {
     // wire ids are the treesitter LOC interval of each block's swept content
     const blockIds = sweepState.blocks.map((b) => b.id);
     expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
-    // one question per (block-leaf, non-files-target sensor): 2 definitions x 7
-    expect(sweep.questions).toHaveLength(14);
+    // per (block-leaf, target-matched sensor): L2-L4 carries the module docblock -> 7 sensors,
+    // L6-L11 is a bare definition -> 3 definition-target sensors (design 7.7 targeting)
+    expect(sweep.questions).toHaveLength(10);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
     expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
     // criteria-as-rule: instructions maps the unit id to the task, criteria is the rule
@@ -255,8 +298,8 @@ describe("lint — funnel shape", () => {
       const blocks = (sweep.state as unknown as { blocks: unknown[] }).blocks;
       expect(blocks).toHaveLength(1);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(9);
-      const degraded = events.filter(
+      expect(measurements).toHaveLength(5); // files 2 + degraded leaf x 3 sweep (silent 0.5 never crosses, no confirm)
+      const degradations = events.filter(
         (e): e is Extract<LintEvent, { type: "degradation" }> => e.type === "degradation",
       );
       expect(degraded).toHaveLength(1);
@@ -286,8 +329,8 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    // file call 2 + sweep 14 + confirm 14 (both blocks flagged by purposeful 0.3)
-    expect(measurements).toHaveLength(30);
+    // file call 2 + sweep 10 (7 docblock leaf + 3 bare leaf) + confirm 10 (both flagged by 0.3)
+    expect(measurements).toHaveLength(22);
     // purposeful 0.3 -> one aggregated error at the extreme leaf; business_context at 1.0
     // never fires (measurement-only in v0)
     expect(signals).toHaveLength(1);
@@ -375,7 +418,7 @@ describe("lint", () => {
       "src/tui/components/overlays/help.ts",
     ]); // deleted + binary skipped
     expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(18);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(10);
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {
@@ -402,7 +445,7 @@ describe("lint", () => {
     // both of the failed file's calls (whole-content + sweep) surface an error
     expect(errors).toHaveLength(2);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16); // second unit: 2 file + 14 sweep
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(12); // second unit: 2 file + 10 sweep
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -491,7 +534,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(30);
+    expect(report.measurements).toHaveLength(22);
     expect(report.signals).toHaveLength(1);
     expect(report.errors).toHaveLength(0);
     expect(report.degradations).toHaveLength(0);
