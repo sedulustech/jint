@@ -33,7 +33,7 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
   const err: string[] = [];
 
   // Run errors and diagnostics — stderr, never the findings report. Errors are failed requests to
-  // the judge (always error severity); degradations inform in yellow.
+  // the classifier (always error severity); degradations inform in yellow.
   for (const e of report.errors) {
     const line = `error ${e.code} ${e.input}: ${e.message}`;
     err.push(errColor ? red(line) : line);

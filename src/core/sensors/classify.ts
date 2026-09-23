@@ -1,5 +1,5 @@
 /**
- * Measure — compiles rules to noul questions and batches them into ONE systemOne call per state
+ * Classify — compiles rules to noul questions and batches them into ONE systemOne call per state
  * (sequential in v0). Emits Measurement { rule, input, value }: no thresholds, no handle invocation
  * here — interpretation is the handle callback's job (design §4.5).
  *
@@ -9,7 +9,7 @@
 
 import {
   RequestError,
-  type Judge,
+  type Classifier,
   type Measurement,
   type QuestionSpec,
   type Rule,
@@ -23,8 +23,8 @@ export interface QuestionAttribution {
 }
 
 /**
- * A compiled question batch: the judge-facing questions plus the id -> attribution map. Question
- * ids are never sent to the model — this map is the only way answers are attributed.
+ * A compiled question batch: the classifier-facing questions plus the id -> attribution map.
+ * Question ids are never sent to the model — this map is the only way answers are attributed.
  */
 export interface QuestionBatch {
   readonly questions: Record<string, QuestionSpec>;
@@ -37,7 +37,7 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 /** The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). */
-export const UNIT_TASK = "Judge the syntax unit mapped to this id against the criteria.";
+export const UNIT_TASK = "Classifier the syntax unit mapped to this id against the criteria.";
 
 /**
  * Compile rules to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps the
@@ -92,10 +92,10 @@ export function contentHash(content: string): string {
   return new Bun.CryptoHasher("sha256").update(content).digest("hex").slice(0, 8);
 }
 
-export async function* measureUnit(
+export async function* classifyUnit(
   unit: Unit,
   rules: readonly Rule[],
-  judge: Judge,
+  classifier: Classifier,
 ): AsyncGenerator<Measurement | RequestError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
@@ -103,7 +103,7 @@ export async function* measureUnit(
   const batch = compileRuleQuestions(rules, unitId);
   let answers: Record<string, number>;
   try {
-    answers = await judge(unit.state, batch.questions);
+    answers = await classifier(unit.state, batch.questions);
   } catch (thrown) {
     yield toRequestError(unit.state.path, thrown);
     return;
@@ -128,7 +128,10 @@ export function invalidAnswerError(input: string, ruleName: string): RequestErro
   );
 }
 
-/** Map anything a judge threw into a streamed RequestError; the seam's code survives (design §7). */
+/**
+ * Map anything a classifier threw into a streamed RequestError; the seam's code survives (design
+ * §7).
+ */
 export function toRequestError(input: string, thrown: unknown): RequestError {
   if (thrown instanceof RequestError) {
     // The seam throws with the state path; the funnel refines block-scoped inputs (path#block-N).

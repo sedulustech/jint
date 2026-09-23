@@ -3,8 +3,8 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity signals 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but failed (any judge error, or zero
- * measurements — CI never passes unmeasured)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but failed (any classifier error, or
+ * zero measurements — CI never passes unmeasured)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units, degradations — plus
@@ -231,7 +231,7 @@ function flagsSelectFiles(cliArgs: CliArgs): boolean {
   return cliArgs.file !== undefined && cliArgs.file.length > 0;
 }
 
-/** Exit invariant (design §7): error signals -> 1; judge errors or zero measurements -> 4. */
+/** Exit invariant (design §7): error signals -> 1; classifier errors or zero measurements -> 4. */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
   if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;

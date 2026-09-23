@@ -27,7 +27,7 @@ export {
   type InputKind,
   type Unit,
   type UnitState,
-  type Judge,
+  type Classifier,
   type LintEvent,
 } from "./core/types.ts";
 

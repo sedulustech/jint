@@ -1,14 +1,14 @@
 /**
  * The jev adapter — the only file that imports the vendor SDK. This is the swappable-backend seam:
- * the lint pipeline accepts any judge, tests fake it.
+ * the lint pipeline accepts any classifier, tests fake it.
  *
  * Vendor transport failures map onto the project's error taxonomy exactly once, here: auth failures
  * fail loud at the first call (never at import), rejected requests, rate limits and outages surface
  * as unavailability, and a wrong-shaped answer is a response-invalid error. No vendor error type
  * escapes past this seam.
  *
- * Vendor nomenclature stays at the boundary: one batched call per state, one structured question
- * per rule, each answer a single calibrated probability.
+ * The model classifies: one batched call per state, one structured question per rule, each answer a
+ * single calibrated probability.
  */
 
 import { Type, type Static } from "@sinclair/typebox";
@@ -30,7 +30,7 @@ import {
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { RequestError, type Judge, type QuestionSpec } from "../types.ts";
+import { RequestError, type Classifier, type QuestionSpec } from "../types.ts";
 import { requestDebug } from "./debug.ts";
 
 /** The answer boundary: exactly one calibrated probability per question. */
@@ -39,7 +39,7 @@ const ANSWER_SCHEMA = Type.Object({
   noul: Type.Number({ minimum: 0, maximum: 1 }),
 });
 
-export interface JudgeConfig {
+export interface ClassifierConfig {
   /** Overrides the environment key; tests inject a fake transport instead. */
   apiKey?: string;
   baseURL?: string;
@@ -47,7 +47,7 @@ export interface JudgeConfig {
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 }
 
-export function createJudge(config?: JudgeConfig): Judge {
+export function createClassifier(config?: ClassifierConfig): Classifier {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
     if (client === null) client = makeClient(requestDebug(config), state.path);
@@ -65,7 +65,7 @@ export function createJudge(config?: JudgeConfig): Judge {
   };
 }
 
-function makeClient(config: JudgeConfig | undefined, input: string): TypeSafeClient {
+function makeClient(config: ClassifierConfig | undefined, input: string): TypeSafeClient {
   try {
     return new TypeSafeClient({
       ...(config?.apiKey !== undefined && { apiKey: config.apiKey }),

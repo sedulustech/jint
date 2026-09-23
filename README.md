@@ -95,23 +95,23 @@ A diff input decomposes into per-file units: added/modified files are measured, 
 
 ## Exit codes
 
-| code | meaning                                                                                                |
-| ---- | ------------------------------------------------------------------------------------------------------ |
-| 0    | clean (measurements, no error-severity signals)                                                        |
-| 1    | error-severity signals found                                                                           |
-| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                      |
-| 3    | internal error                                                                                         |
-| 4    | ran but failed — any per-unit judge error, or zero measurements (CI can never pass an unmeasured diff) |
+| code | meaning                                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------- |
+| 0    | clean (measurements, no error-severity signals)                                                             |
+| 1    | error-severity signals found                                                                                |
+| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                           |
+| 3    | internal error                                                                                              |
+| 4    | ran but failed — any per-unit classifier error, or zero measurements (CI can never pass an unmeasured diff) |
 
 ## Errors
 
 Classify before handling: cannot-start failures throw; per-unit failures stream; degradations inform.
 
 - **SetupError** (thrown) — the run cannot start: `CONFIG_INVALID`, `ENTRYPOINT_NOT_FOUND`, `ENTRYPOINT_UNREADABLE`, and `INTERNAL` for invariant violations (exit 2/3).
-- **RequestError** (streamed value) — the request to the judge for one unit failed, so no judgment ever exists for that unit: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID`, plus `INTERNAL` for an unclassifiable judge-adjacent throw. One bad unit never kills the run; they land in `report.errors` (exit 4).
+- **RequestError** (streamed value) — the request to the classifier for one unit failed, so no judgment ever exists for that unit: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID`, plus `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run; they land in `report.errors` (exit 4).
 - **Degradation** (streamed value, never an Error — nothing failed) — the unit measured, but degraded: `DECOMPOSITION_DEGRADED` (measured whole). Lands in `report.degradations`, never fails the run.
 
-jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions })`, model `jev-latest`, one batched call per input). `TYPESAFE_API_KEY` is required; a missing or rejected key fails loud (`JEV_AUTH`) at the first call. `src/core/jev/client.ts` is the only file importing the SDK — the swappable backend seam (`lint()` accepts any `judge`).
+jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions })`, model `jev-latest`, one batched call per input). `TYPESAFE_API_KEY` is required; a missing or rejected key fails loud (`JEV_AUTH`) at the first call. `src/core/jev/client.ts` is the only file importing the SDK — the swappable backend seam (`lint()` accepts any `classifier`).
 
 ## SDK
 
@@ -124,7 +124,7 @@ const report = await collectReport(
   lint({
     config: defineConfig({ input: "src/", rules: { ...rules.defaults, disable: [] } }),
     input: "src/a.ts", // optional override; inferred otherwise
-    judge: mySwappableJudge, // optional; defaults to the jev adapter
+    classifier: mySwappableJudge, // optional; defaults to the jev adapter
   }),
 );
 // report: { measurements, signals, errors, degradations }
@@ -141,4 +141,4 @@ tsc --noEmit       # typecheck
 bun src/cli.ts --help
 ```
 
-State shapes: file/dir inputs judge `{ path, content }`; diff inputs judge `{ path, diff, commit_message }` — the calibrated tmp/diff-v4 shape, so the validated numbers transfer.
+State shapes: file/dir inputs classifier `{ path, content }`; diff inputs classifier `{ path, diff, commit_message }` — the calibrated tmp/diff-v4 shape, so the validated numbers transfer.

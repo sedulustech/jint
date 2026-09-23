@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { spanWireId } from "../sensors/measure.ts";
+import { spanWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 
 export async function fileUnit(path: string): Promise<Unit> {

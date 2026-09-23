@@ -1,20 +1,20 @@
 import { describe, test, expect } from "bun:test";
 import {
   RequestError,
-  type Judge,
+  type Classifier,
   type Measurement,
   type Rule,
   type Unit,
   type UnitState,
 } from "../types.ts";
-import { defaultRules } from "./defaults.ts";
 import {
   UNIT_TASK,
   blockWireId,
   compileRuleQuestions,
-  measureUnit,
+  classifyUnit,
   toRequestError,
-} from "./measure.ts";
+} from "./classify.ts";
+import { defaultRules } from "./defaults.ts";
 
 const fileUnit: Unit = {
   kind: "file",
@@ -33,7 +33,7 @@ const allSensors: readonly Rule[] = Object.values(defaultRules);
 
 const FILE_ID = blockWireId("export const x = 1;\n");
 
-function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
+function classifierWith(values: Record<string, number>, calls: Unit[] = []): Classifier {
   return async (state, questions) => {
     calls.push({ kind: "file", state: state as UnitState });
     const out: Record<string, number> = {};
@@ -85,10 +85,10 @@ describe("compileRuleQuestions", () => {
   });
 });
 
-describe("measureUnit", () => {
-  test("ONE batched judge call per unit; one measurement per rule", async () => {
+describe("classifyUnit", () => {
+  test("ONE batched classifier call per unit; one measurement per rule", async () => {
     const calls: Unit[] = [];
-    const judge = judgeWith(
+    const classifier = classifierWith(
       {
         is_name_purposeful: 0.7,
         is_vocabulary_consistent: 0.8,
@@ -104,7 +104,7 @@ describe("measureUnit", () => {
       calls,
     );
     const events: (Measurement | RequestError)[] = [];
-    for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
+    for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
     expect(events).toHaveLength(10);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.rule)).toContain("is_name_purposeful");
@@ -112,23 +112,30 @@ describe("measureUnit", () => {
   });
 
   test("values pass through untouched", async () => {
-    const judge = judgeWith({ is_name_purposeful: 0.5347219 });
-    for await (const event of measureUnit(fileUnit, [defaultRules.is_name_purposeful!], judge)) {
+    const classifier = classifierWith({ is_name_purposeful: 0.5347219 });
+    for await (const event of classifyUnit(
+      fileUnit,
+      [defaultRules.is_name_purposeful!],
+      classifier,
+    )) {
       expect(isMeasurement(event) && event.value).toBe(0.5347219);
     }
   });
 
   test("missing or non-finite answer -> JEV_RESPONSE_INVALID error, siblings continue", async () => {
-    const judge = judgeWith({ is_name_purposeful: 0.7, is_vocabulary_consistent: Number.NaN });
+    const classifier = classifierWith({
+      is_name_purposeful: 0.7,
+      is_vocabulary_consistent: Number.NaN,
+    });
     const events: (Measurement | RequestError)[] = [];
-    for await (const event of measureUnit(
+    for await (const event of classifyUnit(
       fileUnit,
       [
         defaultRules.is_name_purposeful!,
         defaultRules.is_vocabulary_consistent!,
         defaultRules.is_greppable!,
       ],
-      judge,
+      classifier,
     )) {
       events.push(event);
     }
@@ -141,34 +148,34 @@ describe("measureUnit", () => {
     expect(errors[1]!.message).toContain("is_greppable");
   });
 
-  test("judge throwing RequestError -> streamed error with the same code", async () => {
-    const judge: Judge = async () => {
+  test("classifier throwing RequestError -> streamed error with the same code", async () => {
+    const classifier: Classifier = async () => {
       throw new RequestError("JEV_UNAVAILABLE", "src/a.ts", "jev unreachable: boom");
     };
     const events: (Measurement | RequestError)[] = [];
-    for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
+    for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
     expect(events).toHaveLength(1);
     expect((events[0] as RequestError).code).toBe("JEV_UNAVAILABLE");
     expect((events[0] as RequestError).input).toBe("src/a.ts");
   });
 
-  test("judge throwing a plain Error -> INTERNAL error, never thrown past the pipeline", async () => {
-    const judge: Judge = async () => {
+  test("classifier throwing a plain Error -> INTERNAL error, never thrown past the pipeline", async () => {
+    const classifier: Classifier = async () => {
       throw new Error("surprise");
     };
     const events: (Measurement | RequestError)[] = [];
-    for await (const event of measureUnit(diffUnit, allSensors, judge)) events.push(event);
+    for await (const event of classifyUnit(diffUnit, allSensors, classifier)) events.push(event);
     expect((events[0] as RequestError).code).toBe("INTERNAL");
   });
 
-  test("no rules -> judge never called", async () => {
+  test("no rules -> classifier never called", async () => {
     let called = false;
-    const judge: Judge = async () => {
+    const classifier: Classifier = async () => {
       called = true;
       return {};
     };
     const events: (Measurement | RequestError)[] = [];
-    for await (const event of measureUnit(fileUnit, [], judge)) {
+    for await (const event of classifyUnit(fileUnit, [], classifier)) {
       events.push(event);
     }
     expect(called).toBe(false);

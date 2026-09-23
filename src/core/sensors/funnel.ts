@@ -31,7 +31,7 @@ import {
   RequestError,
   type AnyState,
   type Degradation,
-  type Judge,
+  type Classifier,
   type Measurement,
 } from "../types.ts";
 import {
@@ -43,7 +43,7 @@ import {
   questionKey,
   toRequestError,
   type QuestionAttribution,
-} from "./measure.ts";
+} from "./classify.ts";
 import type { QuestionSpec, Rule, Span, SweepBlock, Unit } from "../types.ts";
 
 /** Which regime produced an event; sweep measurements are candidates and never run handles. */
@@ -153,13 +153,13 @@ export interface FunnelResult {
 
 /**
  * Measure one file unit through the funnel; a file that maps to no leaf units yields no sweep at
- * all (no whole-file judgment). isAborted lets an in-flight file stop before further judge calls
- * once the run is aborting (JEV_AUTH elsewhere in the wave).
+ * all (no whole-file judgment). isAborted lets an in-flight file stop before further classifier
+ * calls once the run is aborting (JEV_AUTH elsewhere in the wave).
  */
-export async function measureFile(
+export async function classifyFile(
   unit: Unit,
   rules: readonly Rule[],
-  judge: Judge,
+  classifier: Classifier,
   isAborted: () => boolean = () => false,
 ): Promise<FunnelResult> {
   const state = unit.state;
@@ -206,7 +206,7 @@ export async function measureFile(
     const file = await call(
       state,
       compileRuleQuestions(wholeRules, fileId).questions,
-      judge,
+      classifier,
       state.path,
     );
     collect(
@@ -266,7 +266,12 @@ export async function measureFile(
   await Promise.all(
     chunks.map(async (chunkKeys) => {
       const chunkQuestions = Object.fromEntries(chunkKeys.map((k) => [k, questions[k]!]));
-      const result = await call({ path: state.path, blocks }, chunkQuestions, judge, state.path);
+      const result = await call(
+        { path: state.path, blocks },
+        chunkQuestions,
+        classifier,
+        state.path,
+      );
       if (result.error !== null) sweepErrors.push(result.error);
       Object.assign(sweepAnswers, result.answers);
     }),
@@ -320,7 +325,7 @@ export async function measureFile(
     const isolated = await call(
       { path: state.path, content: leafContent(leaf), id: blockId },
       compileRuleQuestions(granSensors, blockId).questions,
-      judge,
+      classifier,
       input,
     );
     collect(
@@ -353,11 +358,11 @@ interface CallResult {
 async function call(
   state: AnyState,
   questions: Record<string, QuestionSpec>,
-  judge: Judge,
+  classifier: Classifier,
   input: string,
 ): Promise<CallResult> {
   try {
-    return { answers: await judge(state, questions), error: null };
+    return { answers: await classifier(state, questions), error: null };
   } catch (thrown) {
     return { answers: {}, error: toRequestError(input, thrown) };
   }

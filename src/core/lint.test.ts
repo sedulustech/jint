@@ -1,13 +1,13 @@
 import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
+import { UNIT_TASK } from "../core/sensors/classify.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
-import { UNIT_TASK } from "../core/sensors/measure.ts";
 import {
   RequestError,
   SetupError,
   type AnyState,
-  type Judge,
+  type Classifier,
   type LintEvent,
   type Rule,
 } from "../core/types.ts";
@@ -39,14 +39,14 @@ const SILENT = {
 
 /**
  * Same fixed per-rule answers for every call, keyed by the asked question id (sweep questions are
- * "<rule> in <sha8 wire id>", everything else plain "<rule>") — how the real judge answers.
+ * "<rule> in <sha8 wire id>", everything else plain "<rule>") — how the real classifier answers.
  */
 function sensorOf(key: string): string {
   const sep = key.indexOf(" in ");
   return sep === -1 ? key : key.slice(0, sep);
 }
 
-function judgeWith(values: Record<string, number>): Judge {
+function classifierWith(values: Record<string, number>): Classifier {
   return async (_state, questions) => {
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
@@ -66,9 +66,9 @@ interface CallLog {
   calls: Array<{ state: AnyState; questions: string[]; specs: Record<string, unknown> }>;
 }
 
-/** A judge that records every call (state shape + question keys) — funnel-shape assertions. */
-function loggingJudge(values: Record<string, number>, log: CallLog): Judge {
-  const inner = judgeWith(values);
+/** A classifier that records every call (state shape + question keys) — funnel-shape assertions. */
+function loggingClassifier(values: Record<string, number>, log: CallLog): Classifier {
+  const inner = classifierWith(values);
   return async (state, questions) => {
     log.calls.push({
       state,
@@ -98,13 +98,13 @@ const DEFINITION_SENSORS = [
   "is_cognitively_complex",
 ];
 
-test("sweep respects rule targets: comment rules never judge bare definitions, definition rules never judge comment leaves", async () => {
+test("sweep respects rule targets: comment rules never classifier bare definitions, definition rules never classifier comment leaves", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
       config: baseConfig,
       input: "tests/fixtures/targeted-file.ts",
-      judge: loggingJudge({}, log),
+      classifier: loggingClassifier({}, log),
     }),
   );
   const sweep = log.calls.filter((c) => isSweep(c.state))[0]!;
@@ -117,8 +117,8 @@ test("sweep respects rule targets: comment rules never judge bare definitions, d
     const unitId = key.slice(key.indexOf(" in ") + 4);
     const commentBlock = isCommentBlock.get(unitId)!;
     if (COMMENT_SENSORS.includes(rule)) {
-      // comment-family rules may judge comment leaves and definitions WITH attached docblocks,
-      // but never a bare definition (nothing to judge)
+      // comment-family rules may classifier comment leaves and definitions WITH attached docblocks,
+      // but never a bare definition (nothing to classifier)
       const content = blocks.find((b) => b.id === unitId)?.content ?? "";
       expect(commentBlock || content.includes("//")).toBe(true);
     }
@@ -137,7 +137,7 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
 describe("lint — funnel shape", () => {
   test("one sweep call per file with array state + documented noul questions; files-target call separate", async () => {
     const log: CallLog = { calls: [] };
-    await drain(lint({ config: baseConfig, input: FILE, judge: loggingJudge({}, log) }));
+    await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
     expect(sweeps).toHaveLength(1);
     const sweep = sweeps[0]!;
@@ -193,7 +193,10 @@ describe("lint — funnel shape", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: loggingJudge({ is_name_purposeful: 0.3, is_cognitively_complex: 0.3 }, log),
+        classifier: loggingClassifier(
+          { is_name_purposeful: 0.3, is_cognitively_complex: 0.3 },
+          log,
+        ),
       }),
     );
     // isolated confirm calls: whole-content-shaped states that are NOT the file itself
@@ -217,7 +220,7 @@ describe("lint — funnel shape", () => {
   test("confirmed signals aggregate max over leaves (high=bad) and carry block locations", async () => {
     // complex sweeps above 0.55 -> both blocks; confirmed per block: 0.5 and 0.9 -> max 0.9.
     // The isolated calls ask plain rule names, so block identity routes on the leaf content.
-    const judge: Judge = async (state, questions) => {
+    const classifier: Classifier = async (state, questions) => {
       const sweep = "blocks" in state;
       const leaf = !sweep && "content" in state && state.content.includes("formatDuration");
       const out: Record<string, number> = {};
@@ -229,7 +232,7 @@ describe("lint — funnel shape", () => {
       }
       return out;
     };
-    const events = await drain(lint({ config: baseConfig, input: FILE, judge }));
+    const events = await drain(lint({ config: baseConfig, input: FILE, classifier }));
     const signals = events.filter((e) => e.type === "signal");
     expect(signals).toHaveLength(1);
     const s = signals[0]!.signal as unknown as Record<string, unknown>;
@@ -243,7 +246,11 @@ describe("lint — funnel shape", () => {
   test("high=good rules aggregate min over leaves", async () => {
     // purposeful 0.3 sweeps both blocks; confirmed 0.3 everywhere -> min, one signal
     const events = await drain(
-      lint({ config: baseConfig, input: FILE, judge: judgeWith({ is_name_purposeful: 0.3 }) }),
+      lint({
+        config: baseConfig,
+        input: FILE,
+        classifier: classifierWith({ is_name_purposeful: 0.3 }),
+      }),
     );
     const signals = events.filter((e) => e.type === "signal");
     expect(signals).toHaveLength(1);
@@ -260,7 +267,7 @@ describe("lint — funnel shape", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: async (state, questions) => {
+        classifier: async (state, questions) => {
           const sweep = "blocks" in state;
           const out: Record<string, number> = {};
           for (const key of Object.keys(questions)) {
@@ -285,7 +292,7 @@ describe("lint — funnel shape", () => {
     try {
       const log: CallLog = { calls: [] };
       const events = await drain(
-        lint({ config: baseConfig, input: empty, judge: loggingJudge({}, log) }),
+        lint({ config: baseConfig, input: empty, classifier: loggingClassifier({}, log) }),
       );
       // one call only: files-target rules on whole content. No sweep call at all -
       // an unparseable file yields no leaves and there is no whole-file leaf judgment.
@@ -307,7 +314,7 @@ describe("lint — funnel shape", () => {
 
   test("sweep never hands a whole-file leaf to any target, functions included", async () => {
     const log: CallLog = { calls: [] };
-    await drain(lint({ config: baseConfig, input: FILE, judge: loggingJudge({}, log) }));
+    await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
     expect(sweeps.length).toBeGreaterThan(0);
     const src = await Bun.file(FILE).text();
@@ -322,12 +329,12 @@ describe("lint — funnel shape", () => {
   });
 
   test("empty sweep state (no leaves) produces no questions and no crash", async () => {
-    const { measureFile } = await import("./sensors/funnel.ts");
+    const { classifyFile } = await import("./sensors/funnel.ts");
     const empty = "tests/fixtures/tmp-empty-funnel.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
       const calls: unknown[] = [];
-      const result = await measureFile(
+      const result = await classifyFile(
         { kind: "file", state: { path: empty, content: "", id: "L1" } },
         Object.values(defaultRules),
         async (state, questions) => {
@@ -354,7 +361,7 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: judgeWith({
+        classifier: classifierWith({
           is_name_purposeful: 0.3,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
@@ -384,7 +391,7 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: judgeWith({
+        classifier: classifierWith({
           is_name_purposeful: 0.2,
           is_vocabulary_consistent: 0.2,
           is_greppable: 0.2,
@@ -420,7 +427,7 @@ describe("lint", () => {
           "is_greppable",
           "is_function_srp",
         ],
-        judge: loggingJudge({ is_name_purposeful: 0.7 }, log),
+        classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),
     );
     // purposeful targets definitions: sweep only, no whole-content call, no confirm
@@ -435,18 +442,23 @@ describe("lint", () => {
 
   test("diff input splits into per-file units with calibrated state", async () => {
     const states: unknown[] = [];
-    const inner = judgeWith({
+    const inner = classifierWith({
       is_name_purposeful: 0.7,
       is_vocabulary_consistent: 0.9,
       is_greppable: 0.8,
       is_cognitively_complex: 0.3,
     });
-    const judge: Judge = async (state, questions) => {
+    const classifier: Classifier = async (state, questions) => {
       states.push(state);
       return inner(state, questions);
     };
     const events = await drain(
-      lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }),
+      lint({
+        config: baseConfig,
+        input: "tests/fixtures/sample.diff",
+        inputType: "diff",
+        classifier,
+      }),
     );
     // diff units map to no leaf units (quick path): only the whole-unit call runs per file
     // (2 rules x 2 files); no sweep, no whole-file leaf judgment
@@ -460,10 +472,10 @@ describe("lint", () => {
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {
-    const judge: Judge = async (state, questions) => {
+    const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
         throw new RequestError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
-      return judgeWith({
+      return classifierWith({
         is_name_purposeful: 0.7,
         is_vocabulary_consistent: 0.9,
         is_greppable: 0.8,
@@ -474,7 +486,7 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: [FILE, "tests/fixtures/sample-dir/good.ts"],
-        judge,
+        classifier,
       }),
     );
     const errors = events.filter(
@@ -488,7 +500,7 @@ describe("lint", () => {
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
     let calls = 0;
-    const judge: Judge = async (state) => {
+    const classifier: Classifier = async (state) => {
       calls++;
       throw new RequestError("JEV_AUTH", state.path, "jev rejected the API key");
     };
@@ -500,7 +512,7 @@ describe("lint", () => {
           "tests/fixtures/sample-dir/good.ts",
           "tests/fixtures/sample-dir/sub/more.ts",
         ],
-        judge,
+        classifier,
       }),
     );
     // the wave bound (4) caps in-flight probes: each of the 3 files calls exactly once before
@@ -515,7 +527,7 @@ describe("lint", () => {
 
   test("empty input -> CONFIG_INVALID throw (SetupError, not a streamed error)", async () => {
     try {
-      await drain(lint({ config: baseConfig, input: "", judge: judgeWith({}) }));
+      await drain(lint({ config: baseConfig, input: "", classifier: classifierWith({}) }));
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
@@ -529,7 +541,7 @@ describe("lint", () => {
         input: "tests/fixtures/sample-dir",
         inputType: "dir",
         exclude: ["**/more.ts"],
-        judge: judgeWith({
+        classifier: classifierWith({
           is_name_purposeful: 0.7,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
@@ -550,7 +562,7 @@ describe("lint", () => {
       lint({
         config,
         input: FILE,
-        judge: judgeWith({ is_name_purposeful: 0.7 }),
+        classifier: classifierWith({ is_name_purposeful: 0.7 }),
       }),
     );
     // definitions target: 2 sweep questions, no candidates at 0.7
@@ -564,7 +576,7 @@ describe("collectReport", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        judge: judgeWith({
+        classifier: classifierWith({
           is_name_purposeful: 0.3,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,

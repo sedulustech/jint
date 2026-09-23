@@ -5,7 +5,7 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import type { JudgeConfig } from "./client.ts";
+import type { ClassifierConfig } from "./client.ts";
 
 /**
  * When JEV_DEBUG_REQUEST=1, every raw HTTP request/response pair is written as its own
@@ -14,7 +14,7 @@ import type { JudgeConfig } from "./client.ts";
  * run's first capture; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
  * directory. The kind (sweep / files / confirm) is derived from the request's state shape.
  */
-export function requestDebug(config: JudgeConfig | undefined): JudgeConfig {
+export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
   if (process.env.JEV_DEBUG_REQUEST !== "1") return config ?? {};
   const runid = Date.now();
   const base = process.env.JEV_DEBUG_REQUEST_LOCATION || "/tmp/jint/requests";

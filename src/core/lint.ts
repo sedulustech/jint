@@ -3,17 +3,17 @@
  * each unit — files through the two-stage funnel, diffs through the legacy whole-unit path — runs
  * each rule's handle, streams Measurements, Signals, per-unit RequestErrors and degradations.
  *
- * Files fan out in waves of at most FILE_CONCURRENCY in-flight judge pipelines (design §7.4 cost
- * control); events stream per file as its wave completes, measurements before signals.
+ * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
+ * cost control); events stream per file as its wave completes, measurements before signals.
  *
  * The pipeline never resolves paths it wasn't given, never knows about the terminal, and never
  * throws for per-unit failures (design §1, §7).
  */
 
 import { resolveInput } from "./input/infer.ts";
-import { createJudge } from "./jev/client.ts";
+import { createClassifier } from "./jev/client.ts";
 import {
-  measureFile,
+  classifyFile,
   isHighGood,
   type ConfirmedReading,
   type FunnelEvent,
@@ -23,7 +23,7 @@ import {
   SetupError,
   type Degradation,
   type InputKind,
-  type Judge,
+  type Classifier,
   type LintEvent,
   type Measurement,
   type Signal,
@@ -46,12 +46,12 @@ export interface LintOptions {
   disable?: readonly string[];
   /** If set, ONLY these rules run (CLI --rule, repeatable). Applied after disable. */
   only?: readonly string[];
-  /** Swappable judge; defaults to the TypeSafe System One adapter. */
-  judge?: Judge;
+  /** Swappable classifier; defaults to the TypeSafe System One adapter. */
+  classifier?: Classifier;
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  const judge = options.judge ?? createJudge();
+  const classifier = options.classifier ?? createClassifier();
   const input = options.input ?? options.config.input;
   if (input === "" || (Array.isArray(input) && input.length === 0)) {
     throw new SetupError(
@@ -71,7 +71,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     const results = await Promise.all(
       units
         .slice(i, i + FILE_CONCURRENCY)
-        .map((unit) => runUnit(unit, rules, judge, () => aborted)),
+        .map((unit) => runUnit(unit, rules, classifier, () => aborted)),
     );
     for (const result of results) {
       if (result.abort) aborted = true;
@@ -129,10 +129,10 @@ interface UnitResult {
 async function runUnit(
   unit: Unit,
   rules: readonly Rule[],
-  judge: Judge,
+  classifier: Classifier,
   isAborted: () => boolean,
 ): Promise<UnitResult> {
-  const funnel = await measureFile(unit, rules, judge, isAborted);
+  const funnel = await classifyFile(unit, rules, classifier, isAborted);
   const confirmedBySensor = new Map<string, ConfirmedReading[]>();
   for (const reading of funnel.confirmed) {
     const list = confirmedBySensor.get(reading.rule) ?? [];
@@ -177,7 +177,7 @@ function pickRules(
 export interface LintReport {
   measurements: Measurement[];
   signals: Signal[];
-  /** Per-unit failures of the request to the judge: the unit produced no measurement. */
+  /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
   errors: RequestError[];
   /** Per-unit degradations: the unit measured, but degraded. Never fails the run. */
   degradations: Degradation[];

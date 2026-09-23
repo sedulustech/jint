@@ -8,7 +8,7 @@
 
 import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { spanWireId } from "../sensors/measure.ts";
+import { spanWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
 

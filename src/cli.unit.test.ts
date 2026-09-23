@@ -20,7 +20,11 @@ describe("cli: in-process unit tests", () => {
       };
     };
 
-    const stream = lint({ config, disable: ["is_vocabulary_consistent"], judge: fakeJudge as any });
+    const stream = lint({
+      config,
+      disable: ["is_vocabulary_consistent"],
+      classifier: fakeJudge as any,
+    });
     for await (const _ of stream) {
       // drained
     }
@@ -48,7 +52,7 @@ describe("cli: in-process unit tests", () => {
     const stream = lint({
       config,
       exclude: ["**/good.ts"],
-      judge: fakeJudge as any,
+      classifier: fakeJudge as any,
     });
     for await (const _ of stream) {
       // drained

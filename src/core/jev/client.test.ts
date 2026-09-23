@@ -5,11 +5,11 @@ import {
   type QuestionSpec,
   type UnitState,
 } from "../types.ts";
-import { createJudge } from "./client.ts";
+import { createClassifier } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-import { blockWireId } from "../sensors/measure.ts";
+import { blockWireId } from "../sensors/classify.ts";
 
 const state: UnitState = {
   path: "src/a.ts",
@@ -19,7 +19,9 @@ const state: UnitState = {
 const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
     type: "noul",
-    instructions: { a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria." },
+    instructions: {
+      a1b2c3d4: "Classifier the syntax unit mapped to this id against the criteria.",
+    },
     criteria: { true: "the property holds", false: "the property does not hold" },
   },
 };
@@ -37,8 +39,8 @@ const happyBody = {
 };
 
 async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, number>> {
-  const judge = createJudge({ apiKey: "test-key", fetch: fetchImpl });
-  return await judge(state, questions);
+  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
+  return await classifier(state, questions);
 }
 
 function expectRequestError(code: RequestErrorCode): (e: unknown) => void {
@@ -48,7 +50,7 @@ function expectRequestError(code: RequestErrorCode): (e: unknown) => void {
   };
 }
 
-describe("createJudge", () => {
+describe("createClassifier", () => {
   test("happy path: noul answers keyed by question name", async () => {
     const answers = await judgeOnce(fakeFetch(happyBody));
     expect(answers.is_name_purposeful).toBe(0.72);
@@ -68,7 +70,7 @@ describe("createJudge", () => {
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_name_purposeful.type).toBe("noul");
     expect(body.questions.is_name_purposeful.instructions).toEqual({
-      a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria.",
+      a1b2c3d4: "Classifier the syntax unit mapped to this id against the criteria.",
     });
     expect(body.questions.is_name_purposeful.criteria).toEqual({
       true: "the property holds",
@@ -85,9 +87,9 @@ describe("createJudge", () => {
     const saved = process.env.TYPESAFE_API_KEY;
     delete process.env.TYPESAFE_API_KEY;
     try {
-      const judge = createJudge(); // construction must not throw
+      const classifier = createClassifier(); // construction must not throw
       try {
-        await judge(state, questions);
+        await classifier(state, questions);
         expect.unreachable();
       } catch (e) {
         expectRequestError("JEV_AUTH")(e);
