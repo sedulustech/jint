@@ -63,6 +63,10 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 
 `cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing). `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
 
+### Writing a new sensor: one sensor = one attribute, ambiguity is the worst criteria
+
+Every sensor measures exactly one attribute. A sensor whose criteria bundles several attributes ("too many comments", "well-designed function") cannot produce an actionable signal: the attributes move in opposite directions, so the noul value averages their mixture into noise, and the finding cannot say what to fix. Before adding a sensor, split the idea until each remaining piece is a single yes/no attribute that a single fix action addresses; if a piece is computable in code (counts, structure, casing rules), it does not become a sensor at all — deterministic things stay deterministic. The criteria's true/false sides must then state that one attribute without hedging: boundary cases belong in `false`, and words like "well-designed", "good", or "clean" are the smell of an unsplit idea. Editing criteria is a re-calibration event (see the thresholds above).
+
 - `is_comment_business_context` — comments that explain WHY the code exists or why this approach was chosen. High is a virtue; low is not automatically bad (not all code needs recorded context), so its handle is null in v0: the measurement streams, nothing signals, and users who want to enforce context requirements override the handle.
 - `is_comment_narration` — comments that merely restate what the code already says. High = bad.
 - `is_comment_patching_readability` — comments compensating for code that should read itself. High = bad (code smell).
