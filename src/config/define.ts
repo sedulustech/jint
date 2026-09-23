@@ -1,33 +1,33 @@
 /**
  * DefineConfig — the config author's constructor. Takes the user-shaped config (see
- * tmp/jint.config.v2.example.ts), normalizes sensors into a flat list, and freezes the result:
+ * tmp/jint.config.v2.example.ts), normalizes rules into a flat list, and freezes the result:
  * definitions are data.
  */
 
-import type { InputKind, Sensor } from "../core/types.ts";
+import type { InputKind, Rule } from "../core/types.ts";
 
 /** The normalized shape a config file's default export must have. */
 export interface ResolvedConfig {
   readonly input: string;
   readonly inputType?: InputKind;
-  readonly sensors: readonly Sensor[];
+  readonly rules: readonly Rule[];
   readonly exclude: readonly string[];
 }
 
-/** The author-facing shape: sensors as the defaults spread plus a disable list, or a plain list. */
+/** The author-facing shape: rules as the defaults spread plus a disable list, or a plain list. */
 export interface UserConfig {
   input: string;
   /** Optional override for ambiguous inputs only — the kind is otherwise inferred. */
-  // record form: sensor names -> sensor, plus the special "disable" key
+  // record form: rule names -> rule, plus the special "disable" key
   inputType?: InputKind;
-  sensors?: Sensor[] | Record<string, Sensor | string[]>;
+  rules?: Rule[] | Record<string, Rule | string[]>;
   exclude?: readonly string[];
 }
 
 export function defineConfig(raw: UserConfig): ResolvedConfig {
   const resolved: ResolvedConfig = {
     input: raw.input,
-    sensors: resolveSensors(raw.sensors),
+    rules: resolveRules(raw.rules),
     exclude: Object.freeze([...(raw.exclude ?? [])]),
   };
   if (raw.inputType !== undefined) {
@@ -36,24 +36,24 @@ export function defineConfig(raw: UserConfig): ResolvedConfig {
   return Object.freeze(resolved);
 }
 
-function resolveSensors(spec: UserConfig["sensors"]): readonly Sensor[] {
+function resolveRules(spec: UserConfig["rules"]): readonly Rule[] {
   const listed = spec === undefined ? [] : Array.isArray(spec) ? spec : namedToList(spec);
-  // Re-declaring a sensor by name overrides the earlier entry (last wins).
-  const byName = new Map<string, Sensor>();
-  for (const sensor of listed) byName.set(sensor.name, sensor);
-  return Object.freeze([...byName.values()].map(freezeSensor));
+  // Re-declaring a rule by name overrides the earlier entry (last wins).
+  const byName = new Map<string, Rule>();
+  for (const rule of listed) byName.set(rule.name, rule);
+  return Object.freeze([...byName.values()].map(freezeRule));
 }
 
-function namedToList(spec: Record<string, Sensor | string[]>): readonly Sensor[] {
+function namedToList(spec: Record<string, Rule | string[]>): readonly Rule[] {
   const disabled = new Set(Array.isArray(spec.disable) ? spec.disable : []);
-  const listed: Sensor[] = [];
+  const listed: Rule[] = [];
   for (const [name, value] of Object.entries(spec)) {
     if (name === "disable") continue;
-    listed.push(value as Sensor);
+    listed.push(value as Rule);
   }
   return listed.filter((s) => !disabled.has(s.name));
 }
 
-function freezeSensor(sensor: Sensor): Sensor {
-  return Object.freeze({ ...sensor });
+function freezeRule(rule: Rule): Rule {
+  return Object.freeze({ ...rule });
 }

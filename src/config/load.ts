@@ -10,7 +10,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { sensorDefaults } from "../core/sensors/defaults.ts";
+import { defaultRules } from "../core/sensors/defaults.ts";
 import { SetupError } from "../core/types.ts";
 import { defineConfig, type ResolvedConfig } from "./define.ts";
 
@@ -18,7 +18,7 @@ export const DEFAULT_CONFIG_PATH = "jint.config.ts";
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
 
-const SENSOR_SCHEMA = Type.Object({
+const RULE_SCHEMA = Type.Object({
   name: Type.String(),
   criteria: Type.Object({ true: Type.String(), false: Type.String() }),
   target: Type.Union([
@@ -36,15 +36,15 @@ const SENSOR_SCHEMA = Type.Object({
 const CONFIG_SCHEMA = Type.Object({
   input: Type.String(),
   inputType: Type.Optional(KIND_SCHEMA),
-  sensors: Type.Array(SENSOR_SCHEMA),
+  rules: Type.Array(RULE_SCHEMA),
   exclude: Type.Array(Type.String()),
 });
 
-/** The built-in config used when no config file exists: no input, all default sensors. */
+/** The built-in config used when no config file exists: no input, all default rules. */
 export function defaultConfig(): ResolvedConfig {
   return defineConfig({
     input: "",
-    sensors: Object.values(sensorDefaults),
+    rules: Object.values(defaultRules),
     exclude: ["**/fixtures/**"],
   });
 }
@@ -82,11 +82,11 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${messages}`);
   }
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
-  for (const sensor of parsed.sensors) {
-    if (typeof sensor.handle !== "function") {
+  for (const rule of parsed.rules) {
+    if (typeof rule.handle !== "function") {
       throw new SetupError(
         "CONFIG_INVALID",
-        `invalid config ${source}: sensor '${sensor.name}' handle must be a function`,
+        `invalid config ${source}: rule '${rule.name}' handle must be a function`,
       );
     }
   }

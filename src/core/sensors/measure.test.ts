@@ -3,15 +3,15 @@ import {
   RequestError,
   type Judge,
   type Measurement,
-  type Sensor,
+  type Rule,
   type Unit,
   type UnitState,
 } from "../types.ts";
-import { sensorDefaults } from "./defaults.ts";
+import { defaultRules } from "./defaults.ts";
 import {
   UNIT_TASK,
   blockWireId,
-  compileSensorQuestions,
+  compileRuleQuestions,
   measureUnit,
   toRequestError,
 } from "./measure.ts";
@@ -29,7 +29,7 @@ const diffUnit: Unit = {
   state: { path: "src/a.ts", diff: "@@ -1 +1 @@", commit_message: null },
 };
 
-const allSensors: readonly Sensor[] = Object.values(sensorDefaults);
+const allSensors: readonly Rule[] = Object.values(defaultRules);
 
 const FILE_ID = blockWireId("export const x = 1;\n");
 
@@ -38,42 +38,42 @@ function judgeWith(values: Record<string, number>, calls: Unit[] = []): Judge {
     calls.push({ kind: "file", state: state as UnitState });
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
-      // keys are "<sensor> in <unitId>" (multi-sensor) or the bare unitId (single sensor)
-      const sensor = key.includes(" in ")
+      // keys are "<rule> in <unitId>" (multi-rule) or the bare unitId (single rule)
+      const rule = key.includes(" in ")
         ? key.slice(0, key.indexOf(" in "))
         : Object.keys(values)[0]!;
-      if (sensor in values) out[key] = values[sensor]!;
+      if (rule in values) out[key] = values[rule]!;
     }
     return out;
   };
 }
 
 function isMeasurement(event: Measurement | RequestError): event is Measurement {
-  return "sensor" in event;
+  return "rule" in event;
 }
 
-describe("compileSensorQuestions", () => {
+describe("compileRuleQuestions", () => {
   test("whole-file unit: criteria passthrough, instructions maps the unit id to the task sentence", () => {
-    const sensor = sensorDefaults.is_name_purposeful!;
-    const { questions, attribution } = compileSensorQuestions([sensor], FILE_ID);
+    const rule = defaultRules.is_name_purposeful!;
+    const { questions, attribution } = compileRuleQuestions([rule], FILE_ID);
     const spec = questions[FILE_ID]!;
     expect(spec.type).toBe("noul");
     expect(spec.instructions).toEqual({ [FILE_ID]: UNIT_TASK });
-    expect(spec.criteria).toBe(sensor.criteria);
+    expect(spec.criteria).toBe(rule.criteria);
     expect(attribution.get(FILE_ID)).toEqual({
-      sensor: "is_name_purposeful",
+      rule: "is_name_purposeful",
       blockId: FILE_ID,
     });
   });
 
-  test("block-scoped: '<sensor> in <unitId>' ids, wire id keyed in instructions", () => {
-    const sensor = sensorDefaults.is_name_purposeful!;
-    const { questions, attribution } = compileSensorQuestions([sensor], "block-3");
+  test("block-scoped: '<rule> in <unitId>' ids, wire id keyed in instructions", () => {
+    const rule = defaultRules.is_name_purposeful!;
+    const { questions, attribution } = compileRuleQuestions([rule], "block-3");
     const spec = questions["block-3"]!;
     expect(spec.instructions).toEqual({ "block-3": UNIT_TASK });
-    expect(spec.criteria).toBe(sensor.criteria);
+    expect(spec.criteria).toBe(rule.criteria);
     expect(attribution.get("block-3")).toEqual({
-      sensor: "is_name_purposeful",
+      rule: "is_name_purposeful",
       blockId: "block-3",
     });
   });
@@ -86,7 +86,7 @@ describe("compileSensorQuestions", () => {
 });
 
 describe("measureUnit", () => {
-  test("ONE batched judge call per unit; one measurement per sensor", async () => {
+  test("ONE batched judge call per unit; one measurement per rule", async () => {
     const calls: Unit[] = [];
     const judge = judgeWith(
       {
@@ -107,13 +107,13 @@ describe("measureUnit", () => {
     for await (const event of measureUnit(fileUnit, allSensors, judge)) events.push(event);
     expect(events).toHaveLength(10);
     expect(events.every(isMeasurement)).toBe(true);
-    expect((events as Measurement[]).map((m) => m.sensor)).toContain("is_name_purposeful");
+    expect((events as Measurement[]).map((m) => m.rule)).toContain("is_name_purposeful");
     expect(calls).toHaveLength(1); // one batched call, not nine
   });
 
   test("values pass through untouched", async () => {
     const judge = judgeWith({ is_name_purposeful: 0.5347219 });
-    for await (const event of measureUnit(fileUnit, [sensorDefaults.is_name_purposeful!], judge)) {
+    for await (const event of measureUnit(fileUnit, [defaultRules.is_name_purposeful!], judge)) {
       expect(isMeasurement(event) && event.value).toBe(0.5347219);
     }
   });
@@ -124,9 +124,9 @@ describe("measureUnit", () => {
     for await (const event of measureUnit(
       fileUnit,
       [
-        sensorDefaults.is_name_purposeful!,
-        sensorDefaults.is_vocabulary_consistent!,
-        sensorDefaults.is_greppable!,
+        defaultRules.is_name_purposeful!,
+        defaultRules.is_vocabulary_consistent!,
+        defaultRules.is_greppable!,
       ],
       judge,
     )) {
@@ -134,7 +134,7 @@ describe("measureUnit", () => {
     }
     const errors = events.filter((e): e is RequestError => !isMeasurement(e));
     const measurements = events.filter(isMeasurement);
-    expect(measurements.map((m) => m.sensor)).toEqual(["is_name_purposeful"]);
+    expect(measurements.map((m) => m.rule)).toEqual(["is_name_purposeful"]);
     expect(errors).toHaveLength(2); // NaN for is_vocabulary_consistent, missing is_greppable
     expect(errors[0]!.code).toBe("JEV_RESPONSE_INVALID");
     expect(errors[0]!.message).toContain("is_vocabulary_consistent");
@@ -161,7 +161,7 @@ describe("measureUnit", () => {
     expect((events[0] as RequestError).code).toBe("INTERNAL");
   });
 
-  test("no sensors -> judge never called", async () => {
+  test("no rules -> judge never called", async () => {
     let called = false;
     const judge: Judge = async () => {
       called = true;
@@ -192,23 +192,23 @@ describe("toRequestError", () => {
   });
 });
 
-describe("compileSensorQuestions — single-sensor bare keys", () => {
-  test("with one sensor, question keys are the bare unit id (no composite key)", () => {
-    const { questions, attribution } = compileSensorQuestions(
-      [sensorDefaults.will_comment_drift!],
+describe("compileRuleQuestions — single-rule bare keys", () => {
+  test("with one rule, question keys are the bare unit id (no composite key)", () => {
+    const { questions, attribution } = compileRuleQuestions(
+      [defaultRules.will_comment_drift!],
       "a1b2c3d4",
     );
     const keys = Object.keys(questions);
     expect(keys).toEqual(["a1b2c3d4"]);
     expect(attribution.get("a1b2c3d4")).toEqual({
-      sensor: "will_comment_drift",
+      rule: "will_comment_drift",
       blockId: "a1b2c3d4",
     });
   });
 
-  test("with multiple sensors, keys stay composite", () => {
-    const { questions } = compileSensorQuestions(
-      [sensorDefaults.will_comment_drift!, sensorDefaults.is_comment_narration!],
+  test("with multiple rules, keys stay composite", () => {
+    const { questions } = compileRuleQuestions(
+      [defaultRules.will_comment_drift!, defaultRules.is_comment_narration!],
       "a1b2c3d4",
     );
     expect(Object.keys(questions).sort()).toEqual([

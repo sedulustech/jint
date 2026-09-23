@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
-import { sensorDefaults } from "../core/sensors/defaults.ts";
+import { defaultRules } from "../core/sensors/defaults.ts";
 import { UNIT_TASK } from "../core/sensors/measure.ts";
 import {
   RequestError,
@@ -9,20 +9,20 @@ import {
   type AnyState,
   type Judge,
   type LintEvent,
-  type Sensor,
+  type Rule,
 } from "../core/types.ts";
 
 const baseConfig = defineConfig({
   input: "",
-  sensors: { ...sensorDefaults, disable: [] },
+  rules: { ...defaultRules, disable: [] },
   exclude: [],
 });
 
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
 
 /**
- * The full sensor set at handle-silent readings; tests spread over it so each case names only what
- * it asserts about. Every unspecified sensor answers silent in both regimes.
+ * The full rule set at handle-silent readings; tests spread over it so each case names only what it
+ * asserts about. Every unspecified rule answers silent in both regimes.
  */
 const SILENT = {
   is_name_purposeful: 0.9,
@@ -38,8 +38,8 @@ const SILENT = {
 };
 
 /**
- * Same fixed per-sensor answers for every call, keyed by the asked question id (sweep questions are
- * "<sensor> in <sha8 wire id>", everything else plain "<sensor>") — how the real judge answers.
+ * Same fixed per-rule answers for every call, keyed by the asked question id (sweep questions are
+ * "<rule> in <sha8 wire id>", everything else plain "<rule>") — how the real judge answers.
  */
 function sensorOf(key: string): string {
   const sep = key.indexOf(" in ");
@@ -50,11 +50,11 @@ function judgeWith(values: Record<string, number>): Judge {
   return async (_state, questions) => {
     const out: Record<string, number> = {};
     for (const key of Object.keys(questions)) {
-      const sensor = sensorOf(key);
+      const rule = sensorOf(key);
       out[key] =
         values[key] ??
-        (sensor !== "" ? values[sensor] : undefined) ??
-        (sensor !== "" ? SILENT[sensor as keyof typeof SILENT] : undefined) ??
+        (rule !== "" ? values[rule] : undefined) ??
+        (rule !== "" ? SILENT[rule as keyof typeof SILENT] : undefined) ??
         Object.values(values)[0] ??
         0.5;
     }
@@ -98,7 +98,7 @@ const DEFINITION_SENSORS = [
   "is_cognitively_complex",
 ];
 
-test("sweep respects sensor targets: comment sensors never judge bare definitions, definition sensors never judge comment leaves", async () => {
+test("sweep respects rule targets: comment rules never judge bare definitions, definition rules never judge comment leaves", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
@@ -113,16 +113,16 @@ test("sweep respects sensor targets: comment sensors never judge bare definition
   ).blocks;
   const isCommentBlock = new Map(blocks.map((b) => [b.id, !b.content.includes("export ")]));
   for (const key of sweep.questions) {
-    const sensor = key.slice(0, key.indexOf(" in "));
+    const rule = key.slice(0, key.indexOf(" in "));
     const unitId = key.slice(key.indexOf(" in ") + 4);
     const commentBlock = isCommentBlock.get(unitId)!;
-    if (COMMENT_SENSORS.includes(sensor)) {
-      // comment-family sensors may judge comment leaves and definitions WITH attached docblocks,
+    if (COMMENT_SENSORS.includes(rule)) {
+      // comment-family rules may judge comment leaves and definitions WITH attached docblocks,
       // but never a bare definition (nothing to judge)
       const content = blocks.find((b) => b.id === unitId)?.content ?? "";
       expect(commentBlock || content.includes("//")).toBe(true);
     }
-    if (DEFINITION_SENSORS.includes(sensor)) {
+    if (DEFINITION_SENSORS.includes(rule)) {
       expect(commentBlock).toBe(false);
     }
   }
@@ -158,8 +158,8 @@ describe("lint — funnel shape", () => {
     // wire ids are the treesitter LOC interval of each block's swept content
     const blockIds = sweepState.blocks.map((b) => b.id);
     expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
-    // per (block-leaf, target-matched sensor): L2-L4 carries the module docblock -> 7 sensors,
-    // L6-L11 is a bare definition -> 3 definition-target sensors (design 7.7 targeting)
+    // per (block-leaf, target-matched rule): L2-L4 carries the module docblock -> 7 rules,
+    // L6-L11 is a bare definition -> 3 definition-target rules (design 7.7 targeting)
     expect(sweep.questions).toHaveLength(12);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
     expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
@@ -174,13 +174,13 @@ describe("lint — funnel shape", () => {
       const unitId = key.slice(key.indexOf(" in ") + 4);
       expect(s.instructions).toEqual({ [unitId]: UNIT_TASK });
       expect(s.criteria).toBeDefined();
-      // criteria is the sensor's actual rule, never the generic form
+      // criteria is the rule's actual rule, never the generic form
       expect(s.criteria!.true).not.toContain("described property");
     }
-    // the files-target sensors keep their own whole-content call
+    // the files-target rules keep their own whole-content call
     const whole = log.calls.filter((c) => !isSweep(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
-    // whole-content call questions are keyed "<sensor> in <file id>" (the content hash)
+    // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
       expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in L\d+(-L\d+)?$/);
     }
@@ -203,7 +203,7 @@ describe("lint — funnel shape", () => {
     );
     expect(leafCalls).toHaveLength(2); // one per flagged leaf, no others
     for (const c of leafCalls) {
-      // confirm questions are keyed "<sensor> in <leaf wire id>" — the same LOC id the sweep used
+      // confirm questions are keyed "<rule> in <leaf wire id>" — the same LOC id the sweep used
       expect(c.questions).toContain(
         `${"is_name_purposeful"} in ${c.questions[0]!.split(" in ")[1]}`,
       );
@@ -216,15 +216,15 @@ describe("lint — funnel shape", () => {
 
   test("confirmed signals aggregate max over leaves (high=bad) and carry block locations", async () => {
     // complex sweeps above 0.55 -> both blocks; confirmed per block: 0.5 and 0.9 -> max 0.9.
-    // The isolated calls ask plain sensor names, so block identity routes on the leaf content.
+    // The isolated calls ask plain rule names, so block identity routes on the leaf content.
     const judge: Judge = async (state, questions) => {
       const sweep = "blocks" in state;
       const leaf = !sweep && "content" in state && state.content.includes("formatDuration");
       const out: Record<string, number> = {};
       for (const key of Object.keys(questions)) {
-        const sensor = sensorOf(key);
-        let value = SILENT[sensor as keyof typeof SILENT];
-        if (sensor === "is_cognitively_complex") value = sweep ? 0.9 : leaf ? 0.9 : 0.5;
+        const rule = sensorOf(key);
+        let value = SILENT[rule as keyof typeof SILENT];
+        if (rule === "is_cognitively_complex") value = sweep ? 0.9 : leaf ? 0.9 : 0.5;
         out[key] = value;
       }
       return out;
@@ -233,14 +233,14 @@ describe("lint — funnel shape", () => {
     const signals = events.filter((e) => e.type === "signal");
     expect(signals).toHaveLength(1);
     const s = signals[0]!.signal as unknown as Record<string, unknown>;
-    expect(s.sensor).toBe("is_cognitively_complex");
+    expect(s.rule).toBe("is_cognitively_complex");
     expect(s.value).toBe(0.9);
     expect(s.severity).toBe("error");
     expect(s.input).toBe(FILE + "#L6-L11"); // the extreme leaf's location
     expect(s.location).toEqual({ input: FILE + "#L6-L11", span: expect.any(Object) });
   });
 
-  test("high=good sensors aggregate min over leaves", async () => {
+  test("high=good rules aggregate min over leaves", async () => {
     // purposeful 0.3 sweeps both blocks; confirmed 0.3 everywhere -> min, one signal
     const events = await drain(
       lint({ config: baseConfig, input: FILE, judge: judgeWith({ is_name_purposeful: 0.3 }) }),
@@ -264,13 +264,13 @@ describe("lint — funnel shape", () => {
           const sweep = "blocks" in state;
           const out: Record<string, number> = {};
           for (const key of Object.keys(questions)) {
-            const sensor = sensorOf(key);
+            const rule = sensorOf(key);
             out[key] =
-              sensor === "is_name_purposeful"
+              rule === "is_name_purposeful"
                 ? sweep
                   ? 0.49
                   : 0.7
-                : (SILENT[sensor as keyof typeof SILENT] ?? 0.5);
+                : (SILENT[rule as keyof typeof SILENT] ?? 0.5);
           }
           return out;
         },
@@ -287,12 +287,12 @@ describe("lint — funnel shape", () => {
       const events = await drain(
         lint({ config: baseConfig, input: empty, judge: loggingJudge({}, log) }),
       );
-      // one call only: files-target sensors on whole content. No sweep call at all -
+      // one call only: files-target rules on whole content. No sweep call at all -
       // an unparseable file yields no leaves and there is no whole-file leaf judgment.
       expect(log.calls).toHaveLength(1);
       expect(isSweep(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(2); // whole-unit sensors only
+      expect(measurements).toHaveLength(2); // whole-unit rules only
       const degradations = events.filter(
         (e): e is Extract<LintEvent, { type: "degradation" }> => e.type === "degradation",
       );
@@ -329,7 +329,7 @@ describe("lint — funnel shape", () => {
       const calls: unknown[] = [];
       const result = await measureFile(
         { kind: "file", state: { path: empty, content: "", id: "L1" } },
-        Object.values(sensorDefaults),
+        Object.values(defaultRules),
         async (state, questions) => {
           calls.push({ state, questions });
           return {};
@@ -349,7 +349,7 @@ describe("lint — funnel shape", () => {
 });
 
 describe("lint", () => {
-  test("streams measurement per (sensor, unit), signal only when the handle fires", async () => {
+  test("streams measurement per (rule, unit), signal only when the handle fires", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -371,7 +371,7 @@ describe("lint", () => {
     // never fires (measurement-only in v0)
     expect(signals).toHaveLength(1);
     expect(signals[0]!.signal).toEqual({
-      sensor: "is_name_purposeful",
+      rule: "is_name_purposeful",
       input: FILE + "#L2-L4",
       value: 0.3,
       severity: "error",
@@ -403,7 +403,7 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "signal")).toHaveLength(4);
   });
 
-  test("--disable removes sensors by name before measuring", async () => {
+  test("--disable removes rules by name before measuring", async () => {
     const log: CallLog = { calls: [] };
     const events = await drain(
       lint({
@@ -428,7 +428,7 @@ describe("lint", () => {
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toHaveLength(2);
     for (const key of log.calls[0]!.questions) {
-      expect(key).toMatch(/^L\d+(-L\d+)?$/); // single sensor -> bare unit-id keys
+      expect(key).toMatch(/^L\d+(-L\d+)?$/); // single rule -> bare unit-id keys
     }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
@@ -449,7 +449,7 @@ describe("lint", () => {
       lint({ config: baseConfig, input: "tests/fixtures/sample.diff", inputType: "diff", judge }),
     );
     // diff units map to no leaf units (quick path): only the whole-unit call runs per file
-    // (2 sensors x 2 files); no sweep, no whole-file leaf judgment
+    // (2 rules x 2 files); no sweep, no whole-file leaf judgment
     const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",
@@ -543,9 +543,9 @@ describe("lint", () => {
     expect(inputs).toEqual(new Set(["good.ts", "good.ts#L2", "good.ts#L4-L6"]));
   });
 
-  test("custom sensor set (selection = the sensor list itself)", async () => {
-    const only: Sensor[] = [sensorDefaults.is_name_purposeful!];
-    const config = defineConfig({ input: "", sensors: [only[0]!] });
+  test("custom rule set (selection = the rule list itself)", async () => {
+    const only: Rule[] = [defaultRules.is_name_purposeful!];
+    const config = defineConfig({ input: "", rules: [only[0]!] });
     const events = await drain(
       lint({
         config,

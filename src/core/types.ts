@@ -1,10 +1,10 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - Sensor — the measuring mechanism: { name, criteria, target, handle }
- * - Measurement — the raw noul value from jev for (sensor, input); always produced, never actionable
- *   by itself
- * - Signal — a measurement that cleared the sensor's handle; the only actionable output
+ * - Rule — the measuring mechanism: { name, criteria, target, handle }
+ * - Measurement — the raw noul value from jev for (rule, input); always produced, never actionable by
+ *   itself
+ * - Signal — a measurement that cleared the rule's handle; the only actionable output
  * - RequestError — a per-unit failure of the request to the judge: no judgment ever exists for the
  *   unit; carried in the stream as a value, never thrown past the pipeline
  * - Degradation — a per-unit degradation: the unit still measured, but degraded (a value, never an
@@ -91,19 +91,19 @@ export interface Degradation {
 }
 
 /**
- * Which unit instance a sensor judges (design.md §7.1): mapping an acquired file to units yields
+ * Which unit instance a rule judges (design.md §7.1): mapping an acquired file to units yields
  * target instances - one whole-file slice, N definition leaves, M standalone comment leaves, 1
- * merged import leaf - and the target selects which of them the sensor's question runs over.
- * "diffs" is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4
- * Diff units).
+ * merged import leaf - and the target selects which of them the rule's question runs over. "diffs"
+ * is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4 Diff
+ * units).
  */
-export type SensorTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
+export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
 
 /**
  * A measuring mechanism: one System One judgment (noul) over a state, plus a handle that reads the
  * value.
  */
-export interface Sensor {
+export interface Rule {
   readonly name: string;
   /**
    * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
@@ -112,27 +112,27 @@ export interface Sensor {
    * text.
    */
   readonly criteria: { readonly true: string; readonly false: string };
-  /** Which unit instances this sensor judges; the funnel routes on it (design.md §7.1). */
-  readonly target: SensorTarget;
+  /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
+  readonly target: RuleTarget;
   /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
   readonly handle: (value: number) => HandleResult;
 }
 
 /**
- * The raw noul value for (sensor, input). Values pass through untouched — near 0.5 means undecided,
+ * The raw noul value for (rule, input). Values pass through untouched — near 0.5 means undecided,
  * not medium.
  */
 export interface Measurement {
-  readonly sensor: string;
+  readonly rule: string;
   readonly input: string;
   readonly value: number;
   /** Which funnel regime produced it (absent = whole-unit path). */
   readonly stage?: "file" | "sweep" | "confirm";
 }
 
-/** A measurement that mattered: it cleared the sensor's handle and carries the returned severity. */
+/** A measurement that mattered: it cleared the rule's handle and carries the returned severity. */
 export interface Signal {
-  readonly sensor: string;
+  readonly rule: string;
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
@@ -183,7 +183,7 @@ export type UnitState = FileState | DiffState;
 /** Everything the judge may be handed: whole-file/diff units, plus the sweep's array state. */
 export type AnyState = UnitState | SweepState;
 
-/** A resolved thing to measure: its kind picks the sensors; its state feeds the judge. */
+/** A resolved thing to measure: its kind picks the rules; its state feeds the judge. */
 export interface Unit {
   readonly kind: UnitKind;
   readonly state: UnitState;

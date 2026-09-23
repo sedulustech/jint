@@ -86,9 +86,9 @@ export interface Inventory {
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
 /**
- * The language-independent noun a grammar node abstracts into. Sensors and the funnel route on
- * roles, never on grammar node names — adding a language is adding one roleTable entry, never
- * touching the walker (design: language adapter, measured in tmp/langsurvey).
+ * The language-independent noun a grammar node abstracts into. Rules and the funnel route on roles,
+ * never on grammar node names — adding a language is adding one roleTable entry, never touching the
+ * walker (design: language adapter, measured in tmp/langsurvey).
  */
 export type NodeRole = "function" | "type" | "import" | "comment";
 

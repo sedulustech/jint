@@ -7,12 +7,10 @@ import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
   measurements: [
-    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
-    { sensor: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
+    { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
+    { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
-  signals: [
-    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" },
-  ],
+  signals: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
   errors: [new RequestError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
   degradations: [],
 };

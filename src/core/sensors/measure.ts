@@ -1,7 +1,7 @@
 /**
- * Measure — compiles sensors to noul questions and batches them into ONE systemOne call per state
- * (sequential in v0). Emits Measurement { sensor, input, value }: no thresholds, no handle
- * invocation here — interpretation is the handle callback's job (design §4.5).
+ * Measure — compiles rules to noul questions and batches them into ONE systemOne call per state
+ * (sequential in v0). Emits Measurement { rule, input, value }: no thresholds, no handle invocation
+ * here — interpretation is the handle callback's job (design §4.5).
  *
  * Per-unit failures come back as RequestErrors in the stream, never thrown past the pipeline
  * (design §7).
@@ -12,13 +12,13 @@ import {
   type Judge,
   type Measurement,
   type QuestionSpec,
-  type Sensor,
+  type Rule,
   type Unit,
 } from "../types.ts";
 
-/** Which sensor and unit (block wire id or file id) a question id belongs to. */
+/** Which rule and unit (block wire id or file id) a question id belongs to. */
 export interface QuestionAttribution {
-  readonly sensor: string;
+  readonly rule: string;
   readonly blockId: string | null;
 }
 
@@ -31,34 +31,34 @@ export interface QuestionBatch {
   readonly attribution: Map<string, QuestionAttribution>;
 }
 
-/** The id of the question for (sensor, blockId); block ids stay out of the payload's questions. */
-export function questionKey(sensorName: string, blockId: string): string {
-  return `${sensorName} in ${blockId}`;
+/** The id of the question for (rule, blockId); block ids stay out of the payload's questions. */
+export function questionKey(ruleName: string, blockId: string): string {
+  return `${ruleName} in ${blockId}`;
 }
 
 /** The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). */
 export const UNIT_TASK = "Judge the syntax unit mapped to this id against the criteria.";
 
 /**
- * Compile sensors to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps
- * the unit id to the task sentence ({id: task}), criteria is the sensor's actual rule passed
- * straight through. The unit id is the model's routing target (measured: object form is equal to
- * the keyed form at mean delta 0.024, tmp probes); question ids (record keys) are never sent.
+ * Compile rules to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps the
+ * unit id to the task sentence ({id: task}), criteria is the rule's actual rule passed straight
+ * through. The unit id is the model's routing target (measured: object form is equal to the keyed
+ * form at mean delta 0.024, tmp probes); question ids (record keys) are never sent.
  */
-export function compileSensorQuestions(sensors: readonly Sensor[], unitId: string): QuestionBatch {
+export function compileRuleQuestions(rules: readonly Rule[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
   const attribution = new Map<string, QuestionAttribution>();
-  // single-sensor runs key questions by bare unit id: one sensor means no ambiguity, and the
+  // single-rule runs key questions by bare unit id: one rule means no ambiguity, and the
   // capture json groups by unit id without a composite key (question ids are never sent).
-  const bareKeys = sensors.length === 1;
-  for (const sensor of sensors) {
-    const key = bareKeys ? unitId : questionKey(sensor.name, unitId);
+  const bareKeys = rules.length === 1;
+  for (const rule of rules) {
+    const key = bareKeys ? unitId : questionKey(rule.name, unitId);
     questions[key] = {
       type: "noul",
       instructions: { [unitId]: UNIT_TASK },
-      criteria: sensor.criteria,
+      criteria: rule.criteria,
     };
-    attribution.set(key, { sensor: sensor.name, blockId: unitId });
+    attribution.set(key, { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
 }
@@ -94,13 +94,13 @@ export function contentHash(content: string): string {
 
 export async function* measureUnit(
   unit: Unit,
-  sensors: readonly Sensor[],
+  rules: readonly Rule[],
   judge: Judge,
 ): AsyncGenerator<Measurement | RequestError> {
-  if (sensors.length === 0) return;
-  // Any acquisition resolves into target instances upstream, so every sensor participates.
+  if (rules.length === 0) return;
+  // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = "id" in unit.state ? unit.state.id : blockWireId(unit.state.diff);
-  const batch = compileSensorQuestions(sensors, unitId);
+  const batch = compileRuleQuestions(rules, unitId);
   let answers: Record<string, number>;
   try {
     answers = await judge(unit.state, batch.questions);
@@ -108,23 +108,23 @@ export async function* measureUnit(
     yield toRequestError(unit.state.path, thrown);
     return;
   }
-  for (const sensor of sensors) {
-    const key = [...batch.attribution.entries()].find(([, a]) => a.sensor === sensor.name)![0];
+  for (const rule of rules) {
+    const key = [...batch.attribution.entries()].find(([, a]) => a.rule === rule.name)![0];
     const value = answers[key];
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      yield invalidAnswerError(unit.state.path, sensor.name);
+      yield invalidAnswerError(unit.state.path, rule.name);
       continue;
     }
-    yield { sensor: sensor.name, input: unit.state.path, value };
+    yield { rule: rule.name, input: unit.state.path, value };
   }
 }
 
 /** RequestError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
-export function invalidAnswerError(input: string, sensorName: string): RequestError {
+export function invalidAnswerError(input: string, ruleName: string): RequestError {
   return new RequestError(
     "JEV_RESPONSE_INVALID",
     input,
-    `answer for '${sensorName}' is missing or not a finite number`,
+    `answer for '${ruleName}' is missing or not a finite number`,
   );
 }
 

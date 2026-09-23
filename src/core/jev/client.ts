@@ -8,7 +8,7 @@
  * escapes past this seam.
  *
  * Vendor nomenclature stays at the boundary: one batched call per state, one structured question
- * per sensor, each answer a single calibrated probability.
+ * per rule, each answer a single calibrated probability.
  */
 
 import { Type, type Static } from "@sinclair/typebox";

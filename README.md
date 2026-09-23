@@ -1,6 +1,6 @@
 # jint
 
-**jev lint** — measures code with AI-classifier judgments (TypeSafe System One / jev) and turns the readings into actionable output via per-sensor callbacks. Sensors in, signals out.
+**jev lint** — measures code with AI-classifier judgments (TypeSafe System One / jev) and turns the readings into actionable output via per-rule callbacks. Rules in, signals out.
 
 ```bash
 bun add @typesafe-ai/sdk @sinclair/typebox   # jint's own deps, for reference
@@ -10,46 +10,46 @@ bun add @typesafe-ai/sdk @sinclair/typebox   # jint's own deps, for reference
 
 Three nouns, strictly separated:
 
-- **sensor** — the measuring mechanism: `{ name, criteria: { true, false }, target, handle }`. It holds one System One judgment (noul) over a state — criteria-as-rule: `true` is what makes the unit a 1, `false` what makes it a 0 (boundary cases live here) — plus a `handle` callback that reads the value.
-- **measurement** — the raw noul value from jev for (sensor, input). Always produced, never actionable by itself — _what is true_. A noul near 0.5 means undecided, not medium; values pass through untouched.
-- **signal** — a measurement that cleared the sensor's handle: `{ sensor, input, value, severity }`. The only actionable thing: it drives the report and the exit code.
+- **rule** — the measuring mechanism: `{ name, criteria: { true, false }, target, handle }`. It holds one System One judgment (noul) over a state — criteria-as-rule: `true` is what makes the unit a 1, `false` what makes it a 0 (boundary cases live here) — plus a `handle` callback that reads the value.
+- **measurement** — the raw noul value from jev for (rule, input). Always produced, never actionable by itself — _what is true_. A noul near 0.5 means undecided, not medium; values pass through untouched.
+- **signal** — a measurement that cleared the rule's handle: `{ rule, input, value, severity }`. The only actionable thing: it drives the report and the exit code.
 
-A sensor measures; its handle decides; a signal is a measurement that mattered.
+A rule measures; its handle decides; a signal is a measurement that mattered.
 
 ## Config
 
 `jint.config.ts` is the default (pre-commit lint); other purposes name themselves (`jint.review.config.ts`) and are selected with `--config`. That is the whole surface:
 
 ```ts
-import { defineConfig, sensors } from "jint";
+import { defineConfig, rules } from "jint";
 
 export default defineConfig({
   input: "src/",
-  sensors: { ...sensors.defaults, disable: [] },
+  rules: { ...rules.defaults, disable: [] },
   exclude: [],
 });
 ```
 
 - **Input kind is inferred**, not configured: on-disk directory -> dir; on-disk file whose content looks like a unified diff -> diff; rev-looking string (`HEAD`, `HEAD~2..HEAD`, a sha) -> diff via git; `"-"` -> diff from stdin. `inputType` exists only as an override for ambiguous cases.
 - **exclude** removes inputs (globs/paths). Defaults: `node_modules`, `.git`, gitignored paths, binary files.
-- **disable** removes sensors by name — set membership, not policy.
-- **Sensors carry their own policy**: each sensor ships a visible, overridable `handle: (value) => "error" | "warn" | null`. `null` is silent. Override by re-declaring the sensor by name:
+- **disable** removes rules by name — set membership, not policy.
+- **Rules carry their own policy**: each rule ships a visible, overridable `handle: (value) => "error" | "warn" | null`. `null` is silent. Override by re-declaring the rule by name:
 
 ```ts
-sensors: {
-  ...sensors.defaults,
+rules: {
+  ...rules.defaults,
   is_name_purposeful: {
-    ...sensors.defaults.is_name_purposeful,
+    ...rules.defaults.is_name_purposeful,
     handle: (v) => (v < 0.5 ? "error" : null),
   },
 },
 ```
 
-## Default sensors
+## Default rules
 
 Thresholds are anchored to the calibration corpora — jint's own src/ as the primary corpus, the sibling-repo baselines as the external cross-check: healthy runs produce zero errors; the calibration mutants (bad names, comment bloat, obfuscation) are caught.
 
-| sensor                            | polarity    | error      | warn       | healthy range |
+| rule                              | polarity    | error      | warn       | healthy range |
 | --------------------------------- | ----------- | ---------- | ---------- | ------------- |
 | `is_name_purposeful`              | high = good | < 0.5      | < 0.6      | 0.80 – 0.89   |
 | `is_vocabulary_consistent`        | high = good | < 0.6      | < 0.75     | 0.86 – 0.89   |
@@ -63,9 +63,9 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 
 `cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing). `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
 
-### Writing a new sensor: one sensor = one attribute, ambiguity is the worst criteria
+### Writing a new rule: one rule = one attribute, ambiguity is the worst criteria
 
-Every sensor measures exactly one attribute. A sensor whose criteria bundles several attributes ("too many comments", "well-designed function") cannot produce an actionable signal: the attributes move in opposite directions, so the noul value averages their mixture into noise, and the finding cannot say what to fix. Before adding a sensor, split the idea until each remaining piece is a single yes/no attribute that a single fix action addresses; if a piece is computable in code (counts, structure, casing rules), it does not become a sensor at all — deterministic things stay deterministic. The criteria's true/false sides must then state that one attribute without hedging: boundary cases belong in `false`, and words like "well-designed", "good", or "clean" are the smell of an unsplit idea. Editing criteria is a re-calibration event (see the thresholds above).
+Every rule measures exactly one attribute. A rule whose criteria bundles several attributes ("too many comments", "well-designed function") cannot produce an actionable signal: the attributes move in opposite directions, so the noul value averages their mixture into noise, and the finding cannot say what to fix. Before adding a rule, split the idea until each remaining piece is a single yes/no attribute that a single fix action addresses; if a piece is computable in code (counts, structure, casing rules), it does not become a rule at all — deterministic things stay deterministic. The criteria's true/false sides must then state that one attribute without hedging: boundary cases belong in `false`, and words like "well-designed", "good", or "clean" are the smell of an unsplit idea. Editing criteria is a re-calibration event (see the thresholds above).
 
 - `is_comment_business_context` — comments that explain WHY the code exists or why this approach was chosen. High is a virtue; low is not automatically bad (not all code needs recorded context), so its handle is null in v0: the measurement streams, nothing signals, and users who want to enforce context requirements override the handle.
 - `is_comment_narration` — comments that merely restate what the code already says. High = bad.
@@ -118,11 +118,11 @@ jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions }
 The CLI is one consumer; `lint()` is the product:
 
 ```ts
-import { defineConfig, sensors, lint, collectReport } from "jint";
+import { defineConfig, rules, lint, collectReport } from "jint";
 
 const report = await collectReport(
   lint({
-    config: defineConfig({ input: "src/", sensors: { ...sensors.defaults, disable: [] } }),
+    config: defineConfig({ input: "src/", rules: { ...rules.defaults, disable: [] } }),
     input: "src/a.ts", // optional override; inferred otherwise
     judge: mySwappableJudge, // optional; defaults to the jev adapter
   }),

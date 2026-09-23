@@ -1,24 +1,24 @@
 /**
- * The eight default sensors, each shipping a visible, overridable handle; one sensor measures one
+ * The eight default rules, each shipping a visible, overridable handle; one rule measures one
  * attribute. The comment family replaced the retired excessive_comments, whose attributes moved in
  * opposite directions and averaged the aggregate signal into noise.
  *
- * Sensor names follow TypeSafe's proposition convention (is_/will_ prefix): each sensor compiles to
+ * Rule names follow TypeSafe's proposition convention (is_/will_ prefix): each rule compiles to
  * exactly one noul question, so its name reads as the yes/no claim the question asks.
  *
- * Each sensor ships its rule as criteria — the explicit 1-rule and 0-rule that compile straight
- * into the noul question's criteria (criteria-as-rule). Editing either side is a re-calibration
- * event, since thresholds are anchored to readings taken under the rule text.
+ * Each rule ships its rule as criteria — the explicit 1-rule and 0-rule that compile straight into
+ * the noul question's criteria (criteria-as-rule). Editing either side is a re-calibration event,
+ * since thresholds are anchored to readings taken under the rule text.
  *
- * Handle policy: a healthy run never errors; warns are legitimate nudges. High=good sensors error
- * below the healthy floor, high=bad sensors above the healthy ceiling, anchored on the self-lint
+ * Handle policy: a healthy run never errors; warns are legitimate nudges. High=good rules error
+ * below the healthy floor, high=bad rules above the healthy ceiling, anchored on the self-lint
  * corpus with the sibling-repo calibration fixtures as the external check. Current thresholds and
  * healthy ranges are documented in the README, next to the override examples.
  */
 
-import type { Sensor } from "../types.ts";
+import type { Rule } from "../types.ts";
 
-export const isNamePurposeful: Sensor = {
+export const isNamePurposeful: Rule = {
   name: "is_name_purposeful",
   criteria: {
     true: "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
@@ -29,7 +29,7 @@ export const isNamePurposeful: Sensor = {
   handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
 };
 
-export const isFunctionSrp: Sensor = {
+export const isFunctionSrp: Rule = {
   name: "is_function_srp",
   criteria: {
     true: "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
@@ -41,7 +41,7 @@ export const isFunctionSrp: Sensor = {
   handle: (value) => (value < 0.4 ? "error" : value < 0.55 ? "warn" : null),
 };
 
-export const isVocabularyConsistent: Sensor = {
+export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
   criteria: {
     true: "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
@@ -52,7 +52,7 @@ export const isVocabularyConsistent: Sensor = {
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
-export const isNamingConventionConsistent: Sensor = {
+export const isNamingConventionConsistent: Rule = {
   name: "is_naming_convention_consistent",
   criteria: {
     true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
@@ -66,7 +66,7 @@ export const isNamingConventionConsistent: Sensor = {
   handle: (value) => (value < 0.65 ? "error" : value < 0.85 ? "warn" : null),
 };
 
-export const isGreppable: Sensor = {
+export const isGreppable: Rule = {
   name: "is_greppable",
   criteria: {
     true: "The code identifiers here - functions, variables, types, constants, exported symbols - are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
@@ -77,7 +77,7 @@ export const isGreppable: Sensor = {
   handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
 };
 
-export const is_comment_business_context: Sensor = {
+export const is_comment_business_context: Rule = {
   name: "is_comment_business_context",
   criteria: {
     true: "The comments here carry business context a maintainer cannot recover from the code alone: why the code exists or why this approach was chosen - the requirement, constraint, or decision it serves, a pointer to where that decision lives (ticket, spec, incident, upstream contract), or a warning that the code must stay consistent with something outside itself.",
@@ -93,7 +93,7 @@ export const is_comment_business_context: Sensor = {
   handle: () => null,
 };
 
-export const is_comment_narration: Sensor = {
+export const is_comment_narration: Rule = {
   name: "is_comment_narration",
   criteria: {
     true: "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
@@ -104,7 +104,7 @@ export const is_comment_narration: Sensor = {
   handle: (value) => (value > 0.45 ? "error" : value > 0.3 ? "warn" : null),
 };
 
-export const is_comment_patching_readability: Sensor = {
+export const is_comment_patching_readability: Rule = {
   name: "is_comment_patching_readability",
   criteria: {
     true: "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
@@ -115,7 +115,7 @@ export const is_comment_patching_readability: Sensor = {
   handle: (value) => (value > 0.55 ? "error" : value > 0.4 ? "warn" : null),
 };
 
-export const will_comment_drift: Sensor = {
+export const will_comment_drift: Rule = {
   name: "will_comment_drift",
   criteria: {
     true: "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
@@ -129,7 +129,7 @@ export const will_comment_drift: Sensor = {
   handle: (value) => (value > 0.7 ? "error" : value > 0.55 ? "warn" : null),
 };
 
-export const isCognitivelyComplex: Sensor = {
+export const isCognitivelyComplex: Rule = {
   name: "is_cognitively_complex",
   criteria: {
     true: "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
@@ -143,8 +143,8 @@ export const isCognitivelyComplex: Sensor = {
   handle: (value) => (value > 0.6 ? "error" : value > 0.45 ? "warn" : null),
 };
 
-/** All default sensors by name — the `sensors.defaults` record of the config surface. */
-export const sensorDefaults: Record<string, Sensor> = Object.freeze({
+/** All default rules by name — the `rules.defaults` record of the config surface. */
+export const defaultRules: Record<string, Rule> = Object.freeze({
   is_name_purposeful: isNamePurposeful,
   is_vocabulary_consistent: isVocabularyConsistent,
   is_naming_convention_consistent: isNamingConventionConsistent,

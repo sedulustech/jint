@@ -53,17 +53,17 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
     const rows = report.signals.map((s) => ({
       severity: s.severity,
       value: s.value.toFixed(2),
-      sensor: s.sensor,
+      rule: s.rule,
       input: s.input,
     }));
     const wSev = Math.max(...rows.map((r) => r.severity.length), 5);
     const wVal = Math.max(...rows.map((r) => r.value.length), 5);
-    const wSensor = Math.max(...rows.map((r) => r.sensor.length));
+    const wRule = Math.max(...rows.map((r) => r.rule.length));
     for (const r of rows) {
       const sev = r.severity.padEnd(wSev);
       const val = r.value.padStart(wVal);
-      const sensor = r.sensor.padEnd(wSensor);
-      const line = `${sev}  ${val}  ${sensor}  ${r.input}`;
+      const rule = r.rule.padEnd(wRule);
+      const line = `${sev}  ${val}  ${rule}  ${r.input}`;
       out.push(outColor ? (r.severity === "error" ? red(line) : yellow(line)) : line);
     }
   }
@@ -79,7 +79,7 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
   };
 }
 
-/** Findings summary (stdout): what the sensors flagged, or the clean-run measurement count. */
+/** Findings summary (stdout): what the rules flagged, or the clean-run measurement count. */
 function findingsSummaryOf(report: LintReport): string | null {
   if (report.signals.length > 0) {
     const errors = report.signals.filter((s) => s.severity === "error").length;

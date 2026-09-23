@@ -1,7 +1,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 
 export const MEASUREMENT_SCHEMA = Type.Object({
-  sensor: Type.String(),
+  rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
   stage: Type.Optional(
@@ -10,7 +10,7 @@ export const MEASUREMENT_SCHEMA = Type.Object({
 });
 
 export const SIGNAL_SCHEMA = Type.Object({
-  sensor: Type.String(),
+  rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),

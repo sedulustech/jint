@@ -4,11 +4,11 @@ import { renderStylish, shouldColor } from "./stylish.ts";
 import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
-  measurements: [{ sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
+  measurements: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
   signals: [
-    { sensor: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
+    { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
     {
-      sensor: "is_greppable",
+      rule: "is_greppable",
       input: "src/tui/deeply/nested/path.ts",
       value: 0.3,
       severity: "error",
@@ -26,7 +26,7 @@ const report: LintReport = {
 
 describe("renderStylish", () => {
   test("stream discipline: findings stdout, run errors/diagnostics stderr (clig)", () => {
-    // columns: severity(5) 2sp value(5) 2sp sensor(21) 2sp input
+    // columns: severity(5) 2sp value(5) 2sp rule(21) 2sp input
     const { stdout, stderr } = renderStylish(report, "never");
     // stdout: findings only — the signal table and the findings summary
     expect(stdout).toContain("warn    0.53  is_name_purposeful  src/a.ts");
@@ -55,7 +55,7 @@ describe("renderStylish", () => {
     // a findings-only report renders nothing on stderr; an error-only report nothing on stdout
     const clean = renderStylish(
       {
-        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: [],
         degradations: [],
@@ -74,7 +74,7 @@ describe("renderStylish", () => {
   test("summary line for a clean run mentions the measurement count", () => {
     const { stdout } = renderStylish(
       {
-        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: [],
         degradations: [],
@@ -87,7 +87,7 @@ describe("renderStylish", () => {
   test("a run with failed units never claims clean on stdout", () => {
     const { stdout, stderr } = renderStylish(
       {
-        measurements: [{ sensor: "s", input: "i", value: 0.5 }],
+        measurements: [{ rule: "s", input: "i", value: 0.5 }],
         signals: [],
         errors: report.errors,
         degradations: [],

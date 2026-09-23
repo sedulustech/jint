@@ -18,13 +18,13 @@ export function renderJson(report: LintReport): string {
         format: REPORT_FORMAT,
         version: pkg.version,
         measurements: report.measurements.map((m) => ({
-          sensor: m.sensor,
+          rule: m.rule,
           input: m.input,
           value: m.value,
           ...(m.stage !== undefined && { stage: m.stage }),
         })),
         signals: report.signals.map((s) => ({
-          sensor: s.sensor,
+          rule: s.rule,
           input: s.input,
           value: s.value,
           severity: s.severity,

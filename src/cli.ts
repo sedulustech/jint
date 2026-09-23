@@ -41,14 +41,14 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   color: TypeBoxType.Optional(COLOR_MODE_SCHEMA),
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  sensor: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  rule: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
 
 type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
 
-const HELP = `jint — jev lint: measures code with AI-classifier judgments; sensors in, signals out.
+const HELP = `jint — jev lint: measures code with AI-classifier judgments; rules in, signals out.
 
 Usage:
   jint --file <path>...      measure on-disk files
@@ -70,8 +70,8 @@ Options:
   --diff <spec>       diff input: "-", a *.patch path, or a rev expression
   --config <path>     config file (default: jint.config.ts)
   --exclude <glob>    input exclusion, on top of config (repeatable)
-  --disable <name>    sensor removal by name, on top of config (repeatable)
-  --sensor <name>     run ONLY these sensors (repeatable); overrides --disable for the named set
+  --disable <name>    rule removal by name, on top of config (repeatable)
+  --rule <name>      run ONLY these rules (repeatable); overrides --disable for the named set
   --json              machine report (jint-report/v1) instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
@@ -79,7 +79,7 @@ Options:
   --version           print the version
 
 Config precedence: flags > jint.config.ts > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
-Sensors: is_name_purposeful, is_vocabulary_consistent, is_naming_convention_consistent,
+Rules: is_name_purposeful, is_vocabulary_consistent, is_naming_convention_consistent,
 is_greppable (high = good),
 is_comment_narration, is_comment_patching_readability, will_comment_drift, is_cognitively_complex
 (high = bad), is_comment_business_context (measurement-only in v0). Each carries an
@@ -132,7 +132,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         inputType: cliInput.inputType,
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
-        only: cliArgs.sensor,
+        only: cliArgs.rule,
       }),
     );
     // JSON: the document is data (errors/degradations ride in it) — stdout only, stderr untouched.
@@ -169,7 +169,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         color: { type: "string" },
         exclude: { type: "string", multiple: true },
         disable: { type: "string", multiple: true },
-        sensor: { type: "string", multiple: true },
+        rule: { type: "string", multiple: true },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },

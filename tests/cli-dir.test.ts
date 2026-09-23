@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
-// runs exercise the worktree's own sensors and calibration
+// runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
 const CLI = "src/cli.ts";
 const NO_KEY = { TYPESAFE_API_KEY: "" };

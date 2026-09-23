@@ -9,7 +9,7 @@ describe("loadConfig", () => {
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(
       tmpDir + "/jint.config.ts",
-      'export default { input: ".", sensors: [{ name: "noop", criteria: { true: "noop holds", false: "it does not" }, target: "files", handle: () => null }], exclude: [] };',
+      'export default { input: ".", rules: [{ name: "noop", criteria: { true: "noop holds", false: "it does not" }, target: "files", handle: () => null }], exclude: [] };',
     );
 
     // Should exit 4 (JEV_AUTH) because key is empty
@@ -38,7 +38,7 @@ describe("loadConfig", () => {
   test("loads a valid defineConfig file", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.ts");
     expect(config.input).toBe("tests/fixtures/sample-dir");
-    expect(config.sensors.map((s) => s.name)).not.toContain("will_comment_drift");
+    expect(config.rules.map((s) => s.name)).not.toContain("will_comment_drift");
     expect(config.exclude).toEqual(["**/more.ts"]);
   });
 
@@ -81,15 +81,15 @@ describe("loadConfig", () => {
 });
 
 describe("validateConfig / defaultConfig", () => {
-  test("defaultConfig carries every default sensor and no input", () => {
+  test("defaultConfig carries every default rule and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.sensors).toHaveLength(10);
+    expect(config.rules).toHaveLength(10);
   });
 
-  test("validateConfig rejects sensors that are not an array", () => {
+  test("validateConfig rejects rules that are not an array", () => {
     try {
-      validateConfig({ input: "x", sensors: {}, exclude: [] }, "inline");
+      validateConfig({ input: "x", rules: {}, exclude: [] }, "inline");
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
