@@ -51,6 +51,9 @@ measurement its handle judged actionable and is the only output that demands act
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
   from it.
+- **composite** — a parsed structure that holds other nodes but is not itself an element: the
+  walk descends into it and harvests the inner nodes as elements. Classes and top-level call
+  expressions (like a describe callback) are composites; a composite is never a target.
 - **classifying** — asking the model whether a claim holds for one state: sensors compile to
   yes/no questions, the model answers each with a noul probability; jint only ever classifies
   states, it never generates or transforms them.
