@@ -188,8 +188,12 @@ This is the measurement-only door: handles are never applied and no signals are 
 ```bash
 bun install
 bun test            # 100+ tests incl. calibration checks against tmp/diff-v4
-tsc --noEmit       # typecheck
-bun src/cli.ts --help
+bun run validate    # schema -> typecheck -> lint -> build
+bun run build       # emit dist/ (tsc -p tsconfig.build.json); schema first, it is checked in
+bun src/cli.ts --help      # from source
+bun dist/cli.js --help     # from the build (bun runtime: the CLI uses Bun.stdin/file/spawn)
 ```
+
+The build uses tsc emit (not `bun build --compile`) because the package manifest ships `main`/`types` from `./dist` with `files: ["dist", "src"]` — a per-module JS + `.d.ts` tree. `jint.schema.json` is not a build output: the runtime loader never reads it, it exists for editor autocomplete and ships via the `files` field.
 
 State shapes: file/dir inputs classifier `{ path, content }`; diff inputs classifier `{ path, diff, commit_message }` — the calibrated tmp/diff-v4 shape, so the validated numbers transfer.

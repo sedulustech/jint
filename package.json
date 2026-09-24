@@ -2,9 +2,13 @@
   "name": "jint",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "jint": "./dist/cli.js"
+  },
   "files": [
     "dist",
-    "src"
+    "src",
+    "jint.schema.json"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -13,8 +17,9 @@
   "scripts": {
     "test": "bun test --parallel",
     "schema": "bun scripts/generate-schema.ts",
+    "build": "bun run schema && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
     "typecheck": "tsc --noEmit",
-    "validate": "bun run schema && bun run typecheck && bun run lint",
+    "validate": "bun run schema && bun run typecheck && bun run lint && bun run build",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
