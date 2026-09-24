@@ -40,12 +40,6 @@ describe("default handles: polarity", () => {
     expect(defaultRules.is_cognitively_complex!.handle(0.5)).toBe("warn");
     expect(defaultRules.is_cognitively_complex!.handle(0.4)).toBeNull();
   });
-
-  test("is_comment_business_context is gentle: null handle in v0 (absence is not a defect)", () => {
-    for (const value of [0, 0.2, 0.5, 0.9, 1]) {
-      expect(defaultRules.is_comment_business_context!.handle(value)).toBeNull();
-    }
-  });
 });
 
 describe("ci gate simulation: known-good corpus passes, damaged corpus fails", () => {
@@ -161,7 +155,6 @@ describe("rule definitions", () => {
       "is_vocabulary_consistent",
       "is_naming_convention_consistent",
       "is_greppable",
-      "is_comment_business_context",
       "is_comment_narration",
       "is_comment_patching_readability",
       "will_comment_drift",

@@ -45,7 +45,7 @@ const HANDLE_SCHEMA = Type.Object(
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so minimal
 // configs stay validating (the loader fills the default). "handle": null is the measure-only
-// form: the measurement streams, nothing ever signals (is_comment_business_context ships this).
+// form: the measurement streams, nothing ever signals (no default ships it; "handle": null).
 const RULE_SCHEMA = Type.Union([
   Type.Object({
     name: Type.String(),

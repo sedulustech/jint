@@ -22,13 +22,9 @@ import type { Rule } from "../types.ts";
 /**
  * HANDLES ARE DATA: every default handle is a DataHandle (warn_at + error_at; polarity inferred
  * from their ordering — see handle.ts) compiled to the internal function form at module init.
- * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json.
- *
- * EXCEPTION (flagged, deliberately): is_comment_business_context's handle is null — a bare
- * function, not a DataHandle. It is not expressible as thresholds BY DESIGN, not by omission: high
- * readings are a virtue and low readings are not a defect, so ANY threshold would flag healthy
- * code. See that rule's comment. The declarative config surface mirrors this with "handle": null
- * (measure-only).
+ * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json. The
+ * declarative config surface also accepts "handle": null (measure-only: the measurement streams,
+ * nothing ever signals) — no default rule ships that form today.
  */
 
 export const isNamePurposeful: Rule = {
@@ -88,22 +84,6 @@ export const isGreppable: Rule = {
   },
   target: "files",
   handle: compileHandle({ warn_at: 0.75, error_at: 0.6 }),
-};
-
-export const is_comment_business_context: Rule = {
-  name: "is_comment_business_context",
-  criteria: {
-    true: "The comments here carry business context a maintainer cannot recover from the code alone: why the code exists or why this approach was chosen - the requirement, constraint, or decision it serves, a pointer to where that decision lives (ticket, spec, incident, upstream contract), or a warning that the code must stay consistent with something outside itself.",
-    false:
-      "The comments only describe what the code does: docstrings restating a signature, prose narration of the statements, or style notes - nothing a maintainer could not recover from the code itself.",
-  },
-  target: "comments",
-  // Null in v0, deliberately: high readings are a virtue and low readings are
-  // not a defect (not all code needs recorded context), so no reading is
-  // evidence of a problem - any threshold would flag healthy code. The
-  // measurement still streams; enforce context requirements by overriding this
-  // handle in config.
-  handle: () => null,
 };
 
 export const is_comment_narration: Rule = {
@@ -180,7 +160,6 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   is_vocabulary_consistent: isVocabularyConsistent,
   is_naming_convention_consistent: isNamingConventionConsistent,
   is_greppable: isGreppable,
-  is_comment_business_context,
   is_comment_narration,
   is_comment_patching_readability,
   will_comment_drift,

@@ -105,7 +105,6 @@ describe("classifyUnit", () => {
         is_vocabulary_consistent: 0.8,
         is_naming_convention_consistent: 0.9,
         is_greppable: 0.6,
-        is_comment_business_context: 0.5,
         is_comment_narration: 0.2,
         is_comment_patching_readability: 0.1,
         will_comment_drift: 0.1,

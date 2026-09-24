@@ -28,7 +28,6 @@ const SILENT = {
   is_vocabulary_consistent: 0.9,
   is_naming_convention_consistent: 0.9,
   is_greppable: 0.9,
-  is_comment_business_context: 0.5,
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
@@ -86,7 +85,6 @@ function loggingClassifier(values: Record<string, number>, log: CallLog): Classi
 const isElementCall = (state: AnyState): boolean => "source" in state;
 
 const COMMENT_SENSORS = [
-  "is_comment_business_context",
   "is_comment_narration",
   "is_comment_patching_readability",
   "will_comment_drift",
@@ -252,7 +250,6 @@ describe("lint", () => {
           is_name_purposeful: 0.3,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
-          is_comment_business_context: 1.0,
           is_cognitively_complex: 0.3,
         }),
       }),
@@ -261,8 +258,7 @@ describe("lint", () => {
     const signals = events.filter((e) => e.type === "signal");
     // file call 2 + element classification 14 (8 docblock + 4 bare definitions + 2 functions)
     expect(measurements).toHaveLength(16);
-    // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy;
-    // business_context at 1.0 never fires (measurement-only in v0)
+    // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy
     expect(signals).toHaveLength(2);
     expect(signals.map((s) => s.signal.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
     for (const s of signals) {
@@ -306,7 +302,6 @@ describe("lint", () => {
         config: baseConfig,
         input: FILE,
         disable: [
-          "is_comment_business_context",
           "is_comment_narration",
           "is_comment_patching_readability",
           "will_comment_drift",
