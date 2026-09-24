@@ -170,17 +170,15 @@ export interface FileState {
   readonly id: string;
 }
 
-/** One element of a classification array state (design §7.7); id is its LOC wire id. */
+/**
+ * State for ONE element judgment: the element's source under its own name, plus the file path so
+ * the model knows the enclosing context. Never batch elements into an array state - one state x
+ * many questions makes jev answer every question from the file's average (probes: noul pinned
+ * 0.61-0.66 across 21 elements whose isolated readings spread 0.60-0.92).
+ */
 export interface ElementState {
-  /** LOC-interval wire id (treesitter span); reports address elements by the same id. */
-  readonly id: string;
-  readonly content: string;
-}
-
-/** Classification array state: one file mapped into its elements, judged in chunked calls. */
-export interface SweepState {
   readonly path: string;
-  readonly elements: readonly ElementState[];
+  readonly source: string;
 }
 
 /** State for diff units — the calibrated tmp/diff-v4 shape, so the validated numbers transfer. */
@@ -191,8 +189,8 @@ export interface DiffState {
 }
 
 export type UnitState = FileState | DiffState;
-/** Everything the classifier may be handed: whole-file/diff units, plus classification arrays. */
-export type AnyState = UnitState | SweepState;
+/** Everything the classifier may be handed: whole-file/diff units, plus single elements. */
+export type AnyState = UnitState | ElementState;
 
 /** A resolved thing to measure: its kind picks the rules; its state feeds the classifier. */
 export interface Unit {
@@ -209,14 +207,14 @@ export interface Unit {
  */
 export interface NoulQuestionSpec {
   readonly type: "noul";
-  readonly instructions: Readonly<Record<string, string>>;
+  readonly instructions: string;
   readonly criteria?: { readonly true: string; readonly false: string };
 }
 
 /** A scored question; structurally compatible with the SDK's ScoreQuestion. */
 export interface ScoreQuestionSpec {
   readonly type: "score";
-  readonly instructions: Readonly<Record<string, string>>;
+  readonly instructions: string;
   readonly criteria: ChoiceRubric;
 }
 

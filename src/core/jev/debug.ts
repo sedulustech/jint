@@ -48,7 +48,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       };
       mkdirSync(dir, { recursive: true });
       const state = (capture.request as { state?: Record<string, unknown> }).state ?? {};
-      const kind = "elements" in state ? "elements" : "files";
+      const kind = "source" in state ? "elements" : "files";
       const name = String(state.path ?? "state")
         .split("/")
         .pop();

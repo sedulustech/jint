@@ -72,9 +72,9 @@ describe("requestDebug", () => {
     expect(capture.response.model).toBe("jev-1.0");
   });
 
-  test("state shape drives the kind: elements array -> elements, else files", async () => {
+  test("state shape drives the kind: single-element source -> elements, else files", async () => {
     const config = requestDebug({ fetch: passthrough() });
-    await captureOnce(config, { path: "a.ts", elements: [{ id: "ab12cd34", content: "x" }] });
+    await captureOnce(config, { path: "a.ts", source: "x" });
     await captureOnce(config, { path: "b.ts", content: "x" });
 
     const list = listCaptures(DIR);

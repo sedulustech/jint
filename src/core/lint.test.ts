@@ -77,13 +77,13 @@ function loggingClassifier(values: Record<string, number>, log: CallLog): Classi
     if (process.env.DBG)
       console.log(
         "CALL",
-        JSON.stringify({ isSweep: "elements" in state, keys: Object.keys(questions) }),
+        JSON.stringify({ isElementCall: "source" in state, keys: Object.keys(questions) }),
       );
     return inner(state, questions);
   };
 }
 
-const isSweep = (state: AnyState): boolean => "elements" in state;
+const isElementCall = (state: AnyState): boolean => "source" in state;
 
 const COMMENT_SENSORS = [
   "is_comment_business_context",
@@ -106,23 +106,21 @@ test("classification respects rule targets: comment rules never judge bare defin
       classifier: loggingClassifier({}, log),
     }),
   );
-  const sweep = log.calls.filter((c) => isSweep(c.state))[0]!;
-  const elements = (
-    sweep.state as unknown as { elements: ReadonlyArray<{ id: string; content: string }> }
-  ).elements;
-  const isCommentBlock = new Map(elements.map((b) => [b.id, !b.content.includes("export ")]));
-  for (const key of sweep.questions) {
-    const rule = key.slice(0, key.indexOf(" in "));
-    const unitId = key.slice(key.indexOf(" in ") + 4);
-    const commentBlock = isCommentBlock.get(unitId)!;
-    if (COMMENT_SENSORS.includes(rule)) {
-      // comment-family rules may judge comment elements and definitions WITH attached docblocks,
-      // but never a bare definition (nothing to classifier)
-      const content = elements.find((b) => b.id === unitId)?.content ?? "";
-      expect(commentBlock || content.includes("//")).toBe(true);
-    }
-    if (DEFINITION_SENSORS.includes(rule)) {
-      expect(commentBlock).toBe(false);
+  // one element per call: the element's rules batch inside the call under bare rule-name keys
+  const elementCalls = log.calls.filter((c) => isElementCall(c.state));
+  expect(elementCalls.length).toBeGreaterThan(0);
+  for (const c of elementCalls) {
+    const source = (c.state as { source: string }).source;
+    const isCommentElement = !source.includes("export ");
+    for (const rule of c.questions) {
+      if (COMMENT_SENSORS.includes(rule)) {
+        // comment-family rules may judge comment elements and definitions WITH attached docblocks,
+        // but never a bare definition (nothing to classify)
+        expect(isCommentElement || source.includes("//")).toBe(true);
+      }
+      if (DEFINITION_SENSORS.includes(rule)) {
+        expect(isCommentElement).toBe(false);
+      }
     }
   }
 });
@@ -134,37 +132,34 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
 }
 
 describe("lint — classification shape", () => {
-  test("one batched element-classification call per file + documented noul questions; files-target call separate", async () => {
+  test("one element-classification call per element (bare rule-name keys); files-target call separate", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
-    const sweeps = log.calls.filter((c) => isSweep(c.state));
-    expect(sweeps).toHaveLength(1);
-    const sweep = sweeps[0]!;
-    // wire ids are LOC intervals, used verbatim in report inputs
-    const sweepState = sweep.state as unknown as {
-      elements: ReadonlyArray<{ id: string; content: string }>;
-    };
-    expect(sweepState.elements).toEqual([
-      {
-        id: expect.stringMatching(/^L\d+(-L\d+)?$/),
-        content: expect.stringContaining("addSeconds"),
-      },
-      {
-        id: expect.stringMatching(/^L\d+(-L\d+)?$/),
-        content: expect.stringContaining("formatDuration"),
-      },
-    ]);
-    // wire ids are the treesitter LOC interval of each block's swept content
-    const blockIds = sweepState.elements.map((b) => b.id);
-    expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
+    // one call per element, state = {path, source} - the array matrix state is banned (averages)
+    const elementCalls = log.calls.filter((c) => isElementCall(c.state));
+    expect(elementCalls).toHaveLength(2); // two definitions: addSeconds, formatDuration
+    const sources = elementCalls.map((c) => (c.state as { path: string; source: string }).source);
+    expect(sources[0]).toContain("addSeconds");
+    expect(sources[1]).toContain("formatDuration");
+    for (const c of elementCalls) {
+      for (const state of [c.state]) {
+        expect((state as { path: string }).path).toBe(FILE);
+      }
+    }
     // per (element, target-matched rule): L2-L4 carries the module docblock -> 8 rules,
-    // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting)
-    expect(sweep.questions).toHaveLength(14);
-    expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
-    expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
-    // criteria-as-rule: instructions map the unit id to the task, criteria is the rule
+    // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting);
+    // question keys inside a call are bare rule names (one element per call, no ambiguity)
+    // docblock-carrying function definition: 9 rules (4 comment + 4 definition + srp);
+    // bare definition: 5 rules (4 definition-target + srp; design 7.7 targeting)
+    const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
+    expect(counts).toEqual([5, 9]);
+    const withPurposeful = elementCalls.find((c) => c.questions.includes("is_name_purposeful"))!;
+    const withComplex = elementCalls.find((c) => c.questions.includes("is_cognitively_complex"))!;
+    expect(withPurposeful).toBeDefined();
+    expect(withComplex).toBeDefined();
+    // criteria-as-rule: instructions is the task sentence, criteria is the rule
     // (noul questions get UNIT_TASK; choice questions carry their own instructions sentence)
-    for (const [, spec] of Object.entries(sweep.specs)) {
+    for (const [, spec] of Object.entries(elementCalls[0]!.specs)) {
       const s = spec as {
         type: string;
         instructions: unknown;
@@ -175,7 +170,7 @@ describe("lint — classification shape", () => {
       expect(s.criteria).toBeDefined();
     }
     // the files-target rules keep their own whole-content call
-    const whole = log.calls.filter((c) => !isSweep(c.state));
+    const whole = log.calls.filter((c) => !isElementCall(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
@@ -194,7 +189,7 @@ describe("lint — classification shape", () => {
       // one call only: files-target rules on whole content. No sweep call at all -
       // an unparseable file yields no elements and there is no whole-file element judgment.
       expect(log.calls).toHaveLength(1);
-      expect(isSweep(log.calls[0]!.state)).toBe(false);
+      expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
       expect(measurements).toHaveLength(2); // whole-unit rules only
       const errors = events.filter(
@@ -212,17 +207,12 @@ describe("lint — classification shape", () => {
   test("classification never hands a whole-file element to any target, functions included", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
-    const sweeps = log.calls.filter((c) => isSweep(c.state));
-    expect(sweeps.length).toBeGreaterThan(0);
+    const elementCalls = log.calls.filter((c) => isElementCall(c.state));
+    expect(elementCalls.length).toBeGreaterThan(0);
     const src = await Bun.file(FILE).text();
-    for (const c of sweeps) {
-      const elements = (c.state as unknown as { elements: { id: string; content: string }[] })
-        .elements;
-      for (const block of elements) {
-        // no block IS the whole file - targets route over elements, never a file-shaped element
-        expect(block.content).not.toBe(src);
-        expect(block.id).not.toBe("L1-L" + src.split("\n").length);
-      }
+    for (const c of elementCalls) {
+      // no element IS the whole file - targets route over elements, never a file-shaped element
+      expect((c.state as { source: string }).source).not.toBe(src);
     }
   });
 
@@ -243,7 +233,7 @@ describe("lint — classification shape", () => {
       // whole-unit call only; classification is skipped entirely (no elements -> early return)
       expect(calls).toHaveLength(1);
       expect(result.fatal).toBe(false);
-      const sweepCalls = calls.filter((c) => isSweep((c as { state: AnyState }).state));
+      const sweepCalls = calls.filter((c) => isElementCall((c as { state: AnyState }).state));
       expect(sweepCalls).toHaveLength(0);
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);
@@ -330,11 +320,10 @@ describe("lint", () => {
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),
     );
-    // purposeful targets definitions: one classification call, no whole-content call
-    expect(log.calls).toHaveLength(1);
-    expect(log.calls[0]!.questions).toHaveLength(2);
-    for (const key of log.calls[0]!.questions) {
-      expect(key).toMatch(/^L\d+(-L\d+)?$/); // single rule -> bare unit-id keys
+    // purposeful targets definitions: one classification call per element, no whole-content call
+    expect(log.calls).toHaveLength(2);
+    for (const c of log.calls) {
+      expect(c.questions).toEqual(["is_name_purposeful"]); // bare rule-name keys, one element per call
     }
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
@@ -391,8 +380,8 @@ describe("lint", () => {
     const errors = events.filter(
       (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
-    // both of the failed file's calls (whole-content + sweep) surface an error
-    expect(errors).toHaveLength(2);
+    // the failed file's calls (whole-content + one call per element) surface an error
+    expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(16); // second unit: 2 file + 14 sweep
   });

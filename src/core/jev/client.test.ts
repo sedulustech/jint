@@ -19,9 +19,7 @@ const state: UnitState = {
 const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
     type: "noul",
-    instructions: {
-      a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria.",
-    },
+    instructions: "Judge the syntax unit against the criteria.",
     criteria: { true: "the property holds", false: "the property does not hold" },
   },
 };
@@ -41,7 +39,7 @@ const happyBody = {
 const scoreQuestions: Record<string, QuestionSpec> = {
   is_readability: {
     type: "score",
-    instructions: { L1: "How easy is source to read?" },
+    instructions: "How easy is source to read?",
     criteria: ["obvious", "mostly clear", "reconstructed intent", "dense"],
   },
 };
@@ -105,9 +103,9 @@ describe("createClassifier", () => {
     expect(captured!.url).toContain("/v1/systemone");
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_name_purposeful.type).toBe("noul");
-    expect(body.questions.is_name_purposeful.instructions).toEqual({
-      a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria.",
-    });
+    expect(body.questions.is_name_purposeful.instructions).toBe(
+      "Judge the syntax unit against the criteria.",
+    );
     expect(body.questions.is_name_purposeful.criteria).toEqual({
       true: "the property holds",
       false: "the property does not hold",

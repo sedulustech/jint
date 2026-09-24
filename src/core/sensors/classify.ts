@@ -12,7 +12,6 @@ import {
   MeasureError,
   type AnyState,
   type Classifier,
-  type ElementState,
   type Measurement,
   type QuestionSpec,
   type Rule,
@@ -40,32 +39,47 @@ export function questionKey(ruleName: string, blockId: string): string {
   return `${ruleName} in ${blockId}`;
 }
 
-/** The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). */
-export const UNIT_TASK = "Judge the syntax unit mapped to this id against the criteria.";
+/**
+ * The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). No
+ * "mapped to this id" routing anymore: each call hands the model exactly one unit as the state, so
+ * there is no id mapping to route by. Recalibration event: thresholds anchored to the previous
+ * sentence need re-derivation.
+ */
+export const UNIT_TASK = "Judge the syntax unit against the criteria.";
 
 /**
- * Compile rules to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps the
- * unit id to the task sentence ({id: task}), criteria is the rule's actual rule passed straight
- * through. The unit id is the model's routing target (measured: object form is equal to the keyed
- * form at mean delta 0.024, tmp probes); question ids (record keys) are never sent.
+ * Compile rules to questions for ONE unit state, criteria-as-rule: instructions is the generic task
+ * sentence, criteria is the rule's actual rule passed straight through. Question ids (record keys)
+ * are never sent — the attribution map correlates answers.
  */
 export function compileRuleQuestions(rules: readonly Rule[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
   const attribution = new Map<string, QuestionAttribution>();
-  // single-rule runs key questions by bare unit id: one rule means no ambiguity, and the
-  // capture json groups by unit id without a composite key (question ids are never sent).
-  const bareKeys = rules.length === 1;
   for (const rule of rules) {
-    const key = bareKeys ? unitId : questionKey(rule.name, unitId);
     // choice: ordered rubric -> ScoreQuestion (score is the right primitive; ChoiceQuestion is
     // for named unordered options and stays unused)
-    questions[key] =
+    questions[questionKey(rule.name, unitId)] =
       rule.kind === "choice"
-        ? { type: "score", instructions: { [unitId]: rule.instructions }, criteria: rule.criteria }
-        : { type: "noul", instructions: { [unitId]: UNIT_TASK }, criteria: rule.criteria };
-    attribution.set(key, { rule: rule.name, blockId: unitId });
+        ? { type: "score", instructions: rule.instructions, criteria: rule.criteria }
+        : { type: "noul", instructions: UNIT_TASK, criteria: rule.criteria };
+    attribution.set(questionKey(rule.name, unitId), { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
+}
+
+/**
+ * Compile an element's rules to questions keyed by bare rule name: one element per call means no
+ * ambiguity (mirror of the single-rule bare-key behavior of compileRuleQuestions).
+ */
+export function compileElementQuestions(rules: readonly Rule[]): Record<string, QuestionSpec> {
+  const questions: Record<string, QuestionSpec> = {};
+  for (const rule of rules) {
+    questions[rule.name] =
+      rule.kind === "choice"
+        ? { type: "score", instructions: rule.instructions, criteria: rule.criteria }
+        : { type: "noul", instructions: UNIT_TASK, criteria: rule.criteria };
+  }
+  return questions;
 }
 
 /**
@@ -142,7 +156,7 @@ export function toMeasureError(input: string, thrown: unknown): MeasureError {
 
 // ---------------------------------------------------------------------------
 // Element classification — derive the inventory, then classify every element
-// x every inventory-scoped rule in chunked concurrent calls, ONE pass.
+// x every inventory-scoped rule, one concurrent call per element (bounded), ONE pass.
 
 /** Which kind of thing a measurement measured: the unit itself, or an element of its inventory. */
 export type ClassifyStage = "file" | "element";
@@ -161,6 +175,12 @@ export interface ClassifyResult {
   readonly fatal: boolean;
 }
 
+/**
+ * In-flight one-element classifier calls per file. Provisional: waves mirror FILE_CONCURRENCY
+ * semantics; unanchored until element-call latency is measured on the self-corpus.
+ */
+export const ELEMENT_CONCURRENCY = 8;
+
 /** Rules whose target matches an element's kind (design §7.1: the target routes). */
 const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
   const commentElement = element.role === "comment";
@@ -177,8 +197,8 @@ const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rul
 };
 /**
  * Classify one unit: the unit-scoped rules over the whole unit, then every element of the inventory
- * x every inventory-scoped rule, chunked <=50-question calls run concurrently. One pass, no
- * candidacy: every measurement is a reading the rule's handle judges.
+ * x every inventory-scoped rule, one call per element under a bounded-concurrency scheduler. One
+ * pass, no candidacy: every measurement is a reading the rule's handle judges.
  *
  * No fallback: a file that maps to no elements yields no element classification and its
  * inventory-scoped rules fail with a per-unit MAPPING_FAILED error. Unit-scoped rules (files/diffs)
@@ -250,68 +270,54 @@ export async function classifyFile(
     });
   }
 
-  // Every element x its inventory-scoped rules, one question each, chunked fan-out:
-  // a single response serializes answers past ~20-50 questions (~0.12s each), so the
-  // questions split into <=50-question calls run concurrently (measured: 207 answers in
-  // 26s unchunked vs 3.2s chunked; answers stable at mean |delta| 0.02 across shapes).
-  const elements: ElementState[] = [];
-  const questions: Record<string, QuestionSpec> = {};
-  const attribution = new Map<string, QuestionAttribution>();
-  const spanByWireId = new Map<string, Span>();
+  // ------------------------------------------------------------------
+  // REGRESSION BAN — the array state {path, elements: [{id, content}]} with many questions is
+  // BANNED: one state x many questions is valid, but the state x question MATRIX form makes jev
+  // answer every question from the file's average, not the element. Measured (tmp/readability-iso,
+  // tmp/noul-shape-probe): noul pinned 0.61-0.66 across 21 elements whose per-element source-state
+  // readings spread 0.60-0.92; score readings flat 0.32-0.35 vs a discriminating spread isolated.
+  // Hence: ONE element per call (state = {path, source}), all of that element's rules' questions
+  // batched inside the call (multiple questions x one state is fine), elements fanned out by
+  // CONCURRENCY, not questions-per-call.
+  const jobs: Array<{ wireId: string; span: Span; source: string; rules: Rule[] }> = [];
   for (const element of inventory) {
     const scoped = rulesForElement(rules, element);
     if (scoped.length === 0) continue;
     const wireId = elementWireId(element.span);
-    elements.push({ id: wireId, content: elementContent(element) });
-    spanByWireId.set(wireId, element.span);
-    const batch = compileRuleQuestions(scoped, wireId);
-    Object.assign(questions, batch.questions);
-    for (const [key, attr] of batch.attribution) attribution.set(key, attr);
+    jobs.push({ wireId, span: element.span, source: elementContent(element), rules: scoped });
   }
-  if (elements.length === 0 || isAborted()) return { events, fatal: false };
+  if (jobs.length === 0 || isAborted()) return { events, fatal: false };
 
-  // Chunks may mix noul and score questions: the SDK's Questions record accepts both kinds in one
-  // call and answers are keyed independently, so partitioning by kind would only fragment batches.
-  const keys = Object.keys(questions);
-  const CHUNK = 50;
-  const chunks: string[][] = [];
-  for (let i = 0; i < keys.length; i += CHUNK) chunks.push(keys.slice(i, i + CHUNK));
-  const errors: MeasureError[] = [];
-  const answers: Record<string, number> = {};
-  await Promise.all(
-    chunks.map(async (chunkKeys) => {
-      const chunkQuestions = Object.fromEntries(chunkKeys.map((k) => [k, questions[k]!]));
+  let next = 0;
+  let aborted = false;
+  const worker = async (): Promise<void> => {
+    while (next < jobs.length && !aborted && !isAborted()) {
+      const job = jobs[next++]!;
+      const input = `${state.path}#${job.wireId}`;
       const result = await call(
-        { path: state.path, elements },
-        chunkQuestions,
+        { path: state.path, source: job.source },
+        compileElementQuestions(job.rules),
         classifier,
-        state.path,
+        input,
       );
-      if (result.error !== null) errors.push(result.error);
-      Object.assign(answers, result.answers);
-    }),
-  );
-  for (const error of errors) events.push({ event: error, stage: "element" });
-  if (fatalIn()) return { events, fatal: true };
-  for (const [key, value] of Object.entries(answers)) {
-    // keys may be composite ("<rule> in <unitId>") or bare unit ids (single-rule runs);
-    // the attribution map built at question-construction time is the source of truth
-    const attr = attribution.get(key);
-    const span = attr && attr.blockId !== null ? spanByWireId.get(attr.blockId) : undefined;
-    if (attr === undefined || attr.blockId === null || span === undefined) {
-      events.push({ event: invalidAnswerError(state.path, key), stage: "element" });
-      continue;
+      if (result.error !== null) {
+        events.push({ event: result.error, stage: "element" });
+        if (result.error.code === "JEV_AUTH") aborted = true;
+        continue;
+      }
+      for (const [rule, value] of Object.entries(result.answers)) {
+        if (typeof value !== "number" || !Number.isFinite(value)) {
+          events.push({ event: invalidAnswerError(input, rule), stage: "element" });
+          continue;
+        }
+        events.push({ event: { rule, input, value }, stage: "element", span: job.span });
+      }
     }
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      events.push({ event: invalidAnswerError(state.path, attr.rule), stage: "element" });
-      continue;
-    }
-    events.push({
-      event: { rule: attr.rule, input: `${state.path}#${attr.blockId}`, value },
-      stage: "element",
-      span,
-    });
-  }
+  };
+  // Elements fan out as concurrent one-element calls (chunking questions per call is what produced
+  // the averaged matrix readings); the cap bounds in-flight requests per file.
+  await Promise.all(Array.from({ length: Math.min(ELEMENT_CONCURRENCY, jobs.length) }, worker));
+  if (aborted) return { events, fatal: true };
   return { events, fatal: false };
 }
 /**

@@ -11,6 +11,7 @@ import {
   UNIT_TASK,
   elementWireId,
   compileRuleQuestions,
+  compileElementQuestions,
   classifyUnit,
   toMeasureError,
 } from "./classify.ts";
@@ -58,31 +59,31 @@ describe("UNIT_TASK", () => {
     // thresholds and baselines were measured with exactly this prompt. Renames apply to
     // identifiers, never to prompt strings (the sensor->rule rename once rewrote it to
     // "Classifier the ...", silently mutating every reading). Pin it byte-exact.
-    expect(UNIT_TASK).toBe("Judge the syntax unit mapped to this id against the criteria.");
+    expect(UNIT_TASK).toBe("Judge the syntax unit against the criteria.");
   });
 });
 
 describe("compileRuleQuestions", () => {
-  test("whole-file unit: criteria passthrough, instructions maps the unit id to the task sentence", () => {
+  test("whole-file unit: criteria passthrough, instructions is the task sentence", () => {
     const rule = defaultRules.is_name_purposeful!;
     const { questions, attribution } = compileRuleQuestions([rule], FILE_ID);
-    const spec = questions[FILE_ID]!;
+    const spec = questions[`is_name_purposeful in ${FILE_ID}`]!;
     expect(spec.type).toBe("noul");
-    expect(spec.instructions).toEqual({ [FILE_ID]: UNIT_TASK });
+    expect(spec.instructions).toBe(UNIT_TASK);
     expect(spec.criteria).toBe(rule.criteria);
-    expect(attribution.get(FILE_ID)).toEqual({
+    expect(attribution.get(`is_name_purposeful in ${FILE_ID}`)).toEqual({
       rule: "is_name_purposeful",
       blockId: FILE_ID,
     });
   });
 
-  test("block-scoped: '<rule> in <unitId>' ids, wire id keyed in instructions", () => {
+  test("block-scoped: '<rule> in <unitId>' ids", () => {
     const rule = defaultRules.is_name_purposeful!;
     const { questions, attribution } = compileRuleQuestions([rule], "block-3");
-    const spec = questions["block-3"]!;
-    expect(spec.instructions).toEqual({ "block-3": UNIT_TASK });
+    const spec = questions["is_name_purposeful in block-3"]!;
+    expect(spec.instructions).toBe(UNIT_TASK);
     expect(spec.criteria).toBe(rule.criteria);
-    expect(attribution.get("block-3")).toEqual({
+    expect(attribution.get("is_name_purposeful in block-3")).toEqual({
       rule: "is_name_purposeful",
       blockId: "block-3",
     });
@@ -210,21 +211,8 @@ describe("toMeasureError", () => {
   });
 });
 
-describe("compileRuleQuestions — single-rule bare keys", () => {
-  test("with one rule, question keys are the bare unit id (no composite key)", () => {
-    const { questions, attribution } = compileRuleQuestions(
-      [defaultRules.will_comment_drift!],
-      "a1b2c3d4",
-    );
-    const keys = Object.keys(questions);
-    expect(keys).toEqual(["a1b2c3d4"]);
-    expect(attribution.get("a1b2c3d4")).toEqual({
-      rule: "will_comment_drift",
-      blockId: "a1b2c3d4",
-    });
-  });
-
-  test("with multiple rules, keys stay composite", () => {
+describe("compileRuleQuestions — composite keys", () => {
+  test("one state x many questions: keys stay '<rule> in <unitId>'", () => {
     const { questions } = compileRuleQuestions(
       [defaultRules.will_comment_drift!, defaultRules.is_comment_narration!],
       "a1b2c3d4",
@@ -233,5 +221,53 @@ describe("compileRuleQuestions — single-rule bare keys", () => {
       "is_comment_narration in a1b2c3d4",
       "will_comment_drift in a1b2c3d4",
     ]);
+  });
+});
+
+describe("compileElementQuestions", () => {
+  test("one element per call: question keys are bare rule names", () => {
+    const questions = compileElementQuestions([
+      defaultRules.will_comment_drift!,
+      defaultRules.is_readability!,
+    ]);
+    expect(Object.keys(questions).sort()).toEqual(["is_readability", "will_comment_drift"]);
+    expect(questions.is_readability!.type).toBe("score");
+    expect(questions.is_readability!.instructions).toBe(
+      (defaultRules.is_readability! as { instructions: string }).instructions,
+    );
+    expect(questions.will_comment_drift!.type).toBe("noul");
+    expect(questions.will_comment_drift!.instructions).toBe(UNIT_TASK);
+  });
+});
+
+describe("classifyFile — element fan-out", () => {
+  test("one element per call, bounded concurrency (the array matrix state is banned)", async () => {
+    const { classifyFile, ELEMENT_CONCURRENCY } = await import("./classify.ts");
+    const lines = Array.from(
+      { length: 12 },
+      (_, i) => `export function f${i}(): number { return ${i}; }`,
+    );
+    const content = lines.join("\n") + "\n";
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const classifier: Classifier = async (state, questions) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      // state is the single element's source, not an elements array
+      expect("source" in state).toBe(true);
+      expect("elements" in state).toBe(false);
+      return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    };
+    const { events } = await classifyFile(
+      { kind: "file", state: { path: "src/gen.ts", content, id: "L1-L13" } },
+      [defaultRules.is_name_purposeful!],
+      classifier,
+    );
+    expect(events).toHaveLength(12);
+    expect(events.every((e) => !(e.event instanceof MeasureError))).toBe(true);
+    expect(maxInFlight).toBeLessThanOrEqual(ELEMENT_CONCURRENCY);
+    expect(maxInFlight).toBeGreaterThan(1); // concurrent, not sequential
   });
 });
