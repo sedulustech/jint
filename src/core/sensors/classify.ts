@@ -41,7 +41,7 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 /** The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). */
-export const UNIT_TASK = "Classifier the syntax unit mapped to this id against the criteria.";
+export const UNIT_TASK = "Judge the syntax unit mapped to this id against the criteria.";
 
 /**
  * Compile rules to noul questions, criteria-as-rule (docs: primitives/noul): instructions maps the

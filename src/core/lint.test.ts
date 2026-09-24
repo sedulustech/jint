@@ -117,7 +117,7 @@ test("classification respects rule targets: comment rules never judge bare defin
     const unitId = key.slice(key.indexOf(" in ") + 4);
     const commentBlock = isCommentBlock.get(unitId)!;
     if (COMMENT_SENSORS.includes(rule)) {
-      // comment-family rules may classifier comment elements and definitions WITH attached docblocks,
+      // comment-family rules may judge comment elements and definitions WITH attached docblocks,
       // but never a bare definition (nothing to classifier)
       const content = elements.find((b) => b.id === unitId)?.content ?? "";
       expect(commentBlock || content.includes("//")).toBe(true);

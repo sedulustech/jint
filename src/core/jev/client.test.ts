@@ -20,7 +20,7 @@ const questions: Record<string, QuestionSpec> = {
   is_name_purposeful: {
     type: "noul",
     instructions: {
-      a1b2c3d4: "Classifier the syntax unit mapped to this id against the criteria.",
+      a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria.",
     },
     criteria: { true: "the property holds", false: "the property does not hold" },
   },
@@ -70,7 +70,7 @@ describe("createClassifier", () => {
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_name_purposeful.type).toBe("noul");
     expect(body.questions.is_name_purposeful.instructions).toEqual({
-      a1b2c3d4: "Classifier the syntax unit mapped to this id against the criteria.",
+      a1b2c3d4: "Judge the syntax unit mapped to this id against the criteria.",
     });
     expect(body.questions.is_name_purposeful.criteria).toEqual({
       true: "the property holds",

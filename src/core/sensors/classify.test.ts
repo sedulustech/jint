@@ -52,6 +52,16 @@ function isMeasurement(event: Measurement | MeasureError): event is Measurement 
   return "rule" in event;
 }
 
+describe("UNIT_TASK", () => {
+  test("the calibrated task sentence is byte-exact", () => {
+    // WHY the word Judge stays: this string is calibration surface, not code naming —
+    // thresholds and baselines were measured with exactly this prompt. Renames apply to
+    // identifiers, never to prompt strings (the sensor->rule rename once rewrote it to
+    // "Classifier the ...", silently mutating every reading). Pin it byte-exact.
+    expect(UNIT_TASK).toBe("Judge the syntax unit mapped to this id against the criteria.");
+  });
+});
+
 describe("compileRuleQuestions", () => {
   test("whole-file unit: criteria passthrough, instructions maps the unit id to the task sentence", () => {
     const rule = defaultRules.is_name_purposeful!;
