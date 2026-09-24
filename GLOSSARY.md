@@ -12,22 +12,23 @@ measurement its handle judged actionable and is the only output that demands act
 
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1]
   that the claim holds; values pass through untouched.
-- **measurement** — the raw noul value for one (sensor, input) pair:
-  `{ sensor, input, value, stage? }`; always produced, never actionable by itself.
+- **measurement** — the raw reading for one (rule, element) pair:
+  `{ rule, element, value, stage }`; always produced, never actionable by itself.
 - **finding** — a measurement its handle judged actionable: the handle returned
-  `"error"` or `"warn"` (null means silent), `{ sensor, input, value, severity }`, with a
+  `"error"` or `"warn"` (null means silent), `{ rule, element, value, severity }`, with a
   `location` span where the element is part of a larger unit; the only actionable output — it
   drives the report and the exit code.
-- **sensor** — the measuring mechanism `{ name, description, target, handle }`; the
-  description is the exact calibrated claim compiled into the noul question (editing it is a
-  re-calibration event), names follow the `is_`/`will_` proposition convention.
+- **rule** — the measuring mechanism `{ name, criteria, target, kind, handle }`; the criteria is
+  the exact calibrated claim compiled into the question (editing it is a re-calibration event),
+  names follow the `is_`/`will_` proposition convention; kind picks the question primitive: noul
+  (default) or choice (scored rubric). Rules fire; findings result.
 - **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
   means; block-scoped questions get block criteria.
-- **target** the element type a sensor judges: "files" | "diffs" are
+- **target** the element type a rule judges: "files" | "diffs" are
   unit-scoped (the element is the unit itself: the file content, the raw diff string);
   "definitions" | "comments" | "functions" | "imports" are inventory-scoped (the element is
-  selected from the file inventory); sensors per target land incrementally.
-- **handle** — the sensor's policy callback `(value) => "error" | "warn" | null` (null is
+  selected from the file inventory); rules per target land incrementally.
+- **handle** — the rule's policy callback `(value) => "error" | "warn" | null` (null is
   silent); override it in config to change thresholds; readings over inventory elements never run handles —
   only whole-unit readings do.
 - **severity** — what a handle returned: `"error"` (exit code 1) or `"warn"`.
@@ -35,17 +36,17 @@ measurement its handle judged actionable and is the only output that demands act
   `{ path, diff, commit_message }`, element array `{ path, blocks }`.
 - **question** a QuestionSpec `{ type: "noul", instructions, criteria? }`; the
   record key is the question id, never sent to the model, only correlating answers back to
-  sensors; element ids read `"<sensor> in block-N"` with a FROZEN scoping sentence appended to
+  rules; element ids read `"<rule> in <element>"` with a FROZEN scoping sentence appended to
   the instructions.
 - **instructions** — the plain-string yes/no question on a QuestionSpec, compiled verbatim
-  from the sensor's description.
+  from the rule's criteria (noul) or the rule's own instructions field (choice).
 - **answer** — the single calibrated probability returned per question, validated in shape;
   missing or non-finite becomes JEV_RESPONSE_INVALID.
 - **strategy** — a model of the state and questions to send to the classifier (jev) to balance
   performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
 - **unit** — a resolved thing to measure `{ kind: "file" | "diff", state }`; dirs exist only at
   inference time and resolve to file units before measuring.
-- **element** one thing a sensor can judge: a file, a diff, or a node-derived
+- **element** one thing a rule can judge: a file, a diff, or a node-derived
   definition, comment, function, or import from a file inventory; the target names the element
   type.
 - **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
@@ -53,10 +54,9 @@ measurement its handle judged actionable and is the only output that demands act
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
   from it.
-- **composite** — a parsed structure that holds other nodes but is not itself an element: the
-  walk descends into it and harvests the inner nodes as elements. Classes and top-level call
-  expressions (like a describe callback) are composites; a composite is never a target.
-- **classifying** — asking the model whether a claim holds for one state: sensors compile to
+- **composite** — a parsed structure that holds other nodes (a class, a top-level call
+  expression like a describe callback). Composites exist only during the walk.
+- **classifying** — asking the model whether a claim holds for one state: rules compile to
   yes/no questions, the model answers each with a noul probability; jint only ever classifies
   states, it never generates or transforms them.
 - **span** a LOC pointer into the element that locates what a reading is about
