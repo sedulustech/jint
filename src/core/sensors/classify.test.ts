@@ -110,7 +110,7 @@ describe("classifyUnit", () => {
         will_comment_drift: 0.1,
         is_cognitively_complex: 0.3,
         is_function_srp: 0.8,
-        is_readability: 1,
+        is_readable: 1,
       },
       calls,
     );
@@ -227,12 +227,12 @@ describe("compileElementQuestions", () => {
   test("one element per call: question keys are bare rule names", () => {
     const questions = compileElementQuestions([
       defaultRules.will_comment_drift!,
-      defaultRules.is_readability!,
+      defaultRules.is_readable!,
     ]);
-    expect(Object.keys(questions).sort()).toEqual(["is_readability", "will_comment_drift"]);
-    expect(questions.is_readability!.type).toBe("score");
-    expect(questions.is_readability!.instructions).toBe(
-      (defaultRules.is_readability! as { instructions: string }).instructions,
+    expect(Object.keys(questions).sort()).toEqual(["is_readable", "will_comment_drift"]);
+    expect(questions.is_readable!.type).toBe("score");
+    expect(questions.is_readable!.instructions).toBe(
+      (defaultRules.is_readable! as { instructions: string }).instructions,
     );
     expect(questions.will_comment_drift!.type).toBe("noul");
     expect(questions.will_comment_drift!.instructions).toBe(UNIT_TASK);

@@ -310,7 +310,7 @@ describe("lint", () => {
           "is_naming_convention_consistent",
           "is_greppable",
           "is_function_srp",
-          "is_readability",
+          "is_readable",
         ],
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),

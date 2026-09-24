@@ -160,7 +160,7 @@ describe("rule definitions", () => {
       "will_comment_drift",
       "is_cognitively_complex",
       "is_function_srp",
-      "is_readability",
+      "is_readable",
     ]);
     for (const rule of Object.values(defaultRules)) {
       const criteria =

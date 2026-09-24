@@ -37,7 +37,7 @@ const happyBody = {
 };
 
 const scoreQuestions: Record<string, QuestionSpec> = {
-  is_readability: {
+  is_readable: {
     type: "score",
     instructions: "How easy is source to read?",
     criteria: ["obvious", "mostly clear", "reconstructed intent", "dense"],
@@ -46,7 +46,7 @@ const scoreQuestions: Record<string, QuestionSpec> = {
 
 const scoreBody = {
   model: "jev-latest",
-  answers: { is_readability: { type: "score", score: 2, confidence: 0.9 } },
+  answers: { is_readable: { type: "score", score: 2, confidence: 0.9 } },
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
@@ -79,10 +79,10 @@ describe("createClassifier", () => {
     };
     const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
     const answers = await classifier(state, scoreQuestions);
-    expect(answers.is_readability).toBe(2);
+    expect(answers.is_readable).toBe(2);
     const body = JSON.parse(String(captured!.init.body));
-    expect(body.questions.is_readability.type).toBe("score");
-    expect(body.questions.is_readability.criteria).toEqual([
+    expect(body.questions.is_readable.type).toBe("score");
+    expect(body.questions.is_readable.criteria).toEqual([
       "obvious",
       "mostly clear",
       "reconstructed intent",

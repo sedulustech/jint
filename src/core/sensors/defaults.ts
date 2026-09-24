@@ -138,8 +138,8 @@ export const isCognitivelyComplex: Rule = {
 
 // provisional: first choice rule — scored rubric via the jev score primitive; thresholds
 // unanchored until the self-lint corpus has score readings
-export const isReadability: Rule = {
-  name: "is_readability",
+export const isReadable: Rule = {
+  name: "is_readable",
   kind: "choice",
   instructions:
     "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
@@ -165,5 +165,5 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   will_comment_drift,
   is_cognitively_complex: isCognitivelyComplex,
   is_function_srp: isFunctionSrp,
-  is_readability: isReadability,
+  is_readable: isReadable,
 });
