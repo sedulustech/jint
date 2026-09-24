@@ -25,7 +25,7 @@ import {
   type Rule,
   type Unit,
 } from "./types.ts";
-import type { ResolvedConfig } from "../config/define.ts";
+import type { ResolvedConfig } from "../config/load.ts";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;
@@ -58,7 +58,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   if (options.str === undefined && (input === "" || (Array.isArray(input) && input.length === 0))) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass --file/--dir/--diff or set input in jint.config.ts",
+      "no input: pass --file/--dir/--diff or set input in jint.config.json",
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];

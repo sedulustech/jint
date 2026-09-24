@@ -1,0 +1,6 @@
+{
+  "$schema": "../../../jint.schema.json",
+  "input": "tests/fixtures/sample-dir",
+  "exclude": ["**/more.ts"],
+  "disable": ["will_comment_drift"]
+}

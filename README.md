@@ -18,31 +18,40 @@ A rule measures; its handle decides; a signal is a measurement that mattered.
 
 ## Config
 
-`jint.config.ts` is the default (pre-commit lint); other purposes name themselves (`jint.review.config.ts`) and are selected with `--config`. That is the whole surface:
+`jint.config.json` is the default (pre-commit lint); other purposes name themselves (`jint.review.config.json`) and are selected with `--config`. The file is PLAIN JSON — no comments, no code, writable from any environment without Node or bun:
 
-```ts
-import { defineConfig, rules } from "jint";
-
-export default defineConfig({
-  input: "src/",
-  rules: { ...rules.defaults, disable: [] },
-  exclude: [],
-});
+```json
+{
+  "$schema": "./node_modules/jint/jint.schema.json",
+  "input": "src/",
+  "exclude": []
+}
 ```
+
+Start it with `"$schema"` pointing at the checked-in `jint.schema.json` (shipped with the package) and editors autocomplete every key. The loader accepts and ignores `$schema` and any other extra top-level keys.
 
 - **Input kind is inferred**, not configured: on-disk directory -> dir; on-disk file whose content looks like a unified diff -> diff; rev-looking string (`HEAD`, `HEAD~2..HEAD`, a sha) -> diff via git; `"-"` -> diff from stdin. `inputType` exists only as an override for ambiguous cases.
 - **exclude** removes inputs (globs/paths). Defaults: `node_modules`, `.git`, gitignored paths, binary files.
-- **disable** removes rules by name — set membership, not policy.
-- **Rules carry their own policy**: each rule ships a visible, overridable `handle: (value) => "error" | "warn" | null`. `null` is silent. Override by re-declaring the rule by name:
+- **Rules are data**: omit `rules` for the full default set; entries are either a default rule's name (`"is_greppable"`) or a full rule object (last wins per name). `disable` removes rules by name — set membership, not policy.
+- **Handles are data**, never code: `{ "warn_at": n, "error_at": n }`, both required, they must differ. Polarity is inferred from their ordering — `warn_at < error_at` is high-bad (a value above warn_at warns, above error_at errors); `error_at < warn_at` is high-good (a value below warn_at warns, below error_at errors). `"handle": null` is measure-only: the measurement streams, nothing ever signals.
 
-```ts
-rules: {
-  ...rules.defaults,
-  is_name_purposeful: {
-    ...rules.defaults.is_name_purposeful,
-    handle: (v) => (v < 0.5 ? "error" : null),
-  },
-},
+Override a default's calibration by re-declaring the rule by name — a threshold change is a paste-able diff, no runtime required:
+
+```json
+{
+  "input": "src/",
+  "rules": [
+    {
+      "name": "is_name_purposeful",
+      "criteria": {
+        "true": "names state purpose; style is not judged",
+        "false": "a name reveals implementation or is a bare generic"
+      },
+      "target": "definitions",
+      "handle": { "warn_at": 0.6, "error_at": 0.5 }
+    }
+  ]
+}
 ```
 
 ## Default rules
@@ -82,12 +91,12 @@ jint --dir src/                   # a directory tree
 jint --diff HEAD~2..HEAD          # rev expression (shells out to git)
 jint --diff fix.patch             # a file holding a unified diff
 git diff HEAD~1 | jint --diff -   # stdin: the primitive
-jint                              # no flags: input comes from jint.config.ts
+jint                              # no flags: input comes from jint.config.json
 ```
 
 Flags: `--file` `--dir` `--diff` `--config` `--exclude <glob>` `--disable <name>` `--json` `--color auto|always|never` `--debug` `-h/--help` `--version`.
 
-Precedence: flags > `TYPESAFE_*` environment > `jint.config.ts` > defaults.
+Precedence: flags > `TYPESAFE_*` environment > `jint.config.json` > defaults.
 
 Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
 
@@ -129,12 +138,14 @@ jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions }
 
 The CLI is one consumer; `lint()` is the product:
 
+Config (jint.config.json) is declarative data; the SDK is programmatic — `lint()` takes a resolved config whose rules carry real function handles:
+
 ```ts
-import { defineConfig, rules, lint, collectReport } from "jint";
+import { defaultConfig, lint, collectReport } from "jint";
 
 const report = await collectReport(
   lint({
-    config: defineConfig({ input: "src/", rules: { ...rules.defaults, disable: [] } }),
+    config: { ...defaultConfig(), input: "src/" },
     input: "src/a.ts", // optional override; inferred otherwise
     classifier: mySwappableJudge, // optional; defaults to the jev adapter
   }),

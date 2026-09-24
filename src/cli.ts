@@ -22,7 +22,7 @@ import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
 import { MeasureError, SetupError, type InputKind } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
-import type { ResolvedConfig } from "./config/define.ts";
+import type { ResolvedConfig } from "./config/load.ts";
 
 const COLOR_MODE_SCHEMA = TypeBoxType.Union([
   TypeBoxType.Literal("auto"),
@@ -55,7 +55,7 @@ Usage:
   jint --file <path>...      measure on-disk files
   jint --dir <path>          measure a directory tree
   jint --diff <spec>         measure a diff: "-" (stdin), a patch file, or a git rev
-  jint                       no flags: input comes from jint.config.ts
+  jint                       no flags: input comes from jint.config.json
   cat src.ts | jint          piped stdin, no input flags: stdin is ONE str unit
 
 Examples:
@@ -77,7 +77,8 @@ Options:
   --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
                       without a resolvable language, inventory-scoped rules fail MAPPING_FAILED
                       in-band and unit-scoped rules still measure
-  --config <path>     config file (default: jint.config.ts)
+  --config <path>     config file, plain JSON (default: jint.config.json; autocomplete via
+                      the checked-in jint.schema.json "$schema" key)
   --exclude <glob>    input exclusion, on top of config (repeatable)
   --disable <name>    rule removal by name, on top of config (repeatable)
   --rule <name>      run ONLY these rules (repeatable); overrides --disable for the named set
@@ -87,12 +88,13 @@ Options:
   -h, --help          this help
   --version           print the version
 
-Config precedence: flags > jint.config.ts > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
+Config precedence: flags > jint.config.json > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
 Rules: is_name_purposeful, is_vocabulary_consistent, is_naming_convention_consistent,
 is_greppable (high = good),
 is_comment_narration, is_comment_patching_readability, will_comment_drift, is_cognitively_complex
-(high = bad), is_comment_business_context (measurement-only in v0). Each carries an
-overridable handle: (value) => "error" | "warn" | null.
+(high = bad), is_comment_business_context (measurement-only in v0). Handles in config are data:
+{ "warn_at": n, "error_at": n } — warn_at < error_at fires high-bad (value above warn_at warns,
+above error_at errors); the reverse fires high-good. "handle": null = measure-only.
 
 Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but measured nothing.
 `;
@@ -140,7 +142,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const content = await Bun.stdin.text();
     if (content === "") {
       usageError(
-        "no input on stdin — pipe str, pass --file/--dir/--diff, or set input in jint.config.ts",
+        "no input on stdin — pipe str, pass --file/--dir/--diff, or set input in jint.config.json",
       );
       return 2;
     }

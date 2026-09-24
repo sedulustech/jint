@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { defineConfig } from "../config/define.ts";
+import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
@@ -11,11 +11,11 @@ import {
   type Rule,
 } from "../core/types.ts";
 
-const baseConfig = defineConfig({
+const baseConfig = {
+  ...defaultConfig(),
   input: "",
-  rules: { ...defaultRules, disable: [] },
-  exclude: [],
-});
+  exclude: [] as string[],
+};
 
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
 
@@ -445,7 +445,7 @@ describe("lint", () => {
 
   test("custom rule set (selection = the rule list itself)", async () => {
     const only: Rule[] = [defaultRules.is_name_purposeful!];
-    const config = defineConfig({ input: "", rules: [only[0]!] });
+    const config = { ...defaultConfig(), input: "", rules: only };
     const events = await drain(
       lint({
         config,

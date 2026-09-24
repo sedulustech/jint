@@ -16,7 +16,20 @@
  * healthy ranges are documented in the README, next to the override examples.
  */
 
+import { compileHandle } from "./handle.ts";
 import type { Rule } from "../types.ts";
+
+/**
+ * HANDLES ARE DATA: every default handle is a DataHandle (warn_at + error_at; polarity inferred
+ * from their ordering — see handle.ts) compiled to the internal function form at module init.
+ * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json.
+ *
+ * EXCEPTION (flagged, deliberately): is_comment_business_context's handle is null — a bare
+ * function, not a DataHandle. It is not expressible as thresholds BY DESIGN, not by omission: high
+ * readings are a virtue and low readings are not a defect, so ANY threshold would flag healthy
+ * code. See that rule's comment. The declarative config surface mirrors this with "handle": null
+ * (measure-only).
+ */
 
 export const isNamePurposeful: Rule = {
   name: "is_name_purposeful",
@@ -26,7 +39,7 @@ export const isNamePurposeful: Rule = {
       "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
   },
   target: "definitions",
-  handle: (value) => (value < 0.5 ? "error" : value < 0.6 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.6, error_at: 0.5 }),
 };
 
 export const isFunctionSrp: Rule = {
@@ -38,7 +51,7 @@ export const isFunctionSrp: Rule = {
   },
   target: "functions",
   // provisional: high = SRP holds (high = good); anchored to the self-corpus after calibration
-  handle: (value) => (value < 0.4 ? "error" : value < 0.55 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
 };
 
 export const isVocabularyConsistent: Rule = {
@@ -49,7 +62,7 @@ export const isVocabularyConsistent: Rule = {
       "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift.",
   },
   target: "files",
-  handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.75, error_at: 0.6 }),
 };
 
 export const isNamingConventionConsistent: Rule = {
@@ -63,7 +76,7 @@ export const isNamingConventionConsistent: Rule = {
   // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
   // convention mixers and the consistent files; the clean corpus (mobius
   // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
-  handle: (value) => (value < 0.65 ? "error" : value < 0.85 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.85, error_at: 0.65 }),
 };
 
 export const isGreppable: Rule = {
@@ -74,7 +87,7 @@ export const isGreppable: Rule = {
       "At least one identifier cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
   },
   target: "files",
-  handle: (value) => (value < 0.6 ? "error" : value < 0.75 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.75, error_at: 0.6 }),
 };
 
 export const is_comment_business_context: Rule = {
@@ -101,7 +114,7 @@ export const is_comment_narration: Rule = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: (value) => (value > 0.45 ? "error" : value > 0.3 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.3, error_at: 0.45 }),
 };
 
 export const is_comment_patching_readability: Rule = {
@@ -112,7 +125,7 @@ export const is_comment_patching_readability: Rule = {
       "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read.",
   },
   target: "comments",
-  handle: (value) => (value > 0.55 ? "error" : value > 0.4 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.4, error_at: 0.55 }),
 };
 
 export const will_comment_drift: Rule = {
@@ -126,7 +139,7 @@ export const will_comment_drift: Rule = {
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
-  handle: (value) => (value > 0.7 ? "error" : value > 0.55 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.55, error_at: 0.7 }),
 };
 
 export const isCognitivelyComplex: Rule = {
@@ -140,7 +153,7 @@ export const isCognitivelyComplex: Rule = {
   // Thresholds kept from the previous anchor: the scoped claim lowered the
   // healthy ceiling on both calibration corpora, widening the margin to the
   // bloat/obfuscate mutants, which land in the warn band.
-  handle: (value) => (value > 0.6 ? "error" : value > 0.45 ? "warn" : null),
+  handle: compileHandle({ warn_at: 0.45, error_at: 0.6 }),
 };
 
 // provisional: first choice rule — scored rubric via the jev score primitive; thresholds
@@ -157,7 +170,8 @@ export const isReadability: Rule = {
     "Dense, misleading names, or structure that fights the problem.",
   ],
   target: "definitions",
-  handle: (value) => (value >= 3 ? "error" : value >= 2 ? "warn" : null),
+  // score scale (0..N): warn at 2+, error at 3+ — same data form, thresholds on the score axis
+  handle: compileHandle({ warn_at: 1, error_at: 2 }),
 };
 
 /** All default rules by name — the `rules.defaults` record of the config surface. */

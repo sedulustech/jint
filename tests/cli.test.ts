@@ -80,7 +80,7 @@ describe("cli: contract basics", () => {
   test("invalid config file -> CONFIG_INVALID, exit 2", () => {
     const r = run([
       "--config",
-      "tests/fixtures/configs/invalid.config.ts",
+      "tests/fixtures/configs/invalid.config.json",
       "--file",
       "tests/fixtures/sample-file.ts",
     ]);
@@ -141,7 +141,7 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     const r = run(
       [
         "--config",
-        "tests/fixtures/configs/valid.config.ts",
+        "tests/fixtures/configs/valid.config.json",
         "--file",
         "tests/fixtures/sample-file.ts",
         "--json",
