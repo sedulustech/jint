@@ -13,7 +13,7 @@
 
 import { resolveInput } from "./input/infer.ts";
 import { createClassifier } from "./jev/client.ts";
-import { classifyFile, type ClassifyEvent } from "./sensors/classify.ts";
+import { classifyFile, elementWireId, type ClassifyEvent } from "./sensors/classify.ts";
 import {
   MeasureError,
   SetupError,
@@ -43,12 +43,19 @@ export interface LintOptions {
   only?: readonly string[];
   /** Swappable classifier; defaults to the TypeSafe System One adapter. */
   classifier?: Classifier;
+  /**
+   * One in-memory str unit (the CLI's piped-stdin form): judged as a single file under `path`
+   * (default "input"); bypasses input resolution entirely.
+   */
+  str?: { readonly content: string; readonly path?: string };
+  /** Explicit grammar for the str unit (CLI --language); no effect on resolved inputs. */
+  language?: string;
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const classifier = options.classifier ?? createClassifier();
   const input = options.input ?? options.config.input;
-  if (input === "" || (Array.isArray(input) && input.length === 0)) {
+  if (options.str === undefined && (input === "" || (Array.isArray(input) && input.length === 0))) {
     throw new SetupError(
       "CONFIG_INVALID",
       "no input: pass --file/--dir/--diff or set input in jint.config.ts",
@@ -56,9 +63,16 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   const rules = pickRules(options.config.rules, options.disable, options.only);
-  const units = await collectUnits(
-    resolveInput({ input, inputType: options.inputType ?? options.config.inputType, exclude }),
-  );
+  const units =
+    options.str !== undefined
+      ? [strUnit(options.str.content, options.str.path)]
+      : await collectUnits(
+          resolveInput({
+            input,
+            inputType: options.inputType ?? options.config.inputType,
+            exclude,
+          }),
+        );
   const byName = new Map(rules.map((s) => [s.name, s]));
   let aborted = false;
 
@@ -66,7 +80,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     const results = await Promise.all(
       units
         .slice(i, i + FILE_CONCURRENCY)
-        .map((unit) => runUnit(unit, rules, classifier, () => aborted)),
+        .map((unit) => runUnit(unit, rules, classifier, () => aborted, options.language)),
     );
     for (const result of results) {
       if (result.abort) aborted = true;
@@ -109,9 +123,28 @@ async function runUnit(
   rules: readonly Rule[],
   classifier: Classifier,
   isAborted: () => boolean,
+  language?: string,
 ): Promise<UnitResult> {
-  const result = await classifyFile(unit, rules, classifier, isAborted);
+  const result = await classifyFile(
+    unit,
+    rules,
+    classifier,
+    isAborted,
+    language !== undefined ? { language } : {},
+  );
   return { events: result.events, abort: result.fatal };
+}
+
+/** A str as one file unit: the piped-stdin path (identity "input" unless named). */
+function strUnit(content: string, path?: string): Unit {
+  return {
+    kind: "file",
+    state: {
+      path: path ?? "input",
+      content,
+      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
+    },
+  };
 }
 
 async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {

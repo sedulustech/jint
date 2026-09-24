@@ -35,6 +35,7 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   file: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   dir: TypeBoxType.Optional(TypeBoxType.String()),
   diff: TypeBoxType.Optional(TypeBoxType.String()),
+  language: TypeBoxType.Optional(TypeBoxType.String()),
   config: TypeBoxType.Optional(TypeBoxType.String()),
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
@@ -55,6 +56,7 @@ Usage:
   jint --dir <path>          measure a directory tree
   jint --diff <spec>         measure a diff: "-" (stdin), a patch file, or a git rev
   jint                       no flags: input comes from jint.config.ts
+  cat src.ts | jint          piped stdin, no input flags: stdin is ONE str unit
 
 Examples:
   jint --file src/a.ts src/b.ts
@@ -62,12 +64,19 @@ Examples:
   jint --diff HEAD~2..HEAD
   jint --diff fix.patch
   git diff HEAD~1 | jint --diff -
+  cat snippet.ts | jint --json
+  cat snippet.ts | jint --language typescript --rule is_function_srp
   jint --diff HEAD~1..HEAD --json | jq .
+
+Piped stdin with no --file/--dir/--diff is ALWAYS one str unit, never a diff — use --diff - for diffs. The stdin unit's identity is "input".
 
 Options:
   --file <path>...    file(s) to measure (repeatable)
   --dir <path>        directory to measure
   --diff <spec>       diff input: "-", a *.patch path, or a rev expression
+  --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
+                      without a resolvable language, inventory-scoped rules fail MAPPING_FAILED
+                      in-band and unit-scoped rules still measure
   --config <path>     config file (default: jint.config.ts)
   --exclude <glob>    input exclusion, on top of config (repeatable)
   --disable <name>    rule removal by name, on top of config (repeatable)
@@ -124,12 +133,27 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 2;
   }
 
+  // Piped stdin with NO input flags: stdin is one str unit (never a diff — --diff - stays
+  // the explicit diff door). With a TTY or input flags, input resolution is untouched.
+  let stdinStr: { content: string } | undefined;
+  if (cliInput.outcome === "selected" && cliInput.input === "" && !process.stdin.isTTY) {
+    const content = await Bun.stdin.text();
+    if (content === "") {
+      usageError(
+        "no input on stdin — pipe str, pass --file/--dir/--diff, or set input in jint.config.ts",
+      );
+      return 2;
+    }
+    stdinStr = { content };
+  }
+
   try {
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,
-        input: cliInput.input,
-        inputType: cliInput.inputType,
+        ...(stdinStr !== undefined
+          ? { str: stdinStr, language: cliArgs.language }
+          : { input: cliInput.input, inputType: cliInput.inputType }),
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
@@ -163,6 +187,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         file: { type: "string", multiple: true },
         dir: { type: "string" },
         diff: { type: "string" },
+        language: { type: "string" },
         config: { type: "string" },
         json: { type: "boolean" },
         debug: { type: "boolean" },
