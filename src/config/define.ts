@@ -55,5 +55,6 @@ function namedToList(spec: Record<string, Rule | string[]>): readonly Rule[] {
 }
 
 function freezeRule(rule: Rule): Rule {
-  return Object.freeze({ ...rule });
+  // kind defaults to "noul": existing rules and configs predate the field.
+  return Object.freeze({ ...rule, kind: rule.kind ?? "noul" }) as Rule;
 }

@@ -84,7 +84,7 @@ describe("validateConfig / defaultConfig", () => {
   test("defaultConfig carries every default rule and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.rules).toHaveLength(10);
+    expect(config.rules).toHaveLength(11);
   });
 
   test("validateConfig rejects rules that are not an array", () => {

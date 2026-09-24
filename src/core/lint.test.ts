@@ -1,7 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { defineConfig } from "../config/define.ts";
 import { lint, collectReport } from "../core/lint.ts";
-import { UNIT_TASK } from "../core/sensors/classify.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
   MeasureError,
@@ -158,24 +157,22 @@ describe("lint — classification shape", () => {
     // wire ids are the treesitter LOC interval of each block's swept content
     const blockIds = sweepState.elements.map((b) => b.id);
     expect(new Set(blockIds).size).toBe(blockIds.length); // disjoint spans -> unique ids
-    // per (element, target-matched rule): L2-L4 carries the module docblock -> 7 rules,
-    // L6-L11 is a bare definition -> 3 definition-target rules (design 7.7 targeting)
-    expect(sweep.questions).toHaveLength(12);
+    // per (element, target-matched rule): L2-L4 carries the module docblock -> 8 rules,
+    // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting)
+    expect(sweep.questions).toHaveLength(14);
     expect(sweep.questions).toContain(`is_name_purposeful in ${blockIds[0]}`);
     expect(sweep.questions).toContain(`is_cognitively_complex in ${blockIds[1]}`);
-    // criteria-as-rule: instructions maps the unit id to the task, criteria is the rule
-    for (const [key, spec] of Object.entries(sweep.specs)) {
+    // criteria-as-rule: instructions map the unit id to the task, criteria is the rule
+    // (noul questions get UNIT_TASK; choice questions carry their own instructions sentence)
+    for (const [, spec] of Object.entries(sweep.specs)) {
       const s = spec as {
         type: string;
         instructions: unknown;
         criteria?: { true: string; false: string };
       };
-      expect(s.type).toBe("noul");
-      const unitId = key.slice(key.indexOf(" in ") + 4);
-      expect(s.instructions).toEqual({ [unitId]: UNIT_TASK });
+      expect(["noul", "score"]).toContain(s.type);
+      expect(s.instructions).toBeDefined();
       expect(s.criteria).toBeDefined();
-      // criteria is the rule's actual rule, never the generic form
-      expect(s.criteria!.true).not.toContain("described property");
     }
     // the files-target rules keep their own whole-content call
     const whole = log.calls.filter((c) => !isSweep(c.state));
@@ -272,8 +269,8 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    // file call 2 + element classification 12 (7 docblock + 3 bare definitions + 2 functions)
-    expect(measurements).toHaveLength(14);
+    // file call 2 + element classification 14 (8 docblock + 4 bare definitions + 2 functions)
+    expect(measurements).toHaveLength(16);
     // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy;
     // business_context at 1.0 never fires (measurement-only in v0)
     expect(signals).toHaveLength(2);
@@ -328,6 +325,7 @@ describe("lint", () => {
           "is_naming_convention_consistent",
           "is_greppable",
           "is_function_srp",
+          "is_readability",
         ],
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),
@@ -396,7 +394,7 @@ describe("lint", () => {
     // both of the failed file's calls (whole-content + sweep) surface an error
     expect(errors).toHaveLength(2);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(14); // second unit: 2 file + 12 sweep
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16); // second unit: 2 file + 14 sweep
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -485,7 +483,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(14);
+    expect(report.measurements).toHaveLength(16);
     expect(report.signals).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

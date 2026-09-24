@@ -18,19 +18,35 @@ export const DEFAULT_CONFIG_PATH = "jint.config.ts";
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
 
-const RULE_SCHEMA = Type.Object({
-  name: Type.String(),
-  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
-  target: Type.Union([
-    Type.Literal("files"),
-    Type.Literal("functions"),
-    Type.Literal("definitions"),
-    Type.Literal("comments"),
-    Type.Literal("imports"),
-    Type.Literal("diffs"),
-  ]),
-  handle: Type.Unknown(),
-});
+const TARGET_SCHEMA = Type.Union([
+  Type.Literal("files"),
+  Type.Literal("functions"),
+  Type.Literal("definitions"),
+  Type.Literal("comments"),
+  Type.Literal("imports"),
+  Type.Literal("diffs"),
+]);
+
+// Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
+// (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so configs
+// written before the field existed keep validating (defineConfig fills the default).
+const RULE_SCHEMA = Type.Union([
+  Type.Object({
+    name: Type.String(),
+    kind: Type.Optional(Type.Literal("noul")),
+    criteria: Type.Object({ true: Type.String(), false: Type.String() }),
+    target: TARGET_SCHEMA,
+    handle: Type.Unknown(),
+  }),
+  Type.Object({
+    name: Type.String(),
+    kind: Type.Literal("choice"),
+    criteria: Type.Array(Type.String(), { minItems: 2 }),
+    instructions: Type.String(),
+    target: TARGET_SCHEMA,
+    handle: Type.Unknown(),
+  }),
+]);
 
 /** Schema of a config file's default export — the normalized defineConfig() shape. */
 const CONFIG_SCHEMA = Type.Object({

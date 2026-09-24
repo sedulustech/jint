@@ -25,18 +25,26 @@ import {
   TypeSafeError,
   UnprocessableEntityError,
   noul,
+  score,
   type EntryType,
   type NoulQuestion,
+  type ScoreQuestion,
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
 import { MeasureError, type Classifier, type QuestionSpec } from "../types.ts";
 import { requestDebug } from "./debug.ts";
 
-/** The answer boundary: exactly one calibrated probability per question. */
-const ANSWER_SCHEMA = Type.Object({
+/** The noul answer boundary: exactly one calibrated probability per question. */
+const NOUL_ANSWER_SCHEMA = Type.Object({
   type: Type.Literal("noul"),
   noul: Type.Number({ minimum: 0, maximum: 1 }),
+});
+
+/** The score answer boundary: the expected score of the ordered rubric (may fall between levels). */
+const SCORE_ANSWER_SCHEMA = Type.Object({
+  type: Type.Literal("score"),
+  score: Type.Number(),
 });
 
 export interface ClassifierConfig {
@@ -84,10 +92,13 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
 }
 
 function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
-  const out: Record<string, NoulQuestion> = {};
+  const out: Record<string, NoulQuestion | ScoreQuestion> = {};
   for (const [name, spec] of Object.entries(questions)) {
     // instructions is the {unitId: task} map; the SDK's EntryType accepts JSON objects.
-    out[name] = noul(spec.instructions, spec.criteria);
+    out[name] =
+      spec.type === "score"
+        ? score(spec.instructions, spec.criteria)
+        : noul(spec.instructions, spec.criteria);
   }
   return out;
 }
@@ -98,16 +109,20 @@ function extractAnswers(
   input: string,
 ): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const name of Object.keys(questions)) {
+  for (const [name, spec] of Object.entries(questions)) {
     const answer: unknown = result.answers[name];
-    if (!Value.Check(ANSWER_SCHEMA, answer)) {
+    const schema = spec.type === "score" ? SCORE_ANSWER_SCHEMA : NOUL_ANSWER_SCHEMA;
+    if (!Value.Check(schema, answer)) {
       throw new MeasureError(
         "JEV_RESPONSE_INVALID",
         input,
-        `jev answer '${name}' failed shape validation: expected { type: "noul", noul: number 0..1 }, got ${JSON.stringify(answer)}`,
+        `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: "score", score: number }' : '{ type: "noul", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,
       );
     }
-    out[name] = (answer as Static<typeof ANSWER_SCHEMA>).noul;
+    out[name] =
+      spec.type === "score"
+        ? (answer as Static<typeof SCORE_ANSWER_SCHEMA>).score
+        : (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul;
   }
   return out;
 }

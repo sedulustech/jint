@@ -110,12 +110,13 @@ describe("classifyUnit", () => {
         will_comment_drift: 0.1,
         is_cognitively_complex: 0.3,
         is_function_srp: 0.8,
+        is_readability: 1,
       },
       calls,
     );
     const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
-    expect(events).toHaveLength(10);
+    expect(events).toHaveLength(11);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.rule)).toContain("is_name_purposeful");
     expect(calls).toHaveLength(1); // one batched call, not nine

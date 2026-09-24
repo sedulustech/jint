@@ -86,9 +86,21 @@ export class MeasureError extends Error {
  */
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
 
-/** A rule: one System One judgment (noul) over a state, plus a handle that reads the value. */
-export interface Rule {
+/** The judgment primitive a rule runs on. */
+export type RuleKind = "noul" | "choice";
+
+interface RuleBase {
   readonly name: string;
+  /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
+  readonly target: RuleTarget;
+  /** Reads the value, decides whether it matters. */
+  readonly handle: (value: number) => HandleResult;
+}
+
+/** A noul rule: one yes/no judgment; the value is the yes probability (0..1). */
+export interface NoulRule extends RuleBase {
+  /** Optional: noul is the default kind — rules predating the field omit it. */
+  readonly kind?: "noul";
   /**
    * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
    * cases belong in false. Passes straight through to the noul question's criteria; editing either
@@ -96,11 +108,26 @@ export interface Rule {
    * text.
    */
   readonly criteria: { readonly true: string; readonly false: string };
-  /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
-  readonly target: RuleTarget;
-  /** Reads the value, decides whether it matters: v => v < 0.4 ? "error" : v < 0.6 ? "warn" : null. */
-  readonly handle: (value: number) => HandleResult;
 }
+
+/**
+ * The rubric of a choice rule: at least two descriptions indexed by ordered score 0..N. Mapped onto
+ * the SDK's ScoreQuestion — the rubric is ordered, so score is the right primitive (ChoiceQuestion,
+ * for named unordered options, stays unused).
+ */
+export type ChoiceRubric = readonly [string, string, ...string[]];
+
+/** A choice rule: one scored judgment over an ordered rubric; the value is the score (0..N). */
+export interface ChoiceRule extends RuleBase {
+  readonly kind: "choice";
+  /** The ordered rubric; the question text lives in instructions. */
+  readonly criteria: ChoiceRubric;
+  /** The question sentence, judged per unit (noul rules use the generic UNIT_TASK instead). */
+  readonly instructions: string;
+}
+
+/** A rule: one System One judgment over a state, plus a handle that reads the value. */
+export type Rule = NoulRule | ChoiceRule;
 
 /**
  * The raw noul value for (rule, input). Values pass through untouched — near 0.5 means undecided,
@@ -180,11 +207,20 @@ export interface Unit {
  * describes what true and false mean. Question ids (the record keys) are never sent to the model —
  * they only correlate answers.
  */
-export interface QuestionSpec {
+export interface NoulQuestionSpec {
   readonly type: "noul";
   readonly instructions: Readonly<Record<string, string>>;
   readonly criteria?: { readonly true: string; readonly false: string };
 }
+
+/** A scored question; structurally compatible with the SDK's ScoreQuestion. */
+export interface ScoreQuestionSpec {
+  readonly type: "score";
+  readonly instructions: Readonly<Record<string, string>>;
+  readonly criteria: ChoiceRubric;
+}
+
+export type QuestionSpec = NoulQuestionSpec | ScoreQuestionSpec;
 
 /**
  * The swappable backend seam: answers keyed by question name. Implemented by jev/client.ts; faked

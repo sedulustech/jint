@@ -143,6 +143,23 @@ export const isCognitivelyComplex: Rule = {
   handle: (value) => (value > 0.6 ? "error" : value > 0.45 ? "warn" : null),
 };
 
+// provisional: first choice rule — scored rubric via the jev score primitive; thresholds
+// unanchored until the self-lint corpus has score readings
+export const isReadability: Rule = {
+  name: "is_readability",
+  kind: "choice",
+  instructions:
+    "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
+  criteria: [
+    "Names, structure, and types make the story obvious.",
+    "Mostly clear; a few opaque names or a slightly awkward shape.",
+    "Reader must reconstruct intent from implementation details.",
+    "Dense, misleading names, or structure that fights the problem.",
+  ],
+  target: "definitions",
+  handle: (value) => (value >= 3 ? "error" : value >= 2 ? "warn" : null),
+};
+
 /** All default rules by name — the `rules.defaults` record of the config surface. */
 export const defaultRules: Record<string, Rule> = Object.freeze({
   is_name_purposeful: isNamePurposeful,
@@ -155,4 +172,5 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   will_comment_drift,
   is_cognitively_complex: isCognitivelyComplex,
   is_function_srp: isFunctionSrp,
+  is_readability: isReadability,
 });

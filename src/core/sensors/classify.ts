@@ -57,11 +57,12 @@ export function compileRuleQuestions(rules: readonly Rule[], unitId: string): Qu
   const bareKeys = rules.length === 1;
   for (const rule of rules) {
     const key = bareKeys ? unitId : questionKey(rule.name, unitId);
-    questions[key] = {
-      type: "noul",
-      instructions: { [unitId]: UNIT_TASK },
-      criteria: rule.criteria,
-    };
+    // choice: ordered rubric -> ScoreQuestion (score is the right primitive; ChoiceQuestion is
+    // for named unordered options and stays unused)
+    questions[key] =
+      rule.kind === "choice"
+        ? { type: "score", instructions: { [unitId]: rule.instructions }, criteria: rule.criteria }
+        : { type: "noul", instructions: { [unitId]: UNIT_TASK }, criteria: rule.criteria };
     attribution.set(key, { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
@@ -269,6 +270,8 @@ export async function classifyFile(
   }
   if (elements.length === 0 || isAborted()) return { events, fatal: false };
 
+  // Chunks may mix noul and score questions: the SDK's Questions record accepts both kinds in one
+  // call and answers are keyed independently, so partitioning by kind would only fragment batches.
   const keys = Object.keys(questions);
   const CHUNK = 50;
   const chunks: string[][] = [];

@@ -11,7 +11,7 @@ describe("defineConfig", () => {
       exclude: [],
     });
     const names = config.rules.map((s) => s.name);
-    expect(names).toHaveLength(9);
+    expect(names).toHaveLength(10);
     expect(names).not.toContain("will_comment_drift");
   });
 
@@ -33,7 +33,8 @@ describe("defineConfig", () => {
       handle: () => null,
     };
     const config = defineConfig({ input: "a.ts", rules: [rule] });
-    expect(config.rules).toEqual([rule]);
+    // kind defaults to "noul"
+    expect(config.rules).toEqual([{ ...rule, kind: "noul" }]);
   });
 
   test("resolved config is frozen data", () => {

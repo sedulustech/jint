@@ -38,6 +38,20 @@ const happyBody = {
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
+const scoreQuestions: Record<string, QuestionSpec> = {
+  is_readability: {
+    type: "score",
+    instructions: { L1: "How easy is source to read?" },
+    criteria: ["obvious", "mostly clear", "reconstructed intent", "dense"],
+  },
+};
+
+const scoreBody = {
+  model: "jev-latest",
+  answers: { is_readability: { type: "score", score: 2, confidence: 0.9 } },
+  usage: { input_tokens: 10, output_tokens: 1 },
+};
+
 async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, number>> {
   const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
   return await classifier(state, questions);
@@ -54,6 +68,28 @@ describe("createClassifier", () => {
   test("happy path: noul answers keyed by question name", async () => {
     const answers = await judgeOnce(fakeFetch(happyBody));
     expect(answers.is_name_purposeful).toBe(0.72);
+  });
+
+  test("score questions compile to ScoreQuestion and answers extract the score", async () => {
+    let captured: { url: string; init: RequestInit } | null = null;
+    const probe: FetchLike = async (input, init) => {
+      captured = { url: String(input), init: init ?? {} };
+      return new Response(JSON.stringify(scoreBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
+    const answers = await classifier(state, scoreQuestions);
+    expect(answers.is_readability).toBe(2);
+    const body = JSON.parse(String(captured!.init.body));
+    expect(body.questions.is_readability.type).toBe("score");
+    expect(body.questions.is_readability.criteria).toEqual([
+      "obvious",
+      "mostly clear",
+      "reconstructed intent",
+      "dense",
+    ]);
   });
 
   test("sends questions in SDK noul shape over POST /v1/systemone", async () => {

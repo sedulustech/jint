@@ -154,7 +154,7 @@ describe("rule definitions", () => {
     }
   });
 
-  test("ten rules with calibrated criteria rules", () => {
+  test("eleven rules with calibrated criteria rules", () => {
     const names = Object.keys(defaultRules);
     expect(names).toEqual([
       "is_name_purposeful",
@@ -167,10 +167,12 @@ describe("rule definitions", () => {
       "will_comment_drift",
       "is_cognitively_complex",
       "is_function_srp",
+      "is_readability",
     ]);
     for (const rule of Object.values(defaultRules)) {
-      expect(rule.criteria.true.length).toBeGreaterThan(20);
-      expect(rule.criteria.false.length).toBeGreaterThan(20);
+      const criteria =
+        rule.kind === "choice" ? rule.criteria : [rule.criteria.true, rule.criteria.false];
+      expect(criteria.every((c) => c.length > 20)).toBe(true);
       expect(["files", "functions", "definitions", "comments", "imports", "diffs"]).toContain(
         rule.target,
       );
