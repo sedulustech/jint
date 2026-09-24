@@ -196,7 +196,7 @@ describe("lint — classification shape", () => {
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
       expect(errors).toHaveLength(1);
-      expect(errors[0]!.error.code).toBe("MAPPING_FAILED");
+      expect(errors[0]!.error.code).toBe("WALK_FAILED");
       expect(errors[0]!.error.message).toContain("cannot map to elements");
     } finally {
       const shell = Bun.spawnSync(["rm", empty]);

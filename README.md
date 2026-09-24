@@ -111,7 +111,7 @@ cat snippet.ts | jint --json
 cat snippet.ts | jint --language typescript --rule is_function_srp
 ```
 
-- `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `MAPPING_FAILED` in-band and unit-scoped rules still measure.
+- `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still measure.
 - There is no `--measure` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
 
 ## Exit codes
@@ -129,8 +129,8 @@ cat snippet.ts | jint --language typescript --rule is_function_srp
 Classify before handling: cannot-start failures throw; per-unit failures stream as values and never fail the run by themselves — the run is failed only by findings. There is no degradation tier: a unit the linter cannot measure (including one that cannot be parsed into elements) is a per-unit error, not a partial result.
 
 - **SetupError** (thrown) — the run cannot start: `CONFIG_INVALID`, `ENTRYPOINT_NOT_FOUND`, `ENTRYPOINT_UNREADABLE`, and `INTERNAL` for invariant violations (exit 2/3).
-- **MeasureError** (streamed value) — one unit failed to produce a measurement, so no judgment ever exists for it: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID` name request-layer causes; `MAPPING_FAILED` names a unit that could not be mapped to elements (unmapped language, unparseable source); `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run and never fails it by itself; they land in `report.errors` and print on stderr.
-  There is no whole-file fallback: if a file cannot be mapped to elements, its inventory-scoped rules fail for that unit (a `MAPPING_FAILED` error in `report.errors`); unit-scoped rules (`files`/`diffs`) judge the unit itself and were never affected.
+- **MeasureError** (streamed value) — one unit failed to produce a measurement, so no judgment ever exists for it: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID` name request-layer causes; `WALK_FAILED` names a unit that could not be mapped to elements (unmapped language, unparseable source); `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run and never fails it by itself; they land in `report.errors` and print on stderr.
+  There is no whole-file fallback: if a file cannot be mapped to elements, its inventory-scoped rules fail for that unit (a `WALK_FAILED` error in `report.errors`); unit-scoped rules (`files`/`diffs`) judge the unit itself and were never affected.
 
 jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions })`, model `jev-latest`, one batched call per input). `TYPESAFE_API_KEY` is required; a missing or rejected key fails loud (`JEV_AUTH`) at the first call. `src/core/jev/client.ts` is the only file importing the SDK — the swappable backend seam (`lint()` accepts any `classifier`).
 
@@ -179,7 +179,7 @@ const { measurements, errors, inventory } = await classify(str, rules, {
 });
 ```
 
-Unit-scoped rules (`files`/`diffs`) judge the whole str in one call; inventory-scoped rules have the inventory derived internally (tree-sitter) and judge each element in its own one-element call — never the matrix form. Decompose failure is a `MAPPING_FAILED` in `errors` (never thrown); unit-scoped rules still measure.
+Unit-scoped rules (`files`/`diffs`) judge the whole str in one call; inventory-scoped rules have the inventory derived internally (tree-sitter) and judge each element in its own one-element call — never the matrix form. Decompose failure is a `WALK_FAILED` in `errors` (never thrown); unit-scoped rules still measure.
 
 This is the measurement-only door: handles are never applied and no signals are produced — raw readings and in-band `MeasureError`s only. Interpretation is lint's job.
 

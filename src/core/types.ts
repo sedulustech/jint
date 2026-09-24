@@ -28,7 +28,7 @@ export type SetupErrorCode =
 
 /**
  * Codes a streamed MeasureError carries: per-unit failures to produce a measurement. JEV_* codes
- * name request-layer causes; MAPPING_FAILED names a unit that could not be mapped to elements.
+ * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements.
  * INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"), while a
  * classifier-adjacent failure of unknown shape streams as MeasureError("INTERNAL").
  */
@@ -37,7 +37,7 @@ export type MeasureErrorCode =
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
-  | "MAPPING_FAILED"
+  | "WALK_FAILED"
   | "INTERNAL";
 
 /**
@@ -59,10 +59,10 @@ export class SetupError extends Error {
 
 /**
  * A per-unit failure to produce a measurement: the request to the classifier failed (JEV_*), or the
- * unit could not be mapped to elements (MAPPING_FAILED). Either way no judgment exists for the
- * unit. One bad unit never kills the run and never fails it by itself — the error streams as a
- * value and the run is failed only by findings. The seam throws it and the pipeline catches it into
- * the stream; it never escapes the pipeline boundary (design §7).
+ * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.
+ * One bad unit never kills the run and never fails it by itself — the error streams as a value and
+ * the run is failed only by findings. The seam throws it and the pipeline catches it into the
+ * stream; it never escapes the pipeline boundary (design §7).
  */
 export class MeasureError extends Error {
   constructor(

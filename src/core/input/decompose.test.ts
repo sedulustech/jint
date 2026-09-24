@@ -47,8 +47,9 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
-    // 29 top-level definitions, no imports in this file (golden tracks src/core/types.ts).
-    expect(inv.definitions).toHaveLength(29);
+    // 29 top-level definitions + 2 method elements from composite descent into the two class
+    // declarations, no imports in this file (golden tracks src/core/types.ts).
+    expect(inv.definitions).toHaveLength(31);
     expect(inv.imports).toHaveLength(0);
     // 29 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
     // (the file header, separated from the first declaration by a blank line), and 7 nested
@@ -162,5 +163,34 @@ describe("decompose — languages", () => {
     const b = await decompose("const b = 2;", "typescript");
     expect(a.hasError).toBe(false);
     expect(b.definitions[0]?.label).toBe("d0");
+  });
+});
+
+describe("decompose — composite-descent fixture", () => {
+  test("composites are judged AND descended into: nested calls, class methods, sub-spans", async () => {
+    const source = await Bun.file("src/core/input/fixtures/unit-tree/composite-tree.ts").text();
+    const inv = await decompose(source, "typescript");
+    const byContent = (needle: string) => inv.definitions.filter((d) => d.content.includes(needle));
+    // Headers flow into existing roles: call expressions -> function, class -> type.
+    expect(
+      inv.definitions.some((d) => d.role === "function" && d.content.startsWith("describe(")),
+    ).toBe(true);
+    expect(inv.definitions.some((d) => d.role === "function" && d.content.startsWith("it("))).toBe(
+      true,
+    );
+    // Class header is an element (type role) and its methods are elements of their own.
+    expect(
+      inv.definitions.some((d) => d.role === "type" && d.nodeType === "class_declaration"),
+    ).toBe(true);
+    expect(byContent("render(): string")).toHaveLength(2); // class header + method element
+    // Descent is recursive: expect(...) inside it(...) is its own element.
+    expect(inv.definitions.some((d) => d.content.startsWith("expect("))).toBe(true);
+    // Inner elements have sub-spans of their composite; spans stay LOC intervals.
+    const outerSpan = inv.definitions.find((d) => d.content.startsWith("describe("))!.span;
+    const innerSpan = inv.definitions.find((d) => d.content.startsWith("it("))!.span;
+    expect(innerSpan.start.line).toBeGreaterThan(outerSpan.start.line);
+    expect(innerSpan.end.line).toBeLessThan(outerSpan.end.line);
+    expectSpansRoundTrip(source, inv);
+    expect(accountedComments(inv)).toBe(await countCommentNodes(source));
   });
 });

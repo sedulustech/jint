@@ -54,8 +54,10 @@ measurement its handle judged actionable and is the only output that demands act
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
   from it.
-- **composite** — a parsed structure that holds other nodes (a class, a top-level call
-  expression like a describe callback). Composites exist only during the walk.
+- **composite** — a parsed structure that is both judged and descended into during the walk (a
+  class, a top-level call expression like a describe callback, and nested composites
+  recursively): its header is emitted as a regular element, and its body is walked so inner
+  nodes become elements too. Composites exist only during the walk.
 - **classifying** — asking the model whether a claim holds for one state: rules compile to
   yes/no questions, the model answers each with a noul probability; jint only ever classifies
   states, it never generates or transforms them.
@@ -64,8 +66,9 @@ measurement its handle judged actionable and is the only output that demands act
   so a report can show the classified source.
 - **node** — a tree-sitter syntax node; node types include function_declaration, comment,
   export_statement.
-- **walker / walk** two senses: the tree walk that classifies top-level nodes into
-  inventory elements (skips error nodes, unwraps export statements), and the directory walk that
+- **walker / walk** two senses: the tree walk that classifies nodes into inventory elements
+  (top-level nodes, plus the bodies of composites via descent; skips error nodes, unwraps export
+  statements), and the directory walk that
   turns an on-disk tree into file units honoring exclusions. An element is not a tree-sitter
   leaf node: a function element usually has children in the tree.
 - **role** the classification a top-level node gets during the walk: definition,

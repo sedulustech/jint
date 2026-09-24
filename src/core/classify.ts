@@ -52,8 +52,8 @@ export interface ClassifyOutcome {
  * inventory-scoped rules have the inventory derived internally (via decompose, shared with
  * classifyFile) and judge each element in its own one-element call.
  *
- * Decompose failure (no language resolvable, unparseable) is an in-band MAPPING_FAILED MeasureError
- * in errors — never thrown — and inventory is omitted; unit-scoped rules still measure.
+ * Decompose failure (no language resolvable, unparseable) is an in-band WALK_FAILED MeasureError in
+ * errors — never thrown — and inventory is omitted; unit-scoped rules still measure.
  */
 export async function classify(
   str: string,

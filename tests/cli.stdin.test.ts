@@ -88,15 +88,15 @@ describe("cli: piped stdin str unit", async () => {
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
     expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
-    expect(report.errors.map((e: { code: string }) => e.code)).toContain("MAPPING_FAILED");
+    expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
   });
 
   test("human output: same stylish table, identity 'input'", async () => {
     const r = await runWithStdin(SNIPPET, ["--rule", "is_greppable"]);
     expect(r.code).toBeLessThan(2); // the run happened; findings decide 0 vs 1
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
-    expect(r.stderr).toContain("MAPPING_FAILED input");
-    expect(r.stdout).not.toContain("MAPPING_FAILED");
+    expect(r.stderr).toContain("WALK_FAILED input");
+    expect(r.stdout).not.toContain("WALK_FAILED");
   });
 
   test("piped stdin with --diff flag stays the diff door (stdin consumed by --diff -)", async () => {

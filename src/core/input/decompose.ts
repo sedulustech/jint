@@ -1,6 +1,7 @@
 /**
  * Tree-sitter-based mapping of a source file into a unit inventory (tmp/design.md §7.2):
- * definitions, comments, and imports, top-level only.
+ * definitions, comments, and imports — top-level nodes, plus composite descent (composites are
+ * judged AND descended into, so nested definitions become elements of their own).
  *
  * Extraction is flag-independent: which files are acquired is decided elsewhere; the parse and the
  * inventory are identical always. The inventory is pure data — no linting, no jev calls — so
@@ -108,6 +109,10 @@ const TYPESCRIPT: LanguageMapping = {
     variable_declaration: "function",
     class_declaration: "type",
     abstract_class_declaration: "type",
+    method_definition: "function",
+    // Call expressions (describe(...)/it(...) and the like) are composites: emitted as function
+    // elements AND descended into — see the composite-descent note in decompose().
+    call_expression: "function",
     interface_declaration: "type",
     type_alias_declaration: "type",
     enum_declaration: "type",
@@ -115,7 +120,8 @@ const TYPESCRIPT: LanguageMapping = {
     import_statement: "import",
     ts_import_equals_declaration: "import",
   },
-  wrapperTypes: ["export_statement"],
+  // expression_statement unwraps to the call it wraps (top-level describe(...); etc.).
+  wrapperTypes: ["export_statement", "expression_statement"],
 };
 
 const LANGUAGES: Record<string, LanguageMapping> = {
@@ -205,52 +211,119 @@ export async function decompose(source: string, language: string): Promise<Inven
     pending = [];
   };
 
-  for (const child of tree.rootNode.namedChildren) {
-    // Unwrap wrappers, but keep the top-level node's span and text: content must stay
-    // complete ("export" and all), spans must stay exact.
-    const { node, type } = unwrap(child, mapping.wrapperTypes);
-    if (mapping.roleTable[type] === "comment") {
-      pending.push({ text: node.text, span: spanOf(node) });
-      continue;
-    }
-    if (mapping.roleTable[type] === "import") {
-      flushStandalone();
-      importNodes.push({ nodeType: type, text: node.text, span: spanOf(node) });
-      continue;
-    }
-    const role = mapping.roleTable[type];
-    if (role === "function" || role === "type") {
-      // A comment run attaches only when it directly precedes the declaration
-      // with no blank line in between; otherwise it stays standalone.
-      const last = pending.at(-1);
-      const gap = last ? child.startPosition.row - (last.span.end.line - 1) : Infinity;
-      const attach = pending.length > 0 && gap <= 1;
-      if (attach) {
-        definitions.push({
-          label: "",
-          span: spanOf(child),
-          content: child.text,
-          nodeType: type,
-          role,
-          attachedComment: pending.map((p) => p.text),
-          internalCommentCount: countInternalComments(node),
-        });
-        pending = [];
-      } else {
-        flushStandalone();
-        definitions.push({
-          label: "",
-          span: spanOf(child),
-          content: child.text,
-          nodeType: type,
-          role,
-          internalCommentCount: countInternalComments(node),
-        });
+  // Emit one element for a definition node (composite or not). Content stays the complete
+  // node text; inner elements yielded by descent have sub-spans — containment stays implicit.
+  const emit = (
+    outer: any,
+    node: any,
+    type: string,
+    role: NodeRole,
+    attached?: readonly string[],
+  ) => {
+    definitions.push({
+      label: "",
+      span: spanOf(outer),
+      content: outer.text,
+      nodeType: type,
+      role,
+      ...(attached ? { attachedComment: attached } : {}),
+      internalCommentCount: countInternalComments(node),
+    });
+  };
+
+  // Composite descent: a composite (class declaration, call expression like describe(...)/it(...),
+  // and nested composites recursively) is BOTH judged and descended into — its header is emitted
+  // as a regular element (role per node type) AND its body is walked so inner nodes become
+  // elements too. Spans stay LOC intervals; identity is span-derived; containment is implicit.
+  // Anonymous callbacks (arrow_function/function_expression) and block/argument containers are
+  // descent glue: recursed, never emitted.
+  //
+  // Depth cap: syntax trees cannot cycle, but pathologically deep nesting (describe inside
+  // describe inside ...) should not walk unbounded; composites deeper than this stay header-only.
+  const MAX_DESCENT_DEPTH = 8;
+  const DESCENT_CONTAINERS = new Set([
+    "arguments",
+    "statement_block",
+    "class_body",
+    "arrow_function",
+    "function_expression",
+    "pair",
+  ]);
+  const descend = (node: any, depth: number): void => {
+    if (depth > MAX_DESCENT_DEPTH) return;
+    for (const child of node.namedChildren) {
+      const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
+      const role = mapping.roleTable[type];
+      if (role === "function" || role === "type") {
+        emit(child, inner, type, role);
+        // Nested composite: emitted as a header AND descended into, recursively.
+        if (
+          type === "class_declaration" ||
+          type === "abstract_class_declaration" ||
+          type === "call_expression"
+        ) {
+          descend(inner, depth + 1);
+        }
+        continue;
       }
-      continue;
+      if (DESCENT_CONTAINERS.has(type)) {
+        descend(inner, depth + 1);
+      }
     }
-    flushStandalone();
-  }
+  };
+
+  const walk = (node: any, topLevel: boolean): void => {
+    for (const child of node.namedChildren) {
+      // Unwrap wrappers, but keep the node's span and text: content must stay
+      // complete ("export" and all), spans must stay exact.
+      const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
+      if (topLevel && mapping.roleTable[type] === "comment") {
+        pending.push({ text: inner.text, span: spanOf(inner) });
+        continue;
+      }
+      if (mapping.roleTable[type] === "import") {
+        flushStandalone();
+        importNodes.push({ nodeType: type, text: inner.text, span: spanOf(inner) });
+        continue;
+      }
+      const role = mapping.roleTable[type];
+      if (role === "function" || role === "type") {
+        // A comment run attaches only when it directly precedes the declaration
+        // with no blank line in between; otherwise it stays standalone.
+        const last = pending.at(-1);
+        const gap = last ? child.startPosition.row - (last.span.end.line - 1) : Infinity;
+        const attach = topLevel && pending.length > 0 && gap <= 1;
+        if (attach) {
+          emit(
+            child,
+            inner,
+            type,
+            role,
+            pending.map((p) => p.text),
+          );
+          pending = [];
+        } else {
+          flushStandalone();
+          emit(child, inner, type, role);
+        }
+        // Composite: judged AND descended into (class -> type role; call -> function role).
+        if (
+          type === "class_declaration" ||
+          type === "abstract_class_declaration" ||
+          type === "call_expression"
+        ) {
+          descend(inner, 1);
+        }
+        continue;
+      }
+      if (!topLevel && DESCENT_CONTAINERS.has(type)) {
+        walk(inner, false);
+        continue;
+      }
+      flushStandalone();
+    }
+  };
+  walk(tree.rootNode, true);
   flushStandalone();
 
   let importElement: InventoryElement | undefined;

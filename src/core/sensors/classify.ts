@@ -208,7 +208,7 @@ const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rul
  * pass, no candidacy: every measurement is a reading the rule's handle judges.
  *
  * No fallback: a file that maps to no elements yields no element classification and its
- * inventory-scoped rules fail with a per-unit MAPPING_FAILED error. Unit-scoped rules (files/diffs)
+ * inventory-scoped rules fail with a per-unit WALK_FAILED error. Unit-scoped rules (files/diffs)
  * judge the unit itself; their target never needed parsing.
  */
 export interface ClassifyFileOptions {
@@ -285,7 +285,7 @@ export async function classifyFile(
   }
   if (failed !== null && unit.kind === "file") {
     events.push({
-      event: new MeasureError("MAPPING_FAILED", state.path, `cannot map to elements: ${failed}`),
+      event: new MeasureError("WALK_FAILED", state.path, `cannot map to elements: ${failed}`),
       stage: "file",
     });
   }

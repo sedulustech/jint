@@ -98,7 +98,7 @@ describe("classify", () => {
     expect(outcome.measurements.every((m) => m.input.startsWith("snippet.txt#L"))).toBe(true);
   });
 
-  test("no resolvable language: MAPPING_FAILED in-band, unit-scoped rules still measured, inventory omitted", async () => {
+  test("no resolvable language: WALK_FAILED in-band, unit-scoped rules still measured, inventory omitted", async () => {
     const states: unknown[] = [];
     const outcome = await classify("just some text", [noulFileRule, choiceFunctionRule], {
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }, states),
@@ -109,11 +109,11 @@ describe("classify", () => {
     ]);
     // the mapping failure is a value, not a throw
     expect(outcome.errors).toHaveLength(1);
-    expect(outcome.errors[0]!.code).toBe("MAPPING_FAILED");
+    expect(outcome.errors[0]!.code).toBe("WALK_FAILED");
     expect(outcome.inventory).toBeUndefined();
   });
 
-  test("unparseable source with explicit language: MAPPING_FAILED in-band, unit-scoped rules still measured", async () => {
+  test("unparseable source with explicit language: WALK_FAILED in-band, unit-scoped rules still measured", async () => {
     const outcome = await classify("((( not code", [noulFileRule, choiceFunctionRule], {
       language: "typescript",
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
@@ -121,7 +121,7 @@ describe("classify", () => {
     expect(outcome.measurements).toEqual([
       { rule: "r_file", input: "input", value: 0.9, stage: "file" },
     ]);
-    expect(outcome.errors.map((e) => e.code)).toEqual(["MAPPING_FAILED"]);
+    expect(outcome.errors.map((e) => e.code)).toEqual(["WALK_FAILED"]);
     expect(outcome.inventory).toBeUndefined();
   });
 

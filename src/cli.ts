@@ -75,7 +75,7 @@ Options:
   --dir <path>        directory to measure
   --diff <spec>       diff input: "-", a *.patch path, or a rev expression
   --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
-                      without a resolvable language, inventory-scoped rules fail MAPPING_FAILED
+                      without a resolvable language, inventory-scoped rules fail WALK_FAILED
                       in-band and unit-scoped rules still measure
   --config <path>     config file, plain JSON (default: jint.config.json; autocomplete via
                       the checked-in jint.schema.json "$schema" key)
