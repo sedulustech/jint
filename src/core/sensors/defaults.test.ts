@@ -158,6 +158,7 @@ describe("rule definitions", () => {
       "is_comment_narration",
       "is_comment_patching_readability",
       "will_comment_drift",
+      "will_error_lose_cause",
       "is_cognitively_complex",
       "is_function_srp",
       "is_readable",

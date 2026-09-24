@@ -50,6 +50,21 @@ export const isFunctionSrp: Rule = {
   handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
 };
 
+/**
+ * Promoted from the seam-purity probe (tmp/probes/seam-purity.config.json), where it was the
+ * densest signal (13 findings on the vendor-adapter corpus). Thresholds are the probe's, unanchored
+ * until the self-lint corpus re-measures them.
+ */
+export const willErrorLoseCause: Rule = {
+  name: "will_error_lose_cause",
+  criteria: {
+    true: "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
+    false:
+      "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently.",
+  },
+  target: "functions",
+  handle: compileHandle({ warn_at: 0.4, error_at: 0.7 }),
+};
 export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
   criteria: {
@@ -163,6 +178,7 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   is_comment_narration,
   is_comment_patching_readability,
   will_comment_drift,
+  will_error_lose_cause: willErrorLoseCause,
   is_cognitively_complex: isCognitivelyComplex,
   is_function_srp: isFunctionSrp,
   is_readable: isReadable,
