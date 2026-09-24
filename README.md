@@ -93,6 +93,18 @@ Stream discipline (clig): stdout carries findings — the stylish table or the `
 
 A diff input decomposes into per-file units: added/modified files are measured, deleted and binary files are skipped, and the commit message (when available via git) is shared state for every unit.
 
+### Piped stdin: the str primitive
+
+Piping into jint with NO input flags (`--file`/`--dir`/`--diff` all absent, stdin not a TTY) measures stdin as ONE str unit; its identity is `"input"`. Stdin is never a diff — `--diff -` stays the explicit diff door, no disambiguation:
+
+```bash
+cat snippet.ts | jint --json
+cat snippet.ts | jint --language typescript --rule is_function_srp
+```
+
+- `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `MAPPING_FAILED` in-band and unit-scoped rules still measure.
+- There is no `--measure` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
+
 ## Exit codes
 
 | code | meaning                                                                                                                                                           |
@@ -131,6 +143,34 @@ const report = await collectReport(
 ```
 
 `lint()` is an AsyncIterable of events (`measurement` / `signal` / `error`) — results stream as they are judged.
+
+### `classify()` — the one-shot measurement door
+
+Call jint with ANY str and ANY rules and get measurements — no files, no config:
+
+```ts
+import { classify, type Rule } from "jint";
+
+const rules: readonly Rule[] = [
+  {
+    name: "is_greppable",
+    target: "files",
+    handle: (v) => (v < 0.6 ? "error" : null),
+    criteria: { true: "every name greps to one concept", false: "a name is a placeholder or pun" },
+  },
+];
+
+const { measurements, errors, inventory } = await classify(str, rules, {
+  path: "snippet.ts", // identity + grammar detection; default "input"
+  language: "typescript", // explicit grammar for extensionless sources
+  classifier: myJudge, // optional; defaults to the jev adapter
+  concurrency: 8, // per-element call cap
+});
+```
+
+Unit-scoped rules (`files`/`diffs`) judge the whole str in one call; inventory-scoped rules have the inventory derived internally (tree-sitter) and judge each element in its own one-element call — never the matrix form. Decompose failure is a `MAPPING_FAILED` in `errors` (never thrown); unit-scoped rules still measure.
+
+This is the measurement-only door: handles are never applied and no signals are produced — raw readings and in-band `MeasureError`s only. Interpretation is lint's job.
 
 ## Development
 

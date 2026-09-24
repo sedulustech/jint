@@ -7,7 +7,12 @@
  * (design §7).
  */
 
-import { decompose, languageOf, type InventoryElement } from "../input/decompose.ts";
+import {
+  decompose,
+  languageOf,
+  type Inventory,
+  type InventoryElement,
+} from "../input/decompose.ts";
 import {
   MeasureError,
   type AnyState,
@@ -173,6 +178,8 @@ export interface ClassifyResult {
   readonly events: ClassifyEvent[];
   /** A JEV_AUTH error aborts the whole run. */
   readonly fatal: boolean;
+  /** The derived inventory, when the source parsed into elements; absent on derivation failure. */
+  readonly inventory?: Inventory;
 }
 
 /**
@@ -204,11 +211,19 @@ const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rul
  * inventory-scoped rules fail with a per-unit MAPPING_FAILED error. Unit-scoped rules (files/diffs)
  * judge the unit itself; their target never needed parsing.
  */
+export interface ClassifyFileOptions {
+  /** Explicit grammar override; when absent the language comes from the state path's extension. */
+  readonly language?: string;
+  /** Cap on in-flight one-element classifier calls (default ELEMENT_CONCURRENCY). */
+  readonly concurrency?: number;
+}
+
 export async function classifyFile(
   unit: Unit,
   rules: readonly Rule[],
   classifier: Classifier,
   isAborted: () => boolean = () => false,
+  options: ClassifyFileOptions = {},
 ): Promise<ClassifyResult> {
   const state = unit.state;
   const content =
@@ -246,18 +261,23 @@ export async function classifyFile(
 
   // Derive the inventory; failure is a per-unit error for the inventory-scoped rules.
   let inventory: InventoryElement[] = [];
+  let derived: Inventory | undefined;
   let failed: string | null = null;
   if (unit.kind !== "file") {
     failed = "non-file unit";
   } else {
-    const language = languageOf(state.path);
+    const language = options.language ?? languageOf(state.path);
     if (language === null) {
       failed = "no grammar mapping for extension";
     } else {
       try {
         const parsed = await decompose(content, language);
         inventory = [...parsed.definitions, ...parsed.comments];
-        if (inventory.length === 0) failed = "no definitions or comments found";
+        if (inventory.length === 0) {
+          failed = "no definitions or comments found";
+        } else {
+          derived = parsed;
+        }
       } catch {
         failed = "parse failed";
       }
@@ -316,9 +336,10 @@ export async function classifyFile(
   };
   // Elements fan out as concurrent one-element calls (chunking questions per call is what produced
   // the averaged matrix readings); the cap bounds in-flight requests per file.
-  await Promise.all(Array.from({ length: Math.min(ELEMENT_CONCURRENCY, jobs.length) }, worker));
-  if (aborted) return { events, fatal: true };
-  return { events, fatal: false };
+  const concurrency = options.concurrency ?? ELEMENT_CONCURRENCY;
+  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
+  if (aborted) return { events, fatal: true, inventory: derived };
+  return { events, fatal: false, inventory: derived };
 }
 /**
  * A definition's attached docblock is consumed into the element (design §7.2) — it reads as
