@@ -18,6 +18,13 @@ describe("walkDir", () => {
     expect(paths).not.toContain("photo.png"); // extension
   });
 
+  test("non-source extensions and extensionless files are skipped silently: zero units, zero errors", async () => {
+    const paths = await collect("tests/fixtures/sample-dir");
+    expect(paths).not.toContain("data.json"); // unmapped extension
+    expect(paths).not.toContain("README.md"); // unmapped extension
+    expect(paths).not.toContain("Makefile"); // extensionless: no resolvable grammar
+    expect(paths).toContain("good.ts"); // sources unaffected
+  });
   test("file units carry { path, content, id } with paths relative to the root", async () => {
     for await (const unit of walkDir("tests/fixtures/sample-dir")) {
       expect(Object.keys(unit.state).sort()).toEqual(["content", "id", "path"]);

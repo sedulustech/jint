@@ -282,7 +282,8 @@ function exitForThrown(thrown: unknown): number {
   if (
     error.code === "CONFIG_INVALID" ||
     error.code === "ENTRYPOINT_NOT_FOUND" ||
-    error.code === "ENTRYPOINT_UNREADABLE"
+    error.code === "ENTRYPOINT_UNREADABLE" ||
+    error.code === "NOT_SOURCE"
   )
     return 2;
   // A MeasureError that escaped the stream: the run happened but produced nothing

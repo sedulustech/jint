@@ -10,6 +10,7 @@ import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { elementWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
+import { languageOf } from "./decompose.ts";
 import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
@@ -155,6 +156,9 @@ async function readFileUnit(
   if (matchesAnyExcludeRule(excludeRules, relativePath, false)) return null;
   if (isGitignored(relativePath, false, currentScopes)) return null;
   if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
+  // non-source (no grammar-mapped extension, extensionless included): not a measurement
+  // failure — skipped silently, exactly like binaries and gitignored paths
+  if (languageOf(entry.name) === null) return null;
   if (await looksBinary(absolutePath)) return null;
   const content = await readTextFile(absolutePath);
   return {

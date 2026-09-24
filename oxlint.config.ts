@@ -47,6 +47,11 @@ export default defineConfig({
       rules: { "no-console": "off" },
     },
     {
+      // build scripts are CLI tools themselves: console is their output channel
+      files: ["scripts/**"],
+      rules: { "no-console": "off" },
+    },
+    {
       files: ["**/*.test.ts", "**/*.spec.ts"],
       rules: {
         "jest/expect-expect": "deny",

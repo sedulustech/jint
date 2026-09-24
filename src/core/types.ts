@@ -24,6 +24,7 @@ export type SetupErrorCode =
   | "CONFIG_INVALID"
   | "ENTRYPOINT_NOT_FOUND"
   | "ENTRYPOINT_UNREADABLE"
+  | "NOT_SOURCE"
   | "INTERNAL";
 
 /**

@@ -22,7 +22,9 @@
     "validate": "bun run schema && bun run typecheck && bun run lint && bun run build",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check"
+    "fmt:check": "oxfmt --check",
+    "build:darwin-arm64": "bun run scripts/build.ts darwin-arm64",
+    "build:darwin-x64": "bun run scripts/build.ts darwin-x64"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",
