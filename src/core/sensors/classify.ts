@@ -346,7 +346,14 @@ export async function classifyFile(
  * written.
  */
 function elementContent(element: InventoryElement): string {
-  return [...(element.attachedComment ?? []), element.content].join("\n");
+  // A docstring reads as written only with its owner: out of context a docstring always reads
+  // like narration, so the payload names the module/class/function it documents.
+  const owner = element.docstringOf
+    ? [
+        `docstring of ${element.docstringOf.kind}${element.docstringOf.name ? ` ${element.docstringOf.name}` : ""}:`,
+      ]
+    : [];
+  return [...owner, ...(element.attachedComment ?? []), element.content].join("\n");
 }
 
 interface CallResult {

@@ -16,7 +16,12 @@
  * against roles, not node names.
  */
 
+import pythonWasm from "tree-sitter-python/tree-sitter-python.wasm" with { type: "file" };
+import typescriptWasm from "tree-sitter-typescript/tree-sitter-typescript.wasm" with { type: "file" };
 import { Language, Parser, type Language as LanguageType } from "web-tree-sitter";
+// Grammar wasms as bundled assets: file paths when running from source, embedded ($bunfs) paths
+// inside the compiled binary — Bun.file reads both, so one loader serves both run modes.
+import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
 import { SetupError } from "../types.ts";
 
 /** One-based line, zero-based column — raw tree-sitter position semantics. */
@@ -44,6 +49,11 @@ export interface InventoryElement {
   readonly role: NodeRole;
   /** The comment node(s) consumed into this definition's leading run (outside its content span). */
   readonly attachedComment?: readonly string[];
+  /**
+   * For a docstring element: the module/class/function it documents — an orphan docstring never
+   * exists.
+   */
+  readonly docstringOf?: DocstringOwner;
   /** Comment nodes nested inside this definition's body; consumed into the element by construction. */
   readonly internalCommentCount: number;
 }
@@ -61,14 +71,20 @@ function countInternalComments(node: { type: string; namedChildren: any[] }): nu
   return count;
 }
 
-/** Unwrap wrapper nodes (export_statement -> inner declaration); type becomes the role. */
+/**
+ * Unwrap wrapper nodes (export_statement -> inner declaration, decorated_definition -> its
+ * definition); type becomes the role. Decoration and comments are not the wrapper's payload, so
+ * they are skipped when picking the inner declaration.
+ */
 function unwrap(
   node: { type: string; namedChildren: any[] },
   wrappers: readonly string[],
 ): { node: any; type: string } {
   let current = node;
   while (wrappers.includes(current.type)) {
-    const inner = current.namedChildren[0];
+    const inner = current.namedChildren.find(
+      (c: any) => c.type !== "decorator" && c.type !== "comment",
+    );
     if (!inner) break;
     current = inner;
   }
@@ -92,6 +108,12 @@ export interface Inventory {
  * touching the walker (design: language adapter, measured in tmp/langsurvey).
  */
 export type NodeRole = "function" | "type" | "import" | "comment";
+
+/** The construct a docstring documents; name is empty for the module. */
+export interface DocstringOwner {
+  readonly kind: "module" | "function" | "class";
+  readonly name: string;
+}
 
 interface LanguageMapping {
   /** Grammar node type -> abstract role. Unlisted top-level node types are skipped. */
@@ -124,12 +146,49 @@ const TYPESCRIPT: LanguageMapping = {
   wrapperTypes: ["export_statement", "expression_statement"],
 };
 
+const PYTHON: LanguageMapping = {
+  roleTable: {
+    function_definition: "function",
+    class_definition: "type",
+    comment: "comment",
+    import_statement: "import",
+    import_from_statement: "import",
+    future_import_statement: "import",
+    // Docstrings are NOT in the role table: they are extracted structurally (first body statement
+    // of a module/class/function, see docstringOf) so every docstring element carries its owner —
+    // a detached docstring always reads like narration to the classifier.
+  },
+  // expression_statement unwraps to the bare expression it wraps (docstring strings, etc.).
+  wrapperTypes: ["decorated_definition", "expression_statement"],
+};
+
+/**
+ * The docstring of a python construct: the FIRST statement of its body wrapping a string. Returns
+ * the string node's text and span, or null when there is no docstring. The "block" body node type
+ * is python-specific, so this is null for every other language's definitions.
+ */
+function docstringOf(node: { namedChildren: any[] }): { text: string; span: UnitSpan } | null {
+  const body = node.namedChildren.find((c: any) => c.type === "block");
+  const first = body?.namedChildren[0];
+  if (!first) return null;
+  const inner = first.type === "expression_statement" ? first.namedChildren[0] : first;
+  if (!inner || inner.type !== "string") return null;
+  return { text: inner.text, span: spanOf(inner) };
+}
+
+/** The declared name of a python function/class definition (empty when anonymous/odd parse). */
+function defName(node: { namedChildren: any[] }): string {
+  return node.namedChildren.find((c: any) => c.type === "identifier")?.text ?? "";
+}
+
 const LANGUAGES: Record<string, LanguageMapping> = {
   typescript: TYPESCRIPT,
+  python: PYTHON,
 };
 
 const WASM_PATHS: Record<string, string> = {
-  typescript: "node_modules/tree-sitter-typescript/tree-sitter-typescript.wasm",
+  typescript: typescriptWasm,
+  python: pythonWasm,
 };
 
 /** Parser instances are cached per language; web-tree-sitter itself initializes once. */
@@ -146,10 +205,12 @@ async function parserFor(language: string): Promise<Parser> {
   const created = (async () => {
     initPromise ??= Parser.init({
       // Bun quirk: Emscripten resolves the .wasm relative to the JS shim unless redirected.
-      locateFile: (file: string) => "node_modules/web-tree-sitter/" + file,
+      locateFile: () => treeSitterWasm,
     });
     await initPromise;
-    const lang: LanguageType = await Language.load(wasm);
+    const lang: LanguageType = await Language.load(
+      new Uint8Array(await Bun.file(wasm).arrayBuffer()),
+    );
     return new Parser().setLanguage(lang);
   })();
   parsers.set(language, created);
@@ -163,6 +224,7 @@ interface RawElement {
   readonly nodeType: string;
   readonly role: NodeRole;
   readonly attachedComment?: readonly string[];
+  readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
 }
 
@@ -229,6 +291,22 @@ export async function decompose(source: string, language: string): Promise<Inven
       ...(attached ? { attachedComment: attached } : {}),
       internalCommentCount: countInternalComments(node),
     });
+    // The construct's docstring becomes its own measurable comment element, owned by it.
+    const docstring = docstringOf(node);
+    if (docstring) {
+      comments.push({
+        label: "",
+        content: docstring.text,
+        nodeType: "string",
+        role: "comment",
+        span: docstring.span,
+        internalCommentCount: 0,
+        docstringOf: {
+          kind: type === "class_definition" ? "class" : "function",
+          name: defName(node),
+        },
+      });
+    }
   };
 
   // Composite descent: a composite (class declaration, call expression like describe(...)/it(...),
@@ -245,9 +323,16 @@ export async function decompose(source: string, language: string): Promise<Inven
     "arguments",
     "statement_block",
     "class_body",
+    "block",
     "arrow_function",
     "function_expression",
     "pair",
+  ]);
+  const COMPOSITES = new Set([
+    "class_declaration",
+    "abstract_class_declaration",
+    "class_definition",
+    "call_expression",
   ]);
   const descend = (node: any, depth: number): void => {
     if (depth > MAX_DESCENT_DEPTH) return;
@@ -257,11 +342,7 @@ export async function decompose(source: string, language: string): Promise<Inven
       if (role === "function" || role === "type") {
         emit(child, inner, type, role);
         // Nested composite: emitted as a header AND descended into, recursively.
-        if (
-          type === "class_declaration" ||
-          type === "abstract_class_declaration" ||
-          type === "call_expression"
-        ) {
+        if (COMPOSITES.has(type)) {
           descend(inner, depth + 1);
         }
         continue;
@@ -273,10 +354,25 @@ export async function decompose(source: string, language: string): Promise<Inven
   };
 
   const walk = (node: any, topLevel: boolean): void => {
-    for (const child of node.namedChildren) {
+    const children = node.namedChildren;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i]!;
       // Unwrap wrappers, but keep the node's span and text: content must stay
       // complete ("export" and all), spans must stay exact.
       const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
+      // Module docstring: the file's FIRST statement wrapping a string, owned by the module.
+      if (topLevel && i === 0 && type === "string") {
+        comments.push({
+          label: "",
+          content: inner.text,
+          nodeType: "string",
+          role: "comment",
+          span: spanOf(inner),
+          internalCommentCount: 0,
+          docstringOf: { kind: "module", name: "" },
+        });
+        continue;
+      }
       if (topLevel && mapping.roleTable[type] === "comment") {
         pending.push({ text: inner.text, span: spanOf(inner) });
         continue;
@@ -307,11 +403,7 @@ export async function decompose(source: string, language: string): Promise<Inven
           emit(child, inner, type, role);
         }
         // Composite: judged AND descended into (class -> type role; call -> function role).
-        if (
-          type === "class_declaration" ||
-          type === "abstract_class_declaration" ||
-          type === "call_expression"
-        ) {
+        if (COMPOSITES.has(type)) {
           descend(inner, 1);
         }
         continue;
@@ -358,5 +450,6 @@ export async function decompose(source: string, language: string): Promise<Inven
 
 /** The inventory's languages: the tree-sitter grammars actually mapped (design §7.2). */
 export function languageOf(path: string): string | null {
-  return /\.(m|c)?tsx?$/.test(path) ? "typescript" : null;
+  if (/\.(m|c)?tsx?$/.test(path)) return "typescript";
+  return /\.py$/.test(path) ? "python" : null;
 }

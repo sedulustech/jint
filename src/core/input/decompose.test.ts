@@ -194,3 +194,107 @@ describe("decompose — composite-descent fixture", () => {
     expect(accountedComments(inv)).toBe(await countCommentNodes(source));
   });
 });
+
+describe("decompose — python", () => {
+  const PY_SOURCE = [
+    '"""Module docstring."""',
+    "import os",
+    "",
+    "# leading comment",
+    "def greet(name):",
+    '    """Doc."""',
+    '    return "hi " + name',
+    "",
+    "@decorator",
+    "class Greeter:",
+    "    def method(self):",
+    "        pass",
+    "",
+    "class Inner:",
+    "    pass",
+    "",
+  ].join("\n");
+
+  test("functions, classes, decorated defs, comments, imports extract with existing roles", async () => {
+    const inv = await decompose(PY_SOURCE, "python");
+    expect(inv.hasError).toBe(false);
+    const shapes = inv.definitions.map((d) => [d.nodeType, d.role]);
+    expect(shapes).toEqual([
+      ["function_definition", "function"],
+      ["class_definition", "type"],
+      // Greeter's method: composite descent yields it as an element of its own.
+      ["function_definition", "function"],
+      ["class_definition", "type"],
+    ]);
+    // Decorator stays in the element content; decorated def unwraps to its class.
+    expect(inv.definitions[1]!.content.startsWith("@decorator")).toBe(true);
+    // Composite descent: the method inside Greeter is an element of its own.
+    expect(
+      inv.definitions.some(
+        (d) => d.nodeType === "function_definition" && d.content.includes("def method"),
+      ),
+    ).toBe(true);
+    // Leading comment attaches to the function that follows it.
+    expect(inv.definitions[0]!.attachedComment).toEqual(["# leading comment"]);
+    // Docstrings are comment elements owned by their construct: the module docstring plus
+    // greet's — neither is an orphan.
+    expect(inv.comments.map((c) => [c.content, c.docstringOf])).toEqual([
+      ['"""Module docstring."""', { kind: "module", name: "" }],
+      ['"""Doc."""', { kind: "function", name: "greet" }],
+    ]);
+    expect(inv.imports).toHaveLength(1);
+    expect(inv.imports[0]!.content).toBe("import os");
+    expectSpansRoundTrip(PY_SOURCE, inv);
+  });
+
+  test("docstrings get owners on def, class, and module; non-first strings stay plain", async () => {
+    const source = [
+      '"""Module docs."""',
+      "def f():",
+      '    """Function docs."""',
+      "    return 1",
+      "",
+      "class C:",
+      '    """Class docs."""',
+      "    x = 1",
+      "",
+      "# plain narration comment — standalone, no definition follows",
+      'x = "not first, not a docstring"',
+      "",
+      "def g():",
+      "    pass",
+      "",
+    ].join("\n");
+    const inv = await decompose(source, "python");
+    expect(inv.hasError).toBe(false);
+    const docstrings = inv.comments
+      .filter((c) => c.docstringOf)
+      .map((c) => [c.content, c.docstringOf?.kind, c.docstringOf?.name]);
+    expect(docstrings).toEqual([
+      ['"""Module docs."""', "module", ""],
+      ['"""Function docs."""', "function", "f"],
+      ['"""Class docs."""', "class", "C"],
+    ]);
+    // A string expression NOT in first position is not a docstring (here: a plain assignment).
+    expect(inv.comments.some((c) => c.content.includes("not first"))).toBe(false);
+    expect(
+      inv.definitions.some((d) => d.nodeType === "assignment" && d.content.includes("not first")),
+    ).toBe(false);
+    // Plain # comments are unaffected: no owner, still standalone.
+    expect(
+      inv.comments.some((c) => c.content.startsWith("# plain narration comment") && !c.docstringOf),
+    ).toBe(true);
+    expectSpansRoundTrip(source, inv);
+  });
+
+  test("typescript is unaffected by the python mapping", async () => {
+    const inv = await decompose("function f() {}\n// note\n", "typescript");
+    expect(inv.hasError).toBe(false);
+    expect(inv.definitions[0]!.role).toBe("function");
+    expect(inv.comments.map((c) => c.content)).toEqual(["// note"]);
+  });
+
+  test("unsupported language throws SetupError", async () => {
+    expect(decompose("x", "cobol")).rejects.toMatchObject({ code: "INTERNAL" });
+  });
+});

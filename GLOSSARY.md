@@ -51,6 +51,8 @@ measurement its handle judged actionable and is the only output that demands act
   type.
 - **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
   file's inventory.
+- **grammar** — the tree-sitter wasm that turns source text into the parse tree the walk
+  abstracts into roles; shipped embedded with the binary; adding one = the wasm plus one mapping entry.
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
   from it.
