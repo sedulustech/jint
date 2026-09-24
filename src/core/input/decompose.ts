@@ -3,8 +3,8 @@
  * definitions, comments, and imports, top-level only.
  *
  * Extraction is flag-independent: which files are acquired is decided elsewhere; the parse and the
- * inventory are identical always. The inventory is pure data — no linting, no jev calls — so Stage
- * 2's funnel can consume it unchanged.
+ * inventory are identical always. The inventory is pure data — no linting, no jev calls — so
+ * classification consumes it unchanged.
  *
  * Graceful degradation: a file whose parse sets rootNode.hasError still yields whatever top-level
  * elements parsed (tree-sitter recovers per-node, so partial structure survives). Unparseable
@@ -86,9 +86,9 @@ export interface Inventory {
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
 /**
- * The language-independent noun a grammar node abstracts into. Rules and the funnel route on roles,
- * never on grammar node names — adding a language is adding one roleTable entry, never touching the
- * walker (design: language adapter, measured in tmp/langsurvey).
+ * The language-independent noun a grammar node abstracts into. Rules and the classifier route on
+ * roles, never on grammar node names — adding a language is adding one roleTable entry, never
+ * touching the walker (design: language adapter, measured in tmp/langsurvey).
  */
 export type NodeRole = "function" | "type" | "import" | "comment";
 
@@ -281,4 +281,9 @@ export async function decompose(source: string, language: string): Promise<Inven
     comments: label(comments, "c"),
     imports: importElement ? [importElement] : [],
   };
+}
+
+/** The inventory's languages: the tree-sitter grammars actually mapped (design §7.2). */
+export function languageOf(path: string): string | null {
+  return /\.(m|c)?tsx?$/.test(path) ? "typescript" : null;
 }

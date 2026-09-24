@@ -12,7 +12,7 @@ import type { ClassifierConfig } from "./client.ts";
  * pretty-printed JSON file (ts, url, request body, response status + body), named
  * <unixts>-<kind>-<file>.json, under /tmp/jint/requests/<runid>/ (runid = unix timestamp of the
  * run's first capture; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
- * directory. The kind (sweep / files / confirm) is derived from the request's state shape.
+ * directory. The kind (elements / files) is derived from the request's state shape.
  */
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
   if (process.env.JEV_DEBUG_REQUEST !== "1") return config ?? {};
@@ -48,12 +48,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       };
       mkdirSync(dir, { recursive: true });
       const state = (capture.request as { state?: Record<string, unknown> }).state ?? {};
-      const kind =
-        "elements" in state
-          ? "sweep"
-          : Object.keys((capture.request as { questions?: object }).questions ?? {}).length === 2
-            ? "files"
-            : "confirm";
+      const kind = "elements" in state ? "elements" : "files";
       const name = String(state.path ?? "state")
         .split("/")
         .pop();

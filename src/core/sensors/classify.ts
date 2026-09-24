@@ -7,12 +7,16 @@
  * (design §7).
  */
 
+import { decompose, languageOf, type InventoryElement } from "../input/decompose.ts";
 import {
   MeasureError,
+  type AnyState,
   type Classifier,
+  type ElementState,
   type Measurement,
   type QuestionSpec,
   type Rule,
+  type Span,
   type Unit,
 } from "../types.ts";
 
@@ -128,9 +132,231 @@ export function invalidAnswerError(input: string, ruleName: string): MeasureErro
  */
 export function toMeasureError(input: string, thrown: unknown): MeasureError {
   if (thrown instanceof MeasureError) {
-    // The seam throws with the state path; the funnel refines block-scoped inputs (path#block-N).
+    // The seam throws with the state path; the pipeline refines block-scoped inputs (path#L19-L28).
     return new MeasureError(thrown.code, input, thrown.message, { cause: thrown });
   }
   if (thrown instanceof Error) return new MeasureError("INTERNAL", input, thrown.message);
   return new MeasureError("INTERNAL", input, String(thrown));
+}
+
+// ---------------------------------------------------------------------------
+// Element classification — derive the inventory, then classify every element
+// x every inventory-scoped rule in chunked concurrent calls, ONE pass.
+
+/** Which kind of thing a measurement measured: the unit itself, or an element of its inventory. */
+export type ClassifyStage = "file" | "element";
+
+/** One streamed event plus what produced it (and where, for element readings). */
+export interface ClassifyEvent {
+  readonly event: Measurement | MeasureError;
+  readonly stage: ClassifyStage;
+  /** The measured element's source span; element-scoped measurements only. */
+  readonly span?: Span;
+}
+
+export interface ClassifyResult {
+  readonly events: ClassifyEvent[];
+  /** A JEV_AUTH error aborts the whole run. */
+  readonly fatal: boolean;
+}
+
+/** Rules whose target matches an element's kind (design §7.1: the target routes). */
+const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
+  const commentElement = element.role === "comment";
+  const carriesComment = commentElement || (element.attachedComment?.length ?? 0) > 0;
+  return rules.filter((rule) =>
+    rule.target === "comments"
+      ? carriesComment
+      : rule.target === "functions"
+        ? !commentElement && element.role === "function"
+        : rule.target === "definitions"
+          ? !commentElement
+          : false,
+  );
+};
+/**
+ * Classify one unit: the unit-scoped rules over the whole unit, then every element of the inventory
+ * x every inventory-scoped rule, chunked <=50-question calls run concurrently. One pass, no
+ * candidacy: every measurement is a reading the rule's handle judges.
+ *
+ * No fallback: a file that maps to no elements yields no element classification and its
+ * inventory-scoped rules fail with a per-unit MAPPING_FAILED error. Unit-scoped rules (files/diffs)
+ * judge the unit itself; their target never needed parsing.
+ */
+export async function classifyFile(
+  unit: Unit,
+  rules: readonly Rule[],
+  classifier: Classifier,
+  isAborted: () => boolean = () => false,
+): Promise<ClassifyResult> {
+  const state = unit.state;
+  const content =
+    "content" in state && typeof state.content === "string"
+      ? state.content
+      : String((state as unknown as Record<string, unknown>).diff ?? "");
+
+  const events: ClassifyEvent[] = [];
+  const fatalIn = () =>
+    events.some((e) => e.event instanceof MeasureError && e.event.code === "JEV_AUTH");
+
+  // Whole-unit rules: files-target rules are relational claims judged over the whole unit;
+  // on a diff unit the diffs-target rules join, judging the raw diff string as one unit
+  // (quick path: verbatim, no parsing, no per-unit ids - design §4 Diff units).
+  const wholeRules = rules.filter(
+    (rule) => rule.target === "files" || (rule.target === "diffs" && unit.kind === "diff"),
+  );
+  const fileId = "id" in state ? state.id : contentHash(state.diff);
+  if (wholeRules.length > 0) {
+    const whole = await call(
+      state,
+      compileRuleQuestions(wholeRules, fileId).questions,
+      classifier,
+      state.path,
+    );
+    collect(
+      events,
+      "file",
+      whole,
+      wholeRules.map((rule) => questionKey(rule.name, fileId)),
+      state.path,
+    );
+    if (fatalIn()) return { events, fatal: true };
+  }
+
+  // Derive the inventory; failure is a per-unit error for the inventory-scoped rules.
+  let inventory: InventoryElement[] = [];
+  let failed: string | null = null;
+  if (unit.kind !== "file") {
+    failed = "non-file unit";
+  } else {
+    const language = languageOf(state.path);
+    if (language === null) {
+      failed = "no grammar mapping for extension";
+    } else {
+      try {
+        const parsed = await decompose(content, language);
+        inventory = [...parsed.definitions, ...parsed.comments];
+        if (inventory.length === 0) failed = "no definitions or comments found";
+      } catch {
+        failed = "parse failed";
+      }
+    }
+  }
+  if (failed !== null && unit.kind === "file") {
+    events.push({
+      event: new MeasureError("MAPPING_FAILED", state.path, `cannot map to elements: ${failed}`),
+      stage: "file",
+    });
+  }
+
+  // Every element x its inventory-scoped rules, one question each, chunked fan-out:
+  // a single response serializes answers past ~20-50 questions (~0.12s each), so the
+  // questions split into <=50-question calls run concurrently (measured: 207 answers in
+  // 26s unchunked vs 3.2s chunked; answers stable at mean |delta| 0.02 across shapes).
+  const elements: ElementState[] = [];
+  const questions: Record<string, QuestionSpec> = {};
+  const attribution = new Map<string, QuestionAttribution>();
+  const spanByWireId = new Map<string, Span>();
+  for (const element of inventory) {
+    const scoped = rulesForElement(rules, element);
+    if (scoped.length === 0) continue;
+    const wireId = elementWireId(element.span);
+    elements.push({ id: wireId, content: elementContent(element) });
+    spanByWireId.set(wireId, element.span);
+    const batch = compileRuleQuestions(scoped, wireId);
+    Object.assign(questions, batch.questions);
+    for (const [key, attr] of batch.attribution) attribution.set(key, attr);
+  }
+  if (elements.length === 0 || isAborted()) return { events, fatal: false };
+
+  const keys = Object.keys(questions);
+  const CHUNK = 50;
+  const chunks: string[][] = [];
+  for (let i = 0; i < keys.length; i += CHUNK) chunks.push(keys.slice(i, i + CHUNK));
+  const errors: MeasureError[] = [];
+  const answers: Record<string, number> = {};
+  await Promise.all(
+    chunks.map(async (chunkKeys) => {
+      const chunkQuestions = Object.fromEntries(chunkKeys.map((k) => [k, questions[k]!]));
+      const result = await call(
+        { path: state.path, elements },
+        chunkQuestions,
+        classifier,
+        state.path,
+      );
+      if (result.error !== null) errors.push(result.error);
+      Object.assign(answers, result.answers);
+    }),
+  );
+  for (const error of errors) events.push({ event: error, stage: "element" });
+  if (fatalIn()) return { events, fatal: true };
+  for (const [key, value] of Object.entries(answers)) {
+    // keys may be composite ("<rule> in <unitId>") or bare unit ids (single-rule runs);
+    // the attribution map built at question-construction time is the source of truth
+    const attr = attribution.get(key);
+    const span = attr && attr.blockId !== null ? spanByWireId.get(attr.blockId) : undefined;
+    if (attr === undefined || attr.blockId === null || span === undefined) {
+      events.push({ event: invalidAnswerError(state.path, key), stage: "element" });
+      continue;
+    }
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      events.push({ event: invalidAnswerError(state.path, attr.rule), stage: "element" });
+      continue;
+    }
+    events.push({
+      event: { rule: attr.rule, input: `${state.path}#${attr.blockId}`, value },
+      stage: "element",
+      span,
+    });
+  }
+  return { events, fatal: false };
+}
+/**
+ * A definition's attached docblock is consumed into the element (design §7.2) — it reads as
+ * written.
+ */
+function elementContent(element: InventoryElement): string {
+  return [...(element.attachedComment ?? []), element.content].join("\n");
+}
+
+interface CallResult {
+  readonly answers: Record<string, number>;
+  readonly error: MeasureError | null;
+}
+
+async function call(
+  state: AnyState,
+  questions: Record<string, QuestionSpec>,
+  classifier: Classifier,
+  input: string,
+): Promise<CallResult> {
+  try {
+    return { answers: await classifier(state, questions), error: null };
+  } catch (thrown) {
+    return { answers: {}, error: toMeasureError(input, thrown) };
+  }
+}
+
+/** Distribute one call's answers as measurements keyed by the given question names. */
+function collect(
+  events: ClassifyEvent[],
+  stage: ClassifyStage,
+  result: CallResult,
+  questionNames: readonly string[],
+  input: string,
+): void {
+  if (result.error !== null) {
+    events.push({ event: result.error, stage });
+    return;
+  }
+  for (const key of questionNames) {
+    const value = result.answers[key];
+    // question keys are "<rule> in <unitId>"; the rule is the part before the unit id
+    const rule = key.slice(0, key.indexOf(" in "));
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      events.push({ event: invalidAnswerError(input, rule), stage });
+      continue;
+    }
+    events.push({ event: { rule, input, value }, stage });
+  }
 }

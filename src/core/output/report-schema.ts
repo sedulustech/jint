@@ -4,9 +4,7 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
-  stage: Type.Optional(
-    Type.Union([Type.Literal("file"), Type.Literal("sweep"), Type.Literal("confirm")]),
-  ),
+  stage: Type.Optional(Type.Union([Type.Literal("file"), Type.Literal("element")])),
 });
 
 export const SIGNAL_SCHEMA = Type.Object({

@@ -38,7 +38,7 @@ const SILENT = {
 };
 
 /**
- * Same fixed per-rule answers for every call, keyed by the asked question id (sweep questions are
+ * Same fixed per-rule answers for every call, keyed by the asked question id (element questions are
  * "<rule> in <sha8 wire id>", everything else plain "<rule>") — how the real classifier answers.
  */
 function sensorOf(key: string): string {
@@ -66,7 +66,7 @@ interface CallLog {
   calls: Array<{ state: AnyState; questions: string[]; specs: Record<string, unknown> }>;
 }
 
-/** A classifier that records every call (state shape + question keys) — funnel-shape assertions. */
+/** A classifier that records every call (state shape + question keys) — classification assertions. */
 function loggingClassifier(values: Record<string, number>, log: CallLog): Classifier {
   const inner = classifierWith(values);
   return async (state, questions) => {
@@ -98,7 +98,7 @@ const DEFINITION_SENSORS = [
   "is_cognitively_complex",
 ];
 
-test("sweep respects rule targets: comment rules never classifier bare definitions, definition rules never classifier comment elements", async () => {
+test("classification respects rule targets: comment rules never judge bare definitions, definition rules never judge comment elements", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
@@ -134,8 +134,8 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
   return out;
 }
 
-describe("lint — funnel shape", () => {
-  test("one sweep call per file with array state + documented noul questions; files-target call separate", async () => {
+describe("lint — classification shape", () => {
+  test("one batched element-classification call per file + documented noul questions; files-target call separate", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
@@ -186,106 +186,6 @@ describe("lint — funnel shape", () => {
     }
   });
 
-  test("isolated confirm calls happen only for sweep candidates", async () => {
-    const log: CallLog = { calls: [] };
-    // purposeful 0.3 sweeps below 0.5 -> both elements candidates; complex 0.3 stays quiet
-    await drain(
-      lint({
-        config: baseConfig,
-        input: FILE,
-        classifier: loggingClassifier(
-          { is_name_purposeful: 0.3, is_cognitively_complex: 0.3 },
-          log,
-        ),
-      }),
-    );
-    // isolated confirm calls: whole-content-shaped states that are NOT the file itself
-    const source = await Bun.file(FILE).text();
-    const leafCalls = log.calls.filter(
-      (c) => !isSweep(c.state) && "content" in c.state && c.state.content !== source,
-    );
-    expect(leafCalls).toHaveLength(2); // one per flagged element, no others
-    for (const c of leafCalls) {
-      // confirm questions are keyed "<rule> in <element wire id>" — the same LOC id the sweep used
-      expect(c.questions).toContain(
-        `${"is_name_purposeful"} in ${c.questions[0]!.split(" in ")[1]}`,
-      );
-      expect(c.questions.length).toBeGreaterThanOrEqual(3);
-      for (const key of c.questions) {
-        expect(key).toMatch(/^\S+ in L\d+(-L\d+)?$/);
-      }
-    }
-  });
-
-  test("confirmed signals aggregate max over elements (high=bad) and carry block locations", async () => {
-    // complex sweeps above 0.55 -> both elements; confirmed per block: 0.5 and 0.9 -> max 0.9.
-    // The isolated calls ask plain rule names, so block identity routes on the element content.
-    const classifier: Classifier = async (state, questions) => {
-      const sweep = "elements" in state;
-      const element = !sweep && "content" in state && state.content.includes("formatDuration");
-      const out: Record<string, number> = {};
-      for (const key of Object.keys(questions)) {
-        const rule = sensorOf(key);
-        let value = SILENT[rule as keyof typeof SILENT];
-        if (rule === "is_cognitively_complex") value = sweep ? 0.9 : element ? 0.9 : 0.5;
-        out[key] = value;
-      }
-      return out;
-    };
-    const events = await drain(lint({ config: baseConfig, input: FILE, classifier }));
-    const signals = events.filter((e) => e.type === "signal");
-    expect(signals).toHaveLength(1);
-    const s = signals[0]!.signal as unknown as Record<string, unknown>;
-    expect(s.rule).toBe("is_cognitively_complex");
-    expect(s.value).toBe(0.9);
-    expect(s.severity).toBe("error");
-    expect(s.input).toBe(FILE + "#L6-L11"); // the extreme element's location
-    expect(s.location).toEqual({ input: FILE + "#L6-L11", span: expect.any(Object) });
-  });
-
-  test("high=good rules aggregate min over elements", async () => {
-    // purposeful 0.3 sweeps both elements; confirmed 0.3 everywhere -> min, one signal
-    const events = await drain(
-      lint({
-        config: baseConfig,
-        input: FILE,
-        classifier: classifierWith({ is_name_purposeful: 0.3 }),
-      }),
-    );
-    const signals = events.filter((e) => e.type === "signal");
-    expect(signals).toHaveLength(1);
-    const s = signals[0]!.signal as unknown as Record<string, unknown>;
-    expect(s.value).toBe(0.3);
-    expect(s.severity).toBe("error");
-    expect(s.input).toBe(FILE + "#L2-L4");
-  });
-
-  test("sweep flags are not verdicts: signals come only from the confirm regime", async () => {
-    // sweep 0.49 crosses the 0.50 anchor (candidate) while the confirm reading 0.7 clears the
-    // handle: if the sweep reading could fire a handle, a signal would exist
-    const events = await drain(
-      lint({
-        config: baseConfig,
-        input: FILE,
-        classifier: async (state, questions) => {
-          const sweep = "elements" in state;
-          const out: Record<string, number> = {};
-          for (const key of Object.keys(questions)) {
-            const rule = sensorOf(key);
-            out[key] =
-              rule === "is_name_purposeful"
-                ? sweep
-                  ? 0.49
-                  : 0.7
-                : (SILENT[rule as keyof typeof SILENT] ?? 0.5);
-          }
-          return out;
-        },
-      }),
-    );
-    expect(events.filter((e) => e.type === "signal")).toHaveLength(0);
-  });
-
   test("degenerate file: no elements, nothing swept - no whole-file judgment", async () => {
     const empty = "tests/fixtures/tmp-empty.ts";
     await Bun.write(empty, String.fromCharCode(10));
@@ -312,7 +212,7 @@ describe("lint — funnel shape", () => {
     }
   });
 
-  test("sweep never hands a whole-file element to any target, functions included", async () => {
+  test("classification never hands a whole-file element to any target, functions included", async () => {
     const log: CallLog = { calls: [] };
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     const sweeps = log.calls.filter((c) => isSweep(c.state));
@@ -329,8 +229,8 @@ describe("lint — funnel shape", () => {
     }
   });
 
-  test("empty sweep state (no elements) produces no questions and no crash", async () => {
-    const { classifyFile } = await import("./sensors/funnel.ts");
+  test("empty inventory (no elements) produces no questions and no crash", async () => {
+    const { classifyFile } = await import("./sensors/classify.ts");
     const empty = "tests/fixtures/tmp-empty-funnel.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {
@@ -343,9 +243,8 @@ describe("lint — funnel shape", () => {
           return {};
         },
       );
-      // files-target call only; the sweep is skipped entirely (empty elements -> early return)
+      // whole-unit call only; classification is skipped entirely (no elements -> early return)
       expect(calls).toHaveLength(1);
-      expect(result.confirmed).toEqual([]);
       expect(result.fatal).toBe(false);
       const sweepCalls = calls.filter((c) => isSweep((c as { state: AnyState }).state));
       expect(sweepCalls).toHaveLength(0);
@@ -373,21 +272,24 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    // file call 2 + sweep 10 (7 docblock element + 3 bare element) + confirm 10 (both flagged by 0.3)
-    expect(measurements).toHaveLength(26);
-    // purposeful 0.3 -> one aggregated error at the extreme element; business_context at 1.0
-    // never fires (measurement-only in v0)
-    expect(signals).toHaveLength(1);
-    expect(signals[0]!.signal).toEqual({
-      rule: "is_name_purposeful",
-      input: FILE + "#L2-L4",
-      value: 0.3,
-      severity: "error",
-      location: { input: FILE + "#L2-L4", span: expect.any(Object) },
-    });
+    // file call 2 + element classification 12 (7 docblock + 3 bare definitions + 2 functions)
+    expect(measurements).toHaveLength(14);
+    // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy;
+    // business_context at 1.0 never fires (measurement-only in v0)
+    expect(signals).toHaveLength(2);
+    expect(signals.map((s) => s.signal.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
+    for (const s of signals) {
+      expect(s.signal).toEqual({
+        rule: "is_name_purposeful",
+        input: s.signal.input,
+        value: 0.3,
+        severity: "error",
+        location: { input: s.signal.input, span: expect.any(Object) },
+      });
+    }
   });
 
-  test("every measurement precedes its signal (two-stage model)", async () => {
+  test("single pass: every measurement runs its handle, each signal follows its measurement", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -402,13 +304,12 @@ describe("lint", () => {
     );
     const kinds = events.map((e) => e.type);
     for (let i = 0; i < events.length; i++) {
-      // aggregated confirm signals batch at the end of a file, so pair loosely:
-      // a signal must be preceded by at least one measurement of the same file
-      if (kinds[i] === "signal") expect(kinds.slice(0, i).includes("measurement")).toBe(true);
+      // no aggregation: a signal directly follows its own measurement
+      if (kinds[i] === "signal") expect(kinds[i - 1]).toBe("measurement");
     }
-    // vocabulary 0.2 + greppable 0.2 (file call) + complex 0.8 (max over two confirmed
-    // elements, error) + purposeful 0.2 (min, error)
-    expect(events.filter((e) => e.type === "signal")).toHaveLength(4);
+    // vocabulary 0.2 + greppable 0.2 (file readings) + purposeful 0.2 and complex 0.8
+    // firing on both elements
+    expect(events.filter((e) => e.type === "signal")).toHaveLength(6);
   });
 
   test("--disable removes rules by name before measuring", async () => {
@@ -431,8 +332,7 @@ describe("lint", () => {
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),
     );
-    // purposeful targets definitions: sweep only, no whole-content call, no confirm
-    // (0.7 is above the sweep anchor)
+    // purposeful targets definitions: one classification call, no whole-content call
     expect(log.calls).toHaveLength(1);
     expect(log.calls[0]!.questions).toHaveLength(2);
     for (const key of log.calls[0]!.questions) {
@@ -585,8 +485,8 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(26);
-    expect(report.signals).toHaveLength(1);
+    expect(report.measurements).toHaveLength(14);
+    expect(report.signals).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });
 });

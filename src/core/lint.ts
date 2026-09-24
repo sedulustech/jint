@@ -1,8 +1,8 @@
 /**
- * Lint — the one function most consumers need. State-in/signals-out: resolves the input, measures
- * each unit — files through the two-stage funnel, diffs through the legacy whole-unit path — runs
- * each rule's handle, streams Measurements, Signals and per-unit MeasureErrors (signalled, but
- * never run-failing).
+ * Lint — the one function most consumers need. State-in/signals-out: resolves the input, derives
+ * each file's element inventory, classifies every element x every inventory-scoped rule in one
+ * chunked pass, unit-scoped rules over the whole unit — runs each rule's handle, streams
+ * Measurements, Signals and per-unit MeasureErrors (signalled, but never run-failing).
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
  * cost control); events stream per file as its wave completes, measurements before signals.
@@ -13,12 +13,7 @@
 
 import { resolveInput } from "./input/infer.ts";
 import { createClassifier } from "./jev/client.ts";
-import {
-  classifyFile,
-  isHighGood,
-  type ConfirmedReading,
-  type FunnelEvent,
-} from "./sensors/funnel.ts";
+import { classifyFile, type ClassifyEvent } from "./sensors/classify.ts";
 import {
   MeasureError,
   SetupError,
@@ -32,7 +27,7 @@ import {
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/define.ts";
 
-/** Max files with an in-flight funnel at once (sweep fan-out bound, design §7.4). */
+/** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;
 
 export interface LintOptions {
@@ -75,51 +70,37 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
     for (const result of results) {
       if (result.abort) aborted = true;
-      for (const { event, stage } of result.events) {
+      for (const { event, stage, span } of result.events) {
         if (event instanceof MeasureError) {
           yield { type: "error", error: event };
           continue;
         }
 
         yield { type: "measurement", measurement: { ...event, stage } };
-        // Sweep readings are candidates; confirmed element readings decide via aggregation below.
-        if (stage !== "file") continue;
+        // One pass, no candidacy: every measurement is a reading; the rule's handle is the
+        // only threshold. Element readings carry their span into the signal's location.
         const handle = byName.get(event.rule)?.handle;
         const severity = handle?.(event.value) ?? null;
         if (severity !== null) {
           yield {
             type: "signal",
-            signal: { rule: event.rule, input: event.input, value: event.value, severity },
+            signal: {
+              rule: event.rule,
+              input: event.input,
+              value: event.value,
+              severity,
+              ...(span !== undefined && { location: { input: event.input, span } }),
+            },
           };
         }
-      }
-      // Confirmed element signals aggregate per (file, rule): max for high=bad, min for
-      // high=good — never a mean (design §7.3) — and carry the extreme element's location.
-      for (const [sensorName, readings] of result.confirmedBySensor) {
-        const rule = byName.get(sensorName);
-        if (rule === undefined) continue;
-        const extreme = extremeReading(readings, isHighGood(sensorName));
-        const severity = rule.handle(extreme.value);
-        if (severity === null) continue;
-        yield {
-          type: "signal",
-          signal: {
-            rule: sensorName,
-            input: extreme.input,
-            value: extreme.value,
-            severity,
-            location: { input: extreme.input, span: extreme.span },
-          },
-        };
       }
     }
   }
 }
 
-/** One unit's pipeline outcome: streamed events plus its confirmed element readings by rule. */
+/** One unit's pipeline outcome: streamed classification events plus the abort flag. */
 interface UnitResult {
-  events: FunnelEvent[];
-  confirmedBySensor: Map<string, ConfirmedReading[]>;
+  events: ClassifyEvent[];
   abort: boolean;
 }
 
@@ -129,23 +110,8 @@ async function runUnit(
   classifier: Classifier,
   isAborted: () => boolean,
 ): Promise<UnitResult> {
-  const funnel = await classifyFile(unit, rules, classifier, isAborted);
-  const confirmedBySensor = new Map<string, ConfirmedReading[]>();
-  for (const reading of funnel.confirmed) {
-    const list = confirmedBySensor.get(reading.rule) ?? [];
-    list.push(reading);
-    confirmedBySensor.set(reading.rule, list);
-  }
-  return { events: funnel.events, confirmedBySensor, abort: funnel.fatal };
-}
-
-function extremeReading(
-  readings: readonly ConfirmedReading[],
-  highGood: boolean,
-): ConfirmedReading {
-  return readings.reduce((a, b) =>
-    highGood ? (b.value < a.value ? b : a) : b.value > a.value ? b : a,
-  );
+  const result = await classifyFile(unit, rules, classifier, isAborted);
+  return { events: result.events, abort: result.fatal };
 }
 
 async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {

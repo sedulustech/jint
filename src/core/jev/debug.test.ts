@@ -62,7 +62,7 @@ describe("requestDebug", () => {
 
     const list = listCaptures(DIR);
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatch(/^\d+\/\d+-confirm-a\.ts\.json$/);
+    expect(list[0]).toMatch(/^\d+\/\d+-files-a\.ts\.json$/);
 
     const capture = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
     expect(capture.url).toBe("https://api.typesafe.ai/v1/systemone");
@@ -72,14 +72,14 @@ describe("requestDebug", () => {
     expect(capture.response.model).toBe("jev-1.0");
   });
 
-  test("state shape drives the kind: elements -> sweep, 2 questions -> files, else confirm", async () => {
+  test("state shape drives the kind: elements array -> elements, else files", async () => {
     const config = requestDebug({ fetch: passthrough() });
     await captureOnce(config, { path: "a.ts", elements: [{ id: "ab12cd34", content: "x" }] });
     await captureOnce(config, { path: "b.ts", content: "x" });
 
     const list = listCaptures(DIR);
-    expect(list.some((f) => f.endsWith("-sweep-a.ts.json"))).toBe(true);
-    expect(list.some((f) => f.endsWith("-confirm-b.ts.json"))).toBe(true);
+    expect(list.some((f) => f.endsWith("-elements-a.ts.json"))).toBe(true);
+    expect(list.some((f) => f.endsWith("-files-b.ts.json"))).toBe(true);
   });
 
   test("same-millisecond collisions get a suffix, never concatenated", async () => {

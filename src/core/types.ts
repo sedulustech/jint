@@ -110,8 +110,8 @@ export interface Measurement {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
-  /** Which funnel regime produced it (absent = whole-unit path). */
-  readonly stage?: "file" | "sweep" | "confirm";
+  /** What was measured: the unit itself, or an element of its inventory. */
+  readonly stage?: "file" | "element";
 }
 
 /** A measurement that mattered: it cleared the rule's handle and carries the returned severity. */
@@ -121,8 +121,8 @@ export interface Signal {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Exact element location for confirmed funnel signals (design.md §7.3): the identified block plus
-   * its byte/line span into the source. Absent for files-target signals (relational, file-shaped).
+   * Exact element location for element-scoped signals: the identified element plus its byte/line
+   * span into the source. Absent for files-target signals (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
 }
@@ -143,14 +143,14 @@ export interface FileState {
   readonly id: string;
 }
 
-/** One block of the sweep's array state (design.md §7.7); id is the content-hashed wire id. */
+/** One element of a classification array state (design §7.7); id is its LOC wire id. */
 export interface ElementState {
   /** LOC-interval wire id (treesitter span); reports address elements by the same id. */
   readonly id: string;
   readonly content: string;
 }
 
-/** Stage-1 sweep state: one file mapped into an array of elements, judged in ONE call. */
+/** Classification array state: one file mapped into its elements, judged in chunked calls. */
 export interface SweepState {
   readonly path: string;
   readonly elements: readonly ElementState[];
@@ -164,7 +164,7 @@ export interface DiffState {
 }
 
 export type UnitState = FileState | DiffState;
-/** Everything the classifier may be handed: whole-file/diff units, plus the sweep's array state. */
+/** Everything the classifier may be handed: whole-file/diff units, plus classification arrays. */
 export type AnyState = UnitState | SweepState;
 
 /** A resolved thing to measure: its kind picks the rules; its state feeds the classifier. */

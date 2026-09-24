@@ -142,21 +142,15 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
 describe("rule definitions", () => {
   const ruleFires = (s: Rule): boolean => s.handle(0.05) !== null || s.handle(0.95) !== null;
 
-  test("every block-target rule has a funnel sweep anchor and polarity", async () => {
-    const funnel = await import("./funnel.ts");
-    const SWEEP_THRESHOLDS = funnel.SWEEP_THRESHOLDS;
-    const HIGH_GOOD = funnel.HIGH_GOOD;
+  test("every rule has exactly one handle polarity; handles are the only thresholds", () => {
+    // The handles are the only thresholds (the sweep anchors died with the two-stage funnel).
+    // A firing handle must fire on exactly one side (high=good fires LOW, high=bad fires HIGH);
+    // a measurement-only rule (null handle) fires on neither.
     for (const rule of Object.values(defaultRules)) {
-      if (rule.target === "files" || rule.target === "imports" || rule.target === "diffs") continue;
-      const missing = Object.values(defaultRules)
-        .filter((s) => s.target !== "files" && s.target !== "imports" && s.target !== "diffs")
-        // a firing rule without an anchor can never sweep -> never confirms; missing anchor
-        .filter((s) => ruleFires(s) && typeof SWEEP_THRESHOLDS[s.name] !== "number");
-      expect(missing.map((s) => s.name)).toEqual([]);
-      // polarity: high-good handles fire on LOW values and are in HIGH_GOOD; high-bad the reverse
       const firesLow = rule.handle(0.05) !== null;
       const firesHigh = rule.handle(0.95) !== null;
-      expect(HIGH_GOOD.has(rule.name)).toBe(firesLow && !firesHigh);
+      expect(firesLow && firesHigh).toBe(false);
+      expect(ruleFires(rule)).toBe(firesLow || firesHigh);
     }
   });
 
