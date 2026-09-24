@@ -42,7 +42,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **answer** — the single calibrated probability returned per question, validated in shape;
   missing or non-finite becomes JEV_RESPONSE_INVALID.
 - **strategy** — a model of the state and questions to send to the classifier (jev) to balance
-  performance, accuracy and price; the tried strategies and their results live in tmp/strategies.md.
+  performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
 - **unit** — a resolved thing to measure `{ kind: "file" | "diff", state }`; dirs exist only at
   inference time and resolve to file units before measuring.
 - **element** one thing a sensor can judge: a file, a diff, or a node-derived
