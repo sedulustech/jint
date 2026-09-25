@@ -379,7 +379,9 @@ describe("lint", () => {
     // the failed file's calls (whole-content + one call per element) surface an error
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(17); // second unit: 2 file + 15 sweep
+    // second unit: 2 file + 7 (comment element) + 6 (clampToLimit, function element);
+    // SMALL_LIMIT is a data const — no functions-target (or other element) measurements
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(15);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {

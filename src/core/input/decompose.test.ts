@@ -298,3 +298,22 @@ describe("decompose — python", () => {
     expect(decompose("x", "cobol")).rejects.toMatchObject({ code: "INTERNAL" });
   });
 });
+
+describe("decompose — variable declaration roles", () => {
+  test("a data const is role data, never function; an arrow const stays function", async () => {
+    const source = [
+      "const report = buildReport();",
+      "const add = (a: number, b: number): number => a + b;",
+      "function declared(): void {}",
+    ].join("\n");
+    const inv = await decompose(source, "typescript");
+    const data = inv.definitions.find((d) => d.content.startsWith("const report"));
+    expect(data?.role).toBe("data");
+    expect(data?.nodeType).toBe("lexical_declaration");
+    const arrow = inv.definitions.find((d) => d.content.startsWith("const add"));
+    expect(arrow?.role).toBe("function");
+    const fn = inv.definitions.find((d) => d.content.startsWith("function declared"));
+    expect(fn?.role).toBe("function");
+    expectSpansRoundTrip(source, inv);
+  });
+});

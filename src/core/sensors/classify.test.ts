@@ -279,3 +279,44 @@ describe("classifyFile — element fan-out", () => {
     expect(maxInFlight).toBeGreaterThan(1); // concurrent, not sequential
   });
 });
+
+describe("classifyFile — role routing", () => {
+  const fnRule = defaultRules.is_function_srp!; // functions-target: judges callables only
+
+  test("a data const gets no functions-target measurement", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const classifier: Classifier = async (_state, questions) =>
+      Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    const { events } = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/data.ts", content: "const report = buildReport();\n", id: "L1" },
+      },
+      [fnRule],
+      classifier,
+    );
+    const measured = events.filter((e) => !(e.event instanceof MeasureError));
+    expect(measured).toHaveLength(0);
+  });
+
+  test("an arrow-function const still gets the functions-target measurement", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const classifier: Classifier = async (_state, questions) =>
+      Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    const { events } = await classifyFile(
+      {
+        kind: "file",
+        state: {
+          path: "src/arrow.ts",
+          content: "const add = (a: number, b: number): number => a + b;\n",
+          id: "L1",
+        },
+      },
+      [fnRule],
+      classifier,
+    );
+    const measured = events.filter((e) => !(e.event instanceof MeasureError));
+    expect(measured).toHaveLength(1);
+    expect((measured[0]!.event as Measurement).rule).toBe("is_function_srp");
+  });
+});
