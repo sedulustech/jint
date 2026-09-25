@@ -127,6 +127,10 @@ cat snippet.ts | jint str - --language typescript --rule is_function_srp
 - There is no `--measure` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
 - The removed `--file`/`--dir`/`--kind`/`--diff` flags error with a pointer at the new form.
 
+### Language notes
+
+Go (`.go`) decomposes with the shared role vocabulary (function/method -> function, struct/interface -> type); its rule criteria are unverified until probed.
+
 ## Exit codes
 
 | code | meaning                                                                                                                                                           |

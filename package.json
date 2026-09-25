@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.52",
-    "@typesafe-ai/sdk": "^0.6.0"
+    "@typesafe-ai/sdk": "^0.6.0",
+    "tree-sitter-go": "^0.25.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

@@ -16,6 +16,7 @@
  * against roles, not node names.
  */
 
+import goWasm from "tree-sitter-go/tree-sitter-go.wasm" with { type: "file" };
 import pythonWasm from "tree-sitter-python/tree-sitter-python.wasm" with { type: "file" };
 import typescriptWasm from "tree-sitter-typescript/tree-sitter-typescript.wasm" with { type: "file" };
 import { Language, Parser, type Language as LanguageType } from "web-tree-sitter";
@@ -187,6 +188,21 @@ const PYTHON: LanguageMapping = {
   wrapperTypes: ["decorated_definition", "expression_statement"],
 };
 
+const GO: LanguageMapping = {
+  roleTable: {
+    function_declaration: "function",
+    // Methods with receivers are Go's function_definition-equivalent; like Go itself, they sit at
+    // the top level (not nested in the type), so no composite descent applies.
+    method_declaration: "function",
+    // type_declaration wraps one or more type_spec (struct/interface/alias); its full text is the
+    // element content.
+    type_declaration: "type",
+    comment: "comment",
+    import_declaration: "import",
+  },
+  wrapperTypes: [],
+};
+
 /**
  * The docstring of a python construct: the FIRST statement of its body wrapping a string. Returns
  * the string node's text and span, or null when there is no docstring. The "block" body node type
@@ -209,11 +225,13 @@ function defName(node: { namedChildren: any[] }): string {
 const LANGUAGES: Record<string, LanguageMapping> = {
   typescript: TYPESCRIPT,
   python: PYTHON,
+  go: GO,
 };
 
 const WASM_PATHS: Record<string, string> = {
   typescript: typescriptWasm,
   python: pythonWasm,
+  go: goWasm,
 };
 
 /** Parser instances are cached per language; web-tree-sitter itself initializes once. */
@@ -476,5 +494,6 @@ export async function decompose(source: string, language: string): Promise<Inven
 /** The inventory's languages: the tree-sitter grammars actually mapped (design §7.2). */
 export function languageOf(path: string): string | null {
   if (/\.(m|c)?tsx?$/.test(path)) return "typescript";
-  return /\.py$/.test(path) ? "python" : null;
+  if (/\.py$/.test(path)) return "python";
+  return /\.go$/.test(path) ? "go" : null;
 }

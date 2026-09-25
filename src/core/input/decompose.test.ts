@@ -299,6 +299,80 @@ describe("decompose — python", () => {
   });
 });
 
+describe("decompose — go", () => {
+  const GO_SOURCE = [
+    "package main",
+    "",
+    'import "fmt"',
+    "",
+    "// greet says hi.",
+    "func greet(name string) string {",
+    "\t// internal note",
+    '\treturn "hi " + name',
+    "}",
+    "",
+    "func (g *Greeter) greetLoudly() string {",
+    "\treturn strings.ToUpper(greet(g.name))",
+    "}",
+    "",
+    "type Greeter struct {",
+    "\tname string // field doc",
+    "}",
+    "",
+    "type Greeter interface {",
+    "\tgreetLoudly() string",
+    "}",
+    "",
+    "func standalone() {}",
+    "",
+  ].join("\n");
+
+  test("funcs, methods, structs, interfaces, comments, imports extract with existing roles", async () => {
+    const inv = await decompose(GO_SOURCE, "go");
+    expect(inv.hasError).toBe(false);
+    const shapes = inv.definitions.map((d) => [d.nodeType, d.role]);
+    expect(shapes).toEqual([
+      ["function_declaration", "function"],
+      // Method with receiver: Go keeps methods top-level, not nested in the type.
+      ["method_declaration", "function"],
+      ["type_declaration", "type"],
+      ["type_declaration", "type"],
+      ["function_declaration", "function"],
+    ]);
+    // Doc comment attaches to the func that follows it; internal comment stays inside.
+    expect(inv.definitions[0]!.attachedComment).toEqual(["// greet says hi."]);
+    expect(inv.definitions[0]!.internalCommentCount).toBe(1);
+    expect(inv.comments).toHaveLength(0);
+    expect(inv.imports).toHaveLength(1);
+    expect(inv.imports[0]!.content).toBe('import "fmt"');
+    expectSpansRoundTrip(GO_SOURCE, inv);
+  });
+
+  test("no composite descent: struct/interface members and method bodies stay flat", async () => {
+    const inv = await decompose(GO_SOURCE, "go");
+    // Exactly the five top-level declarations — no elements synthesized from struct fields,
+    // interface methods, or statements inside function bodies.
+    expect(inv.definitions).toHaveLength(5);
+    expect(
+      inv.definitions.some(
+        (d) =>
+          d.nodeType !== "function_declaration" &&
+          d.nodeType !== "method_declaration" &&
+          d.nodeType !== "type_declaration",
+      ),
+    ).toBe(false);
+  });
+
+  test("typescript and python are unaffected by the go mapping", async () => {
+    const ts = await decompose("function f() {}\n// note\n", "typescript");
+    expect(ts.definitions[0]!.role).toBe("function");
+    expect(ts.comments.map((c) => c.content)).toEqual(["// note"]);
+    const py = await decompose('"""Doc."""\ndef f():\n    pass\n', "python");
+    expect(py.definitions[0]!.role).toBe("function");
+    expect(py.comments[0]!.docstringOf).toEqual({ kind: "module", name: "" });
+  });
+});
+
 describe("decompose — variable declaration roles", () => {
   test("a binding const is role binding, never function; an arrow const stays function", async () => {
     const source = [
