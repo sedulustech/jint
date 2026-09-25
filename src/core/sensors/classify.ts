@@ -181,6 +181,8 @@ export interface ClassifyResult {
   readonly fatal: boolean;
   /** The derived inventory, when the source parsed into elements; absent on derivation failure. */
   readonly inventory?: Inventory;
+  /** Elements skipped as oversized (over MAX_ELEMENT_CHARS): never judged, reported in-band. */
+  readonly oversized: number;
 }
 
 /**
@@ -191,6 +193,9 @@ export const ELEMENT_CONCURRENCY = 8;
 
 /** Rules whose target matches an element's kind (design §7.1: the target routes). */
 const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
+  // Oversized elements are never judged (design: composite body-size fix) — the size backstop
+  // trades their readings for the run's reliability; the count surfaces in-band, never silent.
+  if (element.oversized === true) return [];
   const commentElement = element.role === "comment";
   const importElement = element.role === "import";
   const carriesComment = commentElement || (element.attachedComment?.length ?? 0) > 0;
@@ -260,7 +265,7 @@ export async function classifyFile(
       wholeRules.map((rule) => questionKey(rule.name, fileId)),
       state.path,
     );
-    if (fatalIn()) return { events, fatal: true };
+    if (fatalIn()) return { events, fatal: true, oversized: 0 };
   }
 
   // Derive the inventory; failure is a per-unit error for the inventory-scoped rules.
@@ -319,7 +324,8 @@ export async function classifyFile(
     const wireId = elementWireId(element.span);
     jobs.push({ wireId, span: element.span, source: elementContent(element), rules: scoped });
   }
-  if (jobs.length === 0 || isAborted()) return { events, fatal: false };
+  const oversized = derived?.oversizedCount ?? 0;
+  if (jobs.length === 0 || isAborted()) return { events, fatal: false, oversized };
 
   let next = 0;
   let aborted = false;
@@ -351,8 +357,8 @@ export async function classifyFile(
   // the averaged matrix readings); the cap bounds in-flight requests per file.
   const concurrency = options.concurrency ?? ELEMENT_CONCURRENCY;
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
-  if (aborted) return { events, fatal: true, inventory: derived };
-  return { events, fatal: false, inventory: derived };
+  if (aborted) return { events, fatal: true, inventory: derived, oversized };
+  return { events, fatal: false, inventory: derived, oversized };
 }
 /**
  * A definition's attached docblock is consumed into the element (design §7.2) — it reads as

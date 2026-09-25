@@ -125,6 +125,32 @@ describe("classify", () => {
     expect(outcome.inventory).toBeUndefined();
   });
 
+  test("oversized element: zero rules, zero calls, counted in-band", async () => {
+    const states: unknown[] = [];
+    const definitionsRule: Rule = {
+      name: "r_def",
+      kind: "choice",
+      target: "definitions",
+      handle: loudHandle,
+      instructions: "Score the definition.",
+      criteria: ["clear", "mixed", "muddled"],
+    };
+    const big =
+      "const big = [" +
+      Array.from({ length: 500 }, () => '"' + "x".repeat(40) + '"').join(", ") +
+      "];";
+    const outcome = await classify(big, [definitionsRule], {
+      path: "src/big.ts",
+      classifier: fakeClassifier({ r_def: 1 }, states),
+    });
+    // the oversized element is never judged: no call, no measurement, no error — the count is
+    // the in-band signal (design: composite body-size fix, the hard size backstop)
+    expect(states).toHaveLength(0);
+    expect(outcome.measurements).toHaveLength(0);
+    expect(outcome.errors).toHaveLength(0);
+    expect(outcome.oversized).toBe(1);
+  });
+
   test("empty source is a setup failure, thrown", async () => {
     await expect(
       classify("", [noulFileRule], { classifier: fakeClassifier({}) }),

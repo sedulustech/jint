@@ -11,6 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { MAX_ELEMENT_CHARS } from "./input/decompose.ts";
 import { decomposeDiff } from "./input/diff.ts";
 import { resolveInput } from "./input/infer.ts";
 import { createClassifier } from "./jev/client.ts";
@@ -109,8 +110,23 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         .slice(i, i + FILE_CONCURRENCY)
         .map((unit) => runUnit(unit, rules, classifier, () => aborted, options.language)),
     );
-    for (const result of results) {
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j]!;
+      const unit = units[i + j]!;
       if (result.abort) aborted = true;
+      if (result.oversized > 0) {
+        const path = "path" in unit.state ? unit.state.path : "unit";
+        yield {
+          type: "note",
+          note:
+            path +
+            ": " +
+            result.oversized +
+            " oversized element(s) skipped (over " +
+            MAX_ELEMENT_CHARS +
+            " chars)",
+        };
+      }
       for (const { event, stage, span } of result.events) {
         if (event instanceof MeasureError) {
           yield { type: "error", error: withLanguageHint(event, options) };
@@ -165,6 +181,7 @@ function withLanguageHint(error: MeasureError, options: LintOptions): MeasureErr
 interface UnitResult {
   events: ClassifyEvent[];
   abort: boolean;
+  oversized: number;
 }
 
 async function runUnit(
@@ -181,7 +198,9 @@ async function runUnit(
     isAborted,
     language !== undefined ? { language } : {},
   );
-  return { events: result.events, abort: result.fatal };
+  // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
+  // rides the same stream as measurements, and the reporters count it in the run summary.
+  return { events: result.events, abort: result.fatal, oversized: result.oversized };
 }
 
 /** A str as one file unit: the piped-stdin path (identity "input" unless named). */
@@ -264,15 +283,18 @@ export interface LintReport {
   findings: Finding[];
   /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
   errors: MeasureError[];
+  /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
+  notes: string[];
 }
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], findings: [], errors: [] };
+  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
+    else if (event.type === "note") report.notes.push(event.note);
   }
   return report;
 }

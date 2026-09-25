@@ -57,6 +57,8 @@ export interface InventoryElement {
   readonly docstringOf?: DocstringOwner;
   /** Comment nodes nested inside this definition's body; consumed into the element by construction. */
   readonly internalCommentCount: number;
+  /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
+  readonly oversized?: boolean;
 }
 
 /** Comment nodes anywhere inside a node's subtree (member docs, function-body comments). */
@@ -124,7 +126,16 @@ export interface Inventory {
   readonly comments: InventoryElement[];
   /** Exactly one merged element when the file has imports; empty otherwise. */
   readonly imports: InventoryElement[];
+  /** Elements emitted with oversized: true (source over MAX_ELEMENT_CHARS); reported, never judged. */
+  readonly oversizedCount: number;
 }
+
+/**
+ * Hard size backstop (language-agnostic): any element whose source exceeds this is emitted with
+ * oversized: true and skipped by the classifier — ordinary code can never crash the run with an
+ * oversized judgment request (design: composite body-size fix). Chunking is rejected.
+ */
+export const MAX_ELEMENT_CHARS = 8000;
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
 /**
@@ -274,6 +285,8 @@ interface RawElement {
   readonly attachedComment?: readonly string[];
   readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
+  /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
+  readonly oversized?: boolean;
 }
 
 function spanOf(node: {
@@ -290,6 +303,42 @@ function spanOf(node: {
   };
 }
 
+/** End point len chars after start (content === src.slice(startByte, endByte) invariant). */
+function pointAfter(start: UnitPoint, content: string): UnitPoint {
+  const lines = content.split("\n");
+  const last = lines[lines.length - 1]!;
+  return {
+    line: start.line + lines.length - 1,
+    column: lines.length === 1 ? start.column + last.length : last.length,
+  };
+}
+
+/**
+ * Composite header state: the byte offset bounding a composite's source to its declaration — the
+ * first '{' at the top level of the node text (name, signature, decorator, docstring line); when
+ * the grammar has no braces (python's "class Greeter:"), the first top-level ':' ends the header
+ * (inclusive). A single-line declaration with neither keeps its full text. Depth-tracked, so a '{'
+ * inside a decorator call or a signature's object type never ends the header early.
+ */
+function headerEnd(text: string, nestedBraceEndsHeader: boolean): number {
+  let depth = 0;
+  let colon = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth--;
+    else if (c === "{") {
+      // A class body's brace sits at top level; a call composite's callback brace sits one
+      // paren deep (describe("x", () => {) — either ends the header.
+      if (depth === 0 || (nestedBraceEndsHeader && depth === 1)) return i;
+      depth++;
+    } else if (c === "}") {
+      if (depth > 0) depth--;
+    } else if (c === ":" && depth === 0 && colon === -1) colon = i;
+  }
+  return colon === -1 ? text.length : colon + 1;
+}
+
 /**
  * Decompose one source string into its unit inventory. Never throws for parse errors — see the
  * module doc on graceful degradation.
@@ -301,7 +350,8 @@ export async function decompose(source: string, language: string): Promise<Inven
   }
   const parser = await parserFor(language);
   const tree = parser.parse(source);
-  if (!tree) return { hasError: true, definitions: [], comments: [], imports: [] };
+  if (!tree)
+    return { hasError: true, definitions: [], comments: [], imports: [], oversizedCount: 0 };
 
   const definitions: RawElement[] = [];
   const comments: RawElement[] = [];
@@ -330,10 +380,28 @@ export async function decompose(source: string, language: string): Promise<Inven
     role: NodeRole,
     attached?: readonly string[],
   ) => {
+    let content = outer.text;
+    let span = spanOf(outer);
+    // Composite header state (design: composite body-size fix): composites carry their declaration
+    // through the opening brace, not their body (real corpora hit jev's max_tokens on 25k-char
+    // impl/class bodies). Body facts travel via the children descent already yields; the parent's
+    // questions are about the declaration. The attached doc comment travels outside the span, so
+    // it survives the bound.
+    if (COMPOSITES.has(type)) {
+      const end = headerEnd(content, type === "call_expression");
+      if (end < content.length) {
+        content = content.slice(0, end).trimEnd();
+        span = {
+          ...span,
+          end: pointAfter(span.start, content),
+          endByte: span.startByte + content.length,
+        };
+      }
+    }
     definitions.push({
       label: "",
-      span: spanOf(outer),
-      content: outer.text,
+      span,
+      content,
       nodeType: type,
       role,
       ...(attached ? { attachedComment: attached } : {}),
@@ -486,13 +554,26 @@ export async function decompose(source: string, language: string): Promise<Inven
     };
   }
 
+  // Hard size backstop (language-agnostic, design: composite body-size fix): any element over
+  // MAX_ELEMENT_CHARS is flagged oversized — the classifier returns no rules for it and the run
+  // reports the count in-band. Ordinary code can never crash the run with an oversized request.
+  const sized = (elements: readonly RawElement[]): RawElement[] =>
+    elements.map((e) => (e.content.length > MAX_ELEMENT_CHARS ? { ...e, oversized: true } : e));
+  const importElements = importElement ? [importElement] : [];
+  const sizedDefs = sized(definitions);
+  const sizedComments = sized(comments);
+  const sizedImports = sized(importElements);
+  const oversizedCount = [...sizedDefs, ...sizedComments, ...sizedImports].filter(
+    (e) => e.oversized === true,
+  ).length;
   const label = (elements: RawElement[], prefix: string) =>
     elements.map((element, i) => ({ ...element, label: prefix + String(i) }));
   return {
     hasError: tree.rootNode.hasError,
-    definitions: label(definitions, "d"),
-    comments: label(comments, "c"),
-    imports: importElement ? [importElement] : [],
+    definitions: label(sizedDefs, "d"),
+    comments: label(sizedComments, "c"),
+    imports: label(sizedImports, "i"),
+    oversizedCount,
   };
 }
 

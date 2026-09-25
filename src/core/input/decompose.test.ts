@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
-import { decompose, type Inventory } from "./decompose.ts";
+import { decompose, MAX_ELEMENT_CHARS, type Inventory } from "./decompose.ts";
 
 const GOLDEN = "src/core/types.ts";
 
@@ -51,13 +51,13 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     // declarations, no imports in this file (golden tracks src/core/types.ts).
     expect(inv.definitions).toHaveLength(31);
     expect(inv.imports).toHaveLength(0);
-    // 29 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
-    // (the file header, separated from the first declaration by a blank line), and 7 nested
+    // 30 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
+    // (the file header, separated from the first declaration by a blank line), and 8 nested
     // member-doc comments inside declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(35);
+    expect(accountedComments(inv)).toBe(36);
     expect(attachedCount(inv)).toBe(25);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(9);
+    expect(internalCount(inv)).toBe(10);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
@@ -170,7 +170,6 @@ describe("decompose — composite-descent fixture", () => {
   test("composites are judged AND descended into: nested calls, class methods, sub-spans", async () => {
     const source = await Bun.file("src/core/input/fixtures/unit-tree/composite-tree.ts").text();
     const inv = await decompose(source, "typescript");
-    const byContent = (needle: string) => inv.definitions.filter((d) => d.content.includes(needle));
     // Headers flow into existing roles: call expressions -> function, class -> type.
     expect(
       inv.definitions.some((d) => d.role === "function" && d.content.startsWith("describe(")),
@@ -182,16 +181,46 @@ describe("decompose — composite-descent fixture", () => {
     expect(
       inv.definitions.some((d) => d.role === "type" && d.nodeType === "class_declaration"),
     ).toBe(true);
-    expect(byContent("render(): string")).toHaveLength(2); // class header + method element
+    // The class element is a HEADER state now: declaration through the opening brace, no body.
+    const klass = inv.definitions.find((d) => d.nodeType === "class_declaration")!;
+    expect(klass.content).toBe("class Widget");
+    expect(klass.content).not.toContain("render");
+    // Its method is still a child element of its own, with the full body.
+    const method = inv.definitions.find((d) => d.nodeType === "method_definition")!;
+    expect(method.content).toContain("render(): string");
+    expect(method.content).toContain("return");
     // Descent is recursive: expect(...) inside it(...) is its own element.
     expect(inv.definitions.some((d) => d.content.startsWith("expect("))).toBe(true);
-    // Inner elements have sub-spans of their composite; spans stay LOC intervals.
-    const outerSpan = inv.definitions.find((d) => d.content.startsWith("describe("))!.span;
+    // Inner elements stay after their composite; the composite's span is its header now, so
+    // inner spans are no longer contained by it — identity is span-derived, not containment.
+    const outerSpan = inv.definitions.find((d) => d.content.startsWith('describe("outer"'))!.span;
     const innerSpan = inv.definitions.find((d) => d.content.startsWith("it("))!.span;
     expect(innerSpan.start.line).toBeGreaterThan(outerSpan.start.line);
-    expect(innerSpan.end.line).toBeLessThan(outerSpan.end.line);
+    expect(outerSpan.end.line).toBe(outerSpan.start.line); // header-only: single line
     expectSpansRoundTrip(source, inv);
     expect(accountedComments(inv)).toBe(await countCommentNodes(source));
+  });
+});
+
+describe("decompose — oversized backstop", () => {
+  test("an element over MAX_ELEMENT_CHARS is flagged oversized and counted, language-agnostic", async () => {
+    // A giant single expression element: over the backstop, flagged, still emitted.
+    const source =
+      "const big = [" +
+      Array.from({ length: 500 }, () => '"' + "x".repeat(40) + '"').join(", ") +
+      "];";
+    expect(source.length).toBeGreaterThan(MAX_ELEMENT_CHARS);
+    const inv = await decompose(source, "typescript");
+    expect(inv.definitions).toHaveLength(1);
+    expect(inv.definitions[0]!.oversized).toBe(true);
+    expect(inv.oversizedCount).toBe(1);
+    expectSpansRoundTrip(source, inv);
+  });
+
+  test("a python class header ends at its colon; no brace, header still bounded", async () => {
+    const source = "class Greeter:\n    def hi(self):\n        pass";
+    const inv = await decompose(source, "python");
+    expect(inv.definitions[0]!.content).toBe("class Greeter:");
   });
 });
 

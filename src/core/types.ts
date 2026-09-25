@@ -234,4 +234,6 @@ export type Classifier = (
 export type LintEvent =
   | { type: "measurement"; measurement: Measurement }
   | { type: "finding"; finding: Finding }
-  | { type: "error"; error: MeasureError };
+  | { type: "error"; error: MeasureError }
+  /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
+  | { type: "note"; note: string };

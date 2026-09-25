@@ -35,6 +35,10 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
     err.push(errColor ? red(line) : line);
   }
 
+  // Degradation notes (e.g. oversized elements skipped): in-band, on stderr with the run's
+  // own diagnostics — not silent, not errors (mirrors the failed-units rendering).
+  for (const note of report.notes) err.push(note);
+
   const runSummary = runSummaryOf(report);
   if (runSummary !== null) {
     err.push("");
@@ -84,7 +88,7 @@ function findingsSummaryOf(report: LintReport): string | null {
   }
   // The clean-run line fires only when nothing else is reported anywhere: a run with failed
   // units never claims "clean".
-  if (report.errors.length === 0 && report.measurements.length > 0) {
+  if (report.errors.length === 0 && report.notes.length === 0 && report.measurements.length > 0) {
     return `no findings — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`;
   }
   return null;
@@ -96,6 +100,11 @@ function runSummaryOf(report: LintReport): string | null {
   if (report.errors.length > 0) {
     parts.push(
       `${report.errors.length} ${report.errors.length === 1 ? "unit" : "units"} failed to measure`,
+    );
+  }
+  if (report.notes.length > 0) {
+    parts.push(
+      `${report.notes.length} ${report.notes.length === 1 ? "file" : "files"} with oversized elements skipped`,
     );
   }
 

@@ -45,6 +45,8 @@ export interface ClassifyOutcome {
   readonly errors: MeasureError[];
   /** The derived inventory, when the source parsed into elements; absent otherwise. */
   readonly inventory?: Inventory;
+  /** Elements skipped as oversized (over MAX_ELEMENT_CHARS): never judged, reported in-band. */
+  readonly oversized: number;
 }
 
 /**
@@ -88,6 +90,7 @@ export async function classify(
   return {
     measurements,
     errors,
+    oversized: result.oversized,
     ...(result.inventory !== undefined && { inventory: result.inventory }),
   };
 }

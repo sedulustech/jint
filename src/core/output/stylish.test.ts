@@ -4,6 +4,7 @@ import { renderStylish, shouldColor } from "./stylish.ts";
 import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
+  notes: [],
   measurements: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
   findings: [
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
@@ -46,12 +47,13 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         findings: [],
         errors: [],
+        notes: [],
       },
       "never",
     );
     expect(clean.stderr).toBe("");
     const failedOnly = renderStylish(
-      { measurements: [], findings: [], errors: report.errors },
+      { measurements: [], findings: [], errors: report.errors, notes: [] },
       "never",
     );
     expect(failedOnly.stdout).toBe("");
@@ -64,6 +66,7 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         findings: [],
         errors: [],
+        notes: [],
       },
       "never",
     );
@@ -76,6 +79,7 @@ describe("renderStylish", () => {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
         findings: [],
         errors: report.errors,
+        notes: [],
       },
       "never",
     );
@@ -85,7 +89,7 @@ describe("renderStylish", () => {
 
   test("completely empty report renders empty on both streams", () => {
     const { stdout, stderr } = renderStylish(
-      { measurements: [], findings: [], errors: [] },
+      { measurements: [], findings: [], errors: [], notes: [] },
       "never",
     );
     expect(stdout).toBe("");
