@@ -86,29 +86,32 @@ The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on p
 ## CLI
 
 ```bash
-jint --file src/a.ts src/b.ts     # explicit files
-jint --dir src/                   # a directory tree
-jint --diff HEAD~2..HEAD          # rev expression (shells out to git)
-jint --diff fix.patch             # a file holding a unified diff
-git diff HEAD~1 | jint --diff -   # stdin: the primitive
-jint                              # no flags: input comes from jint.config.json
+jint --file src/a.ts src/b.ts            # explicit files
+jint --dir src/                          # a directory tree
+git diff HEAD~1 | jint --kind diff       # piped stdin, declared a diff
+cat snippet.ts | jint --kind str         # piped stdin, declared one str unit
+jint                                     # no flags: input comes from jint.config.json
 ```
 
-Flags: `--file` `--dir` `--diff` `--config` `--exclude <glob>` `--disable <name>` `--json` `--color auto|always|never` `--debug` `-h/--help` `--version`.
+Flags: `--file` `--dir` `--kind` `--config` `--exclude <glob>` `--disable <name>` `--json` `--color auto|always|never` `--debug` `-h/--help` `--version`.
 
 Precedence: flags > `TYPESAFE_*` environment > `jint.config.json` > defaults.
 
 Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
 
-A diff input decomposes into per-file units: added/modified files are measured, deleted and binary files are skipped, and the commit message (when available via git) is shared state for every unit.
+A diff input decomposes into per-file units: added/modified files are measured, deleted and binary files are skipped. Jint never shells out to git — the caller pipes the diff in.
 
-### Piped stdin: the str primitive
+### Input kinds: declared, never sniffed
 
-Piping into jint with NO input flags (`--file`/`--dir`/`--diff` all absent, stdin not a TTY) measures stdin as ONE str unit; its identity is `"input"`. Stdin is never a diff — `--diff -` stays the explicit diff door, no disambiguation:
+A path's kind is inferred by shape only: an existing directory is `dir`, anything else is `file` — even a patch file (`jint --file fix.patch` judges it as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`). To judge a patch as a diff, pipe it with `--kind diff`.
+
+### Piped stdin: kind required
+
+Piped stdin has no path, so its kind is REQUIRED — `--kind str` (ONE str unit, identity `"input"`) or `--kind diff` (unified-diff text, decomposed into per-file units). Piping without `--kind` is a usage error (exit 2) with guidance. Empty piped stdin falls through to `config.input`.
 
 ```bash
-cat snippet.ts | jint --json
-cat snippet.ts | jint --language typescript --rule is_function_srp
+cat snippet.ts | jint --kind str --json
+cat snippet.ts | jint --kind str --language typescript --rule is_function_srp
 ```
 
 - `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still measure.
