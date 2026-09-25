@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { requestDebug } from "./debug.ts";
+import { requestDebug, requestTapSummary } from "./debug.ts";
 
 const DIR = "tmp/jev-request-test";
 
@@ -109,5 +109,33 @@ describe("requestDebug", () => {
       body: JSON.stringify({ state: { path: "a.ts", content: "x" }, questions: {} }),
     });
     expect(response.status).toBe(200);
+  });
+
+  test("summary: dir + written count after captures (override location flagged)", async () => {
+    const config = requestDebug({ fetch: passthrough() });
+    expect(requestTapSummary()).toEqual({ dir: expect.any(String), count: 0, override: true });
+
+    await captureOnce(config, { path: "a.ts", content: "x" });
+    await captureOnce(config, { path: "a.ts", content: "x" });
+
+    const summary = requestTapSummary()!;
+    expect(summary.dir).toMatch(
+      new RegExp(`^${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\\\$&")}/\\d+$`),
+    );
+    expect(summary.count).toBe(2);
+    expect(summary.override).toBe(true);
+  });
+
+  test("summary: no override flag when the location is the default", async () => {
+    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
+    const config = requestDebug({ fetch: passthrough() });
+    await captureOnce(config, { path: "a.ts", content: "x" });
+    expect(requestTapSummary()!.override).toBe(false);
+  });
+
+  test("summary: inactive tap exposes nothing", () => {
+    delete process.env.JEV_DEBUG_REQUEST;
+    requestDebug(undefined);
+    expect(requestTapSummary()).toBeNull();
   });
 });

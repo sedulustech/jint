@@ -17,6 +17,7 @@ import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typ
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
+import { requestTapSummary } from "./core/jev/debug.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
@@ -81,6 +82,17 @@ Options:
 Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measurements.
 
 `;
+
+/**
+ * End-of-run stderr notice for the request tap: where the captures went and how many. Nothing when
+ * the tap is inactive or wrote zero captures (e.g. the run failed before any classifier call).
+ */
+export function requestTapNotice(): string {
+  const tap = requestTapSummary();
+  if (tap === null || tap.count === 0) return "";
+  const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
+  return `jint: request captures -> ${tap.dir} (${tap.count} calls)${override}\n`;
+}
 
 export async function runCli(cliArgv: string[]): Promise<number> {
   const parsedCliArgs = parseCliArgs(cliArgv);
@@ -214,6 +226,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         : renderStylish(lintReport, cliArgs.color ?? "auto");
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
+    process.stderr.write(requestTapNotice());
     return computeExit(lintReport);
   } catch (thrown) {
     return exitForThrown(thrown);

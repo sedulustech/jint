@@ -299,4 +299,17 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
       expect(m.value).toBeLessThanOrEqual(1);
     }
   }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
+
+  test("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", () => {
+    if (!process.env.TYPESAFE_API_KEY) return; // demonstrated manually in the verification gate
+    const dir = ROOT + "/tmp/cli-tap-e2e";
+    const r = run(["tests/fixtures/sample-file.ts", "--json"], {
+      JEV_DEBUG_REQUEST: "1",
+      JEV_DEBUG_REQUEST_LOCATION: dir,
+    });
+    expect(r.code).toBe(0);
+    expect(() => JSON.parse(r.stdout)).not.toThrow(); // the notice never touches stdout
+    expect(r.stderr).toContain(`jint: request captures -> ${dir}/`);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+  }, 20_000);
 });

@@ -14,11 +14,29 @@ import type { ClassifierConfig } from "./client.ts";
  * run's first capture; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
  * directory. The kind (elements / files) is derived from the request's state shape.
  */
+/** What the tap observed this run, for the end-of-run stderr notice. Null when the tap is inactive. */
+export interface RequestTapSummary {
+  dir: string;
+  count: number;
+  override: boolean;
+}
+
+let tapSummary: RequestTapSummary | null = null;
+
+/** The active tap's run summary (null when the tap never activated or wrote nothing counts as 0). */
+export function requestTapSummary(): RequestTapSummary | null {
+  return tapSummary;
+}
+
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
-  if (process.env.JEV_DEBUG_REQUEST !== "1") return config ?? {};
+  if (process.env.JEV_DEBUG_REQUEST !== "1") {
+    tapSummary = null;
+    return config ?? {};
+  }
   const runid = Date.now();
   const base = process.env.JEV_DEBUG_REQUEST_LOCATION || "/tmp/jint/requests";
   const dir = `${base}/${runid}`;
+  tapSummary = { dir, count: 0, override: process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
     const response = await inner(input, init);
@@ -56,6 +74,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       let file = `${dir}/${stamp}-${kind}-${name}.json`;
       for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
       writeFileSync(file, JSON.stringify(capture, null, 2));
+      tapSummary!.count += 1;
     } catch {
       // the tap never breaks the call it observes
     }
