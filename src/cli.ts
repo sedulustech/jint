@@ -88,15 +88,6 @@ Options:
   -h, --help          this help
   --version           print the version
 
-Config precedence: flags > jint.config.json > defaults. Auth comes from TYPESAFE_API_KEY (used as-is, no jint-specific env vars).
-Rules: is_name_purposeful, is_vocabulary_consistent, is_naming_convention_consistent,
-is_greppable (high = good),
-is_comment_narration, is_comment_patching_readability, will_comment_drift, will_error_lose_cause,
-is_cognitively_complex (high = bad). Handles in config are data:
-{ "warn_at": n, "error_at": n } — warn_at < error_at fires high-bad (value above warn_at warns,
-above error_at errors); the reverse fires high-good. "handle": null = measure-only.
-
-Exit codes: 0 clean; 1 error signals; 2 usage/config; 3 internal; 4 ran but measured nothing.
 `;
 
 export async function runCli(cliArgv: string[]): Promise<number> {
