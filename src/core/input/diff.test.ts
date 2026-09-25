@@ -105,60 +105,13 @@ describe("readDiffSource", () => {
     expect(source.commitMessage).toBeNull();
   });
 
-  test("rev sugar without a git binary fails loudly, pointing at '-'", async () => {
-    const previousPath = process.env.PATH;
+  test("rev-shaped input is not a diff source (jint never shells to git)", async () => {
     try {
-      process.env.PATH = "";
-      try {
-        await readDiffSource("HEAD~2..HEAD");
-        expect.unreachable();
-      } catch (e) {
-        expect((e as SetupError).code).toBe("ENTRYPOINT_UNREADABLE");
-        expect((e as SetupError).message).toContain("--diff -");
-      }
-    } finally {
-      process.env.PATH = previousPath;
-    }
-  });
-
-  test("git rev resolves a real range with the commit message shared", async () => {
-    if (Bun.which("git") === null) return; // documented stub requires the git binary
-    const dir = `/tmp/jint-diff-test-${Date.now()}`;
-    const env = {
-      ...process.env,
-      GIT_AUTHOR_NAME: "t",
-      GIT_AUTHOR_EMAIL: "t@t",
-      GIT_COMMITTER_NAME: "t",
-      GIT_COMMITTER_EMAIL: "t@t",
-    };
-    const git = (args: string[]) =>
-      Bun.spawnSync(["git", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe", env });
-    Bun.spawnSync(["mkdir", "-p", dir]);
-    git(["init", "-q", "-b", "main"]);
-    Bun.write(`${dir}/f.txt`, "one\n");
-    git(["add", "."]);
-    git(["commit", "-q", "-m", "first"]);
-    Bun.write(`${dir}/f.txt`, "one\ntwo\n");
-    git(["add", "."]);
-    git(["commit", "-q", "-m", "second: add a line"]);
-    // git commands run in the process cwd, so probe from inside the repo
-    const probe = [
-      'import { readDiffSource } from "/home/crjm/dev/sedulus/jint/src/core/input/diff.ts";',
-      'const source = await readDiffSource("HEAD~1..HEAD");',
-      "console.log(JSON.stringify({",
-      '  hasDiff: source.text.includes("diff --git a/f.txt b/f.txt"),',
-      '  message: (source.commitMessage ?? "").includes("second: add a line"),',
-      "}));",
-    ].join("\n");
-    Bun.write(`${dir}/probe.ts`, probe);
-    try {
-      const proc = Bun.spawnSync(["bun", "probe.ts"], { cwd: dir, stdout: "pipe", stderr: "pipe" });
-      expect(proc.exitCode).toBe(0);
-      const result = JSON.parse(proc.stdout.toString().trim());
-      expect(result.hasDiff).toBe(true);
-      expect(result.message).toBe(true);
-    } finally {
-      Bun.spawnSync(["rm", "-rf", dir]);
+      await readDiffSource("HEAD~2..HEAD");
+      expect.unreachable();
+    } catch (e) {
+      expect((e as SetupError).code).toBe("ENTRYPOINT_NOT_FOUND");
+      expect((e as SetupError).message).toContain("--kind diff");
     }
   });
 });

@@ -34,8 +34,15 @@ const COLOR_MODE_SCHEMA = TypeBoxType.Union([
 const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   file: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   dir: TypeBoxType.Optional(TypeBoxType.String()),
-  diff: TypeBoxType.Optional(TypeBoxType.String()),
   language: TypeBoxType.Optional(TypeBoxType.String()),
+  kind: TypeBoxType.Optional(
+    TypeBoxType.Union([
+      TypeBoxType.Literal("file"),
+      TypeBoxType.Literal("dir"),
+      TypeBoxType.Literal("diff"),
+      TypeBoxType.Literal("str"),
+    ]),
+  ),
   config: TypeBoxType.Optional(TypeBoxType.String()),
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
@@ -54,26 +61,27 @@ const HELP = `jint — jev lint: measures code with AI-classifier judgments; rul
 Usage:
   jint --file <path>...      measure on-disk files
   jint --dir <path>          measure a directory tree
-  jint --diff <spec>         measure a diff: "-" (stdin), a patch file, or a git rev
+  cat fix.patch | jint --kind diff   piped stdin, declared a diff
+  cat snippet.ts | jint --kind str   piped stdin, declared one str unit
   jint                       no flags: input comes from jint.config.json
-  cat src.ts | jint          piped stdin, no input flags: stdin is ONE str unit
 
 Examples:
   jint --file src/a.ts src/b.ts
   jint --dir src/
-  jint --diff HEAD~2..HEAD
-  jint --diff fix.patch
-  git diff HEAD~1 | jint --diff -
-  cat snippet.ts | jint --json
-  cat snippet.ts | jint --language typescript --rule is_function_srp
-  jint --diff HEAD~1..HEAD --json | jq .
+  git diff HEAD~1 | jint --kind diff
+  cat snippet.ts | jint --kind str --language typescript
+  jint --kind diff --json | jq .
 
-Piped stdin with no --file/--dir/--diff is ALWAYS one str unit, never a diff — use --diff - for diffs. The stdin unit's identity is "input".
+A path's kind is never guessed from its content — a patch file read via --file is judged as a
+FILE; pipe it with --kind diff to judge it as a diff. Piped stdin has no path, so its kind is
+REQUIRED: pass --kind str or --kind diff (jint never shells out to git — the caller pipes the
+diff in). The stdin str unit's identity is "input".
 
 Options:
   --file <path>...    file(s) to measure (repeatable)
   --dir <path>        directory to measure
-  --diff <spec>       diff input: "-", a *.patch path, or a rev expression
+  --kind <kind>       input kind for piped stdin: str (one snippet unit) or diff (unified diff
+                      text); required when stdin is piped, unused with --file/--dir
   --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
                       without a resolvable language, inventory-scoped rules fail WALK_FAILED
                       in-band and unit-scoped rules still measure
@@ -87,6 +95,8 @@ Options:
   --debug             structured debug logs on stderr
   -h, --help          this help
   --version           print the version
+
+Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measurements.
 
 `;
 
@@ -126,14 +136,36 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 2;
   }
 
-  // Input resolution: flags > stdin-as-str > config.input > usage error. Piped stdin with NO
-  // input flags is one str unit (never a diff — --diff - stays the explicit diff door); EMPTY
-  // piped stdin falls through so config.input can flow. With a TTY or input flags, stdin is
-  // never read.
+  // Input resolution: flags > stdin > config.input. A path's kind is inferred by shape; piped
+  // stdin has no path, so its kind is REQUIRED (--kind str|diff — no default, no guessing).
+  // EMPTY piped stdin falls through so config.input can flow. With a TTY or input flags, stdin
+  // is never read; a TTY with no flags and no config input dies in lint()'s empty-input backstop.
   let stdinStr: { content: string } | undefined;
-  if (cliInput.outcome === "selected" && cliInput.input === "" && !process.stdin.isTTY) {
-    const content = await Bun.stdin.text();
-    if (content !== "") stdinStr = { content };
+  let stdinDiff: { text: string } | undefined;
+  if (cliInput.outcome === "selected" && cliInput.input === "") {
+    const kindGuidance =
+      "piped stdin requires --kind: pass --kind str (one source snippet) or --kind diff (a unified diff)";
+    if (cliArgs.kind !== undefined && cliArgs.kind !== "str" && cliArgs.kind !== "diff") {
+      usageError(
+        `--kind ${cliArgs.kind}: paths already have their kind — use --file/--dir; --kind declares piped stdin (str|diff)`,
+      );
+      return 2;
+    }
+    if (cliArgs.kind === "str" || cliArgs.kind === "diff") {
+      if (process.stdin.isTTY) {
+        usageError(`--kind ${cliArgs.kind}: no piped stdin to measure (stdin is a terminal)`);
+        return 2;
+      }
+      const content = await Bun.stdin.text();
+      if (cliArgs.kind === "str") stdinStr = { content };
+      else stdinDiff = { text: content };
+    } else if (!process.stdin.isTTY) {
+      const content = await Bun.stdin.text();
+      if (content !== "") {
+        usageError(kindGuidance);
+        return 2;
+      }
+    }
   }
 
   try {
@@ -144,9 +176,11 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         // applies ("" would shadow the config — lint() keeps the empty-input backstop).
         ...(stdinStr !== undefined
           ? { str: stdinStr, language: cliArgs.language }
-          : cliInput.input !== ""
-            ? { input: cliInput.input, inputType: cliInput.inputType }
-            : {}),
+          : stdinDiff !== undefined
+            ? { diffText: stdinDiff }
+            : cliInput.input !== ""
+              ? { input: cliInput.input, inputType: cliInput.inputType }
+              : {}),
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
@@ -179,7 +213,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
       options: {
         file: { type: "string", multiple: true },
         dir: { type: "string" },
-        diff: { type: "string" },
+        kind: { type: "string" },
         language: { type: "string" },
         config: { type: "string" },
         json: { type: "boolean" },
@@ -211,7 +245,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
   if (positionals.length > 0) {
     return {
       outcome: "usage-error",
-      usageMessage: `unexpected argument '${positionals[0]}' — jint takes input via --file/--dir/--diff (did you mean --file ${positionals[0]}?)`,
+      usageMessage: `unexpected argument '${positionals[0]}' — jint takes input via --file/--dir (did you mean --file ${positionals[0]}?)`,
     };
   }
   return { outcome: "parsed", cliArgs: nodeParsed.values as unknown as CliArgs };
@@ -223,21 +257,16 @@ type CliInputSelection =
   | { outcome: "usage-error"; usageMessage: string };
 
 /**
- * Resolve input from flags; exactly one of --file/--dir/--diff may be given. Returns a usage
- * message on conflict.
+ * Resolve input from flags; exactly one of --file/--dir may be given. Kinds are not flags for paths
+ * — a path's kind is inferred by shape; --kind declares piped stdin only.
  */
 function inputFromFlags(cliArgs: CliArgs): CliInputSelection {
-  const selectedSources = [
-    flagsSelectFiles(cliArgs),
-    cliArgs.dir !== undefined,
-    cliArgs.diff !== undefined,
-  ].filter(Boolean);
+  const selectedSources = [flagsSelectFiles(cliArgs), cliArgs.dir !== undefined].filter(Boolean);
   if (selectedSources.length > 1)
-    return { outcome: "usage-error", usageMessage: "use only one of --file, --dir, --diff" };
-  if (cliArgs.diff !== undefined)
-    return { outcome: "selected", input: cliArgs.diff, inputType: "diff" };
+    return { outcome: "usage-error", usageMessage: "use only one of --file, --dir" };
   if (cliArgs.file !== undefined && cliArgs.file.length > 0)
-    return { outcome: "selected", input: cliArgs.file, inputType: "file" };
+    if (cliArgs.file !== undefined && cliArgs.file.length > 0)
+      return { outcome: "selected", input: cliArgs.file, inputType: "file" };
   // config decides; lint() errors if empty
   if (cliArgs.dir !== undefined)
     return { outcome: "selected", input: cliArgs.dir, inputType: "dir" };

@@ -71,7 +71,7 @@ const RULE_SCHEMA = Type.Union([
  */
 export const CONFIG_SCHEMA = Type.Object({
   $schema: Type.Optional(Type.String()),
-  // Optional: rules-only probe configs are valid when the CLI supplies --file/--dir/--diff;
+  // Optional: rules-only probe configs are valid when the CLI supplies --file/--dir;
   // lint() keeps the empty-input backstop (SetupError CONFIG_INVALID).
   input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
