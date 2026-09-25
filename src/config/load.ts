@@ -50,6 +50,7 @@ const RULE_SCHEMA = Type.Union([
   Type.Object({
     name: Type.String(),
     kind: Type.Optional(Type.Literal("noul")),
+    instructions: Type.Optional(Type.String()),
     criteria: Type.Object({ true: Type.String(), false: Type.String() }),
     target: TARGET_SCHEMA,
     handle: Type.Union([HANDLE_SCHEMA, Type.Null()]),
@@ -172,7 +173,13 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
 function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
   const handle = compileDataHandle(entry.handle, entry.name, source);
   if (entry.kind !== "choice") {
-    return { name: entry.name, criteria: entry.criteria, target: entry.target, handle };
+    return {
+      name: entry.name,
+      instructions: (entry as { instructions?: string }).instructions,
+      criteria: entry.criteria,
+      target: entry.target,
+      handle,
+    };
   }
   return {
     name: entry.name,

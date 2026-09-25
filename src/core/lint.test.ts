@@ -156,7 +156,7 @@ describe("lint — classification shape", () => {
     expect(withPurposeful).toBeDefined();
     expect(withComplex).toBeDefined();
     // criteria-as-rule: instructions is the task sentence, criteria is the rule
-    // (noul questions get UNIT_TASK; choice questions carry their own instructions sentence)
+    // (noul questions carry their rule's question; choice questions carry their own instructions)
     for (const [, spec] of Object.entries(elementCalls[0]!.specs)) {
       const s = spec as {
         type: string;

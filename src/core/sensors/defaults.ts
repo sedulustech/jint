@@ -29,6 +29,8 @@ import type { Rule } from "../types.ts";
 
 export const isNamePurposeful: Rule = {
   name: "is_name_purposeful",
+  instructions:
+    "Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
   criteria: {
     true: "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
     false:
@@ -40,6 +42,8 @@ export const isNamePurposeful: Rule = {
 
 export const isFunctionSrp: Rule = {
   name: "is_function_srp",
+  instructions:
+    "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
   criteria: {
     true: "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
     false:
@@ -57,6 +61,7 @@ export const isFunctionSrp: Rule = {
  */
 export const willErrorLoseCause: Rule = {
   name: "will_error_lose_cause",
+  instructions: "Does this function's error handling lose information about the original failure?",
   criteria: {
     true: "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
     false:
@@ -67,6 +72,8 @@ export const willErrorLoseCause: Rule = {
 };
 export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
+  instructions:
+    "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
   criteria: {
     true: "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
     false:
@@ -78,6 +85,7 @@ export const isVocabularyConsistent: Rule = {
 
 export const isNamingConventionConsistent: Rule = {
   name: "is_naming_convention_consistent",
+  instructions: "Do identifiers of the same kind in this unit follow a single casing convention?",
   criteria: {
     true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
     false:
@@ -92,6 +100,8 @@ export const isNamingConventionConsistent: Rule = {
 
 export const isGreppable: Rule = {
   name: "is_greppable",
+  instructions:
+    "Are the identifiers in this unit searchable with terms a developer would use to find this code?",
   criteria: {
     true: "The code identifiers here - functions, variables, types, constants, exported symbols - are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
     false:
@@ -103,6 +113,7 @@ export const isGreppable: Rule = {
 
 export const is_comment_narration: Rule = {
   name: "is_comment_narration",
+  instructions: "Does any comment in this unit merely narrate what the code already says?",
   criteria: {
     true: "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
     false:
@@ -114,6 +125,8 @@ export const is_comment_narration: Rule = {
 
 export const is_comment_patching_readability: Rule = {
   name: "is_comment_patching_readability",
+  instructions:
+    "Does any comment here patch code that should read itself, instead of the code being made readable?",
   criteria: {
     true: "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
     false:
@@ -125,6 +138,8 @@ export const is_comment_patching_readability: Rule = {
 
 export const will_comment_drift: Rule = {
   name: "will_comment_drift",
+  instructions:
+    "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
   criteria: {
     true: "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
     false:
@@ -139,6 +154,8 @@ export const will_comment_drift: Rule = {
 
 export const isCognitivelyComplex: Rule = {
   name: "is_cognitively_complex",
+  instructions:
+    "Does this code carry accidental difficulty the author could remove without changing what it does?",
   criteria: {
     true: "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
     false:

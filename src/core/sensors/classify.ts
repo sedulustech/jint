@@ -22,6 +22,7 @@ import {
   type Rule,
   type Span,
   type Unit,
+  type UnitKind,
 } from "../types.ts";
 
 /** Which rule and unit (block wire id or file id) a question id belongs to. */
@@ -45,28 +46,61 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 /**
- * The per-unit task sentence (generic; per-rule task wording failed calibration, tmp probes). No
- * "mapped to this id" routing anymore: each call hands the model exactly one unit as the state, so
- * there is no id mapping to route by. Recalibration event: thresholds anchored to the previous
- * sentence need re-derivation.
+ * The fallback task sentence for noul rules that ship no instructions of their own (config rules
+ * predating the field). Default rules each carry a specific yes/no question; UNIT_TASK is only what
+ * a question-less rule falls back to. Recalibration event: readings taken under this sentence
+ * differ from readings under per-rule questions.
  */
 export const UNIT_TASK = "Judge the syntax unit against the criteria.";
 
+/** The question instructions for one rule: its own question, or the generic task sentence. */
+function instructionsOf(rule: Rule): string {
+  return rule.instructions ?? UNIT_TASK;
+}
+
 /**
- * Compile rules to questions for ONE unit state, criteria-as-rule: instructions is the generic task
- * sentence, criteria is the rule's actual rule passed straight through. Question ids (record keys)
- * are never sent — the attribution map correlates answers.
+ * The kind sentence prepended to every question's instructions: what kind of object the state is,
+ * stated explicitly so the model never infers it. One noun per unit kind and per element role.
  */
-export function compileRuleQuestions(rules: readonly Rule[], unitId: string): QuestionBatch {
+export function kindSentence(kind: string): string {
+  return `This unit is a ${kind}.`;
+}
+
+/** The noun for a whole-unit state: a source file, or a raw diff block. */
+export function unitKindNoun(kind: UnitKind): string {
+  return kind === "diff" ? "diff block" : "source file";
+}
+
+/** The noun for an inventory element: its abstracted role, stated as a definition where apt. */
+export function elementKindNoun(role: string): string {
+  if (role === "function") return "function definition";
+  if (role === "type") return "type definition";
+  // binding | import | comment
+  return role;
+}
+
+/**
+ * Compile rules to questions for ONE unit state, criteria-as-rule: instructions is the rule's own
+ * question (UNIT_TASK only as the fallback), criteria is the rule's actual rule passed straight
+ * through. Question ids (record keys) are never sent — the attribution map correlates answers.
+ */
+export function compileRuleQuestions(
+  rules: readonly Rule[],
+  unitId: string,
+  unitKind: UnitKind = "file",
+): QuestionBatch {
   const questions: Record<string, QuestionSpec> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const rule of rules) {
+    // kind-stating instructions, always: the rule's own question (or the UNIT_TASK fallback)
+    // prefixed with what the state is — a choice rule's scoring instructions get the same prefix
+    const instructions = `${kindSentence(unitKindNoun(unitKind))} ${instructionsOf(rule)}`;
     // choice: ordered rubric -> ScoreQuestion (score is the right primitive; ChoiceQuestion is
     // for named unordered options and stays unused)
     questions[questionKey(rule.name, unitId)] =
       rule.kind === "choice"
-        ? { type: "score", instructions: rule.instructions, criteria: rule.criteria }
-        : { type: "noul", instructions: UNIT_TASK, criteria: rule.criteria };
+        ? { type: "score", instructions, criteria: rule.criteria }
+        : { type: "noul", instructions, criteria: rule.criteria };
     attribution.set(questionKey(rule.name, unitId), { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
@@ -76,13 +110,18 @@ export function compileRuleQuestions(rules: readonly Rule[], unitId: string): Qu
  * Compile an element's rules to questions keyed by bare rule name: one element per call means no
  * ambiguity (mirror of the single-rule bare-key behavior of compileRuleQuestions).
  */
-export function compileElementQuestions(rules: readonly Rule[]): Record<string, QuestionSpec> {
+export function compileElementQuestions(
+  rules: readonly Rule[],
+  role: string,
+): Record<string, QuestionSpec> {
   const questions: Record<string, QuestionSpec> = {};
+  const instructions = `${kindSentence(elementKindNoun(role))} `;
   for (const rule of rules) {
+    const text = instructions + instructionsOf(rule);
     questions[rule.name] =
       rule.kind === "choice"
-        ? { type: "score", instructions: rule.instructions, criteria: rule.criteria }
-        : { type: "noul", instructions: UNIT_TASK, criteria: rule.criteria };
+        ? { type: "score", instructions: text, criteria: rule.criteria }
+        : { type: "noul", instructions: text, criteria: rule.criteria };
   }
   return questions;
 }
@@ -118,7 +157,7 @@ export async function* classifyUnit(
     "id" in unit.state
       ? unit.state.id
       : elementWireId({ start: { line: 1 }, end: { line: unit.state.diff.split(`\n`).length } });
-  const batch = compileRuleQuestions(rules, unitId);
+  const batch = compileRuleQuestions(rules, unitId, unit.kind);
   let answers: Record<string, number>;
   try {
     answers = await classifier(unit.state, batch.questions);
@@ -254,7 +293,7 @@ export async function classifyFile(
   if (wholeRules.length > 0) {
     const whole = await call(
       state,
-      compileRuleQuestions(wholeRules, fileId).questions,
+      compileRuleQuestions(wholeRules, fileId, unit.kind).questions,
       classifier,
       state.path,
     );
@@ -317,12 +356,24 @@ export async function classifyFile(
   // Hence: ONE element per call (state = {path, source}), all of that element's rules' questions
   // batched inside the call (multiple questions x one state is fine), elements fanned out by
   // CONCURRENCY, not questions-per-call.
-  const jobs: Array<{ wireId: string; span: Span; source: string; rules: Rule[] }> = [];
+  const jobs: Array<{
+    wireId: string;
+    span: Span;
+    source: string;
+    rules: Rule[];
+    role: string;
+  }> = [];
   for (const element of inventory) {
     const scoped = rulesForElement(rules, element);
     if (scoped.length === 0) continue;
     const wireId = elementWireId(element.span);
-    jobs.push({ wireId, span: element.span, source: elementContent(element), rules: scoped });
+    jobs.push({
+      wireId,
+      span: element.span,
+      source: elementContent(element),
+      rules: scoped,
+      role: element.role,
+    });
   }
   const oversized = derived?.oversizedCount ?? 0;
   if (jobs.length === 0 || isAborted()) return { events, fatal: false, oversized };
@@ -335,7 +386,7 @@ export async function classifyFile(
       const input = `${state.path}#${job.wireId}`;
       const result = await call(
         { path: state.path, source: job.source },
-        compileElementQuestions(job.rules),
+        compileElementQuestions(job.rules, job.role),
         classifier,
         input,
       );
