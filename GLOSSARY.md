@@ -24,6 +24,7 @@ measurement its handle judged actionable and is the only output that demands act
   (default) or choice (scored rubric). Rules fire; findings result.
 - **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
   means; block-scoped questions get block criteria.
+- **input** — what a run measures, given as a str (raw source content, one unit) or a source target (a file, a directory, or a diff); resolved into the units the rules judge.
 - **target** the element type a rule judges: "files" | "diffs" are
   unit-scoped (the element is the unit itself: the file content, the raw diff string);
   "definitions" | "comments" | "functions" | "imports" are inventory-scoped (the element is
