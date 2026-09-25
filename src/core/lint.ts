@@ -1,11 +1,11 @@
 /**
- * Lint — the one function most consumers need. State-in/signals-out: resolves the input, derives
+ * Lint — the one function most consumers need. State-in/findings-out: resolves the input, derives
  * each file's element inventory, classifies every element x every inventory-scoped rule in one
  * chunked pass, unit-scoped rules over the whole unit — runs each rule's handle, streams
- * Measurements, Signals and per-unit MeasureErrors (signalled, but never run-failing).
+ * Measurements, Findings and per-unit MeasureErrors (signalled, but never run-failing).
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
- * cost control); events stream per file as its wave completes, measurements before signals.
+ * cost control); events stream per file as its wave completes, measurements before findings.
  *
  * The pipeline never resolves paths it wasn't given, never knows about the terminal, and never
  * throws for per-unit failures (design §1, §7).
@@ -22,7 +22,7 @@ import {
   type Classifier,
   type LintEvent,
   type Measurement,
-  type Signal,
+  type Finding,
   type Rule,
   type Unit,
 } from "./types.ts";
@@ -107,13 +107,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
 
         yield { type: "measurement", measurement: { ...event, stage } };
         // One pass, no candidacy: every measurement is a reading; the rule's handle is the
-        // only threshold. Element readings carry their span into the signal's location.
+        // only threshold. Element readings carry their span into the finding's location.
         const handle = byName.get(event.rule)?.handle;
         const severity = handle?.(event.value) ?? null;
         if (severity !== null) {
           yield {
-            type: "signal",
-            signal: {
+            type: "finding",
+            finding: {
               rule: event.rule,
               input: event.input,
               value: event.value,
@@ -227,17 +227,17 @@ function pickRules(
 
 export interface LintReport {
   measurements: Measurement[];
-  signals: Signal[];
+  findings: Finding[];
   /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
   errors: MeasureError[];
 }
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], signals: [], errors: [] };
+  const report: LintReport = { measurements: [], findings: [], errors: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
-    else if (event.type === "signal") report.signals.push(event.signal);
+    else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
   }
   return report;

@@ -43,7 +43,7 @@ describe("default handles: polarity", () => {
 });
 
 describe("ci gate simulation: known-good corpus passes, damaged corpus fails", () => {
-  test(`known-good readings produce no error-severity signals (consumer CI gate over a clean repo)`, async () => {
+  test(`known-good readings produce no error-severity findings (consumer CI gate over a clean repo)`, async () => {
     const perFile = (await Bun.file(CALIBRATION).json()) as Record<string, Record<string, number>>;
     expect(Object.keys(perFile).length).toBeGreaterThan(0);
     for (const readings of Object.values(perFile)) {

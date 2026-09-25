@@ -4,7 +4,7 @@
  * - Rule — the measuring mechanism: { name, criteria, target, handle }
  * - Measurement — the raw noul value from jev for (rule, input); always produced, never actionable by
  *   itself
- * - Signal — a measurement that cleared the rule's handle; the only actionable output
+ * - Finding — a measurement that cleared the rule's handle; the only actionable output
  * - MeasureError — a per-unit failure to produce a measurement: a failed request to the classifier,
  *   or a unit that could not be mapped to elements; carried in the stream as a value, never thrown
  *   past the pipeline, never failing the run by itself
@@ -143,14 +143,14 @@ export interface Measurement {
 }
 
 /** A measurement that mattered: it cleared the rule's handle and carries the returned severity. */
-export interface Signal {
+export interface Finding {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Exact element location for element-scoped signals: the identified element plus its byte/line
-   * span into the source. Absent for files-target signals (relational, file-shaped).
+   * Exact element location for element-scoped findings: the identified element plus its byte/line
+   * span into the source. Absent for files-target findings (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
 }
@@ -233,5 +233,5 @@ export type Classifier = (
 /** What the lint pipeline streams. */
 export type LintEvent =
   | { type: "measurement"; measurement: Measurement }
-  | { type: "signal"; signal: Signal }
+  | { type: "finding"; finding: Finding }
   | { type: "error"; error: MeasureError };

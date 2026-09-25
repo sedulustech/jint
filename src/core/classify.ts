@@ -8,7 +8,7 @@
  * element per call, that element's rules batched inside the call.
  *
  * This is the MEASUREMENT-ONLY door: handles are never applied here. Interpretation — thresholds,
- * severities, signals — is lint's job (design §4.5); classify() returns raw readings and in-band
+ * severities, findings — is lint's job (design §4.5); classify() returns raw readings and in-band
  * MeasureErrors, and never throws for per-unit failures.
  *
  * Shares classifyFile's single code path: question construction, inventory derivation via

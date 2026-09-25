@@ -1,6 +1,6 @@
 /**
- * Human reporter. Stream discipline (clig): stdout carries the findings — the signal table and the
- * findings summary; stderr carries the run's own errors and diagnostics — failed units
+ * Human reporter. Stream discipline (clig): stdout carries the findings — the findings table and
+ * the findings summary; stderr carries the run's own errors and diagnostics — failed units
  * (MeasureError lines) and their summary. Either stream stays usable when the other is discarded.
  *
  * Severity wording stays "error"/"warn" on both streams (decided: no rename). TTY-adaptive color
@@ -16,7 +16,7 @@ export type ColorMode = "auto" | "always" | "never";
 
 /** The two rendered streams: findings for stdout, run errors/diagnostics for stderr. */
 export interface StylishRender {
-  /** Findings: signal table + findings summary. Empty when nothing was flagged. */
+  /** Findings: findings table + summary. Empty when nothing was flagged. */
   readonly stdout: string;
   /** Run errors and their summary: failed units. Empty when the run was clean. */
   readonly stderr: string;
@@ -42,8 +42,8 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
   }
 
   // Findings — stdout.
-  if (report.signals.length > 0) {
-    const rows = report.signals.map((s) => ({
+  if (report.findings.length > 0) {
+    const rows = report.findings.map((s) => ({
       severity: s.severity,
       value: s.value.toFixed(2),
       rule: s.rule,
@@ -74,18 +74,18 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
 
 /** Findings summary (stdout): what the rules flagged, or the clean-run measurement count. */
 function findingsSummaryOf(report: LintReport): string | null {
-  if (report.signals.length > 0) {
-    const errors = report.signals.filter((s) => s.severity === "error").length;
-    const warnings = report.signals.length - errors;
+  if (report.findings.length > 0) {
+    const errors = report.findings.filter((s) => s.severity === "error").length;
+    const warnings = report.findings.length - errors;
     return (
-      `${report.signals.length} ${report.signals.length === 1 ? "problem" : "problems"}` +
+      `${report.findings.length} ${report.findings.length === 1 ? "problem" : "problems"}` +
       ` (${errors} ${errors === 1 ? "error" : "errors"}, ${warnings} ${warnings === 1 ? "warning" : "warnings"})`
     );
   }
   // The clean-run line fires only when nothing else is reported anywhere: a run with failed
   // units never claims "clean".
   if (report.errors.length === 0 && report.measurements.length > 0) {
-    return `no signals — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`;
+    return `no findings — ${report.measurements.length} ${report.measurements.length === 1 ? "measurement" : "measurements"} clean`;
   }
   return null;
 }

@@ -23,12 +23,12 @@ export function renderJson(report: LintReport): string {
           value: m.value,
           ...(m.stage !== undefined && { stage: m.stage }),
         })),
-        signals: report.signals.map((s) => ({
+        findings: report.findings.map((s) => ({
           rule: s.rule,
           input: s.input,
           value: s.value,
           severity: s.severity,
-          // Additive (jint-report/v1): element-scoped signals carry the element's exact span.
+          // Additive (jint-report/v1): element-scoped findings carry the element's exact span.
           ...(s.location !== undefined && {
             location: { input: s.location.input, span: s.location.span },
           }),

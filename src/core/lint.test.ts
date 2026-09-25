@@ -241,7 +241,7 @@ describe("lint — classification shape", () => {
 });
 
 describe("lint", () => {
-  test("streams measurement per (rule, unit), signal only when the handle fires", async () => {
+  test("streams measurement per (rule, unit), finding only when the handle fires", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -255,24 +255,24 @@ describe("lint", () => {
       }),
     );
     const measurements = events.filter((e) => e.type === "measurement");
-    const signals = events.filter((e) => e.type === "signal");
+    const findings = events.filter((e) => e.type === "finding");
     // file call 2 + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
     expect(measurements).toHaveLength(17);
     // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy
-    expect(signals).toHaveLength(2);
-    expect(signals.map((s) => s.signal.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
-    for (const s of signals) {
-      expect(s.signal).toEqual({
+    expect(findings).toHaveLength(2);
+    expect(findings.map((s) => s.finding.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
+    for (const s of findings) {
+      expect(s.finding).toEqual({
         rule: "is_name_purposeful",
-        input: s.signal.input,
+        input: s.finding.input,
         value: 0.3,
         severity: "error",
-        location: { input: s.signal.input, span: expect.any(Object) },
+        location: { input: s.finding.input, span: expect.any(Object) },
       });
     }
   });
 
-  test("single pass: every measurement runs its handle, each signal follows its measurement", async () => {
+  test("single pass: every measurement runs its handle, each finding follows its measurement", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -287,12 +287,12 @@ describe("lint", () => {
     );
     const kinds = events.map((e) => e.type);
     for (let i = 0; i < events.length; i++) {
-      // no aggregation: a signal directly follows its own measurement
-      if (kinds[i] === "signal") expect(kinds[i - 1]).toBe("measurement");
+      // no aggregation: a finding directly follows its own measurement
+      if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
     // vocabulary 0.2 + greppable 0.2 (file readings) + purposeful 0.2 and complex 0.8
     // firing on both elements
-    expect(events.filter((e) => e.type === "signal")).toHaveLength(6);
+    expect(events.filter((e) => e.type === "finding")).toHaveLength(6);
   });
 
   test("--disable removes rules by name before measuring", async () => {
@@ -457,7 +457,7 @@ describe("lint", () => {
 });
 
 describe("collectReport", () => {
-  test("drains the stream into measurements/signals/errors", async () => {
+  test("drains the stream into measurements/findings/errors", async () => {
     const report = await collectReport(
       lint({
         config: baseConfig,
@@ -471,7 +471,7 @@ describe("collectReport", () => {
       }),
     );
     expect(report.measurements).toHaveLength(17);
-    expect(report.signals).toHaveLength(2);
+    expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });
 });

@@ -10,7 +10,7 @@ const report: LintReport = {
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
     { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
-  signals: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
+  findings: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
   errors: [new MeasureError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
 };
 
@@ -32,9 +32,9 @@ describe("renderJson", () => {
   });
 
   test("empty report renders with empty arrays", () => {
-    const parsed = JSON.parse(renderJson({ measurements: [], signals: [], errors: [] }));
+    const parsed = JSON.parse(renderJson({ measurements: [], findings: [], errors: [] }));
     expect(parsed.measurements).toEqual([]);
-    expect(parsed.signals).toEqual([]);
+    expect(parsed.findings).toEqual([]);
     expect(parsed.errors).toEqual([]);
   });
 

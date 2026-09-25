@@ -24,7 +24,7 @@ import type { Rule } from "../types.ts";
  * from their ordering — see handle.ts) compiled to the internal function form at module init.
  * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json. The
  * declarative config surface also accepts "handle": null (measure-only: the measurement streams,
- * nothing ever signals) — no default rule ships that form today.
+ * nothing ever produces findings) — no default rule ships that form today.
  */
 
 export const isNamePurposeful: Rule = {

@@ -5,7 +5,7 @@ import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
   measurements: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347 }],
-  signals: [
+  findings: [
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347, severity: "warn" },
     {
       rule: "is_greppable",
@@ -21,7 +21,7 @@ describe("renderStylish", () => {
   test("stream discipline: findings stdout, run errors/diagnostics stderr (clig)", () => {
     // columns: severity(5) 2sp value(5) 2sp rule(21) 2sp input
     const { stdout, stderr } = renderStylish(report, "never");
-    // stdout: findings only — the signal table and the findings summary
+    // stdout: findings only — the findings table and the findings summary
     expect(stdout).toContain("warn    0.53  is_name_purposeful  src/a.ts");
     expect(stdout).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
     expect(stdout).toContain("2 problems (1 error, 1 warning)");
@@ -44,14 +44,14 @@ describe("renderStylish", () => {
     const clean = renderStylish(
       {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
-        signals: [],
+        findings: [],
         errors: [],
       },
       "never",
     );
     expect(clean.stderr).toBe("");
     const failedOnly = renderStylish(
-      { measurements: [], signals: [], errors: report.errors },
+      { measurements: [], findings: [], errors: report.errors },
       "never",
     );
     expect(failedOnly.stdout).toBe("");
@@ -62,19 +62,19 @@ describe("renderStylish", () => {
     const { stdout } = renderStylish(
       {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
-        signals: [],
+        findings: [],
         errors: [],
       },
       "never",
     );
-    expect(stdout).toContain("no signals — 1 measurement clean");
+    expect(stdout).toContain("no findings — 1 measurement clean");
   });
 
   test("a run with failed units never claims clean on stdout", () => {
     const { stdout, stderr } = renderStylish(
       {
         measurements: [{ rule: "s", input: "i", value: 0.5 }],
-        signals: [],
+        findings: [],
         errors: report.errors,
       },
       "never",
@@ -85,7 +85,7 @@ describe("renderStylish", () => {
 
   test("completely empty report renders empty on both streams", () => {
     const { stdout, stderr } = renderStylish(
-      { measurements: [], signals: [], errors: [] },
+      { measurements: [], findings: [], errors: [] },
       "never",
     );
     expect(stdout).toBe("");
@@ -97,8 +97,8 @@ describe("renderStylish", () => {
     expect(plain.stdout).not.toContain("\x1b");
     expect(plain.stderr).not.toContain("\x1b");
     const forced = renderStylish(report, "always");
-    expect(forced.stdout).toContain("\x1b[31m"); // red signal rows (error severity)
-    expect(forced.stdout).toContain("\x1b[33m"); // yellow signal rows (warn severity)
+    expect(forced.stdout).toContain("\x1b[31m"); // red finding rows (error severity)
+    expect(forced.stdout).toContain("\x1b[33m"); // yellow finding rows (warn severity)
     expect(forced.stderr).toContain("\x1b[31m"); // red MeasureError lines
   });
 });

@@ -2,7 +2,7 @@
 /**
  * Jint CLI — the terminal as SDK client (design §4).
  *
- * Exit codes (computed once, here): 0 clean 1 error-severity signals 2 usage/config error (bad
+ * Exit codes (computed once, here): 0 clean 1 error-severity findings 2 usage/config error (bad
  * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements — CI
  * never passes unmeasured)
  *
@@ -46,7 +46,7 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
 
 type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
 
-const HELP = `jint — jev lint: measures code with AI-classifier judgments; rules in, signals out.
+const HELP = `jint — jev lint: measures code with AI-classifier judgments; rules in, findings out.
 
 Usage:
   jint src/                       measure a directory tree
@@ -366,12 +366,12 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
 }
 
 /**
- * Exit invariant: findings only — error-severity signals -> 1; zero measurements -> 4. Per-unit
+ * Exit invariant: findings only — error-severity findings -> 1; zero measurements -> 4. Per-unit
  * MeasureErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
  * linter could not measure is reported, not treated as a lint violation.
  */
 export function computeExit(lintReport: LintReport): number {
-  if (lintReport.signals.some((signal) => signal.severity === "error")) return 1;
+  if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
   if (lintReport.measurements.length === 0) return 4;
   return 0;
 }

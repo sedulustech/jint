@@ -56,7 +56,7 @@ describe("logger", () => {
   test("fields-first structure, message last", () => {
     capture();
     setLogLevel("info");
-    log("info", "run complete", { measurements: 5, signals: 0 });
+    log("info", "run complete", { measurements: 5, findings: 0 });
     const entry = JSON.parse(captured[0]![0] as string);
     expect(entry.level).toBe("info");
     expect(entry.msg).toBe("run complete");

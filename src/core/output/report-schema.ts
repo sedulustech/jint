@@ -7,7 +7,7 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   stage: Type.Optional(Type.Union([Type.Literal("file"), Type.Literal("element")])),
 });
 
-export const SIGNAL_SCHEMA = Type.Object({
+export const FINDING_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
@@ -25,7 +25,7 @@ export const REPORT_SCHEMA = Type.Object({
   format: Type.String(),
   version: Type.String(),
   measurements: Type.Array(MEASUREMENT_SCHEMA),
-  signals: Type.Array(SIGNAL_SCHEMA),
+  findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(MEASURE_ERROR_SCHEMA),
 });
 

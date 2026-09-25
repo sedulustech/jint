@@ -35,7 +35,7 @@ export {
   type HandleResult,
   type QuestionSpec,
   type Measurement,
-  type Signal,
+  type Finding,
   type Severity,
   type InputKind,
   type Unit,
