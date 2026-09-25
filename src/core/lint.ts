@@ -11,6 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { decomposeDiff } from "./input/diff.ts";
 import { resolveInput } from "./input/infer.ts";
 import { createClassifier } from "./jev/client.ts";
 import { classifyFile, elementWireId, type ClassifyEvent } from "./sensors/classify.ts";
@@ -48,6 +49,11 @@ export interface LintOptions {
    * (default "input"); bypasses input resolution entirely.
    */
   str?: { readonly content: string; readonly path?: string };
+  /**
+   * In-memory diff text (the CLI's piped-stdin diff form); decomposed directly, never
+   * path-resolved.
+   */
+  diffText?: { readonly text: string };
   /** Explicit grammar for the str unit (CLI --language); no effect on resolved inputs. */
   language?: string;
 }
@@ -59,11 +65,12 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // flags > stdin > config before getting here).
   if (
     options.str === undefined &&
+    options.diffText === undefined &&
     (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass --file/--dir/--diff or set input in jint.config.json",
+      "no input: pass --file/--dir, pipe stdin with --kind, or set input in jint.config.json",
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
@@ -71,14 +78,16 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
-      : await collectUnits(
-          resolveInput({
-            // the empty-input guard above established non-empty
-            input: input as string | string[],
-            inputType: options.inputType ?? options.config.inputType,
-            exclude,
-          }),
-        );
+      : options.diffText !== undefined
+        ? [...decomposeDiff(options.diffText.text, null, exclude)]
+        : await collectUnits(
+            resolveInput({
+              // the empty-input guard above established non-empty
+              input: input as string | string[],
+              inputType: options.inputType ?? options.config.inputType,
+              exclude,
+            }),
+          );
   const byName = new Map(rules.map((s) => [s.name, s]));
   let aborted = false;
 

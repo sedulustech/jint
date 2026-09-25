@@ -1,12 +1,13 @@
 /**
- * Input inference and resolution (design §3, §4): the kind is inferred, not configured —
+ * Input inference and resolution (design §3, §4): the kind is inferred by path shape, never by
+ * content —
  *
- * On-disk directory -> dir (walked into file units) on-disk file, diff content -> diff (split into
- * per-file units) on-disk file, any other -> file rev-looking non-path -> diff via git "-" -> diff
- * from stdin (the primitive)
+ * On-disk directory -> dir (walked into file units) On-disk file -> file (even a patch file: pipe
+ * it with --kind diff to judge it as a diff) missing path -> ENTRYPOINT_NOT_FOUND
  *
- * The CLI's --file/--dir/--diff flags are this same resolver in override form. Both the CLI and the
- * SDK go through resolveInput — no drift.
+ * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with --kind
+ * str|diff. Both the CLI and the SDK go through resolveInput — no drift. Jint never shells to git:
+ * the caller owns the VCS (pipe `git diff | jint --kind diff`).
  */
 
 import { stat } from "node:fs/promises";
@@ -20,27 +21,33 @@ export interface ResolveOptions {
   inputType?: InputKind;
   /** Extra input exclusions (config exclude + CLI --exclude union). */
   exclude?: readonly string[];
+  /**
+   * The input is in-memory text (piped stdin), not a path or spec: with inputType "diff" it is
+   * decomposed as a diff directly, never path-resolved.
+   */
+  inputText?: boolean;
 }
 
+/** Path-shape inference only: directory -> dir, file -> file, anything else is not found. */
 export async function inferKind(input: string): Promise<InputKind> {
+  // "-" is stdin, the SDK primitive
   if (input === "-") return "diff";
   const info = await stat(input).catch(() => null);
   if (info?.isDirectory()) return "dir";
-  if (info?.isFile()) {
-    return looksLikeDiff(await readHead(input)) ? "diff" : "file";
-    // git decides for real; failure surfaces loudly there
-  }
-  if (looksLikeRev(input)) return "diff";
-  throw new SetupError(
-    "ENTRYPOINT_NOT_FOUND",
-    `input not found: ${input}` +
-      (looksLikeRevShaped(input) ? " (git could not resolve it as a rev, either)" : ""),
-  );
+  if (info?.isFile()) return "file";
+  throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${input}`);
 }
 
 export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
-  const { input, inputType, exclude } = options;
+  const { input, inputType, exclude, inputText } = options;
   return (async function* () {
+    if (inputText === true) {
+      // in-memory text (piped stdin); only diff is meaningful here — the CLI carries str text
+      // separately (lint's str option)
+      const text = Array.isArray(input) ? input.join("") : input;
+      yield* decomposeDiff(text, null, exclude);
+      return;
+    }
     // explicit --file paths bypass exclude
     if (Array.isArray(input)) {
       for (const path of input) yield await fileUnit(path);
@@ -58,37 +65,4 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
     const source = await readDiffSource(input);
     yield* decomposeDiff(source.text, source.commitMessage, exclude);
   })();
-}
-
-const DIFF_HEAD_BYTES = 4096;
-
-async function readHead(path: string): Promise<string> {
-  const handle = Bun.file(path);
-  return handle.slice(0, DIFF_HEAD_BYTES).text();
-}
-
-/** Unified-diff-looking content: git headers, classic ---/+++ pairs, or hunk headers. */
-export function looksLikeDiff(text: string): boolean {
-  const head = text.slice(0, DIFF_HEAD_BYTES);
-  if (/^diff --git /m.test(head)) return true;
-  if (/^diff -\w*/m.test(head) && /^--- /m.test(head)) return true;
-  if (/^Index: /m.test(head) && /^--- /m.test(head)) return true;
-  return /^--- .+\n\+\+\+ .+\n@@ -/m.test(head);
-}
-
-const REV_HEADISH = /^(?:HEAD|ORIG_HEAD|FETCH_HEAD|MERGE_HEAD|@)(?:[~^]\d*)?$/;
-const REV_SHA = /^[0-9a-f]{7,40}$/i;
-// no dots in the last segment: origin/main yes, src/foo.ts no
-const REV_UPSTREAM = /^[\w.-]+\/[\w-]+$/;
-
-/** Cheap, conservative rev-shape check; git has the final word at resolution time. */
-export function looksLikeRevShaped(input: string): boolean {
-  if (input === "" || input.startsWith("-") || input.includes(":")) return false;
-  if (input.includes("..")) return true;
-  if (/[~^]/.test(input)) return true;
-  return REV_HEADISH.test(input) || REV_SHA.test(input) || REV_UPSTREAM.test(input);
-}
-
-function looksLikeRev(input: string): boolean {
-  return looksLikeRevShaped(input);
 }

@@ -68,7 +68,7 @@ describe("cli: contract basics", () => {
   test("conflicting input flags -> exit 2", () => {
     const r = run(["--file", "a.ts", "--dir", "src"]);
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("only one of --file, --dir, --diff");
+    expect(r.stderr).toContain("only one of --file, --dir");
   });
 
   test("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", () => {
@@ -120,9 +120,9 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(r.stdout).not.toContain("failed to measure");
   });
 
-  test("--diff - reads stdin (decomposition happens before the jev call)", () => {
+  test("--kind diff reads piped stdin (decomposition happens before the jev call)", () => {
     const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --diff - --json`],
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --kind diff --json`],
       {
         cwd: ROOT,
         stdout: "pipe",
@@ -132,9 +132,32 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     );
     expect(proc.exitCode).toBe(4);
     const report = JSON.parse(proc.stdout.toString());
-    // the diff resolved and decomposed; the auth failure names a unit path
+    // the diff text decomposed into per-file units; the auth failure names a unit path
     expect(report.errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
     expect(report.errors[0]!.code).toBe("JEV_AUTH");
+  });
+
+  test("piped stdin without --kind -> usage error, exit 2, guidance", () => {
+    const proc = Bun.spawnSync(
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --json`],
+      { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
+    );
+    expect(proc.exitCode).toBe(2);
+    expect(proc.stderr.toString()).toContain("--kind str");
+    expect(proc.stderr.toString()).toContain("--kind diff");
+  });
+
+  test("--file of a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {
+    // file semantics: rejected as a non-source extension (NOT_SOURCE), not decomposed as a diff
+    const r = run(["--file", "tests/fixtures/sample.diff", "--json"], NO_KEY);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("NOT_SOURCE");
+    expect(r.stderr).not.toContain("diff --git");
+
+    // a rev-shaped argument is just a missing entrypoint, not a diff
+    const rev = run(["--file", "HEAD~1..HEAD", "--json"], NO_KEY);
+    expect(rev.code).toBe(2);
+    expect(rev.stderr).toContain("ENTRYPOINT_NOT_FOUND");
   });
 
   test("--config selects an alternate config file (loads, then JEV_AUTH)", () => {
@@ -164,26 +187,14 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(report.errors.length).toBeGreaterThan(0);
   });
 
-  test("--diff <patch> : parses before jev call, JEV_AUTH, exit 4", () => {
-    const r = run(["--diff", "tests/fixtures/sample.diff", "--json"], NO_KEY);
-    expect(r.code).toBe(4);
-    const report = JSON.parse(r.stdout);
-    expect(report.errors[0]!.code).toBe("JEV_AUTH");
-  });
-
-  test("--diff <bogus-rev> : fails with exit 2", () => {
-    // Create a temp dir for a non-repo context
-    const tmp = "/tmp/jint-test-non-repo";
-    Bun.spawnSync(["mkdir", "-p", tmp]);
-
-    const proc = Bun.spawnSync(["bun", ROOT + "/src/cli.ts", "--diff", "bogus-rev"], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, ...NO_KEY, PWD: tmp },
-    });
-    expect(proc.exitCode).toBe(2);
-    expect(proc.stderr.toString()).toMatch(/ENTRYPOINT_NOT_FOUND|UNREADABLE/);
+  test("--kind str measures one str unit even when stdin holds diff text", () => {
+    const proc = Bun.spawnSync(
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --kind str --json`],
+      { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
+    );
+    expect(proc.exitCode).toBe(4); // ran as ONE str unit; JEV_AUTH with no key
+    const report = JSON.parse(proc.stdout.toString());
+    expect(report.errors[0]!.input).toBe("input");
   });
 });
 

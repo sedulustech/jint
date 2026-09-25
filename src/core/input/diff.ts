@@ -1,10 +1,9 @@
 /**
- * Diff inputs: "-" (stdin, the primitive), an on-disk patch file, or a rev-looking expression
- * (sugar that shells out to git — fails loudly when git is absent; pipe through "-" instead).
+ * Diff sources: "-" (stdin, the SDK primitive) or an on-disk patch file. Jint never shells to git —
+ * the caller owns the VCS and pipes the diff in (git diff HEAD~1 | jint --kind diff).
  *
  * A unified diff is split into per-file units: added/modified files are measured, deleted and
- * binary files are skipped, and the commit message (when available via git) is shared state for
- * every unit of the run (design §4).
+ * binary files are skipped (design §4).
  */
 
 import { stat, readFile } from "node:fs/promises";
@@ -23,53 +22,17 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
   if (spec.startsWith("-") || spec.includes("\0")) {
     throw new SetupError(
       "ENTRYPOINT_NOT_FOUND",
-      `unknown diff input: ${spec} (use "-" for stdin, a patch path, or a git rev)`,
+      `unknown diff input: ${spec} (use "-" for stdin or pass an on-disk patch path)`,
     );
   }
   const info = await stat(spec).catch(() => null);
   if (info?.isFile()) {
     return { text: await readText(spec), commitMessage: null };
   }
-  return gitDiffSource(spec);
-}
-
-/**
- * Rev sugar — requires the git binary (documented stub); a missing git fails loudly with the
- * primitive as the next step.
- */
-async function gitDiffSource(expr: string): Promise<DiffSource> {
-  const git = Bun.which("git", { PATH: process.env.PATH });
-  if (!git) {
-    throw new SetupError(
-      "ENTRYPOINT_UNREADABLE",
-      `git executable not found: cannot resolve diff '${expr}' — pipe the diff instead: git diff ${expr} | jint --diff -`,
-    );
-  }
-  const [text, code, err] = await runGit(["diff", "--no-color", "--no-ext-diff", expr]);
-  if (code !== 0) {
-    throw new SetupError(
-      "ENTRYPOINT_UNREADABLE",
-      `git diff ${expr} failed (exit ${code}): ${err.trim() || "git error"}`,
-    );
-  }
-  return { text, commitMessage: await gitCommitMessage(expr) };
-}
-
-async function gitCommitMessage(expr: string): Promise<string | null> {
-  const end = expr.includes("..") ? (expr.split("..").pop() ?? expr) : expr;
-  const [out, code] = await runGit(["log", "-1", end]);
-  if (code !== 0) return null;
-  return out.trimEnd() || null;
-}
-
-async function runGit(args: string[]): Promise<[string, number, string]> {
-  const proc = Bun.spawn(["git", ...args], { stdout: "pipe", stderr: "pipe", stdin: "ignore" });
-  const [out, err, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return [out, code, err];
+  throw new SetupError(
+    "ENTRYPOINT_NOT_FOUND",
+    `diff input not found: ${spec} (pass an on-disk patch path, or pipe the diff with --kind diff)`,
+  );
 }
 
 async function readText(path: string): Promise<string> {
@@ -124,12 +87,11 @@ export function parseDiffBlock(block: string): BlockMeta | null {
   const gitHeader = lines.find((l) => l.startsWith("diff --git "));
   const plus = lines.find((l) => l.startsWith("+++ "));
   let rawPath: string | null = null;
-  let deleted = /^deleted file mode/m.test(block);
+  const deleted = /^deleted file mode/m.test(block);
   if (plus !== undefined) {
     const target = plus.slice(4).split("\t")[0]!.trim();
     if (target === "/dev/null") {
       // deletion: the surviving path lives on the --- side
-      deleted = true;
       const minus = lines.find((l) => l.startsWith("--- "));
       rawPath =
         minus === undefined
