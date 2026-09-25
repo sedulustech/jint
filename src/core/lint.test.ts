@@ -380,7 +380,7 @@ describe("lint", () => {
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     // second unit: 2 file + 7 (comment element) + 6 (clampToLimit, function element);
-    // SMALL_LIMIT is a data const — no functions-target (or other element) measurements
+    // SMALL_LIMIT is a binding — no functions-target (or other element) measurements
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(15);
   });
 

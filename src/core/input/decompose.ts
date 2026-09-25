@@ -72,12 +72,19 @@ function countInternalComments(node: { type: string; namedChildren: any[] }): nu
 }
 
 /**
- * A "function"-mapped declaration refines to "data" when it is a bodyless variable declaration
- * (`const report = buildReport()`): a functions-target rule asks function-shaped questions and must
- * not judge data constants. A callable value (arrow_function / function_expression) keeps the
- * function role — it has a body and reads like a function.
+ * The single node -> final role pass: (a) the per-language role table lookup, then (b) value-aware
+ * refinement — a binding is a NAME BOUND TO A NON-CALLABLE, NON-TYPE VALUE (const/let/var with a
+ * non-callable initializer, e.g. `const report = buildReport()`); a callable initializer
+ * (arrow_function / function_expression) keeps the function role — it has a body and reads like a
+ * function. Functions-target rules never judge bindings; definitions-target rules do (they must —
+ * is_name_purposeful judges const names).
  */
-function refineRole(type: string, node: any, role: NodeRole | undefined): NodeRole | undefined {
+export function resolveRole(
+  type: string,
+  node: any,
+  roleTable: Readonly<Record<string, NodeRole>>,
+): NodeRole | undefined {
+  const role = roleTable[type];
   if (role === undefined || role !== "function") return role;
   if (type !== "lexical_declaration" && type !== "variable_declaration") return role;
   const declarator = node.namedChildren.find((c: any) => c.type === "variable_declarator");
@@ -85,7 +92,7 @@ function refineRole(type: string, node: any, role: NodeRole | undefined): NodeRo
   return value !== undefined &&
     (value.type === "arrow_function" || value.type === "function_expression")
     ? "function"
-    : "data";
+    : "binding";
 }
 
 /**
@@ -124,7 +131,7 @@ export interface Inventory {
  * roles, never on grammar node names — adding a language is adding one roleTable entry, never
  * touching the walker (design: language adapter, measured in tmp/langsurvey).
  */
-export type NodeRole = "function" | "type" | "data" | "import" | "comment";
+export type NodeRole = "function" | "type" | "binding" | "import" | "comment";
 
 /** The construct a docstring documents; name is empty for the module. */
 export interface DocstringOwner {
@@ -144,7 +151,7 @@ const TYPESCRIPT: LanguageMapping = {
     function_declaration: "function",
     generator_function_declaration: "function",
     // Variable declarations refine to "function" only when the value is a callable body
-    // (arrow/function expression); data consts are "data" — functions rules judge callables.
+    // (arrow/function expression); non-callable consts are bindings — functions rules judge callables.
     lexical_declaration: "function",
     variable_declaration: "function",
     class_declaration: "type",
@@ -356,7 +363,7 @@ export async function decompose(source: string, language: string): Promise<Inven
     if (depth > MAX_DESCENT_DEPTH) return;
     for (const child of node.namedChildren) {
       const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
-      const role = refineRole(type, inner, mapping.roleTable[type]);
+      const role = resolveRole(type, inner, mapping.roleTable);
       if (role !== undefined && role !== "comment" && role !== "import") {
         emit(child, inner, type, role);
         // Nested composite: emitted as a header AND descended into, recursively.
@@ -400,7 +407,7 @@ export async function decompose(source: string, language: string): Promise<Inven
         importNodes.push({ nodeType: type, text: inner.text, span: spanOf(inner) });
         continue;
       }
-      const role = refineRole(type, inner, mapping.roleTable[type]);
+      const role = resolveRole(type, inner, mapping.roleTable);
       if (role !== undefined && role !== "comment" && role !== "import") {
         // A comment run attaches only when it directly precedes the declaration
         // with no blank line in between; otherwise it stays standalone.

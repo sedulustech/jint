@@ -283,8 +283,9 @@ describe("classifyFile — element fan-out", () => {
 describe("classifyFile — role routing", () => {
   const fnRule = defaultRules.is_function_srp!; // functions-target: judges callables only
 
-  test("a data const gets no functions-target measurement", async () => {
+  test("a binding const gets a definitions-target measurement and zero functions-target ones", async () => {
     const { classifyFile } = await import("./classify.ts");
+    const defRule = defaultRules.is_name_purposeful!; // definitions-target: judges const names too
     const classifier: Classifier = async (_state, questions) =>
       Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
     const { events } = await classifyFile(
@@ -292,11 +293,12 @@ describe("classifyFile — role routing", () => {
         kind: "file",
         state: { path: "src/data.ts", content: "const report = buildReport();\n", id: "L1" },
       },
-      [fnRule],
+      [fnRule, defRule],
       classifier,
     );
     const measured = events.filter((e) => !(e.event instanceof MeasureError));
-    expect(measured).toHaveLength(0);
+    expect(measured).toHaveLength(1); // definitions-target only
+    expect((measured[0]!.event as Measurement).rule).toBe("is_name_purposeful");
   });
 
   test("an arrow-function const still gets the functions-target measurement", async () => {
