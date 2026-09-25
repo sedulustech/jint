@@ -91,36 +91,41 @@ The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on p
 ## CLI
 
 ```bash
-jint --file src/a.ts src/b.ts            # explicit files
-jint --dir src/                          # a directory tree
-git diff HEAD~1 | jint --kind diff       # piped stdin, declared a diff
-cat snippet.ts | jint --kind str         # piped stdin, declared one str unit
-jint                                     # no flags: input comes from jint.config.json
+jint src/                                # a directory tree
+jint src/a.ts src/b.ts                   # explicit files
+git diff HEAD~1 | jint diff -            # piped stdin, declared a diff
+jint diff fix.patch                      # a patch file, declared a diff
+cat snippet.ts | jint str -              # piped stdin, one str unit
+jint                                     # no positional: input comes from jint.config.json
 ```
 
-Flags: `--file` `--dir` `--kind` `--config` `--exclude <glob>` `--disable <name>` `--json` `--color auto|always|never` `--debug` `-h/--help` `--version`.
+Flags: `--rule <name>` `--config` `--exclude <glob>` `--disable <name>` `--language <id>` `--json` `--color auto|always|never` `--debug` `-h/--help` `--version`.
 
-Precedence: flags > `TYPESAFE_*` environment > `jint.config.json` > defaults.
+Precedence: command noun > stdin > `TYPESAFE_*` environment > `jint.config.json` > defaults.
 
 Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
 
 A diff input decomposes into per-file units: added/modified files are measured, deleted and binary files are skipped. Jint never shells out to git — the caller pipes the diff in.
 
-### Input kinds: declared, never sniffed
+### The noun grammar
 
-A path's kind is inferred by shape only: an existing directory is `dir`, anything else is `file` — even a patch file (`jint --file fix.patch` judges it as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`). To judge a patch as a diff, pipe it with `--kind diff`.
+The resource is the noun; the verb (measure) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` measures `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is measured as `jint ./diff`, and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
 
-### Piped stdin: kind required
+A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -> `file`; a missing path is `ENTRYPOINT_NOT_FOUND` (exit 2). Content is never sniffed — a patch file passed as a path is judged as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`. To judge a patch as a diff, declare it: `jint diff fix.patch`.
 
-Piped stdin has no path, so its kind is REQUIRED — `--kind str` (ONE str unit, identity `"input"`) or `--kind diff` (unified-diff text, decomposed into per-file units). Piping without `--kind` is a usage error (exit 2) with guidance. Empty piped stdin falls through to `config.input`.
+### Piped stdin: declared by a noun, never guessed
+
+stdin has no default kind. `jint diff -` reads a unified diff (decomposed into per-file units); `jint str -` reads ONE str unit (identity `"input"`). Piping without a noun is a usage error (exit 2) with guidance; bare `jint -` likewise; a TTY with payload `-` errors immediately instead of blocking on the terminal. Empty piped stdin falls through to `config.input`.
 
 ```bash
-cat snippet.ts | jint --kind str --json
-cat snippet.ts | jint --kind str --language typescript --rule is_function_srp
+cat snippet.ts | jint str - --json
+cat snippet.ts | jint str - --language typescript --rule is_function_srp
 ```
 
+- `--` ends flag parsing for dash-paths (`jint -- --weird.ts`). Flags may appear before or after positionals (`jint --json src/` == `jint src/ --json`).
 - `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still measure.
 - There is no `--measure` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
+- The removed `--file`/`--dir`/`--kind`/`--diff` flags error with a pointer at the new form.
 
 ## Exit codes
 
