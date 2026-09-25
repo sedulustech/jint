@@ -129,7 +129,7 @@ cat snippet.ts | jint str - --language typescript --rule is_function_srp
 
 ### Language notes
 
-Go (`.go`) decomposes with the shared role vocabulary (function/method -> function, struct/interface -> type); its rule criteria are unverified until probed.
+Go (`.go`) decomposes with the shared role vocabulary (function/method -> function, struct/interface -> type, package-level const/var -> binding); its rule criteria are unverified until probed.
 
 ## Exit codes
 

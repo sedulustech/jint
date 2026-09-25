@@ -197,6 +197,11 @@ const GO: LanguageMapping = {
     // type_declaration wraps one or more type_spec (struct/interface/alias); its full text is the
     // element content.
     type_declaration: "type",
+    // Package-level const/var blocks are Go's bindings; without them a consts-only file (e.g. a
+    // protocol-constants package file) yields an empty inventory and the dir walk reports
+    // WALK_FAILED for it.
+    const_declaration: "binding",
+    var_declaration: "binding",
     comment: "comment",
     import_declaration: "import",
   },

@@ -363,6 +363,26 @@ describe("decompose — go", () => {
     ).toBe(false);
   });
 
+  test("consts-only and vars-only files produce data elements, not empty inventories", async () => {
+    const source = [
+      "package p",
+      "",
+      "const (",
+      '\tRedisNull = "<nil>"',
+      ")",
+      "",
+      'var ErrClosed = errors.New("closed")',
+      "",
+    ].join("\n");
+    const inv = await decompose(source, "go");
+    expect(inv.hasError).toBe(false);
+    expect(inv.definitions.map((d) => [d.nodeType, d.role])).toEqual([
+      ["const_declaration", "binding"],
+      ["var_declaration", "binding"],
+    ]);
+    expectSpansRoundTrip(source, inv);
+  });
+
   test("typescript and python are unaffected by the go mapping", async () => {
     const ts = await decompose("function f() {}\n// note\n", "typescript");
     expect(ts.definitions[0]!.role).toBe("function");
