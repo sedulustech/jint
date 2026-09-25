@@ -196,6 +196,17 @@ Unit-scoped rules (`files`/`diffs`) judge the whole str in one call; inventory-s
 
 This is the measurement-only door: handles are never applied and no findings are produced — raw readings and in-band `MeasureError`s only. Interpretation is lint's job.
 
+## Install
+
+Prebuilt macOS binaries ship as release artifacts (`out/jint-darwin-arm64.tar.gz`, `out/jint-darwin-x64.tar.gz`) — no bun needed:
+
+```bash
+curl -LO <release-url>/jint-darwin-arm64.tar.gz   # or -x64
+tar -xzf jint-darwin-arm64.tar.gz && ./jint --help
+```
+
+`TYPESAFE_API_KEY` must be set in the environment (jev calls fail loud with `JEV_AUTH` otherwise).
+
 ## Development
 
 ```bash
