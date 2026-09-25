@@ -148,7 +148,7 @@ describe("rule definitions", () => {
     }
   });
 
-  test("eleven rules with calibrated criteria rules", () => {
+  test("default rules have calibrated criteria rules", () => {
     const names = Object.keys(defaultRules);
     expect(names).toEqual([
       "is_name_purposeful",

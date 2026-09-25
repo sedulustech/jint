@@ -58,28 +58,33 @@ Override a default's calibration by re-declaring the rule by name — a threshol
 
 Thresholds are anchored to the calibration corpora — jint's own src/ as the primary corpus, the sibling-repo baselines as the external cross-check: healthy runs produce zero errors; the calibration mutants (bad names, comment bloat, obfuscation) are caught.
 
-| rule                              | polarity    | error      | warn       | healthy range |
-| --------------------------------- | ----------- | ---------- | ---------- | ------------- |
-| `is_name_purposeful`              | high = good | < 0.5      | < 0.6      | 0.80 – 0.89   |
-| `is_vocabulary_consistent`        | high = good | < 0.6      | < 0.75     | 0.86 – 0.89   |
-| `is_naming_convention_consistent` | high = good | < 0.65     | < 0.85     | 0.89 – 0.91   |
-| `is_greppable`                    | high = good | < 0.60     | < 0.75     | 0.81 – 0.84   |
-| `is_comment_business_context`     | high = good | null in v0 | null in v0 | 0.31 – 0.84   |
-| `is_comment_narration`            | high = bad  | > 0.45     | > 0.30     | 0.09 – 0.21   |
-| `is_comment_patching_readability` | high = bad  | > 0.55     | > 0.40     | 0.11 – 0.15   |
-| `will_comment_drift`              | high = bad  | > 0.7      | > 0.55     | 0.19 – 0.36   |
-| `is_cognitively_complex`          | high = bad  | > 0.6      | > 0.45     | 0.19 – 0.32   |
+| rule                              | polarity    | error     | warn      | healthy range |
+| --------------------------------- | ----------- | --------- | --------- | ------------- |
+| `is_name_purposeful`              | high = good | < 0.5     | < 0.6     | 0.80 – 0.89   |
+| `is_vocabulary_consistent`        | high = good | < 0.6     | < 0.75    | 0.86 – 0.89   |
+| `is_naming_convention_consistent` | high = good | < 0.65    | < 0.85    | 0.89 – 0.91   |
+| `is_greppable`                    | high = good | < 0.60    | < 0.75    | 0.81 – 0.84   |
+| `is_comment_narration`            | high = bad  | > 0.45    | > 0.30    | 0.09 – 0.21   |
+| `is_comment_patching_readability` | high = bad  | > 0.55    | > 0.40    | 0.11 – 0.15   |
+| `will_comment_drift`              | high = bad  | > 0.7     | > 0.55    | 0.19 – 0.36   |
+| `will_error_lose_cause`           | high = bad  | > 0.7     | > 0.4     | unanchored    |
+| `is_cognitively_complex`          | high = bad  | > 0.6     | > 0.45    | 0.19 – 0.32   |
+| `is_function_srp`                 | high = good | < 0.4     | < 0.55    | provisional   |
+| `is_readable`                     | high = bad  | score > 2 | score > 1 | unanchored    |
 
-`cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). `readability` is retired (insensitive in mutant testing). `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
+`cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). readability is measured by `is_readable`, a choice-kind rule scored on a 0–3 rubric (see below) — the earlier aggregate `readability` reading was retired as insensitive in mutant testing. `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own signal into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
 
 ### Writing a new rule: one rule = one attribute, ambiguity is the worst criteria
 
 Every rule measures exactly one attribute. A rule whose criteria bundles several attributes ("too many comments", "well-designed function") cannot produce an actionable signal: the attributes move in opposite directions, so the noul value averages their mixture into noise, and the finding cannot say what to fix. Before adding a rule, split the idea until each remaining piece is a single yes/no attribute that a single fix action addresses; if a piece is computable in code (counts, structure, casing rules), it does not become a rule at all — deterministic things stay deterministic. The criteria's true/false sides must then state that one attribute without hedging: boundary cases belong in `false`, and words like "well-designed", "good", or "clean" are the smell of an unsplit idea. Editing criteria is a re-calibration event (see the thresholds above).
 
-- `is_comment_business_context` — comments that explain WHY the code exists or why this approach was chosen. High is a virtue; low is not automatically bad (not all code needs recorded context), so its handle is null in v0: the measurement streams, nothing signals, and users who want to enforce context requirements override the handle.
 - `is_comment_narration` — comments that merely restate what the code already says. High = bad.
 - `is_comment_patching_readability` — comments compensating for code that should read itself. High = bad (code smell).
 - `will_comment_drift` — comments pinning specific artifacts by name (files, functions, parameters, constants) whose renaming silently invalidates the comment. High = bad.
+
+- `is_function_srp` — a function carries one cohesive responsibility its name and docblock state. High = good; thresholds provisional, pending self-corpus anchoring.
+- `will_error_lose_cause` — error handling loses information: errors swallowed, rethrown without cause, or replaced by messages dropping the original failure detail. High = bad; thresholds from the seam-purity probe, unanchored until the self-lint corpus re-measures them.
+- `is_readable` — choice-kind rule (not a noul proposition): the classifier scores `definitions` on a 0–3 rubric, 0 = "names, structure, and types make the story obvious" up to 3 = "dense, misleading names, or structure that fights the problem". Warn at 1+, error at 2+; thresholds unanchored until the self-lint corpus has score readings.
 
 The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on per-file units (0.47–0.56 against the healthy 0.09–0.19); the whole-diff mutant reading dilutes, as whole-diff units always have.
 
