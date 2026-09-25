@@ -45,9 +45,10 @@ measurement its handle judged actionable and is the only output that demands act
 - **strategy** — a model of the state and questions to send to the classifier (jev) to balance
   performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
 - **element** one thing a rule can judge: a file, a diff, or a node-derived
-  definition, comment, function, or import from a file inventory; the target names the element
-  type. A variable declaration whose value is not a callable has role `data` (functions-target
-  rules never judge it); an arrow-function const is a function like any callable.
+  definition, comment, function, binding, or import from a file inventory; the target names the
+  element type. An arrow-function const is a function like any callable.
+- **binding** — an element that is a name bound to a non-callable, non-type value; judged by
+  definitions-target rules, never by functions-target rules.
 - **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
   file's inventory.
 - **grammar** — the tree-sitter wasm that turns source text into the parse tree the walk
