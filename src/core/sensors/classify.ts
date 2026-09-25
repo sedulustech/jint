@@ -155,7 +155,8 @@ export function toMeasureError(input: string, thrown: unknown): MeasureError {
     // The seam throws with the state path; the pipeline refines block-scoped inputs (path#L19-L28).
     return new MeasureError(thrown.code, input, thrown.message, { cause: thrown });
   }
-  if (thrown instanceof Error) return new MeasureError("INTERNAL", input, thrown.message);
+  if (thrown instanceof Error)
+    return new MeasureError("INTERNAL", input, thrown.message, { cause: thrown });
   return new MeasureError("INTERNAL", input, String(thrown));
 }
 
@@ -263,6 +264,7 @@ export async function classifyFile(
   let inventory: InventoryElement[] = [];
   let derived: Inventory | undefined;
   let failed: string | null = null;
+  let failedCause: unknown;
   if (unit.kind !== "file") {
     failed = "non-file unit";
   } else {
@@ -278,14 +280,22 @@ export async function classifyFile(
         } else {
           derived = parsed;
         }
-      } catch {
+      } catch (thrown) {
         failed = "parse failed";
+        failedCause = thrown;
       }
     }
   }
   if (failed !== null && unit.kind === "file") {
     events.push({
-      event: new MeasureError("WALK_FAILED", state.path, `cannot map to elements: ${failed}`),
+      event: new MeasureError(
+        "WALK_FAILED",
+        state.path,
+        `cannot map to elements: ${failed}`,
+        // Chain the underlying failure (parse error detail) without changing the message the
+        // renderers print — output stays bounded, the cause rides the Error for debugging.
+        failedCause !== undefined ? { cause: failedCause } : undefined,
+      ),
       stage: "file",
     });
   }

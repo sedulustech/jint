@@ -111,6 +111,7 @@ describe("classifyUnit", () => {
         is_cognitively_complex: 0.3,
         is_function_srp: 0.8,
         is_readable: 1,
+        will_error_lose_cause: 0.2,
       },
       calls,
     );
@@ -200,6 +201,14 @@ describe("toMeasureError", () => {
     expect(error.code).toBe("INTERNAL");
     expect(error.message).toBe("a string was thrown");
     expect(error.input).toBe("src/a.ts");
+  });
+
+  test("a plain Error chains the original as cause", () => {
+    const thrown = new Error("socket hang up");
+    const error = toMeasureError("src/a.ts", thrown);
+    expect(error.code).toBe("INTERNAL");
+    expect(error.message).toBe("socket hang up");
+    expect(error.cause).toBe(thrown);
   });
 
   test("a thrown MeasureError keeps its code; input is refined", () => {
