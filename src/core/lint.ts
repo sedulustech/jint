@@ -101,7 +101,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       if (result.abort) aborted = true;
       for (const { event, stage, span } of result.events) {
         if (event instanceof MeasureError) {
-          yield { type: "error", error: event };
+          yield { type: "error", error: withLanguageHint(event, options) };
           continue;
         }
 
@@ -125,6 +125,23 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       }
     }
   }
+}
+
+/**
+ * A str unit's grammar cannot be inferred from an extension — the unit path is synthetic ("input")
+ * — so a WALK_FAILED on the piped-stdin path without --language should say so: the fix is declaring
+ * the grammar, not renaming a file.
+ */
+function withLanguageHint(error: MeasureError, options: LintOptions): MeasureError {
+  if (error.code !== "WALK_FAILED" || options.str === undefined || options.language !== undefined) {
+    return error;
+  }
+  return new MeasureError(
+    error.code,
+    error.input,
+    error.message + " — declare the grammar with --language (e.g. --language typescript)",
+    { cause: error },
+  );
 }
 
 /** One unit's pipeline outcome: streamed classification events plus the abort flag. */

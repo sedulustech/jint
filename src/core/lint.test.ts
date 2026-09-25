@@ -515,3 +515,35 @@ describe("lint — unknown rule names", () => {
     ).rejects.toThrow(/unknown rule "is_greppable_x" — did you mean: is_greppable\?/);
   });
 });
+
+describe("lint — str unit WALK_FAILED guidance", () => {
+  const classifier: Classifier = async (_state, questions) =>
+    Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+
+  test("a str unit without --language suggests --language in the error", async () => {
+    const events = await drain(
+      lint({ config: baseConfig, str: { content: "const x = 1;\n" }, classifier }),
+    );
+    const errors = events.filter(
+      (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error.code).toBe("WALK_FAILED");
+    expect(errors[0]!.error.message).toContain("--language");
+  });
+
+  test("a str unit with --language does not carry the hint", async () => {
+    const events = await drain(
+      lint({
+        config: baseConfig,
+        str: { content: "const x = 1;\n" },
+        language: "typescript",
+        classifier,
+      }),
+    );
+    const errors = events.filter(
+      (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
+    );
+    expect(errors).toHaveLength(0);
+  });
+});
