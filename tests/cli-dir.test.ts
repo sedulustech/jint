@@ -4,14 +4,15 @@ import { describe, test, expect } from "bun:test";
 // runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
 const CLI = "src/cli.ts";
-const NO_KEY = { TYPESAFE_API_KEY: "" };
+// a key with no reachable jev: the run walks, transport failures stay in-band
+const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
 function run(args: string[], env: Record<string, string | undefined> = {}) {
   const proc = Bun.spawnSync(["bun", CLI, ...args], {
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...NO_KEY, ...env },
+    env: { ...process.env, ...NO_SERVICE, ...env },
   });
   return {
     code: proc.exitCode ?? -1,
@@ -22,7 +23,7 @@ function run(args: string[], env: Record<string, string | undefined> = {}) {
 
 describe("cli: dir walk ignores", () => {
   test("ignored files never reach the report; resolver excludes them pre-jev", () => {
-    // No key: JEV_AUTH aborts before measurements exist, but the report still
+    // No reachable jev: transport errors abort before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
     const r = run(["tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
@@ -51,7 +52,7 @@ describe("cli: dir walk ignores", () => {
     const r = run(["tests/fixtures/sample-dir", "--json", "--config", configPath]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    expect(report.errors.some((e: any) => e.code === "JEV_AUTH")).toBe(true);
+    expect(report.errors.some((e: any) => e.code === "JEV_UNAVAILABLE")).toBe(true);
   });
 
   test("with a real key: ignored files are absent from measurements", () => {

@@ -78,6 +78,7 @@ export const CONFIG_SCHEMA = Type.Object({
   rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
+  apiKey: Type.Optional(Type.String()),
 });
 
 /** The normalized shape every config resolves to before lint runs. */
@@ -86,6 +87,7 @@ export interface ResolvedConfig {
   readonly inputType?: "file" | "dir" | "diff";
   readonly rules: readonly Rule[];
   readonly exclude: readonly string[];
+  readonly apiKey?: string;
 }
 
 /** The built-in config used when no config file exists: no input, all default rules. */
@@ -155,12 +157,14 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
     exclude: string[];
+    apiKey?: string;
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
     exclude: parsed.exclude ?? [],
   };
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
+  if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
   return Object.freeze(resolved);
 }
 

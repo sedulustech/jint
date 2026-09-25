@@ -59,7 +59,6 @@ export interface LintOptions {
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  const classifier = options.classifier ?? createClassifier();
   const input: string | string[] | undefined = options.input ?? options.config.input;
   // Backstop for optional config.input: no input at all is a setup failure (the CLI resolves
   // flags > stdin > config before getting here).
@@ -75,6 +74,19 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   const rules = pickRules(options.config.rules, options.disable, options.only);
+  // Auth is global, not per-unit: with rules to measure and no key anywhere, every unit would
+  // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
+  if (
+    rules.length > 0 &&
+    options.classifier === undefined &&
+    !apiKeyAvailable(options.config.apiKey)
+  ) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
+    );
+  }
+  const classifier = options.classifier ?? createClassifier({ apiKey: options.config.apiKey });
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
@@ -125,6 +137,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       }
     }
   }
+}
+
+/** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
+function apiKeyAvailable(configKey?: string): boolean {
+  return (configKey !== undefined && configKey !== "") || !!process.env.TYPESAFE_API_KEY;
 }
 
 /**

@@ -8,7 +8,7 @@ describe("loadConfig", () => {
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ input: ".", exclude: [] }));
 
-    // Should exit 4 (JEV_AUTH) because key is empty
+    // Should exit 2 (CONFIG_INVALID) because key is empty: fail fast, nothing walked
     Bun.write(tmpDir + "/input.ts", "// content");
     const proc = Bun.spawnSync(
       ["bun", new URL("../../", import.meta.url).pathname + "/src/cli.ts", "input.ts", "--json"],
@@ -17,7 +17,7 @@ describe("loadConfig", () => {
         env: { ...process.env, TYPESAFE_API_KEY: "" },
       },
     );
-    expect(proc.exitCode).toBe(4);
+    expect(proc.exitCode).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
   });
 
