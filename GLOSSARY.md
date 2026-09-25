@@ -24,11 +24,10 @@ measurement its handle judged actionable and is the only output that demands act
   (default) or choice (scored rubric). Rules fire; findings result.
 - **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
   means; block-scoped questions get block criteria.
-- **input** — what a run measures, given as a str (raw source content, one unit) or a source target (a file, a directory, or a diff); resolved into the units the rules judge.
-- **target** the element type a rule judges: "files" | "diffs" are
-  unit-scoped (the element is the unit itself: the file content, the raw diff string);
-  "definitions" | "comments" | "functions" | "imports" are inventory-scoped (the element is
-  selected from the file inventory); rules per target land incrementally.
+- **input** — what a run measures: a path, a directory, a patch file, piped text, or the config's input field; resolved into the units the rules judge. Where the bytes come from, nothing more. The only input whose kind cannot be safely inferred is piped text (stdin), which must be declared (str or diff).
+- **input kind** — how the CLI interprets an input: file, dir, diff, or str. Decides how bytes are read and whether the source is parsed. Inferred when the source is unambiguous (a path is a file, a directory is a dir); declared for stdin. Not to be confused with target: the input kind is CLI perspective, the target is rule perspective; they meet at the unit.
+- **unit** — one measurable piece produced by resolving an input according to its input kind: a file unit `{ path, content }`, a diff block, or one str unit (dirs resolve to file units before measuring; the str unit carries a content-hash id). The unit nature decides which rule targets apply: a diff block serves diffs-target rules; a parsed file unit serves functions-, comments-, definitions-, imports-target rules; an unparsed str unit serves files-target only.
+- **target** — the element type a rule judges (rule perspective): files, diffs, functions, comments, definitions, imports. Selects which units/elements the rule measures; it is not a CLI concept. Which targets can fire follows from the unit, and the unit follows from the input kind.
 - **handle** — the rule's policy callback `(value) => "error" | "warn" | null` (null is
   silent); override it in config to change thresholds; readings over inventory elements never run handles —
   only whole-unit readings do.
@@ -45,8 +44,6 @@ measurement its handle judged actionable and is the only output that demands act
   missing or non-finite becomes JEV_RESPONSE_INVALID.
 - **strategy** — a model of the state and questions to send to the classifier (jev) to balance
   performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
-- **unit** — a resolved thing to measure `{ kind: "file" | "diff", state }`; dirs exist only at
-  inference time and resolve to file units before measuring.
 - **element** one thing a rule can judge: a file, a diff, or a node-derived
   definition, comment, function, or import from a file inventory; the target names the element
   type.
