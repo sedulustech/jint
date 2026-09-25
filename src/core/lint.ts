@@ -168,11 +168,51 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
   return out;
 }
 
+/** Cheap edit distance for close-match suggestions over rule names. */
+function editDistance(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [
+    i,
+    ...Array<number>(b.length).fill(0),
+  ]);
+  for (let j = 0; j <= b.length; j++) dp[0]![j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      dp[i]![j] = Math.min(
+        dp[i - 1]![j]! + 1,
+        dp[i]![j - 1]! + 1,
+        dp[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+  return dp[a.length]![b.length]!;
+}
+
+/** "unknown rule "x" — did you mean: y?" when a known name is within a typo's distance. */
+function unknownRuleMessage(name: string, known: ReadonlySet<string>): string {
+  let best: string | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of known) {
+    const distance = editDistance(name, candidate);
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best !== null && bestDistance <= Math.max(2, Math.floor(name.length / 3))
+    ? `unknown rule "${name}" — did you mean: ${best}?`
+    : `unknown rule "${name}"`;
+}
+
 function pickRules(
   rules: readonly Rule[],
   disable: readonly string[] | undefined,
   only: readonly string[] | undefined,
 ): readonly Rule[] {
+  // Unknown rule names are a usage error, never a silent empty run: the run would produce zero
+  // findings with no explanation (design: setup failures throw SetupError, per-unit failures don't).
+  const known = new Set(rules.map((rule) => rule.name));
+  for (const name of disable ?? [])
+    if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
+  for (const name of only ?? [])
+    if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
   let out = rules;
   if (disable !== undefined && disable.length > 0) {
     const disabled = new Set(disable);

@@ -475,3 +475,43 @@ describe("collectReport", () => {
     expect(report.errors).toHaveLength(0);
   });
 });
+
+describe("lint — unknown rule names", () => {
+  test("--rule with an exact known name runs (regression guard)", async () => {
+    const events = await drain(
+      lint({
+        config: baseConfig,
+        input: "tests/fixtures/sample-file.ts",
+        only: ["is_greppable"],
+        classifier: classifierWith({}),
+      }),
+    );
+    expect(events.some((e) => e.type === "measurement")).toBe(true);
+  });
+
+  test("unknown --rule throws SetupError CONFIG_INVALID, not a silent empty run", async () => {
+    expect(
+      drain(
+        lint({
+          config: baseConfig,
+          input: "tests/fixtures/sample-file.ts",
+          only: ["nonexistent"],
+          classifier: classifierWith({}),
+        }),
+      ),
+    ).rejects.toMatchObject({ name: "SetupError", code: "CONFIG_INVALID" });
+  });
+
+  test("a close miss suggests the nearest known rule name", async () => {
+    await expect(
+      drain(
+        lint({
+          config: baseConfig,
+          input: "tests/fixtures/sample-file.ts",
+          only: ["is_greppable_x"],
+          classifier: classifierWith({}),
+        }),
+      ),
+    ).rejects.toThrow(/unknown rule "is_greppable_x" — did you mean: is_greppable\?/);
+  });
+});
