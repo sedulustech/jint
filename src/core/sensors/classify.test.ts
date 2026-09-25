@@ -320,3 +320,72 @@ describe("classifyFile — role routing", () => {
     expect((measured[0]!.event as Measurement).rule).toBe("is_function_srp");
   });
 });
+describe("classifyFile — imports routing", () => {
+  const importRule: Rule = {
+    name: "is_import_pinned",
+    target: "imports",
+    criteria: { true: "pinned", false: "not pinned" },
+    handle: () => null,
+  };
+  const fnRule = defaultRules.is_function_srp!;
+  const withImports = [
+    'import { configPlugin } from "./plugin.js";',
+    'import type { Rule } from "../types.js";',
+    "export function main(): number { return configPlugin(1); }",
+    "",
+  ].join("\n");
+  const noImports = "export function main(): number { return 1; }\n";
+  const classifier: Classifier = async (_state, questions) =>
+    Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+
+  test("an imports-target rule measures the import element when imports exist", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const { events } = await classifyFile(
+      { kind: "file", state: { path: "src/app.ts", content: withImports, id: "L1-L4" } },
+      [importRule],
+      classifier,
+    );
+    const errors = events.filter((e) => e.event instanceof MeasureError);
+    expect(errors).toHaveLength(0);
+    const measured = events.filter((e) => !(e.event instanceof MeasureError));
+    expect(measured.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("the import measurement's input and span identify the import", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const { events } = await classifyFile(
+      { kind: "file", state: { path: "src/app.ts", content: withImports, id: "L1-L4" } },
+      [importRule],
+      classifier,
+    );
+    const measured = events.filter((e) => !(e.event instanceof MeasureError));
+    expect(measured.length).toBeGreaterThanOrEqual(1);
+    const first = measured[0]!;
+    expect((first.event as Measurement).input).toBe("src/app.ts#L1-L2");
+    expect(first.span?.start.line).toBe(1);
+    expect(first.span?.end.line).toBe(2);
+  });
+
+  test("a functions-target rule's count is unchanged over the same fixture", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const { events } = await classifyFile(
+      { kind: "file", state: { path: "src/app.ts", content: withImports, id: "L1-L4" } },
+      [fnRule],
+      classifier,
+    );
+    const measured = events.filter((e) => !(e.event instanceof MeasureError));
+    expect(measured).toHaveLength(1);
+    expect((measured[0]!.event as Measurement).rule).toBe("is_function_srp");
+  });
+
+  test("an imports-target rule over code with no imports measures nothing, no error", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const { events } = await classifyFile(
+      { kind: "file", state: { path: "src/app.ts", content: noImports, id: "L1" } },
+      [importRule],
+      classifier,
+    );
+    expect(events.filter((e) => e.event instanceof MeasureError)).toHaveLength(0);
+    expect(events.filter((e) => !(e.event instanceof MeasureError))).toHaveLength(0);
+  });
+});
