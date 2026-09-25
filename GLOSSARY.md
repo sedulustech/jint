@@ -46,7 +46,8 @@ measurement its handle judged actionable and is the only output that demands act
   performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
 - **element** one thing a rule can judge: a file, a diff, or a node-derived
   definition, comment, function, or import from a file inventory; the target names the element
-  type.
+  type. A variable declaration whose value is not a callable has role `data` (functions-target
+  rules never judge it); an arrow-function const is a function like any callable.
 - **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
   file's inventory.
 - **grammar** — the tree-sitter wasm that turns source text into the parse tree the walk
