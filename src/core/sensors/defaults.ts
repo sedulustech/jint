@@ -37,7 +37,11 @@ export const isNamePurposeful: Rule = {
       "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
   },
   target: "definitions",
-  handle: compileHandle({ warn_at: 0.6, error_at: 0.5 }),
+  // Recalibrated for the per-rule question (issue 001 A/B): the specific question reads the
+  // self-corpus stricter than UNIT_TASK did (median 0.68 -> 0.56), so the warn tier moves down
+  // to keep its pass share and the m4_obfuscate mutant (0.52) still warns; the defective
+  // control (mean 0.26) still errors.
+  handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
 };
 
 export const isFunctionSrp: Rule = {

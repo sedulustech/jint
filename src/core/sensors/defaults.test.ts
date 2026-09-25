@@ -12,8 +12,8 @@ function severities(rule: Rule, values: number[]): (string | null)[] {
 describe("default handles: polarity", () => {
   test("naming rules are high=good (error below threshold)", () => {
     expect(defaultRules.is_name_purposeful!.handle(0.1)).toBe("error");
-    expect(defaultRules.is_name_purposeful!.handle(0.55)).toBe("warn");
-    expect(defaultRules.is_name_purposeful!.handle(0.65)).toBeNull();
+    expect(defaultRules.is_name_purposeful!.handle(0.45)).toBe("warn");
+    expect(defaultRules.is_name_purposeful!.handle(0.55)).toBeNull();
     expect(defaultRules.is_vocabulary_consistent!.handle(0.5)).toBe("error");
     expect(defaultRules.is_vocabulary_consistent!.handle(0.7)).toBe("warn");
     expect(defaultRules.is_vocabulary_consistent!.handle(0.8)).toBeNull();

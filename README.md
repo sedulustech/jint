@@ -60,7 +60,7 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 
 | rule                              | polarity    | error     | warn      | healthy range |
 | --------------------------------- | ----------- | --------- | --------- | ------------- |
-| `is_name_purposeful`              | high = good | < 0.5     | < 0.6     | 0.80 – 0.89   |
+| `is_name_purposeful`              | high = good | < 0.4     | < 0.55    | 0.56 – 0.85   |
 | `is_vocabulary_consistent`        | high = good | < 0.6     | < 0.75    | 0.86 – 0.89   |
 | `is_naming_convention_consistent` | high = good | < 0.65    | < 0.85    | 0.89 – 0.91   |
 | `is_greppable`                    | high = good | < 0.60    | < 0.75    | 0.81 – 0.84   |
