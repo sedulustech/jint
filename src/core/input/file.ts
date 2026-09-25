@@ -13,14 +13,17 @@ export async function fileUnit(path: string): Promise<Unit> {
     });
   });
   if (info.isDirectory()) {
-    throw new SetupError("ENTRYPOINT_NOT_FOUND", `not a file: ${path} is a directory (use --dir)`);
+    throw new SetupError(
+      "ENTRYPOINT_NOT_FOUND",
+      `not a file: ${path} is a directory (pass it as the only positional: jint ${path})`,
+    );
   }
   // explicit path: the user asked for THIS file, so silence would read as "nothing wrong" —
   // say plainly that it is not measurable (walker skips non-source silently; explicit does not)
   if (languageOf(path) === null) {
     throw new SetupError(
       "NOT_SOURCE",
-      `not measurable: ${path} has no source-language grammar (use --dir to walk sources, or pipe content with --language)`,
+      `not measurable: ${path} has no source-language grammar (walk sources by passing a directory, or measure raw text with the str noun)`,
     );
   }
   let content: string;

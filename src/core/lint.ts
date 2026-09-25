@@ -70,7 +70,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass --file/--dir, pipe stdin with --kind, or set input in jint.config.json",
+      "no input: pass a path (jint src/), declare piped stdin (jint diff - / jint str -), or set input in jint.config.json",
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];

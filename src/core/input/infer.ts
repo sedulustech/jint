@@ -2,12 +2,12 @@
  * Input inference and resolution (design §3, §4): the kind is inferred by path shape, never by
  * content —
  *
- * On-disk directory -> dir (walked into file units) On-disk file -> file (even a patch file: pipe
- * it with --kind diff to judge it as a diff) missing path -> ENTRYPOINT_NOT_FOUND
+ * On-disk directory -> dir (walked into file units) On-disk file -> file (even a patch file:
+ * declare it with the diff noun to judge it as a diff) missing path -> ENTRYPOINT_NOT_FOUND
  *
- * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with --kind
- * str|diff. Both the CLI and the SDK go through resolveInput — no drift. Jint never shells to git:
- * the caller owns the VCS (pipe `git diff | jint --kind diff`).
+ * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with the noun
+ * commands (jint str - / jint diff -). Both the CLI and the SDK go through resolveInput — no drift.
+ * Jint never shells to git: the caller owns the VCS (pipe `git diff | jint diff -`).
  */
 
 import { stat } from "node:fs/promises";
@@ -30,8 +30,6 @@ export interface ResolveOptions {
 
 /** Path-shape inference only: directory -> dir, file -> file, anything else is not found. */
 export async function inferKind(input: string): Promise<InputKind> {
-  // "-" is stdin, the SDK primitive
-  if (input === "-") return "diff";
   const info = await stat(input).catch(() => null);
   if (info?.isDirectory()) return "dir";
   if (info?.isFile()) return "file";
@@ -48,7 +46,7 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       yield* decomposeDiff(text, null, exclude);
       return;
     }
-    // explicit --file paths bypass exclude
+    // explicit file paths bypass exclude
     if (Array.isArray(input)) {
       for (const path of input) yield await fileUnit(path);
       return;

@@ -15,8 +15,13 @@ describe("inferKind", () => {
     expect(await inferKind("tests/fixtures/sample-file.ts")).toBe("file");
   });
 
-  test("- -> diff (stdin, the SDK primitive)", async () => {
-    expect(await inferKind("-")).toBe("diff");
+  test("- is not inferred as anything (no path, no sniffing) -> ENTRYPOINT_NOT_FOUND", async () => {
+    try {
+      await inferKind("-");
+      expect.unreachable();
+    } catch (e) {
+      expect((e as SetupError).code).toBe("ENTRYPOINT_NOT_FOUND");
+    }
   });
 
   test("rev-shaped non-path -> ENTRYPOINT_NOT_FOUND (jint never shells to git)", async () => {

@@ -111,7 +111,7 @@ describe("readDiffSource", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("ENTRYPOINT_NOT_FOUND");
-      expect((e as SetupError).message).toContain("--kind diff");
+      expect((e as SetupError).message).toContain("jint diff -");
     }
   });
 });

@@ -20,11 +20,11 @@ function run(args: string[], env: Record<string, string | undefined> = {}) {
   };
 }
 
-describe("cli: --dir ignores", () => {
+describe("cli: dir walk ignores", () => {
   test("ignored files never reach the report; resolver excludes them pre-jev", () => {
     // No key: JEV_AUTH aborts before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
-    const r = run(["--dir", "tests/fixtures/sample-dir", "--json"]);
+    const r = run(["tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
@@ -39,7 +39,7 @@ describe("cli: --dir ignores", () => {
     }
   });
 
-  test("rules-only config (no input) validates and runs with --dir", () => {
+  test("rules-only config (no input) validates and runs with a directory positional", () => {
     const configPath = "/tmp/jint-rules-only-config.json";
     require("node:fs").writeFileSync(
       configPath,
@@ -48,7 +48,7 @@ describe("cli: --dir ignores", () => {
     // No key: the run reaches input resolution and the units (JEV_AUTH, exit 4) — NOT
     // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
     // became optional.
-    const r = run(["--dir", "tests/fixtures/sample-dir", "--json", "--config", configPath]);
+    const r = run(["tests/fixtures/sample-dir", "--json", "--config", configPath]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     expect(report.errors.some((e: any) => e.code === "JEV_AUTH")).toBe(true);
@@ -59,7 +59,7 @@ describe("cli: --dir ignores", () => {
       console.log("skip: requires TYPESAFE_API_KEY");
       return;
     }
-    const proc = Bun.spawnSync(["bun", CLI, "--dir", "tests/fixtures/sample-dir", "--json"], {
+    const proc = Bun.spawnSync(["bun", CLI, "tests/fixtures/sample-dir", "--json"], {
       cwd: ROOT,
       stdout: "pipe",
       stderr: "pipe",

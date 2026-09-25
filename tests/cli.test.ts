@@ -40,8 +40,8 @@ describe("cli: contract basics", () => {
     expect(r.stderr).toBe("");
   });
 
-  test("-h anywhere ignores other args", () => {
-    const r = run(["--file", "nope.ts", "-h"]);
+  test("-h anywhere ignores other args (flags may follow positionals)", () => {
+    const r = run(["nope.ts", "-h"]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("Usage:");
   });
@@ -59,45 +59,99 @@ describe("cli: contract basics", () => {
     expect(r.stderr).toContain("--help");
   });
 
-  test("positional argument suggests --file, exit 2", () => {
-    const r = run(["src"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("did you mean --file src?");
-  });
-
-  test("conflicting input flags -> exit 2", () => {
-    const r = run(["--file", "a.ts", "--dir", "src"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("only one of --file, --dir");
-  });
-
   test("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", () => {
-    const r = run(["--file", "nope/missing.ts"]);
+    const r = run(["nope/missing.ts"]);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("ENTRYPOINT_NOT_FOUND");
+  });
+
+  test("two files measure as file units", () => {
+    const r = run(
+      ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts", "--json"],
+      NO_KEY,
+    );
+    expect(r.code).toBe(4);
+    const attempted: string[] = [
+      ...(JSON.parse(r.stdout).measurements ?? []).map((m: any) => m.input),
+      ...(JSON.parse(r.stdout).errors ?? []).map((e: any) => e.input),
+    ];
+    expect(attempted).toContain("tests/fixtures/sample-file.ts");
+    expect(attempted).toContain("tests/fixtures/sample-dir/good.ts");
   });
 
   test("invalid config file -> CONFIG_INVALID, exit 2", () => {
     const r = run([
       "--config",
       "tests/fixtures/configs/invalid.config.json",
-      "--file",
       "tests/fixtures/sample-file.ts",
     ]);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("CONFIG_INVALID");
   });
 
+  test("removed flags error with the new-form hint, exit 2", () => {
+    expect(run(["--file", "a.ts"]).stderr).toContain("use: jint <path>...");
+    expect(run(["--dir", "src"]).stderr).toContain("use: jint <dir>");
+    expect(run(["--kind", "diff"]).stderr).toContain("use: jint diff -");
+    expect(run(["--diff", "-"]).stderr).toContain("use: jint diff -");
+    for (const args of [["--file", "a.ts"], ["--dir", "src"], ["--kind", "diff"], ["--diff"]]) {
+      expect(run(args).code).toBe(2);
+    }
+  });
+
+  test("bare 'jint -' -> usage error with guidance, exit 2", () => {
+    const r = run(["-"]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("jint diff -");
+    expect(r.stderr).toContain("jint str -");
+  });
+
+  test("bare noun without payload -> usage error, exit 2 (never a path lookup)", () => {
+    expect(run(["diff"]).code).toBe(2);
+    expect(run(["str"]).code).toBe(2);
+    expect(run(["diff"]).stderr).toContain("expects a payload");
+    expect(run(["str"]).stderr).toContain("expects a payload");
+  });
+
+  // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
+  test("'--' ends flag parsing: a dash-path measures", () => {
+    const r = run(["--", "tests/fixtures/dash-path/--weird.ts", "--json"], NO_KEY);
+    expect(r.code).toBe(4); // reached measurement: it was a path, not a flag
+    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
+  });
+
+  test("dash-leading token that is no known flag and no path -> exit 2 with guidance", () => {
+    const r = run(["--", "--nope.ts"]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("--nope.ts");
+    expect(r.stderr).toContain("--help");
+  });
+
+  test("flags before and after positionals are equivalent", () => {
+    const a = run(["--json", "--rule", "is_greppable", "tests/fixtures/sample-file.ts"], NO_KEY);
+    const b = run(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], NO_KEY);
+    expect(a.code).toBe(b.code);
+    expect(JSON.parse(a.stdout)).toEqual(JSON.parse(b.stdout));
+  });
+
+  test("a file named diff is judged as a FILE (nouns never resolve to paths)", () => {
+    // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
+    // noun-dispatched (a bare 'jint diff' is a payload usage error instead)
+    const r = run(["tests/fixtures/named-diff/diff", "--json"], NO_KEY);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("NOT_SOURCE");
+  });
+
   test("piped stdout carries no escape codes (--help and reports)", () => {
     expect(run(["-h"]).stdout).not.toContain("\x1b");
-    const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
+    const r = run(["tests/fixtures/sample-file.ts", "--json"], NO_KEY);
     expect(r.stdout).not.toContain("\x1b");
   });
 });
 
 describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
-  test("--file without TYPESAFE_API_KEY --json: stdout parses, stderr silent (clig)", () => {
-    const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
+  test("a file positional without TYPESAFE_API_KEY --json: stdout parses, stderr silent (clig)", () => {
+    const r = run(["tests/fixtures/sample-file.ts", "--json"], NO_KEY);
     expect(r.code).toBe(4); // ran but failed: zero measurements, CI never passes unmeasured
     // stdout is exactly the machine document — parses cleanly, no human output mixed in
     const report = JSON.parse(r.stdout);
@@ -110,7 +164,7 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
   });
 
   test("default stylish report: findings stdout, run errors stderr (clig)", () => {
-    const r = run(["--file", "tests/fixtures/sample-file.ts"], NO_KEY);
+    const r = run(["tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(4);
     // stderr: the run's own errors and their summary
     expect(r.stderr).toContain("error JEV_AUTH");
@@ -120,9 +174,9 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(r.stdout).not.toContain("failed to measure");
   });
 
-  test("--kind diff reads piped stdin (decomposition happens before the jev call)", () => {
+  test("jint diff - reads piped stdin (decomposition happens before the jev call)", () => {
     const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --kind diff --json`],
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} diff - --json`],
       {
         cwd: ROOT,
         stdout: "pipe",
@@ -137,25 +191,59 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(report.errors[0]!.code).toBe("JEV_AUTH");
   });
 
-  test("piped stdin without --kind -> usage error, exit 2, guidance", () => {
+  test("piped stdin without a noun -> usage error, exit 2, guidance (never guessed)", () => {
     const proc = Bun.spawnSync(
       ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --json`],
       { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
     );
     expect(proc.exitCode).toBe(2);
-    expect(proc.stderr.toString()).toContain("--kind str");
-    expect(proc.stderr.toString()).toContain("--kind diff");
+    expect(proc.stderr.toString()).toContain("jint diff -");
+    expect(proc.stderr.toString()).toContain("jint str -");
   });
 
-  test("--file of a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {
+  test("TTY with payload '-' -> immediate usage error, never blocks", () => {
+    // script(1) allocates a pty so process.stdin.isTTY is true in the child
+    const proc = Bun.spawnSync(["/bin/bash", "-c", `script -qec 'bun ${CLI} diff -' /dev/null`], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...NO_KEY },
+    });
+    const out = proc.stdout.toString() + proc.stderr.toString();
+    expect(proc.exitCode).toBe(2);
+    expect(out).toContain("no piped stdin to measure");
+  });
+
+  test("jint str '--json': the payload is not flag-parsed, it measures as a str unit", () => {
+    // '--json' becomes the str CONTENT; if it had been parsed as a flag, the noun would have no
+    // payload (exit 2 'expects a payload') and the report would be machine JSON
+    const r = run(["str", "--json", "--rule", "is_greppable"], NO_KEY);
+    expect(r.code).toBe(4); // reached measurement (JEV_AUTH), not a usage error
+    expect(r.stderr).toContain("JEV_AUTH input");
+    expect(r.stdout).not.toContain("jint-report/v1"); // human table: no --json flag was seen
+  });
+
+  test("jint str with inline source text measures one str unit", () => {
+    const r = run(["str", "export const x = 1;", "--json", "--rule", "is_greppable"], NO_KEY);
+    expect(r.code).toBe(4);
+    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("input");
+  });
+
+  test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
+    const r = run(["diff", "tests/fixtures/sample.diff", "--json"], NO_KEY);
+    expect(r.code).toBe(4);
+    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
+  });
+
+  test("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {
     // file semantics: rejected as a non-source extension (NOT_SOURCE), not decomposed as a diff
-    const r = run(["--file", "tests/fixtures/sample.diff", "--json"], NO_KEY);
+    const r = run(["tests/fixtures/sample.diff", "--json"], NO_KEY);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("NOT_SOURCE");
     expect(r.stderr).not.toContain("diff --git");
 
     // a rev-shaped argument is just a missing entrypoint, not a diff
-    const rev = run(["--file", "HEAD~1..HEAD", "--json"], NO_KEY);
+    const rev = run(["HEAD~1..HEAD", "--json"], NO_KEY);
     expect(rev.code).toBe(2);
     expect(rev.stderr).toContain("ENTRYPOINT_NOT_FOUND");
   });
@@ -165,7 +253,6 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
       [
         "--config",
         "tests/fixtures/configs/valid.config.json",
-        "--file",
         "tests/fixtures/sample-file.ts",
         "--json",
       ],
@@ -177,9 +264,9 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(report.errors[0]!.code).toBe("JEV_AUTH");
   });
 
-  test("--dir <fixture> : respects .gitignore, errors JEV_AUTH, exit 4", () => {
+  test("dir positional respects .gitignore, errors JEV_AUTH, exit 4", () => {
     // tests/fixtures/ignore-test contains a .gitignore that ignores 'binary'
-    const r = run(["--dir", "tests/fixtures/sample-dir", "--json", "--debug"], NO_KEY);
+    const r = run(["tests/fixtures/sample-dir", "--json", "--debug"], NO_KEY);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     // Should contain measurements for the non-ignored files
@@ -187,9 +274,9 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
     expect(report.errors.length).toBeGreaterThan(0);
   });
 
-  test("--kind str measures one str unit even when stdin holds diff text", () => {
+  test("jint str - measures one str unit even when stdin holds diff text", () => {
     const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --kind str --json`],
+      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} str - --json`],
       { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
     );
     expect(proc.exitCode).toBe(4); // ran as ONE str unit; JEV_AUTH with no key
@@ -199,9 +286,9 @@ describe("cli: run semantics (no API key -> JEV_AUTH, exit 4)", () => {
 });
 
 describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
-  test("--file with a real key: measurements, clean exit 0", () => {
+  test("file positional with a real key: measurements, clean exit 0", () => {
     if (!process.env.TYPESAFE_API_KEY) return; // demonstrated manually in the verification gate
-    const r = run(["--file", "tests/fixtures/sample-file.ts", "--json"]);
+    const r = run(["tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
     // one pass: 2 files-target + element classification; every measurement runs its handle, so

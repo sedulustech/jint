@@ -78,7 +78,7 @@ export async function* walkDir(root: string, exclude?: readonly string[]): Async
     );
   });
   if (!rootStat.isDirectory()) {
-    throw new SetupError("ENTRYPOINT_NOT_FOUND", `not a directory: ${root} (use --file)`);
+    throw new SetupError("ENTRYPOINT_NOT_FOUND", `not a directory: ${root}`);
   }
   const normalizedRoot = root.replace(/\/+$/, "");
   const excludeRules = (exclude ?? []).map(compilePattern);

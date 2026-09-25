@@ -11,13 +11,7 @@ describe("loadConfig", () => {
     // Should exit 4 (JEV_AUTH) because key is empty
     Bun.write(tmpDir + "/input.ts", "// content");
     const proc = Bun.spawnSync(
-      [
-        "bun",
-        new URL("../../", import.meta.url).pathname + "/src/cli.ts",
-        "--file",
-        "input.ts",
-        "--json",
-      ],
+      ["bun", new URL("../../", import.meta.url).pathname + "/src/cli.ts", "input.ts", "--json"],
       {
         cwd: tmpDir,
         env: { ...process.env, TYPESAFE_API_KEY: "" },

@@ -1,7 +1,8 @@
 import { describe, test, expect, afterAll } from "bun:test";
 
-// Piped-stdin units: kind is REQUIRED (--kind str|diff); --kind str = one str unit.
-// The jev adapter is pointed at a local mock of POST /v1/systemone so the runs measure for real.
+// Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
+// carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
+// runs measure for real.
 
 const ROOT = import.meta.dir + "/..";
 const CLI = "src/cli.ts";
@@ -69,7 +70,7 @@ async function writeProbeConfig(config: Record<string, unknown>): Promise<string
 
 describe("cli: piped stdin str unit", async () => {
   test("snippet | jint --json: parses, measurements present", async () => {
-    const r = await runWithStdin(SNIPPET, ["--kind", "str", "--json"]);
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json"]);
     expect([0, 1]).toContain(r.code); // findings decide; the run itself measured
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
@@ -78,14 +79,14 @@ describe("cli: piped stdin str unit", async () => {
 
   test("--language typescript with a rule filter: element measurements appear", async () => {
     const r = await runWithStdin(SNIPPET, [
-      "--kind",
-      "str",
       "--json",
       "--language",
       "typescript",
       "--rule",
       "is_function_srp",
-    ]);
+      "str",
+      "-",
+    ]); /* flags around the noun are equivalent */
     const report = JSON.parse(r.stdout);
     const elements = report.measurements.filter((m: { stage?: string }) => m.stage === "element");
     expect(elements.length).toBeGreaterThan(0);
@@ -93,7 +94,7 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("no --language: unit-scoped rules still measure, mapping fails in-band", async () => {
-    const r = await runWithStdin(SNIPPET, ["--kind", "str", "--json", "--rule", "is_greppable"]);
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
     expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
@@ -101,7 +102,7 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("human output: same stylish table, identity 'input'", async () => {
-    const r = await runWithStdin(SNIPPET, ["--kind", "str", "--rule", "is_greppable"]);
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
     expect(r.code).toBeLessThan(2); // the run happened; findings decide 0 vs 1
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
     expect(r.stderr).toContain("WALK_FAILED input");
@@ -127,9 +128,8 @@ describe("cli: piped stdin str unit", async () => {
       "--json",
       "--rule",
       "is_greppable",
-      "--file",
       "tests/fixtures/sample-dir/good.ts",
-    ]);
+    ]); // a positional path overrides config.input
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
@@ -142,8 +142,8 @@ describe("cli: piped stdin str unit", async () => {
   test("stdin beats config.input: piped snippet measures as the str unit, config ignored", async () => {
     const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
     const r = await runWithStdin(SNIPPET, [
-      "--kind",
       "str",
+      "-",
       "--config",
       configPath,
       "--json",
@@ -156,9 +156,9 @@ describe("cli: piped stdin str unit", async () => {
     expect(inputs).toEqual(["input"]); // the stdin str unit, not the config file
   });
 
-  test("piped stdin with --kind diff is decomposed as a diff, never a str unit", async () => {
+  test("jint diff - is decomposed as a diff, never a str unit", async () => {
     // stdin content is a diff here; the declared kind wins
-    const r = await runWithStdin("not a diff at all", ["--kind", "diff", "--json"]);
+    const r = await runWithStdin("not a diff at all", ["diff", "-", "--json"]);
     const report = JSON.parse(r.stdout);
     // decomposed as a diff: the JEV_AUTH-or-measurement unit names a diff path, or the diff
     // itself failed loudly - either way it was NOT treated as a str snippet named "input"

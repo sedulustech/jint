@@ -1,6 +1,6 @@
 /**
  * Diff sources: "-" (stdin, the SDK primitive) or an on-disk patch file. Jint never shells to git —
- * the caller owns the VCS and pipes the diff in (git diff HEAD~1 | jint --kind diff).
+ * the caller owns the VCS and pipes the diff in (git diff HEAD~1 | jint diff -).
  *
  * A unified diff is split into per-file units: added/modified files are measured, deleted and
  * binary files are skipped (design §4).
@@ -31,7 +31,7 @@ export async function readDiffSource(spec: string): Promise<DiffSource> {
   }
   throw new SetupError(
     "ENTRYPOINT_NOT_FOUND",
-    `diff input not found: ${spec} (pass an on-disk patch path, or pipe the diff with --kind diff)`,
+    `diff input not found: ${spec} (pass an on-disk patch path, or pipe the diff: jint diff -)`,
   );
 }
 

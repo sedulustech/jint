@@ -3,15 +3,15 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity signals 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements zero
- * measurements — CI never passes unmeasured)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements — CI
+ * never passes unmeasured)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
  * (default silent; --debug). Either stream stays usable with the other discarded.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -32,17 +32,7 @@ const COLOR_MODE_SCHEMA = TypeBoxType.Union([
 
 /** CLI args boundary — validated with TypeBox like every external input. */
 const CLI_ARGS_SCHEMA = TypeBoxType.Object({
-  file: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  dir: TypeBoxType.Optional(TypeBoxType.String()),
   language: TypeBoxType.Optional(TypeBoxType.String()),
-  kind: TypeBoxType.Optional(
-    TypeBoxType.Union([
-      TypeBoxType.Literal("file"),
-      TypeBoxType.Literal("dir"),
-      TypeBoxType.Literal("diff"),
-      TypeBoxType.Literal("str"),
-    ]),
-  ),
   config: TypeBoxType.Optional(TypeBoxType.String()),
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
@@ -59,29 +49,21 @@ type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
 const HELP = `jint — jev lint: measures code with AI-classifier judgments; rules in, signals out.
 
 Usage:
-  jint --file <path>...      measure on-disk files
-  jint --dir <path>          measure a directory tree
-  cat fix.patch | jint --kind diff   piped stdin, declared a diff
-  cat snippet.ts | jint --kind str   piped stdin, declared one str unit
-  jint                       no flags: input comes from jint.config.json
+  jint src/                       measure a directory tree
+  jint a.ts b.ts                  measure files
+  git diff HEAD~1 | jint diff -   piped stdin, declared a diff
+  jint diff fix.patch             a patch file, declared a diff
+  cat snippet.ts | jint str -     piped stdin, one str unit
+  jint                            no positional: input comes from jint.config.json
 
-Examples:
-  jint --file src/a.ts src/b.ts
-  jint --dir src/
-  git diff HEAD~1 | jint --kind diff
-  cat snippet.ts | jint --kind str --language typescript
-  jint --kind diff --json | jq .
-
-A path's kind is never guessed from its content — a patch file read via --file is judged as a
-FILE; pipe it with --kind diff to judge it as a diff. Piped stdin has no path, so its kind is
-REQUIRED: pass --kind str or --kind diff (jint never shells out to git — the caller pipes the
-diff in). The stdin str unit's identity is "input".
+The resource is the noun; the verb (measure) is implicit. str and diff are nouns only as the
+FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
+jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
+diff is reached as jint ./diff. A path's kind is inferred by shape only (exists-as-dir -> dir,
+else file); content is never sniffed. Piped stdin is declared by a noun, never guessed. --
+ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
-  --file <path>...    file(s) to measure (repeatable)
-  --dir <path>        directory to measure
-  --kind <kind>       input kind for piped stdin: str (one snippet unit) or diff (unified diff
-                      text); required when stdin is piped, unused with --file/--dir
   --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
                       without a resolvable language, inventory-scoped rules fail WALK_FAILED
                       in-band and unit-scoped rules still measure
@@ -130,41 +112,81 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return exitForThrown(thrown);
   }
 
-  const cliInput = inputFromFlags(cliArgs);
-  if (cliInput.outcome === "usage-error") {
-    usageError(cliInput.usageMessage);
-    return 2;
-  }
-
-  // Input resolution: flags > stdin > config.input. A path's kind is inferred by shape; piped
-  // stdin has no path, so its kind is REQUIRED (--kind str|diff — no default, no guessing).
-  // EMPTY piped stdin falls through so config.input can flow. With a TTY or input flags, stdin
-  // is never read; a TTY with no flags and no config input dies in lint()'s empty-input backstop.
+  // Input resolution precedence: command noun > stdin > config.input > error. A positional
+  // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
+  // that); piped stdin is DECLARED by a noun (jint diff - / jint str -), never guessed. EMPTY
+  // piped stdin falls through so config.input can flow (a closed or /dev/null stdin is the
+  // config-only invocation shape). A TTY is never read; a TTY with payload "-" dies here, not
+  // blocking on the terminal, and a TTY with no noun and no config input dies in lint()'s
+  // empty-input backstop.
   let stdinStr: { content: string } | undefined;
   let stdinDiff: { text: string } | undefined;
-  if (cliInput.outcome === "selected" && cliInput.input === "") {
-    const kindGuidance =
-      "piped stdin requires --kind: pass --kind str (one source snippet) or --kind diff (a unified diff)";
-    if (cliArgs.kind !== undefined && cliArgs.kind !== "str" && cliArgs.kind !== "diff") {
+  let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
+  const positionals = parsedCliArgs.positionals;
+  const firstPositional = positionals[0];
+  if (firstPositional === "-") {
+    usageError(
+      "bare '-' does not declare a kind — use: jint diff - (piped diff) or jint str - (piped source)",
+    );
+    return 2;
+  }
+  if (firstPositional === "diff" || firstPositional === "str") {
+    // Nouns never resolve to filesystem paths (a repo file named 'diff' is reached as ./diff);
+    // the payload is the raw next positional, consumed without flag interpretation.
+    const payload = positionals[1];
+    if (payload === undefined) {
       usageError(
-        `--kind ${cliArgs.kind}: paths already have their kind — use --file/--dir; --kind declares piped stdin (str|diff)`,
+        `jint ${firstPositional} expects a payload — use: jint ${firstPositional} - (piped stdin) or jint ${firstPositional} <${firstPositional === "diff" ? "fix.patch" : '"code"'}>`,
       );
       return 2;
     }
-    if (cliArgs.kind === "str" || cliArgs.kind === "diff") {
+    if (payload === "-") {
       if (process.stdin.isTTY) {
-        usageError(`--kind ${cliArgs.kind}: no piped stdin to measure (stdin is a terminal)`);
+        usageError(`jint ${firstPositional} -: no piped stdin to measure (stdin is a terminal)`);
         return 2;
       }
       const content = await Bun.stdin.text();
-      if (cliArgs.kind === "str") stdinStr = { content };
+      if (firstPositional === "str") stdinStr = { content };
       else stdinDiff = { text: content };
-    } else if (!process.stdin.isTTY) {
-      const content = await Bun.stdin.text();
-      if (content !== "") {
-        usageError(kindGuidance);
+    } else if (firstPositional === "diff") {
+      // a patch path; readDiffSource resolves it
+      lintInput = { input: payload, inputType: "diff" };
+    } else {
+      // inline source text, identity "input"
+      stdinStr = { content: payload };
+    }
+  } else if (positionals.length > 0) {
+    // Paths. Files may be many; a directory is exactly one path (the walk owns its tree).
+    if (positionals.length > 1) {
+      try {
+        if (statSync(positionals[0]!).isDirectory()) {
+          usageError(`a directory is one path — use: jint ${positionals[0]}`);
+          return 2;
+        }
+      } catch {
+        // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
+      }
+    }
+    // A dash-leading positional that does not exist is most likely a mistyped flag (or a flag
+    // whose `--` separator the bun runtime consumed): say so instead of a bare not-found.
+    for (const positional of positionals) {
+      if (positional.startsWith("-") && !existsSync(positional)) {
+        usageError(`unknown option or missing path '${positional}' — see jint --help`);
         return 2;
       }
+    }
+    // shape inference: exists-as-dir -> dir, else file
+    lintInput =
+      positionals.length === 1
+        ? { input: positionals[0]! }
+        : { input: positionals, inputType: "file" };
+  } else if (!process.stdin.isTTY) {
+    const content = await Bun.stdin.text();
+    if (content !== "") {
+      usageError(
+        "piped stdin needs a noun declaring its kind — use: jint diff - (unified diff) or jint str - (one source snippet)",
+      );
+      return 2;
     }
   }
 
@@ -178,9 +200,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
           ? { str: stdinStr, language: cliArgs.language }
           : stdinDiff !== undefined
             ? { diffText: stdinDiff }
-            : cliInput.input !== ""
-              ? { input: cliInput.input, inputType: cliInput.inputType }
-              : {}),
+            : (lintInput ?? {})),
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
@@ -200,20 +220,114 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   }
 }
 
-/** ParseCliArgs result: validated flags, or a ready-to-print usage message. */
+/** ParseCliArgs result: validated modifier flags plus raw positionals, or a usage message. */
 type CliArgsParse =
-  | { outcome: "parsed"; cliArgs: CliArgs }
+  | { outcome: "parsed"; cliArgs: CliArgs; positionals: string[] }
   | { outcome: "usage-error"; usageMessage: string };
 
+/** Flags removed by the noun grammar; each error points at the new form. */
+const REMOVED_FLAGS: Readonly<Record<string, string>> = {
+  "--file": "use: jint <path>... (e.g. jint src/a.ts)",
+  "--dir": "use: jint <dir> (e.g. jint src/)",
+  "--kind": "use: jint diff - (piped diff) or jint str - (piped source)",
+  "--diff": "use: jint diff -",
+};
+
+/**
+ * Modifier flags jint still knows. Anything dash-leading outside this set is a PATH (dash-path),
+ * not a flag — `--` ends flags, and the bun runtime strips it from argv before we see it.
+ */
+const KNOWN_FLAGS: ReadonlySet<string> = new Set([
+  // removed flags are parsed only so their error can point at the new form
+  ...Object.keys(REMOVED_FLAGS),
+  "--language",
+  "--config",
+  "--color",
+  "--exclude",
+  "--disable",
+  "--rule",
+  "--json",
+  "--debug",
+  "--help",
+  "-h",
+  "--version",
+]);
+
+function isFlagToken(token: string): boolean {
+  if (!token.startsWith("-") || token === "-") return false;
+  return KNOWN_FLAGS.has(token.split("=")[0]!);
+}
+
+const NOUNS: ReadonlySet<string> = new Set(["diff", "str"]);
+
+/** Modifier flags that take a value token; their value must ride with them into parseArgs. */
+const VALUED_FLAGS: ReadonlySet<string> = new Set([
+  "--language",
+  "--config",
+  "--color",
+  "--exclude",
+  "--disable",
+  "--rule",
+]);
+
+/**
+ * Split raw argv into modifier-flag tokens (for parseArgs) and positionals (for noun dispatch).
+ * `--` ends flag parsing: everything after it is positional (dash-paths). The noun token's next
+ * positional is the payload, taken verbatim — no flag interpretation (jint str "--json"). Flags may
+ * appear before or after positionals (jint --json src/ == jint src/ --json); after the noun payload
+ * is consumed, flag scanning resumes for the rest.
+ */
+function splitArgv(argv: string[]): { flagArgs: string[]; positionals: string[] } {
+  const flagArgs: string[] = [];
+  const positionals: string[] = [];
+  let i = 0;
+  while (i < argv.length) {
+    const token = argv[i]!;
+    if (token === "--") {
+      // everything after -- is positional, verbatim
+      for (i = i + 1; i < argv.length; i++) positionals.push(argv[i]!);
+      return { flagArgs, positionals };
+    }
+    if (!isFlagToken(token)) break;
+    flagArgs.push(token);
+    i++;
+    if (VALUED_FLAGS.has(token) && i < argv.length) flagArgs.push(argv[i++]!);
+  }
+  if (i < argv.length) {
+    const first = argv[i]!;
+    positionals.push(first);
+    i++;
+    if (NOUNS.has(first) && i < argv.length) {
+      // the payload, verbatim — never flag-parsed
+      positionals.push(argv[i]!);
+      i++;
+    }
+  }
+  while (i < argv.length) {
+    const token = argv[i]!;
+    if (token === "--") {
+      for (i = i + 1; i < argv.length; i++) positionals.push(argv[i]!);
+      return { flagArgs, positionals };
+    }
+    if (isFlagToken(token)) {
+      flagArgs.push(token);
+      i++;
+      if (VALUED_FLAGS.has(token) && i < argv.length) flagArgs.push(argv[i++]!);
+    } else {
+      positionals.push(token);
+      i++;
+    }
+  }
+  return { flagArgs, positionals };
+}
+
 function parseCliArgs(cliArgv: string[]): CliArgsParse {
-  let nodeParsed: ReturnType<typeof parseArgs>;
+  const { flagArgs, positionals } = splitArgv(cliArgv);
+  let values: Record<string, unknown>;
   try {
-    nodeParsed = parseArgs({
-      args: cliArgv,
+    values = parseArgs({
+      args: flagArgs,
       options: {
-        file: { type: "string", multiple: true },
-        dir: { type: "string" },
-        kind: { type: "string" },
         language: { type: "string" },
         config: { type: "string" },
         json: { type: "boolean" },
@@ -225,15 +339,22 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },
-      allowPositionals: true,
       strict: true,
-    });
+    }).values;
   } catch (thrown) {
     const parseFailureDetail = thrown instanceof Error ? thrown.message : String(thrown);
+    for (const [removed, hint] of Object.entries(REMOVED_FLAGS)) {
+      if (parseFailureDetail.includes(removed)) {
+        return {
+          outcome: "usage-error",
+          usageMessage: `${removed} was removed — ${hint} — see jint --help`,
+        };
+      }
+    }
     return { outcome: "usage-error", usageMessage: `${parseFailureDetail} — see jint --help` };
   }
-  if (!TypeBoxValue.Check(CLI_ARGS_SCHEMA, nodeParsed.values)) {
-    const validationMessages = [...TypeBoxValue.Errors(CLI_ARGS_SCHEMA, nodeParsed.values)]
+  if (!TypeBoxValue.Check(CLI_ARGS_SCHEMA, values)) {
+    const validationMessages = [...TypeBoxValue.Errors(CLI_ARGS_SCHEMA, values)]
       .map((validationIssue) => `${validationIssue.path} ${validationIssue.message}`)
       .join("; ");
     return {
@@ -241,41 +362,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
       usageMessage: `invalid arguments: ${validationMessages} — see jint --help`,
     };
   }
-  const positionals = nodeParsed.positionals as string[];
-  if (positionals.length > 0) {
-    return {
-      outcome: "usage-error",
-      usageMessage: `unexpected argument '${positionals[0]}' — jint takes input via --file/--dir (did you mean --file ${positionals[0]}?)`,
-    };
-  }
-  return { outcome: "parsed", cliArgs: nodeParsed.values as unknown as CliArgs };
-}
-
-/** The input the CLI flags select, in lint() terms — or a ready-to-print usage message. */
-type CliInputSelection =
-  | { outcome: "selected"; input: string | string[]; inputType?: InputKind }
-  | { outcome: "usage-error"; usageMessage: string };
-
-/**
- * Resolve input from flags; exactly one of --file/--dir may be given. Kinds are not flags for paths
- * — a path's kind is inferred by shape; --kind declares piped stdin only.
- */
-function inputFromFlags(cliArgs: CliArgs): CliInputSelection {
-  const selectedSources = [flagsSelectFiles(cliArgs), cliArgs.dir !== undefined].filter(Boolean);
-  if (selectedSources.length > 1)
-    return { outcome: "usage-error", usageMessage: "use only one of --file, --dir" };
-  if (cliArgs.file !== undefined && cliArgs.file.length > 0)
-    if (cliArgs.file !== undefined && cliArgs.file.length > 0)
-      return { outcome: "selected", input: cliArgs.file, inputType: "file" };
-  // config decides; lint() errors if empty
-  if (cliArgs.dir !== undefined)
-    return { outcome: "selected", input: cliArgs.dir, inputType: "dir" };
-  return { outcome: "selected", input: "", inputType: undefined };
-}
-
-/** --file given with at least one path. */
-function flagsSelectFiles(cliArgs: CliArgs): boolean {
-  return cliArgs.file !== undefined && cliArgs.file.length > 0;
+  return { outcome: "parsed", cliArgs: values as unknown as CliArgs, positionals };
 }
 
 /**

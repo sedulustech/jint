@@ -3,8 +3,8 @@
  *
  * Import { loadConfig, rules, lint } from "jint";
  *
- * The CLI resolves input through the same code path lint() uses — no drift between `jint --dir x`
- * and `lint({ input: "x" })`.
+ * The CLI resolves input through the same code path lint() uses — no drift between `jint src/` and
+ * `lint({ input: "x" })`.
  */
 
 import { defaultRules } from "./core/sensors/defaults.ts";
