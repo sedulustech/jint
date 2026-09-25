@@ -148,9 +148,9 @@ describe("lint — classification shape", () => {
     // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting);
     // question keys inside a call are bare rule names (one element per call, no ambiguity)
     // docblock-carrying function definition: 9 rules (4 comment + 4 definition + srp);
-    // bare definition: 5 rules (4 definition-target + srp; design 7.7 targeting)
+    // bare function definition: 6 rules (4 definition-target + srp + will_error_lose_cause)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
-    expect(counts).toEqual([5, 9]);
+    expect(counts).toEqual([6, 9]);
     const withPurposeful = elementCalls.find((c) => c.questions.includes("is_name_purposeful"))!;
     const withComplex = elementCalls.find((c) => c.questions.includes("is_cognitively_complex"))!;
     expect(withPurposeful).toBeDefined();
@@ -256,8 +256,8 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const signals = events.filter((e) => e.type === "signal");
-    // file call 2 + element classification 14 (8 docblock + 4 bare definitions + 2 functions)
-    expect(measurements).toHaveLength(16);
+    // file call 2 + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
+    expect(measurements).toHaveLength(17);
     // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy
     expect(signals).toHaveLength(2);
     expect(signals.map((s) => s.signal.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
@@ -318,9 +318,10 @@ describe("lint", () => {
     // purposeful targets definitions: one classification call per element, no whole-content call
     expect(log.calls).toHaveLength(2);
     for (const c of log.calls) {
-      expect(c.questions).toEqual(["is_name_purposeful"]); // bare rule-name keys, one element per call
+      expect(c.questions).toEqual(["is_name_purposeful", "will_error_lose_cause"]); // bare rule-name keys, one element per call
     }
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
+    // 2 function elements x 2 remaining rules (is_name_purposeful + will_error_lose_cause)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
   });
 
   test("diff input splits into per-file units with calibrated state", async () => {
@@ -378,7 +379,7 @@ describe("lint", () => {
     // the failed file's calls (whole-content + one call per element) surface an error
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16); // second unit: 2 file + 14 sweep
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(17); // second unit: 2 file + 15 sweep
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -467,7 +468,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(16);
+    expect(report.measurements).toHaveLength(17);
     expect(report.signals).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

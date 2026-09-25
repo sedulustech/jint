@@ -71,7 +71,9 @@ const RULE_SCHEMA = Type.Union([
  */
 export const CONFIG_SCHEMA = Type.Object({
   $schema: Type.Optional(Type.String()),
-  input: Type.String(),
+  // Optional: rules-only probe configs are valid when the CLI supplies --file/--dir/--diff;
+  // lint() keeps the empty-input backstop (SetupError CONFIG_INVALID).
+  input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
   rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
   exclude: Type.Optional(Type.Array(Type.String())),
@@ -80,7 +82,7 @@ export const CONFIG_SCHEMA = Type.Object({
 
 /** The normalized shape every config resolves to before lint runs. */
 export interface ResolvedConfig {
-  readonly input: string;
+  readonly input?: string;
   readonly inputType?: "file" | "dir" | "diff";
   readonly rules: readonly Rule[];
   readonly exclude: readonly string[];
@@ -154,7 +156,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     rules: Rule[];
     exclude: string[];
   } = {
-    input: parsed.input,
+    input: parsed.input ?? "",
     rules: [...byName.values()],
     exclude: parsed.exclude ?? [],
   };

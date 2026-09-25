@@ -39,6 +39,21 @@ describe("cli: --dir ignores", () => {
     }
   });
 
+  test("rules-only config (no input) validates and runs with --dir", () => {
+    const configPath = "/tmp/jint-rules-only-config.json";
+    require("node:fs").writeFileSync(
+      configPath,
+      JSON.stringify({ rules: ["is_greppable"], exclude: ["**/fixtures/**"] }),
+    );
+    // No key: the run reaches input resolution and the units (JEV_AUTH, exit 4) — NOT
+    // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
+    // became optional.
+    const r = run(["--dir", "tests/fixtures/sample-dir", "--json", "--config", configPath]);
+    expect(r.code).toBe(4);
+    const report = JSON.parse(r.stdout);
+    expect(report.errors.some((e: any) => e.code === "JEV_AUTH")).toBe(true);
+  });
+
   test("with a real key: ignored files are absent from measurements", () => {
     if (!process.env.TYPESAFE_API_KEY) {
       console.log("skip: requires TYPESAFE_API_KEY");

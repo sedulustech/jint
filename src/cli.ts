@@ -135,27 +135,27 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 2;
   }
 
-  // Piped stdin with NO input flags: stdin is one str unit (never a diff — --diff - stays
-  // the explicit diff door). With a TTY or input flags, input resolution is untouched.
+  // Input resolution: flags > stdin-as-str > config.input > usage error. Piped stdin with NO
+  // input flags is one str unit (never a diff — --diff - stays the explicit diff door); EMPTY
+  // piped stdin falls through so config.input can flow. With a TTY or input flags, stdin is
+  // never read.
   let stdinStr: { content: string } | undefined;
   if (cliInput.outcome === "selected" && cliInput.input === "" && !process.stdin.isTTY) {
     const content = await Bun.stdin.text();
-    if (content === "") {
-      usageError(
-        "no input on stdin — pipe str, pass --file/--dir/--diff, or set input in jint.config.json",
-      );
-      return 2;
-    }
-    stdinStr = { content };
+    if (content !== "") stdinStr = { content };
   }
 
   try {
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,
+        // No flags and no stdin: pass NO input key so lint()'s ?? config.input fallback
+        // applies ("" would shadow the config — lint() keeps the empty-input backstop).
         ...(stdinStr !== undefined
           ? { str: stdinStr, language: cliArgs.language }
-          : { input: cliInput.input, inputType: cliInput.inputType }),
+          : cliInput.input !== ""
+            ? { input: cliInput.input, inputType: cliInput.inputType }
+            : {}),
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,

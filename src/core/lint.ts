@@ -54,8 +54,13 @@ export interface LintOptions {
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const classifier = options.classifier ?? createClassifier();
-  const input = options.input ?? options.config.input;
-  if (options.str === undefined && (input === "" || (Array.isArray(input) && input.length === 0))) {
+  const input: string | string[] | undefined = options.input ?? options.config.input;
+  // Backstop for optional config.input: no input at all is a setup failure (the CLI resolves
+  // flags > stdin > config before getting here).
+  if (
+    options.str === undefined &&
+    (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
+  ) {
     throw new SetupError(
       "CONFIG_INVALID",
       "no input: pass --file/--dir/--diff or set input in jint.config.json",
@@ -68,7 +73,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       ? [strUnit(options.str.content, options.str.path)]
       : await collectUnits(
           resolveInput({
-            input,
+            // the empty-input guard above established non-empty
+            input: input as string | string[],
             inputType: options.inputType ?? options.config.inputType,
             exclude,
           }),

@@ -60,6 +60,13 @@ async function runWithStdin(
 
 afterAll(() => server.stop(true));
 
+/** Rules-only-or-input probe config in a temp dir; returns the path. */
+async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
+  const path = `/tmp/jint-probe-config-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+  await Bun.write(path, JSON.stringify(config));
+  return path;
+}
+
 describe("cli: piped stdin str unit", async () => {
   test("snippet | jint --json: parses, measurements present", async () => {
     const r = await runWithStdin(SNIPPET, ["--json"]);
@@ -97,6 +104,52 @@ describe("cli: piped stdin str unit", async () => {
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
     expect(r.stderr).toContain("WALK_FAILED input");
     expect(r.stdout).not.toContain("WALK_FAILED");
+  });
+
+  test("config-only non-TTY: empty piped stdin falls through to config.input (no stdin read)", async () => {
+    const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
+    // stdin is piped but EMPTY: must not hard-error, must measure config.input
+    const r = await runWithStdin("", ["--config", configPath, "--json", "--rule", "is_greppable"]);
+    expect(r.code).toBeLessThan(2);
+    const report = JSON.parse(r.stdout);
+    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs.every((i: string) => i.startsWith("tests/fixtures/sample-file.ts"))).toBe(true);
+  });
+
+  test("flags override config.input", async () => {
+    const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
+    const r = await runWithStdin("", [
+      "--config",
+      configPath,
+      "--json",
+      "--rule",
+      "is_greppable",
+      "--file",
+      "tests/fixtures/sample-dir/good.ts",
+    ]);
+    expect(r.code).toBeLessThan(2);
+    const report = JSON.parse(r.stdout);
+    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    expect(inputs.length).toBeGreaterThan(0);
+    expect(inputs.every((i: string) => i.startsWith("tests/fixtures/sample-dir/good.ts"))).toBe(
+      true,
+    );
+  });
+
+  test("stdin beats config.input: piped snippet measures as the str unit, config ignored", async () => {
+    const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
+    const r = await runWithStdin(SNIPPET, [
+      "--config",
+      configPath,
+      "--json",
+      "--rule",
+      "is_greppable",
+    ]);
+    expect(r.code).toBeLessThan(2);
+    const report = JSON.parse(r.stdout);
+    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    expect(inputs).toEqual(["input"]); // the stdin str unit, not the config file
   });
 
   test("piped stdin with --diff flag stays the diff door (stdin consumed by --diff -)", async () => {
