@@ -54,7 +54,9 @@ measurement its handle judged actionable and is the only output that demands act
   abstracts into roles; shipped embedded with the binary; adding one = the wasm plus one mapping entry.
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
-  from it.
+  from it. The file's imports merge into one import element (`i0`) spanning the first through the
+  last import; its content carries the module specifiers, so imports-target criteria can talk about
+  what is imported.
 - **composite** — a parsed structure that is both judged and descended into during the walk (a
   class, a top-level call expression like a describe callback, and nested composites
   recursively): its header is emitted as a regular element, and its body is walked so inner

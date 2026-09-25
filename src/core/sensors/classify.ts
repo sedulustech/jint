@@ -192,6 +192,7 @@ export const ELEMENT_CONCURRENCY = 8;
 /** Rules whose target matches an element's kind (design §7.1: the target routes). */
 const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
   const commentElement = element.role === "comment";
+  const importElement = element.role === "import";
   const carriesComment = commentElement || (element.attachedComment?.length ?? 0) > 0;
   return rules.filter((rule) =>
     rule.target === "comments"
@@ -199,8 +200,10 @@ const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rul
       : rule.target === "functions"
         ? !commentElement && element.role === "function"
         : rule.target === "definitions"
-          ? !commentElement
-          : false,
+          ? !commentElement && !importElement
+          : rule.target === "imports"
+            ? importElement
+            : false,
   );
 };
 /**
@@ -274,9 +277,9 @@ export async function classifyFile(
     } else {
       try {
         const parsed = await decompose(content, language);
-        inventory = [...parsed.definitions, ...parsed.comments];
+        inventory = [...parsed.definitions, ...parsed.comments, ...parsed.imports];
         if (inventory.length === 0) {
-          failed = "no definitions or comments found";
+          failed = "no definitions, comments, or imports found";
         } else {
           derived = parsed;
         }
