@@ -41,7 +41,11 @@ export const isNamePurposeful: Rule = {
   // self-corpus stricter than UNIT_TASK did (median 0.68 -> 0.56), so the warn tier moves down
   // to keep its pass share and the m4_obfuscate mutant (0.52) still warns; the defective
   // control (mean 0.26) still errors.
-  handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
+  // Re-anchored twice (issue 001): the src/core re-anchor (0.55/0.4) still flooded the whole
+  // project (median 0.43 across src, dragged down by test helper names). error 0.3 sits above
+  // the defective control cluster (<= 0.26) and warn 0.4 a full step below the healthy median;
+  // test-code noise stays open as issue 008 (config granularity).
+  handle: compileHandle({ warn_at: 0.4, error_at: 0.3 }),
 };
 
 export const isFunctionSrp: Rule = {
@@ -54,8 +58,12 @@ export const isFunctionSrp: Rule = {
       "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.",
   },
   target: "functions",
-  // provisional: high = SRP holds (high = good); anchored to the self-corpus after calibration
-  handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
+  // Whole-project A/B (issue 001): the specific question reads the project stricter than
+  // UNIT_TASK did (median 0.79 -> 0.54) and the old warn sat exactly on the new median,
+  // warning half of src. warn 0.45 keeps roughly the bottom 8% of the whole-project
+  // distribution in warn; the low tail is dominated by test callbacks — scoping those out
+  // is issue 008 (config granularity), not a threshold job.
+  handle: compileHandle({ warn_at: 0.45, error_at: 0.3 }),
 };
 
 /**
@@ -90,6 +98,7 @@ export const isVocabularyConsistent: Rule = {
 export const isNamingConventionConsistent: Rule = {
   name: "is_naming_convention_consistent",
   instructions: "Do identifiers of the same kind in this unit follow a single casing convention?",
+  // (threshold note: re-anchored below for the per-rule question, issue 001)
   criteria: {
     true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
     false:
@@ -99,7 +108,10 @@ export const isNamingConventionConsistent: Rule = {
   // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
   // convention mixers and the consistent files; the clean corpus (mobius
   // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
-  handle: compileHandle({ warn_at: 0.85, error_at: 0.65 }),
+  // Whole-project A/B (issue 001): the per-rule question dropped the whole-project median
+  // 0.87 -> 0.82 and the old warn (0.85) warned two thirds of src. warn 0.75 keeps roughly
+  // the bottom 5% in warn; error stays clear of the healthy p5 (0.72).
+  handle: compileHandle({ warn_at: 0.75, error_at: 0.65 }),
 };
 
 export const isGreppable: Rule = {
@@ -117,7 +129,8 @@ export const isGreppable: Rule = {
 
 export const is_comment_narration: Rule = {
   name: "is_comment_narration",
-  instructions: "Does any comment in this unit merely narrate what the code already says?",
+  instructions:
+    "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
   criteria: {
     true: "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
     false:
