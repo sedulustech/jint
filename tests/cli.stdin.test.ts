@@ -63,7 +63,8 @@ describe("cli: piped stdin str unit", async () => {
     expect(report.measurements[0]!.input).toBe("str:stdin");
   });
 
-  test("--language typescript with a rule filter: element measurements appear", async () => {
+  test("an element-target rule still judges the str unit whole: no grammar, no elements", async () => {
+    const before = jev.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "--json",
       "--language",
@@ -73,33 +74,37 @@ describe("cli: piped stdin str unit", async () => {
       "str",
       "-",
     ]); /* flags around the noun are equivalent */
+    expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
-    const elements = report.measurements.filter((m: { stage?: string }) => m.stage === "element");
-    expect(elements.length).toBeGreaterThan(0);
-    expect(elements[0]!.input).toMatch(/^str:stdin#L\d/);
+    // the str unit is its own inventory: the rule's target cannot route it into parsing
+    expect(report.measurements.length).toBeGreaterThan(0);
+    expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
+    expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
+    // no grammar ever requested: every wire call carries the whole snippet as state.content,
+    // never an element state ({path, source})
+    const seen = jev.requests.slice(before);
+    expect(seen.length).toBeGreaterThan(0);
+    for (const wire of seen) {
+      expect(wire.state.content).toBe(SNIPPET);
+      expect(wire.state.source).toBeUndefined();
+      expect(String(wire.state.path)).toBe("str:stdin");
+    }
   });
 
-  test("no --language: unit-scoped rules still classify, mapping fails in-band", async () => {
+  test("no --language: the str unit classifies whole, no mapping failure", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
     expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
-    expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
+    expect(report.errors).toEqual([]); // the WALK_FAILED + --language remedy never fires for str
   });
 
-  test("human output: same stylish table, identity 'str:stdin'", async () => {
+  test("human output: same stylish table, identity 'str:stdin', clean exit", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
-    // classified, but the unit also failed to map (no --language): exit 4. The failed unit names
-    // the stdin identity on stderr (stream discipline), and the message names the real condition
-    // and the remedy (stdin has no extension to map)
-    expectContract(r, {
-      exit: 4,
-      stderr: [
-        "WALK_FAILED str:stdin",
-        "cannot infer a grammar for piped stdin - declare it with --language",
-      ],
-    });
-    expect(r.stdout).not.toContain("WALK_FAILED");
+    // the str unit is its own inventory: classified whole, nothing failed, mock reading clean
+    expectContract(r, { exit: 0 }); // stderr carries only the request-tap notice, no errors
+    expect(r.stdout).toContain("no findings"); // the stylish table rendered, one clean measurement
+    expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
 
   test("config-only non-TTY: empty piped stdin falls through to config.input (no stdin read)", async () => {
@@ -143,7 +148,7 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBe(4); // classified, but the unit also failed to map (no --language)
+    expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
@@ -211,14 +216,55 @@ describe("cli: piped stdin str unit", async () => {
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
   });
 
-  test("partial failure (classified + WALK_FAILED) exits 4 even with zero error findings", async () => {
+  test("the str unit never fails the run: clean classification, zero errors", async () => {
     // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
-    // handle (warn 0.75 / error 0.6), so exit 4 can only come from the failed unit
+    // handle (warn 0.75 / error 0.6); the old grammar race would add a WALK_FAILED and exit 4
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0); // it classified
-    expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
-    expect(r.code).toBe(4); // a half-classified run is a failed run
+    expect(report.errors).toEqual([]);
+    expect(r.code).toBe(0);
+  });
+
+  test("str - with a files-target config rule measures deterministically (20/20 spawns)", async () => {
+    // regression pin: a files-target config rule used to route the str unit through grammar
+    // mapping and WALK_FAILED it (exit 4) — the rule's target conflated with the input kind.
+    // The outcome also raced per run; 20 identical spawns must now all measure the piped text.
+    const configPath = await writeProbeConfig({
+      rules: [
+        {
+          name: "is_noul_documented",
+          criteria: { true: "documents a noul value", false: "it does not" },
+          target: "files",
+          handle: { warn_at: 0.5, error_at: 0.7 },
+        },
+      ],
+      exclude: [],
+    });
+    const before = jev.requests.length;
+    for (let i = 0; i < 20; i++) {
+      const r = await runWithStdin("- **noul** - the number the model returns per question", [
+        "str",
+        "-",
+        "--config",
+        configPath,
+        "--json",
+      ]);
+      expect(r.code).toBeLessThan(2);
+      const report = JSON.parse(r.stdout);
+      expect(report.errors).toEqual([]);
+      expect(report.measurements).toHaveLength(1);
+      expect(report.measurements[0]!.input).toBe("str:stdin");
+      expect(report.measurements[0]!.rule).toBe("is_noul_documented");
+    }
+    // one whole-unit call per spawn, each carrying the exact piped text as the state
+    const seen = jev.requests.slice(before);
+    expect(seen).toHaveLength(20);
+    for (const wire of seen) {
+      expect(wire.state.content).toBe("- **noul** - the number the model returns per question");
+      expect(wire.state.path).toBe("str:stdin");
+      expect(Object.keys(wire.questions)[0]).toContain("is_noul_documented");
+    }
   });
 
   test("JEV_DEBUG_REQUEST_LOCATION alone turns on dumping for the str path, with the notice", async () => {
@@ -226,7 +272,7 @@ describe("cli: piped stdin str unit", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
       JEV_DEBUG_REQUEST_LOCATION: dumpDir,
     });
-    expect(r.code).toBe(4); // classified, but the unit also failed to map (no --language)
+    expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })];
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());

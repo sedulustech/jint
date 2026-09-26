@@ -520,28 +520,17 @@ describe("lint — unknown rule names", () => {
   });
 });
 
-describe("lint — str unit WALK_FAILED guidance", () => {
+describe("lint — str unit is its own inventory", () => {
   const classifier: Classifier = async (_state, questions) =>
     Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
 
-  test("a str unit without --language suggests --language in the error", async () => {
-    const events = await drain(
-      lint({ config: baseConfig, str: { content: "const x = 1;\n" }, classifier }),
-    );
-    const errors = events.filter(
-      (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
-    );
-    expect(errors).toHaveLength(1);
-    expect(errors[0]!.error.code).toBe("WALK_FAILED");
-    expect(errors[0]!.error.message).toContain("--language");
-  });
-
-  test("a str unit with --language does not carry the hint", async () => {
+  test("any rule judges the str unit whole, no grammar, no WALK_FAILED", async () => {
+    // an element-target rule over a str unit: the whole input is the element, no mapping
     const events = await drain(
       lint({
         config: baseConfig,
         str: { content: "const x = 1;\n" },
-        language: "typescript",
+        only: ["is_function_srp"],
         classifier,
       }),
     );
@@ -549,5 +538,28 @@ describe("lint — str unit WALK_FAILED guidance", () => {
       (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
     expect(errors).toHaveLength(0);
+    const measurements = events.filter((e) => e.type === "measurement");
+    expect(measurements).toHaveLength(1);
+    expect(measurements[0]!.measurement.stage).toBe("file");
+  });
+
+  test("no WALK_FAILED on the str path even with --language; extensionless FILES reject upstream", async () => {
+    // str: no WALK_FAILED, so no remedy — with or without --language
+    const strEvents = await drain(
+      lint({
+        config: baseConfig,
+        str: { content: "const x = 1;\n" },
+        language: "typescript",
+        classifier,
+      }),
+    );
+    expect(strEvents.filter((e) => e.type === "error")).toHaveLength(0);
+    // an extensionless FILE is not a WALK_FAILED path at all: it is rejected as not-source
+    // before any unit exists (the remedy names the str noun for raw text)
+    const dir = `/tmp/jint-extless-${Date.now()}`;
+    await Bun.write(`${dir}/snippet`, "const x = 1;\n");
+    await expect(
+      drain(lint({ config: baseConfig, input: `${dir}/snippet`, classifier })),
+    ).rejects.toMatchObject({ name: "SetupError", code: "NOT_SOURCE" });
   });
 });
