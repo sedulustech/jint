@@ -1,4 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
+import { expectContract } from "./helpers/contract.ts";
+import { startMockJev } from "./helpers/mock-jev.ts";
 
 // Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
 // carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
@@ -13,37 +15,12 @@ const SNIPPET = [
   "}",
 ].join("\n");
 
-/** The noul value every mocked answer carries; tests set it to steer finding severity. */
-let mockAnswer = 0.8;
-/** The last wire body the mock saw, for pinning the exact request bytes. */
-let lastWireBody: Record<string, unknown> | null = null;
-
-/** Mock of the vendor wire: answer every question in the request with a valid shape. */
-const server = Bun.serve({
-  port: 0,
-  idleTimeout: 30,
-  async fetch(req) {
-    const body = (await req.json()) as {
-      questions?: Record<string, { type?: string }>;
-    };
-    lastWireBody = body as Record<string, unknown>;
-    const answers: Record<string, unknown> = {};
-    for (const [name, question] of Object.entries(body.questions ?? {})) {
-      answers[name] =
-        question.type === "score"
-          ? { type: "score", score: 1 }
-          : { type: "noul", noul: mockAnswer };
-    }
-    return Response.json(
-      { model: "jev-latest", answers, usage: { input_tokens: 1, output_tokens: 1 } },
-      { headers: { "Content-Type": "application/json" } },
-    );
-  },
-});
+/** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
+const jev = startMockJev();
 
 const MOCK_ENV = {
   TYPESAFE_API_KEY: "test-key",
-  TYPESAFE_BASE_URL: `http://localhost:${server.port}`,
+  TYPESAFE_BASE_URL: jev.baseUrl,
 };
 
 async function runWithStdin(
@@ -68,7 +45,7 @@ async function runWithStdin(
   return { code, stdout, stderr };
 }
 
-afterAll(() => server.stop(true));
+afterAll(() => jev.stop());
 
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
@@ -112,13 +89,16 @@ describe("cli: piped stdin str unit", async () => {
 
   test("human output: same stylish table, identity 'str:stdin'", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
-    expect(r.code).toBe(4); // classified, but the unit also failed to map (no --language): exit 4
-    // the failed unit names the stdin identity on stderr (stream discipline: errors there)
-    expect(r.stderr).toContain("WALK_FAILED str:stdin");
-    // the message names the real condition and the remedy (stdin has no extension to map)
-    expect(r.stderr).toContain(
-      "cannot infer a grammar for piped stdin - declare it with --language",
-    );
+    // classified, but the unit also failed to map (no --language): exit 4. The failed unit names
+    // the stdin identity on stderr (stream discipline), and the message names the real condition
+    // and the remedy (stdin has no extension to map)
+    expectContract(r, {
+      exit: 4,
+      stderr: [
+        "WALK_FAILED str:stdin",
+        "cannot infer a grammar for piped stdin - declare it with --language",
+      ],
+    });
     expect(r.stdout).not.toContain("WALK_FAILED");
   });
 
@@ -184,10 +164,12 @@ describe("cli: piped stdin str unit", async () => {
 
   test("unknown --language: usage error, exit 2, names the language and the remedy", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--language", "klingon"]);
-    expect(r.code).toBe(2); // exit-code contract: unknown language is usage/config
-    expect(r.stderr).toContain("unknown language 'klingon'");
-    expect(r.stderr).toContain("see --help for valid grammar ids");
-    expect(r.stdout).toBe("");
+    // exit-code contract: unknown language is usage/config, before any input is touched
+    expectContract(r, {
+      exit: 2,
+      stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
+      stdout: "empty",
+    });
   });
 
   test("jint str <existing-path> is rejected: inline source or '-' only, file remedy named", async () => {
@@ -198,14 +180,15 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("is a path");
-    expect(r.stderr).toContain("jint tests/fixtures/sample-file.ts");
-    expect(r.stdout).toBe("");
+    expectContract(r, {
+      exit: 2,
+      stderr: ["is a path", "jint tests/fixtures/sample-file.ts"],
+      stdout: "empty",
+    });
   });
 
   test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
-    lastWireBody = null;
+    const before = jev.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "str",
       "-",
@@ -216,10 +199,13 @@ describe("cli: piped stdin str unit", async () => {
       "typescript",
     ]);
     expect(r.code).toBeLessThan(2);
-    const state = lastWireBody!.state as Record<string, unknown>;
+    const seen = jev.requests.slice(before);
+    expect(seen.length).toBeGreaterThan(0);
+    const wire = seen[seen.length - 1]!;
+    const state = wire.state;
     expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
     expect(state.path).toBe("str:stdin");
-    const questions = lastWireBody!.questions as Record<string, Record<string, unknown>>;
+    const questions = wire.questions;
     const names = Object.keys(questions);
     expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
