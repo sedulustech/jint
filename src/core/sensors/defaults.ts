@@ -114,6 +114,25 @@ export const isNamingConventionConsistent: Rule = {
   handle: compileHandle({ warn_at: 0.75, error_at: 0.65 }),
 };
 
+/**
+ * Promoted from the filename-fit probe (tmp/filename-fit.config.json, issue 006) after a
+ * two-language calibration: healthy max 0.33 (Go, cobra) / 0.36 (TS, jint src/) against defective
+ * min 0.60 / 0.88 - thresholds sit mid-gap on both. Element rules cannot see the path, so this is
+ * the only rule that can catch "json.ts whose body renders HTML reports".
+ */
+export const isFilenameFitting: Rule = {
+  name: "is_filename_fitting",
+  instructions:
+    "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
+  criteria: {
+    true: "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
+    false:
+      "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.",
+  },
+  target: "files",
+  handle: compileHandle({ warn_at: 0.55, error_at: 0.75 }),
+};
+
 export const isGreppable: Rule = {
   name: "is_greppable",
   instructions:
@@ -209,6 +228,7 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   is_vocabulary_consistent: isVocabularyConsistent,
   is_naming_convention_consistent: isNamingConventionConsistent,
   is_greppable: isGreppable,
+  is_filename_fitting: isFilenameFitting,
   is_comment_narration,
   is_comment_patching_readability,
   will_comment_drift,
