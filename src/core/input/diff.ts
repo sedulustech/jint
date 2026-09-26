@@ -2,7 +2,7 @@
  * Diff sources: "-" (stdin, the SDK primitive) or an on-disk patch file. Jint never shells to git —
  * the caller owns the VCS and pipes the diff in (git diff HEAD~1 | jint diff -).
  *
- * A unified diff is split into per-file units: added/modified files are measured, deleted and
+ * A unified diff is split into per-file units: added/modified files are classified, deleted and
  * binary files are skipped (design §4).
  */
 
@@ -81,7 +81,7 @@ interface BlockMeta {
   binary: boolean;
 }
 
-/** Extract the measured path and skip-worthiness from one diff block. */
+/** Extract the classified path and skip-worthiness from one diff block. */
 export function parseDiffBlock(block: string): BlockMeta | null {
   const lines = block.split("\n");
   const gitHeader = lines.find((l) => l.startsWith("diff --git "));

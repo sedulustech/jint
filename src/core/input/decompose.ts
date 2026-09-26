@@ -141,7 +141,7 @@ export const MAX_ELEMENT_CHARS = 8000;
 /**
  * The language-independent noun a grammar node abstracts into. Rules and the classifier route on
  * roles, never on grammar node names — adding a language is adding one roleTable entry, never
- * touching the walker (design: language adapter, measured in tmp/langsurvey).
+ * touching the walker (design: language adapter, classified in tmp/langsurvey).
  */
 export type NodeRole = "function" | "type" | "binding" | "import" | "comment";
 
@@ -412,7 +412,7 @@ export async function decompose(source: string, language: string): Promise<Inven
       ...(attached ? { attachedComment: attached } : {}),
       internalCommentCount: countInternalComments(node),
     });
-    // The construct's docstring becomes its own measurable comment element, owned by it.
+    // The construct's docstring becomes its own classifiable comment element, owned by it.
     const docstring = docstringOf(node);
     if (docstring) {
       comments.push({

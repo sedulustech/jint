@@ -18,16 +18,16 @@ measurement its handle judged actionable and is the only output that demands act
   `"error"` or `"warn"` (null means silent), `{ rule, element, value, severity }`, with a
   `location` span where the element is part of a larger unit; the only actionable output — it
   drives the report and the exit code.
-- **rule** — the measuring mechanism `{ name, criteria, target, kind, handle }`; the criteria is
+- **rule** — the classifying mechanism `{ name, criteria, target, kind, handle }`; the criteria is
   the exact calibrated claim compiled into the question (editing it is a re-calibration event),
   names follow the `is_`/`will_` proposition convention; kind picks the question primitive: noul
   (default) or choice (scored rubric). Rules fire; findings result.
 - **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
   means; block-scoped questions get block criteria.
-- **input** — what a run measures: a path, a directory, a patch file, piped text, or the config's input field; resolved into the units the rules judge. Where the bytes come from, nothing more. The only input whose kind cannot be safely inferred is piped text (stdin), which must be declared (str or diff).
+- **input** — what a run classifies: a path, a directory, a patch file, piped text, or the config's input field; resolved into the units the rules judge. Where the bytes come from, nothing more. The only input whose kind cannot be safely inferred is piped text (stdin), which must be declared (str or diff).
 - **input kind** — how the CLI interprets an input: file, dir, diff, or str. Decides how bytes are read and whether the source is parsed. Inferred when the source is unambiguous (a path is a file, a directory is a dir); declared for stdin. Not to be confused with target: the input kind is CLI perspective, the target is rule perspective; they meet at the unit.
-- **unit** — one measurable piece produced by resolving an input according to its input kind: a file unit `{ path, content }`, a diff block, or one str unit (dirs resolve to file units before measuring; the str unit carries a content-hash id). The unit nature decides which rule targets apply: a diff block serves diffs-target rules; a parsed file unit serves functions-, comments-, definitions-, imports-target rules; an unparsed str unit serves files-target only.
-- **target** — the element type a rule judges (rule perspective): files, diffs, functions, comments, definitions, imports. Selects which units/elements the rule measures; it is not a CLI concept. Which targets can fire follows from the unit, and the unit follows from the input kind.
+- **unit** — one classifiable piece produced by resolving an input according to its input kind: a file unit `{ path, content }`, a diff block, or one str unit (dirs resolve to file units before classifying; the str unit carries a content-hash id). The unit nature decides which rule targets apply: a diff block serves diffs-target rules; a parsed file unit serves functions-, comments-, definitions-, imports-target rules; an unparsed str unit serves files-target only.
+- **target** — the element type a rule judges (rule perspective): files, diffs, functions, comments, definitions, imports. Selects which units/elements the rule classifies; it is not a CLI concept. Which targets can fire follows from the unit, and the unit follows from the input kind.
 - **handle** — the rule's policy callback `(value) => "error" | "warn" | null` (null is
   silent); override it in config to change thresholds; readings over inventory elements never run handles —
   only whole-unit readings do.

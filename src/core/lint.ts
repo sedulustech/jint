@@ -2,7 +2,7 @@
  * Lint — the one function most consumers need. State-in/findings-out: resolves the input, derives
  * each file's element inventory, classifies every element x every inventory-scoped rule in one
  * chunked pass, unit-scoped rules over the whole unit — runs each rule's handle, streams
- * Measurements, Findings and per-unit MeasureErrors (signalled, but never run-failing).
+ * Measurements, Findings and per-unit ClassifyErrors (signalled, but never run-failing).
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
  * cost control); events stream per file as its wave completes, measurements before findings.
@@ -17,7 +17,7 @@ import { resolveInput } from "./input/infer.ts";
 import { createClassifier } from "./jev/client.ts";
 import { classifyFile, elementWireId, type ClassifyEvent } from "./sensors/classify.ts";
 import {
-  MeasureError,
+  ClassifyError,
   SetupError,
   type InputKind,
   type Classifier,
@@ -75,7 +75,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   const rules = pickRules(options.config.rules, options.disable, options.only);
-  // Auth is global, not per-unit: with rules to measure and no key anywhere, every unit would
+  // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
     rules.length > 0 &&
@@ -128,7 +128,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         };
       }
       for (const { event, stage, span } of result.events) {
-        if (event instanceof MeasureError) {
+        if (event instanceof ClassifyError) {
           yield { type: "error", error: withLanguageHint(event, options) };
           continue;
         }
@@ -165,7 +165,7 @@ function apiKeyAvailable(configKey?: string): boolean {
  * (str:stdin) — so a WALK_FAILED on the piped-stdin path without --language should say so: the fix
  * is declaring the grammar, not renaming a file.
  */
-function withLanguageHint(error: MeasureError, options: LintOptions): MeasureError {
+function withLanguageHint(error: ClassifyError, options: LintOptions): ClassifyError {
   if (
     error.code !== "WALK_FAILED" ||
     options.str === undefined ||
@@ -175,7 +175,7 @@ function withLanguageHint(error: MeasureError, options: LintOptions): MeasureErr
   ) {
     return error;
   }
-  return new MeasureError(
+  return new ClassifyError(
     error.code,
     error.input,
     error.message + " — declare the grammar with --language (e.g. --language typescript)",
@@ -288,7 +288,7 @@ export interface LintReport {
   measurements: Measurement[];
   findings: Finding[];
   /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
-  errors: MeasureError[];
+  errors: ClassifyError[];
   /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
   notes: string[];
 }

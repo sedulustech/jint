@@ -3,7 +3,7 @@
  * (sequential in v0). Emits Measurement { rule, input, value }: no thresholds, no handle invocation
  * here — interpretation is the handle callback's job (design §4.5).
  *
- * Per-unit failures come back as MeasureErrors in the stream, never thrown past the pipeline
+ * Per-unit failures come back as ClassifyErrors in the stream, never thrown past the pipeline
  * (design §7).
  */
 
@@ -14,7 +14,7 @@ import {
   type InventoryElement,
 } from "../input/decompose.ts";
 import {
-  MeasureError,
+  ClassifyError,
   type AnyState,
   type Classifier,
   type Measurement,
@@ -129,7 +129,7 @@ export function compileElementQuestions(
 /**
  * The wire id for a judged span of a file: the treesitter LOC interval, 1-based — "L19" for a
  * single line, "L19-L28" for a range. Spans of top-level elements are disjoint, so ids are unique
- * within a file and point straight at the source (measured: readings equal the content-hash id at
+ * within a file and point straight at the source (classified: readings equal the content-hash id at
  * mean delta 0.027, tmp probes).
  */
 export function elementWireId(span: {
@@ -150,7 +150,7 @@ export async function* classifyUnit(
   unit: Unit,
   rules: readonly Rule[],
   classifier: Classifier,
-): AsyncGenerator<Measurement | MeasureError> {
+): AsyncGenerator<Measurement | ClassifyError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId =
@@ -162,7 +162,7 @@ export async function* classifyUnit(
   try {
     answers = await classifier(unit.state, batch.questions);
   } catch (thrown) {
-    yield toMeasureError(unit.state.path, thrown);
+    yield toClassifyError(unit.state.path, thrown);
     return;
   }
   for (const rule of rules) {
@@ -176,9 +176,9 @@ export async function* classifyUnit(
   }
 }
 
-/** MeasureError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
-export function invalidAnswerError(input: string, ruleName: string): MeasureError {
-  return new MeasureError(
+/** ClassifyError for an answer that is missing or not a finite number (JEV_RESPONSE_INVALID). */
+export function invalidAnswerError(input: string, ruleName: string): ClassifyError {
+  return new ClassifyError(
     "JEV_RESPONSE_INVALID",
     input,
     `answer for '${ruleName}' is missing or not a finite number`,
@@ -186,31 +186,31 @@ export function invalidAnswerError(input: string, ruleName: string): MeasureErro
 }
 
 /**
- * Map anything a classifier threw into a streamed MeasureError; the seam's code survives (design
+ * Map anything a classifier threw into a streamed ClassifyError; the seam's code survives (design
  * §7).
  */
-export function toMeasureError(input: string, thrown: unknown): MeasureError {
-  if (thrown instanceof MeasureError) {
+export function toClassifyError(input: string, thrown: unknown): ClassifyError {
+  if (thrown instanceof ClassifyError) {
     // The seam throws with the state path; the pipeline refines block-scoped inputs (path#L19-L28).
-    return new MeasureError(thrown.code, input, thrown.message, { cause: thrown });
+    return new ClassifyError(thrown.code, input, thrown.message, { cause: thrown });
   }
   if (thrown instanceof Error)
-    return new MeasureError("INTERNAL", input, thrown.message, { cause: thrown });
-  return new MeasureError("INTERNAL", input, String(thrown));
+    return new ClassifyError("INTERNAL", input, thrown.message, { cause: thrown });
+  return new ClassifyError("INTERNAL", input, String(thrown));
 }
 
 // ---------------------------------------------------------------------------
 // Element classification — derive the inventory, then classify every element
 // x every inventory-scoped rule, one concurrent call per element (bounded), ONE pass.
 
-/** Which kind of thing a measurement measured: the unit itself, or an element of its inventory. */
+/** Which kind of thing a measurement classified: the unit itself, or an element of its inventory. */
 export type ClassifyStage = "file" | "element";
 
 /** One streamed event plus what produced it (and where, for element readings). */
 export interface ClassifyEvent {
-  readonly event: Measurement | MeasureError;
+  readonly event: Measurement | ClassifyError;
   readonly stage: ClassifyStage;
-  /** The measured element's source span; element-scoped measurements only. */
+  /** The classified element's source span; element-scoped measurements only. */
   readonly span?: Span;
 }
 
@@ -226,7 +226,7 @@ export interface ClassifyResult {
 
 /**
  * In-flight one-element classifier calls per file. Provisional: waves mirror FILE_CONCURRENCY
- * semantics; unanchored until element-call latency is measured on the self-corpus.
+ * semantics; unanchored until element-call latency is classified on the self-corpus.
  */
 export const ELEMENT_CONCURRENCY = 8;
 
@@ -281,7 +281,7 @@ export async function classifyFile(
 
   const events: ClassifyEvent[] = [];
   const fatalIn = () =>
-    events.some((e) => e.event instanceof MeasureError && e.event.code === "JEV_AUTH");
+    events.some((e) => e.event instanceof ClassifyError && e.event.code === "JEV_AUTH");
 
   // Whole-unit rules: files-target rules are relational claims judged over the whole unit;
   // on a diff unit the diffs-target rules join, judging the raw diff string as one unit
@@ -339,7 +339,7 @@ export async function classifyFile(
   }
   if (failed !== null && unit.kind === "file") {
     events.push({
-      event: new MeasureError(
+      event: new ClassifyError(
         "WALK_FAILED",
         state.path,
         `cannot map to elements: ${failed}`,
@@ -354,7 +354,7 @@ export async function classifyFile(
   // ------------------------------------------------------------------
   // REGRESSION BAN — the array state {path, elements: [{id, content}]} with many questions is
   // BANNED: one state x many questions is valid, but the state x question MATRIX form makes jev
-  // answer every question from the file's average, not the element. Measured (tmp/readability-iso,
+  // answer every question from the file's average, not the element. Classifyd (tmp/readability-iso,
   // tmp/noul-shape-probe): noul pinned 0.61-0.66 across 21 elements whose per-element source-state
   // readings spread 0.60-0.92; score readings flat 0.32-0.35 vs a discriminating spread isolated.
   // Hence: ONE element per call (state = {path, source}), all of that element's rules' questions
@@ -432,7 +432,7 @@ function elementContent(element: InventoryElement): string {
 
 interface CallResult {
   readonly answers: Record<string, number>;
-  readonly error: MeasureError | null;
+  readonly error: ClassifyError | null;
 }
 
 async function call(
@@ -444,7 +444,7 @@ async function call(
   try {
     return { answers: await classifier(state, questions), error: null };
   } catch (thrown) {
-    return { answers: {}, error: toMeasureError(input, thrown) };
+    return { answers: {}, error: toClassifyError(input, thrown) };
   }
 }
 

@@ -122,7 +122,7 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // casing stays its own lane on obfuscation: single-letter renames mix forms for one kind.
     // The stale UNIT_TASK reading (0.78) predates the per-rule question (median 0.87 -> 0.82),
     // so under the re-anchored tiers it no longer warns — assert non-error until the mutant
-    // corpus is re-measured under the new questions.
+    // corpus is re-classified under the new questions.
     expect(
       defaultRules.is_naming_convention_consistent!.handle(
         mutants.m4_obfuscate!.is_naming_convention_consistent!,

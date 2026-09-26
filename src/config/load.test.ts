@@ -162,7 +162,7 @@ describe("validateConfig / defaultConfig", () => {
     expect(good(0.4)).toBe("error");
   });
 
-  test("equal thresholds -> CONFIG_INVALID; null handle = measure-only", () => {
+  test("equal thresholds -> CONFIG_INVALID; null handle = classify-only", () => {
     const equal = {
       input: "x",
       rules: [

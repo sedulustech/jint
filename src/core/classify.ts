@@ -9,7 +9,7 @@
  *
  * This is the MEASUREMENT-ONLY door: handles are never applied here. Interpretation — thresholds,
  * severities, findings — is lint's job (design §4.5); classify() returns raw readings and in-band
- * MeasureErrors, and never throws for per-unit failures.
+ * ClassifyErrors, and never throws for per-unit failures.
  *
  * Shares classifyFile's single code path: question construction, inventory derivation via
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
@@ -19,7 +19,7 @@ import { createClassifier } from "./jev/client.ts";
 import { classifyFile, elementWireId } from "./sensors/classify.ts";
 import {
   SetupError,
-  MeasureError,
+  ClassifyError,
   type Classifier,
   type Measurement,
   type Rule,
@@ -42,7 +42,7 @@ export interface ClassifyOptions {
 /** The raw outcome of one classify() call: readings and per-unit errors, never handles. */
 export interface ClassifyOutcome {
   readonly measurements: Measurement[];
-  readonly errors: MeasureError[];
+  readonly errors: ClassifyError[];
   /** The derived inventory, when the source parsed into elements; absent otherwise. */
   readonly inventory?: Inventory;
   /** Elements skipped as oversized (over MAX_ELEMENT_CHARS): never judged, reported in-band. */
@@ -54,8 +54,8 @@ export interface ClassifyOutcome {
  * inventory-scoped rules have the inventory derived internally (via decompose, shared with
  * classifyFile) and judge each element in its own one-element call.
  *
- * Decompose failure (no language resolvable, unparseable) is an in-band WALK_FAILED MeasureError in
- * errors — never thrown — and inventory is omitted; unit-scoped rules still measure.
+ * Decompose failure (no language resolvable, unparseable) is an in-band WALK_FAILED ClassifyError
+ * in errors — never thrown — and inventory is omitted; unit-scoped rules still classify.
  */
 export async function classify(
   str: string,
@@ -82,9 +82,9 @@ export async function classify(
     { language: options.language, concurrency: options.concurrency },
   );
   const measurements: Measurement[] = [];
-  const errors: MeasureError[] = [];
+  const errors: ClassifyError[] = [];
   for (const { event, stage } of result.events) {
-    if (event instanceof MeasureError) errors.push(event);
+    if (event instanceof ClassifyError) errors.push(event);
     else measurements.push({ ...event, stage });
   }
   return {

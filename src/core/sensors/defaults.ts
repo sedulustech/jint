@@ -1,5 +1,5 @@
 /**
- * The eight default rules, each shipping a visible, overridable handle; one rule measures one
+ * The eight default rules, each shipping a visible, overridable handle; one rule classifies one
  * attribute. The comment family replaced the retired excessive_comments, whose attributes moved in
  * opposite directions and averaged the aggregate signal into noise.
  *
@@ -23,7 +23,7 @@ import type { Rule } from "../types.ts";
  * HANDLES ARE DATA: every default handle is a DataHandle (warn_at + error_at; polarity inferred
  * from their ordering — see handle.ts) compiled to the internal function form at module init.
  * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json. The
- * declarative config surface also accepts "handle": null (measure-only: the measurement streams,
+ * declarative config surface also accepts "handle": null (classify-only: the measurement streams,
  * nothing ever produces findings) — no default rule ships that form today.
  */
 
@@ -69,7 +69,7 @@ export const isFunctionSrp: Rule = {
 /**
  * Promoted from the seam-purity probe (tmp/probes/seam-purity.config.json), where it was the
  * densest signal (13 findings on the vendor-adapter corpus). Thresholds are the probe's, unanchored
- * until the self-lint corpus re-measures them.
+ * until the self-lint corpus re-classifies them.
  */
 export const willErrorLoseCause: Rule = {
   name: "will_error_lose_cause",

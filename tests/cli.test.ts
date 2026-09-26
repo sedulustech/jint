@@ -26,7 +26,7 @@ function run(args: string[], envOverrides: Record<string, string | undefined> = 
 }
 
 const NO_KEY = { TYPESAFE_API_KEY: "" }; // SDK ignores empty env values -> missing key
-// a key with no reachable jev: the run walks and measures, transport failures stay in-band
+// a key with no reachable jev: the run walks and classifies, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
 afterEach(() => {
@@ -67,7 +67,7 @@ describe("cli: contract basics", () => {
     expect(r.stderr).toContain("ENTRYPOINT_NOT_FOUND");
   });
 
-  test("two files measure as file units", () => {
+  test("two files classify as file units", () => {
     const r = run(
       ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts", "--json"],
       NO_SERVICE,
@@ -116,7 +116,7 @@ describe("cli: contract basics", () => {
   });
 
   // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
-  test("'--' ends flag parsing: a dash-path measures", () => {
+  test("'--' ends flag parsing: a dash-path classifies", () => {
     const r = run(["--", "tests/fixtures/dash-path/--weird.ts", "--json"], NO_SERVICE);
     expect(r.code).toBe(4); // reached measurement: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
@@ -164,8 +164,8 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // stderr: exactly the setup failure — no per-unit failure lines, no summary
     expect(r.stderr).toContain("CONFIG_INVALID");
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set - measurements need a valid key");
-    expect(r.stderr).not.toContain("failed to measure");
-    // nothing was walked or measured: no machine document on stdout
+    expect(r.stderr).not.toContain("failed to classify");
+    // nothing was walked or classified: no machine document on stdout
     expect(r.stdout).toBe("");
   });
 
@@ -173,7 +173,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const r = run(["tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set");
-    expect(r.stderr).not.toContain("failed to measure");
+    expect(r.stderr).not.toContain("failed to classify");
     expect(r.stdout).not.toContain("JEV_AUTH");
   });
 
@@ -256,10 +256,10 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     });
     const out = proc.stdout.toString() + proc.stderr.toString();
     expect(proc.exitCode).toBe(2);
-    expect(out).toContain("no piped stdin to measure");
+    expect(out).toContain("no piped stdin to classify");
   });
 
-  test("jint str '--json': the payload is not flag-parsed, it measures as a str unit", () => {
+  test("jint str '--json': the payload is not flag-parsed, it classifies as a str unit", () => {
     // '--json' becomes the str CONTENT; if it had been parsed as a flag, the noun would have no
     // payload (exit 2 'expects a payload') and the report would be machine JSON
     const r = run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
@@ -268,7 +268,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stdout).not.toContain("jint-report/v1"); // human table: no --json flag was seen
   });
 
-  test("jint str with inline source text measures one str unit", () => {
+  test("jint str with inline source text classifies one str unit", () => {
     const r = run(["str", "export const x = 1;", "--json", "--rule", "is_greppable"], NO_SERVICE);
     expect(r.code).toBe(4);
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("str:stdin");
@@ -278,7 +278,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const r = run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("'tests/fixtures/sample-file.ts' is a path");
-    expect(r.stderr).toContain("to measure the file use: jint tests/fixtures/sample-file.ts");
+    expect(r.stderr).toContain("to classify the file use: jint tests/fixtures/sample-file.ts");
     expect(r.stdout).toBe("");
   });
 
@@ -290,7 +290,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       env: { ...process.env, ...NO_SERVICE },
     });
     expect(proc.exitCode).toBe(4); // every unit failed -> the run failed (never exit 0)
-    expect(proc.stderr.toString()).toContain("failed to measure");
+    expect(proc.stderr.toString()).toContain("failed to classify");
   });
 
   test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
@@ -312,7 +312,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(rev.stderr).toContain("ENTRYPOINT_NOT_FOUND");
   });
 
-  test("--config selects an alternate config file (loads, then measures)", () => {
+  test("--config selects an alternate config file (loads, then classifies)", () => {
     const r = run(
       [
         "--config",
@@ -338,7 +338,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors.length).toBeGreaterThan(0);
   });
 
-  test("jint str - measures one str unit even when stdin holds diff text", () => {
+  test("jint str - classifies one str unit even when stdin holds diff text", () => {
     const proc = Bun.spawnSync(
       ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} str - --json`],
       { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_SERVICE } },
