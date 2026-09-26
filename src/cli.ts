@@ -61,7 +61,9 @@ Usage:
 The resource is the noun; the verb (measure) is implicit. str and diff are nouns only as the
 FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
 jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
-diff is reached as jint ./diff. A path's kind is inferred by shape only (exists-as-dir -> dir,
+jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
+diff is reached as jint ./diff, and a str payload that names an existing path is rejected
+(inline source or '-' only; measure the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
 else file); content is never sniffed. Piped stdin is declared by a noun, never guessed. --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
@@ -176,6 +178,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       // a patch path; readDiffSource resolves it
       lintInput = { input: payload, inputType: "diff" };
       diffRun = true;
+    } else if (existsSync(payload)) {
+      // A payload that names a real path is almost certainly a mistyped file measure: honoring it
+      // as inline text would measure the PATH STRING as source (degenerate state) under the
+      // grammarless str:stdin identity. Nouns never resolve to paths, so reject with the remedy.
+      usageError(
+        `'${payload}' is a path — jint str measures inline source or '-' (piped stdin); to measure the file use: jint ${payload}`,
+      );
+      return 2;
     } else {
       // inline source text, identity "input"
       stdinStr = { content: payload };

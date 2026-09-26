@@ -111,7 +111,7 @@ A diff input decomposes into per-file units: added/modified files are measured, 
 
 ### The noun grammar
 
-The resource is the noun; the verb (measure) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` measures `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is measured as `jint ./diff`, and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
+The resource is the noun; the verb (measure) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` measures `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is measured as `jint ./diff`, a `str` payload that names an existing path is rejected (exit 2) — inline source or `-` only, measure the file as `jint <path>` — and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
 
 A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -> `file`; a missing path is `ENTRYPOINT_NOT_FOUND` (exit 2). Content is never sniffed — a patch file passed as a path is judged as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`. To judge a patch as a diff, declare it: `jint diff fix.patch`.
 

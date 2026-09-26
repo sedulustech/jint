@@ -13,6 +13,11 @@ const SNIPPET = [
   "}",
 ].join("\n");
 
+/** The noul value every mocked answer carries; tests set it to steer finding severity. */
+let mockAnswer = 0.8;
+/** The last wire body the mock saw, for pinning the exact request bytes. */
+let lastWireBody: Record<string, unknown> | null = null;
+
 /** Mock of the vendor wire: answer every question in the request with a valid shape. */
 const server = Bun.serve({
   port: 0,
@@ -21,10 +26,13 @@ const server = Bun.serve({
     const body = (await req.json()) as {
       questions?: Record<string, { type?: string }>;
     };
+    lastWireBody = body as Record<string, unknown>;
     const answers: Record<string, unknown> = {};
     for (const [name, question] of Object.entries(body.questions ?? {})) {
       answers[name] =
-        question.type === "score" ? { type: "score", score: 1 } : { type: "noul", noul: 0.8 };
+        question.type === "score"
+          ? { type: "score", score: 1 }
+          : { type: "noul", noul: mockAnswer };
     }
     return Response.json(
       { model: "jev-latest", answers, usage: { input_tokens: 1, output_tokens: 1 } },
@@ -179,5 +187,40 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.stderr).toContain("unknown language 'klingon'");
     expect(r.stderr).toContain("see --help for valid grammar ids");
     expect(r.stdout).toBe("");
+  });
+
+  test("jint str <existing-path> is rejected: inline source or '-' only, file remedy named", async () => {
+    const r = await runWithStdin("", [
+      "str",
+      "tests/fixtures/sample-file.ts",
+      "--json",
+      "--rule",
+      "is_greppable",
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("is a path");
+    expect(r.stderr).toContain("jint tests/fixtures/sample-file.ts");
+    expect(r.stdout).toBe("");
+  });
+
+  test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
+    lastWireBody = null;
+    const r = await runWithStdin(SNIPPET, [
+      "str",
+      "-",
+      "--json",
+      "--rule",
+      "is_greppable",
+      "--language",
+      "typescript",
+    ]);
+    expect(r.code).toBeLessThan(2);
+    const state = lastWireBody!.state as Record<string, unknown>;
+    expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
+    expect(state.path).toBe("str:stdin");
+    const questions = lastWireBody!.questions as Record<string, Record<string, unknown>>;
+    const names = Object.keys(questions);
+    expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
+    expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
   });
 });
