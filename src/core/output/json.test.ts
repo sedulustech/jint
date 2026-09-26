@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
-import { MeasureError } from "../types.ts";
+import { ClassifyError } from "../types.ts";
 import { renderJson, REPORT_FORMAT } from "./json.ts";
 import { REPORT_SCHEMA } from "./report-schema.ts";
 import type { LintReport } from "../lint.ts";
@@ -12,7 +12,7 @@ const report: LintReport = {
     { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
   findings: [{ rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" }],
-  errors: [new MeasureError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
+  errors: [new ClassifyError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
 };
 
 describe("renderJson", () => {

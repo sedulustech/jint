@@ -14,7 +14,7 @@ export const FINDING_SCHEMA = Type.Object({
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),
 });
 
-export const MEASURE_ERROR_SCHEMA = Type.Object({
+export const CLASSIFY_ERROR_SCHEMA = Type.Object({
   input: Type.String(),
   code: Type.String(),
   message: Type.String(),
@@ -26,7 +26,7 @@ export const REPORT_SCHEMA = Type.Object({
   version: Type.String(),
   measurements: Type.Array(MEASUREMENT_SCHEMA),
   findings: Type.Array(FINDING_SCHEMA),
-  errors: Type.Array(MEASURE_ERROR_SCHEMA),
+  errors: Type.Array(CLASSIFY_ERROR_SCHEMA),
 });
 
 export type Report = Static<typeof REPORT_SCHEMA>;

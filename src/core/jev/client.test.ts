@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import {
-  MeasureError,
-  type MeasureErrorCode,
+  ClassifyError,
+  type ClassifyErrorCode,
   type QuestionSpec,
   type UnitState,
 } from "../types.ts";
@@ -55,10 +55,10 @@ async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, number>> 
   return await classifier(state, questions);
 }
 
-function expectMeasureError(code: MeasureErrorCode): (e: unknown) => void {
+function expectClassifyError(code: ClassifyErrorCode): (e: unknown) => void {
   return (e) => {
-    expect(e).toBeInstanceOf(MeasureError);
-    expect((e as MeasureError).code).toBe(code);
+    expect(e).toBeInstanceOf(ClassifyError);
+    expect((e as ClassifyError).code).toBe(code);
   };
 }
 
@@ -126,8 +126,8 @@ describe("createClassifier", () => {
         await classifier(state, questions);
         expect.unreachable();
       } catch (e) {
-        expectMeasureError("JEV_AUTH")(e);
-        expect((e as MeasureError).message).toContain("TYPESAFE_API_KEY");
+        expectClassifyError("JEV_AUTH")(e);
+        expect((e as ClassifyError).message).toContain("TYPESAFE_API_KEY");
       }
     } finally {
       if (saved !== undefined) process.env.TYPESAFE_API_KEY = saved;
@@ -139,7 +139,7 @@ describe("createClassifier", () => {
       await judgeOnce(fakeFetch({ error: "bad key" }, 401));
       expect.unreachable();
     } catch (e) {
-      expectMeasureError("JEV_AUTH")(e);
+      expectClassifyError("JEV_AUTH")(e);
     }
   });
 
@@ -148,7 +148,7 @@ describe("createClassifier", () => {
       await judgeOnce(fakeFetch({ error: "bad question" }, 422));
       expect.unreachable();
     } catch (e) {
-      expectMeasureError("JEV_REQUEST_INVALID")(e);
+      expectClassifyError("JEV_REQUEST_INVALID")(e);
     }
   });
 
@@ -157,13 +157,13 @@ describe("createClassifier", () => {
       await judgeOnce(fakeFetch({ error: "rate limited" }, 429));
       expect.unreachable();
     } catch (e) {
-      expectMeasureError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("JEV_UNAVAILABLE")(e);
     }
     try {
       await judgeOnce(fakeFetch({ error: "server exploded" }, 500));
       expect.unreachable();
     } catch (e) {
-      expectMeasureError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("JEV_UNAVAILABLE")(e);
     }
   });
 
@@ -175,7 +175,7 @@ describe("createClassifier", () => {
       await judgeOnce(broken);
       expect.unreachable();
     } catch (e) {
-      expectMeasureError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("JEV_UNAVAILABLE")(e);
     }
   });
 
@@ -198,7 +198,7 @@ describe("createClassifier", () => {
         await judgeOnce(fakeFetch(body));
         expect.unreachable();
       } catch (e) {
-        expectMeasureError("JEV_RESPONSE_INVALID")(e);
+        expectClassifyError("JEV_RESPONSE_INVALID")(e);
       }
     }
   });

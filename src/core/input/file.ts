@@ -19,11 +19,11 @@ export async function fileUnit(path: string): Promise<Unit> {
     );
   }
   // explicit path: the user asked for THIS file, so silence would read as "nothing wrong" —
-  // say plainly that it is not measurable (walker skips non-source silently; explicit does not)
+  // say plainly that it is not classifiable (walker skips non-source silently; explicit does not)
   if (languageOf(path) === null) {
     throw new SetupError(
       "NOT_SOURCE",
-      `not measurable: ${path} has no source-language grammar (walk sources by passing a directory, or measure raw text with the str noun)`,
+      `not classifiable: ${path} has no source-language grammar (walk sources by passing a directory, or classify raw text with the str noun)`,
     );
   }
   let content: string;

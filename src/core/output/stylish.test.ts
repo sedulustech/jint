@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { MeasureError } from "../types.ts";
+import { ClassifyError } from "../types.ts";
 import { renderStylish, shouldColor } from "./stylish.ts";
 import type { LintReport } from "../lint.ts";
 
@@ -15,7 +15,7 @@ const report: LintReport = {
       severity: "error",
     },
   ],
-  errors: [new MeasureError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
+  errors: [new ClassifyError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
 };
 
 describe("renderStylish", () => {
@@ -27,11 +27,11 @@ describe("renderStylish", () => {
     expect(stdout).toContain("error   0.30  is_greppable        src/tui/deeply/nested/path.ts");
     expect(stdout).toContain("2 problems (1 error, 1 warning)");
     expect(stdout).not.toContain("JEV_UNAVAILABLE");
-    expect(stdout).not.toContain("failed to measure");
+    expect(stdout).not.toContain("failed to classify");
     expect(stdout).not.toContain("measurements:"); // measurements are not the human payload
     // stderr: run errors and diagnostics only
     expect(stderr).toContain("error JEV_UNAVAILABLE src/b.ts: jev unreachable");
-    expect(stderr).toContain("1 unit failed to measure");
+    expect(stderr).toContain("1 unit failed to classify");
     expect(stderr).not.toContain("is_name_purposeful");
     expect(stderr).not.toContain("problems");
   });
@@ -57,7 +57,7 @@ describe("renderStylish", () => {
       "never",
     );
     expect(failedOnly.stdout).toBe("");
-    expect(failedOnly.stderr).toContain("1 unit failed to measure");
+    expect(failedOnly.stderr).toContain("1 unit failed to classify");
   });
 
   test("summary line for a clean run mentions the measurement count", () => {
@@ -84,7 +84,7 @@ describe("renderStylish", () => {
       "never",
     );
     expect(stdout).toBe("");
-    expect(stderr).toContain("1 unit failed to measure");
+    expect(stderr).toContain("1 unit failed to classify");
   });
 
   test("completely empty report renders empty on both streams", () => {
@@ -103,7 +103,7 @@ describe("renderStylish", () => {
     const forced = renderStylish(report, "always");
     expect(forced.stdout).toContain("\x1b[31m"); // red finding rows (error severity)
     expect(forced.stdout).toContain("\x1b[33m"); // yellow finding rows (warn severity)
-    expect(forced.stderr).toContain("\x1b[31m"); // red MeasureError lines
+    expect(forced.stderr).toContain("\x1b[31m"); // red ClassifyError lines
   });
 });
 

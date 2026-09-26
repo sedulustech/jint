@@ -1,4 +1,4 @@
-// fixture: measured file
+// fixture: classified file
 export const SMALL_LIMIT = 10;
 
 export function clampToLimit(n: number): number {

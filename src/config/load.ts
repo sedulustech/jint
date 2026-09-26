@@ -44,7 +44,7 @@ const HANDLE_SCHEMA = Type.Object(
 
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so minimal
-// configs stay validating (the loader fills the default). "handle": null is the measure-only
+// configs stay validating (the loader fills the default). "handle": null is the classify-only
 // form: the measurement streams, nothing ever produces findings (no default ships it; "handle": null).
 const RULE_SCHEMA = Type.Union([
   Type.Object({
@@ -192,7 +192,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
 }
 
 /**
- * Null handle = measure-only (never produces findings); otherwise both thresholds must exist and
+ * Null handle = classify-only (never produces findings); otherwise both thresholds must exist and
  * differ.
  */
 function compileDataHandle(

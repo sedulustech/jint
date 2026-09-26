@@ -13,7 +13,9 @@ describe("fileUnit (explicit --file path)", () => {
   });
 
   test("extensionless file (Makefile) -> NOT_SOURCE, same door as --language hint", async () => {
-    await expect(fileUnit("tests/fixtures/sample-dir/Makefile")).rejects.toThrow(/not measurable/);
+    await expect(fileUnit("tests/fixtures/sample-dir/Makefile")).rejects.toThrow(
+      /not classifiable/,
+    );
   });
 
   test("source file still yields a unit", async () => {

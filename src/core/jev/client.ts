@@ -32,7 +32,7 @@ import {
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { MeasureError, type Classifier, type QuestionSpec } from "../types.ts";
+import { ClassifyError, type Classifier, type QuestionSpec } from "../types.ts";
 import { requestDebug } from "./debug.ts";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
@@ -82,7 +82,7 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
     });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    throw new MeasureError(
+    throw new ClassifyError(
       "JEV_AUTH",
       input,
       `jev unavailable at startup: ${detail} — set TYPESAFE_API_KEY to a valid key`,
@@ -113,7 +113,7 @@ function extractAnswers(
     const answer: unknown = result.answers[name];
     const schema = spec.type === "score" ? SCORE_ANSWER_SCHEMA : NOUL_ANSWER_SCHEMA;
     if (!Value.Check(schema, answer)) {
-      throw new MeasureError(
+      throw new ClassifyError(
         "JEV_RESPONSE_INVALID",
         input,
         `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: "score", score: number }' : '{ type: "noul", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,
@@ -127,14 +127,14 @@ function extractAnswers(
   return out;
 }
 
-function mapTransportError(e: unknown, input: string): MeasureError {
+function mapTransportError(e: unknown, input: string): ClassifyError {
   if (e instanceof AuthenticationError || e instanceof PermissionDeniedError) {
-    return new MeasureError("JEV_AUTH", input, `jev rejected the API key: ${e.message}`, {
+    return new ClassifyError("JEV_AUTH", input, `jev rejected the API key: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {
-    return new MeasureError(
+    return new ClassifyError(
       "JEV_REQUEST_INVALID",
       input,
       `jev rejected the request: ${e.message}`,
@@ -144,26 +144,26 @@ function mapTransportError(e: unknown, input: string): MeasureError {
     );
   }
   if (e instanceof RateLimitError || e instanceof InternalServerError || e instanceof APIError) {
-    return new MeasureError("JEV_UNAVAILABLE", input, `jev unavailable: ${e.message}`, {
+    return new ClassifyError("JEV_UNAVAILABLE", input, `jev unavailable: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof APIConnectionError) {
-    return new MeasureError("JEV_UNAVAILABLE", input, `jev unreachable: ${e.message}`, {
+    return new ClassifyError("JEV_UNAVAILABLE", input, `jev unreachable: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof TypeSafeError) {
-    return new MeasureError("JEV_UNAVAILABLE", input, `jev call failed: ${e.message}`, {
+    return new ClassifyError("JEV_UNAVAILABLE", input, `jev call failed: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof Error) {
-    return new MeasureError("INTERNAL", input, `unexpected jev transport error: ${e.message}`, {
+    return new ClassifyError("INTERNAL", input, `unexpected jev transport error: ${e.message}`, {
       cause: e,
     });
   }
-  return new MeasureError("INTERNAL", input, `unexpected jev transport error: ${String(e)}`, {
+  return new ClassifyError("INTERNAL", input, `unexpected jev transport error: ${String(e)}`, {
     cause: e,
   });
 }

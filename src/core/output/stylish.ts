@@ -1,7 +1,7 @@
 /**
  * Human reporter. Stream discipline (clig): stdout carries the findings — the findings table and
  * the findings summary; stderr carries the run's own errors and diagnostics — failed units
- * (MeasureError lines) and their summary. Either stream stays usable when the other is discarded.
+ * (ClassifyError lines) and their summary. Either stream stays usable when the other is discarded.
  *
  * Severity wording stays "error"/"warn" on both streams (decided: no rename). TTY-adaptive color
  * per the clig contract: each stream is colored only when it itself is a TTY; NO_COLOR, TERM=dumb
@@ -28,8 +28,8 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
   const out: string[] = [];
   const err: string[] = [];
 
-  // Run errors — stderr, never the findings report. A MeasureError is a unit the linter
-  // could not measure, not a lint finding; it always renders as an error line.
+  // Run errors — stderr, never the findings report. A ClassifyError is a unit the linter
+  // could not classify, not a lint finding; it always renders as an error line.
   for (const e of report.errors) {
     const line = `error ${e.code} ${e.input}: ${e.message}`;
     err.push(errColor ? red(line) : line);
@@ -99,7 +99,7 @@ function runSummaryOf(report: LintReport): string | null {
   const parts: string[] = [];
   if (report.errors.length > 0) {
     parts.push(
-      `${report.errors.length} ${report.errors.length === 1 ? "unit" : "units"} failed to measure`,
+      `${report.errors.length} ${report.errors.length === 1 ? "unit" : "units"} failed to classify`,
     );
   }
   if (report.notes.length > 0) {

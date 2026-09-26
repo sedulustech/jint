@@ -98,12 +98,12 @@ describe("classify", () => {
     expect(outcome.measurements.every((m) => m.input.startsWith("snippet.txt#L"))).toBe(true);
   });
 
-  test("no resolvable language: WALK_FAILED in-band, unit-scoped rules still measured, inventory omitted", async () => {
+  test("no resolvable language: WALK_FAILED in-band, unit-scoped rules still classified, inventory omitted", async () => {
     const states: unknown[] = [];
     const outcome = await classify("just some text", [noulFileRule, choiceFunctionRule], {
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }, states),
     });
-    // the whole-source rule measured anyway
+    // the whole-source rule classified anyway
     expect(outcome.measurements).toEqual([
       { rule: "r_file", input: "input", value: 0.9, stage: "file" },
     ]);
@@ -113,7 +113,7 @@ describe("classify", () => {
     expect(outcome.inventory).toBeUndefined();
   });
 
-  test("unparseable source with explicit language: WALK_FAILED in-band, unit-scoped rules still measured", async () => {
+  test("unparseable source with explicit language: WALK_FAILED in-band, unit-scoped rules still classified", async () => {
     const outcome = await classify("((( not code", [noulFileRule, choiceFunctionRule], {
       language: "typescript",
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),

@@ -1,11 +1,11 @@
 /**
  * Core model nouns, strictly separated (tmp/design.md §1):
  *
- * - Rule — the measuring mechanism: { name, criteria, target, handle }
+ * - Rule — the classifying mechanism: { name, criteria, target, handle }
  * - Measurement — the raw noul value from jev for (rule, input); always produced, never actionable by
  *   itself
  * - Finding — a measurement that cleared the rule's handle; the only actionable output
- * - MeasureError — a per-unit failure to produce a measurement: a failed request to the classifier,
+ * - ClassifyError — a per-unit failure to produce a measurement: a failed request to the classifier,
  *   or a unit that could not be mapped to elements; carried in the stream as a value, never thrown
  *   past the pipeline, never failing the run by itself
  * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants)
@@ -14,9 +14,9 @@
 export type Severity = "error" | "warn";
 /** Handle's return type: "error" | "warn" | null (null = silent). */
 export type HandleResult = Severity | null;
-/** Input kinds; "dir" exists only at inference time — dirs resolve to file units before measuring. */
+/** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir" | "diff";
-/** The kind of a resolved measuring unit. */
+/** The kind of a resolved classifying unit. */
 export type UnitKind = "file" | "diff";
 
 /** Codes a thrown SetupError carries: setup/infrastructure failures. */
@@ -28,12 +28,12 @@ export type SetupErrorCode =
   | "INTERNAL";
 
 /**
- * Codes a streamed MeasureError carries: per-unit failures to produce a measurement. JEV_* codes
+ * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
  * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements.
  * INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"), while a
- * classifier-adjacent failure of unknown shape streams as MeasureError("INTERNAL").
+ * classifier-adjacent failure of unknown shape streams as ClassifyError("INTERNAL").
  */
-export type MeasureErrorCode =
+export type ClassifyErrorCode =
   | "JEV_AUTH"
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
@@ -65,15 +65,15 @@ export class SetupError extends Error {
  * the run is failed only by findings. The seam throws it and the pipeline catches it into the
  * stream; it never escapes the pipeline boundary (design §7).
  */
-export class MeasureError extends Error {
+export class ClassifyError extends Error {
   constructor(
-    readonly code: MeasureErrorCode,
+    readonly code: ClassifyErrorCode,
     readonly input: string,
     message: string,
     options?: { cause?: unknown },
   ) {
     super(message, options);
-    this.name = "MeasureError";
+    this.name = "ClassifyError";
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -146,7 +146,7 @@ export interface Measurement {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
-  /** What was measured: the unit itself, or an element of its inventory. */
+  /** What was classified: the unit itself, or an element of its inventory. */
   readonly stage?: "file" | "element";
 }
 
@@ -201,7 +201,7 @@ export type UnitState = FileState | DiffState;
 /** Everything the classifier may be handed: whole-file/diff units, plus single elements. */
 export type AnyState = UnitState | ElementState;
 
-/** A resolved thing to measure: its kind picks the rules; its state feeds the classifier. */
+/** A resolved thing to classify: its kind picks the rules; its state feeds the classifier. */
 export interface Unit {
   readonly kind: UnitKind;
   readonly state: UnitState;
@@ -242,6 +242,6 @@ export type Classifier = (
 export type LintEvent =
   | { type: "measurement"; measurement: Measurement }
   | { type: "finding"; finding: Finding }
-  | { type: "error"; error: MeasureError }
+  | { type: "error"; error: ClassifyError }
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
   | { type: "note"; note: string };

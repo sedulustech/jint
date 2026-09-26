@@ -143,7 +143,7 @@ async function* descendIntoDirectory(
   yield* walkDirectory(absolutePath, relativePath, currentScopes, excludeRules);
 }
 
-/** One measured file unit, or null when a walker exclusion skips it. */
+/** One classified file unit, or null when a walker exclusion skips it. */
 async function readFileUnit(
   entry: Dirent,
   absolutePath: string,
@@ -151,7 +151,7 @@ async function readFileUnit(
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
 ): Promise<Unit | null> {
-  // walker config, not measured code
+  // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
   if (matchesAnyExcludeRule(excludeRules, relativePath, false)) return null;
   if (isGitignored(relativePath, false, currentScopes)) return null;
@@ -316,7 +316,7 @@ async function looksBinary(absolutePath: string): Promise<boolean> {
 }
 
 /**
- * Read the unit's text, or fail loud: an unreadable entrypoint is setup, not a per-unit measure
+ * Read the unit's text, or fail loud: an unreadable entrypoint is setup, not a per-unit classify
  * error.
  */
 async function readTextFile(absolutePath: string): Promise<string> {

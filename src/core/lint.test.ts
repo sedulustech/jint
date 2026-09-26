@@ -3,7 +3,7 @@ import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
-  MeasureError,
+  ClassifyError,
   SetupError,
   type AnyState,
   type Classifier,
@@ -298,7 +298,7 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "finding")).toHaveLength(6);
   });
 
-  test("--disable removes rules by name before measuring", async () => {
+  test("--disable removes rules by name before classifying", async () => {
     const log: CallLog = { calls: [] };
     const events = await drain(
       lint({
@@ -362,7 +362,7 @@ describe("lint", () => {
   test("per-unit failure becomes a streamed error; the run continues", async () => {
     const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
-        throw new MeasureError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
+        throw new ClassifyError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
       return classifierWith({
         is_name_purposeful: 0.7,
         is_vocabulary_consistent: 0.9,
@@ -392,7 +392,7 @@ describe("lint", () => {
     let calls = 0;
     const classifier: Classifier = async (state) => {
       calls++;
-      throw new MeasureError("JEV_AUTH", state.path, "jev rejected the API key");
+      throw new ClassifyError("JEV_AUTH", state.path, "jev rejected the API key");
     };
     const events = await drain(
       lint({

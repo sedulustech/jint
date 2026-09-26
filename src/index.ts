@@ -22,9 +22,9 @@ export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/cla
 export type { Inventory, InventoryElement, NodeRole } from "./core/input/decompose.ts";
 export { defaultRules } from "./core/sensors/defaults.ts";
 export {
-  MeasureError,
+  ClassifyError,
   SetupError,
-  type MeasureErrorCode,
+  type ClassifyErrorCode,
   type SetupErrorCode,
   type Rule,
   type NoulRule,

@@ -3,8 +3,8 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity findings 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but measured nothing or any unit
- * failed to measure — CI never passes an unmeasured or half-measured run)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but classified nothing or any unit
+ * failed to classify — CI never passes an unclassified or half-classified run)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
@@ -22,7 +22,7 @@ import { requestTapSummary } from "./core/jev/debug.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
-import { MeasureError, SetupError, type InputKind } from "./core/types.ts";
+import { ClassifyError, SetupError, type InputKind } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
 import type { ResolvedConfig } from "./config/load.ts";
 
@@ -48,28 +48,28 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
 
 type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
 
-const HELP = `jint — jev lint: measures code with AI-classifier judgments; rules in, findings out.
+const HELP = `jint — jev lint: classifies code with AI-classifier judgments; rules in, findings out.
 
 Usage:
-  jint src/                       measure a directory tree
-  jint a.ts b.ts                  measure files
+  jint src/                       classify a directory tree
+  jint a.ts b.ts                  classify files
   git diff HEAD~1 | jint diff -   piped stdin, declared a diff
   jint diff fix.patch             a patch file, declared a diff
   cat snippet.ts | jint str -     piped stdin, one str unit
   jint                            no positional: input comes from jint.config.json
 
-The resource is the noun; the verb (measure) is implicit. str and diff are nouns only as the
+The resource is the noun; the verb (classify) is implicit. str and diff are nouns only as the
 FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
-jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
+jint str "--json" classifies "--json" as source. Nouns never resolve to paths — a file named
 diff is reached as jint ./diff, and a str payload that names an existing path is rejected
-(inline source or '-' only; measure the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
+(inline source or '-' only; classify the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
 else file); content is never sniffed. Piped stdin is declared by a noun, never guessed. --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
   --language <id>     tree-sitter grammar for piped-stdin/extensionless sources; valid ids:
                       typescript, python, go. Without a resolvable language, inventory-scoped
-                      rules fail WALK_FAILED in-band and unit-scoped rules still measure
+                      rules fail WALK_FAILED in-band and unit-scoped rules still classify
   --config <path>     config file, plain JSON (default: jint.config.json; autocomplete via
                       the checked-in jint.schema.json "$schema" key)
   --exclude <glob>    input exclusion, on top of config (repeatable)
@@ -165,7 +165,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
     if (payload === "-") {
       if (process.stdin.isTTY) {
-        usageError(`jint ${firstPositional} -: no piped stdin to measure (stdin is a terminal)`);
+        usageError(`jint ${firstPositional} -: no piped stdin to classify (stdin is a terminal)`);
         return 2;
       }
       const content = await Bun.stdin.text();
@@ -179,11 +179,11 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       lintInput = { input: payload, inputType: "diff" };
       diffRun = true;
     } else if (existsSync(payload)) {
-      // A payload that names a real path is almost certainly a mistyped file measure: honoring it
-      // as inline text would measure the PATH STRING as source (degenerate state) under the
+      // A payload that names a real path is almost certainly a mistyped file classify: honoring it
+      // as inline text would classify the PATH STRING as source (degenerate state) under the
       // grammarless str:stdin identity. Nouns never resolve to paths, so reject with the remedy.
       usageError(
-        `'${payload}' is a path — jint str measures inline source or '-' (piped stdin); to measure the file use: jint ${payload}`,
+        `'${payload}' is a path — jint str classifies inline source or '-' (piped stdin); to classify the file use: jint ${payload}`,
       );
       return 2;
     } else {
@@ -409,21 +409,21 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
 
 /**
  * Exit invariant: findings only — error-severity findings -> 1; zero measurements -> 4. Per-unit
- * MeasureErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
- * linter could not measure is reported, not treated as a lint violation.
+ * ClassifyErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
+ * linter could not classify is reported, not treated as a lint violation.
  */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
-  // A failed unit means the judgment never existed — the run measured PARTIALLY at best. CI must
-  // never pass a half-measured input, so any streamed MeasureError fails the run (exit 4).
+  // A failed unit means the judgment never existed — the run classified PARTIALLY at best. CI must
+  // never pass a half-classified input, so any streamed ClassifyError fails the run (exit 4).
   if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
 }
 
-/** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped measure error -> 4. */
+/** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped classify error -> 4. */
 function exitForThrown(thrown: unknown): number {
   const error =
-    thrown instanceof SetupError || thrown instanceof MeasureError
+    thrown instanceof SetupError || thrown instanceof ClassifyError
       ? thrown
       : new SetupError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), {
           cause: thrown,
@@ -437,8 +437,8 @@ function exitForThrown(thrown: unknown): number {
     error.code === "NOT_SOURCE"
   )
     return 2;
-  // A MeasureError that escaped the stream: the run happened but produced nothing
-  if (error instanceof MeasureError) return 4;
+  // A ClassifyError that escaped the stream: the run happened but produced nothing
+  if (error instanceof ClassifyError) return 4;
   if (error.code === "INTERNAL") return 3;
   return 4;
 }
