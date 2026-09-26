@@ -82,3 +82,5 @@ measurement its handle judged actionable and is the only output that demands act
   a rev expression that shells out to git; the per-file
   unified-diff block string is judged verbatim as the unit's state, with the commit message as
   shared state, deleted/binary files skipped; a parse-into-hunks path is future work.
+
+- **false positive rate** - findings a human reviewer would reject as wrong or not actionable, over total findings. jint has no ground truth, so the rate is estimated by span-level spot-checks during calibration (A/B reports, probes);
