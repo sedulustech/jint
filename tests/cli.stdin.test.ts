@@ -112,7 +112,7 @@ describe("cli: piped stdin str unit", async () => {
 
   test("human output: same stylish table, identity 'str:stdin'", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
-    expect(r.code).toBeLessThan(2); // the run happened; findings decide 0 vs 1
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language): exit 4
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
     expect(r.stderr).toContain("WALK_FAILED str:stdin");
     // the message names the real condition and the remedy (stdin has no extension to map)
@@ -163,7 +163,7 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBeLessThan(2);
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language)
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
@@ -225,12 +225,22 @@ describe("cli: piped stdin str unit", async () => {
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
   });
 
+  test("partial failure (measured + WALK_FAILED) exits 4 even with zero error findings", async () => {
+    // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
+    // handle (warn 0.75 / error 0.6), so exit 4 can only come from the failed unit
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
+    const report = JSON.parse(r.stdout);
+    expect(report.measurements.length).toBeGreaterThan(0); // it measured
+    expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
+    expect(r.code).toBe(4); // a half-measured run is a failed run
+  });
+
   test("JEV_DEBUG_REQUEST_LOCATION alone turns on dumping for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
       JEV_DEBUG_REQUEST_LOCATION: dumpDir,
     });
-    expect(r.code).toBeLessThan(2);
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language)
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })];
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());

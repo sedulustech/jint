@@ -3,8 +3,8 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity findings 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements — CI
- * never passes unmeasured)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but measured nothing or any unit
+ * failed to measure — CI never passes an unmeasured or half-measured run)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
@@ -60,7 +60,6 @@ Usage:
 
 The resource is the noun; the verb (measure) is implicit. str and diff are nouns only as the
 FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
-jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
 jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
 diff is reached as jint ./diff, and a str payload that names an existing path is rejected
 (inline source or '-' only; measure the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
@@ -415,7 +414,9 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
  */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
-  if (lintReport.measurements.length === 0) return 4;
+  // A failed unit means the judgment never existed — the run measured PARTIALLY at best. CI must
+  // never pass a half-measured input, so any streamed MeasureError fails the run (exit 4).
+  if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
 }
 

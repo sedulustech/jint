@@ -282,6 +282,17 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("all units fail: exit 4 with the failures named on stderr", () => {
+    const proc = Bun.spawnSync(["/bin/bash", "-c", `printf 'x' | bun ${CLI} str -`], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...NO_SERVICE },
+    });
+    expect(proc.exitCode).toBe(4); // every unit failed -> the run failed (never exit 0)
+    expect(proc.stderr.toString()).toContain("failed to measure");
+  });
+
   test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
     const r = run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
     expect(r.code).toBe(4);
