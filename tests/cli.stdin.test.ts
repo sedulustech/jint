@@ -1,4 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
+import { expectContract } from "./helpers/contract.ts";
 
 // Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
 // carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
@@ -112,13 +113,16 @@ describe("cli: piped stdin str unit", async () => {
 
   test("human output: same stylish table, identity 'str:stdin'", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
-    expect(r.code).toBe(4); // classified, but the unit also failed to map (no --language): exit 4
-    // the failed unit names the stdin identity on stderr (stream discipline: errors there)
-    expect(r.stderr).toContain("WALK_FAILED str:stdin");
-    // the message names the real condition and the remedy (stdin has no extension to map)
-    expect(r.stderr).toContain(
-      "cannot infer a grammar for piped stdin - declare it with --language",
-    );
+    // classified, but the unit also failed to map (no --language): exit 4. The failed unit names
+    // the stdin identity on stderr (stream discipline), and the message names the real condition
+    // and the remedy (stdin has no extension to map)
+    expectContract(r, {
+      exit: 4,
+      stderr: [
+        "WALK_FAILED str:stdin",
+        "cannot infer a grammar for piped stdin - declare it with --language",
+      ],
+    });
     expect(r.stdout).not.toContain("WALK_FAILED");
   });
 
@@ -184,10 +188,12 @@ describe("cli: piped stdin str unit", async () => {
 
   test("unknown --language: usage error, exit 2, names the language and the remedy", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--language", "klingon"]);
-    expect(r.code).toBe(2); // exit-code contract: unknown language is usage/config
-    expect(r.stderr).toContain("unknown language 'klingon'");
-    expect(r.stderr).toContain("see --help for valid grammar ids");
-    expect(r.stdout).toBe("");
+    // exit-code contract: unknown language is usage/config, before any input is touched
+    expectContract(r, {
+      exit: 2,
+      stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
+      stdout: "empty",
+    });
   });
 
   test("jint str <existing-path> is rejected: inline source or '-' only, file remedy named", async () => {
@@ -198,10 +204,11 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("is a path");
-    expect(r.stderr).toContain("jint tests/fixtures/sample-file.ts");
-    expect(r.stdout).toBe("");
+    expectContract(r, {
+      exit: 2,
+      stderr: ["is a path", "jint tests/fixtures/sample-file.ts"],
+      stdout: "empty",
+    });
   });
 
   test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {

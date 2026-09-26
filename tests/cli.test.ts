@@ -1,4 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
+import { expectContract } from "./helpers/contract.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
@@ -55,16 +56,15 @@ describe("cli: contract basics", () => {
   });
 
   test("unknown flag -> usage error, exit 2", () => {
-    const r = run(["--frobnicate"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("--frobnicate");
-    expect(r.stderr).toContain("--help");
+    expectContract(run(["--frobnicate"]), { exit: 2, stderr: ["--frobnicate", "--help"] });
   });
 
   test("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", () => {
-    const r = run(["nope/missing.ts"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("ENTRYPOINT_NOT_FOUND");
+    // NO_SERVICE: input resolution is key-independent (the key check must not mask it)
+    expectContract(run(["nope/missing.ts"], NO_SERVICE), {
+      exit: 2,
+      stderr: "ENTRYPOINT_NOT_FOUND",
+    });
   });
 
   test("two files classify as file units", () => {
@@ -92,27 +92,23 @@ describe("cli: contract basics", () => {
   });
 
   test("removed flags error with the new-form hint, exit 2", () => {
-    expect(run(["--file", "a.ts"]).stderr).toContain("use: jint <path>...");
-    expect(run(["--dir", "src"]).stderr).toContain("use: jint <dir>");
-    expect(run(["--kind", "diff"]).stderr).toContain("use: jint diff -");
-    expect(run(["--diff", "-"]).stderr).toContain("use: jint diff -");
-    for (const args of [["--file", "a.ts"], ["--dir", "src"], ["--kind", "diff"], ["--diff"]]) {
-      expect(run(args).code).toBe(2);
+    for (const [args, hint] of [
+      [["--file", "a.ts"], "use: jint <path>..."],
+      [["--dir", "src"], "use: jint <dir>"],
+      [["--kind", "diff"], "use: jint diff -"],
+      [["--diff", "-"], "use: jint diff -"],
+    ] as const) {
+      expectContract(run([...args]), { exit: 2, stderr: hint });
     }
   });
 
   test("bare 'jint -' -> usage error with guidance, exit 2", () => {
-    const r = run(["-"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("jint diff -");
-    expect(r.stderr).toContain("jint str -");
+    expectContract(run(["-"]), { exit: 2, stderr: ["jint diff -", "jint str -"] });
   });
 
   test("bare noun without payload -> usage error, exit 2 (never a path lookup)", () => {
-    expect(run(["diff"]).code).toBe(2);
-    expect(run(["str"]).code).toBe(2);
-    expect(run(["diff"]).stderr).toContain("expects a payload");
-    expect(run(["str"]).stderr).toContain("expects a payload");
+    expectContract(run(["diff"]), { exit: 2, stderr: "expects a payload" });
+    expectContract(run(["str"]), { exit: 2, stderr: "expects a payload" });
   });
 
   // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
@@ -123,10 +119,7 @@ describe("cli: contract basics", () => {
   });
 
   test("dash-leading token that is no known flag and no path -> exit 2 with guidance", () => {
-    const r = run(["--", "--nope.ts"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("--nope.ts");
-    expect(r.stderr).toContain("--help");
+    expectContract(run(["--", "--nope.ts"]), { exit: 2, stderr: ["--nope.ts", "--help"] });
   });
 
   test("flags before and after positionals are equivalent", () => {
@@ -145,9 +138,10 @@ describe("cli: contract basics", () => {
   test("a file named diff is judged as a FILE (nouns never resolve to paths)", () => {
     // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
     // noun-dispatched (a bare 'jint diff' is a payload usage error instead)
-    const r = run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("NOT_SOURCE");
+    expectContract(run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
+      exit: 2,
+      stderr: "NOT_SOURCE",
+    });
   });
 
   test("piped stdout carries no escape codes (--help and reports)", () => {
@@ -160,13 +154,14 @@ describe("cli: contract basics", () => {
 describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test("a file positional without TYPESAFE_API_KEY: exit 2 with the message, nothing walked", () => {
     const r = run(["tests/fixtures/sample-file.ts", "--json"], NO_KEY);
-    expect(r.code).toBe(2); // config error: the missing key is setup, not a per-unit failure
-    // stderr: exactly the setup failure — no per-unit failure lines, no summary
-    expect(r.stderr).toContain("CONFIG_INVALID");
-    expect(r.stderr).toContain("no TYPESAFE_API_KEY set - measurements need a valid key");
+    // config error: the missing key is setup, not a per-unit failure; nothing was walked or
+    // classified, so stdout stays empty — no machine document
+    expectContract(r, {
+      exit: 2,
+      stderr: ["CONFIG_INVALID", "no TYPESAFE_API_KEY set - measurements need a valid key"],
+      stdout: "empty",
+    });
     expect(r.stderr).not.toContain("failed to classify");
-    // nothing was walked or classified: no machine document on stdout
-    expect(r.stdout).toBe("");
   });
 
   test("default stylish report without TYPESAFE_API_KEY: same exit 2, no unit failures", () => {
@@ -221,19 +216,18 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       };
     };
     const human = empty("diff -");
-    expect(human.code).toBe(4);
-    expect(human.stderr).toContain("no measurements - empty diff");
-    const json = empty("diff - --json");
-    expect(json.code).toBe(4);
-    expect(JSON.parse(json.stdout).measurements).toEqual([]);
-    expect(json.stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
+    expectContract(human, { exit: 4, stderr: "no measurements - empty diff" });
+    const json = expectContract(empty("diff - --json"), { exit: 4, stdout: "json" });
+    expect(json.measurements).toEqual([]);
+    expect(empty("diff - --json").stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
   });
 
   test("unknown --language: usage error exit 2 before any input is touched", () => {
-    const r = run(["str", "-", "--language", "klingon"], NO_SERVICE);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("unknown language 'klingon'");
-    expect(r.stderr).toContain("see --help for valid grammar ids");
+    expectContract(run(["str", "-", "--language", "klingon"], NO_SERVICE), {
+      exit: 2,
+      stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
+      stdout: "empty",
+    });
   });
 
   test("piped stdin without a noun -> usage error, exit 2, guidance (never guessed)", () => {
@@ -275,11 +269,11 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test("jint str <existing-path>: usage error exit 2, never the path string as source", () => {
-    const r = run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("'tests/fixtures/sample-file.ts' is a path");
-    expect(r.stderr).toContain("to classify the file use: jint tests/fixtures/sample-file.ts");
-    expect(r.stdout).toBe("");
+    expectContract(run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE), {
+      exit: 2,
+      stderr: ["'tests/fixtures/sample-file.ts' is a path", "jint tests/fixtures/sample-file.ts"],
+      stdout: "empty",
+    });
   });
 
   test("all units fail: exit 4 with the failures named on stderr", () => {
@@ -302,14 +296,14 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {
     // file semantics: rejected as a non-source extension (NOT_SOURCE), not decomposed as a diff
     const r = run(["tests/fixtures/sample.diff", "--json"], NO_SERVICE);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("NOT_SOURCE");
+    expectContract(r, { exit: 2, stderr: "NOT_SOURCE" });
     expect(r.stderr).not.toContain("diff --git");
 
     // a rev-shaped argument is just a missing entrypoint, not a diff
-    const rev = run(["HEAD~1..HEAD", "--json"], NO_SERVICE);
-    expect(rev.code).toBe(2);
-    expect(rev.stderr).toContain("ENTRYPOINT_NOT_FOUND");
+    expectContract(run(["HEAD~1..HEAD", "--json"], NO_SERVICE), {
+      exit: 2,
+      stderr: "ENTRYPOINT_NOT_FOUND",
+    });
   });
 
   test("--config selects an alternate config file (loads, then classifies)", () => {

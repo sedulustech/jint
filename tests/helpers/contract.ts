@@ -24,10 +24,17 @@ export interface ContractSpec {
 }
 
 /** The parsed stdout report when spec.stdout === 'json'; null otherwise. */
-export function expectContract<Stdout extends ContractSpec["stdout"]>(
+export function expectContract(
   r: RunResult,
-  spec: Stdout extends "json" ? ContractSpec & { stdout: "json" } : ContractSpec,
-): Stdout extends "json" ? Record<string, any> : null {
+  spec: ContractSpec & { stdout: "json" },
+): Record<string, any>;
+export function expectContract(
+  r: RunResult,
+  spec: ContractSpec & {
+    stdout?: "empty" | (string & Record<never, never>) | { contains: string };
+  },
+): null;
+export function expectContract(r: RunResult, spec: ContractSpec): Record<string, any> | null {
   const failures: string[] = [];
   if (r.code !== spec.exit) failures.push(`exit: expected ${spec.exit}, got ${r.code}`);
 
