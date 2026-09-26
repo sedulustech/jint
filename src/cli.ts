@@ -17,6 +17,7 @@ import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typ
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
+import { knownLanguages } from "./core/input/decompose.ts";
 import { requestTapSummary } from "./core/jev/debug.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
@@ -65,9 +66,9 @@ else file); content is never sniffed. Piped stdin is declared by a noun, never g
 ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
-  --language <id>     tree-sitter grammar for piped-stdin/extensionless sources (e.g. typescript);
-                      without a resolvable language, inventory-scoped rules fail WALK_FAILED
-                      in-band and unit-scoped rules still measure
+  --language <id>     tree-sitter grammar for piped-stdin/extensionless sources; valid ids:
+                      typescript, python, go. Without a resolvable language, inventory-scoped
+                      rules fail WALK_FAILED in-band and unit-scoped rules still measure
   --config <path>     config file, plain JSON (default: jint.config.json; autocomplete via
                       the checked-in jint.schema.json "$schema" key)
   --exclude <glob>    input exclusion, on top of config (repeatable)
@@ -110,6 +111,12 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stdout.write(`${packageJson.version}\n`);
     return 0;
   }
+  // An unknown grammar is a usage error before any input is touched: the run would stream
+  // WALK_FAILED for the unit and still exit clean. Name the language, name the remedy.
+  if (cliArgs.language !== undefined && !knownLanguages().includes(cliArgs.language)) {
+    usageError(`unknown language '${cliArgs.language}' - see --help for valid grammar ids`);
+    return 2;
+  }
   if (cliArgs.debug === true) setLogLevel("debug");
 
   let resolvedConfig: ResolvedConfig;
@@ -133,6 +140,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // empty-input backstop.
   let stdinStr: { content: string } | undefined;
   let stdinDiff: { text: string } | undefined;
+  // the run's input is a diff (piped or patch file): exit-4 remedy wording
+  let diffRun = false;
   let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
@@ -159,10 +168,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       }
       const content = await Bun.stdin.text();
       if (firstPositional === "str") stdinStr = { content };
-      else stdinDiff = { text: content };
+      else {
+        stdinDiff = { text: content };
+        diffRun = true;
+      }
     } else if (firstPositional === "diff") {
       // a patch path; readDiffSource resolves it
       lintInput = { input: payload, inputType: "diff" };
+      diffRun = true;
     } else {
       // inline source text, identity "input"
       stdinStr = { content: payload };
@@ -226,8 +239,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         : renderStylish(lintReport, cliArgs.color ?? "auto");
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
+    const exit = computeExit(lintReport);
+    // Zero measurements is never silent for humans: an empty diff looks identical to a crash
+    // with zero bytes of explanation. The empty report itself is the machine-facing truth.
+    if (exit === 4 && cliArgs.json !== true && diffRun) {
+      process.stderr.write("jint: no measurements - empty diff\n");
+    }
     process.stderr.write(requestTapNotice());
-    return computeExit(lintReport);
+    return exit;
   } catch (thrown) {
     return exitForThrown(thrown);
   }

@@ -74,7 +74,7 @@ describe("cli: piped stdin str unit", async () => {
     expect([0, 1]).toContain(r.code); // findings decide; the run itself measured
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
-    expect(report.measurements[0]!.input).toBe("input");
+    expect(report.measurements[0]!.input).toBe("str:stdin");
   });
 
   test("--language typescript with a rule filter: element measurements appear", async () => {
@@ -90,7 +90,7 @@ describe("cli: piped stdin str unit", async () => {
     const report = JSON.parse(r.stdout);
     const elements = report.measurements.filter((m: { stage?: string }) => m.stage === "element");
     expect(elements.length).toBeGreaterThan(0);
-    expect(elements[0]!.input).toMatch(/^input#L\d/);
+    expect(elements[0]!.input).toMatch(/^str:stdin#L\d/);
   });
 
   test("no --language: unit-scoped rules still measure, mapping fails in-band", async () => {
@@ -101,11 +101,15 @@ describe("cli: piped stdin str unit", async () => {
     expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
   });
 
-  test("human output: same stylish table, identity 'input'", async () => {
+  test("human output: same stylish table, identity 'str:stdin'", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
     expect(r.code).toBeLessThan(2); // the run happened; findings decide 0 vs 1
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
-    expect(r.stderr).toContain("WALK_FAILED input");
+    expect(r.stderr).toContain("WALK_FAILED str:stdin");
+    // the message names the real condition and the remedy (stdin has no extension to map)
+    expect(r.stderr).toContain(
+      "cannot infer a grammar for piped stdin - declare it with --language",
+    );
     expect(r.stdout).not.toContain("WALK_FAILED");
   });
 
@@ -153,7 +157,7 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
-    expect(inputs).toEqual(["input"]); // the stdin str unit, not the config file
+    expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
   });
 
   test("jint diff - is decomposed as a diff, never a str unit", async () => {
@@ -161,11 +165,19 @@ describe("cli: piped stdin str unit", async () => {
     const r = await runWithStdin("not a diff at all", ["diff", "-", "--json"]);
     const report = JSON.parse(r.stdout);
     // decomposed as a diff: the JEV_AUTH-or-measurement unit names a diff path, or the diff
-    // itself failed loudly - either way it was NOT treated as a str snippet named "input"
+    // itself failed loudly - either way it was NOT treated as a str snippet named str:stdin
     const allInputs = [
       ...report.measurements.map((m: { input: string }) => m.input),
       ...report.errors.map((e: { input: string }) => e.input),
     ];
-    expect(allInputs).not.toContain("input");
+    expect(allInputs).not.toContain("str:stdin");
+  });
+
+  test("unknown --language: usage error, exit 2, names the language and the remedy", async () => {
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--language", "klingon"]);
+    expect(r.code).toBe(2); // exit-code contract: unknown language is usage/config
+    expect(r.stderr).toContain("unknown language 'klingon'");
+    expect(r.stderr).toContain("see --help for valid grammar ids");
+    expect(r.stdout).toBe("");
   });
 });

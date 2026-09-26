@@ -206,6 +206,36 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors[0]!.code).toBe("JEV_UNAVAILABLE");
   });
 
+  test("empty diff: humans get a stderr line (exit 4 never silent); --json keeps the empty report", () => {
+    const empty = (args: string) => {
+      const proc = Bun.spawnSync(["/bin/bash", "-c", `printf '' | bun ${CLI} ${args}`], {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, ...NO_SERVICE },
+      });
+      return {
+        code: proc.exitCode,
+        stdout: proc.stdout.toString(),
+        stderr: proc.stderr.toString(),
+      };
+    };
+    const human = empty("diff -");
+    expect(human.code).toBe(4);
+    expect(human.stderr).toContain("no measurements - empty diff");
+    const json = empty("diff - --json");
+    expect(json.code).toBe(4);
+    expect(JSON.parse(json.stdout).measurements).toEqual([]);
+    expect(json.stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
+  });
+
+  test("unknown --language: usage error exit 2 before any input is touched", () => {
+    const r = run(["str", "-", "--language", "klingon"], NO_SERVICE);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("unknown language 'klingon'");
+    expect(r.stderr).toContain("see --help for valid grammar ids");
+  });
+
   test("piped stdin without a noun -> usage error, exit 2, guidance (never guessed)", () => {
     const proc = Bun.spawnSync(
       ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --json`],
@@ -234,14 +264,14 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // payload (exit 2 'expects a payload') and the report would be machine JSON
     const r = run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
     expect(r.code).toBe(4); // reached measurement (transport failure), not a usage error
-    expect(r.stderr).toContain("JEV_UNAVAILABLE input");
+    expect(r.stderr).toContain("JEV_UNAVAILABLE str:stdin");
     expect(r.stdout).not.toContain("jint-report/v1"); // human table: no --json flag was seen
   });
 
   test("jint str with inline source text measures one str unit", () => {
     const r = run(["str", "export const x = 1;", "--json", "--rule", "is_greppable"], NO_SERVICE);
     expect(r.code).toBe(4);
-    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("input");
+    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("str:stdin");
   });
 
   test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
@@ -296,7 +326,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(proc.exitCode).toBe(4); // ran as ONE str unit; transport failure in-band
     const report = JSON.parse(proc.stdout.toString());
-    expect(report.errors[0]!.input).toBe("input");
+    expect(report.errors[0]!.input).toBe("str:stdin");
   });
 });
 

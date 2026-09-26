@@ -161,12 +161,18 @@ function apiKeyAvailable(configKey?: string): boolean {
 }
 
 /**
- * A str unit's grammar cannot be inferred from an extension — the unit path is synthetic ("input")
- * — so a WALK_FAILED on the piped-stdin path without --language should say so: the fix is declaring
- * the grammar, not renaming a file.
+ * A str unit's grammar cannot be inferred from an extension — the unit path is synthetic
+ * (str:stdin) — so a WALK_FAILED on the piped-stdin path without --language should say so: the fix
+ * is declaring the grammar, not renaming a file.
  */
 function withLanguageHint(error: MeasureError, options: LintOptions): MeasureError {
-  if (error.code !== "WALK_FAILED" || options.str === undefined || options.language !== undefined) {
+  if (
+    error.code !== "WALK_FAILED" ||
+    options.str === undefined ||
+    options.language !== undefined ||
+    // classify already names the --language remedy for extensionless (stdin) units
+    error.message.includes("--language")
+  ) {
     return error;
   }
   return new MeasureError(
@@ -203,12 +209,12 @@ async function runUnit(
   return { events: result.events, abort: result.fatal, oversized: result.oversized };
 }
 
-/** A str as one file unit: the piped-stdin path (identity "input" unless named). */
+/** A str as one file unit: the piped-stdin path (identity str:stdin unless named). */
 function strUnit(content: string, path?: string): Unit {
   return {
     kind: "file",
     state: {
-      path: path ?? "input",
+      path: path ?? "str:stdin",
       content,
       id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
     },

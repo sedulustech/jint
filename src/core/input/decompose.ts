@@ -244,6 +244,11 @@ const LANGUAGES: Record<string, LanguageMapping> = {
   go: GO,
 };
 
+/** The grammar ids --language accepts, in mapping order (design §7.2). */
+export function knownLanguages(): string[] {
+  return Object.keys(LANGUAGES);
+}
+
 const WASM_PATHS: Record<string, string> = {
   typescript: typescriptWasm,
   python: pythonWasm,
