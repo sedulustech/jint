@@ -156,7 +156,7 @@ describe("lint — classification shape", () => {
     expect(withPurposeful).toBeDefined();
     expect(withComplex).toBeDefined();
     // criteria-as-rule: instructions is the task sentence, criteria is the rule
-    // (noul questions get UNIT_TASK; choice questions carry their own instructions sentence)
+    // (noul questions carry their rule's question; choice questions carry their own instructions)
     for (const [, spec] of Object.entries(elementCalls[0]!.specs)) {
       const s = spec as {
         type: string;
@@ -258,7 +258,8 @@ describe("lint", () => {
     const findings = events.filter((e) => e.type === "finding");
     // file call 2 + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
     expect(measurements).toHaveLength(17);
-    // purposeful 0.3 fires (error) on BOTH elements - no aggregation, no candidacy
+    // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
+    // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
     expect(findings.map((s) => s.finding.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
     for (const s of findings) {
@@ -266,7 +267,7 @@ describe("lint", () => {
         rule: "is_name_purposeful",
         input: s.finding.input,
         value: 0.3,
-        severity: "error",
+        severity: "warn",
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }

@@ -103,6 +103,14 @@ export interface NoulRule extends RuleBase {
   /** Optional: noul is the default kind — rules predating the field omit it. */
   readonly kind?: "noul";
   /**
+   * The yes/no question the model answers, specific to the rule's claim. When omitted, the generic
+   * UNIT_TASK sentence is used (backward compatible with configs predating the field). Either way
+   * the compiler prepends a kind sentence ("This unit is a function definition.") — the question
+   * never leaves the judged object implicit. Changing a rule's instructions is a recalibration
+   * event: readings move.
+   */
+  readonly instructions?: string;
+  /**
    * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
    * cases belong in false. Passes straight through to the noul question's criteria; editing either
    * side is a re-calibration event, since thresholds are anchored to readings taken under the rule
@@ -123,7 +131,7 @@ export interface ChoiceRule extends RuleBase {
   readonly kind: "choice";
   /** The ordered rubric; the question text lives in instructions. */
   readonly criteria: ChoiceRubric;
-  /** The question sentence, judged per unit (noul rules use the generic UNIT_TASK instead). */
+  /** The question sentence, judged per unit; the compiler prepends the kind sentence to it. */
   readonly instructions: string;
 }
 

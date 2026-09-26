@@ -60,16 +60,16 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 
 | rule                              | polarity    | error     | warn      | healthy range |
 | --------------------------------- | ----------- | --------- | --------- | ------------- |
-| `is_name_purposeful`              | high = good | < 0.5     | < 0.6     | 0.80 – 0.89   |
+| `is_name_purposeful`              | high = good | < 0.3     | < 0.4     | 0.43 – 0.85   |
 | `is_vocabulary_consistent`        | high = good | < 0.6     | < 0.75    | 0.86 – 0.89   |
-| `is_naming_convention_consistent` | high = good | < 0.65    | < 0.85    | 0.89 – 0.91   |
+| `is_naming_convention_consistent` | high = good | < 0.65    | < 0.75    | 0.82 – 0.95   |
 | `is_greppable`                    | high = good | < 0.60    | < 0.75    | 0.81 – 0.84   |
 | `is_comment_narration`            | high = bad  | > 0.45    | > 0.30    | 0.09 – 0.21   |
 | `is_comment_patching_readability` | high = bad  | > 0.55    | > 0.40    | 0.11 – 0.15   |
 | `will_comment_drift`              | high = bad  | > 0.7     | > 0.55    | 0.19 – 0.36   |
 | `will_error_lose_cause`           | high = bad  | > 0.7     | > 0.4     | unanchored    |
 | `is_cognitively_complex`          | high = bad  | > 0.6     | > 0.45    | 0.19 – 0.32   |
-| `is_function_srp`                 | high = good | < 0.4     | < 0.55    | provisional   |
+| `is_function_srp`                 | high = good | < 0.3     | < 0.45    | 0.54 – 0.96   |
 | `is_readable`                     | high = bad  | score > 2 | score > 1 | unanchored    |
 
 `cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). readability is measured by `is_readable`, a choice-kind rule scored on a 0–3 rubric (see below) — the earlier aggregate `readability` reading was retired as insensitive in mutant testing. `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own readings into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.

@@ -64,12 +64,12 @@ describe("UNIT_TASK", () => {
 });
 
 describe("compileRuleQuestions", () => {
-  test("whole-file unit: criteria passthrough, instructions is the task sentence", () => {
+  test("whole-file unit: criteria passthrough, instructions is the rule's question", () => {
     const rule = defaultRules.is_name_purposeful!;
     const { questions, attribution } = compileRuleQuestions([rule], FILE_ID);
     const spec = questions[`is_name_purposeful in ${FILE_ID}`]!;
     expect(spec.type).toBe("noul");
-    expect(spec.instructions).toBe(UNIT_TASK);
+    expect(spec.instructions).toBe("This unit is a source file. " + rule.instructions!);
     expect(spec.criteria).toBe(rule.criteria);
     expect(attribution.get(`is_name_purposeful in ${FILE_ID}`)).toEqual({
       rule: "is_name_purposeful",
@@ -81,7 +81,7 @@ describe("compileRuleQuestions", () => {
     const rule = defaultRules.is_name_purposeful!;
     const { questions, attribution } = compileRuleQuestions([rule], "block-3");
     const spec = questions["is_name_purposeful in block-3"]!;
-    expect(spec.instructions).toBe(UNIT_TASK);
+    expect(spec.instructions).toBe("This unit is a source file. " + rule.instructions!);
     expect(spec.criteria).toBe(rule.criteria);
     expect(attribution.get("is_name_purposeful in block-3")).toEqual({
       rule: "is_name_purposeful",
@@ -234,17 +234,34 @@ describe("compileRuleQuestions — composite keys", () => {
 
 describe("compileElementQuestions", () => {
   test("one element per call: question keys are bare rule names", () => {
-    const questions = compileElementQuestions([
-      defaultRules.will_comment_drift!,
-      defaultRules.is_readable!,
-    ]);
+    const questions = compileElementQuestions(
+      [defaultRules.will_comment_drift!, defaultRules.is_readable!],
+      "comment",
+    );
     expect(Object.keys(questions).sort()).toEqual(["is_readable", "will_comment_drift"]);
     expect(questions.is_readable!.type).toBe("score");
     expect(questions.is_readable!.instructions).toBe(
-      (defaultRules.is_readable! as { instructions: string }).instructions,
+      "This unit is a comment. " +
+        (defaultRules.is_readable! as { instructions: string }).instructions,
     );
     expect(questions.will_comment_drift!.type).toBe("noul");
-    expect(questions.will_comment_drift!.instructions).toBe(UNIT_TASK);
+    expect(questions.will_comment_drift!.instructions).toBe(
+      "This unit is a comment. " +
+        (defaultRules.will_comment_drift! as { instructions: string }).instructions,
+    );
+  });
+
+  test("a noul rule without instructions falls back to UNIT_TASK (config backward compat)", () => {
+    const bare: Rule = {
+      name: "bare_rule",
+      criteria: { true: "yes", false: "no" },
+      target: "files",
+      handle: () => "info" as never,
+    };
+    const { questions } = compileRuleQuestions([bare], FILE_ID);
+    expect(questions[`bare_rule in ${FILE_ID}`]!.instructions).toBe(
+      `This unit is a source file. ${UNIT_TASK}`,
+    );
   });
 });
 

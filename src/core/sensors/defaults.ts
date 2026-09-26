@@ -29,25 +29,41 @@ import type { Rule } from "../types.ts";
 
 export const isNamePurposeful: Rule = {
   name: "is_name_purposeful",
+  instructions:
+    "Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
   criteria: {
     true: "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
     false:
       "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
   },
   target: "definitions",
-  handle: compileHandle({ warn_at: 0.6, error_at: 0.5 }),
+  // Recalibrated for the per-rule question (issue 001 A/B): the specific question reads the
+  // self-corpus stricter than UNIT_TASK did (median 0.68 -> 0.56), so the warn tier moves down
+  // to keep its pass share and the m4_obfuscate mutant (0.52) still warns; the defective
+  // control (mean 0.26) still errors.
+  // Re-anchored twice (issue 001): the src/core re-anchor (0.55/0.4) still flooded the whole
+  // project (median 0.43 across src, dragged down by test helper names). error 0.3 sits above
+  // the defective control cluster (<= 0.26) and warn 0.4 a full step below the healthy median;
+  // test-code noise stays open as issue 008 (config granularity).
+  handle: compileHandle({ warn_at: 0.4, error_at: 0.3 }),
 };
 
 export const isFunctionSrp: Rule = {
   name: "is_function_srp",
+  instructions:
+    "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
   criteria: {
     true: "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
     false:
       "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.",
   },
   target: "functions",
-  // provisional: high = SRP holds (high = good); anchored to the self-corpus after calibration
-  handle: compileHandle({ warn_at: 0.55, error_at: 0.4 }),
+  // Whole-project A/B (issue 001): the specific question reads the project stricter than
+  // UNIT_TASK did (median 0.79 -> 0.54) and the old warn sat exactly on the new median,
+  // warning half of src. warn 0.45 keeps roughly the bottom 8% of the whole-project
+  // distribution in warn; the low tail is dominated by test callbacks — scoping those out
+  // is issue 008 (config granularity), not a threshold job.
+  handle: compileHandle({ warn_at: 0.45, error_at: 0.3 }),
 };
 
 /**
@@ -57,6 +73,7 @@ export const isFunctionSrp: Rule = {
  */
 export const willErrorLoseCause: Rule = {
   name: "will_error_lose_cause",
+  instructions: "Does this function's error handling lose information about the original failure?",
   criteria: {
     true: "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
     false:
@@ -67,6 +84,8 @@ export const willErrorLoseCause: Rule = {
 };
 export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
+  instructions:
+    "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
   criteria: {
     true: "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
     false:
@@ -78,6 +97,8 @@ export const isVocabularyConsistent: Rule = {
 
 export const isNamingConventionConsistent: Rule = {
   name: "is_naming_convention_consistent",
+  instructions: "Do identifiers of the same kind in this unit follow a single casing convention?",
+  // (threshold note: re-anchored below for the per-rule question, issue 001)
   criteria: {
     true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
     false:
@@ -87,11 +108,16 @@ export const isNamingConventionConsistent: Rule = {
   // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
   // convention mixers and the consistent files; the clean corpus (mobius
   // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
-  handle: compileHandle({ warn_at: 0.85, error_at: 0.65 }),
+  // Whole-project A/B (issue 001): the per-rule question dropped the whole-project median
+  // 0.87 -> 0.82 and the old warn (0.85) warned two thirds of src. warn 0.75 keeps roughly
+  // the bottom 5% in warn; error stays clear of the healthy p5 (0.72).
+  handle: compileHandle({ warn_at: 0.75, error_at: 0.65 }),
 };
 
 export const isGreppable: Rule = {
   name: "is_greppable",
+  instructions:
+    "Are the identifiers in this unit searchable with terms a developer would use to find this code?",
   criteria: {
     true: "The code identifiers here - functions, variables, types, constants, exported symbols - are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
     false:
@@ -103,6 +129,8 @@ export const isGreppable: Rule = {
 
 export const is_comment_narration: Rule = {
   name: "is_comment_narration",
+  instructions:
+    "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
   criteria: {
     true: "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
     false:
@@ -114,6 +142,8 @@ export const is_comment_narration: Rule = {
 
 export const is_comment_patching_readability: Rule = {
   name: "is_comment_patching_readability",
+  instructions:
+    "Does any comment here patch code that should read itself, instead of the code being made readable?",
   criteria: {
     true: "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
     false:
@@ -125,6 +155,8 @@ export const is_comment_patching_readability: Rule = {
 
 export const will_comment_drift: Rule = {
   name: "will_comment_drift",
+  instructions:
+    "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
   criteria: {
     true: "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
     false:
@@ -139,6 +171,8 @@ export const will_comment_drift: Rule = {
 
 export const isCognitivelyComplex: Rule = {
   name: "is_cognitively_complex",
+  instructions:
+    "Does this code carry accidental difficulty the author could remove without changing what it does?",
   criteria: {
     true: "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
     false:

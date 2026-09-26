@@ -51,13 +51,13 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     // declarations, no imports in this file (golden tracks src/core/types.ts).
     expect(inv.definitions).toHaveLength(31);
     expect(inv.imports).toHaveLength(0);
-    // 30 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
-    // (the file header, separated from the first declaration by a blank line), and 8 nested
+    // 31 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
+    // (the file header, separated from the first declaration by a blank line), and 9 nested
     // member-doc comments inside declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(36);
+    expect(accountedComments(inv)).toBe(37);
     expect(attachedCount(inv)).toBe(25);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(10);
+    expect(internalCount(inv)).toBe(11);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
