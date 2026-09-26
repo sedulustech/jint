@@ -112,15 +112,16 @@ describe("classifyUnit", () => {
         is_function_srp: 0.8,
         is_readable: 1,
         will_error_lose_cause: 0.2,
+        is_filename_fitting: 0.1,
       },
       calls,
     );
     const events: (Measurement | MeasureError)[] = [];
     for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
-    expect(events).toHaveLength(11);
+    expect(events).toHaveLength(12);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.rule)).toContain("is_name_purposeful");
-    expect(calls).toHaveLength(1); // one batched call, not nine
+    expect(calls).toHaveLength(1); // one batched call, not one per rule
   });
 
   test("values pass through untouched", async () => {

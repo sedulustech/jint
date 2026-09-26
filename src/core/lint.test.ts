@@ -172,7 +172,9 @@ describe("lint — classification shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|greppable) in L\d+(-L\d+)?$/);
+      expect(key).toMatch(
+        /^is_(vocabulary_consistent|greppable|filename_fitting) in L\d+(-L\d+)?$/,
+      );
     }
   });
 
@@ -189,7 +191,7 @@ describe("lint — classification shape", () => {
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(2); // whole-unit rules only
+      expect(measurements).toHaveLength(3); // whole-unit rules only
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -256,8 +258,8 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
-    // file call 2 + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
-    expect(measurements).toHaveLength(17);
+    // file call 3 (promoted is_filename_fitting) + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
+    expect(measurements).toHaveLength(18);
     // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
     // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
@@ -312,6 +314,7 @@ describe("lint", () => {
           "is_greppable",
           "is_function_srp",
           "is_readable",
+          "is_filename_fitting",
         ],
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
       }),
@@ -346,14 +349,14 @@ describe("lint", () => {
       }),
     );
     // diff units map to no element units (quick path): only the whole-unit call runs per file
-    // (2 rules x 2 files); no sweep, no whole-file element judgment
+    // (3 rules x 2 files); no sweep, no whole-file element judgment
     const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
     expect(paths).toEqual([
       "src/tui/components/overlays/box.ts",
       "src/tui/components/overlays/help.ts",
     ]); // deleted + binary skipped
     expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {
@@ -380,9 +383,9 @@ describe("lint", () => {
     // the failed file's calls (whole-content + one call per element) surface an error
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    // second unit: 2 file + 7 (comment element) + 6 (clampToLimit, function element);
+    // second unit: 3 file + 7 (comment element) + 6 (clampToLimit, function element);
     // SMALL_LIMIT is a binding — no functions-target (or other element) measurements
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(15);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -471,7 +474,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(17);
+    expect(report.measurements).toHaveLength(18);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

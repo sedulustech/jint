@@ -24,6 +24,13 @@ describe("default handles: polarity", () => {
     expect(defaultRules.is_greppable!.handle(0.55)).toBe("error");
     expect(defaultRules.is_greppable!.handle(0.65)).toBe("warn");
     expect(defaultRules.is_greppable!.handle(0.8)).toBeNull();
+    // is_filename_fitting: high = bad; anchored on the two-language filename-fit
+    // probe - healthy ceiling 0.33 (Go, cobra) / 0.36 (TS, jint src/), defective
+    // floor 0.60 / 0.88 (the generic-name-hides-a-subject case is the soft one).
+    expect(defaultRules.is_filename_fitting!.handle(0.33)).toBeNull();
+    expect(defaultRules.is_filename_fitting!.handle(0.5)).toBeNull();
+    expect(defaultRules.is_filename_fitting!.handle(0.6)).toBe("warn");
+    expect(defaultRules.is_filename_fitting!.handle(0.94)).toBe("error");
   });
 
   test("comment/complexity rules are high=bad (error above threshold)", () => {
@@ -157,6 +164,7 @@ describe("rule definitions", () => {
       "is_vocabulary_consistent",
       "is_naming_convention_consistent",
       "is_greppable",
+      "is_filename_fitting",
       "is_comment_narration",
       "is_comment_patching_readability",
       "will_comment_drift",

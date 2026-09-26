@@ -70,6 +70,7 @@ Thresholds are anchored to the calibration corpora — jint's own src/ as the pr
 | `will_error_lose_cause`           | high = bad  | > 0.7     | > 0.4     | unanchored    |
 | `is_cognitively_complex`          | high = bad  | > 0.6     | > 0.45    | 0.19 – 0.32   |
 | `is_function_srp`                 | high = good | < 0.3     | < 0.45    | 0.54 – 0.96   |
+| `is_filename_fitting`             | high = bad  | > 0.55    | > 0.75    | 0.04 – 0.33   |
 | `is_readable`                     | high = bad  | score > 2 | score > 1 | unanchored    |
 
 `cyclomatic_complexity` is deliberately absent: it is exactly computable in code (deterministic things stay deterministic). readability is measured by `is_readable`, a choice-kind rule scored on a 0–3 rubric (see below) — the earlier aggregate `readability` reading was retired as insensitive in mutant testing. `excessive_comments` is retired under the single-attribute doctrine: "too many comments" is a superset of attributes that move in opposite directions — narration should shrink where a readability patch grows — so the superset averages its own readings into noise. Each comment attribute below is measured on its own; the aggregate of clean readings is what a decision reads.
@@ -82,6 +83,7 @@ Every rule measures exactly one attribute. A rule whose criteria bundles several
 - `is_comment_patching_readability` — comments compensating for code that should read itself. High = bad (code smell).
 - `will_comment_drift` — comments pinning specific artifacts by name (files, functions, parameters, constants) whose renaming silently invalidates the comment. High = bad.
 
+- `is_filename_fitting` — a source file's name names the responsibility its body actually carries (the only rule that sees the path, so it alone catches "json.ts whose body renders HTML reports"). High = bad; thresholds from the two-language filename-fit probe: healthy max 0.36 (TypeScript) / 0.33 (Go) against defective min 0.88 / 0.60.
 - `is_function_srp` — a function carries one cohesive responsibility its name and docblock state. High = good; thresholds provisional, pending self-corpus anchoring.
 - `will_error_lose_cause` — error handling loses information: errors swallowed, rethrown without cause, or replaced by messages dropping the original failure detail. High = bad; thresholds from the seam-purity probe, unanchored until the self-lint corpus re-measures them.
 - `is_readable` — choice-kind rule (not a noul proposition): the classifier scores `definitions` on a 0–3 rubric, 0 = "names, structure, and types make the story obvious" up to 3 = "dense, misleading names, or structure that fights the problem". Warn at 1+, error at 2+; thresholds unanchored until the self-lint corpus has score readings.
