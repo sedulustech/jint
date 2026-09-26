@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { startMockJev } from "./helpers/mock-jev.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
@@ -55,10 +56,44 @@ describe("cli: dir walk ignores", () => {
     expect(report.errors.some((e: any) => e.code === "JEV_UNAVAILABLE")).toBe(true);
   });
 
+  // structural twin of the live calibration test: exclusions are CONTRACT (the walker owns
+  // them, pre-jev), so the mock proves them keylessly; the live twin only adds real readings
+  test("mocked jev: ignored files are absent from measurements", async () => {
+    const jev = startMockJev();
+    try {
+      // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block
+      // its event loop and the child would hang waiting for answers.
+      const proc = Bun.spawn(["bun", CLI, "tests/fixtures/sample-dir", "--json"], {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: {
+          ...process.env,
+          TYPESAFE_API_KEY: "test-key",
+          TYPESAFE_BASE_URL: jev.baseUrl,
+        },
+      });
+      const stdout = await new Response(proc.stdout).text();
+      await proc.exited;
+      const report = JSON.parse(stdout);
+      const paths = (report.measurements ?? []).map((m: any) => m.input);
+      expect(paths.length).toBeGreaterThan(0);
+      expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
+    } finally {
+      jev.stop();
+    }
+  });
+
+  // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
   test("with a real key: ignored files are absent from measurements", () => {
+    if (process.env.RUN_LIVE_TESTS !== "1") return;
     if (!process.env.TYPESAFE_API_KEY) {
-      console.log("skip: requires TYPESAFE_API_KEY");
-      return;
+      throw new Error(
+        "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
+      );
     }
     const proc = Bun.spawnSync(["bun", CLI, "tests/fixtures/sample-dir", "--json"], {
       cwd: ROOT,

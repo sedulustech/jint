@@ -1,5 +1,6 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach, afterAll } from "bun:test";
 import { expectContract } from "./helpers/contract.ts";
+import { startMockJev } from "./helpers/mock-jev.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
@@ -343,9 +344,90 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 });
 
-describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
+// Structural claims of the live tests, always on over the mock: these are CONTRACT claims
+// (report shape, tap activation, walker exclusions) that never needed a real model. They run
+// keyless — a mock here is what makes a regression visible in every run.
+describe("cli: mocked jev twins (structural claims, always on)", () => {
+  const jev = startMockJev();
+  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
+  // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block its
+  // event loop and the child would hang waiting for answers.
+  async function runMock(args: string[], env: Record<string, string> = {}) {
+    const proc = Bun.spawn(["bun", CLI, ...args], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...MOCK_ENV, ...env },
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    return { code: await proc.exited, stdout, stderr };
+  }
+  afterAll(() => jev.stop());
+
+  test("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
+    // High-good noul rules only: the mock's 0.8 is clean under every one of their handles, so a
+    // healthy run over a healthy corpus really does exit 0 (is_readable is score-typed and the
+    // high-bad rules fire by design under a constant answer).
+    const r = await runMock([
+      "tests/fixtures/sample-file.ts",
+      "tests/fixtures/sample-dir/good.ts",
+      "--json",
+      "--rule",
+      "is_name_purposeful",
+      "--rule",
+      "is_function_srp",
+      "--rule",
+      "is_vocabulary_consistent",
+      "--rule",
+      "is_naming_convention_consistent",
+      "--rule",
+      "is_greppable",
+    ]);
+    const report = expectContract(r, { exit: 0, stdout: "json" });
+    // one pass: 2 files-target + element classification
+    expect(report.measurements.length).toBeGreaterThanOrEqual(8);
+    for (const m of report.measurements) {
+      expect(m.value).toBeGreaterThanOrEqual(0);
+      expect(m.value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("JEV_DEBUG_REQUEST_LOCATION alone turns on the dump tap: captures land, stdout untouched", async () => {
+    // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
+    const dir = `/tmp/jint-dump-cli-${Date.now()}`;
+    const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
+      JEV_DEBUG_REQUEST_LOCATION: dir,
+    });
+    // the notice never touches stdout: the report stays a machine document
+    const report = expectContract(r, { exit: 0, stdout: "json" });
+    expect(report.measurements.length).toBeGreaterThan(0);
+    expect(r.stderr).toContain(`jint: request captures -> ${dir}/`);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+    const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dir })];
+    expect(captures.length).toBeGreaterThan(0);
+  });
+});
+
+// Live round trips assert MODEL BEHAVIOR (calibration), not contract — the mocked twins above own
+// every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND TYPESAFE_API_KEY. A run that asks
+// for live tests without a key fails loud; the old silent skip hid a regression once already.
+describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)", () => {
+  const liveRequested = process.env.RUN_LIVE_TESTS === "1";
+  function requireLive(): boolean {
+    if (!liveRequested) return false;
+    if (!process.env.TYPESAFE_API_KEY) {
+      throw new Error(
+        "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently; unset RUN_LIVE_TESTS for the mocked suite",
+      );
+    }
+    return true;
+  }
+
   test("file positional with a real key: measurements, clean exit 0", () => {
-    if (!process.env.TYPESAFE_API_KEY) return; // demonstrated manually in the verification gate
+    if (!requireLive()) return;
     const r = run(["tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
@@ -359,7 +441,7 @@ describe("cli: live jev round trip (requires TYPESAFE_API_KEY)", () => {
   }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
 
   test("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", () => {
-    if (!process.env.TYPESAFE_API_KEY) return; // demonstrated manually in the verification gate
+    if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = run(["tests/fixtures/sample-file.ts", "--json"], {
       JEV_DEBUG_REQUEST: "1",

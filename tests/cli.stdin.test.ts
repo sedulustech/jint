@@ -1,5 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { expectContract } from "./helpers/contract.ts";
+import { startMockJev } from "./helpers/mock-jev.ts";
 
 // Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
 // carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
@@ -14,37 +15,12 @@ const SNIPPET = [
   "}",
 ].join("\n");
 
-/** The noul value every mocked answer carries; tests set it to steer finding severity. */
-let mockAnswer = 0.8;
-/** The last wire body the mock saw, for pinning the exact request bytes. */
-let lastWireBody: Record<string, unknown> | null = null;
-
-/** Mock of the vendor wire: answer every question in the request with a valid shape. */
-const server = Bun.serve({
-  port: 0,
-  idleTimeout: 30,
-  async fetch(req) {
-    const body = (await req.json()) as {
-      questions?: Record<string, { type?: string }>;
-    };
-    lastWireBody = body as Record<string, unknown>;
-    const answers: Record<string, unknown> = {};
-    for (const [name, question] of Object.entries(body.questions ?? {})) {
-      answers[name] =
-        question.type === "score"
-          ? { type: "score", score: 1 }
-          : { type: "noul", noul: mockAnswer };
-    }
-    return Response.json(
-      { model: "jev-latest", answers, usage: { input_tokens: 1, output_tokens: 1 } },
-      { headers: { "Content-Type": "application/json" } },
-    );
-  },
-});
+/** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
+const jev = startMockJev();
 
 const MOCK_ENV = {
   TYPESAFE_API_KEY: "test-key",
-  TYPESAFE_BASE_URL: `http://localhost:${server.port}`,
+  TYPESAFE_BASE_URL: jev.baseUrl,
 };
 
 async function runWithStdin(
@@ -69,7 +45,7 @@ async function runWithStdin(
   return { code, stdout, stderr };
 }
 
-afterAll(() => server.stop(true));
+afterAll(() => jev.stop());
 
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
@@ -212,7 +188,7 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
-    lastWireBody = null;
+    const before = jev.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "str",
       "-",
@@ -223,10 +199,13 @@ describe("cli: piped stdin str unit", async () => {
       "typescript",
     ]);
     expect(r.code).toBeLessThan(2);
-    const state = lastWireBody!.state as Record<string, unknown>;
+    const seen = jev.requests.slice(before);
+    expect(seen.length).toBeGreaterThan(0);
+    const wire = seen[seen.length - 1]!;
+    const state = wire.state;
     expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
     expect(state.path).toBe("str:stdin");
-    const questions = lastWireBody!.questions as Record<string, Record<string, unknown>>;
+    const questions = wire.questions;
     const names = Object.keys(questions);
     expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
