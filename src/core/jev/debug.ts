@@ -1,7 +1,7 @@
 /**
- * Request debug tap for the jev adapter. Lives behind JEV_DEBUG_REQUEST=1 and captures the exact
- * bytes the vendor SDK serializes — not our pre-SDK question objects — so schema experiments can be
- * judged from real payloads.
+ * Request debug tap for the jev adapter. Lives behind JEV_DEBUG_REQUEST=1 (or a
+ * JEV_DEBUG_REQUEST_LOCATION override alone) and captures the exact bytes the vendor SDK serializes
+ * — not our pre-SDK question objects — so schema experiments can be judged from real payloads.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -29,7 +29,11 @@ export function requestTapSummary(): RequestTapSummary | null {
 }
 
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
-  if (process.env.JEV_DEBUG_REQUEST !== "1") {
+  // Either variable activates: JEV_DEBUG_REQUEST=1 is the explicit on-switch; a
+  // JEV_DEBUG_REQUEST_LOCATION override alone implies the run was launched to capture.
+  const requested =
+    process.env.JEV_DEBUG_REQUEST === "1" || process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined;
+  if (!requested) {
     tapSummary = null;
     return config ?? {};
   }

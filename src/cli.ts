@@ -3,8 +3,8 @@
  * Jint CLI — the terminal as SDK client (design §4).
  *
  * Exit codes (computed once, here): 0 clean 1 error-severity findings 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but produced zero measurements — CI
- * never passes unmeasured)
+ * flags, CONFIG_INVALID, ENTRYPOINT_*) 3 internal error 4 ran but measured nothing or any unit
+ * failed to measure — CI never passes an unmeasured or half-measured run)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
@@ -61,7 +61,8 @@ Usage:
 The resource is the noun; the verb (measure) is implicit. str and diff are nouns only as the
 FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
 jint str "--json" measures "--json" as source. Nouns never resolve to paths — a file named
-diff is reached as jint ./diff. A path's kind is inferred by shape only (exists-as-dir -> dir,
+diff is reached as jint ./diff, and a str payload that names an existing path is rejected
+(inline source or '-' only; measure the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
 else file); content is never sniffed. Piped stdin is declared by a noun, never guessed. --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
@@ -86,11 +87,12 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 
 /**
  * End-of-run stderr notice for the request tap: where the captures went and how many. Nothing when
- * the tap is inactive or wrote zero captures (e.g. the run failed before any classifier call).
+ * the tap is inactive; an active tap always reports, even zero captures (the run may have failed
+ * before any classifier call).
  */
 export function requestTapNotice(): string {
   const tap = requestTapSummary();
-  if (tap === null || tap.count === 0) return "";
+  if (tap === null) return "";
   const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
   return `jint: request captures -> ${tap.dir} (${tap.count} calls)${override}\n`;
 }
@@ -176,6 +178,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       // a patch path; readDiffSource resolves it
       lintInput = { input: payload, inputType: "diff" };
       diffRun = true;
+    } else if (existsSync(payload)) {
+      // A payload that names a real path is almost certainly a mistyped file measure: honoring it
+      // as inline text would measure the PATH STRING as source (degenerate state) under the
+      // grammarless str:stdin identity. Nouns never resolve to paths, so reject with the remedy.
+      usageError(
+        `'${payload}' is a path — jint str measures inline source or '-' (piped stdin); to measure the file use: jint ${payload}`,
+      );
+      return 2;
     } else {
       // inline source text, identity "input"
       stdinStr = { content: payload };
@@ -404,7 +414,9 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
  */
 export function computeExit(lintReport: LintReport): number {
   if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
-  if (lintReport.measurements.length === 0) return 4;
+  // A failed unit means the judgment never existed — the run measured PARTIALLY at best. CI must
+  // never pass a half-measured input, so any streamed MeasureError fails the run (exit 4).
+  if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
 }
 

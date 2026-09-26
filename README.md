@@ -111,7 +111,7 @@ A diff input decomposes into per-file units: added/modified files are measured, 
 
 ### The noun grammar
 
-The resource is the noun; the verb (measure) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` measures `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is measured as `jint ./diff`, and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
+The resource is the noun; the verb (measure) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` measures `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is measured as `jint ./diff`, a `str` payload that names an existing path is rejected (exit 2) — inline source or `-` only, measure the file as `jint <path>` — and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
 
 A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -> `file`; a missing path is `ENTRYPOINT_NOT_FOUND` (exit 2). Content is never sniffed — a patch file passed as a path is judged as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`. To judge a patch as a diff, declare it: `jint diff fix.patch`.
 
@@ -135,17 +135,17 @@ Go (`.go`) decomposes with the shared role vocabulary (function/method -> functi
 
 ## Exit codes
 
-| code | meaning                                                                                                                                                           |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | clean (measurements, no error-severity findings)                                                                                                                  |
-| 1    | error-severity findings found                                                                                                                                     |
-| 2    | usage/config error (bad flags, unknown `--language`, `CONFIG_INVALID`, entrypoint not found/unreadable)                                                           |
-| 3    | internal error                                                                                                                                                    |
-| 4    | ran but measured nothing — zero measurements (CI can never pass an unmeasured diff). Per-unit errors are signalled on stderr but never fail the run by themselves |
+| code | meaning                                                                                                                                                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | clean (measurements, no error-severity findings)                                                                                                                                                                                 |
+| 1    | error-severity findings found                                                                                                                                                                                                    |
+| 2    | usage/config error (bad flags, unknown `--language`, `CONFIG_INVALID`, entrypoint not found/unreadable)                                                                                                                          |
+| 3    | internal error                                                                                                                                                                                                                   |
+| 4    | ran but measured nothing (zero measurements) or any unit failed to measure — a partial run is still a failed run (CI can never pass an unmeasured or half-measured input). Per-unit errors are signalled on stderr, never thrown |
 
 ## Errors
 
-Classify before handling: cannot-start failures throw; per-unit failures stream as values and never fail the run by themselves — the run is failed only by findings. There is no degradation tier: a unit the linter cannot measure (including one that cannot be parsed into elements) is a per-unit error, not a partial result.
+Classify before handling: cannot-start failures throw; per-unit failures stream as values and never abort the run — but any failed unit fails the run's exit code (4): a judgment that never existed cannot be passed by CI. The exit is decided by error-severity findings (1) over failed units (4). There is no degradation tier: a unit the linter cannot measure (including one that cannot be parsed into elements) is a per-unit error, not a partial result.
 
 - **SetupError** (thrown) — the run cannot start: `CONFIG_INVALID`, `ENTRYPOINT_NOT_FOUND`, `ENTRYPOINT_UNREADABLE`, and `INTERNAL` for invariant violations (exit 2/3).
 - **MeasureError** (streamed value) — one unit failed to produce a measurement, so no judgment ever exists for it: `JEV_AUTH`, `JEV_UNAVAILABLE`, `JEV_REQUEST_INVALID`, `JEV_RESPONSE_INVALID` name request-layer causes; `WALK_FAILED` names a unit that could not be mapped to elements (unmapped language, unparseable source); `INTERNAL` for an unclassifiable classifier-adjacent throw. One bad unit never kills the run and never fails it by itself; they land in `report.errors` and print on stderr.

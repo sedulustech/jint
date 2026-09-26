@@ -274,6 +274,25 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("str:stdin");
   });
 
+  test("jint str <existing-path>: usage error exit 2, never the path string as source", () => {
+    const r = run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("'tests/fixtures/sample-file.ts' is a path");
+    expect(r.stderr).toContain("to measure the file use: jint tests/fixtures/sample-file.ts");
+    expect(r.stdout).toBe("");
+  });
+
+  test("all units fail: exit 4 with the failures named on stderr", () => {
+    const proc = Bun.spawnSync(["/bin/bash", "-c", `printf 'x' | bun ${CLI} str -`], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...NO_SERVICE },
+    });
+    expect(proc.exitCode).toBe(4); // every unit failed -> the run failed (never exit 0)
+    expect(proc.stderr.toString()).toContain("failed to measure");
+  });
+
   test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
     const r = run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
     expect(r.code).toBe(4);

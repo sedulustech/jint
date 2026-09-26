@@ -13,6 +13,11 @@ const SNIPPET = [
   "}",
 ].join("\n");
 
+/** The noul value every mocked answer carries; tests set it to steer finding severity. */
+let mockAnswer = 0.8;
+/** The last wire body the mock saw, for pinning the exact request bytes. */
+let lastWireBody: Record<string, unknown> | null = null;
+
 /** Mock of the vendor wire: answer every question in the request with a valid shape. */
 const server = Bun.serve({
   port: 0,
@@ -21,10 +26,13 @@ const server = Bun.serve({
     const body = (await req.json()) as {
       questions?: Record<string, { type?: string }>;
     };
+    lastWireBody = body as Record<string, unknown>;
     const answers: Record<string, unknown> = {};
     for (const [name, question] of Object.entries(body.questions ?? {})) {
       answers[name] =
-        question.type === "score" ? { type: "score", score: 1 } : { type: "noul", noul: 0.8 };
+        question.type === "score"
+          ? { type: "score", score: 1 }
+          : { type: "noul", noul: mockAnswer };
     }
     return Response.json(
       { model: "jev-latest", answers, usage: { input_tokens: 1, output_tokens: 1 } },
@@ -41,6 +49,7 @@ const MOCK_ENV = {
 async function runWithStdin(
   stdin: string,
   args: string[],
+  env: Record<string, string> = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   // Async spawn: the mock jev server lives in THIS process — a synchronous wait would block
   // its event loop and the child would hang waiting for answers.
@@ -49,7 +58,7 @@ async function runWithStdin(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...MOCK_ENV, STDIN: stdin },
+    env: { ...process.env, ...MOCK_ENV, STDIN: stdin, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -103,7 +112,7 @@ describe("cli: piped stdin str unit", async () => {
 
   test("human output: same stylish table, identity 'str:stdin'", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
-    expect(r.code).toBeLessThan(2); // the run happened; findings decide 0 vs 1
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language): exit 4
     // the failed unit names the stdin identity on stderr (stream discipline: errors there)
     expect(r.stderr).toContain("WALK_FAILED str:stdin");
     // the message names the real condition and the remedy (stdin has no extension to map)
@@ -154,7 +163,7 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBeLessThan(2);
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language)
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
@@ -179,5 +188,64 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.stderr).toContain("unknown language 'klingon'");
     expect(r.stderr).toContain("see --help for valid grammar ids");
     expect(r.stdout).toBe("");
+  });
+
+  test("jint str <existing-path> is rejected: inline source or '-' only, file remedy named", async () => {
+    const r = await runWithStdin("", [
+      "str",
+      "tests/fixtures/sample-file.ts",
+      "--json",
+      "--rule",
+      "is_greppable",
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("is a path");
+    expect(r.stderr).toContain("jint tests/fixtures/sample-file.ts");
+    expect(r.stdout).toBe("");
+  });
+
+  test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
+    lastWireBody = null;
+    const r = await runWithStdin(SNIPPET, [
+      "str",
+      "-",
+      "--json",
+      "--rule",
+      "is_greppable",
+      "--language",
+      "typescript",
+    ]);
+    expect(r.code).toBeLessThan(2);
+    const state = lastWireBody!.state as Record<string, unknown>;
+    expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
+    expect(state.path).toBe("str:stdin");
+    const questions = lastWireBody!.questions as Record<string, Record<string, unknown>>;
+    const names = Object.keys(questions);
+    expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
+    expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
+  });
+
+  test("partial failure (measured + WALK_FAILED) exits 4 even with zero error findings", async () => {
+    // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
+    // handle (warn 0.75 / error 0.6), so exit 4 can only come from the failed unit
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
+    const report = JSON.parse(r.stdout);
+    expect(report.measurements.length).toBeGreaterThan(0); // it measured
+    expect(report.errors.map((e: { code: string }) => e.code)).toContain("WALK_FAILED");
+    expect(r.code).toBe(4); // a half-measured run is a failed run
+  });
+
+  test("JEV_DEBUG_REQUEST_LOCATION alone turns on dumping for the str path, with the notice", async () => {
+    const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
+      JEV_DEBUG_REQUEST_LOCATION: dumpDir,
+    });
+    expect(r.code).toBe(4); // measured, but the unit also failed to map (no --language)
+    const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })];
+    expect(captures.length).toBeGreaterThan(0);
+    const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
+    expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);
+    expect(r.stderr).toContain("request captures ->");
+    expect(r.stderr).toContain(dumpDir);
   });
 });
