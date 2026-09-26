@@ -115,7 +115,7 @@ A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -
 
 ### Piped stdin: declared by a noun, never guessed
 
-stdin has no default kind. `jint diff -` reads a unified diff (decomposed into per-file units); `jint str -` reads ONE str unit (identity `"input"`). Piping without a noun is a usage error (exit 2) with guidance; bare `jint -` likewise; a TTY with payload `-` errors immediately instead of blocking on the terminal. Empty piped stdin falls through to `config.input`.
+stdin has no default kind. `jint diff -` reads a unified diff (decomposed into per-file units); `jint str -` reads ONE str unit (identity `str:stdin`). Piping without a noun is a usage error (exit 2) with guidance; bare `jint -` likewise; a TTY with payload `-` errors immediately instead of blocking on the terminal. Empty piped stdin falls through to `config.input`.
 
 ```bash
 cat snippet.ts | jint str - --json
@@ -123,7 +123,7 @@ cat snippet.ts | jint str - --language typescript --rule is_function_srp
 ```
 
 - `--` ends flag parsing for dash-paths (`jint -- --weird.ts`). Flags may appear before or after positionals (`jint --json src/` == `jint src/ --json`).
-- `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still measure.
+- `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin); valid ids: typescript, python, go — an unknown id is a usage error (exit 2). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still measure.
 - There is no `--measure` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
 - The removed `--file`/`--dir`/`--kind`/`--diff` flags error with a pointer at the new form.
 
@@ -137,7 +137,7 @@ Go (`.go`) decomposes with the shared role vocabulary (function/method -> functi
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0    | clean (measurements, no error-severity findings)                                                                                                                  |
 | 1    | error-severity findings found                                                                                                                                     |
-| 2    | usage/config error (bad flags, `CONFIG_INVALID`, entrypoint not found/unreadable)                                                                                 |
+| 2    | usage/config error (bad flags, unknown `--language`, `CONFIG_INVALID`, entrypoint not found/unreadable)                                                           |
 | 3    | internal error                                                                                                                                                    |
 | 4    | ran but measured nothing — zero measurements (CI can never pass an unmeasured diff). Per-unit errors are signalled on stderr but never fail the run by themselves |
 
@@ -189,7 +189,7 @@ const rules: readonly Rule[] = [
 ];
 
 const { measurements, errors, inventory } = await classify(str, rules, {
-  path: "snippet.ts", // identity + grammar detection; default "input"
+  path: "snippet.ts", // identity + grammar detection; default "str:stdin"
   language: "typescript", // explicit grammar for extensionless sources
   classifier: myJudge, // optional; defaults to the jev adapter
   concurrency: 8, // per-element call cap

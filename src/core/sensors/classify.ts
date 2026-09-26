@@ -278,7 +278,11 @@ export async function classifyFile(
   } else {
     const language = options.language ?? languageOf(state.path);
     if (language === null) {
-      failed = "no grammar mapping for extension";
+      // An extension names the remedy (fix the mapping); an extensionless path is piped stdin
+      // (the str noun) — there is no extension to map, the remedy is declaring the grammar.
+      failed = /\.[^./]+$/.test(state.path)
+        ? "no grammar mapping for extension"
+        : "cannot infer a grammar for piped stdin - declare it with --language";
     } else {
       try {
         const parsed = await decompose(content, language);
