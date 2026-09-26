@@ -49,6 +49,7 @@ const MOCK_ENV = {
 async function runWithStdin(
   stdin: string,
   args: string[],
+  env: Record<string, string> = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   // Async spawn: the mock jev server lives in THIS process — a synchronous wait would block
   // its event loop and the child would hang waiting for answers.
@@ -57,7 +58,7 @@ async function runWithStdin(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...MOCK_ENV, STDIN: stdin },
+    env: { ...process.env, ...MOCK_ENV, STDIN: stdin, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -222,5 +223,19 @@ describe("cli: piped stdin str unit", async () => {
     const names = Object.keys(questions);
     expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
+  });
+
+  test("JEV_DEBUG_REQUEST_LOCATION alone turns on dumping for the str path, with the notice", async () => {
+    const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
+    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
+      JEV_DEBUG_REQUEST_LOCATION: dumpDir,
+    });
+    expect(r.code).toBeLessThan(2);
+    const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })];
+    expect(captures.length).toBeGreaterThan(0);
+    const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
+    expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);
+    expect(r.stderr).toContain("request captures ->");
+    expect(r.stderr).toContain(dumpDir);
   });
 });

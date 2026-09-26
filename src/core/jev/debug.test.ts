@@ -50,10 +50,19 @@ afterEach(() => {
 });
 
 describe("requestDebug", () => {
-  test("disabled without JEV_DEBUG_REQUEST: config passes through untouched", () => {
+  test("disabled without either variable: config passes through untouched", () => {
     delete process.env.JEV_DEBUG_REQUEST;
+    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
     const config = requestDebug(undefined);
     expect(config.fetch).toBeUndefined();
+  });
+
+  test("a JEV_DEBUG_REQUEST_LOCATION override alone activates the tap", async () => {
+    delete process.env.JEV_DEBUG_REQUEST;
+    const config = requestDebug({ fetch: passthrough() });
+    expect(requestTapSummary()).not.toBeNull();
+    await captureOnce(config, { path: "a.ts", content: "x" });
+    expect(listCaptures(DIR)).toHaveLength(1);
   });
 
   test("writes one pretty-printed capture per call, named <unixts>-<kind>-<file>.json", async () => {
@@ -135,6 +144,7 @@ describe("requestDebug", () => {
 
   test("summary: inactive tap exposes nothing", () => {
     delete process.env.JEV_DEBUG_REQUEST;
+    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
     requestDebug(undefined);
     expect(requestTapSummary()).toBeNull();
   });

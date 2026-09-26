@@ -88,11 +88,12 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 
 /**
  * End-of-run stderr notice for the request tap: where the captures went and how many. Nothing when
- * the tap is inactive or wrote zero captures (e.g. the run failed before any classifier call).
+ * the tap is inactive; an active tap always reports, even zero captures (the run may have failed
+ * before any classifier call).
  */
 export function requestTapNotice(): string {
   const tap = requestTapSummary();
-  if (tap === null || tap.count === 0) return "";
+  if (tap === null) return "";
   const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
   return `jint: request captures -> ${tap.dir} (${tap.count} calls)${override}\n`;
 }
