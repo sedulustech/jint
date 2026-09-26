@@ -17,7 +17,7 @@ export type HandleResult = Severity | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir" | "diff";
 /** The kind of a resolved classifying unit. */
-export type UnitKind = "file" | "diff";
+export type UnitKind = "file" | "diff" | "str";
 
 /** Codes a thrown SetupError carries: setup/infrastructure failures. */
 export type SetupErrorCode =

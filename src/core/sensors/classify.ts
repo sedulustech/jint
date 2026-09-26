@@ -285,9 +285,14 @@ export async function classifyFile(
 
   // Whole-unit rules: files-target rules are relational claims judged over the whole unit;
   // on a diff unit the diffs-target rules join, judging the raw diff string as one unit
-  // (quick path: verbatim, no parsing, no per-unit ids - design §4 Diff units).
-  const wholeRules = rules.filter(
-    (rule) => rule.target === "files" || (rule.target === "diffs" && unit.kind === "diff"),
+  // (quick path: verbatim, no parsing, no per-unit ids - design §4 Diff units). A str unit is
+  // its own inventory: the whole input is the element, so EVERY rule judges it whole — the
+  // rule's target routes elements of a parsed inventory, and a str unit has no inventory by
+  // design. No grammar is ever inferred for it.
+  const wholeRules = rules.filter((rule) =>
+    unit.kind === "str"
+      ? true
+      : rule.target === "files" || (rule.target === "diffs" && unit.kind === "diff"),
   );
   const fileId = "id" in state ? state.id : contentHash(state.diff);
   if (wholeRules.length > 0) {
@@ -307,7 +312,9 @@ export async function classifyFile(
     if (fatalIn()) return { events, fatal: true, oversized: 0 };
   }
 
-  // Derive the inventory; failure is a per-unit error for the inventory-scoped rules.
+  // Derive the inventory; failure is a per-unit error for the inventory-scoped rules. Only file
+  // units have one: str and diff units are already terminal states (no grammar, no mapping, so
+  // no WALK_FAILED either — `failed` stays unpushed for them by the kind check below).
   let inventory: InventoryElement[] = [];
   let derived: Inventory | undefined;
   let failed: string | null = null;
