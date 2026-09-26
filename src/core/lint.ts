@@ -46,8 +46,9 @@ export interface LintOptions {
   /** Swappable classifier; defaults to the TypeSafe System One adapter. */
   classifier?: Classifier;
   /**
-   * One in-memory str unit (the CLI's piped-stdin form): judged as a single file under `path`
-   * (default "input"); bypasses input resolution entirely.
+   * One in-memory str unit (the CLI's piped-stdin form): judged whole under `path` (default
+   * "str:stdin"); bypasses input resolution entirely. Its own inventory — every rule judges the
+   * whole input, no grammar is ever inferred, and it never WALK_FAILEDs.
    */
   str?: { readonly content: string; readonly path?: string };
   /**
@@ -212,7 +213,7 @@ async function runUnit(
 /** A str as one file unit: the piped-stdin path (identity str:stdin unless named). */
 function strUnit(content: string, path?: string): Unit {
   return {
-    kind: "file",
+    kind: "str",
     state: {
       path: path ?? "str:stdin",
       content,
