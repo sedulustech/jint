@@ -1,4 +1,4 @@
-// Single-consumer fixture for composite descent (decompose.test.ts): nested describe/it plus a
+// Single-consumer fixture for composite descent (walk.test.ts): nested describe/it plus a
 // class whose methods become elements of their own. Not imported anywhere else.
 
 // Minimal globals so the fixture typechecks without test-runner types.

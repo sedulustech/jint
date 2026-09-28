@@ -10,7 +10,7 @@ import { readdir, open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { elementWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { languageOf } from "./decompose.ts";
+import { languageOf } from "./walk.ts";
 import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);

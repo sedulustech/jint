@@ -19,7 +19,7 @@ export {
 } from "./config/load.ts";
 export { lint, collectReport, type LintOptions, type LintReport } from "./core/lint.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
-export type { Inventory, InventoryElement, NodeRole } from "./core/input/decompose.ts";
+export type { Inventory, InventoryElement, NodeRole } from "./core/input/walk.ts";
 export { defaultRules } from "./core/sensors/defaults.ts";
 export {
   ClassifyError,

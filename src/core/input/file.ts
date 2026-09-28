@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { elementWireId } from "../sensors/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { languageOf } from "./decompose.ts";
+import { languageOf } from "./walk.ts";
 
 export async function fileUnit(path: string): Promise<Unit> {
   const info = await stat(path).catch((e: NodeJS.ErrnoException) => {

@@ -17,7 +17,7 @@ import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typ
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
-import { knownLanguages } from "./core/input/decompose.ts";
+import { knownLanguages } from "./core/input/walk.ts";
 import { requestTapSummary } from "./core/jev/debug.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
@@ -434,7 +434,8 @@ function exitForThrown(thrown: unknown): number {
     error.code === "CONFIG_INVALID" ||
     error.code === "ENTRYPOINT_NOT_FOUND" ||
     error.code === "ENTRYPOINT_UNREADABLE" ||
-    error.code === "NOT_SOURCE"
+    error.code === "NOT_SOURCE" ||
+    error.code === "RULE_INVALID"
   )
     return 2;
   // A ClassifyError that escaped the stream: the run happened but produced nothing

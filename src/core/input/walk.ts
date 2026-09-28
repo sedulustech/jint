@@ -57,6 +57,12 @@ export interface InventoryElement {
   readonly docstringOf?: DocstringOwner;
   /** Comment nodes nested inside this definition's body; consumed into the element by construction. */
   readonly internalCommentCount: number;
+  /**
+   * The enclosing element's label ("d3"), when this element sits inside one (a docstring inside its
+   * function, a method inside a composite header's descent); absent at the top level. Hierarchy
+   * travels with the element (design rules-context/02) — pairing reads it.
+   */
+  readonly parent?: string;
   /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
   readonly oversized?: boolean;
 }
@@ -290,6 +296,7 @@ interface RawElement {
   readonly attachedComment?: readonly string[];
   readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
+  readonly parent?: string;
   /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
   readonly oversized?: boolean;
 }
@@ -363,15 +370,16 @@ export async function decompose(source: string, language: string): Promise<Inven
   const importNodes: Array<{ nodeType: string; text: string; span: UnitSpan }> = [];
   // Comments awaiting a definition to attach to, in document order.
   let pending: Array<{ text: string; span: UnitSpan }> = [];
-  const flushStandalone = () => {
+  const flushStandalone = (parent?: string) => {
     for (const p of pending)
       comments.push({
-        label: "",
+        label: "c" + String(comments.length),
         content: p.text,
         nodeType: "comment",
         role: "comment",
         span: p.span,
         internalCommentCount: 0,
+        ...(parent !== undefined && { parent }),
       });
     pending = [];
   };
@@ -383,8 +391,10 @@ export async function decompose(source: string, language: string): Promise<Inven
     node: any,
     type: string,
     role: NodeRole,
+    parent: string | undefined,
     attached?: readonly string[],
   ) => {
+    const label = "d" + String(definitions.length);
     let content = outer.text;
     let span = spanOf(outer);
     // Composite header state (design: composite body-size fix): composites carry their declaration
@@ -404,11 +414,12 @@ export async function decompose(source: string, language: string): Promise<Inven
       }
     }
     definitions.push({
-      label: "",
+      label,
       span,
       content,
       nodeType: type,
       role,
+      ...(parent !== undefined && { parent }),
       ...(attached ? { attachedComment: attached } : {}),
       internalCommentCount: countInternalComments(node),
     });
@@ -416,12 +427,13 @@ export async function decompose(source: string, language: string): Promise<Inven
     const docstring = docstringOf(node);
     if (docstring) {
       comments.push({
-        label: "",
+        label: "c" + String(comments.length),
         content: docstring.text,
         nodeType: "string",
         role: "comment",
         span: docstring.span,
         internalCommentCount: 0,
+        parent: label,
         docstringOf: {
           kind: type === "class_definition" ? "class" : "function",
           name: defName(node),
@@ -455,21 +467,23 @@ export async function decompose(source: string, language: string): Promise<Inven
     "class_definition",
     "call_expression",
   ]);
-  const descend = (node: any, depth: number): void => {
+  const descend = (node: any, depth: number, parent: string | undefined): void => {
     if (depth > MAX_DESCENT_DEPTH) return;
     for (const child of node.namedChildren) {
       const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
       const role = resolveRole(type, inner, mapping.roleTable);
       if (role !== undefined && role !== "comment" && role !== "import") {
-        emit(child, inner, type, role);
-        // Nested composite: emitted as a header AND descended into, recursively.
+        const label = "d" + String(definitions.length);
+        emit(child, inner, type, role, parent);
+        // Nested composite: emitted as a header AND descended into, recursively; the parent link
+        // threads here — inner elements know the enclosing element's label.
         if (COMPOSITES.has(type)) {
-          descend(inner, depth + 1);
+          descend(inner, depth + 1, label);
         }
         continue;
       }
       if (DESCENT_CONTAINERS.has(type)) {
-        descend(inner, depth + 1);
+        descend(inner, depth + 1, parent);
       }
     }
   };
@@ -484,7 +498,7 @@ export async function decompose(source: string, language: string): Promise<Inven
       // Module docstring: the file's FIRST statement wrapping a string, owned by the module.
       if (topLevel && i === 0 && type === "string") {
         comments.push({
-          label: "",
+          label: "c" + String(comments.length),
           content: inner.text,
           nodeType: "string",
           role: "comment",
@@ -516,16 +530,17 @@ export async function decompose(source: string, language: string): Promise<Inven
             inner,
             type,
             role,
+            undefined,
             pending.map((p) => p.text),
           );
           pending = [];
         } else {
           flushStandalone();
-          emit(child, inner, type, role);
+          emit(child, inner, type, role, undefined);
         }
         // Composite: judged AND descended into (class -> type role; call -> function role).
         if (COMPOSITES.has(type)) {
-          descend(inner, 1);
+          descend(inner, 1, "d" + String(definitions.length - 1));
         }
         continue;
       }
@@ -571,13 +586,12 @@ export async function decompose(source: string, language: string): Promise<Inven
   const oversizedCount = [...sizedDefs, ...sizedComments, ...sizedImports].filter(
     (e) => e.oversized === true,
   ).length;
-  const label = (elements: RawElement[], prefix: string) =>
-    elements.map((element, i) => ({ ...element, label: prefix + String(i) }));
+  // Labels are assigned at emit time (parent links reference them); sizing is order-preserving.
   return {
     hasError: tree.rootNode.hasError,
-    definitions: label(sizedDefs, "d"),
-    comments: label(sizedComments, "c"),
-    imports: label(sizedImports, "i"),
+    definitions: sizedDefs,
+    comments: sizedComments,
+    imports: sizedImports,
     oversizedCount,
   };
 }

@@ -7,12 +7,7 @@
  * (design §7).
  */
 
-import {
-  decompose,
-  languageOf,
-  type Inventory,
-  type InventoryElement,
-} from "../input/decompose.ts";
+import { decompose, languageOf, type Inventory, type InventoryElement } from "../input/walk.ts";
 import {
   ClassifyError,
   type AnyState,

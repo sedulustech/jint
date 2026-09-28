@@ -11,9 +11,9 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { MAX_ELEMENT_CHARS } from "./input/decompose.ts";
 import { decomposeDiff } from "./input/diff.ts";
 import { resolveInput } from "./input/infer.ts";
+import { MAX_ELEMENT_CHARS } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import { classifyFile, elementWireId, type ClassifyEvent } from "./sensors/classify.ts";
 import {
