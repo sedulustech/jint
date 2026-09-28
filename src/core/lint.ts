@@ -11,11 +11,19 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { MAX_ELEMENT_CHARS } from "./input/decompose.ts";
 import { decomposeDiff } from "./input/diff.ts";
 import { resolveInput } from "./input/infer.ts";
+import { MAX_ELEMENT_CHARS, type InventoryElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
-import { classifyFile, elementWireId, type ClassifyEvent } from "./sensors/classify.ts";
+import {
+  classifyFile,
+  elementWireId,
+  walkUnit,
+  type ClassifyEvent,
+  type WalkedUnit,
+} from "./sensors/classify.ts";
+import { resolveAllTsTargets, runTsRules, type ResolvedTsTargets } from "./tsrules/execute.ts";
+import { loadTsConfigRules } from "./tsrules/loader.ts";
 import {
   ClassifyError,
   SetupError,
@@ -28,6 +36,7 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
+import type { TsRule } from "./tsrules/sdk.ts";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;
@@ -75,11 +84,20 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const rules = pickRules(options.config.rules, options.disable, options.only);
+  // TS-tier rules load at setup: any load failure (gate, thrown module, invalid defineConfig,
+  // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
+  const loadedTsRules = await loadTsConfigRules(options.config.tsRules ?? []);
+  assertNoCrossTierDuplicates(options.config.rules, loadedTsRules);
+  const { json: rules, ts: tsRules } = partitionRules(
+    options.config.rules,
+    loadedTsRules,
+    options.disable,
+    options.only,
+  );
   // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
-    rules.length > 0 &&
+    rules.length + tsRules.length > 0 &&
     options.classifier === undefined &&
     !apiKeyAvailable(options.config.apiKey)
   ) {
@@ -105,11 +123,58 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const byName = new Map(rules.map((s) => [s.name, s]));
   let aborted = false;
 
+  // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
+  // inventories (metadata + parent links) retained, trees freed inside walkUnit. Peak memory =
+  // metadata-so-far + contents-so-far + one tree, the same profile as the old streaming walk.
+  const walked = new Map<number, WalkedUnit>();
+  for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
+    await Promise.all(
+      units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
+        if (unit.kind === "file") {
+          walked.set(
+            i + j,
+            await walkUnit(
+              unit,
+              options.language !== undefined ? { language: options.language } : {},
+            ),
+          );
+        }
+      }),
+    );
+  }
+
+  // TS-tier resolution ONCE per run over the completed walk, then the retention decision: content
+  // of files with zero selected targets is dropped (logical drop, no re-read) unless a files-target
+  // JSON rule needs every file's text.
+  let tsResolved: ResolvedTsTargets | undefined;
+  if (tsRules.length > 0) {
+    const elementsByPath = new Map<string, readonly InventoryElement[]>();
+    for (let i = 0; i < units.length; i++) {
+      const w = walked.get(i);
+      if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
+    }
+    tsResolved = resolveAllTsTargets(tsRules, elementsByPath);
+    if (!rules.some((r) => r.target === "files")) {
+      const targetPaths = new Set<string>();
+      for (const resolved of tsResolved.values()) {
+        if ("targets" in resolved) for (const t of resolved.targets) targetPaths.add(t.path);
+      }
+      for (let i = 0; i < units.length; i++) {
+        const unit = units[i]!;
+        if (walked.has(i) && !targetPaths.has(unit.state.path)) {
+          units[i] = { kind: unit.kind, state: { ...unit.state, content: "" } };
+        }
+      }
+    }
+  }
+
   for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
     const results = await Promise.all(
       units
         .slice(i, i + FILE_CONCURRENCY)
-        .map((unit) => runUnit(unit, rules, classifier, () => aborted, options.language)),
+        .map((unit, j) =>
+          runUnit(unit, rules, classifier, () => aborted, options.language, walked.get(i + j)),
+        ),
     );
     for (let j = 0; j < results.length; j++) {
       const result = results[j]!;
@@ -154,6 +219,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       }
     }
   }
+
+  // TS-tier classification runs after the JSON waves (one resolution, fan-out, policy once per
+  // rule); its findings stream at the end of the run, bound to each target's span.
+  if (tsResolved !== undefined && !aborted) {
+    const phase = await runTsRules(tsRules, tsResolved, classifier, () => aborted);
+    for (const event of phase.events) yield event;
+    if (phase.fatal) aborted = true;
+  }
 }
 
 /** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
@@ -197,6 +270,7 @@ async function runUnit(
   classifier: Classifier,
   isAborted: () => boolean,
   language?: string,
+  walked?: WalkedUnit,
 ): Promise<UnitResult> {
   const result = await classifyFile(
     unit,
@@ -204,6 +278,7 @@ async function runUnit(
     classifier,
     isAborted,
     language !== undefined ? { language } : {},
+    walked,
   );
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
   // rides the same stream as measurements, and the reporters count it in the run summary.
@@ -261,28 +336,41 @@ function unknownRuleMessage(name: string, known: ReadonlySet<string>): string {
     : `unknown rule "${name}"`;
 }
 
-function pickRules(
-  rules: readonly Rule[],
+/** Load-time fatality: a TS rule shadowing a JSON rule (or vice versa) is a config contradiction. */
+function assertNoCrossTierDuplicates(jsonRules: readonly Rule[], tsRules: readonly TsRule[]): void {
+  const json = new Set(jsonRules.map((rule) => rule.name));
+  for (const rule of tsRules) {
+    if (json.has(rule.name)) {
+      throw new SetupError(
+        "RULE_INVALID",
+        'duplicate rule name "' +
+          rule.name +
+          '" in tsRules and the JSON rules tier — names are global across tiers',
+      );
+    }
+  }
+}
+
+/**
+ * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
+ * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
+ */
+function partitionRules(
+  jsonRules: readonly Rule[],
+  tsRules: readonly TsRule[],
   disable: readonly string[] | undefined,
   only: readonly string[] | undefined,
-): readonly Rule[] {
-  // Unknown rule names are a usage error, never a silent empty run: the run would produce zero
-  // findings with no explanation (design: setup failures throw SetupError, per-unit failures don't).
-  const known = new Set(rules.map((rule) => rule.name));
+): { json: Rule[]; ts: TsRule[] } {
+  const known = new Set([...jsonRules, ...tsRules].map((rule) => rule.name));
   for (const name of disable ?? [])
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
   for (const name of only ?? [])
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
-  let out = rules;
-  if (disable !== undefined && disable.length > 0) {
-    const disabled = new Set(disable);
-    out = out.filter((s) => !disabled.has(s.name));
-  }
-  if (only !== undefined && only.length > 0) {
-    const wanted = new Set(only);
-    out = out.filter((s) => wanted.has(s.name));
-  }
-  return out;
+  const disabled = disable !== undefined && disable.length > 0 ? new Set(disable) : null;
+  const wanted = only !== undefined && only.length > 0 ? new Set(only) : null;
+  const keep = (rule: { name: string }): boolean =>
+    (disabled === null || !disabled.has(rule.name)) && (wanted === null || wanted.has(rule.name));
+  return { json: jsonRules.filter(keep), ts: tsRules.filter(keep) };
 }
 
 export interface LintReport {

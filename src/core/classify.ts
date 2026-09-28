@@ -25,7 +25,7 @@ import {
   type Rule,
   type Unit,
 } from "./types.ts";
-import type { Inventory } from "./input/decompose.ts";
+import type { Inventory } from "./input/walk.ts";
 
 /** Options for the one-shot classify door. */
 export interface ClassifyOptions {

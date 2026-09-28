@@ -25,13 +25,16 @@ export type SetupErrorCode =
   | "ENTRYPOINT_NOT_FOUND"
   | "ENTRYPOINT_UNREADABLE"
   | "NOT_SOURCE"
+  | "RULE_INVALID"
   | "INTERNAL";
 
 /**
  * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
- * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements.
- * INTERNAL lives in both unions: invariant violations throw SetupError("INTERNAL"), while a
- * classifier-adjacent failure of unknown shape streams as ClassifyError("INTERNAL").
+ * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements;
+ * RULE_FAILED names a TS rule's mid-run throw (classify / target fn / handleClassification) —
+ * per-unit, non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL lives in both
+ * unions: invariant violations throw SetupError("INTERNAL"), while a classifier-adjacent failure of
+ * unknown shape streams as ClassifyError("INTERNAL").
  */
 export type ClassifyErrorCode =
   | "JEV_AUTH"
@@ -39,6 +42,7 @@ export type ClassifyErrorCode =
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
   | "WALK_FAILED"
+  | "RULE_FAILED"
   | "INTERNAL";
 
 /**
@@ -157,6 +161,12 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
+   * Additive (TS tier, rules-context/04): a policy callback's custom message and extra structured
+   * data, schema-validated at the callback boundary. Absent for threshold-derived findings.
+   */
+  readonly message?: string;
+  readonly data?: Record<string, unknown>;
+  /**
    * Exact element location for element-scoped findings: the identified element plus its byte/line
    * span into the source. Absent for files-target findings (relational, file-shaped).
    */
@@ -228,6 +238,15 @@ export interface ScoreQuestionSpec {
 }
 
 export type QuestionSpec = NoulQuestionSpec | ScoreQuestionSpec;
+
+/**
+ * Jint's reexport of the jev answer type for a rule (design rules-context/04): the raw classifier
+ * answer, structurally the vendor response shape — the TS policy callback's input, aligned with
+ * ctx.targets by index. noul-only in v1.
+ */
+export type NoulResult = { readonly type: "noul"; readonly noul: number };
+export type ScoreResult = { readonly type: "score"; readonly score: number };
+export type RuleResult = NoulResult | ScoreResult;
 
 /**
  * The swappable backend seam: answers keyed by question name. Implemented by jev/client.ts; faked

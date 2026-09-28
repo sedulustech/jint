@@ -11,7 +11,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { defaultRules } from "../core/sensors/defaults.ts";
@@ -77,6 +77,9 @@ export const CONFIG_SCHEMA = Type.Object({
   input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
   rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
+  // TS-tier rules: paths to TypeScript rule files (default-exporting defineRule from "jint:api"),
+  // resolved relative to the config file. The JSON tier above is untouched by this key.
+  tsRules: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
@@ -87,6 +90,8 @@ export interface ResolvedConfig {
   readonly input?: string;
   readonly inputType?: "file" | "dir" | "diff";
   readonly rules: readonly Rule[];
+  /** TS-tier rule files, resolved absolute; empty when the config declares none. */
+  readonly tsRules?: readonly string[];
   readonly exclude: readonly string[];
   readonly apiKey?: string;
 }
@@ -96,6 +101,7 @@ export function defaultConfig(): ResolvedConfig {
   return Object.freeze({
     input: "",
     rules: Object.freeze(Object.values(defaultRules)),
+    tsRules: Object.freeze([]),
     exclude: Object.freeze(["**/fixtures/**"]),
   });
 }
@@ -157,11 +163,14 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     input: string;
     inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
+    tsRules: string[];
     exclude: string[];
     apiKey?: string;
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
+    // Relative TS rule paths resolve against the config file's directory, like the config itself.
+    tsRules: (parsed.tsRules ?? []).map((p) => resolve(dirname(resolve(source)), p)),
     exclude: parsed.exclude ?? [],
   };
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;

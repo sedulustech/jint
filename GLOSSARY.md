@@ -55,6 +55,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **state** — exactly what the model judges for one question.
 - **strategy** — a model of the state and questions sent to the classifier, balancing
   performance, accuracy, and price; results live in STRATEGIES.md.
+- **ts rule** — a rule authored in TypeScript and executed by jint on the embedded runtime: loaded from config-declared `tsRules` paths through the `jint:sdk` virtual module (`defineConfig` fragments contributing rules only), returning state specs from `classify(self, ctx)` — jint calls the classifier, never the rule. Policy is exactly one of declarative `handle` or the `handleClassification` callback. Mid-run rule throws are RULE_FAILED (per-unit, non-fatal); load-time shape violations are fatal (RULE_INVALID).
 - **target** — what a rule asks the engine to resolve into its environment (rule perspective;
   the input kind is the CLI perspective). Declarative or a selection function.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.

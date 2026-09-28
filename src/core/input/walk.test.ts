@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
-import { decompose, MAX_ELEMENT_CHARS, type Inventory } from "./decompose.ts";
+import { decompose, MAX_ELEMENT_CHARS, type Inventory } from "./walk.ts";
 
 const GOLDEN = "src/core/types.ts";
 
@@ -47,17 +47,17 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
-    // 29 top-level definitions + 2 method elements from composite descent into the two class
-    // declarations, no imports in this file (golden tracks src/core/types.ts).
-    expect(inv.definitions).toHaveLength(31);
+    // Top-level definitions + method elements from composite descent into the class declaration,
+    // no imports in this file (golden tracks src/core/types.ts — update when it grows).
+    expect(inv.definitions).toHaveLength(34);
     expect(inv.imports).toHaveLength(0);
-    // 31 comment nodes total, all accounted for: 21 attached as leading docs, 1 standalone
-    // (the file header, separated from the first declaration by a blank line), and 9 nested
-    // member-doc comments inside declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(37);
-    expect(attachedCount(inv)).toBe(25);
+    // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
+    // separated from the first declaration by a blank line), and member-doc comments inside
+    // declaration bodies, consumed into their definition elements.
+    expect(accountedComments(inv)).toBe(39);
+    expect(attachedCount(inv)).toBe(26);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(11);
+    expect(internalCount(inv)).toBe(12);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
