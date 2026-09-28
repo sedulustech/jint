@@ -31,9 +31,29 @@ declare module "jint:sdk" {
     readonly parent: TsElement | null;
   }
 
-  /** The rule's environment, assembled after target resolution (v1: targets only). */
+  /**
+   * The ctx.diff lens: knowledge about the judged things, never the judged things. Present ONLY
+   * when a changed-file list was given (jint - / --changed); defined with an EMPTY paths list when
+   * the list was empty or matched nothing (loud, never silent — see the seed rule). Each key
+   * mirrors the target grammar as the changed subset: ctx.targets.<kind> filtered to elements whose
+   * input path is in paths.
+   */
+  export interface DiffLens {
+    /** The changed-file list, verbatim (deduplicated, walked entries only). */
+    readonly paths: readonly string[];
+    /** Every element of a changed path (any role). */
+    readonly file: readonly TsElement[];
+    readonly functions: readonly TsElement[];
+    readonly definitions: readonly TsElement[];
+    readonly comments: readonly TsElement[];
+    readonly imports: readonly TsElement[];
+  }
+
+  /** The rule's environment, assembled after target resolution. */
   export interface RuleContext {
     readonly targets: readonly TsElement[];
+    /** The ctx.diff lens, present iff a changed list was given (undefined otherwise). */
+    readonly diff?: DiffLens;
   }
 
   /** One compiled judgment: question, criteria, and the freely composed state jev judges. */

@@ -119,19 +119,25 @@ describe("cli: contract basics", () => {
     for (const [args, hint] of [
       [["--file", "a.ts"], "use: jint <path>..."],
       [["--dir", "src"], "use: jint <dir>"],
-      [["--kind", "diff"], "use: jint diff -"],
-      [["--diff", "-"], "use: jint diff -"],
+      [["--kind", "diff"], "a changed-file list is jint - (stdin)"],
+      [["--diff", "-"], "the diff noun was removed"],
     ] as const) {
       expectContract(run([...args]), { exit: 2, stderr: hint });
     }
   });
 
-  test("bare 'jint -' -> usage error with guidance, exit 2", () => {
-    expectContract(run(["-"]), { exit: 2, stderr: ["jint diff -", "jint str -"] });
+  test("bare 'jint -' with empty stdin: an empty changed list, then the input backstop", () => {
+    const proc = Bun.spawnSync(["/bin/bash", "-c", "printf '' | bun " + CLI + " -"], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...NO_KEY },
+    });
+    expect(proc.exitCode).toBe(2);
+    expect(proc.stderr.toString()).toContain("selected no files");
   });
 
   test("bare noun without payload -> usage error, exit 2 (never a path lookup)", () => {
-    expectContract(run(["diff"]), { exit: 2, stderr: "expects a payload" });
     expectContract(run(["str"]), { exit: 2, stderr: "expects a payload" });
   });
 
@@ -208,9 +214,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(JSON.parse(r.stdout).measurements).toEqual([]);
   });
 
-  test("jint diff - reads piped stdin (decomposition happens before the jev call)", () => {
+  test("jint - reads the stdin changed-file list: the list IS the judged subject", () => {
     const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} diff - --json`],
+      [
+        "/bin/bash",
+        "-c",
+        `printf 'tests/fixtures/sample-file.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      ],
       {
         cwd: ROOT,
         stdout: "pipe",
@@ -220,30 +230,39 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(proc.exitCode).toBe(4);
     const report = JSON.parse(proc.stdout.toString());
-    // the diff text decomposed into per-file units; the transport failure names a unit path
-    expect(report.errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
-    expect(report.errors[0]!.code).toBe("JEV_UNAVAILABLE");
+    // the listed file was judged: the transport failure names it (subject came from the list)
+    expect(report.errors.length).toBeGreaterThan(0);
+    expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
   });
 
-  test("empty diff: humans get a stderr line (exit 4 never silent); --json keeps the empty report", () => {
-    const empty = (args: string) => {
-      const proc = Bun.spawnSync(["/bin/bash", "-c", `printf '' | bun ${CLI} ${args}`], {
+  test("a changed-list path that is not in the walk is a NOTE, never silence", () => {
+    const proc = Bun.spawnSync(
+      [
+        "/bin/bash",
+        "-c",
+        `printf 'tests/fixtures/sample-file.ts\nno/such/file.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      ],
+      {
         cwd: ROOT,
         stdout: "pipe",
         stderr: "pipe",
         env: { ...process.env, ...NO_SERVICE },
-      });
-      return {
-        code: proc.exitCode,
-        stdout: proc.stdout.toString(),
-        stderr: proc.stderr.toString(),
-      };
-    };
-    const human = empty("diff -");
-    expectContract(human, { exit: 4, stderr: "no measurements - empty diff" });
-    const json = expectContract(empty("diff - --json"), { exit: 4, stdout: "json" });
-    expect(json.measurements).toEqual([]);
-    expect(empty("diff - --json").stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
+      },
+    );
+    expect(proc.exitCode).toBe(4);
+    const report = JSON.parse(proc.stdout.toString());
+    expect(
+      report.notes.some(
+        (n: string) => n.includes("not found in the walk") && n.includes("no/such/file.ts"),
+      ),
+    ).toBe(true);
+  });
+
+  test("--diff-patch is gone: unknown flag, exit 2", () => {
+    expectContract(run(["tests/fixtures/sample-file.ts", "--diff-patch", "p.patch"]), {
+      exit: 2,
+      stderr: "unknown option",
+    });
   });
 
   test("unknown --language: usage error exit 2 before any input is touched", () => {
@@ -260,13 +279,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
     );
     expect(proc.exitCode).toBe(2);
-    expect(proc.stderr.toString()).toContain("jint diff -");
     expect(proc.stderr.toString()).toContain("jint str -");
+    expect(proc.stderr.toString()).toContain("jint -");
   });
 
   test("TTY with payload '-' -> immediate usage error, never blocks", () => {
     // script(1) allocates a pty so process.stdin.isTTY is true in the child
-    const proc = Bun.spawnSync(["/bin/bash", "-c", `script -qec 'bun ${CLI} diff -' /dev/null`], {
+    const proc = Bun.spawnSync(["/bin/bash", "-c", `script -qec 'bun ${CLI} str -' /dev/null`], {
       cwd: ROOT,
       stdout: "pipe",
       stderr: "pipe",
@@ -311,10 +330,10 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(proc.stderr.toString()).toContain("failed to classify");
   });
 
-  test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
+  test("a patch file is just a file: NOT_SOURCE, never decomposed (there is no diff noun)", () => {
     const r = run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
-    expect(r.code).toBe(4);
-    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("file not found: diff");
   });
 
   test("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {

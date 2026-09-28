@@ -46,6 +46,7 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   concurrency: TypeBoxType.Optional(TypeBoxType.String()),
   "rps-budget": TypeBoxType.Optional(TypeBoxType.String()),
   timeout: TypeBoxType.Optional(TypeBoxType.String()),
+  changed: TypeBoxType.Optional(TypeBoxType.String()),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
@@ -57,17 +58,18 @@ const HELP = `jint — jev lint: classifies code with AI-classifier judgments; r
 Usage:
   jint src/                       classify a directory tree
   jint a.ts b.ts                  classify files
-  git diff HEAD~1 | jint diff -   piped stdin, declared a diff
-  jint diff fix.patch             a patch file, declared a diff
+  git diff --name-only HEAD~1 | jint -   a changed-file LIST from stdin (the ctx.diff lens:
+                                         with no other input, the list is what gets judged)
   cat snippet.ts | jint str -     piped stdin, one str unit
   jint                            no positional: input comes from jint.config.json
 
-The resource is the noun; the verb (classify) is implicit. str and diff are nouns only as the
-FIRST positional; the next positional is their payload, taken verbatim — no flag parsing:
+The resource is the noun; the verb (classify) is implicit. str is a noun only as the
+FIRST positional; the next positional is its payload, taken verbatim — no flag parsing:
 jint str "--json" classifies "--json" as source. Nouns never resolve to paths — a file named
-diff is reached as jint ./diff, and a str payload that names an existing path is rejected
+str is reached as jint ./str, and a str payload that names an existing path is rejected
 (inline source or '-' only; classify the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
-else file); content is never sniffed. Piped stdin is declared by a noun, never guessed. --
+else file); content is never sniffed. A bare '-' positional is the changed-file LIST from stdin
+(your VCS pipeline: git diff --name-only HEAD~1 | jint -). --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
@@ -85,6 +87,9 @@ Options:
                       the published 1200 rpm quota; overrides config rps_budget)
   --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
                       JEV_TIMEOUT failure - liveness, not retry)
+  --changed <file>    changed-file LIST (one path per line, relative to the input dir or
+                      absolute) - the ctx.diff lens for rules; with no other input, the list IS
+                      the judged subject (the changeset form: git diff --name-only HEAD~1 | jint -)
   --json              machine report (jint-report/v1) instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
@@ -145,49 +150,39 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
-  // that); piped stdin is DECLARED by a noun (jint diff - / jint str -), never guessed. EMPTY
+  // that); piped stdin is DECLARED by a noun (jint str -) or is a changed-list (jint -), never
+  // guessed. EMPTY
   // piped stdin falls through so config.input can flow (a closed or /dev/null stdin is the
   // config-only invocation shape). A TTY is never read; a TTY with payload "-" dies here, not
   // blocking on the terminal, and a TTY with no noun and no config input dies in lint()'s
   // empty-input backstop.
   let stdinStr: { content: string } | undefined;
-  let stdinDiff: { text: string } | undefined;
-  // the run's input is a diff (piped or patch file): exit-4 remedy wording
-  let diffRun = false;
   let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
-    usageError(
-      "bare '-' does not declare a kind — use: jint diff - (piped diff) or jint str - (piped source)",
-    );
-    return 2;
+    // The changed-file LIST from stdin: the user's own VCS pipeline feeding the ctx.diff lens
+    // (git diff --name-only HEAD~1 | jint -). Never a judged subject — a noun declares those.
+    // stdin is NOT consumed here: the lens resolver in lint() reads it lazily.
+    if (process.stdin.isTTY) {
+      usageError("jint -: no piped stdin to read the changed list from (stdin is a terminal)");
+      return 2;
+    }
   }
-  if (firstPositional === "diff" || firstPositional === "str") {
-    // Nouns never resolve to filesystem paths (a repo file named 'diff' is reached as ./diff);
+  if (firstPositional === "str") {
+    // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str);
     // the payload is the raw next positional, consumed without flag interpretation.
     const payload = positionals[1];
     if (payload === undefined) {
-      usageError(
-        `jint ${firstPositional} expects a payload — use: jint ${firstPositional} - (piped stdin) or jint ${firstPositional} <${firstPositional === "diff" ? "fix.patch" : '"code"'}>`,
-      );
+      usageError('jint str expects a payload — use: jint str - (piped stdin) or jint str <"code">');
       return 2;
     }
     if (payload === "-") {
       if (process.stdin.isTTY) {
-        usageError(`jint ${firstPositional} -: no piped stdin to classify (stdin is a terminal)`);
+        usageError("jint str -: no piped stdin to classify (stdin is a terminal)");
         return 2;
       }
-      const content = await Bun.stdin.text();
-      if (firstPositional === "str") stdinStr = { content };
-      else {
-        stdinDiff = { text: content };
-        diffRun = true;
-      }
-    } else if (firstPositional === "diff") {
-      // a patch path; readDiffSource resolves it
-      lintInput = { input: payload, inputType: "diff" };
-      diffRun = true;
+      stdinStr = { content: await Bun.stdin.text() };
     } else if (existsSync(payload)) {
       // A payload that names a real path is almost certainly a mistyped file classify: honoring it
       // as inline text would classify the PATH STRING as source (degenerate state) under the
@@ -200,7 +195,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       // inline source text, identity "input"
       stdinStr = { content: payload };
     }
-  } else if (positionals.length > 0) {
+  } else if (positionals.length > 0 && firstPositional !== "-") {
     // Paths. Files may be many; a directory is exactly one path (the walk owns its tree).
     if (positionals.length > 1) {
       try {
@@ -225,11 +220,11 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       positionals.length === 1
         ? { input: positionals[0]! }
         : { input: positionals, inputType: "file" };
-  } else if (!process.stdin.isTTY) {
+  } else if (!process.stdin.isTTY && firstPositional !== "-") {
     const content = await Bun.stdin.text();
     if (content !== "") {
       usageError(
-        "piped stdin needs a noun declaring its kind — use: jint diff - (unified diff) or jint str - (one source snippet)",
+        "piped stdin needs a kind — use: jint str - (one source snippet) or jint - (a changed-file list: git diff --name-only HEAD~1 | jint -)",
       );
       return 2;
     }
@@ -253,15 +248,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         // applies ("" would shadow the config — lint() keeps the empty-input backstop).
         ...(stdinStr !== undefined
           ? { str: stdinStr, language: cliArgs.language }
-          : stdinDiff !== undefined
-            ? { diffText: stdinDiff }
-            : (lintInput ?? {})),
+          : (lintInput ?? {})),
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
         concurrency,
         rps_budget: rpsBudget,
         timeout,
+        changed: firstPositional === "-" ? "-" : cliArgs.changed,
       }),
     );
     // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
@@ -273,11 +267,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
     const exit = computeExit(lintReport);
-    // Zero measurements is never silent for humans: an empty diff looks identical to a crash
-    // with zero bytes of explanation. The empty report itself is the machine-facing truth.
-    if (exit === 4 && cliArgs.json !== true && diffRun) {
-      process.stderr.write("jint: no measurements - empty diff\n");
-    }
     process.stderr.write(requestTapNotice());
     return exit;
   } catch (thrown) {
@@ -309,8 +298,9 @@ type CliArgsParse =
 const REMOVED_FLAGS: Readonly<Record<string, string>> = {
   "--file": "use: jint <path>... (e.g. jint src/a.ts)",
   "--dir": "use: jint <dir> (e.g. jint src/)",
-  "--kind": "use: jint diff - (piped diff) or jint str - (piped source)",
-  "--diff": "use: jint diff -",
+  "--kind": "use: jint str - (piped source); a changed-file list is jint - (stdin)",
+  "--diff":
+    "the diff noun was removed - pipe a changed-file list: git diff --name-only HEAD~1 | jint -",
 };
 
 /**
@@ -329,6 +319,7 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "--concurrency",
   "--rps-budget",
   "--timeout",
+  "--changed",
   "--json",
   "--debug",
   "--help",
@@ -341,7 +332,7 @@ function isFlagToken(token: string): boolean {
   return KNOWN_FLAGS.has(token.split("=")[0]!);
 }
 
-const NOUNS: ReadonlySet<string> = new Set(["diff", "str"]);
+const NOUNS: ReadonlySet<string> = new Set(["str"]);
 
 /** Modifier flags that take a value token; their value must ride with them into parseArgs. */
 const VALUED_FLAGS: ReadonlySet<string> = new Set([
@@ -354,6 +345,7 @@ const VALUED_FLAGS: ReadonlySet<string> = new Set([
   "--concurrency",
   "--rps-budget",
   "--timeout",
+  "--changed",
 ]);
 
 /**
@@ -425,6 +417,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         concurrency: { type: "string" },
         "rps-budget": { type: "string" },
         timeout: { type: "string" },
+        changed: { type: "string" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },

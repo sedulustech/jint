@@ -11,7 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { decomposeDiff } from "./input/diff.ts";
+import { parseChangedList, readChangedSource } from "./input/changed.ts";
 import { resolveInput } from "./input/infer.ts";
 import { MAX_ELEMENT_CHARS, type InventoryElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
@@ -32,7 +32,13 @@ import {
   type ClassifyEvent,
   type WalkedUnit,
 } from "./sensors/classify.ts";
-import { resolveAllTsTargets, runTsRules, type ResolvedTsTargets } from "./tsrules/execute.ts";
+import {
+  buildDiffLens,
+  resolveAllTsTargets,
+  runTsRules,
+  tsElementsOf,
+  type ResolvedTsTargets,
+} from "./tsrules/execute.ts";
 import { loadTsConfigRules } from "./tsrules/loader.ts";
 import {
   ClassifyError,
@@ -92,20 +98,39 @@ export interface LintOptions {
    * call becomes a per-element JEV_TIMEOUT failure instead of pinning a run-wide slot.
    */
   timeout?: number;
+  /**
+   * A changed-file LIST (CLI --changed <file>; stdin with "-" via the CLI's jint - form): one path
+   * per line, relative to the input dir or absolute — the caller's own VCS pipeline, jint never
+   * shells out. The list IS the input selection when no input is otherwise given (the changeset
+   * form) and ALWAYS populates the ctx.diff lens for TS rules.
+   */
+  changed?: string;
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
+  // The changed-file list (ctx.diff lens + changeset selection): read and parsed ONCE, before
+  // the input guard — the list IS the input when nothing else selected one.
+  const changedList =
+    options.changed !== undefined
+      ? parseChangedList(await readChangedSource(options.changed))
+      : undefined;
+  if (changedList !== undefined && changedList.length === 0) {
+    // Fail before the auth gate: an empty list is a caller mistake, not a billing problem.
+    throw new SetupError("CONFIG_INVALID", "the changed list selected no files (empty list)");
+  }
   const input: string | string[] | undefined = options.input ?? options.config.input;
   // Backstop for optional config.input: no input at all is a setup failure (the CLI resolves
   // flags > stdin > config before getting here).
   if (
     options.str === undefined &&
     options.diffText === undefined &&
+    // the changeset form: the LIST is the input (checked below)
+    changedList === undefined &&
     (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass a path (jint src/), declare piped stdin (jint diff - / jint str -), or set input in jint.config.json",
+      "no input: pass a path (jint src/), declare piped stdin (jint str - / jint - for a changed list), or set input in jint.config.json",
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
@@ -163,11 +188,43 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     ),
     concurrency,
   );
+  // The changeset selection: every listed path is the file's identity verbatim, so the lens and
+  // the walk share one anchor by construction. Entries that resolve to no walked unit (missing,
+  // unreadable, non-source) are SIGNAL — a note names them below, never silence.
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
-      : options.diffText !== undefined
-        ? [...decomposeDiff(options.diffText.text, null, exclude)]
+      : changedList !== undefined && (input === undefined || input === "")
+        ? await (async () => {
+            // The changeset form: the list IS the judged subject, one entry at a time so a
+            // missing or non-source entry degrades to the not-in-the-walk note, never fatal.
+            if (changedList.length === 0) {
+              throw new SetupError(
+                "CONFIG_INVALID",
+                "the changed list selected no files (empty list)",
+              );
+            }
+            const resolved: Unit[] = [];
+            for (const entry of changedList) {
+              try {
+                for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+                  resolved.push(unit);
+                }
+              } catch (thrown) {
+                // missing / unreadable / non-source entries take the note path below, never fatal
+                if (
+                  thrown instanceof SetupError &&
+                  ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "NOT_SOURCE"].includes(
+                    thrown.code,
+                  )
+                ) {
+                  continue;
+                }
+                throw thrown;
+              }
+            }
+            return resolved;
+          })()
         : await collectUnits(
             resolveInput({
               // the empty-input guard above established non-empty
@@ -176,6 +233,16 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               exclude,
             }),
           );
+  // Changed-list entries that produced no walked unit (missing, unreadable, non-source) are
+  // SIGNAL, never silence: one note names each, the run continues around them.
+  const unitPaths = new Set(
+    units.map((u) => ("path" in u.state ? u.state.path : "")).filter(Boolean),
+  );
+  if (changedList !== undefined) {
+    for (const missing of changedList.filter((p) => !unitPaths.has(p))) {
+      yield { type: "note", note: `changed-list path not found in the walk: ${missing}` };
+    }
+  }
   const byName = new Map(rules.map((s) => [s.name, s]));
   let aborted = false;
 
@@ -203,6 +270,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // of files with zero selected targets is dropped (logical drop, no re-read) unless a files-target
   // JSON rule needs every file's text.
   let tsResolved: ResolvedTsTargets | undefined;
+  let diffLens: ReturnType<typeof buildDiffLens> | undefined;
   if (tsRules.length > 0) {
     const elementsByPath = new Map<string, readonly InventoryElement[]>();
     for (let i = 0; i < units.length; i++) {
@@ -210,6 +278,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
     }
     tsResolved = resolveAllTsTargets(tsRules, elementsByPath);
+    // The lens is computed once over the FULL walk inventory (the changed set INTERSECT walk),
+    // never per rule: it is knowledge about the world, not about a rule's slice.
+    if (changedList !== undefined) {
+      diffLens = buildDiffLens(
+        changedList.filter((p) => unitPaths.has(p)),
+        [...elementsByPath.entries()].flatMap(([path, inventory]) => tsElementsOf(inventory, path)),
+      );
+    }
     // The retention guard is shape-robust on purpose: if the JSON target ever becomes an array
     // form (the TS grammar already allows one), "files" anywhere in the target still retains.
     const wantsAnyFile = (target: Rule["target"]): boolean =>
@@ -289,7 +365,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // TS-tier classification runs after the JSON waves (one resolution, fan-out, policy once per
   // rule); its findings stream at the end of the run, bound to each target's span.
   if (tsResolved !== undefined && !aborted) {
-    const phase = await runTsRules(tsRules, tsResolved, classifier, () => aborted);
+    const phase = await runTsRules(tsRules, tsResolved, classifier, () => aborted, diffLens);
     for (const event of phase.events) yield event;
     if (phase.fatal) aborted = true;
   }
