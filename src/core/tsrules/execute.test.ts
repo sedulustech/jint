@@ -200,6 +200,57 @@ describe("resolveAllTsTargets", () => {
   });
 });
 
+describe("tsElementsOf — materialized parent view", () => {
+  test("TsElement.parent links a nested element to its owner; top-level is null", async () => {
+    const inv = await decompose(
+      ["class Widget {", "  render(): string {", "    return 'x';", "  }", "}"].join("\n"),
+      "typescript",
+    );
+    const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
+    const elements = tsElementsOf(inventory, "src/w.ts");
+    const klass = elements.find((e) => e.role === "type")!;
+    const method = elements.find((e) => e.role === "function")!;
+    expect(klass.parent).toBeNull();
+    expect(method.parent?.id).toBe(klass.id);
+    // The parent chain materializes the SAME view (shared element identity).
+    expect(method.parent?.source).toBe(klass.source);
+  });
+});
+
+describe("runTsRules — impossible state fails loud", () => {
+  test("a rule missing from the resolution map throws (never a silent skip)", async () => {
+    const inventory = await oneFile(SOURCE);
+    const rule = ruleOf({});
+    await expect(runTsRules([rule], new Map(), fakeClassifier(0.9), () => false)).rejects.toThrow(
+      /no resolution entry/,
+    );
+    void inventory;
+  });
+});
+
+describe("runTsRules — JEV_RESPONSE_INVALID guard", () => {
+  test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
+    const inventory = await oneFile(SOURCE);
+    const phase = await run(ruleOf({}), inventory, async () => ({}));
+    expect(phase.events).toHaveLength(1);
+    expect(phase.events[0]?.type).toBe("error");
+    expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe(
+      "JEV_RESPONSE_INVALID",
+    );
+  });
+
+  test("a non-finite answer streams JEV_RESPONSE_INVALID too", async () => {
+    const inventory = await oneFile(SOURCE);
+    const phase = await run(ruleOf({}), inventory, async (_s, q) =>
+      Object.fromEntries(Object.keys(q).map((k) => [k, Number.NaN])),
+    );
+    expect(
+      phase.events.some((e) => e.type === "error" && e.error.code === "JEV_RESPONSE_INVALID"),
+    ).toBe(true);
+    expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
+  });
+});
+
 describe("walk-first resolution (multi-file)", () => {
   test("the target function sees the inventories of EVERY walked file: resolution runs after the full walk", async () => {
     const a = await oneFile(SOURCE, "src/a.ts");

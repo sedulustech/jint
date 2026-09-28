@@ -157,7 +157,11 @@ export async function runTsRules(
   for (const rule of tsRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
-    if (resolvedRule === undefined) continue;
+    if (resolvedRule === undefined) {
+      // resolveAllTsTargets sets an entry for EVERY rule — this is impossible state, and a silent
+      // skip here would be invisible data loss (a declared rule producing zero measurements).
+      throw new Error('no resolution entry for ts rule "' + rule.name + '" (engine bug)');
+    }
     if ("error" in resolvedRule) {
       events.push({ type: "error", error: resolvedRule.error });
       continue;

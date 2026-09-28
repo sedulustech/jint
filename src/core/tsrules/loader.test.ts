@@ -48,6 +48,56 @@ describe("loadTsConfigRules", () => {
     expect(async () => await loadTsConfigRules([path])).toThrow(/node:fs/);
   });
 
+  test("the gate ALLOWS relative imports, re-exports, absolute paths, and jint:*", async () => {
+    // The allow matrix is contract too: legitimate rule composition must keep working, and the
+    // scan must see re-export forms (export ... from) as imports.
+    write("helper.ts", "export const threshold = 0.5;\nexport default 7;");
+    const rules = await loadTsConfigRules([
+      write(
+        "composed.ts",
+        [
+          'import { defineConfig } from "jint:sdk";',
+          'import { threshold } from "./helper.ts";',
+          'import abs from "' + process.cwd() + "/" + DIR + "/helper.ts" + '";',
+          'import { default as reexported } from "./helper.ts";',
+          'export { threshold as passthrough } from "./helper.ts";',
+          "export default defineConfig({",
+          "  rules: [{",
+          '    name: "composed_rule",',
+          '    target: "comments",',
+          "    classify: (self) => ({",
+          '      instructions: "i",',
+          '      criteria: { true: "t", false: "f" },',
+          "      state: { source: self.source, from: threshold + abs + reexported },",
+          "    }),",
+          "    handle: { warn_at: 0.1, error_at: 0.9 },",
+          "  }],",
+          "});",
+        ].join("\n"),
+      ),
+    ]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]?.name).toBe("composed_rule");
+    // The imported values actually crossed the gate: run classify and read the composed state.
+    const spec = rules[0]!.classify(
+      {
+        id: "c0",
+        path: "f.ts",
+        role: "comment",
+        source: "// x",
+        span: {
+          start: { line: 1, column: 0 },
+          end: { line: 1, column: 4 },
+          startByte: 0,
+          endByte: 4,
+        },
+        parent: null,
+      },
+      { targets: [rules[0] as never] },
+    );
+    expect((spec.state as Record<string, unknown>).from).toBe(0.5 + 7 + 7);
+  });
+
   test("a thrown module fails fatal, naming the file", async () => {
     const path = write("throwing.ts", 'throw new Error("boom");');
     try {
