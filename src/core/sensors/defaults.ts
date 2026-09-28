@@ -16,15 +16,16 @@
  * healthy ranges are documented in the README, next to the override examples.
  */
 
-import { compileHandle } from "./handle.ts";
+import { compileNoulHandler, compileScoreHandler } from "./handle.ts";
 import type { Rule } from "../types.ts";
 
 /**
- * HANDLES ARE DATA: every default handle is a DataHandle (warn_at + error_at; polarity inferred
- * from their ordering — see handle.ts) compiled to the internal function form at module init.
- * Recalibration is now editing two numbers in one place — and paste-able into jint.config.json. The
- * declarative config surface also accepts "handle": null (classify-only: the measurement streams,
- * nothing ever produces findings) — no default rule ships that form today.
+ * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (fires_when names the defect pole;
+ * warn_at/error_at are thresholds on it — see handle.ts) or, for choice rules, a ScoreHandler (one
+ * map level per criterion), compiled to the internal function form at module init. Recalibration is
+ * now editing numbers in one place — and paste-able into jint.config.json. The declarative config
+ * surface also accepts "handle": null (classify-only: the measurement streams, nothing ever
+ * produces findings) — no default rule ships that form today.
  */
 
 export const isNamePurposeful: Rule = {
@@ -45,7 +46,7 @@ export const isNamePurposeful: Rule = {
   // project (median 0.43 across src, dragged down by test helper names). error 0.3 sits above
   // the defective control cluster (<= 0.26) and warn 0.4 a full step below the healthy median;
   // test-code noise stays open as issue 008 (config granularity).
-  handle: compileHandle({ warn_at: 0.4, error_at: 0.3 }),
+  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.6, error_at: 0.7 }),
 };
 
 export const isFunctionSrp: Rule = {
@@ -63,7 +64,7 @@ export const isFunctionSrp: Rule = {
   // warning half of src. warn 0.45 keeps roughly the bottom 8% of the whole-project
   // distribution in warn; the low tail is dominated by test callbacks — scoping those out
   // is issue 008 (config granularity), not a threshold job.
-  handle: compileHandle({ warn_at: 0.45, error_at: 0.3 }),
+  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.55, error_at: 0.7 }),
 };
 
 /**
@@ -80,7 +81,7 @@ export const willErrorLoseCause: Rule = {
       "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently.",
   },
   target: "functions",
-  handle: compileHandle({ warn_at: 0.4, error_at: 0.7 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.4, error_at: 0.7 }),
 };
 export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
@@ -92,7 +93,7 @@ export const isVocabularyConsistent: Rule = {
       "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift.",
   },
   target: "files",
-  handle: compileHandle({ warn_at: 0.75, error_at: 0.6 }),
+  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.4 }),
 };
 
 export const isNamingConventionConsistent: Rule = {
@@ -111,7 +112,7 @@ export const isNamingConventionConsistent: Rule = {
   // Whole-project A/B (issue 001): the per-rule question dropped the whole-project median
   // 0.87 -> 0.82 and the old warn (0.85) warned two thirds of src. warn 0.75 keeps roughly
   // the bottom 5% in warn; error stays clear of the healthy p5 (0.72).
-  handle: compileHandle({ warn_at: 0.75, error_at: 0.65 }),
+  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.35 }),
 };
 
 /**
@@ -130,7 +131,7 @@ export const isFilenameFitting: Rule = {
       "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.",
   },
   target: "files",
-  handle: compileHandle({ warn_at: 0.55, error_at: 0.75 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.55, error_at: 0.75 }),
 };
 
 export const isGreppable: Rule = {
@@ -143,7 +144,7 @@ export const isGreppable: Rule = {
       "At least one identifier cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
   },
   target: "files",
-  handle: compileHandle({ warn_at: 0.75, error_at: 0.6 }),
+  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.4 }),
 };
 
 export const is_comment_narration: Rule = {
@@ -156,7 +157,7 @@ export const is_comment_narration: Rule = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: compileHandle({ warn_at: 0.3, error_at: 0.45 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.3, error_at: 0.45 }),
 };
 
 export const is_comment_patching_readability: Rule = {
@@ -169,7 +170,7 @@ export const is_comment_patching_readability: Rule = {
       "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read.",
   },
   target: "comments",
-  handle: compileHandle({ warn_at: 0.4, error_at: 0.55 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.4, error_at: 0.55 }),
 };
 
 export const will_comment_drift: Rule = {
@@ -185,7 +186,7 @@ export const will_comment_drift: Rule = {
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
-  handle: compileHandle({ warn_at: 0.55, error_at: 0.7 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.55, error_at: 0.7 }),
 };
 
 export const isCognitivelyComplex: Rule = {
@@ -201,25 +202,27 @@ export const isCognitivelyComplex: Rule = {
   // Thresholds kept from the previous anchor: the scoped claim lowered the
   // healthy ceiling on both calibration corpora, widening the margin to the
   // bloat/obfuscate mutants, which land in the warn band.
-  handle: compileHandle({ warn_at: 0.45, error_at: 0.6 }),
+  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.45, error_at: 0.6 }),
 };
 
-// provisional: first choice rule — scored rubric via the jev score primitive; thresholds
-// unanchored until the self-lint corpus has score readings
+// provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
+// the self-lint corpus has score readings
+const IS_READABLE_CRITERIA = [
+  "Names, structure, and types make the story obvious.",
+  "Mostly clear; a few opaque names or a slightly awkward shape.",
+  "Reader must reconstruct intent from implementation details.",
+  "Dense, misleading names, or structure that fights the problem.",
+] as const;
+
 export const isReadable: Rule = {
   name: "is_readable",
   kind: "choice",
   instructions:
     "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
-  criteria: [
-    "Names, structure, and types make the story obvious.",
-    "Mostly clear; a few opaque names or a slightly awkward shape.",
-    "Reader must reconstruct intent from implementation details.",
-    "Dense, misleading names, or structure that fights the problem.",
-  ],
+  criteria: IS_READABLE_CRITERIA,
   target: "definitions",
-  // score scale (0..N): warn at 2+, error at 3+ — same data form, thresholds on the score axis
-  handle: compileHandle({ warn_at: 1, error_at: 2 }),
+  // score scale (0..N): high-bad — ok below 2, warn at 2, error at 3
+  handle: compileScoreHandler({ map: ["ok", "ok", "warn", "error"] }, IS_READABLE_CRITERIA),
 };
 
 /** All default rules by name — the `rules.defaults` record of the config surface. */

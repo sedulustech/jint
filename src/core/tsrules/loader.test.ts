@@ -25,7 +25,7 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { source: self.source, targets: ctx.targets.length },
     }),
-    handle: { warn_at: 0.5, error_at: 0.9 },
+    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
   }],
 });
 `;
@@ -70,7 +70,7 @@ describe("loadTsConfigRules", () => {
           '      criteria: { true: "t", false: "f" },',
           "      state: { source: self.source, from: threshold + abs + reexported },",
           "    }),",
-          "    handle: { warn_at: 0.1, error_at: 0.9 },",
+          '    handle: { fires_when: "true", warn_at: 0.1, error_at: 0.9 },',
           "  }],",
           "});",
         ].join("\n"),
@@ -144,7 +144,7 @@ describe("validateTsRule (load-time, fatal)", () => {
     name: "is_fine",
     target: "comments",
     classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
-    handle: { warn_at: 0.5, error_at: 0.9 },
+    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
   };
 
   test("missing name", () => {
@@ -171,10 +171,13 @@ describe("validateTsRule (load-time, fatal)", () => {
     expect(() => validateTsRule(rest, "f.ts")).toThrow(/exactly one/);
   });
 
-  test("equal handle thresholds", () => {
+  test("unordered handle thresholds on the defect pole", () => {
     expect(() =>
-      validateTsRule({ ...ok, handle: { warn_at: 0.7, error_at: 0.7 } }, "f.ts"),
-    ).toThrow(/differ/);
+      validateTsRule(
+        { ...ok, handle: { fires_when: "true", warn_at: 0.9, error_at: 0.7 } },
+        "f.ts",
+      ),
+    ).toThrow(/warn_at < error_at/);
   });
 
   test("choice kind rejected as not-yet-supported", () => {

@@ -13,7 +13,7 @@
 import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
 import { elementWireId, matchesTarget } from "../sensors/classify.ts";
 import { toClassifyError } from "../sensors/classify.ts";
-import { compileHandle } from "../sensors/handle.ts";
+import { compileNoulHandler } from "../sensors/handle.ts";
 import {
   ClassifyError,
   type AnyState,
@@ -264,11 +264,12 @@ export async function runTsRules(
         });
       }
     } else if (rule.handle !== undefined) {
-      const handle = compileHandle(rule.handle);
+      const handle = compileNoulHandler(rule.handle);
       for (let i = 0; i < results.length; i++) {
         const value = (results[i] as { noul: number }).noul;
-        const severity = handle(value);
-        const finding = tsFinding(rule.name, aligned[i]!, results[i]!, { severity });
+        const outcome = handle(value);
+        if (outcome === null) continue;
+        const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome);
         if (finding !== null) events.push({ type: "finding", finding });
       }
     }

@@ -236,7 +236,7 @@ describe("cli: piped stdin str unit", async () => {
           name: "is_noul_documented",
           criteria: { true: "documents a noul value", false: "it does not" },
           target: "files",
-          handle: { warn_at: 0.5, error_at: 0.7 },
+          handle: { fires_when: "true", warn_at: 0.5, error_at: 0.7 },
         },
       ],
       exclude: [],

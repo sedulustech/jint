@@ -4,10 +4,12 @@
  *
  * The config file is PLAIN JSON — no comments, no code. TypeBox validates the boundary and its
  * schema doubles as the checked-in jint.schema.json (editor autocomplete via "$schema"); a small
- * generation script (bun run schema) keeps the two from drifting. Handles in the file are data
- * (warn_at/error_at, polarity inferred from ordering — see sensors/handle.ts) and compile to the
- * internal function form here, at the single data -> function seam. Validation or parse failure
- * maps to CONFIG_INVALID with joined, positioned messages (design §3.5).
+ * generation script (bun run schema) keeps the two from drifting. Handlers in the file are data —
+ * typed by the question: choice rules take a score map, noul rules take a fires_when handler (see
+ * sensors/handle.ts) — and compile to the internal function form here, at the single data ->
+ * function seam, where the cross-field checks (type match, map length, threshold order) live.
+ * Validation or parse failure maps to CONFIG_INVALID with joined, positioned messages (design
+ * §3.5).
  */
 
 import { readFileSync } from "node:fs";
@@ -15,7 +17,11 @@ import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { defaultRules } from "../core/sensors/defaults.ts";
-import { compileHandle } from "../core/sensors/handle.ts";
+import {
+  checkNoulHandler,
+  compileNoulHandler,
+  compileScoreHandler,
+} from "../core/sensors/handle.ts";
 import { SetupError, type Rule } from "../core/types.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";
@@ -31,16 +37,32 @@ const TARGET_SCHEMA = Type.Union([
   Type.Literal("diffs"),
 ]);
 
-const HANDLE_SCHEMA = Type.Object(
+const LEVEL_SCHEMA = Type.Union([Type.Literal("ok"), Type.Literal("warn"), Type.Literal("error")]);
+
+const SCORE_HANDLER_SCHEMA = Type.Object(
   {
-    warn_at: Type.Number(),
-    error_at: Type.Number(),
+    map: Type.Array(LEVEL_SCHEMA, { minItems: 1 }),
   },
   {
     description:
-      "Rule thresholds as data; polarity is inferred from their ordering. warn_at < error_at means high-bad (a value above warn_at warns, above error_at errors); error_at < warn_at means high-good (a value below warn_at warns, below error_at errors). Both required; they must differ.",
+      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [ok, ok, warn, error]; high-good: [error, warn, ok, ok]). The length MUST equal the criteria count and at least one level must be non-ok. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
   },
 );
+
+const NOUL_HANDLER_SCHEMA = Type.Object(
+  {
+    fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
+    warn_at: Type.Number(),
+    error_at: Type.Optional(Type.Number()),
+    silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
+  },
+  {
+    description:
+      "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and warn_at must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent; absent = everything surfaces.",
+  },
+);
+
+const HANDLER_SCHEMA = Type.Union([SCORE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA]);
 
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so minimal
@@ -53,7 +75,7 @@ const RULE_SCHEMA = Type.Union([
     instructions: Type.Optional(Type.String()),
     criteria: Type.Object({ true: Type.String(), false: Type.String() }),
     target: TARGET_SCHEMA,
-    handle: Type.Union([HANDLE_SCHEMA, Type.Null()]),
+    handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
   }),
   Type.Object({
     name: Type.String(),
@@ -61,7 +83,7 @@ const RULE_SCHEMA = Type.Union([
     criteria: Type.Array(Type.String(), { minItems: 2 }),
     instructions: Type.String(),
     target: TARGET_SCHEMA,
-    handle: Type.Union([HANDLE_SCHEMA, Type.Null()]),
+    handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
   }),
 ]);
 
@@ -178,9 +200,16 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   return Object.freeze(resolved);
 }
 
-/** The data -> function seam for one rule: validates the handle pair, compiles, freezes shape. */
+/** The data -> function seam for one rule: validates the handler, compiles, freezes shape. */
 function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
-  const handle = compileDataHandle(entry.handle, entry.name, source);
+  const isChoice = entry.kind === "choice";
+  const handle = compileDataHandle(
+    entry.handle,
+    entry.name,
+    source,
+    isChoice,
+    isChoice ? (entry.criteria as readonly string[]) : [],
+  );
   if (entry.kind !== "choice") {
     return {
       name: entry.name,
@@ -201,20 +230,51 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
 }
 
 /**
- * Null handle = classify-only (never produces findings); otherwise both thresholds must exist and
- * differ.
+ * Null handler = classify-only (never produces findings); otherwise the handler TYPE must match the
+ * question type (score map <-> choice, fires_when <-> noul) and its internal invariants hold. Every
+ * failure names the rule id and the exact field.
  */
 function compileDataHandle(
-  handle: Static<typeof HANDLE_SCHEMA> | null,
+  handle: Static<typeof HANDLER_SCHEMA> | null,
   name: string,
   source: string,
+  isChoice: boolean,
+  criteria: readonly string[],
 ): Rule["handle"] {
-  if (handle === null) return () => null;
-  if (handle.warn_at === handle.error_at) {
+  const fail = (field: string, detail: string): never => {
     throw new SetupError(
       "CONFIG_INVALID",
-      `invalid config ${source}: rule '${name}' handle thresholds must differ (warn_at = error_at = ${handle.warn_at})`,
+      `invalid config ${source}: rule '${name}' ${field}: ${detail}`,
+    );
+  };
+  if (handle === null) return () => null;
+  if ("map" in handle) {
+    if (!isChoice) {
+      fail(
+        "handle.map",
+        "a score handler on a noul rule (criteria {true, false}) — noul rules take a fires_when handler",
+      );
+    }
+    if (handle.map.length !== criteria.length) {
+      fail(
+        "handle.map",
+        `map has ${handle.map.length} level(s) but the criteria has ${criteria.length}`,
+      );
+    }
+    if (handle.map.every((level) => level === "ok")) {
+      fail("handle.map", "at least one level must be non-ok");
+    }
+    return compileScoreHandler(handle, criteria);
+  }
+  if (isChoice) {
+    fail(
+      "handle.fires_when",
+      "a noul handler on a choice rule — choice rules take a score handler ({ map })",
     );
   }
-  return compileHandle(handle);
+  const problem = checkNoulHandler(handle);
+  if (problem !== null) {
+    throw new SetupError("CONFIG_INVALID", `invalid config ${source}: rule '${name}' ${problem}`);
+  }
+  return compileNoulHandler(handle);
 }

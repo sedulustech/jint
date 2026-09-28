@@ -8,6 +8,7 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { checkNoulHandler } from "../sensors/handle.ts";
 import { SetupError, type RuleResult, type RuleTarget } from "../types.ts";
 
 /**
@@ -51,10 +52,12 @@ export interface StateSpec {
   readonly state: Record<string, unknown>;
 }
 
-/** The declarative policy (data tier, same shape as JSON rules; exactly one policy per rule). */
+/** The declarative policy (data tier, same typed shape as JSON noul rules; exactly one per rule). */
 export interface TsHandleData {
+  readonly fires_when: "true" | "false";
   readonly warn_at: number;
-  readonly error_at: number;
+  readonly error_at?: number;
+  readonly silent_band?: readonly [number, number];
 }
 
 /** One policy decision, aligned by index with ctx.targets: what becomes a finding. */
@@ -84,7 +87,7 @@ export interface TsRule {
     | ((elements: readonly TsElement[]) => readonly TsElement[]);
   /** Per resolved target: the state spec for self. Returns data, never calls the classifier. */
   readonly classify: (self: TsElement, ctx: RuleContext) => StateSpec;
-  /** Policy, data form: thresholds, polarity inferred from ordering. */
+  /** Policy, data form: the typed noul handler (fires_when defect pole + thresholds). */
   readonly handle?: TsHandleData;
   /**
    * Policy, callback form: called ONCE after all classifications; results[i] <-> ctx.targets[i].
@@ -110,8 +113,10 @@ export const TS_TARGET_ROLES: readonly RuleTarget[] = [
 ];
 
 const HANDLE_SCHEMA = Type.Object({
+  fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
   warn_at: Type.Number(),
-  error_at: Type.Number(),
+  error_at: Type.Optional(Type.Number()),
+  silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
 });
 
 const SPEC_SCHEMA = Type.Object({
@@ -211,18 +216,15 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
   }
   if (hasHandle) {
     if (!Value.Check(HANDLE_SCHEMA, r.handle)) {
-      fail('"' + name + '": handle must be { warn_at: number, error_at: number }');
-    }
-    const h = r.handle as TsHandleData;
-    if (h.warn_at === h.error_at) {
       fail(
         '"' +
           name +
-          '": handle thresholds must differ (warn_at = error_at = ' +
-          String(h.warn_at) +
-          ")",
+          '": handle must be the typed noul handler { fires_when: "true" | "false", warn_at, error_at?, silent_band? }',
       );
     }
+    const h = r.handle as TsHandleData;
+    const problem = checkNoulHandler(h);
+    if (problem !== null) fail('"' + name + '": ' + problem);
   }
   if (hasPolicyFn && typeof r.handleClassification !== "function") {
     fail('"' + name + '": handleClassification must be a function');
