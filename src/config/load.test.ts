@@ -310,6 +310,40 @@ describe("validateConfig / defaultConfig", () => {
     expect(() => config({ rps_budget: -1 })).toThrow(/rps_budget: must be a number > 0/);
   });
 
+  test("per-rule scoping: validation names rule+field; full cancellation warns, never errors", () => {
+    const rule = (scope: Record<string, unknown>) => ({
+      input: "x",
+      rules: [
+        {
+          name: "r",
+          criteria: { true: "t", false: "f" },
+          target: "files",
+          handle: { fires_when: "true", warn_at: 0.3, error_at: 0.7 },
+          ...scope,
+        },
+      ],
+    });
+    expect(() => validateConfig(rule({ include: [] }), "inline")).toThrow(
+      /rule 'r' include: must be a non-empty array/,
+    );
+    expect(() => validateConfig(rule({ exclude: ["ok", ""] }), "inline")).toThrow(
+      /rule 'r' exclude: every entry must be a non-empty glob string/,
+    );
+    expect(() => validateConfig(rule({ include: ["!tests/**"] }), "inline")).toThrow(
+      /rule 'r' include: negated globs/,
+    );
+    // exclude fully cancelling include is LEGAL: a warning rides the config as a note
+    const cancelled = validateConfig(rule({ include: ["src/**"], exclude: ["src/**"] }), "inline");
+    expect(cancelled.warnings).toHaveLength(1);
+    expect(cancelled.warnings![0]).toContain("rule 'r'");
+    // overlapping-but-not-equal globs do not warn
+    const overlapping = validateConfig(
+      rule({ include: ["src/**"], exclude: ["src/generated/**"] }),
+      "inline",
+    );
+    expect(overlapping.warnings).toBeUndefined();
+  });
+
   test("disable removes by name after assembly", () => {
     const config = validateConfig({ input: "x", disable: ["is_greppable"] }, "inline");
     expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");

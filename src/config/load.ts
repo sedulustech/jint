@@ -17,6 +17,7 @@ import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
+import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
   checkNoulHandler,
@@ -65,6 +66,10 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
 
 const HANDLER_SCHEMA = Type.Union([SCORE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA]);
 
+// Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents
+// validated by checkRuleScope so the error names the exact field.
+const SCOPE_SCHEMA = Type.Array(Type.String());
+
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so minimal
 // configs stay validating (the loader fills the default). "handle": null is the classify-only
@@ -77,6 +82,8 @@ const RULE_SCHEMA = Type.Union([
     criteria: Type.Object({ true: Type.String(), false: Type.String() }),
     target: TARGET_SCHEMA,
     handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
+    include: Type.Optional(SCOPE_SCHEMA),
+    exclude: Type.Optional(SCOPE_SCHEMA),
   }),
   Type.Object({
     name: Type.String(),
@@ -85,6 +92,8 @@ const RULE_SCHEMA = Type.Union([
     instructions: Type.String(),
     target: TARGET_SCHEMA,
     handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
+    include: Type.Optional(SCOPE_SCHEMA),
+    exclude: Type.Optional(SCOPE_SCHEMA),
   }),
 ]);
 
@@ -143,6 +152,8 @@ export interface ResolvedConfig {
   readonly rps_budget?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes JEV_TIMEOUT. */
   readonly timeout?: number;
+  /** Load-time scope warnings (a rule whose exclude cancels its include): surfaced as notes. */
+  readonly warnings?: readonly string[];
 }
 
 /** The built-in config used when no config file exists: no input, all default rules. */
@@ -208,6 +219,23 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     }
   }
   for (const name of parsed.disable ?? []) byName.delete(name);
+  // Per-rule scope validation + legal-cancellation warnings (never errors, per issue 008).
+  const warnings: string[] = [];
+  for (const rule of byName.values()) {
+    if (rule.include === undefined && rule.exclude === undefined) continue;
+    const scopeProblem = checkRuleScope(rule);
+    if (scopeProblem !== null) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid config ${source}: rule '${rule.name}' ${scopeProblem}`,
+      );
+    }
+    if (ruleMeasuresNothing(rule)) {
+      warnings.push(
+        `rule '${rule.name}': exclude fully cancels include - the rule measures nothing (legal, but probably not what you meant)`,
+      );
+    }
+  }
   const resolved: {
     input: string;
     inputType?: Static<typeof KIND_SCHEMA>;
@@ -218,6 +246,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     concurrency?: number;
     rps_budget?: number;
     timeout?: number;
+    warnings?: string[];
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
@@ -240,6 +269,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
   if (parsed.rps_budget !== undefined) resolved.rps_budget = parsed.rps_budget;
   if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
+  if (warnings.length > 0) resolved.warnings = warnings;
   return Object.freeze(resolved);
 }
 
@@ -253,6 +283,10 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
     isChoice,
     isChoice ? (entry.criteria as readonly string[]) : [],
   );
+  const scope = {
+    ...(entry.include !== undefined && { include: entry.include }),
+    ...(entry.exclude !== undefined && { exclude: entry.exclude }),
+  };
   if (entry.kind !== "choice") {
     return {
       name: entry.name,
@@ -260,6 +294,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
       criteria: entry.criteria,
       target: entry.target,
       handle,
+      ...scope,
     };
   }
   return {
@@ -269,6 +304,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
     instructions: (entry as { instructions: string }).instructions,
     target: entry.target,
     handle,
+    ...scope,
   };
 }
 

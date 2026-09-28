@@ -106,6 +106,10 @@ interface RuleBase {
   readonly target: RuleTarget;
   /** Reads the value, decides whether it matters. */
   readonly handle: (value: number) => HandleResult;
+  /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
+  readonly include?: readonly string[];
+  /** Per-rule scoping: glob list; ALWAYS wins over include. */
+  readonly exclude?: readonly string[];
 }
 
 /** A noul rule: one yes/no judgment; the value is the yes probability (0..1). */

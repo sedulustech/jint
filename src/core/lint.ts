@@ -109,6 +109,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
+  // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
+  for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
   // TS-tier rules load at setup: any load failure (gate, thrown module, invalid defineConfig,
   // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
   const loadedTsRules = await loadTsConfigRules(options.config.tsRules ?? []);
@@ -251,6 +253,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             " chars)",
         };
       }
+      for (const note of result.notes) yield { type: "note", note };
       for (const { event, stage, span } of result.events) {
         if (event instanceof ClassifyError) {
           yield { type: "error", error: withLanguageHint(event, options) };
@@ -325,6 +328,7 @@ interface UnitResult {
   events: ClassifyEvent[];
   abort: boolean;
   oversized: number;
+  notes: string[];
 }
 
 async function runUnit(
@@ -345,7 +349,12 @@ async function runUnit(
   );
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
   // rides the same stream as measurements, and the reporters count it in the run summary.
-  return { events: result.events, abort: result.fatal, oversized: result.oversized };
+  return {
+    events: result.events,
+    abort: result.fatal,
+    oversized: result.oversized,
+    notes: result.notes,
+  };
 }
 
 /** A str as one file unit: the piped-stdin path (identity str:stdin unless named). */

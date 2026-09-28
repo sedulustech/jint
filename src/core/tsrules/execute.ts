@@ -11,6 +11,7 @@
  */
 
 import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
+import { ruleInScope } from "../scope.ts";
 import { elementWireId, matchesTarget } from "../sensors/classify.ts";
 import { toClassifyError } from "../sensors/classify.ts";
 import { compileNoulHandler } from "../sensors/handle.ts";
@@ -106,7 +107,9 @@ export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]):
           ),
         };
       }
-      return { targets: picked };
+      // Per-rule scoping (issue 008) applies to selection-function picks too: a scoped-out
+      // element costs zero jev calls regardless of how it was requested.
+      return { targets: picked.filter((e) => ruleInScope(rule, e.path)) };
     } catch (thrown) {
       return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown)) };
     }
@@ -114,7 +117,11 @@ export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]):
   // THE shared target grammar: matchesTarget is the JSON tier's rulesForElement mapping, so the
   // two tiers cannot drift (comments matches comment elements AND code carrying an attachedComment).
   const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
-  return { targets: allElements.filter((e) => requested.some((t) => matchesTarget(t, e))) };
+  return {
+    targets: allElements.filter(
+      (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
+    ),
+  };
 }
 
 function isPromise(v: unknown): v is Promise<unknown> {
