@@ -200,6 +200,26 @@ describe("resolveAllTsTargets", () => {
   });
 });
 
+describe("walk-first resolution (multi-file)", () => {
+  test("the target function sees the inventories of EVERY walked file: resolution runs after the full walk", async () => {
+    const a = await oneFile(SOURCE, "src/a.ts");
+    const b = await oneFile(SOURCE, "src/b.ts");
+    const inventory = new Map([...a, ...b]);
+    let seenPaths: string[] = [];
+    const rule = ruleOf({
+      target: (elements) => {
+        seenPaths = [...new Set(elements.map((e) => e.path))];
+        return elements.filter((e) => e.role === "comment");
+      },
+    });
+    const resolved = resolveAllTsTargets([rule], inventory);
+    const targets = targetsOf([...resolved.values()][0]!);
+    // Both files were fully walked BEFORE resolution: one comment per file, both visible.
+    expect(seenPaths.sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(targets.map((t) => t.path).sort()).toEqual(["src/a.ts", "src/b.ts"]);
+  });
+});
+
 describe("runTsRules — classification", () => {
   test("fan-out: N targets -> N classifier invocations, one question each, slice-of-one state", async () => {
     const inventory = await oneFile(SOURCE);

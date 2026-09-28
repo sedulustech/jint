@@ -154,7 +154,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
     }
     tsResolved = resolveAllTsTargets(tsRules, elementsByPath);
-    if (!rules.some((r) => r.target === "files")) {
+    // The retention guard is shape-robust on purpose: if the JSON target ever becomes an array
+    // form (the TS grammar already allows one), "files" anywhere in the target still retains.
+    const wantsAnyFile = (target: Rule["target"]): boolean =>
+      Array.isArray(target) ? target.includes("files") : target === "files";
+    if (!rules.some((r) => wantsAnyFile(r.target))) {
       const targetPaths = new Set<string>();
       for (const resolved of tsResolved.values()) {
         if ("targets" in resolved) for (const t of resolved.targets) targetPaths.add(t.path);
