@@ -91,14 +91,6 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("no --language: the str unit classifies whole, no mapping failure", async () => {
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
-    const report = JSON.parse(r.stdout);
-    expect(report.measurements.length).toBeGreaterThan(0);
-    expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
-    expect(report.errors).toEqual([]); // the WALK_FAILED + --language remedy never fires for str
-  });
-
   test("human output: same stylish table, identity 'str:stdin', clean exit", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
     // the str unit is its own inventory: classified whole, nothing failed, mock reading clean
@@ -216,13 +208,16 @@ describe("cli: piped stdin str unit", async () => {
     expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
   });
 
-  test("the str unit never fails the run: clean classification, zero errors", async () => {
+  test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
     // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
     // handle (warn 0.75 / error 0.6); the old grammar race would add a WALK_FAILED and exit 4
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0); // it classified
-    expect(report.errors).toEqual([]);
+    expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
+    expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
+    expect(report.errors).toEqual([]); // the WALK_FAILED + --language remedy never fires for str
+    expect(r.stderr).not.toContain("WALK_FAILED");
     expect(r.code).toBe(0);
   });
 
@@ -242,14 +237,13 @@ describe("cli: piped stdin str unit", async () => {
       exclude: [],
     });
     const before = jev.requests.length;
-    for (let i = 0; i < 20; i++) {
-      const r = await runWithStdin("- **noul** - the number the model returns per question", [
-        "str",
-        "-",
-        "--config",
-        configPath,
-        "--json",
-      ]);
+    const MSG = "- **noul** - the number the model returns per question";
+    const runs = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        runWithStdin(MSG, ["str", "-", "--config", configPath, "--json"]),
+      ),
+    ); // concurrent: 20 identical spawns must ALL measure; order on the wire is irrelevant
+    for (const r of runs) {
       expect(r.code).toBeLessThan(2);
       const report = JSON.parse(r.stdout);
       expect(report.errors).toEqual([]);
