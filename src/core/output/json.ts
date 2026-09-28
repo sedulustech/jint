@@ -40,6 +40,11 @@ export function renderJson(report: LintReport): string {
           code: e.code,
           message: e.message,
         })),
+        // In-band degradation (oversized skips, scope exclusions): same array the stylish
+        // renderer prints on stderr — a machine consumer gets the identical signal, never less
+        // (review 396888e finding 1: visibility that stops at the human renderer is not
+        // visibility). Deterministic order is established by collectReport.
+        notes: report.notes,
       },
       null,
       2,

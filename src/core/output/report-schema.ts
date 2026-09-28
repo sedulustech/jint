@@ -30,6 +30,7 @@ export const REPORT_SCHEMA = Type.Object({
   measurements: Type.Array(MEASUREMENT_SCHEMA),
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),
+  notes: Type.Array(Type.String()),
 });
 
 export type Report = Static<typeof REPORT_SCHEMA>;

@@ -75,6 +75,10 @@ declare module "jint:sdk" {
       | readonly string[]
       | ((elements: readonly TsElement[]) => readonly TsElement[]);
     readonly classify: (self: TsElement, ctx: RuleContext) => StateSpec;
+    /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
+    readonly include?: readonly string[];
+    /** Per-rule scoping: glob list; ALWAYS wins over include. */
+    readonly exclude?: readonly string[];
     readonly handle?: TsHandleData;
     readonly handleClassification?: (
       results: readonly RuleResult[],

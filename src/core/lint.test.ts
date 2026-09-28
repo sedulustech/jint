@@ -2,6 +2,7 @@ import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
+import { renderJson } from "../core/output/json.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
   ClassifyError,
@@ -317,6 +318,106 @@ describe("lint", () => {
     expect(report.errors[0]?.code).toBe("JEV_TIMEOUT");
     expect(report.errors[0]?.input).toContain("#L2");
     expect(report.measurements.length).toBeGreaterThanOrEqual(2);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("per-rule scoping (issue 008): scoped-out elements cost zero calls and are noted", async () => {
+    const scopedRule: Rule = {
+      name: "is_scope_probe",
+      criteria: { true: "t", false: "f" },
+      target: "definitions",
+      handle: () => null,
+      exclude: ["tests/**"],
+    };
+    const calls: string[] = [];
+    const classifier: Classifier = async (state, questions) => {
+      calls.push(state.path);
+      return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    };
+    const report = await collectReport(
+      lint({
+        config: { ...baseConfig, input: "", rules: [scopedRule] },
+        input: FILE, // under tests/ — the exclude glob scopes the rule out entirely
+        classifier,
+      }),
+    );
+    // zero jev calls: scoping filters at element selection, before rule resolution
+    expect(calls).toHaveLength(0);
+    expect(report.measurements).toHaveLength(0);
+    expect(report.findings).toHaveLength(0);
+    // the gap is signal, not silence: ONE aggregated note per unit names the rule and the count
+    expect(report.notes).toHaveLength(1);
+    expect(report.notes[0]).toContain("scope excluded");
+    expect(report.notes[0]).toContain("rule 'is_scope_probe' scope excluded 2 element(s)");
+    // the signal survives the machine boundary too (review 396888e finding 1): --json carries it
+    expect(JSON.parse(renderJson(report)).notes).toEqual(report.notes);
+  });
+
+  test("scoping matrix through the pipeline: include/exclude/both compose with global exclude", async () => {
+    // A dir fixture: the walk yields relative paths (keep.ts, drop.ts), so all three filtering
+    // layers are exercisable — global exclude (walk), per-rule include, per-rule exclude.
+    const dir = "tests/fixtures/scope-test";
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(`${dir}/keep.ts`, "export function keep(): number { return 1; }\n");
+    writeFileSync(`${dir}/drop.ts`, "export function drop(): number { return 2; }\n");
+    let probe = 0;
+    const mk = (scope: { include?: string[]; exclude?: string[] }): Rule => ({
+      name: `is_scope_probe_${probe++}`,
+      criteria: { true: "t", false: "f" },
+      target: "definitions",
+      handle: () => null,
+      ...scope,
+    });
+    const calls = async (config: Record<string, unknown>, only?: string[]): Promise<number> => {
+      let n = 0;
+      await collectReport(
+        lint({
+          config: { rules: [], exclude: [], ...(config as object) } as never,
+          only,
+          input: dir,
+          classifier: async (state, questions) => {
+            n += Object.keys(questions).length;
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+          },
+        }),
+      );
+      return n;
+    };
+    // neither key: every element measured (2 files x 1 rule)
+    expect(await calls({ rules: [mk({})] })).toBe(2);
+    // include only: the glob picks the subset
+    expect(await calls({ rules: [mk({ include: ["**/keep.ts"] })] })).toBe(1);
+    expect(await calls({ rules: [mk({ include: ["**/drop.ts"] })] })).toBe(1);
+    // exclude only: subtracts the subset
+    expect(await calls({ rules: [mk({ exclude: ["**/drop.ts"] })] })).toBe(1);
+    // both: include matches both files, exclude subtracts one — exclude wins on the overlap
+    expect(await calls({ rules: [mk({ include: ["**/*.ts"], exclude: ["**/drop.ts"] })] })).toBe(1);
+    // the SAME pattern in both lists: legal, measures nothing, and noted
+    const report = await collectReport(
+      lint({
+        config: {
+          input: "",
+          exclude: [],
+          rules: [mk({ include: ["**/*.ts"], exclude: ["**/*.ts"] })],
+        },
+        input: dir,
+        classifier: async (state, questions) =>
+          Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5])),
+      }),
+    );
+    expect(report.measurements).toHaveLength(0);
+    // layer 1 (global config exclude) removes the UNIT at the walk: zero calls even with a rule
+    // whose include matches that file
+    expect(
+      await calls({
+        exclude: ["**/drop.ts"],
+        rules: [mk({ include: ["**/drop.ts"] })],
+      }),
+    ).toBe(0);
+    // --rule selection composes: only the selected rule runs, still honoring its scope
+    const scoped = mk({ include: ["**/drop.ts"] });
+    const plain = mk({});
+    expect(await calls({ rules: [scoped, plain] }, [scoped.name])).toBe(1);
     rmSync(dir, { recursive: true, force: true });
   });
 

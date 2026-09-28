@@ -1,0 +1,16 @@
+{
+  "$schema": "../jint.schema.json",
+  "input": "src/",
+  "rules": [
+    {
+      "name": "is_name_purposeful",
+      "criteria": {
+        "true": "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
+        "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
+      },
+      "target": "definitions",
+      "handle": { "fires_when": "false", "warn_at": 0.6, "error_at": 0.7 },
+      "exclude": ["tests/**", "**/*.spec.ts", "**/fixtures/**"]
+    }
+  ]
+}

@@ -8,6 +8,7 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { checkRuleScope } from "../scope.ts";
 import { checkNoulHandler } from "../sensors/handle.ts";
 import { SetupError, type RuleResult, type RuleTarget } from "../types.ts";
 
@@ -87,6 +88,10 @@ export interface TsRule {
     | ((elements: readonly TsElement[]) => readonly TsElement[]);
   /** Per resolved target: the state spec for self. Returns data, never calls the classifier. */
   readonly classify: (self: TsElement, ctx: RuleContext) => StateSpec;
+  /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
+  readonly include?: readonly string[];
+  /** Per-rule scoping: glob list; ALWAYS wins over include. */
+  readonly exclude?: readonly string[];
   /** Policy, data form: the typed noul handler (fires_when defect pole + thresholds). */
   readonly handle?: TsHandleData;
   /**
@@ -210,6 +215,12 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
     );
   }
   if (typeof r.classify !== "function") fail('"' + name + '": missing classify(self, ctx)');
+  // Per-rule scoping shares the JSON tier's checker - same bad shapes, same field-naming messages.
+  const scopeProblem = checkRuleScope({
+    include: r.include as readonly string[] | undefined,
+    exclude: r.exclude as readonly string[] | undefined,
+  });
+  if (scopeProblem !== null) fail('"' + name + '": ' + scopeProblem);
   const hasHandle = r.handle !== undefined;
   const hasPolicyFn = r.handleClassification !== undefined;
   if (hasHandle === hasPolicyFn) {

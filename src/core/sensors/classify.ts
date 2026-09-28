@@ -8,6 +8,7 @@
  */
 
 import { decompose, languageOf, type Inventory, type InventoryElement } from "../input/walk.ts";
+import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
   type AnyState,
@@ -217,6 +218,8 @@ export interface ClassifyResult {
   readonly inventory?: Inventory;
   /** Elements skipped as oversized (over MAX_ELEMENT_CHARS): never judged, reported in-band. */
   readonly oversized: number;
+  /** Per-unit scoping notes (issue 008): scoped-out element counts per rule, never silent. */
+  readonly notes: string[];
 }
 
 /**
@@ -266,9 +269,18 @@ export function matchesTarget(target: string, element: TargetableElement): boole
 /**
  * The JSON element funnel (design §7.1). Exported for the cross-tier consistency test: the TS tier
  * must select the same elements per target as this funnel, by construction (shared predicate).
+ * Per-rule scoping (issue 008) filters here when the caller supplies the walk path - a scoped-out
+ * rule/element pair costs zero jev calls.
  */
-export const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] =>
-  rules.filter((rule) => matchesTarget(rule.target, element));
+export const rulesForElement = (
+  rules: readonly Rule[],
+  element: InventoryElement,
+  path?: string,
+): Rule[] =>
+  rules.filter(
+    (rule) =>
+      matchesTarget(rule.target, element) && (path === undefined || ruleInScope(rule, path)),
+  );
 /**
  * Classify one unit: the unit-scoped rules over the whole unit, then every element of the inventory
  * x every inventory-scoped rule, one call per element under a bounded-concurrency scheduler. One
@@ -353,10 +365,8 @@ export async function classifyFile(
   // its own inventory: the whole input is the element, so EVERY rule judges it whole — the
   // rule's target routes elements of a parsed inventory, and a str unit has no inventory by
   // design. No grammar is ever inferred for it.
-  const wholeRules = rules.filter((rule) =>
-    unit.kind === "str"
-      ? true
-      : rule.target === "files" || (rule.target === "diffs" && unit.kind === "diff"),
+  const wholeRules = rules.filter(
+    (rule) => ruleInScope(rule, state.path) && judgesWholeUnit(rule, unit.kind),
   );
   const fileId = "id" in state ? state.id : contentHash(state.diff);
   if (wholeRules.length > 0) {
@@ -373,7 +383,7 @@ export async function classifyFile(
       wholeRules.map((rule) => questionKey(rule.name, fileId)),
       state.path,
     );
-    if (fatalIn()) return { events, fatal: true, oversized: 0 };
+    if (fatalIn()) return { events, fatal: true, oversized: 0, notes: [] };
   }
 
   // Derive the inventory; failure is a per-unit error for the inventory-scoped rules. Only file
@@ -422,8 +432,27 @@ export async function classifyFile(
     rules: Rule[];
     role: string;
   }> = [];
+  // Per-rule scoping (issue 008): scoped-out pairs cost zero calls, but they are SIGNAL. One
+  // AGGREGATED note per unit (review 396888e finding 4: per-unit-per-rule notes inherit the
+  // rules x files fan-out and drown the stream) lists each scoped rule and what it skipped, so
+  // the gap is never silent. The path is constant within a unit, so every scoped rule is either
+  // in scope for the whole unit or out for all of it.
+  const scopeNotes: string[] = [];
+  const fragments: string[] = [];
+  for (const rule of rules) {
+    if (rule.include === undefined && rule.exclude === undefined) continue;
+    if (ruleInScope(rule, state.path)) continue;
+    if (judgesWholeUnit(rule, unit.kind)) {
+      fragments.push(`rule '${rule.name}' scope excluded the whole unit`);
+    } else {
+      const skipped = inventory.filter((element) => matchesTarget(rule.target, element)).length;
+      if (skipped > 0) fragments.push(`rule '${rule.name}' scope excluded ${skipped} element(s)`);
+    }
+  }
+  if (fragments.length > 0)
+    scopeNotes.push(`${state.path}: scope excluded - ${fragments.join("; ")}`);
   for (const element of inventory) {
-    const scoped = rulesForElement(rules, element);
+    const scoped = rulesForElement(rules, element, state.path);
     if (scoped.length === 0) continue;
     const wireId = elementWireId(element.span);
     jobs.push({
@@ -435,7 +464,8 @@ export async function classifyFile(
     });
   }
   const oversized = derived?.oversizedCount ?? 0;
-  if (jobs.length === 0 || isAborted()) return { events, fatal: false, oversized };
+  if (jobs.length === 0 || isAborted())
+    return { events, fatal: false, oversized, notes: scopeNotes };
 
   let next = 0;
   let aborted = false;
@@ -471,8 +501,8 @@ export async function classifyFile(
   // completes out of order; lint.collectReport sorts the report (input, span, rule) for stable
   // output.
   await Promise.all(Array.from({ length: jobs.length }, worker));
-  if (aborted) return { events, fatal: true, inventory: derived, oversized };
-  return { events, fatal: false, inventory: derived, oversized };
+  if (aborted) return { events, fatal: true, inventory: derived, oversized, notes: scopeNotes };
+  return { events, fatal: false, inventory: derived, oversized, notes: scopeNotes };
 }
 /**
  * A definition's attached docblock is consumed into the element (design §7.2) — it reads as
