@@ -24,6 +24,8 @@ export interface TsElement {
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };
     readonly end: { readonly line: number; readonly column: number };
+    readonly startByte: number;
+    readonly endByte: number;
   };
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: TsElement | null;

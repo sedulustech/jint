@@ -56,12 +56,16 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
     const wSev = Math.max(...rows.map((r) => r.severity.length), 5);
     const wVal = Math.max(...rows.map((r) => r.value.length), 5);
     const wRule = Math.max(...rows.map((r) => r.rule.length));
-    for (const r of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
       const sev = r.severity.padEnd(wSev);
       const val = r.value.padStart(wVal);
       const rule = r.rule.padEnd(wRule);
       const line = `${sev}  ${val}  ${rule}  ${r.input}`;
       out.push(outColor ? (r.severity === "error" ? red(line) : yellow(line)) : line);
+      // A TS policy callback's custom message renders indented under its finding.
+      const message = report.findings[i]?.message;
+      if (message !== undefined) out.push("    " + message);
     }
   }
   const findings = findingsSummaryOf(report);

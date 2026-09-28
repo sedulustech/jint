@@ -20,6 +20,8 @@ declare module "jint:sdk" {
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };
       readonly end: { readonly line: number; readonly column: number };
+      readonly startByte: number;
+      readonly endByte: number;
     };
     readonly parent: TsElement | null;
   }

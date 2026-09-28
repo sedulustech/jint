@@ -12,6 +12,9 @@ export const FINDING_SCHEMA = Type.Object({
   input: Type.String(),
   value: Type.Number(),
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),
+  // Additive (jint-report/v1, TS tier): a policy callback's custom message and extra data.
+  message: Type.Optional(Type.String()),
+  data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({

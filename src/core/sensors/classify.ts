@@ -261,19 +261,66 @@ export interface ClassifyFileOptions {
   readonly concurrency?: number;
 }
 
+/**
+ * The walk phase, extracted (design rules-context/03 walk-first): read + parse + extract the
+ * inventory (metadata + parent links), free the tree. lint runs this ONCE over all file units
+ * before any classification, then hands the result back to classifyFile so nothing re-walks.
+ */
+export interface WalkedUnit {
+  readonly inventory: InventoryElement[];
+  readonly derived?: Inventory;
+  /** Why the unit could not be mapped to elements (file units only); streamed as WALK_FAILED. */
+  readonly failed: string | null;
+  readonly failedCause: unknown;
+}
+
+export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): Promise<WalkedUnit> {
+  const state = unit.state;
+  const content =
+    "content" in state && typeof state.content === "string"
+      ? state.content
+      : String((state as unknown as Record<string, unknown>).diff ?? "");
+  let inventory: InventoryElement[] = [];
+  let derived: Inventory | undefined;
+  let failed: string | null = null;
+  let failedCause: unknown;
+  if (unit.kind !== "file") {
+    failed = "non-file unit";
+  } else {
+    const language = options.language ?? languageOf(state.path);
+    if (language === null) {
+      // An extension names the remedy (fix the mapping); an extensionless path is piped stdin
+      // (the str noun) — there is no extension to map, the remedy is declaring the grammar.
+      failed = /\.[^./]+$/.test(state.path)
+        ? "no grammar mapping for extension"
+        : "cannot infer a grammar for piped stdin - declare it with --language";
+    } else {
+      try {
+        const parsed = await decompose(content, language);
+        inventory = [...parsed.definitions, ...parsed.comments, ...parsed.imports];
+        if (inventory.length === 0) {
+          failed = "no definitions, comments, or imports found";
+        } else {
+          derived = parsed;
+        }
+      } catch (thrown) {
+        failed = "parse failed";
+        failedCause = thrown;
+      }
+    }
+  }
+  return { inventory, derived, failed, failedCause };
+}
+
 export async function classifyFile(
   unit: Unit,
   rules: readonly Rule[],
   classifier: Classifier,
   isAborted: () => boolean = () => false,
   options: ClassifyFileOptions = {},
+  walked?: WalkedUnit,
 ): Promise<ClassifyResult> {
   const state = unit.state;
-  const content =
-    "content" in state && typeof state.content === "string"
-      ? state.content
-      : String((state as unknown as Record<string, unknown>).diff ?? "");
-
   const events: ClassifyEvent[] = [];
   const fatalIn = () =>
     events.some((e) => e.event instanceof ClassifyError && e.event.code === "JEV_AUTH");
@@ -310,34 +357,18 @@ export async function classifyFile(
   // Derive the inventory; failure is a per-unit error for the inventory-scoped rules. Only file
   // units have one: str and diff units are already terminal states (no grammar, no mapping, so
   // no WALK_FAILED either — `failed` stays unpushed for them by the kind check below).
+  // Walk-first (design rules-context/03): the walk phase already ran over every file unit; a
+  // passed-in walked unit is reused verbatim. Without one (the classify() one-shot door), walk now.
   let inventory: InventoryElement[] = [];
   let derived: Inventory | undefined;
   let failed: string | null = null;
   let failedCause: unknown;
-  if (unit.kind !== "file") {
-    failed = "non-file unit";
-  } else {
-    const language = options.language ?? languageOf(state.path);
-    if (language === null) {
-      // An extension names the remedy (fix the mapping); an extensionless path is piped stdin
-      // (the str noun) — there is no extension to map, the remedy is declaring the grammar.
-      failed = /\.[^./]+$/.test(state.path)
-        ? "no grammar mapping for extension"
-        : "cannot infer a grammar for piped stdin - declare it with --language";
-    } else {
-      try {
-        const parsed = await decompose(content, language);
-        inventory = [...parsed.definitions, ...parsed.comments, ...parsed.imports];
-        if (inventory.length === 0) {
-          failed = "no definitions, comments, or imports found";
-        } else {
-          derived = parsed;
-        }
-      } catch (thrown) {
-        failed = "parse failed";
-        failedCause = thrown;
-      }
-    }
+  {
+    const w = walked ?? (await walkUnit(unit, options));
+    inventory = w.inventory;
+    derived = w.derived;
+    failed = w.failed;
+    failedCause = w.failedCause;
   }
   if (failed !== null && unit.kind === "file") {
     events.push({
