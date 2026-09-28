@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { AnyState, Classifier } from "../types.ts";
 
-const state = { path: "x", id: "L1" } as AnyState;
-import { checkRunKnobs, createRpsPacer, withLimit, withPacer } from "./pacer.ts";
+const state = { path: "x", content: "", id: "L1" } as AnyState;
+import { checkRunKnobs, createRpsPacer, withLimit, withPacer, withTimeout } from "./pacer.ts";
 
 describe("checkRunKnobs", () => {
   test("each failure names the exact field", () => {
@@ -26,6 +26,51 @@ describe("createRpsPacer", () => {
     expect(elapsed).toBeGreaterThanOrEqual(120);
     expect(elapsed).toBeLessThan(1000);
     void sleep;
+  });
+});
+
+describe("createRpsPacer — injected clock", () => {
+  test("refill accrued during a sleep (including overshoot) is credited, not discarded", () => {
+    let t = 0;
+    const sleeps: number[] = [];
+    const pacer = createRpsPacer(
+      10, // 100ms per token
+      1,
+      async (ms) => {
+        sleeps.push(ms);
+        t += ms + 3; // setTimeout always oversleeps, here by 3ms
+      },
+      () => t,
+    );
+    return (async () => {
+      await pacer.acquire(); // burst token, no wait
+      expect(sleeps).toEqual([]);
+      await pacer.acquire(); // empty bucket: ~100ms wait
+      expect(sleeps[0]).toBeCloseTo(100, 0);
+      // the 3ms overshoot accrues 0.03 tokens of credit, so the next wait is ~3ms SHORTER
+      await pacer.acquire();
+      expect(sleeps[1]).toBeDefined();
+      expect(sleeps[1]!).toBeGreaterThan(50);
+      expect(sleeps[1]!).toBeLessThan(100);
+    })();
+  });
+});
+
+describe("withTimeout", () => {
+  test("a hung call rejects JEV_TIMEOUT after the timeout; a fast call passes through", async () => {
+    const hung: Classifier = () => new Promise(() => {}); // never settles
+    const timed = withTimeout(hung, 0.02);
+    await expect(timed({ path: "a.ts", source: "a" } as AnyState, {})).rejects.toMatchObject({
+      name: "ClassifyError",
+      code: "JEV_TIMEOUT",
+      input: "a.ts",
+    });
+    const fast: Classifier = async () => ({ ok: 1 });
+    expect(await withTimeout(fast, 5)({ path: "a.ts", source: "a" } as AnyState, {})).toEqual({
+      ok: 1,
+    });
+    // identity when no timeout
+    expect(withTimeout(fast, undefined)).toBe(fast);
   });
 });
 

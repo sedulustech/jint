@@ -43,12 +43,9 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   rule: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  concurrency: TypeBoxType.Optional(
-    TypeBoxType.Union([TypeBoxType.Number(), TypeBoxType.String()]),
-  ),
-  "rps-budget": TypeBoxType.Optional(
-    TypeBoxType.Union([TypeBoxType.Number(), TypeBoxType.String()]),
-  ),
+  concurrency: TypeBoxType.Optional(TypeBoxType.String()),
+  "rps-budget": TypeBoxType.Optional(TypeBoxType.String()),
+  timeout: TypeBoxType.Optional(TypeBoxType.String()),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
@@ -86,6 +83,8 @@ Options:
                       the config key of the same name)
   --rps-budget <n>    client-side request-start budget, requests/second (default 15, ~75% of
                       the published 1200 rpm quota; overrides config rps_budget)
+  --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
+                      JEV_TIMEOUT failure - liveness, not retry)
   --json              machine report (jint-report/v1) instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
@@ -236,10 +235,11 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
   }
 
-  // Run knobs: flags override the config; both funnel into the SDK options (thin-client rule).
+  // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
   const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
   const rpsBudget = numericFlag(cliArgs["rps-budget"], "--rps-budget");
-  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget });
+  const timeout = numericFlag(cliArgs.timeout, "--timeout");
+  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
   if (knobProblem !== null) {
     usageError(knobProblem + " — see jint --help");
     return 2;
@@ -261,6 +261,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         only: cliArgs.rule,
         concurrency,
         rps_budget: rpsBudget,
+        timeout,
       }),
     );
     // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
@@ -285,9 +286,12 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
-function numericFlag(value: number | string | undefined, flag: string): number | undefined {
+function numericFlag(value: string | undefined, flag: string): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value === "number") return value;
+  if (value.trim() === "") {
+    usageError(`${flag} requires a number, got an empty value — see jint --help`);
+    return undefined;
+  }
   const n = Number(value);
   if (Number.isNaN(n)) {
     usageError(`${flag} must be a number, got '${value}' — see jint --help`);
@@ -324,6 +328,7 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "--rule",
   "--concurrency",
   "--rps-budget",
+  "--timeout",
   "--json",
   "--debug",
   "--help",
@@ -348,6 +353,7 @@ const VALUED_FLAGS: ReadonlySet<string> = new Set([
   "--rule",
   "--concurrency",
   "--rps-budget",
+  "--timeout",
 ]);
 
 /**
@@ -418,6 +424,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         rule: { type: "string", multiple: true },
         concurrency: { type: "string" },
         "rps-budget": { type: "string" },
+        timeout: { type: "string" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },

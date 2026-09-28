@@ -46,6 +46,7 @@ export type ClassifyErrorCode =
   | "JEV_UNAVAILABLE"
   | "JEV_REQUEST_INVALID"
   | "JEV_RESPONSE_INVALID"
+  | "JEV_TIMEOUT"
   | "WALK_FAILED"
   | "RULE_FAILED"
   | "INTERNAL";

@@ -69,6 +69,14 @@ describe("cli: contract basics", () => {
       exit: 2,
       stderr: ["rps_budget: must be a number > 0", "--help"],
     });
+    expectContract(run(["--timeout", "0"]), {
+      exit: 2,
+      stderr: ["timeout: must be a number > 0", "--help"],
+    });
+    expectContract(run(["--rps-budget", ""]), {
+      exit: 2,
+      stderr: ["--rps-budget requires a number", "--help"],
+    });
   });
 
   test("unknown flag -> usage error, exit 2", () => {

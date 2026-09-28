@@ -120,6 +120,12 @@ export const CONFIG_SCHEMA = Type.Object({
         "Client-side request-start budget, requests/second (the compliance knob; published quota is 1200 rpm = 20 rps). Default 15 (~75% of quota).",
     }),
   ),
+  timeout: Type.Optional(
+    Type.Number({
+      description:
+        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30 (~80x the measured p95 of 380ms). A hung call becomes a per-element JEV_TIMEOUT failure.",
+    }),
+  ),
 });
 
 /** The normalized shape every config resolves to before lint runs. */
@@ -135,6 +141,8 @@ export interface ResolvedConfig {
   readonly concurrency?: number;
   /** Client-side request-start budget, requests/second (the compliance knob; default 15). */
   readonly rps_budget?: number;
+  /** Per-call classifier timeout, seconds (default 30); a hung call becomes JEV_TIMEOUT. */
+  readonly timeout?: number;
 }
 
 /** The built-in config used when no config file exists: no input, all default rules. */
@@ -209,6 +217,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     apiKey?: string;
     concurrency?: number;
     rps_budget?: number;
+    timeout?: number;
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
@@ -223,12 +232,14 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,
     rps_budget: parsed.rps_budget,
+    timeout: parsed.timeout,
   });
   if (knobProblem !== null) {
     throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${knobProblem}`);
   }
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
   if (parsed.rps_budget !== undefined) resolved.rps_budget = parsed.rps_budget;
+  if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
   return Object.freeze(resolved);
 }
 

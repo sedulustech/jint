@@ -20,8 +20,10 @@ import {
   createRpsPacer,
   DEFAULT_CONCURRENCY,
   DEFAULT_RPS_BUDGET,
+  DEFAULT_TIMEOUT,
   withLimit,
   withPacer,
+  withTimeout,
 } from "./jev/pacer.ts";
 import {
   classifyFile,
@@ -85,6 +87,11 @@ export interface LintOptions {
    * default 15, ~75% of the published 20 rps quota). Overrides the config.
    */
   rps_budget?: number;
+  /**
+   * Per-call timeout in seconds (CLI --timeout; config key of the same name; default 30). A hung
+   * call becomes a per-element JEV_TIMEOUT failure instead of pinning a run-wide slot.
+   */
+  timeout?: number;
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
@@ -137,18 +144,22 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // the config already validated them - lint() takes options that never passed the loader.
   const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
   const rpsBudget = options.rps_budget ?? options.config.rps_budget ?? DEFAULT_RPS_BUDGET;
-  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget });
+  const timeout = options.timeout ?? options.config.timeout ?? DEFAULT_TIMEOUT;
+  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
-  // The classifier seam carries both knobs: the limit caps in-flight calls RUN-WIDE (the per-unit
-  // pools schedule the fan-out), the pacer spaces request starts (compliance). The pacer is the
-  // ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
-  const pacer = createRpsPacer(rpsBudget, concurrency);
-  const classifier = withPacer(
-    withLimit(
-      options.classifier ?? createClassifier({ apiKey: options.config.apiKey }),
-      concurrency,
+  // The classifier seam carries all three knobs - composition order is load-bearing (pacer.ts):
+  // the limit caps in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a
+  // paced caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is
+  // the ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
+  const classifier = withLimit(
+    withPacer(
+      withTimeout(
+        options.classifier ?? createClassifier({ apiKey: options.config.apiKey }),
+        timeout,
+      ),
+      createRpsPacer(rpsBudget, concurrency),
     ),
-    pacer,
+    concurrency,
   );
   const units =
     options.str !== undefined
@@ -443,11 +454,35 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
   }
-  // Concurrent classification completes out of order; the REPORT is the stable artifact:
-  // findings sort by element path, then rule, so two runs of the same input produce identical
-  // documents regardless of completion order. The stream stays completion-ordered by design.
-  report.findings.sort((a, b) =>
-    a.input === b.input ? a.rule.localeCompare(b.rule) : a.input.localeCompare(b.input),
+  // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
+  // array sorts on a total key over the data (never completion order, never stable-sort tie
+  // preservation):
+  // - findings: (input, span startByte, span start line, rule) - one file can fire one rule on
+  //   many elements, so (input, rule) alone can tie.
+  // - measurements: (input, rule, stage, value); errors: (input, code, message); notes: lexical.
+  // The event STREAM stays completion-ordered by design; the serialized document is byte-stable.
+  const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
+  const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
+  report.findings.sort(
+    (a, b) =>
+      a.input.localeCompare(b.input) ||
+      spanKey(a) - spanKey(b) ||
+      lineKey(a) - lineKey(b) ||
+      a.rule.localeCompare(b.rule),
   );
+  report.measurements.sort(
+    (a, b) =>
+      a.input.localeCompare(b.input) ||
+      a.rule.localeCompare(b.rule) ||
+      (a.stage ?? "").localeCompare(b.stage ?? "") ||
+      a.value - b.value,
+  );
+  report.errors.sort(
+    (a, b) =>
+      a.input.localeCompare(b.input) ||
+      a.code.localeCompare(b.code) ||
+      a.message.localeCompare(b.message),
+  );
+  report.notes.sort((a, b) => a.localeCompare(b));
   return report;
 }
