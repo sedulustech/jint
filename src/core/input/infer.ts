@@ -2,8 +2,9 @@
  * Input inference and resolution (design §3, §4): the kind is inferred by path shape, never by
  * content —
  *
- * On-disk directory -> dir (walked into file units) On-disk file -> file (even a patch file: a file
- * is just a file — jint never parses a VCS) missing path -> ENTRYPOINT_NOT_FOUND
+ * On-disk directory -> dir (walked into file units); on-disk file -> file (even a patch file: a
+ * file is just a file — jint never parses a VCS; a non-source extension fails NOT_SOURCE in the
+ * file unit); missing path -> ENTRYPOINT_NOT_FOUND
  *
  * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with the str
  * noun (jint str -) or as the changed-file list (jint -). Both the CLI and the SDK go through
@@ -48,11 +49,7 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       yield* walkDir(input, exclude);
       return;
     }
-    // The diff input kind was removed: a patch file is just a file (NOT_SOURCE for a .patch
-    // extension), and the changed-file list is the jint - / --changed form, never an inputType.
-    throw new SetupError(
-      "NOT_SOURCE",
-      "the diff input kind was removed - a patch file is just a file; the changed list is jint - or --changed",
-    );
+    // Unreachable by the type; a guard against a future kind, not a branch.
+    throw new SetupError("NOT_SOURCE", `not a source-language file: ${input}`);
   })();
 }

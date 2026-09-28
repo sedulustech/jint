@@ -2,7 +2,8 @@ import { describe, test, expect, afterAll } from "bun:test";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
+// Piped-stdin units: the kind is DECLARED by a noun (jint str -) or the changed-list form
+// (jint -); the str noun
 // carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
 // runs classify for real.
 

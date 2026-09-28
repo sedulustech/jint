@@ -81,17 +81,13 @@ describe("resolveInput", () => {
     }
   });
 
-  test("the diff input kind is removed: NOT_SOURCE with the changed-list remedy", async () => {
+  test("a patch file is just a file: NOT_SOURCE (no diff noun, no diff inputType)", async () => {
     try {
-      for await (const _ of resolveInput({
-        input: "tests/fixtures/sample.diff",
-        inputType: "diff",
-      })) {
+      for await (const _ of resolveInput({ input: "tests/fixtures/sample.diff" })) {
         expect.unreachable();
       }
     } catch (e) {
       expect((e as SetupError).code).toBe("NOT_SOURCE");
-      expect((e as SetupError).message).toContain("jint -");
     }
   });
 });

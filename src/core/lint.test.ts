@@ -250,6 +250,8 @@ describe("lint — classification shape", () => {
 });
 
 describe("lint", () => {
+  afterAll(() => rmSync("tests/fixtures/order-test", { recursive: true, force: true }));
+
   test("concurrent completion reports deterministically: the full document is byte-identical", async () => {
     // ONE file, 8 function elements, one rule firing on all: findings tie on (input, rule), so
     // only the span key makes the sort total. The mock completes elements in REVERSE order with
@@ -538,22 +540,6 @@ describe("lint", () => {
         .map((e) => e.measurement.input.split("#")[0]),
     );
     expect([...inputs]).toEqual([FILE]);
-  });
-
-  test("the diff input kind is removed: NOT_SOURCE with the changed-list remedy", async () => {
-    try {
-      for await (const _ of lint({
-        config: baseConfig,
-        input: "tests/fixtures/sample.diff",
-        inputType: "diff",
-        classifier: classifierWith({}),
-      })) {
-        expect.unreachable();
-      }
-    } catch (e) {
-      expect((e as SetupError).code).toBe("NOT_SOURCE");
-      expect((e as SetupError).message).toContain("jint -");
-    }
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {

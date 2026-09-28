@@ -20,7 +20,7 @@ export interface HandleOutcome {
 /** Handle's return type: an outcome, or null (silent). */
 export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
-export type InputKind = "file" | "dir" | "diff";
+export type InputKind = "file" | "dir";
 /** The kind of a resolved classifying unit. */
 export type UnitKind = "file" | "diff" | "str";
 

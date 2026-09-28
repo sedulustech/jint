@@ -76,11 +76,6 @@ export interface LintOptions {
    * whole input, no grammar is ever inferred, and it never WALK_FAILEDs.
    */
   str?: { readonly content: string; readonly path?: string };
-  /**
-   * In-memory diff text (the CLI's piped-stdin diff form); decomposed directly, never
-   * path-resolved.
-   */
-  diffText?: { readonly text: string };
   /** Explicit grammar for the str unit (CLI --language); no effect on resolved inputs. */
   language?: string;
   /**
@@ -123,7 +118,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // flags > stdin > config before getting here).
   if (
     options.str === undefined &&
-    options.diffText === undefined &&
     // the changeset form: the LIST is the input (checked below)
     changedList === undefined &&
     (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
@@ -143,7 +137,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // str/diff units have no element inventory: every TS target would resolve to zero elements and
   // the run would complete silently empty. That combination is rejected at setup, not silently
   // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
-  if (loadedTsRules.length > 0 && (options.str !== undefined || options.diffText !== undefined)) {
+  if (loadedTsRules.length > 0 && options.str !== undefined) {
     throw new SetupError(
       "CONFIG_INVALID",
       "ts rules run on file inputs only - a str/diff unit has no element inventory, so every ts rule would resolve zero targets (drop tsRules or use a file input)",

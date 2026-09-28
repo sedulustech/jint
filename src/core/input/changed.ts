@@ -42,7 +42,15 @@ export async function readChangedSource(spec: string): Promise<string> {
   );
 }
 
-/** The list, one path per line: trimmed, deduplicated (first occurrence wins), order kept. */
+/**
+ * The list, one path per line: trimmed (CRLF tolerated), deduplicated (first occurrence wins),
+ * order kept. NO path algebra — the entry string is the file's identity, so entries that would need
+ * interpreting are rejected loud, not resolved: - `..` segments: rejected (would escape the input
+ * dir — the anchor is the list itself); - trailing `/`: rejected (a list names FILES; a directory
+ * is a caller mistake, and reading one as a file is not a note-worthy miss but a malformed list); -
+ * absolute paths: allowed verbatim; - NUL bytes: rejected (git -z output is not a line-separated
+ * list).
+ */
 export function parseChangedList(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -53,6 +61,18 @@ export function parseChangedList(text: string): string[] {
       throw new SetupError(
         "ENTRYPOINT_UNREADABLE",
         `changed list entries must be line-separated paths; NUL-separated input (git -z) is not a list`,
+      );
+    }
+    if (path.endsWith("/")) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `changed list entry names a directory (trailing /): "${path}" - a list names files`,
+      );
+    }
+    if (path.split("/").includes("..")) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `changed list entry escapes the input dir (".."): "${path}" - entries are relative to the input dir, or absolute`,
       );
     }
     if (seen.has(path)) continue;

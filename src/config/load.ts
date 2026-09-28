@@ -28,7 +28,7 @@ import { SetupError, type Rule } from "../core/types.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";
 
-const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir"), Type.Literal("diff")]);
+const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
 const TARGET_SCHEMA = Type.Union([
   Type.Literal("files"),
@@ -140,7 +140,7 @@ export const CONFIG_SCHEMA = Type.Object({
 /** The normalized shape every config resolves to before lint runs. */
 export interface ResolvedConfig {
   readonly input?: string;
-  readonly inputType?: "file" | "dir" | "diff";
+  readonly inputType?: "file" | "dir";
   readonly rules: readonly Rule[];
   /** TS-tier rule files, resolved absolute; empty when the config declares none. */
   readonly tsRules?: readonly string[];

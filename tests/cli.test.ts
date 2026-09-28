@@ -167,7 +167,7 @@ describe("cli: contract basics", () => {
 
   test("a file named diff is judged as a FILE (nouns never resolve to paths)", () => {
     // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
-    // noun-dispatched (a bare 'jint diff' is a payload usage error instead)
+    // noun-dispatched (a bare noun is a payload usage error instead)
     expectContract(run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
       exit: 2,
       stderr: "NOT_SOURCE",
@@ -256,6 +256,31 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         (n: string) => n.includes("not found in the walk") && n.includes("no/such/file.ts"),
       ),
     ).toBe(true);
+  });
+
+  test("a changeset whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", () => {
+    const proc = Bun.spawnSync(
+      [
+        "/bin/bash",
+        "-c",
+        `printf 'no/such/a.ts\nno/such/b.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      ],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, ...NO_SERVICE },
+      },
+    );
+    // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
+    expect(proc.exitCode).toBe(4);
+    const report = JSON.parse(proc.stdout.toString());
+    expect(report.measurements).toEqual([]);
+    for (const p of ["no/such/a.ts", "no/such/b.ts"]) {
+      expect(
+        report.notes.some((n: string) => n.includes("not found in the walk") && n.includes(p)),
+      ).toBe(true);
+    }
   });
 
   test("--diff-patch is gone: unknown flag, exit 2", () => {

@@ -97,8 +97,7 @@ The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on p
 ```bash
 jint src/                                # a directory tree
 jint src/a.ts src/b.ts                   # explicit files
-git diff HEAD~1 | jint diff -            # piped stdin, declared a diff
-jint diff fix.patch                      # a patch file, declared a diff
+git diff --name-only HEAD~1 | jint -     # a changed-file LIST from stdin (your pipeline)
 cat snippet.ts | jint str -              # piped stdin, one str unit
 jint                                     # no positional: input comes from jint.config.json
 ```
