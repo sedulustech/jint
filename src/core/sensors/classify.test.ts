@@ -267,8 +267,10 @@ describe("compileElementQuestions", () => {
 });
 
 describe("classifyFile — element fan-out", () => {
-  test("one element per call, bounded concurrency (the array matrix state is banned)", async () => {
-    const { classifyFile, ELEMENT_CONCURRENCY } = await import("./classify.ts");
+  test("one element per call; the run-wide concurrency knob binds (matrix state banned)", async () => {
+    // classify() carries the run knobs at the classifier seam: the ceiling must actually bind
+    // when lowered (one knob, one behavior - the old per-file pool is gone).
+    const { classify } = await import("../classify.ts");
     const lines = Array.from(
       { length: 12 },
       (_, i) => `export function f${i}(): number { return ${i}; }`,
@@ -286,14 +288,15 @@ describe("classifyFile — element fan-out", () => {
       expect("elements" in state).toBe(false);
       return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
     };
-    const { events } = await classifyFile(
-      { kind: "file", state: { path: "src/gen.ts", content, id: "L1-L13" } },
-      [defaultRules.is_name_purposeful!],
+    const { measurements, errors } = await classify(content, [defaultRules.is_name_purposeful!], {
+      path: "src/gen.ts", // extension names the grammar; "input" (default) would WALK_FAILED
       classifier,
-    );
-    expect(events).toHaveLength(12);
-    expect(events.every((e) => !(e.event instanceof ClassifyError))).toBe(true);
-    expect(maxInFlight).toBeLessThanOrEqual(ELEMENT_CONCURRENCY);
+      concurrency: 4,
+      rps_budget: 1000, // no pacing delays in this test; the ceiling is what binds
+    });
+    expect(measurements).toHaveLength(12);
+    expect(errors).toHaveLength(0);
+    expect(maxInFlight).toBeLessThanOrEqual(4);
     expect(maxInFlight).toBeGreaterThan(1); // concurrent, not sequential
   });
 });

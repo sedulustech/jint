@@ -319,6 +319,18 @@
     },
     "apiKey": {
       "type": "string"
+    },
+    "concurrency": {
+      "description": "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16 (measured: 53.9 rps at 16, zero 429s), max 64.",
+      "type": "number"
+    },
+    "rps_budget": {
+      "description": "Client-side request-start budget, requests/second (the compliance knob; published quota is 1200 rpm = 20 rps). Default 15 (~75% of quota).",
+      "type": "number"
+    },
+    "timeout": {
+      "description": "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30 (~80x the measured p95 of 380ms). A hung call becomes a per-element JEV_TIMEOUT failure.",
+      "type": "number"
     }
   }
 }

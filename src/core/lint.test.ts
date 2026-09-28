@@ -249,6 +249,77 @@ describe("lint — classification shape", () => {
 });
 
 describe("lint", () => {
+  test("concurrent completion reports deterministically: the full document is byte-identical", async () => {
+    // ONE file, 8 function elements, one rule firing on all: findings tie on (input, rule), so
+    // only the span key makes the sort total. The mock completes elements in REVERSE order with
+    // RANDOM jitter (different every run, so an unsorted implementation cannot pass by luck).
+    // The contract is at the serialized boundary: the ENTIRE report string is compared, not a
+    // projection of one array.
+    const dir = "tests/fixtures/order-test";
+    mkdirSync(dir, { recursive: true });
+    const lines = Array.from(
+      { length: 8 },
+      (_, i) => `export function f${i}(): number { return ${i}; }`,
+    );
+    writeFileSync(`${dir}/elements.ts`, lines.join("\n") + "\n");
+    const documentOf = async (): Promise<string> => {
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, input: "" },
+          input: `${dir}/elements.ts`,
+          classifier: async (state, questions) => {
+            const element = Number(/f(\d+)/.exec(state.path)?.[1] ?? 0);
+            await new Promise((r) => setTimeout(r, (7 - element) * 6 + Math.random() * 6));
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.3]));
+          },
+        }),
+      );
+      expect(report.measurements.length).toBeGreaterThanOrEqual(8);
+      return JSON.stringify(report);
+    };
+    const first = await documentOf();
+    const second = await documentOf();
+    expect(first).toBe(second);
+    // and the findings within it are span-ordered, not just input-ordered
+    const findings = JSON.parse(first).findings as Array<{
+      input: string;
+      location?: { span: { startByte: number } };
+    }>;
+    const starts = findings.map((f) => f.location?.span.startByte ?? -1);
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("a hung call times out into a per-element JEV_TIMEOUT error; the run continues", async () => {
+    const dir = "tests/fixtures/timeout-test";
+    mkdirSync(dir, { recursive: true });
+    const lines = Array.from(
+      { length: 3 },
+      (_, i) => `export function f${i}(): number { return ${i}; }`,
+    );
+    writeFileSync(`${dir}/elements.ts`, lines.join("\n") + "\n");
+    const report = await collectReport(
+      lint({
+        config: { ...baseConfig, input: "" },
+        input: `${dir}/elements.ts`,
+        timeout: 0.2, // seconds: the hung element fails fast, the others never wait for it
+        classifier: async (state, questions) => {
+          if ("source" in state && state.source.includes("f1()")) {
+            await new Promise(() => {}); // hung request: never settles
+          }
+          await new Promise((r) => setTimeout(r, 2));
+          return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.3]));
+        },
+      }),
+    );
+    // one hung call = one per-element error, the run continues around it
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]?.code).toBe("JEV_TIMEOUT");
+    expect(report.errors[0]?.input).toContain("#L2");
+    expect(report.measurements.length).toBeGreaterThanOrEqual(2);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("streams measurement per (rule, unit), finding only when the handle fires", async () => {
     const events = await drain(
       lint({

@@ -299,6 +299,17 @@ describe("validateConfig / defaultConfig", () => {
     );
   });
 
+  test("run knobs validate with the field named; flags/config precedence lives above", () => {
+    const config = (overrides: Record<string, unknown>) =>
+      validateConfig({ input: "x", ...overrides }, "inline");
+    expect(config({ concurrency: 8 }).concurrency).toBe(8);
+    expect(config({ rps_budget: 12.5 }).rps_budget).toBe(12.5);
+    expect(() => config({ concurrency: 0 })).toThrow(/concurrency: must be an integer >= 1/);
+    expect(() => config({ concurrency: 65 })).toThrow(/concurrency: must be <= 64/);
+    expect(() => config({ rps_budget: 0 })).toThrow(/rps_budget: must be a number > 0/);
+    expect(() => config({ rps_budget: -1 })).toThrow(/rps_budget: must be a number > 0/);
+  });
+
   test("disable removes by name after assembly", () => {
     const config = validateConfig({ input: "x", disable: ["is_greppable"] }, "inline");
     expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");

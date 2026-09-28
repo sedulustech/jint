@@ -33,6 +33,7 @@ Start it with `"$schema"` pointing at the checked-in `jint.schema.json` (shipped
 - **Input kind is inferred**, not configured: on-disk directory -> dir; on-disk file whose content looks like a unified diff -> diff; rev-looking string (`HEAD`, `HEAD~2..HEAD`, a sha) -> diff via git; `"-"` -> diff from stdin. `inputType` exists only as an override for ambiguous cases.
 - **exclude** removes inputs (globs/paths). Defaults: `node_modules`, `.git`, gitignored paths, binary files.
 - **Rules are data**: omit `rules` for the full default set; entries are either a default rule's name (`"is_greppable"`) or a full rule object (last wins per name). `disable` removes rules by name — set membership, not policy.
+- **Run knobs**: `"concurrency"` (max in-flight classifier calls, run-wide; default 16, max 64 — the wall-clock knob), `"rps_budget"` (client-side request-arrival budget in requests/second; default 15, ~75% of the published 1,200 rpm quota — the compliance knob), and `"timeout"` (per-call classifier timeout in seconds; default 30 — a hung call becomes a per-element `JEV_TIMEOUT` failure instead of pinning a slot; liveness, not retry). Surface as CLI flags `--concurrency` / `--rps-budget` / `--timeout` (flags override config) and as `lint()` / `classify()` options. The report is deterministic: every array (findings, measurements, errors, notes) sorts on a total key (input, span, rule), so two runs of the same input serialize byte-identically regardless of completion order.
 - **Handlers are typed data**, never code — the question type decides the valid shape. Noul rules (criteria `{ true, false }`) take `{ "fires_when": "true" | "false", "warn_at": n, "error_at"?: n, "silent_band"?: [lo, hi] }`: `fires_when` names the defect pole (required, no default — declaration over inference); thresholds are confidence levels on that pole (`P(true)` is flipped first when `fires_when` is `"false"`), ordered `warn_at < error_at`, both within (0, 1); `silent_band` keeps defect-pole readings inside it silent (ordered, never covering the whole scale or containing a threshold), absent = everything surfaces. Choice rules (criteria array) take `{ "map": ("ok"|"warn"|"error")[] }`: one level per criterion, direction expressed by the map itself (high-bad `["ok","ok","warn","error"]`; high-good `["error","warn","ok","ok"]`); length must equal the criteria count and at least one level is non-"ok" — a fired level's finding message defaults to that criterion's line. `"handle": null` is classify-only: the measurement streams, nothing ever produces findings.
 
 Override a default's calibration by re-declaring the rule by name — a threshold change is a paste-able diff, no runtime required:
@@ -212,7 +213,9 @@ const { measurements, errors, inventory } = await classify(str, rules, {
   path: "snippet.ts", // identity + grammar detection; default "str:stdin"
   language: "typescript", // explicit grammar for extensionless sources
   classifier: myJudge, // optional; defaults to the jev adapter
-  concurrency: 8, // per-element call cap
+  concurrency: 16, // run-wide in-flight-call ceiling (default 16, max 64)
+  rps_budget: 15, // request-arrival budget, requests/second (default 15)
+  timeout: 30, // per-call timeout, seconds; a hung call becomes JEV_TIMEOUT
 });
 ```
 

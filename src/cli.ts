@@ -19,6 +19,7 @@ import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
 import { knownLanguages } from "./core/input/walk.ts";
 import { requestTapSummary } from "./core/jev/debug.ts";
+import { checkRunKnobs } from "./core/jev/pacer.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
@@ -42,6 +43,9 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   rule: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
+  concurrency: TypeBoxType.Optional(TypeBoxType.String()),
+  "rps-budget": TypeBoxType.Optional(TypeBoxType.String()),
+  timeout: TypeBoxType.Optional(TypeBoxType.String()),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
@@ -75,6 +79,12 @@ Options:
   --exclude <glob>    input exclusion, on top of config (repeatable)
   --disable <name>    rule removal by name, on top of config (repeatable)
   --rule <name>      run ONLY these rules (repeatable); overrides --disable for the named set
+  --concurrency <n>   max in-flight classifier calls, run-wide (default 16, max 64; overrides
+                      the config key of the same name)
+  --rps-budget <n>    client-side request-start budget, requests/second (default 15, ~75% of
+                      the published 1200 rpm quota; overrides config rps_budget)
+  --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
+                      JEV_TIMEOUT failure - liveness, not retry)
   --json              machine report (jint-report/v1) instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
@@ -225,6 +235,16 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
   }
 
+  // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
+  const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
+  const rpsBudget = numericFlag(cliArgs["rps-budget"], "--rps-budget");
+  const timeout = numericFlag(cliArgs.timeout, "--timeout");
+  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
+  if (knobProblem !== null) {
+    usageError(knobProblem + " — see jint --help");
+    return 2;
+  }
+
   try {
     const lintReport = await collectReport(
       lint({
@@ -239,6 +259,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
+        concurrency,
+        rps_budget: rpsBudget,
+        timeout,
       }),
     );
     // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
@@ -260,6 +283,21 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   } catch (thrown) {
     return exitForThrown(thrown);
   }
+}
+
+/** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
+function numericFlag(value: string | undefined, flag: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (value.trim() === "") {
+    usageError(`${flag} requires a number, got an empty value — see jint --help`);
+    return undefined;
+  }
+  const n = Number(value);
+  if (Number.isNaN(n)) {
+    usageError(`${flag} must be a number, got '${value}' — see jint --help`);
+    return undefined;
+  }
+  return n;
 }
 
 /** ParseCliArgs result: validated modifier flags plus raw positionals, or a usage message. */
@@ -288,6 +326,9 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "--exclude",
   "--disable",
   "--rule",
+  "--concurrency",
+  "--rps-budget",
+  "--timeout",
   "--json",
   "--debug",
   "--help",
@@ -310,6 +351,9 @@ const VALUED_FLAGS: ReadonlySet<string> = new Set([
   "--exclude",
   "--disable",
   "--rule",
+  "--concurrency",
+  "--rps-budget",
+  "--timeout",
 ]);
 
 /**
@@ -378,6 +422,9 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         exclude: { type: "string", multiple: true },
         disable: { type: "string", multiple: true },
         rule: { type: "string", multiple: true },
+        concurrency: { type: "string" },
+        "rps-budget": { type: "string" },
+        timeout: { type: "string" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },
