@@ -13,18 +13,41 @@ interface RunResult {
   stderr: string;
 }
 
-function run(args: string[], envOverrides: Record<string, string | undefined> = {}): RunResult {
-  const proc = Bun.spawnSync(["bun", CLI, ...args], {
+// Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
+// every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.
+async function run(
+  args: string[],
+  envOverrides: Record<string, string | undefined> = {},
+): Promise<RunResult> {
+  const proc = Bun.spawn(["bun", CLI, ...args], {
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, ...envOverrides },
   });
-  return {
-    code: proc.exitCode ?? -1,
-    stdout: proc.stdout.toString(),
-    stderr: proc.stderr.toString(),
-  };
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  return { code: await proc.exited, stdout, stderr };
+}
+
+// shell pipeline variant for stdin plumbing the CLI cannot receive through argv
+async function runShell(
+  command: string,
+  env: Record<string, string | undefined> = {},
+): Promise<RunResult> {
+  const proc = Bun.spawn(["/bin/bash", "-c", command], {
+    cwd: ROOT,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...process.env, ...env },
+  });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  return { code: await proc.exited, stdout, stderr };
 }
 
 const NO_KEY = { TYPESAFE_API_KEY: "" }; // SDK ignores empty env values -> missing key
@@ -36,63 +59,63 @@ afterEach(() => {
 });
 
 describe("cli: contract basics", () => {
-  test("--help exits 0 and leads with usage", () => {
-    const r = run(["--help"]);
+  test.concurrent("--help exits 0 and leads with usage", async () => {
+    const r = await run(["--help"]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("Usage:");
     expect(r.stdout).toContain("Exit codes:");
     expect(r.stderr).toBe("");
   });
 
-  test("-h anywhere ignores other args (flags may follow positionals)", () => {
-    const r = run(["nope.ts", "-h"]);
+  test.concurrent("-h anywhere ignores other args (flags may follow positionals)", async () => {
+    const r = await run(["nope.ts", "-h"]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("Usage:");
   });
 
-  test("--version prints the version and exits 0", () => {
-    const r = run(["--version"]);
+  test.concurrent("--version prints the version and exits 0", async () => {
+    const r = await run(["--version"]);
     expect(r.code).toBe(0);
     expect(r.stdout.trim()).toBe("0.1.0");
   });
 
-  test("run-knob flags validate before any input is touched", () => {
-    expectContract(run(["--concurrency", "65"]), {
+  test.concurrent("run-knob flags validate before any input is touched", async () => {
+    expectContract(await run(["--concurrency", "65"]), {
       exit: 2,
       stderr: ["concurrency: must be <= 64", "--help"],
     });
-    expectContract(run(["--concurrency", "abc"]), {
+    expectContract(await run(["--concurrency", "abc"]), {
       exit: 2,
       stderr: ["--concurrency must be a number", "--help"],
     });
-    expectContract(run(["--rps-budget", "0"]), {
+    expectContract(await run(["--rps-budget", "0"]), {
       exit: 2,
       stderr: ["rps_budget: must be a number > 0", "--help"],
     });
-    expectContract(run(["--timeout", "0"]), {
+    expectContract(await run(["--timeout", "0"]), {
       exit: 2,
       stderr: ["timeout: must be a number > 0", "--help"],
     });
-    expectContract(run(["--rps-budget", ""]), {
+    expectContract(await run(["--rps-budget", ""]), {
       exit: 2,
       stderr: ["--rps-budget requires a number", "--help"],
     });
   });
 
-  test("unknown flag -> usage error, exit 2", () => {
-    expectContract(run(["--frobnicate"]), { exit: 2, stderr: ["--frobnicate", "--help"] });
+  test.concurrent("unknown flag -> usage error, exit 2", async () => {
+    expectContract(await run(["--frobnicate"]), { exit: 2, stderr: ["--frobnicate", "--help"] });
   });
 
-  test("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", () => {
+  test.concurrent("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", async () => {
     // NO_SERVICE: input resolution is key-independent (the key check must not mask it)
-    expectContract(run(["nope/missing.ts"], NO_SERVICE), {
+    expectContract(await run(["nope/missing.ts"], NO_SERVICE), {
       exit: 2,
       stderr: "ENTRYPOINT_NOT_FOUND",
     });
   });
 
-  test("two files classify as file units", () => {
-    const r = run(
+  test.concurrent("two files classify as file units", async () => {
+    const r = await run(
       ["tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts", "--json"],
       NO_SERVICE,
     );
@@ -105,8 +128,8 @@ describe("cli: contract basics", () => {
     expect(attempted).toContain("tests/fixtures/sample-dir/good.ts");
   });
 
-  test("invalid config file -> CONFIG_INVALID, exit 2", () => {
-    const r = run([
+  test.concurrent("invalid config file -> CONFIG_INVALID, exit 2", async () => {
+    const r = await run([
       "--config",
       "tests/fixtures/configs/invalid.config.json",
       "tests/fixtures/sample-file.ts",
@@ -115,43 +138,43 @@ describe("cli: contract basics", () => {
     expect(r.stderr).toContain("CONFIG_INVALID");
   });
 
-  test("removed flags error with the new-form hint, exit 2", () => {
+  test.concurrent("removed flags error with the new-form hint, exit 2", async () => {
     for (const [args, hint] of [
       [["--file", "a.ts"], "use: jint <path>..."],
       [["--dir", "src"], "use: jint <dir>"],
       [["--kind", "diff"], "use: jint diff -"],
       [["--diff", "-"], "use: jint diff -"],
     ] as const) {
-      expectContract(run([...args]), { exit: 2, stderr: hint });
+      expectContract(await run([...args]), { exit: 2, stderr: hint });
     }
   });
 
-  test("bare 'jint -' -> usage error with guidance, exit 2", () => {
-    expectContract(run(["-"]), { exit: 2, stderr: ["jint diff -", "jint str -"] });
+  test.concurrent("bare 'jint -' -> usage error with guidance, exit 2", async () => {
+    expectContract(await run(["-"]), { exit: 2, stderr: ["jint diff -", "jint str -"] });
   });
 
-  test("bare noun without payload -> usage error, exit 2 (never a path lookup)", () => {
-    expectContract(run(["diff"]), { exit: 2, stderr: "expects a payload" });
-    expectContract(run(["str"]), { exit: 2, stderr: "expects a payload" });
+  test.concurrent("bare noun without payload -> usage error, exit 2 (never a path lookup)", async () => {
+    expectContract(await run(["diff"]), { exit: 2, stderr: "expects a payload" });
+    expectContract(await run(["str"]), { exit: 2, stderr: "expects a payload" });
   });
 
   // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
-  test("'--' ends flag parsing: a dash-path classifies", () => {
-    const r = run(["--", "tests/fixtures/dash-path/--weird.ts", "--json"], NO_SERVICE);
+  test.concurrent("'--' ends flag parsing: a dash-path classifies", async () => {
+    const r = await run(["--", "tests/fixtures/dash-path/--weird.ts", "--json"], NO_SERVICE);
     expect(r.code).toBe(4); // reached measurement: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
   });
 
-  test("dash-leading token that is no known flag and no path -> exit 2 with guidance", () => {
-    expectContract(run(["--", "--nope.ts"]), { exit: 2, stderr: ["--nope.ts", "--help"] });
+  test.concurrent("dash-leading token that is no known flag and no path -> exit 2 with guidance", async () => {
+    expectContract(await run(["--", "--nope.ts"]), { exit: 2, stderr: ["--nope.ts", "--help"] });
   });
 
-  test("flags before and after positionals are equivalent", () => {
-    const a = run(
+  test.concurrent("flags before and after positionals are equivalent", async () => {
+    const a = await run(
       ["--json", "--rule", "is_greppable", "tests/fixtures/sample-file.ts"],
       NO_SERVICE,
     );
-    const b = run(
+    const b = await run(
       ["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"],
       NO_SERVICE,
     );
@@ -159,25 +182,25 @@ describe("cli: contract basics", () => {
     expect(JSON.parse(a.stdout)).toEqual(JSON.parse(b.stdout));
   });
 
-  test("a file named diff is judged as a FILE (nouns never resolve to paths)", () => {
+  test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {
     // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
     // noun-dispatched (a bare 'jint diff' is a payload usage error instead)
-    expectContract(run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
+    expectContract(await run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
       exit: 2,
       stderr: "NOT_SOURCE",
     });
   });
 
-  test("piped stdout carries no escape codes (--help and reports)", () => {
-    expect(run(["-h"]).stdout).not.toContain("\x1b");
-    const r = run(["tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
+  test.concurrent("piped stdout carries no escape codes (--help and reports)", async () => {
+    expect((await run(["-h"])).stdout).not.toContain("\x1b");
+    const r = await run(["tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
     expect(r.stdout).not.toContain("\x1b");
   });
 });
 
 describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
-  test("a file positional without TYPESAFE_API_KEY: exit 2 with the message, nothing walked", () => {
-    const r = run(["tests/fixtures/sample-file.ts", "--json"], NO_KEY);
+  test.concurrent("a file positional without TYPESAFE_API_KEY: exit 2 with the message, nothing walked", async () => {
+    const r = await run(["tests/fixtures/sample-file.ts", "--json"], NO_KEY);
     // config error: the missing key is setup, not a per-unit failure; nothing was walked or
     // classified, so stdout stays empty — no machine document
     expectContract(r, {
@@ -188,18 +211,21 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stderr).not.toContain("failed to classify");
   });
 
-  test("default stylish report without TYPESAFE_API_KEY: same exit 2, no unit failures", () => {
-    const r = run(["tests/fixtures/sample-file.ts"], NO_KEY);
+  test.concurrent("default stylish report without TYPESAFE_API_KEY: same exit 2, no unit failures", async () => {
+    const r = await run(["tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set");
     expect(r.stderr).not.toContain("failed to classify");
     expect(r.stdout).not.toContain("JEV_AUTH");
   });
 
-  test("no key and no rules (empty rule set): empty run unchanged, no auth error", () => {
+  test.concurrent("no key and no rules (empty rule set): empty run unchanged, no auth error", async () => {
     const configPath = "/tmp/jint-no-rules-config.json";
     require("node:fs").writeFileSync(configPath, JSON.stringify({ rules: [] }));
-    const r = run(["tests/fixtures/sample-file.ts", "--json", "--config", configPath], NO_KEY);
+    const r = await run(
+      ["tests/fixtures/sample-file.ts", "--json", "--config", configPath],
+      NO_KEY,
+    );
     // an empty run needs no classifier: no CONFIG_INVALID, no auth error; exit 4 is the
     // pre-existing zero-measurements semantics of an empty run
     expect(r.code).toBe(4);
@@ -208,130 +234,103 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(JSON.parse(r.stdout).measurements).toEqual([]);
   });
 
-  test("jint diff - reads piped stdin (decomposition happens before the jev call)", () => {
-    const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} diff - --json`],
-      {
-        cwd: ROOT,
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env, ...NO_SERVICE },
-      },
+  test.concurrent("jint diff - reads piped stdin (decomposition happens before the jev call)", async () => {
+    const proc = await runShell(
+      `cat tests/fixtures/sample.diff | bun ${CLI} diff - --json`,
+      NO_SERVICE,
     );
-    expect(proc.exitCode).toBe(4);
-    const report = JSON.parse(proc.stdout.toString());
+    expect(proc.code).toBe(4);
+    const report = JSON.parse(proc.stdout);
     // the diff text decomposed into per-file units; the transport failure names a unit path
     expect(report.errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
     expect(report.errors[0]!.code).toBe("JEV_UNAVAILABLE");
   });
 
-  test("empty diff: humans get a stderr line (exit 4 never silent); --json keeps the empty report", () => {
-    const empty = (args: string) => {
-      const proc = Bun.spawnSync(["/bin/bash", "-c", `printf '' | bun ${CLI} ${args}`], {
-        cwd: ROOT,
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env, ...NO_SERVICE },
-      });
-      return {
-        code: proc.exitCode,
-        stdout: proc.stdout.toString(),
-        stderr: proc.stderr.toString(),
-      };
-    };
-    const human = empty("diff -");
+  test.concurrent("empty diff: humans get a stderr line (exit 4 never silent); --json keeps the empty report", async () => {
+    const empty = (args: string) => runShell(`printf '' | bun ${CLI} ` + args, NO_SERVICE);
+    const human = await empty("diff -");
     expectContract(human, { exit: 4, stderr: "no measurements - empty diff" });
-    const json = expectContract(empty("diff - --json"), { exit: 4, stdout: "json" });
+    const json = expectContract(await empty("diff - --json"), { exit: 4, stdout: "json" });
     expect(json.measurements).toEqual([]);
-    expect(empty("diff - --json").stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
+    expect((await empty("diff - --json")).stderr).toBe(""); // the document is data: errors ride in it, stderr untouched
   });
 
-  test("unknown --language: usage error exit 2 before any input is touched", () => {
-    expectContract(run(["str", "-", "--language", "klingon"], NO_SERVICE), {
+  test.concurrent("unknown --language: usage error exit 2 before any input is touched", async () => {
+    expectContract(await run(["str", "-", "--language", "klingon"], NO_SERVICE), {
       exit: 2,
       stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
       stdout: "empty",
     });
   });
 
-  test("piped stdin without a noun -> usage error, exit 2, guidance (never guessed)", () => {
-    const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} --json`],
-      { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_KEY } },
-    );
-    expect(proc.exitCode).toBe(2);
-    expect(proc.stderr.toString()).toContain("jint diff -");
-    expect(proc.stderr.toString()).toContain("jint str -");
+  test.concurrent("piped stdin without a noun -> usage error, exit 2, guidance (never guessed)", async () => {
+    const proc = await runShell(`cat tests/fixtures/sample.diff | bun ${CLI} --json`, NO_KEY);
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("jint diff -");
+    expect(proc.stderr).toContain("jint str -");
   });
 
-  test("TTY with payload '-' -> immediate usage error, never blocks", () => {
+  test.concurrent("TTY with payload '-' -> immediate usage error, never blocks", async () => {
     // script(1) allocates a pty so process.stdin.isTTY is true in the child
-    const proc = Bun.spawnSync(["/bin/bash", "-c", `script -qec 'bun ${CLI} diff -' /dev/null`], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, ...NO_KEY },
-    });
-    const out = proc.stdout.toString() + proc.stderr.toString();
-    expect(proc.exitCode).toBe(2);
+    const proc = await runShell(`script -qec 'bun ${CLI} diff -' /dev/null`, NO_KEY);
+    const out = proc.stdout + proc.stderr;
+    expect(proc.code).toBe(2);
     expect(out).toContain("no piped stdin to classify");
   });
 
-  test("jint str '--json': the payload is not flag-parsed, it classifies as a str unit", () => {
+  test.concurrent("jint str '--json': the payload is not flag-parsed, it classifies as a str unit", async () => {
     // '--json' becomes the str CONTENT; if it had been parsed as a flag, the noun would have no
     // payload (exit 2 'expects a payload') and the report would be machine JSON
-    const r = run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
+    const r = await run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
     expect(r.code).toBe(4); // reached measurement (transport failure), not a usage error
     expect(r.stderr).toContain("JEV_UNAVAILABLE str:stdin");
     expect(r.stdout).not.toContain("jint-report/v1"); // human table: no --json flag was seen
   });
 
-  test("jint str with inline source text classifies one str unit", () => {
-    const r = run(["str", "export const x = 1;", "--json", "--rule", "is_greppable"], NO_SERVICE);
+  test.concurrent("jint str with inline source text classifies one str unit", async () => {
+    const r = await run(
+      ["str", "export const x = 1;", "--json", "--rule", "is_greppable"],
+      NO_SERVICE,
+    );
     expect(r.code).toBe(4);
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("str:stdin");
   });
 
-  test("jint str <existing-path>: usage error exit 2, never the path string as source", () => {
-    expectContract(run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE), {
+  test.concurrent("jint str <existing-path>: usage error exit 2, never the path string as source", async () => {
+    expectContract(await run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE), {
       exit: 2,
       stderr: ["'tests/fixtures/sample-file.ts' is a path", "jint tests/fixtures/sample-file.ts"],
       stdout: "empty",
     });
   });
 
-  test("all units fail: exit 4 with the failures named on stderr", () => {
-    const proc = Bun.spawnSync(["/bin/bash", "-c", `printf 'x' | bun ${CLI} str -`], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, ...NO_SERVICE },
-    });
-    expect(proc.exitCode).toBe(4); // every unit failed -> the run failed (never exit 0)
-    expect(proc.stderr.toString()).toContain("failed to classify");
+  test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
+    const proc = await runShell(`printf 'x' | bun ${CLI} str -`, NO_SERVICE);
+    expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
+    expect(proc.stderr).toContain("failed to classify");
   });
 
-  test("jint diff fix.patch: a patch path is declared a diff and decomposed", () => {
-    const r = run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
+  test.concurrent("jint diff fix.patch: a patch path is declared a diff and decomposed", async () => {
+    const r = await run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
     expect(r.code).toBe(4);
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("src/tui/components/overlays/box.ts");
   });
 
-  test("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", () => {
+  test.concurrent("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", async () => {
     // file semantics: rejected as a non-source extension (NOT_SOURCE), not decomposed as a diff
-    const r = run(["tests/fixtures/sample.diff", "--json"], NO_SERVICE);
+    const r = await run(["tests/fixtures/sample.diff", "--json"], NO_SERVICE);
     expectContract(r, { exit: 2, stderr: "NOT_SOURCE" });
     expect(r.stderr).not.toContain("diff --git");
 
     // a rev-shaped argument is just a missing entrypoint, not a diff
-    expectContract(run(["HEAD~1..HEAD", "--json"], NO_SERVICE), {
+    expectContract(await run(["HEAD~1..HEAD", "--json"], NO_SERVICE), {
       exit: 2,
       stderr: "ENTRYPOINT_NOT_FOUND",
     });
   });
 
-  test("--config selects an alternate config file (loads, then classifies)", () => {
-    const r = run(
+  test.concurrent("--config selects an alternate config file (loads, then classifies)", async () => {
+    const r = await run(
       [
         "--config",
         "tests/fixtures/configs/valid.config.json",
@@ -346,9 +345,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors[0]!.code).toBe("JEV_UNAVAILABLE");
   });
 
-  test("dir positional respects .gitignore, errors in-band, exit 4", () => {
+  test.concurrent("dir positional respects .gitignore, errors in-band, exit 4", async () => {
     // tests/fixtures/ignore-test contains a .gitignore that ignores 'binary'
-    const r = run(["tests/fixtures/sample-dir", "--json", "--debug"], NO_SERVICE);
+    const r = await run(["tests/fixtures/sample-dir", "--json", "--debug"], NO_SERVICE);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     // Should contain measurements for the non-ignored files
@@ -356,13 +355,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors.length).toBeGreaterThan(0);
   });
 
-  test("jint str - classifies one str unit even when stdin holds diff text", () => {
-    const proc = Bun.spawnSync(
-      ["/bin/bash", "-c", `cat tests/fixtures/sample.diff | bun ${CLI} str - --json`],
-      { cwd: ROOT, stdout: "pipe", stderr: "pipe", env: { ...process.env, ...NO_SERVICE } },
+  test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
+    const proc = await runShell(
+      `cat tests/fixtures/sample.diff | bun ${CLI} str - --json`,
+      NO_SERVICE,
     );
-    expect(proc.exitCode).toBe(4); // ran as ONE str unit; transport failure in-band
-    const report = JSON.parse(proc.stdout.toString());
+    expect(proc.code).toBe(4); // ran as ONE str unit; transport failure in-band
+    const report = JSON.parse(proc.stdout);
     expect(report.errors[0]!.input).toBe("str:stdin");
   });
 });
@@ -390,7 +389,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
   }
   afterAll(() => jev.stop());
 
-  test("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
+  test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
     // High-good noul rules only: the mock's 0.8 is clean under every one of their handles, so a
     // healthy run over a healthy corpus really does exit 0 (is_readable is score-typed and the
     // high-bad rules fire by design under a constant answer).
@@ -418,7 +417,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     }
   });
 
-  test("JEV_DEBUG_REQUEST_LOCATION alone turns on the dump tap: captures land, stdout untouched", async () => {
+  test.concurrent("JEV_DEBUG_REQUEST_LOCATION alone turns on the dump tap: captures land, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
@@ -449,9 +448,9 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     return true;
   }
 
-  test("file positional with a real key: measurements, clean exit 0", () => {
+  test.concurrent("file positional with a real key: measurements, clean exit 0", async () => {
     if (!requireLive()) return;
-    const r = run(["tests/fixtures/sample-file.ts", "--json"]);
+    const r = await run(["tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
     // one pass: 2 files-target + element classification; every measurement runs its handle, so
@@ -463,10 +462,10 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     }
   }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
 
-  test("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", () => {
+  test.concurrent("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", async () => {
     if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
-    const r = run(["tests/fixtures/sample-file.ts", "--json"], {
+    const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
       JEV_DEBUG_REQUEST: "1",
       JEV_DEBUG_REQUEST_LOCATION: dir,
     });

@@ -8,25 +8,27 @@ const CLI = "src/cli.ts";
 // a key with no reachable jev: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
-function run(args: string[], env: Record<string, string | undefined> = {}) {
-  const proc = Bun.spawnSync(["bun", CLI, ...args], {
+// Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
+// every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
+async function run(args: string[], env: Record<string, string | undefined> = {}) {
+  const proc = Bun.spawn(["bun", CLI, ...args], {
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, ...NO_SERVICE, ...env },
   });
-  return {
-    code: proc.exitCode ?? -1,
-    stdout: proc.stdout.toString(),
-    stderr: proc.stderr.toString(),
-  };
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  return { code: await proc.exited, stdout, stderr };
 }
 
 describe("cli: dir walk ignores", () => {
-  test("ignored files never reach the report; resolver excludes them pre-jev", () => {
+  test.concurrent("ignored files never reach the report; resolver excludes them pre-jev", async () => {
     // No reachable jev: transport errors abort before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
-    const r = run(["tests/fixtures/sample-dir", "--json"]);
+    const r = await run(["tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
@@ -41,7 +43,7 @@ describe("cli: dir walk ignores", () => {
     }
   });
 
-  test("rules-only config (no input) validates and runs with a directory positional", () => {
+  test.concurrent("rules-only config (no input) validates and runs with a directory positional", async () => {
     const configPath = "/tmp/jint-rules-only-config.json";
     require("node:fs").writeFileSync(
       configPath,
@@ -50,7 +52,7 @@ describe("cli: dir walk ignores", () => {
     // No key: the run reaches input resolution and the units (JEV_AUTH, exit 4) — NOT
     // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
     // became optional.
-    const r = run(["tests/fixtures/sample-dir", "--json", "--config", configPath]);
+    const r = await run(["tests/fixtures/sample-dir", "--json", "--config", configPath]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     expect(report.errors.some((e: any) => e.code === "JEV_UNAVAILABLE")).toBe(true);
