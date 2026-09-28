@@ -10,77 +10,82 @@ measurement its handle judged actionable and is the only output that demands act
 
 ## Terms
 
-- **noul** — the number the model returns per question: a calibrated probability in [0, 1]
-  that the claim holds; values pass through untouched.
-- **measurement** — the raw reading for one (rule, element) pair:
-  `{ rule, element, value, stage }`; always produced, never actionable by itself.
+- **answer** — the single calibrated probability returned per question, validated in shape;
+  missing or non-finite becomes JEV_RESPONSE_INVALID.
+- **binding** — an element that is a name bound to a non-callable, non-type value; judged by
+  definitions-target rules, never by functions-target rules.
+- **classifying** — asking the model whether a claim holds for one state: rules compile to
+  yes/no questions, the model answers each with a noul probability; jint only ever classifies
+  states, it never generates or transforms them.
+- **composite** — a parsed structure that is both judged and descended into during the walk (a
+  class, a top-level call expression like a describe callback, and nested composites
+  recursively): its header is emitted as a regular element, and its body is walked so inner
+  nodes become elements too. Composites exist only during the walk.
+- **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
+  means; block-scoped questions get block criteria.
+- **diff** — one of the input kinds; sources are `-` (stdin, the primitive) or a patch file
+  (jint never shells to git - the caller owns the VCS); the per-file
+  unified-diff block string is judged verbatim as the unit's state, with the commit message as
+  shared state, deleted/binary files skipped; a parse-into-hunks path is future work.
+
+- **element** one thing a rule can judge: a file, a diff, or a node-derived
+  definition, comment, function, binding, or import from a file inventory; the target names the
+  element type. An arrow-function const is a function like any callable.
+- **false positive rate** - findings a human reviewer would reject as wrong or not actionable, over total findings. jint has no ground truth, so the rate is estimated by span-level spot-checks during calibration (A/B reports, probes);
 - **finding** — a measurement its handle judged actionable: the handle returned
   `"error"` or `"warn"` (null means silent), `{ rule, element, value, severity }`, with a
   `location` span where the element is part of a larger unit; the only actionable output — it
   drives the report and the exit code.
-- **rule** — the classifying mechanism `{ name, criteria, target, kind, handle }`; the criteria is
-  the exact calibrated claim compiled into the question (editing it is a re-calibration event),
-  names follow the `is_`/`will_` proposition convention; kind picks the question primitive: noul
-  (default) or choice (scored rubric). Rules fire; findings result.
-- **criteria** — the `{ true, false }` prose on a QuestionSpec describing what each answer
-  means; block-scoped questions get block criteria.
-- **input** — what a run classifies: a path, a directory, a patch file, piped text, or the config's input field; resolved into the units the rules judge. Where the bytes come from, nothing more. The only input whose kind cannot be safely inferred is piped text (stdin), which must be declared (str or diff).
-- **input kind** — how the CLI interprets an input: file, dir, diff, or str. Decides how bytes are read and whether the source is parsed. Inferred when the source is unambiguous (a path is a file, a directory is a dir); declared for stdin. Not to be confused with target: the input kind is CLI perspective, the target is rule perspective; they meet at the unit.
-- **unit** — one classifiable piece produced by resolving an input according to its input kind: a file unit `{ path, content }`, a diff block, or one str unit (dirs resolve to file units before classifying; the str unit carries a content-hash id). The unit nature decides which rule targets apply: a diff block serves diffs-target rules; a parsed file unit serves functions-, comments-, definitions-, imports-target rules; an unparsed str unit serves files-target only.
-- **target** — the element type a rule judges (rule perspective): files, diffs, functions, comments, definitions, imports. Selects which units/elements the rule classifies; it is not a CLI concept. Which targets can fire follows from the unit, and the unit follows from the input kind.
+- **grammar** — the tree-sitter wasm that turns source text into the parse tree the walk
+  abstracts into roles; shipped embedded with the binary; adding one = the wasm plus one mapping entry.
 - **handle** — the rule's policy callback `(value) => "error" | "warn" | null` (null is
   silent); override it in config to change thresholds; readings over inventory elements never run handles —
   only whole-unit readings do.
-- **severity** — what a handle returned: `"error"` (exit code 1) or `"warn"`.
-- **state** exactly the shape the model judges: file `{ path, content }`, diff
-  `{ path, diff, commit_message }`, element array `{ path, blocks }`.
-- **question** a QuestionSpec `{ type: "noul", instructions, criteria? }`; the
-  record key is the question id, never sent to the model, only correlating answers back to
-  rules; element ids read `"<rule> in <element>"` with a FROZEN scoping sentence appended to
-  the instructions.
-- **instructions** — the plain-string yes/no question on a QuestionSpec, compiled verbatim
-  from the rule's criteria (noul) or the rule's own instructions field (choice).
-- **answer** — the single calibrated probability returned per question, validated in shape;
-  missing or non-finite becomes JEV_RESPONSE_INVALID.
-- **strategy** — a model of the state and questions to send to the classifier (jev) to balance
-  performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
-- **element** one thing a rule can judge: a file, a diff, or a node-derived
-  definition, comment, function, binding, or import from a file inventory; the target names the
-  element type. An arrow-function const is a function like any callable.
-- **binding** — an element that is a name bound to a non-callable, non-type value; judged by
-  definitions-target rules, never by functions-target rules.
-- **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
-  file's inventory.
-- **grammar** — the tree-sitter wasm that turns source text into the parse tree the walk
-  abstracts into roles; shipped embedded with the binary; adding one = the wasm plus one mapping entry.
+- **input** — what a run classifies: a path, a directory, a patch file, piped text, or the config's input field; resolved into the units the rules judge. Where the bytes come from, nothing more. The only input whose kind cannot be safely inferred is piped text (stdin), which must be declared (str or diff).
+- **input kind** — how the CLI interprets an input: file, dir, diff, or str. Decides how bytes are read and whether the source is parsed. Inferred when the source is unambiguous (a path is a file, a directory is a dir); declared for stdin. Not to be confused with target: the input kind is CLI perspective, the target is rule perspective; they meet at the unit.
+- **instructions** — the plain-string question on a QuestionSpec stating the claim being judged;
+  every rule carries its own (kind-stated: the compiler prefixes what the unit is), or it is
+  generated from the rule name when absent; criteria pins the boundary.
 - **inventory** the set of elements derived from one file: parse the source into a
   syntax tree, walk the top-level nodes, classify each by role; inventory-scoped targets select
   from it. The file's imports merge into one import element (`i0`) spanning the first through the
   last import; its content carries the module specifiers, so imports-target criteria can talk about
   what is imported.
-- **composite** — a parsed structure that is both judged and descended into during the walk (a
-  class, a top-level call expression like a describe callback, and nested composites
-  recursively): its header is emitted as a regular element, and its body is walked so inner
-  nodes become elements too. Composites exist only during the walk.
-- **classifying** — asking the model whether a claim holds for one state: rules compile to
-  yes/no questions, the model answers each with a noul probability; jint only ever classifies
-  states, it never generates or transforms them.
+- **measurement** — the raw reading for one (rule, element) pair:
+  `{ rule, element, value, stage }`; always produced, never actionable by itself.
+- **node** — a tree-sitter syntax node; node types include function_declaration, comment,
+  export_statement.
+- **noul** — the number the model returns per question: a calibrated probability in [0, 1]
+  that the claim holds; values pass through untouched.
+- **parsing** — turning source text into a tree-sitter syntax tree; the first step of deriving a
+  file's inventory.
+- **question** a QuestionSpec `{ type: "noul", instructions, criteria? }`; the
+  record key is the question id, never sent to the model, only correlating answers back to
+  rules; element ids read `"<rule> in <element>"` with a FROZEN scoping sentence appended to
+  the instructions.
+- **role** the classification a top-level node gets during the walk: definition,
+  comment, import; the per-language node-type lists that decide it are the mapping, and the role
+  is part of what makes the node an inventory element.
+- **rule** — the classifying mechanism `{ name, criteria, target, kind, handle }`; the criteria is
+  the exact calibrated claim compiled into the question (editing it is a re-calibration event),
+  names follow the `is_`/`will_` proposition convention; kind picks the question primitive: noul
+  (default) or choice (scored rubric). Rules fire; findings result.
+- **run** — one execution of jint: input resolution -> walk -> target resolution ->
+  classification -> findings. The unit of observation: every measurement, finding, dump, and
+  request capture belongs to exactly one run (identified by its run directory). A failed run is
+  still a run - it produced observations. Calibration compares runs.
+- **severity** — what a handle returned: `"error"` (exit code 1) or `"warn"`.
 - **span** a LOC pointer into the element that locates what a reading is about
   (`{ start, end }` line/column points plus byte offsets); spans ride on findings as `location`
   so a report can show the classified source.
-- **node** — a tree-sitter syntax node; node types include function_declaration, comment,
-  export_statement.
+- **state** exactly the shape the model judges: file `{ path, content }`, diff
+  `{ path, diff, commit_message }`, element array `{ path, blocks }`.
+- **strategy** — a model of the state and questions to send to the classifier (jev) to balance
+  performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
+- **target** — the element type a rule judges (rule perspective): files, diffs, functions, comments, definitions, imports. Selects which units/elements the rule classifies; it is not a CLI concept. Which targets can fire follows from the unit, and the unit follows from the input kind.
+- **unit** — one classifiable piece produced by resolving an input according to its input kind: a file unit `{ path, content }`, a diff block, or one str unit (dirs resolve to file units before classifying; the str unit carries a content-hash id). The unit nature decides which rule targets apply: a diff block serves diffs-target rules; a parsed file unit serves functions-, comments-, definitions-, imports-target rules; an unparsed str unit serves files-target only.
 - **walker / walk** two senses: the tree walk that classifies nodes into inventory elements
   (top-level nodes, plus the bodies of composites via descent; skips error nodes, unwraps export
   statements), and the directory walk that
   turns an on-disk tree into file units honoring exclusions. An element is not a tree-sitter
   leaf node: a function element usually has children in the tree.
-- **role** the classification a top-level node gets during the walk: definition,
-  comment, import; the per-language node-type lists that decide it are the mapping, and the role
-  is part of what makes the node an inventory element.
-- **diff** — one of the three input kinds; sources are `-` (stdin, the primitive), a patch file, or
-  a rev expression that shells out to git; the per-file
-  unified-diff block string is judged verbatim as the unit's state, with the commit message as
-  shared state, deleted/binary files skipped; a parse-into-hunks path is future work.
-
-- **false positive rate** - findings a human reviewer would reject as wrong or not actionable, over total findings. jint has no ground truth, so the rate is estimated by span-level spot-checks during calibration (A/B reports, probes);
