@@ -417,6 +417,25 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     return { code: await proc.exited, stdout, stderr };
   }
   afterAll(() => jev.stop());
+  test.concurrent("the dump tap persists report.json: the exact stdout --json bytes, next to the captures", async () => {
+    const { rmSync } = await import("node:fs");
+    const dir = ROOT + "/tmp/cli-tap-report";
+    rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
+    const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
+      JEV_DEBUG_REQUEST: "1",
+      JEV_DEBUG_REQUEST_LOCATION: dir,
+    });
+    expect(r.code).toBe(0);
+    // the stderr notice names THIS run's dir; report.json sits next to the captures
+    const runDir = /captures -> (.+) \(\d+ calls\)/.exec(r.stderr)?.[1];
+    expect(runDir).toBeTruthy();
+    const report = JSON.parse(
+      await (await import("node:fs/promises")).readFile(`${runDir}/report.json`, "utf8"),
+    );
+    // the persisted document is the same OBJECT stdout --json printed (bytes identical too)
+    expect(report).toEqual(JSON.parse(r.stdout));
+    expect(r.stdout.endsWith("\n")).toBe(true);
+  });
 
   test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
     // High-good noul rules only: the mock's 0.8 is clean under every one of their handles, so a

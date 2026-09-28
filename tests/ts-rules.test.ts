@@ -130,14 +130,15 @@ describe("cli: ts rules end-to-end", () => {
     expect(finding?.location?.span.start.line).toBe(8);
   });
 
-  test("handleClassification decisions ride message + data on the finding", async () => {
+  test("handleClassification decisions ride data on the finding (message dropped, v1)", async () => {
     const dir = setup("policy", POLICY_RULE);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 1, stdout: "json" });
     const finding = report.findings.find(
       (f: Record<string, unknown>) => f.rule === "will_policy_decide",
     );
-    expect(finding?.message).toBe("the comment drifts from the code");
+    // findings carry NO message (report contract 2026-09-28): consumers join by rule id
+    expect(finding?.message).toBeUndefined();
     expect(finding?.data).toEqual({ rule_local: true });
     expect(finding?.location?.span.start.line).toBe(8);
   });
@@ -148,7 +149,10 @@ describe("cli: ts rules end-to-end", () => {
     const r = await runIn(dir, { JEV_DEBUG_REQUEST_LOCATION: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
     const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
-    const files = runDirs.flatMap((d) => readdirSync(d).map((f) => d + "/" + f));
+    // report.json (the run's persisted report, not a capture) is excluded from the count
+    const files = runDirs
+      .flatMap((d) => readdirSync(d).map((f) => d + "/" + f))
+      .filter((f) => !f.endsWith("report.json"));
     // Exact contract: this fixture run makes exactly ONE classifier call (the TS rule's single
     // comment target; no JSON rules) — a manifest or second capture would break that claim.
     expect(files).toHaveLength(1);

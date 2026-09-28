@@ -225,8 +225,10 @@ describe("docs-fit-diff — the seed rule (contract)", () => {
       }),
     );
     expect(report.measurements.length).toBeGreaterThan(0);
-    const lensWarns = report.findings.filter((f) => f.message?.includes("ctx.diff is empty"));
+    // findings carry no message (v1 contract): loudness is the rule+severity, joined to the config
+    const lensWarns = report.findings.filter(
+      (f) => f.rule === "is_doc_fit" && f.severity === "warn",
+    );
     expect(lensWarns).toHaveLength(1);
-    expect(lensWarns[0]?.severity).toBe("warn");
   });
 });

@@ -3,8 +3,7 @@
  *
  * - ScoreHandler (choice questions, graded criteria levels): { map } — one level per criterion,
  *   direction expressed by the map itself (high-bad: ["ok","ok","warn","error"]; high-good:
- *   ["error","warn","ok","ok"]). A fired level's finding message defaults to that level's criteria
- *   line verbatim.
+ *   ["error","warn","ok","ok"]).
  * - NoulHandler (noul questions, the claim probability P(true)): { fires_when, warn_at, error_at?,
  *   silent_band? }. fires_when names the defect pole — REQUIRED, no default (declaration over
  *   inference). Thresholds sit on the defect pole (P is flipped first when fires_when is "false");
@@ -101,11 +100,10 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
 }
 
 /**
- * The single data -> function seam for choice rules: the map indexes the score axis (0..N). A fired
- * level carries that level's criteria line verbatim as the finding message; the caller (lint)
- * prefixes the element reference.
+ * The single data -> function seam for choice rules: the map indexes the score axis (0..N).
+ * Findings carry no message — consumers join by rule id to the config (v1 contract).
  */
-export function compileScoreHandler(data: ScoreHandlerData, criteria: readonly string[]): Handle {
+export function compileScoreHandler(data: ScoreHandlerData): Handle {
   return (value) => {
     // jev bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
     // state, not a silent null - fail loud (SetupError INTERNAL), per repo convention.
@@ -119,6 +117,6 @@ export function compileScoreHandler(data: ScoreHandlerData, criteria: readonly s
     // index in range (checked above) guarantees a level
     const level = data.map[index]!;
     if (level === "ok") return null;
-    return { severity: level, message: criteria[index] };
+    return { severity: level };
   };
 }

@@ -28,6 +28,21 @@ export function requestTapSummary(): RequestTapSummary | null {
   return tapSummary;
 }
 
+/**
+ * Persist the run's machine report next to the captures: report.json, the EXACT bytes stdout --json
+ * prints. Called by the CLI after rendering; a no-op when the tap is inactive (never a second write
+ * path, never a failure of the run it observes).
+ */
+export function requestTapWriteReport(json: string): void {
+  if (tapSummary === null) return;
+  try {
+    mkdirSync(tapSummary.dir, { recursive: true });
+    writeFileSync(`${tapSummary.dir}/report.json`, json);
+  } catch {
+    // the tap never breaks the run it observes
+  }
+}
+
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
   // Either variable activates: JEV_DEBUG_REQUEST=1 is the explicit on-switch; a
   // JEV_DEBUG_REQUEST_LOCATION override alone implies the run was launched to capture.

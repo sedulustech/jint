@@ -63,9 +63,6 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
       const rule = r.rule.padEnd(wRule);
       const line = `${sev}  ${val}  ${rule}  ${r.input}`;
       out.push(outColor ? (r.severity === "error" ? red(line) : yellow(line)) : line);
-      // A TS policy callback's custom message renders indented under its finding.
-      const message = report.findings[i]?.message;
-      if (message !== undefined) out.push("    " + message);
     }
   }
   const findings = findingsSummaryOf(report);

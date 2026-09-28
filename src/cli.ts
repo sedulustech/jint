@@ -18,7 +18,7 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
 import { knownLanguages } from "./core/input/walk.ts";
-import { requestTapSummary } from "./core/jev/debug.ts";
+import { requestTapSummary, requestTapWriteReport } from "./core/jev/debug.ts";
 import { checkRunKnobs } from "./core/jev/pacer.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
@@ -264,6 +264,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       cliArgs.json === true
         ? { stdout: renderJson(lintReport), stderr: "" }
         : renderStylish(lintReport, cliArgs.color ?? "auto");
+    // The dump tap persists the run's machine report next to its captures: the EXACT bytes
+    // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
+    if (cliArgs.json === true) requestTapWriteReport(rendered.stdout);
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
     const exit = computeExit(lintReport);

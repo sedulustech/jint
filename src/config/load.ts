@@ -343,7 +343,7 @@ function compileDataHandle(
     if (handle.map.every((level) => level === "ok")) {
       fail("handle.map", "at least one level must be non-ok");
     }
-    return compileScoreHandler(handle, criteria);
+    return compileScoreHandler(handle);
   }
   if (isChoice) {
     fail(
