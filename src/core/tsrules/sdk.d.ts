@@ -5,6 +5,9 @@
  * /// <reference path="./node_modules/jint/src/core/tsrules/sdk.d.ts" />
  *
  * (jint ships src/; see the README's TS-rules section.)
+ *
+ * MIRROR GUARD: this declaration must stay type-identical to sdk.ts — sdk.types.test.ts enforces
+ * that at typecheck time. Edit them together.
  */
 
 declare module "jint:sdk" {
@@ -23,6 +26,8 @@ declare module "jint:sdk" {
       readonly startByte: number;
       readonly endByte: number;
     };
+    /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
+    readonly attachedComment?: readonly string[];
     readonly parent: TsElement | null;
   }
 

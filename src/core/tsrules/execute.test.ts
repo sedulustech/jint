@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { decompose, type InventoryElement } from "../input/walk.ts";
-import { resolveAllTsTargets, runTsRules, type ResolvedTsTargets } from "./execute.ts";
+import { rulesForElement } from "../sensors/classify.ts";
+import {
+  resolveAllTsTargets,
+  runTsRules,
+  tsElementsOf,
+  type ResolvedTsTarget,
+  type ResolvedTsTargets,
+} from "./execute.ts";
 import type { AnyState, Classifier, QuestionSpec } from "../types.ts";
 import type { TsElement, TsRule } from "./sdk.ts";
 
@@ -40,6 +47,12 @@ function fakeClassifier(value: number, calls: Call[] = [], error: Error | null =
   };
 }
 
+/** Narrows a resolved entry to its targets (tests only ever resolve valid rules). */
+function targetsOf(resolved: ResolvedTsTarget): readonly TsElement[] {
+  expect("targets" in resolved).toBe(true);
+  return "targets" in resolved ? resolved.targets : [];
+}
+
 const spec = (state: Record<string, unknown>) => ({
   instructions: "i",
   criteria: { true: "t", false: "f" },
@@ -65,6 +78,42 @@ function ruleOf(patch: Partial<TsRule>): TsRule {
   } as TsRule;
 }
 
+describe("cross-tier target consistency (the drift killer)", () => {
+  /** A fixture with comment-role elements AND a code element carrying an attachedComment. */
+  const COMMENTED = [
+    "// leading run consumed into alpha",
+    "export function alpha() {",
+    "  return 1;",
+    "}",
+    "",
+    "",
+    "// a standalone comment (two blank lines keep it standalone)",
+  ].join("\n");
+
+  test("JSON-tier rulesForElement and TS-tier selection return the SAME element set for every element target", async () => {
+    const inv = await decompose(COMMENTED, "typescript");
+    const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
+    // alpha carries the leading comment: target "comments" must match it in BOTH tiers.
+    expect(inventory.some((e) => (e.attachedComment?.length ?? 0) > 0)).toBe(true);
+    expect(inventory.some((e) => e.role === "comment")).toBe(true);
+    const fakeRule = (target: string) =>
+      ({
+        name: "consistency_probe",
+        target,
+        classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
+      }) as never;
+    for (const target of ["comments", "functions", "definitions", "imports"] as const) {
+      const jsonPicked = inventory.filter((e) => rulesForElement([fakeRule(target)], e).length > 0);
+      const resolved = resolveAllTsTargets(
+        [fakeRule(target)],
+        new Map([["src/fixture.ts", inventory]]),
+      );
+      const tsPicked = targetsOf([...resolved.values()][0]!);
+      expect(tsPicked.map((e) => e.id).sort()).toEqual(jsonPicked.map((e) => e.label).sort());
+    }
+  });
+});
+
 describe("resolveAllTsTargets", () => {
   test("a string target filters the full inventory by role", async () => {
     const inventory = await oneFile(SOURCE);
@@ -73,6 +122,49 @@ describe("resolveAllTsTargets", () => {
     expect("targets" in resolvedRule && resolvedRule.targets).toHaveLength(1);
     expect("targets" in resolvedRule && resolvedRule.targets[0]?.id).toBe("c0");
     expect("targets" in resolvedRule && resolvedRule.targets[0]?.role).toBe("comment");
+  });
+
+  test("oversized elements never enter TS targets (same backstop as the JSON tier)", async () => {
+    const inv = await oneFile(SOURCE);
+    const oversized: InventoryElement = {
+      ...[...inv.get("src/fixture.ts")!][0]!,
+      label: "d9",
+      oversized: true,
+    };
+    const inventory = [...inv.get("src/fixture.ts")!, oversized];
+    for (const target of ["comments", "functions", "definitions", "imports"] as const) {
+      const resolved = resolveAllTsTargets(
+        [ruleOf({ target })],
+        new Map([["src/fixture.ts", inventory]]),
+      );
+      const targets = targetsOf([...resolved.values()][0]!);
+      expect(targets.some((e) => e.id === "d9")).toBe(false);
+    }
+    // ...and not even the function-selection form sees it: the view excludes the element.
+    const seen = resolveAllTsTargets(
+      [ruleOf({ target: (elements) => elements })],
+      new Map([["src/fixture.ts", inventory]]),
+    );
+    const all = targetsOf([...seen.values()][0]!);
+    expect(all.some((e) => e.id === "d9")).toBe(false);
+  });
+
+  test("a dangling parent label throws instead of silently nulling", () => {
+    const dangling = {
+      label: "d0",
+      span: {
+        start: { line: 1, column: 0 },
+        end: { line: 1, column: 1 },
+        startByte: 0,
+        endByte: 1,
+      },
+      content: "x",
+      nodeType: "function_declaration",
+      role: "function",
+      internalCommentCount: 0,
+      parent: "d99",
+    } as InventoryElement;
+    expect(() => tsElementsOf([dangling], "src/fixture.ts")).toThrow(/d99/);
   });
 
   test("the function form receives the FULL inventory and is evaluated ONCE", async () => {
@@ -105,6 +197,77 @@ describe("resolveAllTsTargets", () => {
     expect(phase.events).toHaveLength(1);
     expect(phase.events[0]?.type).toBe("error");
     expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe("RULE_FAILED");
+  });
+});
+
+describe("tsElementsOf — materialized parent view", () => {
+  test("TsElement.parent links a nested element to its owner; top-level is null", async () => {
+    const inv = await decompose(
+      ["class Widget {", "  render(): string {", "    return 'x';", "  }", "}"].join("\n"),
+      "typescript",
+    );
+    const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
+    const elements = tsElementsOf(inventory, "src/w.ts");
+    const klass = elements.find((e) => e.role === "type")!;
+    const method = elements.find((e) => e.role === "function")!;
+    expect(klass.parent).toBeNull();
+    expect(method.parent?.id).toBe(klass.id);
+    // The parent chain materializes the SAME view (shared element identity).
+    expect(method.parent?.source).toBe(klass.source);
+  });
+});
+
+describe("runTsRules — impossible state fails loud", () => {
+  test("a rule missing from the resolution map throws (never a silent skip)", async () => {
+    const inventory = await oneFile(SOURCE);
+    const rule = ruleOf({});
+    await expect(runTsRules([rule], new Map(), fakeClassifier(0.9), () => false)).rejects.toThrow(
+      /no resolution entry/,
+    );
+    void inventory;
+  });
+});
+
+describe("runTsRules — JEV_RESPONSE_INVALID guard", () => {
+  test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
+    const inventory = await oneFile(SOURCE);
+    const phase = await run(ruleOf({}), inventory, async () => ({}));
+    expect(phase.events).toHaveLength(1);
+    expect(phase.events[0]?.type).toBe("error");
+    expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe(
+      "JEV_RESPONSE_INVALID",
+    );
+  });
+
+  test("a non-finite answer streams JEV_RESPONSE_INVALID too", async () => {
+    const inventory = await oneFile(SOURCE);
+    const phase = await run(ruleOf({}), inventory, async (_s, q) =>
+      Object.fromEntries(Object.keys(q).map((k) => [k, Number.NaN])),
+    );
+    expect(
+      phase.events.some((e) => e.type === "error" && e.error.code === "JEV_RESPONSE_INVALID"),
+    ).toBe(true);
+    expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
+  });
+});
+
+describe("walk-first resolution (multi-file)", () => {
+  test("the target function sees the inventories of EVERY walked file: resolution runs after the full walk", async () => {
+    const a = await oneFile(SOURCE, "src/a.ts");
+    const b = await oneFile(SOURCE, "src/b.ts");
+    const inventory = new Map([...a, ...b]);
+    let seenPaths: string[] = [];
+    const rule = ruleOf({
+      target: (elements) => {
+        seenPaths = [...new Set(elements.map((e) => e.path))];
+        return elements.filter((e) => e.role === "comment");
+      },
+    });
+    const resolved = resolveAllTsTargets([rule], inventory);
+    const targets = targetsOf([...resolved.values()][0]!);
+    // Both files were fully walked BEFORE resolution: one comment per file, both visible.
+    expect(seenPaths.sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(targets.map((t) => t.path).sort()).toEqual(["src/a.ts", "src/b.ts"]);
   });
 });
 

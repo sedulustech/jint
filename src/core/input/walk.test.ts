@@ -167,6 +167,39 @@ describe("decompose — languages", () => {
 });
 
 describe("decompose — composite-descent fixture", () => {
+  test("parent labels thread the hierarchy: docstring/method -> owner, top-level -> none", async () => {
+    const inv = await decompose(
+      [
+        '"""Module docstring."""',
+        "",
+        "",
+        "def outer():",
+        '    """Docs for outer."""',
+        "    return 1",
+        "",
+      ].join("\n"),
+      "python",
+    );
+    const outer = inv.definitions.find((d) => d.role === "function")!;
+    // A top-level function has no parent label; its docstring (a comment element) points back.
+    expect(outer.parent).toBeUndefined();
+    const doc = inv.comments.find((c) => c.docstringOf?.kind === "function");
+    expect(doc).toBeDefined();
+    expect(doc!.parent).toBe(outer.label);
+  });
+
+  test("typescript class methods carry their class header's label as parent", async () => {
+    const inv = await decompose(
+      ["class Widget {", "  render(): string {", "    return 'x';", "  }", "}"].join("\n"),
+      "typescript",
+    );
+    const klass = inv.definitions.find((d) => d.nodeType === "class_declaration")!;
+    const method = inv.definitions.find((d) => d.nodeType === "method_definition")!;
+    expect(method.parent).toBe(klass.label);
+    // Top-level class: no parent.
+    expect(klass.parent).toBeUndefined();
+  });
+
   test("composites are judged AND descended into: nested calls, class methods, sub-spans", async () => {
     const source = await Bun.file("src/core/input/fixtures/unit-tree/composite-tree.ts").text();
     const inv = await decompose(source, "typescript");

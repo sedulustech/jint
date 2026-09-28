@@ -1,4 +1,5 @@
-import { describe, test, expect } from "bun:test";
+import { afterAll, describe, test, expect } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
@@ -18,6 +19,11 @@ const baseConfig = {
 };
 
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
+
+afterAll(() => {
+  rmSync("tmp/lint-retention-test", { recursive: true, force: true });
+  rmSync("tmp/lint-walk-order-test", { recursive: true, force: true });
+});
 
 /**
  * The full rule set at handle-silent readings; tests spread over it so each case names only what it
@@ -517,6 +523,146 @@ describe("lint — unknown rule names", () => {
         }),
       ),
     ).rejects.toThrow(/unknown rule "is_greppable_x" — did you mean: is_greppable\?/);
+  });
+});
+
+describe("lint — tsRules content retention (the logical content-drop)", () => {
+  const TS_DIR = "tmp/lint-retention-test";
+  const RULE_PATH = TS_DIR + "/comment-rule.ts";
+  // Targets ONLY good.ts's elements: sample-file.ts has zero selected targets.
+  const RULE_SOURCE = [
+    'import { defineConfig } from "jint:sdk";',
+    "export default defineConfig({",
+    "  rules: [{",
+    '    name: "ts_retention_probe",',
+    "    target: (elements) => elements.filter((e) => e.path.endsWith('good.ts')),",
+    "    classify: (self) => ({",
+    '      instructions: "i",',
+    '      criteria: { true: "t", false: "f" },',
+    "      state: { source: self.source },",
+    "    }),",
+    "    handle: { warn_at: 0.1, error_at: 0.2 },",
+    "  }],",
+    "});",
+  ].join("\n");
+  const FILES_RULE = {
+    name: "is_files_retention_probe",
+    kind: "noul" as const,
+    criteria: { true: "t", false: "f" },
+    target: "files" as const,
+    handle: null,
+  };
+  const GOOD = "tests/fixtures/sample-dir/good.ts";
+  const isWholeFileCall = (state: AnyState): boolean =>
+    "content" in state && typeof state.content === "string";
+
+  const writeRule = (): void => {
+    mkdirSync(TS_DIR, { recursive: true });
+    writeFileSync(RULE_PATH, RULE_SOURCE);
+  };
+
+  test("a files-target JSON rule retains EVERY file's content even when TS rules target only one file", async () => {
+    writeRule();
+    const log: CallLog = { calls: [] };
+    await drain(
+      lint({
+        config: { ...baseConfig, rules: [FILES_RULE as never], tsRules: [RULE_PATH] },
+        input: [FILE, GOOD],
+        classifier: loggingClassifier(
+          { is_files_retention_probe: 0.9, ts_retention_probe: 0.9 },
+          log,
+        ),
+      }),
+    );
+    const whole = log.calls.filter((c) => isWholeFileCall(c.state));
+    // The retention guard fired: both files judged whole, full content intact.
+    expect(whole.map((c) => (c.state as { path: string }).path).sort()).toEqual(
+      [FILE, GOOD].sort(),
+    );
+    const sample = whole.find((c) => (c.state as { path: string }).path === FILE)!;
+    expect((sample.state as { content: string }).content.length).toBeGreaterThan(0);
+  });
+
+  test("zero-target files are logically dropped: no whole-file call, but element classification still runs", async () => {
+    writeRule();
+    const log: CallLog = { calls: [] };
+    const events = await drain(
+      lint({
+        // No files-target JSON rule: the drop path is live for the un-targeted file. One
+        // definitions-target JSON rule keeps the JSON element tier running for both files.
+        config: {
+          ...baseConfig,
+          rules: [
+            {
+              name: "is_defs_retention_probe",
+              kind: "noul" as const,
+              criteria: { true: "t", false: "f" },
+              target: "definitions" as const,
+              handle: null,
+            } as never,
+          ],
+          tsRules: [RULE_PATH],
+        },
+        input: [FILE, GOOD],
+        classifier: loggingClassifier({ ts_retention_probe: 0.9 }, log),
+      }),
+    );
+    // Nothing judged whole (no files rule, so nothing to retain content FOR).
+    expect(log.calls.some((c) => isWholeFileCall(c.state))).toBe(false);
+    // The drop is LOGICAL: sample-file.ts's inventory is retained, so its elements still classify.
+    const sampleElementCalls = log.calls.filter(
+      (c) => isElementCall(c.state) && (c.state as { path: string }).path === FILE,
+    );
+    expect(sampleElementCalls.length).toBeGreaterThan(0);
+    // The TS rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
+    const tsMeasurements = events.filter(
+      (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
+    );
+    expect(tsMeasurements).toHaveLength(2);
+    expect(
+      tsMeasurements.every(
+        (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("lint — walk-first yield ordering (pure JSON)", () => {
+  const ORDER_DIR = "tmp/lint-walk-order-test";
+  const BROKEN = ORDER_DIR + "/empty.ts"; // parseable but zero elements -> WALK_FAILED
+  const FILES_RULE = {
+    name: "is_files_order_probe",
+    kind: "noul" as const,
+    criteria: { true: "t", false: "f" },
+    target: "files" as const,
+    handle: null,
+  };
+
+  test("a WALK_FAILED streams in-band, in unit order, and the run continues to classification", async () => {
+    mkdirSync(ORDER_DIR, { recursive: true });
+    writeFileSync(BROKEN, ";");
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [FILES_RULE as never] },
+        // The broken unit is FIRST: its events (whole-file call + WALK_FAILED) yield before the
+        // next unit's classification events (per-wave, per-unit order).
+        input: [BROKEN, FILE],
+        classifier: classifierWith({ is_files_order_probe: 0.9 }),
+      }),
+    );
+    const walkFailedIndex = events.findIndex(
+      (e) => e.type === "error" && e.error.code === "WALK_FAILED",
+    );
+    expect(walkFailedIndex).toBeGreaterThanOrEqual(0);
+    // The failed unit's whole-file measurement streamed BEFORE its WALK_FAILED (the walk failure
+    // never preempts or aborts the unit's own classification), and the next unit still classified.
+    const measurements = events.filter((e) => e.type === "measurement");
+    expect(measurements.length).toBeGreaterThan(1);
+    expect(
+      events.findIndex(
+        (e) => e.type === "measurement" && e.measurement.input.includes("sample-file"),
+      ),
+    ).toBeGreaterThan(walkFailedIndex);
   });
 });
 

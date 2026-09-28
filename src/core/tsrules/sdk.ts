@@ -27,6 +27,8 @@ export interface TsElement {
     readonly startByte: number;
     readonly endByte: number;
   };
+  /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
+  readonly attachedComment?: readonly string[];
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: TsElement | null;
 }

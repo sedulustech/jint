@@ -225,26 +225,45 @@ export interface ClassifyResult {
  */
 export const ELEMENT_CONCURRENCY = 8;
 
-/** Rules whose target matches an element's kind (design §7.1: the target routes). */
-const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] => {
-  // Oversized elements are never judged (design: composite body-size fix) — the size backstop
-  // trades their readings for the run's reliability; the count surfaces in-band, never silent.
-  if (element.oversized === true) return [];
+/**
+ * The minimal element shape the target grammar reads; both tiers' element views satisfy it (the TS
+ * view carries attachedComment through precisely so this one predicate serves both).
+ */
+export interface TargetableElement {
+  readonly role: string;
+  readonly oversized?: boolean;
+  readonly attachedComment?: readonly string[];
+}
+
+/**
+ * THE target grammar (design §7.1: the target routes) — one implementation for BOTH tiers. The JSON
+ * element funnel (rulesForElement) and the TS resolver (resolveTargets) both consume this; a
+ * target's element mapping can never drift between tiers. Oversized elements are never judged
+ * (design: composite body-size fix) — the size backstop trades their readings for the run's
+ * reliability; the count surfaces in-band, never silent.
+ */
+export function matchesTarget(target: string, element: TargetableElement): boolean {
+  if (element.oversized === true) return false;
   const commentElement = element.role === "comment";
   const importElement = element.role === "import";
   const carriesComment = commentElement || (element.attachedComment?.length ?? 0) > 0;
-  return rules.filter((rule) =>
-    rule.target === "comments"
-      ? carriesComment
-      : rule.target === "functions"
-        ? !commentElement && element.role === "function"
-        : rule.target === "definitions"
-          ? !commentElement && !importElement
-          : rule.target === "imports"
-            ? importElement
-            : false,
-  );
-};
+  return target === "comments"
+    ? carriesComment
+    : target === "functions"
+      ? !commentElement && element.role === "function"
+      : target === "definitions"
+        ? !commentElement && !importElement
+        : target === "imports"
+          ? importElement
+          : false;
+}
+
+/**
+ * The JSON element funnel (design §7.1). Exported for the cross-tier consistency test: the TS tier
+ * must select the same elements per target as this funnel, by construction (shared predicate).
+ */
+export const rulesForElement = (rules: readonly Rule[], element: InventoryElement): Rule[] =>
+  rules.filter((rule) => matchesTarget(rule.target, element));
 /**
  * Classify one unit: the unit-scoped rules over the whole unit, then every element of the inventory
  * x every inventory-scoped rule, one call per element under a bounded-concurrency scheduler. One

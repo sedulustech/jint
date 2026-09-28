@@ -88,6 +88,15 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
   const loadedTsRules = await loadTsConfigRules(options.config.tsRules ?? []);
   assertNoCrossTierDuplicates(options.config.rules, loadedTsRules);
+  // str/diff units have no element inventory: every TS target would resolve to zero elements and
+  // the run would complete silently empty. That combination is rejected at setup, not silently
+  // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
+  if (loadedTsRules.length > 0 && (options.str !== undefined || options.diffText !== undefined)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "ts rules run on file inputs only - a str/diff unit has no element inventory, so every ts rule would resolve zero targets (drop tsRules or use a file input)",
+    );
+  }
   const { json: rules, ts: tsRules } = partitionRules(
     options.config.rules,
     loadedTsRules,
@@ -154,7 +163,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
     }
     tsResolved = resolveAllTsTargets(tsRules, elementsByPath);
-    if (!rules.some((r) => r.target === "files")) {
+    // The retention guard is shape-robust on purpose: if the JSON target ever becomes an array
+    // form (the TS grammar already allows one), "files" anywhere in the target still retains.
+    const wantsAnyFile = (target: Rule["target"]): boolean =>
+      Array.isArray(target) ? target.includes("files") : target === "files";
+    if (!rules.some((r) => wantsAnyFile(r.target))) {
       const targetPaths = new Set<string>();
       for (const resolved of tsResolved.values()) {
         if ("targets" in resolved) for (const t of resolved.targets) targetPaths.add(t.path);

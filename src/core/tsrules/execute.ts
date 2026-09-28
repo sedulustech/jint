@@ -11,7 +11,7 @@
  */
 
 import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
-import { elementWireId } from "../sensors/classify.ts";
+import { elementWireId, matchesTarget } from "../sensors/classify.ts";
 import { toClassifyError } from "../sensors/classify.ts";
 import { compileHandle } from "../sensors/handle.ts";
 import {
@@ -26,7 +26,11 @@ import {
 import { validateDecision, validateStateSpec, type TsElement, type TsRule } from "./sdk.ts";
 import type { InventoryElement } from "../input/walk.ts";
 
-/** One unit's TS-facing element view: the walk inventory materialized for rules. */
+/**
+ * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are
+ * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
+ * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
+ */
 export function tsElementsOf(inventory: readonly InventoryElement[], path: string): TsElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, TsElement>();
@@ -34,7 +38,16 @@ export function tsElementsOf(inventory: readonly InventoryElement[], path: strin
     const cached = cache.get(e.label);
     if (cached) return cached;
     const parentLabel = e.parent;
-    const parent = parentLabel !== undefined ? (byLabel.get(parentLabel) ?? null) : null;
+    const parent = parentLabel !== undefined ? byLabel.get(parentLabel) : undefined;
+    if (parentLabel !== undefined && parent === undefined) {
+      throw new Error(
+        "inventory inconsistency: element " +
+          e.label +
+          " names parent " +
+          parentLabel +
+          ", which does not exist",
+      );
+    }
     const element: TsElement = {
       id: e.label,
       path,
@@ -46,12 +59,13 @@ export function tsElementsOf(inventory: readonly InventoryElement[], path: strin
         startByte: e.span.startByte,
         endByte: e.span.endByte,
       },
+      ...(e.attachedComment !== undefined && { attachedComment: e.attachedComment }),
       parent: parent ? convert(parent) : null,
     };
     cache.set(e.label, element);
     return element;
   };
-  return inventory.map(convert);
+  return inventory.filter((e) => e.oversized !== true).map(convert);
 }
 
 /** One rule's resolved REQUEST: its slice, or the RULE_FAILED that replaced selection. */
@@ -97,24 +111,10 @@ export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]):
       return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown)) };
     }
   }
-  // The JSON-tier target grammar, shared verbatim: a target names the JSON role; its element
-  // mapping (comments includes doc-carrying definitions) must not drift from rulesForElement.
+  // THE shared target grammar: matchesTarget is the JSON tier's rulesForElement mapping, so the
+  // two tiers cannot drift (comments matches comment elements AND code carrying an attachedComment).
   const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
-  return {
-    targets: allElements.filter((e) =>
-      requested.some((target) =>
-        target === "comments"
-          ? e.role === "comment"
-          : target === "functions"
-            ? e.role === "function"
-            : target === "definitions"
-              ? e.role === "function" || e.role === "type" || e.role === "binding"
-              : target === "imports"
-                ? e.role === "import"
-                : false,
-      ),
-    ),
-  };
+  return { targets: allElements.filter((e) => requested.some((t) => matchesTarget(t, e))) };
 }
 
 function isPromise(v: unknown): v is Promise<unknown> {
@@ -157,7 +157,11 @@ export async function runTsRules(
   for (const rule of tsRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
-    if (resolvedRule === undefined) continue;
+    if (resolvedRule === undefined) {
+      // resolveAllTsTargets sets an entry for EVERY rule — this is impossible state, and a silent
+      // skip here would be invisible data loss (a declared rule producing zero measurements).
+      throw new Error('no resolution entry for ts rule "' + rule.name + '" (engine bug)');
+    }
     if ("error" in resolvedRule) {
       events.push({ type: "error", error: resolvedRule.error });
       continue;
