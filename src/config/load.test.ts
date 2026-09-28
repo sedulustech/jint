@@ -196,6 +196,18 @@ describe("validateConfig / defaultConfig", () => {
     expect(() =>
       validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.6, 0.4] }), "inline"),
     ).toThrow(/rule 'r' handle\.silent_band: must be ordered/);
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0, 1] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band: must not cover the whole scale/);
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.2, 0.4] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.warn_at/);
+    expect(() =>
+      validateConfig(
+        rule({ fires_when: "true", warn_at: 0.3, error_at: 0.7, silent_band: [0.4, 0.75] }),
+        "inline",
+      ),
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.error_at/);
     // question-type vs handler-type mismatch, both directions
     expect(() => validateConfig(rule({ map: ["ok", "warn"] }), "inline")).toThrow(
       /rule 'r' handle\.map: a score handler on a noul rule/,
@@ -259,7 +271,10 @@ describe("validateConfig / defaultConfig", () => {
     const handle = config.rules[0]!.handle;
     expect(handle(1)).toEqual({ severity: "warn", message: "opaque" });
     expect(handle(0)).toBeNull();
-    expect(handle(7)).toBeNull(); // off the rubric: no level, silent
+    // Off-rubric scores are impossible states (jev bounds the score to the criteria count);
+    // they fail loud rather than silently dropping the reading.
+    expect(() => handle(7)).toThrow(/outside the criteria scale/);
+    expect(() => handle(Number.NaN)).toThrow(/outside the criteria scale/);
   });
 
   test("score map length must equal the criteria count; at least one non-ok", () => {

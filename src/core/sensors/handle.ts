@@ -15,7 +15,7 @@
  * other consumer — schema, defaults, loader — stays in data.
  */
 
-import type { HandleOutcome } from "../types.ts";
+import { SetupError, type HandleOutcome } from "../types.ts";
 
 /** One graded criteria level, as declared in a ScoreHandler map. */
 export type HandlerLevel = "ok" | "warn" | "error";
@@ -62,8 +62,22 @@ export function checkNoulHandler(data: NoulHandlerData): string | null {
       return `handle.warn_at: thresholds are on the defect pole (fires_when "${data.fires_when}") and must be ordered warn_at < error_at, got ${data.warn_at} >= ${data.error_at}`;
     }
   }
-  if (data.silent_band !== undefined && data.silent_band[0] >= data.silent_band[1]) {
-    return `handle.silent_band: must be ordered [lower, upper], got [${data.silent_band[0]}, ${data.silent_band[1]}]`;
+  if (data.silent_band !== undefined) {
+    const [lo, hi] = data.silent_band;
+    if (lo >= hi) {
+      return `handle.silent_band: must be ordered [lower, upper], got [${lo}, ${hi}]`;
+    }
+    // A band covering the whole scale would silence every reading; a band containing a
+    // threshold would swallow exactly the readings that threshold exists to catch.
+    if (lo <= 0 && hi >= 1) {
+      return "handle.silent_band: must not cover the whole scale (got [0, 1]) - everything would be silent";
+    }
+    if (lo <= data.warn_at && data.warn_at <= hi) {
+      return `handle.silent_band: [${lo}, ${hi}] contains handle.warn_at (${data.warn_at}) - a band must not contain the thresholds it sits against`;
+    }
+    if (data.error_at !== undefined && lo <= data.error_at && data.error_at <= hi) {
+      return `handle.silent_band: [${lo}, ${hi}] contains handle.error_at (${data.error_at}) - a band must not contain the thresholds it sits against`;
+    }
   }
   return null;
 }
@@ -93,9 +107,18 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
  */
 export function compileScoreHandler(data: ScoreHandlerData, criteria: readonly string[]): Handle {
   return (value) => {
+    // jev bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
+    // state, not a silent null - fail loud (SetupError INTERNAL), per repo convention.
     const index = Math.round(value);
-    const level = data.map[index];
-    if (level === undefined || level === "ok") return null;
+    if (!Number.isInteger(index) || index < 0 || index >= data.map.length) {
+      throw new SetupError(
+        "INTERNAL",
+        `score ${value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
+      );
+    }
+    // index in range (checked above) guarantees a level
+    const level = data.map[index]!;
+    if (level === "ok") return null;
     return { severity: level, message: criteria[index] };
   };
 }

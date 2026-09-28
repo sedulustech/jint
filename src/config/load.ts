@@ -58,7 +58,7 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
   },
   {
     description:
-      "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and warn_at must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent; absent = everything surfaces.",
+      "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and both must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent (must be ordered, must not cover the whole scale, must not contain the thresholds); absent = everything surfaces.",
   },
 );
 

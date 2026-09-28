@@ -112,12 +112,17 @@ export const TS_TARGET_ROLES: readonly RuleTarget[] = [
   "imports",
 ];
 
-const HANDLE_SCHEMA = Type.Object({
-  fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
-  warn_at: Type.Number(),
-  error_at: Type.Optional(Type.Number()),
-  silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
-});
+const HANDLE_SCHEMA = Type.Object(
+  {
+    fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
+    warn_at: Type.Number(),
+    error_at: Type.Optional(Type.Number()),
+    silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
+  },
+  // No extra keys: a { fires_when, warn_at, map } hybrid must be rejected here exactly like the
+  // JSON tier rejects it (cross-tier parity — see the shared checkNoulHandler invariants).
+  { additionalProperties: false },
+);
 
 const SPEC_SCHEMA = Type.Object({
   instructions: Type.String(),
@@ -223,6 +228,9 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
       );
     }
     const h = r.handle as TsHandleData;
+    // TS rules are noul-only, so the question type is fixed: a score map here is the same
+    // tier-mismatch the JSON loader rejects as CONFIG_INVALID.
+    if ("map" in h) fail('"' + name + '": handle.map: a score handler on a noul rule');
     const problem = checkNoulHandler(h);
     if (problem !== null) fail('"' + name + '": ' + problem);
   }

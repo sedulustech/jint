@@ -10,10 +10,12 @@
  * the noul question's criteria (criteria-as-rule). Editing either side is a re-calibration event,
  * since thresholds are anchored to readings taken under the rule text.
  *
- * Handle policy: a healthy run never errors; warns are legitimate nudges. High=good rules error
- * below the healthy floor, high=bad rules above the healthy ceiling, anchored on the self-lint
- * corpus with the sibling-repo calibration fixtures as the external check. Current thresholds and
- * healthy ranges are documented in the README, next to the override examples.
+ * Handle policy: a healthy run never errors; warns are legitimate nudges. Every noul handler
+ * declares its defect pole (fires_when); thresholds sit on that pole, so a "fires_when: false" rule
+ * errors as the probability of the GOOD case drops below the healthy floor and a "fires_when: true"
+ * rule errors as the probability of the DEFECT case rises above the healthy ceiling - anchored on
+ * the self-lint corpus with the sibling-repo calibration fixtures as the external check. Current
+ * thresholds and healthy ranges are documented in the README, next to the override examples.
  */
 
 import { compileNoulHandler, compileScoreHandler } from "./handle.ts";
@@ -38,14 +40,11 @@ export const isNamePurposeful: Rule = {
       "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
   },
   target: "definitions",
-  // Recalibrated for the per-rule question (issue 001 A/B): the specific question reads the
-  // self-corpus stricter than UNIT_TASK did (median 0.68 -> 0.56), so the warn tier moves down
-  // to keep its pass share and the m4_obfuscate mutant (0.52) still warns; the defective
-  // control (mean 0.26) still errors.
-  // Re-anchored twice (issue 001): the src/core re-anchor (0.55/0.4) still flooded the whole
-  // project (median 0.43 across src, dragged down by test helper names). error 0.3 sits above
-  // the defective control cluster (<= 0.26) and warn 0.4 a full step below the healthy median;
-  // test-code noise stays open as issue 008 (config granularity).
+  // Defect pole "false" (a name that hides purpose). Calibrated under the per-rule question
+  // (issue 001): the defective control cluster sits at P(good) <= 0.26, i.e. P(bad) >= 0.74 -
+  // error_at 0.7 catches it; the healthy median is P(good) 0.56 (P(bad) 0.44), comfortably
+  // under warn_at 0.6. m4_obfuscate (P(good) 0.48, P(bad) 0.52) lands in warn. Test-code noise
+  // stays open as issue 008 (config granularity).
   handle: compileNoulHandler({ fires_when: "false", warn_at: 0.6, error_at: 0.7 }),
 };
 
@@ -59,11 +58,11 @@ export const isFunctionSrp: Rule = {
       "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.",
   },
   target: "functions",
-  // Whole-project A/B (issue 001): the specific question reads the project stricter than
-  // UNIT_TASK did (median 0.79 -> 0.54) and the old warn sat exactly on the new median,
-  // warning half of src. warn 0.45 keeps roughly the bottom 8% of the whole-project
-  // distribution in warn; the low tail is dominated by test callbacks — scoping those out
-  // is issue 008 (config granularity), not a threshold job.
+  // Defect pole "false" (a unit serving several purposes). Calibrated under the per-rule
+  // question (issue 001): the whole-project healthy median is P(good) 0.54 (P(bad) 0.46) and
+  // the low tail - dominated by test callbacks, issue 008 - starts near P(bad) 0.55, so
+  // warn_at 0.55 keeps roughly the bottom 8% in warn; nothing anchors error_at 0.7 yet below
+  // a clearly broken unit.
   handle: compileNoulHandler({ fires_when: "false", warn_at: 0.55, error_at: 0.7 }),
 };
 
@@ -106,12 +105,10 @@ export const isNamingConventionConsistent: Rule = {
       "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
   },
   target: "definitions",
-  // Error line sits in the self-corpus gap (0.56 -> 0.67) between the blatant
-  // convention mixers and the consistent files; the clean corpus (mobius
-  // 0.89-0.91) clears it by 0.24, and m1_bad_names (0.61) errors with it.
-  // Whole-project A/B (issue 001): the per-rule question dropped the whole-project median
-  // 0.87 -> 0.82 and the old warn (0.85) warned two thirds of src. warn 0.75 keeps roughly
-  // the bottom 5% in warn; error stays clear of the healthy p5 (0.72).
+  // Defect pole "false" (casing conventions mixed). The self-corpus gap between the blatant
+  // convention mixers and the consistent files (P(good) 0.56 -> 0.67, i.e. P(bad) 0.44 -> 0.33)
+  // puts error_at 0.35 above the healthy p5 (P(bad) 0.28) and m1_bad_names (P(bad) 0.39)
+  // errors with it; warn_at 0.25 keeps the clean corpus (P(bad) 0.09-0.11) clear.
   handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.35 }),
 };
 

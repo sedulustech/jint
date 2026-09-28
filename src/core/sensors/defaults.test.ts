@@ -134,7 +134,9 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // Its greppable reading (0.64) predates the scoped description; under the
     // new thresholds it lands in warn, so the tier assertion is non-error.
     for (const rule of Object.values(defaultRules)) {
-      const severity = sev(rule, mutants.m2_strip_comments![rule.name]!);
+      const value = mutants.m2_strip_comments![rule.name];
+      if (value === undefined) continue; // fixture predates the rule
+      const severity = sev(rule, value);
       if (rule.name === "is_greppable") {
         expect(severity).not.toBe("error");
       } else {
