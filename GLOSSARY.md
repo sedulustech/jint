@@ -42,6 +42,7 @@ measurement its handle judged actionable and is the only output that demands act
   from the rule's criteria (noul) or the rule's own instructions field (choice).
 - **answer** — the single calibrated probability returned per question, validated in shape;
   missing or non-finite becomes JEV_RESPONSE_INVALID.
+- **ts rule** — a rule authored in TypeScript and executed by jint on the embedded runtime: loaded from config-declared `tsRules` paths through the `jint:sdk` virtual module (`defineConfig` fragments contributing rules only), returning state specs from `classify(self, ctx)` — jint calls the classifier, never the rule. Policy is exactly one of declarative `handle` or the `handleClassification` callback. Mid-run rule throws are RULE_FAILED (per-unit, non-fatal); load-time shape violations are fatal (RULE_INVALID).
 - **strategy** — a model of the state and questions to send to the classifier (jev) to balance
   performance, accuracy and price; the tried strategies and their results live in STRATEGIES.md.
 - **element** one thing a rule can judge: a file, a diff, or a node-derived

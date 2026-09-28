@@ -153,6 +153,24 @@ Classify before handling: cannot-start failures throw; per-unit failures stream 
 
 jev is called through `@typesafe-ai/sdk` (`client.systemOne({ state, questions })`, model `jev-latest`, one batched call per input). `TYPESAFE_API_KEY` is required; a missing or rejected key fails loud (`JEV_AUTH`) at the first call. `src/core/jev/client.ts` is the only file importing the SDK — the swappable backend seam (`lint()` accepts any `classifier`).
 
+## TS rules
+
+The JSON tier above is the default. When a rule needs more — pairing a comment with the code it annotates, sibling comparisons, composed state — write it in TypeScript and declare the file in the config:
+
+```json
+{
+  "input": "src/",
+  "rules": [],
+  "tsRules": ["lint-rules/paired-comments.ts"]
+}
+```
+
+A TS rule file is a config FRAGMENT: it default-exports `defineConfig({ rules: [...] })` from the virtual module `jint:sdk` (runtime-injected, unshadowable; types via `/// <reference path="./node_modules/jint/src/core/tsrules/sdk.d.ts" />`). Fragments contribute `rules` ONLY — `input`/`exclude` stay run-level. Rule names share one namespace across both tiers (duplicates are fatal at load).
+
+A rule declares a REQUEST (`target`: a role, a list of them, or an `(elements) => Element[]` selection function evaluated once per run), a compiler (`classify(self, ctx)` — returns the state spec for one element; `ctx.targets` is the resolved slice; `self.parent` is the enclosing element), and EXACTLY ONE policy: declarative `handle` (same data shape as JSON rules) or `handleClassification(results, ctx)` — called once, returning one `{ severity, message?, data? }` per result, aligned by index. The rule never calls the classifier; jint does, and every call is dumped like any other (`JEV_DEBUG_REQUEST`). See `examples/rules/is-comment-paired.ts` for the worked pairing rule.
+
+Guarantees and limits (v1): imports are gated — only `jint:*`, relative, and absolute (a static pre-scan; dynamic `import()` inside a rule bypasses it, documented, not supported); handlers are sync-only; a throwing handler is `RULE_FAILED` — per-unit, non-fatal, but the run exits 4; hangs are unsupported (no time budget yet). State is composed freely — observability (the dumps), not restriction, is the guarantee. Loading, execution, and the full contract: `tmp/designs/rules-context/01..04`.
+
 ## SDK
 
 The CLI is one consumer; `lint()` is the product:
