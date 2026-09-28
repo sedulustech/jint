@@ -149,7 +149,11 @@ describe("cli: ts rules end-to-end", () => {
     expectContract(r, { exit: 0, stdout: "json" });
     const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
     const files = runDirs.flatMap((d) => readdirSync(d).map((f) => d + "/" + f));
-    expect(files.length).toBeGreaterThanOrEqual(1);
+    // Exact contract: this fixture run makes exactly ONE classifier call (the TS rule's single
+    // comment target; no JSON rules) — a manifest or second capture would break that claim.
+    expect(files).toHaveLength(1);
+    // The TS state is a free composition (no "source" key), so the tap kinds it "files-state".
+    expect(files[0]).toMatch(/-files-state\.json$/);
     const capture = JSON.parse(readFileSync(files[0]!, "utf8"));
     // The composed state reached the wire verbatim — the observability guarantee.
     expect(capture.request.state).toEqual({

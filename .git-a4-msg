@@ -1,0 +1,11 @@
+A4: dump e2e asserts the exact capture count, not >= 1 (issue 11)
+
+The wire-dump test indexed files[0] behind a toBeGreaterThanOrEqual(1): it passed by
+coincidence whenever exactly one capture existed. Now it pins the exact contract — this
+fixture run makes exactly ONE classifier call, so exactly one capture, named
+*-files-state.json (the TS state is a free composition without a "source" key, hence the
+files-state kind). A manifest or a second capture now fails loudly with a clear diff.
+
+Issue closed: 11.
+Lesson: when a test indexes into a directory listing, assert the exact count and filename
+it depends on - '>= 1' plus files[0] is a coincidence, not a contract.
