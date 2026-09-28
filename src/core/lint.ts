@@ -16,6 +16,14 @@ import { resolveInput } from "./input/infer.ts";
 import { MAX_ELEMENT_CHARS, type InventoryElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
+  checkRunKnobs,
+  createRpsPacer,
+  DEFAULT_CONCURRENCY,
+  DEFAULT_RPS_BUDGET,
+  withLimit,
+  withPacer,
+} from "./jev/pacer.ts";
+import {
   classifyFile,
   elementWireId,
   walkUnit,
@@ -67,6 +75,16 @@ export interface LintOptions {
   diffText?: { readonly text: string };
   /** Explicit grammar for the str unit (CLI --language); no effect on resolved inputs. */
   language?: string;
+  /**
+   * In-flight classifier-call ceiling, run-wide (CLI --concurrency; config key of the same name;
+   * default 16, max 64). Overrides the config when set.
+   */
+  concurrency?: number;
+  /**
+   * Client-side request-start budget, requests/second (CLI --rps-budget; config key rps_budget;
+   * default 15, ~75% of the published 20 rps quota). Overrides the config.
+   */
+  rps_budget?: number;
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
@@ -115,7 +133,23 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
     );
   }
-  const classifier = options.classifier ?? createClassifier({ apiKey: options.config.apiKey });
+  // The run knobs: CLI flag > config key > default. Validated here (the SDK boundary) even when
+  // the config already validated them - lint() takes options that never passed the loader.
+  const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
+  const rpsBudget = options.rps_budget ?? options.config.rps_budget ?? DEFAULT_RPS_BUDGET;
+  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget });
+  if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
+  // The classifier seam carries both knobs: the limit caps in-flight calls RUN-WIDE (the per-unit
+  // pools schedule the fan-out), the pacer spaces request starts (compliance). The pacer is the
+  // ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
+  const pacer = createRpsPacer(rpsBudget, concurrency);
+  const classifier = withPacer(
+    withLimit(
+      options.classifier ?? createClassifier({ apiKey: options.config.apiKey }),
+      concurrency,
+    ),
+    pacer,
+  );
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
@@ -409,5 +443,11 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
   }
+  // Concurrent classification completes out of order; the REPORT is the stable artifact:
+  // findings sort by element path, then rule, so two runs of the same input produce identical
+  // documents regardless of completion order. The stream stays completion-ordered by design.
+  report.findings.sort((a, b) =>
+    a.input === b.input ? a.rule.localeCompare(b.rule) : a.input.localeCompare(b.input),
+  );
   return report;
 }

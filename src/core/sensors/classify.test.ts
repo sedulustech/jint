@@ -268,7 +268,7 @@ describe("compileElementQuestions", () => {
 
 describe("classifyFile — element fan-out", () => {
   test("one element per call, bounded concurrency (the array matrix state is banned)", async () => {
-    const { classifyFile, ELEMENT_CONCURRENCY } = await import("./classify.ts");
+    const { classifyFile, DEFAULT_CONCURRENCY } = await import("./classify.ts");
     const lines = Array.from(
       { length: 12 },
       (_, i) => `export function f${i}(): number { return ${i}; }`,
@@ -293,7 +293,7 @@ describe("classifyFile — element fan-out", () => {
     );
     expect(events).toHaveLength(12);
     expect(events.every((e) => !(e.event instanceof ClassifyError))).toBe(true);
-    expect(maxInFlight).toBeLessThanOrEqual(ELEMENT_CONCURRENCY);
+    expect(maxInFlight).toBeLessThanOrEqual(DEFAULT_CONCURRENCY);
     expect(maxInFlight).toBeGreaterThan(1); // concurrent, not sequential
   });
 });

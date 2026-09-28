@@ -16,6 +16,14 @@
  */
 
 import { createClassifier } from "./jev/client.ts";
+import {
+  checkRunKnobs,
+  createRpsPacer,
+  DEFAULT_CONCURRENCY,
+  DEFAULT_RPS_BUDGET,
+  withLimit,
+  withPacer,
+} from "./jev/pacer.ts";
 import { classifyFile, elementWireId } from "./sensors/classify.ts";
 import {
   SetupError,
@@ -35,8 +43,10 @@ export interface ClassifyOptions {
   readonly language?: string;
   /** Swappable classifier; defaults to the TypeSafe System One adapter (same seam as lint). */
   readonly classifier?: Classifier;
-  /** Cap on in-flight per-element classifier calls (default ELEMENT_CONCURRENCY). */
+  /** Cap on in-flight per-element classifier calls (default DEFAULT_CONCURRENCY). */
   readonly concurrency?: number;
+  /** Client-side request-start budget, requests/second (default DEFAULT_RPS_BUDGET). */
+  readonly rps_budget?: number;
 }
 
 /** The raw outcome of one classify() call: readings and per-unit errors, never handles. */
@@ -65,6 +75,10 @@ export async function classify(
   if (str === "") {
     throw new SetupError("CONFIG_INVALID", "classify: str must be a non-empty string");
   }
+  const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
+  const rpsBudget = options.rps_budget ?? DEFAULT_RPS_BUDGET;
+  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget });
+  if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
   const unit: Unit = {
     kind: "file",
@@ -77,9 +91,12 @@ export async function classify(
   const result = await classifyFile(
     unit,
     rules,
-    options.classifier ?? createClassifier(),
+    withPacer(
+      withLimit(options.classifier ?? createClassifier(), concurrency),
+      createRpsPacer(rpsBudget, concurrency),
+    ),
     () => false,
-    { language: options.language, concurrency: options.concurrency },
+    { language: options.language, concurrency },
   );
   const measurements: Measurement[] = [];
   const errors: ClassifyError[] = [];

@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
   checkNoulHandler,
@@ -105,6 +106,20 @@ export const CONFIG_SCHEMA = Type.Object({
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
+  // Run knobs (see jev/pacer.ts): concurrency = in-flight ceiling, rps_budget = request-start
+  // budget. Floors are enforced in validateConfig so the error names the field.
+  concurrency: Type.Optional(
+    Type.Number({
+      description:
+        "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16 (measured: 53.9 rps at 16, zero 429s), max 64.",
+    }),
+  ),
+  rps_budget: Type.Optional(
+    Type.Number({
+      description:
+        "Client-side request-start budget, requests/second (the compliance knob; published quota is 1200 rpm = 20 rps). Default 15 (~75% of quota).",
+    }),
+  ),
 });
 
 /** The normalized shape every config resolves to before lint runs. */
@@ -116,6 +131,10 @@ export interface ResolvedConfig {
   readonly tsRules?: readonly string[];
   readonly exclude: readonly string[];
   readonly apiKey?: string;
+  /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
+  readonly concurrency?: number;
+  /** Client-side request-start budget, requests/second (the compliance knob; default 15). */
+  readonly rps_budget?: number;
 }
 
 /** The built-in config used when no config file exists: no input, all default rules. */
@@ -188,6 +207,8 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     tsRules: string[];
     exclude: string[];
     apiKey?: string;
+    concurrency?: number;
+    rps_budget?: number;
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
@@ -197,6 +218,17 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   };
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
+  // Same validation pass as the handler checks: the error names the exact field. Schema floors
+  // (>= 1, > 0) are validated here too so the message names the field, not a union branch.
+  const knobProblem = checkRunKnobs({
+    concurrency: parsed.concurrency,
+    rps_budget: parsed.rps_budget,
+  });
+  if (knobProblem !== null) {
+    throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${knobProblem}`);
+  }
+  if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
+  if (parsed.rps_budget !== undefined) resolved.rps_budget = parsed.rps_budget;
   return Object.freeze(resolved);
 }
 

@@ -56,6 +56,21 @@ describe("cli: contract basics", () => {
     expect(r.stdout.trim()).toBe("0.1.0");
   });
 
+  test("run-knob flags validate before any input is touched", () => {
+    expectContract(run(["--concurrency", "65"]), {
+      exit: 2,
+      stderr: ["concurrency: must be <= 64", "--help"],
+    });
+    expectContract(run(["--concurrency", "abc"]), {
+      exit: 2,
+      stderr: ["--concurrency must be a number", "--help"],
+    });
+    expectContract(run(["--rps-budget", "0"]), {
+      exit: 2,
+      stderr: ["rps_budget: must be a number > 0", "--help"],
+    });
+  });
+
   test("unknown flag -> usage error, exit 2", () => {
     expectContract(run(["--frobnicate"]), { exit: 2, stderr: ["--frobnicate", "--help"] });
   });

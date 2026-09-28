@@ -249,6 +249,38 @@ describe("lint — classification shape", () => {
 });
 
 describe("lint", () => {
+  test("concurrent completion reports deterministically: findings sort by element path", async () => {
+    // 8 files, one element each; the mock completes them in REVERSE order (later elements answer
+    // fast, earlier ones slow) with jitter. The stream may arrive out of order; the report is
+    // the stable artifact: findings sorted by input path, identical across runs.
+    // A tracked directory (dir walks respect .gitignore, so tmp/ would resolve to nothing).
+    const dir = "tests/fixtures/order-test";
+    mkdirSync(dir, { recursive: true });
+    for (let i = 0; i < 8; i++) {
+      writeFileSync(`${dir}/f${i}.ts`, `export function f${i}(): number { return ${i}; }\n`);
+    }
+    const findingsOf = async (): Promise<string[]> => {
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, input: "" },
+          input: dir,
+          classifier: async (state, questions) => {
+            const element = Number(/f(\d+)/.exec(state.path)?.[1] ?? 0);
+            await new Promise((r) => setTimeout(r, (7 - element) * 8 + ((element * 3) % 5)));
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.3]));
+          },
+        }),
+      );
+      return report.findings.map((f) => f.input);
+    };
+    const first = await findingsOf();
+    const second = await findingsOf();
+    expect(first.length).toBeGreaterThanOrEqual(8);
+    expect(first).toEqual([...first].sort((a, b) => a.localeCompare(b)));
+    expect(second).toEqual(first);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("streams measurement per (rule, unit), finding only when the handle fires", async () => {
     const events = await drain(
       lint({

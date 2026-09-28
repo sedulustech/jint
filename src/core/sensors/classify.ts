@@ -220,10 +220,11 @@ export interface ClassifyResult {
 }
 
 /**
- * In-flight one-element classifier calls per file. Provisional: waves mirror FILE_CONCURRENCY
- * semantics; unanchored until element-call latency is classified on the self-corpus.
+ * In-flight one-element classifier calls per file. Measured, not guessed: 16 sustained 53.9 rps
+ * with zero 429s and p95 latency 380ms (tmp/observations/concurrency-probe.md); the published quota
+ * is handled by rps_budget, not by shrinking the pool. Supersedes ELEMENT_CONCURRENCY (8).
  */
-export const ELEMENT_CONCURRENCY = 8;
+export const DEFAULT_CONCURRENCY = 16;
 
 /**
  * The minimal element shape the target grammar reads; both tiers' element views satisfy it (the TS
@@ -276,7 +277,7 @@ export const rulesForElement = (rules: readonly Rule[], element: InventoryElemen
 export interface ClassifyFileOptions {
   /** Explicit grammar override; when absent the language comes from the state path's extension. */
   readonly language?: string;
-  /** Cap on in-flight one-element classifier calls (default ELEMENT_CONCURRENCY). */
+  /** Cap on in-flight one-element classifier calls (default DEFAULT_CONCURRENCY, max 64). */
   readonly concurrency?: number;
 }
 
@@ -461,8 +462,11 @@ export async function classifyFile(
     }
   };
   // Elements fan out as concurrent one-element calls (chunking questions per call is what produced
-  // the averaged matrix readings); the cap bounds in-flight requests per file.
-  const concurrency = options.concurrency ?? ELEMENT_CONCURRENCY;
+  // the averaged matrix readings); the cap bounds in-flight requests per file. Request STARTS are
+  // bounded by the pacer wrapped around the classifier by the caller (lint/classify) - one rate
+  // layer at the classifier seam, shared by unit-scoped and element-scoped calls alike. Work
+  // completes out of order; the report sorts findings by element path.
+  const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, worker));
   if (aborted) return { events, fatal: true, inventory: derived, oversized };
   return { events, fatal: false, inventory: derived, oversized };
