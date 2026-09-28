@@ -228,6 +228,57 @@ describe("runTsRules — impossible state fails loud", () => {
   });
 });
 
+// Review 396888e finding 3: scoping is a cross-tier feature — the TS tier must be TESTED, not
+// just compiled. Zero-cost filtering on BOTH selection paths, and the note the JSON tier emits.
+describe("per-rule scoping on the TS tier", () => {
+  test("zero-cost: a scoped-out element costs zero jev calls (grammar path)", async () => {
+    const inventory = await oneFile(SOURCE, "tests/fixture.ts");
+    const calls: Call[] = [];
+    const phase = await run(
+      ruleOf({ exclude: ["tests/**"] }),
+      inventory,
+      fakeClassifier(0.8, calls),
+    );
+    expect(calls).toHaveLength(0);
+    expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
+    // the gap is signal: one run-level note names the rule and the skipped count
+    const notes = phase.events.filter((e) => e.type === "note");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.type === "note" && notes[0].note).toBe(
+      'ts rule "is_test_rule": scope excluded 1 element(s)',
+    );
+  });
+
+  test("zero-cost: scoping filters selection-function picks before any call", async () => {
+    const inventory = await oneFile(SOURCE, "tests/fixture.ts");
+    const calls: Call[] = [];
+    const phase = await run(
+      ruleOf({
+        target: (elements) => elements, // picks everything; the scope subtracts
+        exclude: ["tests/**"],
+      }),
+      inventory,
+      fakeClassifier(0.8, calls),
+    );
+    expect(calls).toHaveLength(0);
+    expect(phase.events.some((e) => e.type === "note" && e.note.includes("scope excluded"))).toBe(
+      true,
+    );
+  });
+
+  test("an in-scope rule emits no note and judges normally", async () => {
+    const inventory = await oneFile(SOURCE, "src/fixture.ts");
+    const calls: Call[] = [];
+    const phase = await run(
+      ruleOf({ exclude: ["tests/**"] }),
+      inventory,
+      fakeClassifier(0.8, calls),
+    );
+    expect(calls).toHaveLength(1);
+    expect(phase.events.some((e) => e.type === "note")).toBe(false);
+  });
+});
+
 describe("runTsRules — JEV_RESPONSE_INVALID guard", () => {
   test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
     const inventory = await oneFile(SOURCE);

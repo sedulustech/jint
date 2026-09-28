@@ -77,4 +77,65 @@ describe("compileRuleScope / ruleInScope — the scoping matrix", () => {
     expect(ruleInScope(scoped, "src/a.ts")).toBe(true);
     expect(ruleInScope(scoped, "tests/a.ts")).toBe(false);
   });
+
+  // Review 396888e finding 2: reusing compilePattern without dirOnly made "tests/" match NOTHING
+  // in a rule scope while the global exclude pruned the whole tree. Same pattern, same meaning,
+  // every context — dirOnly matches when any ANCESTOR directory satisfies the pattern.
+  test("dirOnly (trailing-slash) patterns scope out the whole subtree, like the global exclude", () => {
+    expect(matches({ exclude: ["tests/"] }, "tests/a.ts")).toBe(false);
+    expect(matches({ exclude: ["tests/"] }, "tests/deep/b.ts")).toBe(false);
+    // a stripped trailing slash makes the pattern bare, so ANY dir named tests matches — the
+    // global exclude prunes those directories identically (parity test below proves it)
+    expect(matches({ exclude: ["tests/"] }, "src/tests/a.ts")).toBe(false);
+    // and in an include list: "tests/" scopes the rule INTO the subtree only
+    expect(matches({ include: ["tests/"] }, "tests/a.ts")).toBe(true);
+    expect(matches({ include: ["tests/"] }, "tests/deep/b.ts")).toBe(true);
+    expect(matches({ include: ["tests/"] }, "src/a.ts")).toBe(false);
+  });
+
+  test("same-pattern-same-behavior parity: rule scope == global exclude walk semantics", async () => {
+    // Behavioral, not just regex-level: the ground truth is what walkDir's global exclude
+    // actually yields. The full file listing of the fixture is what a rule scope sees; whatever
+    // the walk prunes, the scope must exclude, for all four pattern shapes.
+    const { mkdirSync, rmSync, writeFileSync } = await import("node:fs");
+    const { walkDir } = await import("./input/dir.ts");
+    const dir = "tests/fixtures/scope-parity-fs";
+    mkdirSync(`${dir}/tests/nested`, { recursive: true });
+    mkdirSync(`${dir}/src/a`, { recursive: true });
+    const files = [
+      "keep.ts",
+      "tests/spec.ts",
+      "tests/nested/deep.ts",
+      "src/mod.test.ts",
+      "src/a/b.ts",
+    ];
+    for (const f of files) writeFileSync(`${dir}/${f}`, "export const x = 1;\n");
+    try {
+      for (const pattern of ["tests/", "tests/**", "*.test.ts", "src/a/b.ts"]) {
+        const walked: string[] = [];
+        for await (const unit of walkDir(dir, [pattern])) {
+          if (unit.kind === "file") walked.push(unit.state.path);
+        }
+        const scope = compileRuleScope({ exclude: [pattern] });
+        const expected = files.filter((f) => scope!.matches(f));
+        expect(new Set(walked), `exclude: ${pattern}`).toEqual(new Set(expected));
+        // mirrored through an include list: the rule applies to exactly what the walk kept
+        const includeScope = compileRuleScope({ include: [pattern] });
+        const included = files.filter((f) => includeScope!.matches(f));
+        expect(included, `include: ${pattern}`).toEqual(
+          files.filter((f) => !new Set(walked).has(f)),
+        );
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // The documented trap (review 396888e finding 6): a file input's path is matched AS GIVEN, and
+  // scope patterns are root-relative (no leading slash, like the global exclude), so an absolute
+  // input path can never satisfy a relative glob and the rule silently applies. Pinned so a
+  // change to that decision is deliberate, not accidental.
+  test("file-input paths match as-given: an absolute path defeats a relative glob", () => {
+    expect(ruleInScope({ exclude: ["tests/**"] }, "/repo/tests/a.ts")).toBe(true);
+  });
 });

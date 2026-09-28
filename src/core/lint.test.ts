@@ -2,6 +2,7 @@ import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
+import { renderJson } from "../core/output/json.ts";
 import { defaultRules } from "../core/sensors/defaults.ts";
 import {
   ClassifyError,
@@ -344,9 +345,12 @@ describe("lint", () => {
     expect(calls).toHaveLength(0);
     expect(report.measurements).toHaveLength(0);
     expect(report.findings).toHaveLength(0);
-    // the gap is signal, not silence: one note names the rule and how many elements it skipped
-    expect(report.notes).toEqual([expect.stringContaining("rule 'is_scope_probe' scope excluded")]);
-    expect(report.notes[0]).toContain("2 element(s)");
+    // the gap is signal, not silence: ONE aggregated note per unit names the rule and the count
+    expect(report.notes).toHaveLength(1);
+    expect(report.notes[0]).toContain("scope excluded");
+    expect(report.notes[0]).toContain("rule 'is_scope_probe' scope excluded 2 element(s)");
+    // the signal survives the machine boundary too (review 396888e finding 1): --json carries it
+    expect(JSON.parse(renderJson(report)).notes).toEqual(report.notes);
   });
 
   test("scoping matrix through the pipeline: include/exclude/both compose with global exclude", async () => {

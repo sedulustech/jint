@@ -8,7 +8,7 @@
  */
 
 import { decompose, languageOf, type Inventory, type InventoryElement } from "../input/walk.ts";
-import { ruleInScope } from "../scope.ts";
+import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
   type AnyState,
@@ -366,11 +366,7 @@ export async function classifyFile(
   // rule's target routes elements of a parsed inventory, and a str unit has no inventory by
   // design. No grammar is ever inferred for it.
   const wholeRules = rules.filter(
-    (rule) =>
-      ruleInScope(rule, state.path) &&
-      (unit.kind === "str"
-        ? true
-        : rule.target === "files" || (rule.target === "diffs" && unit.kind === "diff")),
+    (rule) => ruleInScope(rule, state.path) && judgesWholeUnit(rule, unit.kind),
   );
   const fileId = "id" in state ? state.id : contentHash(state.diff);
   if (wholeRules.length > 0) {
@@ -436,31 +432,25 @@ export async function classifyFile(
     rules: Rule[];
     role: string;
   }> = [];
-  // Per-rule scoping (issue 008): scoped-out pairs cost zero calls, but they are SIGNAL - one
-  // note per scoped rule says how many elements it skipped, so the gap is never silent.
+  // Per-rule scoping (issue 008): scoped-out pairs cost zero calls, but they are SIGNAL. One
+  // AGGREGATED note per unit (review 396888e finding 4: per-unit-per-rule notes inherit the
+  // rules x files fan-out and drown the stream) lists each scoped rule and what it skipped, so
+  // the gap is never silent. The path is constant within a unit, so every scoped rule is either
+  // in scope for the whole unit or out for all of it.
   const scopeNotes: string[] = [];
+  const fragments: string[] = [];
   for (const rule of rules) {
     if (rule.include === undefined && rule.exclude === undefined) continue;
-    const isWholeRule =
-      unit.kind === "str" ||
-      rule.target === "files" ||
-      (rule.target === "diffs" && unit.kind === "diff");
-    if (isWholeRule) {
-      if (!ruleInScope(rule, state.path)) {
-        // Whole-unit scoped out: the rule costs zero calls for this unit.
-        scopeNotes.push(`${state.path}: rule '${rule.name}' scope excluded the whole unit`);
-      }
-      continue;
-    }
-    // Scoping matches the element's file path, which is constant within a unit: the rule is
-    // either in scope for the whole unit or out for all of its elements.
-    const scopedOut = ruleInScope(rule, state.path)
-      ? 0
-      : inventory.filter((element) => matchesTarget(rule.target, element)).length;
-    if (scopedOut > 0) {
-      scopeNotes.push(`${state.path}: rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
+    if (ruleInScope(rule, state.path)) continue;
+    if (judgesWholeUnit(rule, unit.kind)) {
+      fragments.push(`rule '${rule.name}' scope excluded the whole unit`);
+    } else {
+      const skipped = inventory.filter((element) => matchesTarget(rule.target, element)).length;
+      if (skipped > 0) fragments.push(`rule '${rule.name}' scope excluded ${skipped} element(s)`);
     }
   }
+  if (fragments.length > 0)
+    scopeNotes.push(`${state.path}: scope excluded - ${fragments.join("; ")}`);
   for (const element of inventory) {
     const scoped = rulesForElement(rules, element, state.path);
     if (scoped.length === 0) continue;

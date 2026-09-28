@@ -69,8 +69,14 @@ export function tsElementsOf(inventory: readonly InventoryElement[], path: strin
   return inventory.filter((e) => e.oversized !== true).map(convert);
 }
 
-/** One rule's resolved REQUEST: its slice, or the RULE_FAILED that replaced selection. */
-export type ResolvedTsTarget = { targets: readonly TsElement[] } | { error: ClassifyError };
+/**
+ * One rule's resolved REQUEST: its slice plus how many requested elements scoping removed, or the
+ * RULE_FAILED that replaced selection. scopedOut is SIGNAL (review 396888e finding 3): the TS tier
+ * notes skipped elements at run level exactly like the JSON tier notes per unit.
+ */
+export type ResolvedTsTarget =
+  | { targets: readonly TsElement[]; scopedOut: number }
+  | { error: ClassifyError };
 /** Resolution for every rule, in declared order. */
 export type ResolvedTsTargets = Map<TsRule, ResolvedTsTarget>;
 
@@ -109,7 +115,8 @@ export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]):
       }
       // Per-rule scoping (issue 008) applies to selection-function picks too: a scoped-out
       // element costs zero jev calls regardless of how it was requested.
-      return { targets: picked.filter((e) => ruleInScope(rule, e.path)) };
+      const filtered = picked.filter((e) => ruleInScope(rule, e.path));
+      return { targets: filtered, scopedOut: picked.length - filtered.length };
     } catch (thrown) {
       return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown)) };
     }
@@ -117,11 +124,12 @@ export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]):
   // THE shared target grammar: matchesTarget is the JSON tier's rulesForElement mapping, so the
   // two tiers cannot drift (comments matches comment elements AND code carrying an attachedComment).
   const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
-  return {
-    targets: allElements.filter(
-      (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
-    ),
-  };
+  const filtered = allElements.filter(
+    (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
+  );
+  const scopedOut =
+    allElements.filter((e) => requested.some((t) => matchesTarget(t, e))).length - filtered.length;
+  return { targets: filtered, scopedOut };
 }
 
 function isPromise(v: unknown): v is Promise<unknown> {
@@ -172,6 +180,14 @@ export async function runTsRules(
     if ("error" in resolvedRule) {
       events.push({ type: "error", error: resolvedRule.error });
       continue;
+    }
+    // Scoped-out requested elements are signal, never silence: one run-level note per rule says
+    // how many its scope removed (the TS tier resolves once per run, so run level IS its unit).
+    if ("scopedOut" in resolvedRule && resolvedRule.scopedOut > 0) {
+      events.push({
+        type: "note",
+        note: `ts rule "${rule.name}": scope excluded ${resolvedRule.scopedOut} element(s)`,
+      });
     }
     const targets = resolvedRule.targets;
     const ctx = { targets };

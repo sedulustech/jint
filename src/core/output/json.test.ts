@@ -39,6 +39,23 @@ describe("renderJson", () => {
     expect(parsed.measurements).toEqual([]);
     expect(parsed.findings).toEqual([]);
     expect(parsed.errors).toEqual([]);
+    expect(parsed.notes).toEqual([]);
+  });
+
+  // Review 396888e finding 1: notes (scope exclusions, oversized skips) are in-band SIGNAL —
+  // the machine shape carries them too, after errors, or --json runs report scoping as silence.
+  test("notes serialize after errors (jint-report/v1)", () => {
+    const noted: LintReport = {
+      ...report,
+      notes: [
+        "tests/a.ts: scope excluded - rule 'is_name_purposeful' scope excluded 2 element(s)",
+        "element src/big.ts#L1-L900 exceeds 100000 chars - skipped",
+      ],
+    };
+    const parsed = JSON.parse(renderJson(noted));
+    expect(parsed.notes).toEqual(noted.notes);
+    const keys = Object.keys(parsed);
+    expect(keys.indexOf("notes")).toBeGreaterThan(keys.indexOf("errors"));
   });
 
   test("output contains no ANSI escape codes", () => {
