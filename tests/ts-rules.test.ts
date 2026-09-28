@@ -172,6 +172,12 @@ describe("cli: ts rules end-to-end", () => {
     expectContract(r, { exit: 2, stderr: [/rule\.ts/, "boom"] });
   });
 
+  test("an import-gate rejection is fatal at e2e too: exit 2, the specifier is named", async () => {
+    const dir = setup("gatefail", 'import kleur from "kleur";\nexport default 1;');
+    const r = await runIn(dir);
+    expectContract(r, { exit: 2, stderr: [/kleur/, /only "jint:\*"/] });
+  });
+
   test("a mid-run contract violation streams as RULE_FAILED: per-unit, run continues", async () => {
     const dir = setup("badspec", BAD_SPEC_RULE);
     const r = await runIn(dir);
