@@ -269,7 +269,7 @@ describe("validateConfig / defaultConfig", () => {
       "inline",
     );
     const handle = config.rules[0]!.handle;
-    expect(handle(1)).toEqual({ severity: "warn", message: "opaque" });
+    expect(handle(1)).toEqual({ severity: "warn" });
     expect(handle(0)).toBeNull();
     // Off-rubric scores are impossible states (jev bounds the score to the criteria count);
     // they fail loud rather than silently dropping the reading.

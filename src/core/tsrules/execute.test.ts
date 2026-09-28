@@ -494,7 +494,6 @@ describe("runTsRules — policy", () => {
     expect(findings).toHaveLength(3);
     const first = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(first?.severity).toBe("error");
-    expect(first?.message).toBe("why #0");
     expect(first?.data).toEqual({ index: 0 });
   });
 

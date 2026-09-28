@@ -5,13 +5,13 @@ import { checkNoulHandler, compileNoulHandler, compileScoreHandler } from "./han
 const NOUL = { fires_when: "true", warn_at: 0.3, error_at: 0.6 } as const;
 
 describe("compileScoreHandler", () => {
-  const handle = compileScoreHandler({ map: ["ok", "warn", "error"] }, ["c0", "c1", "c2"]);
+  const handle = compileScoreHandler({ map: ["ok", "warn", "error"] });
 
   test("rounding is half-up (Math.round): x.5 rounds to the next level", () => {
     // 0.5 sits between level 0 and 1: half-up pins it to 1 (warn), not 0.
-    expect(handle(0.5)).toEqual({ severity: "warn", message: "c1" });
+    expect(handle(0.5)).toEqual({ severity: "warn" });
     // 1.5 between 1 and 2: rounds up to 2 (error).
-    expect(handle(1.5)).toEqual({ severity: "error", message: "c2" });
+    expect(handle(1.5)).toEqual({ severity: "error" });
   });
 
   test("out-of-scale and NaN scores are impossible states - fail loud, never silent null", () => {

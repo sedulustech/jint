@@ -219,7 +219,7 @@ export const isReadable: Rule = {
   criteria: IS_READABLE_CRITERIA,
   target: "definitions",
   // score scale (0..N): high-bad — ok below 2, warn at 2, error at 3
-  handle: compileScoreHandler({ map: ["ok", "ok", "warn", "error"] }, IS_READABLE_CRITERIA),
+  handle: compileScoreHandler({ map: ["ok", "ok", "warn", "error"] }),
 };
 
 /** All default rules by name — the `rules.defaults` record of the config surface. */

@@ -336,10 +336,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         const handle = byName.get(event.rule)?.handle;
         const outcome = handle?.(event.value) ?? null;
         if (outcome !== null) {
-          // A score-map finding's message defaults to the level's criteria line, prefixed by the
-          // element reference; noul findings carry no message unless a callback adds one.
-          const message =
-            outcome.message !== undefined ? event.input + ": " + outcome.message : undefined;
+          // Findings carry NO message: consumers join by rule id to the config (v1 contract).
           yield {
             type: "finding",
             finding: {
@@ -347,7 +344,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               input: event.input,
               value: event.value,
               severity: outcome.severity,
-              ...(message !== undefined && { message }),
               ...(span !== undefined && { location: { input: event.input, span } }),
             },
           };

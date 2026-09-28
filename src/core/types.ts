@@ -12,10 +12,9 @@
  */
 
 export type Severity = "error" | "warn";
-/** A fired reading: severity, plus an optional finding message (score maps carry the criteria line). */
+/** A fired reading: severity. Values stay RAW P(true) — fires_when lives in the rule config. */
 export interface HandleOutcome {
   readonly severity: Severity;
-  readonly message?: string;
 }
 /** Handle's return type: an outcome, or null (silent). */
 export type HandleResult = HandleOutcome | null;
@@ -164,17 +163,22 @@ export interface Measurement {
   readonly stage?: "file" | "element";
 }
 
-/** A measurement that mattered: it cleared the rule's handle and carries the returned severity. */
+/**
+ * A measurement that mattered: it cleared the rule's handle and carries the returned severity.
+ * value is the JUDGED value on the defect pole (1-p when fires_when is "false"), so value and
+ * severity always agree under the rule's own thresholds. Findings carry NO message: consumers join
+ * by rule id to the config (report contract v1, 2026-09-28 — the never-promised score-criteria line
+ * and callback message were dropped with this change).
+ */
 export interface Finding {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (TS tier, rules-context/04): a policy callback's custom message and extra structured
-   * data, schema-validated at the callback boundary. Absent for threshold-derived findings.
+   * Additive (TS tier, rules-context/04): a policy callback's extra structured data,
+   * schema-validated at the callback boundary. Absent for threshold-derived findings.
    */
-  readonly message?: string;
   readonly data?: Record<string, unknown>;
   /**
    * Exact element location for element-scoped findings: the identified element plus its byte/line

@@ -279,7 +279,9 @@ describe("cli: piped stdin str unit", async () => {
       JEV_DEBUG_REQUEST_LOCATION: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
-    const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })];
+    const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })].filter(
+      (f) => !f.endsWith("report.json"),
+    ); // report.json is the run's own report, not a capture
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
     expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);

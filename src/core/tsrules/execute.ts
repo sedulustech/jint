@@ -338,7 +338,7 @@ function tsFinding(
   ruleName: string,
   target: TsElement,
   result: RuleResult,
-  decision: { severity: "error" | "warn" | null; message?: string; data?: Record<string, unknown> },
+  decision: { severity: "error" | "warn" | null; data?: Record<string, unknown> },
 ): Finding | null {
   if (decision.severity === null) return null;
   const value = result.type === "noul" ? result.noul : (result as { score: number }).score;
@@ -353,7 +353,6 @@ function tsFinding(
     input: inputOf(target),
     value,
     severity: decision.severity,
-    ...(decision.message !== undefined && { message: decision.message }),
     ...(decision.data !== undefined && { data: decision.data }),
     location: { input: target.path, span },
   };
