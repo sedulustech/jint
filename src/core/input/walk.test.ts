@@ -49,13 +49,13 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
     expect(inv.hasError).toBe(false);
     // Top-level definitions + method elements from composite descent into the class declaration,
     // no imports in this file (golden tracks src/core/types.ts — update when it grows).
-    expect(inv.definitions).toHaveLength(34);
+    expect(inv.definitions).toHaveLength(35);
     expect(inv.imports).toHaveLength(0);
     // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
     // separated from the first declaration by a blank line), and member-doc comments inside
     // declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(39);
-    expect(attachedCount(inv)).toBe(26);
+    expect(accountedComments(inv)).toBe(40);
+    expect(attachedCount(inv)).toBe(27);
     expect(inv.comments).toHaveLength(1);
     expect(internalCount(inv)).toBe(12);
     // Labels are stable and positional.
@@ -73,7 +73,7 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
       " * exit codes exactly once (cli.ts).",
       " */",
     ].join("\n");
-    expect(inv.definitions[6]?.attachedComment).toEqual([setupErrorDoc]);
+    expect(inv.definitions[7]?.attachedComment).toEqual([setupErrorDoc]);
   });
 
   test("comment-accounting invariant: AST comment count === comments accounted in elements", async () => {

@@ -90,17 +90,74 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Rule thresholds as data; polarity is inferred from their ordering. warn_at < error_at means high-bad (a value above warn_at warns, above error_at errors); error_at < warn_at means high-good (a value below warn_at warns, below error_at errors). Both required; they must differ.",
-                        "type": "object",
-                        "required": ["warn_at", "error_at"],
-                        "properties": {
-                          "warn_at": {
-                            "type": "number"
+                        "anyOf": [
+                          {
+                            "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [ok, ok, warn, error]; high-good: [error, warn, ok, ok]). The length MUST equal the criteria count and at least one level must be non-ok. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+                            "type": "object",
+                            "required": ["map"],
+                            "properties": {
+                              "map": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "const": "ok",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "warn",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
                           },
-                          "error_at": {
-                            "type": "number"
+                          {
+                            "description": "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and both must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent (must be ordered, must not cover the whole scale, must not contain the thresholds); absent = everything surfaces.",
+                            "type": "object",
+                            "required": ["fires_when", "warn_at"],
+                            "properties": {
+                              "fires_when": {
+                                "anyOf": [
+                                  {
+                                    "const": "true",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "false",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "warn_at": {
+                                "type": "number"
+                              },
+                              "error_at": {
+                                "type": "number"
+                              },
+                              "silent_band": {
+                                "type": "array",
+                                "items": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ],
+                                "additionalItems": false,
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            }
                           }
-                        }
+                        ]
                       },
                       {
                         "type": "null"
@@ -161,17 +218,74 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Rule thresholds as data; polarity is inferred from their ordering. warn_at < error_at means high-bad (a value above warn_at warns, above error_at errors); error_at < warn_at means high-good (a value below warn_at warns, below error_at errors). Both required; they must differ.",
-                        "type": "object",
-                        "required": ["warn_at", "error_at"],
-                        "properties": {
-                          "warn_at": {
-                            "type": "number"
+                        "anyOf": [
+                          {
+                            "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [ok, ok, warn, error]; high-good: [error, warn, ok, ok]). The length MUST equal the criteria count and at least one level must be non-ok. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+                            "type": "object",
+                            "required": ["map"],
+                            "properties": {
+                              "map": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "const": "ok",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "warn",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
                           },
-                          "error_at": {
-                            "type": "number"
+                          {
+                            "description": "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and both must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent (must be ordered, must not cover the whole scale, must not contain the thresholds); absent = everything surfaces.",
+                            "type": "object",
+                            "required": ["fires_when", "warn_at"],
+                            "properties": {
+                              "fires_when": {
+                                "anyOf": [
+                                  {
+                                    "const": "true",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "false",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "warn_at": {
+                                "type": "number"
+                              },
+                              "error_at": {
+                                "type": "number"
+                              },
+                              "silent_band": {
+                                "type": "array",
+                                "items": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ],
+                                "additionalItems": false,
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            }
                           }
-                        }
+                        ]
                       },
                       {
                         "type": "null"

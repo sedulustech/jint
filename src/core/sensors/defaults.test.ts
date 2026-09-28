@@ -2,50 +2,53 @@ import { describe, test, expect } from "bun:test";
 import { defaultRules } from "./defaults.ts";
 import type { Rule } from "../types.ts";
 
+/** The severity a rule's handler returns for a value (null = silent). */
+const sev = (rule: Rule | undefined, v: number): string | null => rule?.handle(v)?.severity ?? null;
+
 const CALIBRATION = "tests/data/calibration/healthy-baselines.json";
 const SENSITIVITY = "tests/data/calibration/mutant-readings.json";
 
 function severities(rule: Rule, values: number[]): (string | null)[] {
-  return values.map((v) => rule.handle(v));
+  return values.map((v) => sev(rule, v));
 }
 
 describe("default handles: polarity", () => {
   test("naming rules are high=good (error below threshold)", () => {
-    expect(defaultRules.is_name_purposeful!.handle(0.1)).toBe("error");
-    expect(defaultRules.is_name_purposeful!.handle(0.35)).toBe("warn");
-    expect(defaultRules.is_name_purposeful!.handle(0.45)).toBeNull();
-    expect(defaultRules.is_vocabulary_consistent!.handle(0.5)).toBe("error");
-    expect(defaultRules.is_vocabulary_consistent!.handle(0.7)).toBe("warn");
-    expect(defaultRules.is_vocabulary_consistent!.handle(0.8)).toBeNull();
-    expect(defaultRules.is_naming_convention_consistent!.handle(0.6)).toBe("error");
-    expect(defaultRules.is_naming_convention_consistent!.handle(0.7)).toBe("warn");
-    expect(defaultRules.is_naming_convention_consistent!.handle(0.9)).toBeNull();
-    expect(defaultRules.is_greppable!.handle(0.3)).toBe("error");
-    expect(defaultRules.is_greppable!.handle(0.55)).toBe("error");
-    expect(defaultRules.is_greppable!.handle(0.65)).toBe("warn");
-    expect(defaultRules.is_greppable!.handle(0.8)).toBeNull();
+    expect(sev(defaultRules.is_name_purposeful, 0.1)).toBe("error");
+    expect(sev(defaultRules.is_name_purposeful, 0.35)).toBe("warn");
+    expect(sev(defaultRules.is_name_purposeful, 0.45)).toBeNull();
+    expect(sev(defaultRules.is_vocabulary_consistent, 0.5)).toBe("error");
+    expect(sev(defaultRules.is_vocabulary_consistent, 0.7)).toBe("warn");
+    expect(sev(defaultRules.is_vocabulary_consistent, 0.8)).toBeNull();
+    expect(sev(defaultRules.is_naming_convention_consistent, 0.6)).toBe("error");
+    expect(sev(defaultRules.is_naming_convention_consistent, 0.7)).toBe("warn");
+    expect(sev(defaultRules.is_naming_convention_consistent, 0.9)).toBeNull();
+    expect(sev(defaultRules.is_greppable, 0.3)).toBe("error");
+    expect(sev(defaultRules.is_greppable, 0.55)).toBe("error");
+    expect(sev(defaultRules.is_greppable, 0.65)).toBe("warn");
+    expect(sev(defaultRules.is_greppable, 0.8)).toBeNull();
     // is_filename_fitting: high = bad; anchored on the two-language filename-fit
     // probe - healthy ceiling 0.33 (Go, cobra) / 0.36 (TS, jint src/), defective
     // floor 0.60 / 0.88 (the generic-name-hides-a-subject case is the soft one).
-    expect(defaultRules.is_filename_fitting!.handle(0.33)).toBeNull();
-    expect(defaultRules.is_filename_fitting!.handle(0.5)).toBeNull();
-    expect(defaultRules.is_filename_fitting!.handle(0.6)).toBe("warn");
-    expect(defaultRules.is_filename_fitting!.handle(0.94)).toBe("error");
+    expect(sev(defaultRules.is_filename_fitting, 0.33)).toBeNull();
+    expect(sev(defaultRules.is_filename_fitting, 0.5)).toBeNull();
+    expect(sev(defaultRules.is_filename_fitting, 0.6)).toBe("warn");
+    expect(sev(defaultRules.is_filename_fitting, 0.94)).toBe("error");
   });
 
   test("comment/complexity rules are high=bad (error above threshold)", () => {
-    expect(defaultRules.is_comment_narration!.handle(0.5)).toBe("error");
-    expect(defaultRules.is_comment_narration!.handle(0.35)).toBe("warn");
-    expect(defaultRules.is_comment_narration!.handle(0.25)).toBeNull();
-    expect(defaultRules.is_comment_patching_readability!.handle(0.6)).toBe("error");
-    expect(defaultRules.is_comment_patching_readability!.handle(0.45)).toBe("warn");
-    expect(defaultRules.is_comment_patching_readability!.handle(0.35)).toBeNull();
-    expect(defaultRules.will_comment_drift!.handle(0.75)).toBe("error");
-    expect(defaultRules.will_comment_drift!.handle(0.6)).toBe("warn");
-    expect(defaultRules.will_comment_drift!.handle(0.5)).toBeNull();
-    expect(defaultRules.is_cognitively_complex!.handle(0.7)).toBe("error");
-    expect(defaultRules.is_cognitively_complex!.handle(0.5)).toBe("warn");
-    expect(defaultRules.is_cognitively_complex!.handle(0.4)).toBeNull();
+    expect(sev(defaultRules.is_comment_narration, 0.5)).toBe("error");
+    expect(sev(defaultRules.is_comment_narration, 0.35)).toBe("warn");
+    expect(sev(defaultRules.is_comment_narration, 0.25)).toBeNull();
+    expect(sev(defaultRules.is_comment_patching_readability, 0.6)).toBe("error");
+    expect(sev(defaultRules.is_comment_patching_readability, 0.45)).toBe("warn");
+    expect(sev(defaultRules.is_comment_patching_readability, 0.35)).toBeNull();
+    expect(sev(defaultRules.will_comment_drift, 0.75)).toBe("error");
+    expect(sev(defaultRules.will_comment_drift, 0.6)).toBe("warn");
+    expect(sev(defaultRules.will_comment_drift, 0.5)).toBeNull();
+    expect(sev(defaultRules.is_cognitively_complex, 0.7)).toBe("error");
+    expect(sev(defaultRules.is_cognitively_complex, 0.5)).toBe("warn");
+    expect(sev(defaultRules.is_cognitively_complex, 0.4)).toBeNull();
   });
 });
 
@@ -62,7 +65,7 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
         // Healthy code must never trip an ERROR; warns are legitimate nudges
         // (the self-lint corpus legitimately earns drift/consistency/
         // complexity warns on the files those claims describe).
-        expect(rule.handle(value!)).not.toBe("error");
+        expect(sev(rule, value!)).not.toBe("error");
       }
     }
   });
@@ -73,16 +76,15 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
       Record<string, number>
     > & { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
     // m1_bad_names: naming collapses to errors
-    expect(defaultRules.is_name_purposeful!.handle(mutants.m1_bad_names!.is_name_purposeful!)).toBe(
+    expect(sev(defaultRules.is_name_purposeful, mutants.m1_bad_names!.is_name_purposeful!)).toBe(
       "error",
     );
     expect(
-      defaultRules.is_vocabulary_consistent!.handle(
-        mutants.m1_bad_names!.is_vocabulary_consistent!,
-      ),
+      sev(defaultRules.is_vocabulary_consistent, mutants.m1_bad_names!.is_vocabulary_consistent!),
     ).toBe("error");
     expect(
-      defaultRules.is_naming_convention_consistent!.handle(
+      sev(
+        defaultRules.is_naming_convention_consistent,
         mutants.m1_bad_names!.is_naming_convention_consistent!,
       ),
     ).toBe("error");
@@ -95,28 +97,27 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     const m3Slices = Object.values(mutants.m3_comment_bloat_perfile!);
     expect(m3Slices.length).toBeGreaterThanOrEqual(6);
     const narrationSeverities = m3Slices.map((s) =>
-      defaultRules.is_comment_narration!.handle(s.is_comment_narration!),
+      sev(defaultRules.is_comment_narration, s.is_comment_narration!),
     );
     expect(narrationSeverities.filter((s) => s === "error").length).toBe(5);
     expect(narrationSeverities.filter((s) => s === null).length).toBe(2);
     // and the family's other attributes do not mistake bloat for their own claim
     expect(
-      defaultRules.is_comment_patching_readability!.handle(
+      sev(
+        defaultRules.is_comment_patching_readability,
         mutants.m3_comment_bloat!.is_comment_patching_readability!,
       ),
     ).toBeNull();
     expect(
-      defaultRules.will_comment_drift!.handle(mutants.m3_comment_bloat!.will_comment_drift!),
+      sev(defaultRules.will_comment_drift, mutants.m3_comment_bloat!.will_comment_drift!),
     ).toBeNull();
     // m4_obfuscate: the naming family + complexity. The mutant readings predate the per-rule
     // questions (issue 001) and read HIGHER than the new question scores the same damage
     // (name 0.52, casing 0.78 now clear even the lowered warn tiers), so the family assertion
     // covers only vocabulary + complexity; the naming error tier is pinned by m1 above.
     const m4 = [
-      defaultRules.is_vocabulary_consistent!.handle(
-        mutants.m4_obfuscate!.is_vocabulary_consistent!,
-      ),
-      defaultRules.is_cognitively_complex!.handle(mutants.m4_obfuscate!.is_cognitively_complex!),
+      sev(defaultRules.is_vocabulary_consistent, mutants.m4_obfuscate!.is_vocabulary_consistent!),
+      sev(defaultRules.is_cognitively_complex, mutants.m4_obfuscate!.is_cognitively_complex!),
     ];
     expect(m4.every((s) => s === "warn")).toBe(true);
     // casing stays its own lane on obfuscation: single-letter renames mix forms for one kind.
@@ -124,7 +125,8 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // so under the re-anchored tiers it no longer warns — assert non-error until the mutant
     // corpus is re-classified under the new questions.
     expect(
-      defaultRules.is_naming_convention_consistent!.handle(
+      sev(
+        defaultRules.is_naming_convention_consistent,
         mutants.m4_obfuscate!.is_naming_convention_consistent!,
       ),
     ).not.toBe("error");
@@ -132,7 +134,9 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // Its greppable reading (0.64) predates the scoped description; under the
     // new thresholds it lands in warn, so the tier assertion is non-error.
     for (const rule of Object.values(defaultRules)) {
-      const severity = rule.handle(mutants.m2_strip_comments![rule.name]!);
+      const value = mutants.m2_strip_comments![rule.name];
+      if (value === undefined) continue; // fixture predates the rule
+      const severity = sev(rule, value);
       if (rule.name === "is_greppable") {
         expect(severity).not.toBe("error");
       } else {
@@ -143,15 +147,15 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
 });
 
 describe("rule definitions", () => {
-  const ruleFires = (s: Rule): boolean => s.handle(0.05) !== null || s.handle(0.95) !== null;
+  const ruleFires = (s: Rule): boolean => sev(s, 0.05) !== null || sev(s, 0.95) !== null;
 
   test("every rule has exactly one handle polarity; handles are the only thresholds", () => {
     // The handles are the only thresholds (the sweep anchors died with the two-stage funnel).
     // A firing handle must fire on exactly one side (high=good fires LOW, high=bad fires HIGH);
     // a measurement-only rule (null handle) fires on neither.
     for (const rule of Object.values(defaultRules)) {
-      const firesLow = rule.handle(0.05) !== null;
-      const firesHigh = rule.handle(0.95) !== null;
+      const firesLow = sev(rule, 0.05) !== null;
+      const firesHigh = sev(rule, 0.95) !== null;
       expect(firesLow && firesHigh).toBe(false);
       expect(ruleFires(rule)).toBe(firesLow || firesHigh);
     }

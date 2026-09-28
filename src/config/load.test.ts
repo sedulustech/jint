@@ -111,7 +111,7 @@ describe("validateConfig / defaultConfig", () => {
             name: "is_greppable",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { warn_at: 0.7, error_at: 0.5 },
+            handle: { fires_when: "false", warn_at: 0.25, error_at: 0.4 },
           },
         ],
       },
@@ -120,9 +120,9 @@ describe("validateConfig / defaultConfig", () => {
     expect(overridden.rules).toHaveLength(1);
   });
 
-  test("data handles compile to the function form; polarity inferred from ordering", () => {
-    // warn_at < error_at: high-bad — value above warn_at warns, above error_at errors
-    const highBad = validateConfig(
+  test("noul handlers compile to the function form; thresholds sit on the declared defect pole", () => {
+    // fires_when "true": the reading itself is the defect probability
+    const firesTrue = validateConfig(
       {
         input: "x",
         rules: [
@@ -130,19 +130,19 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { warn_at: 0.3, error_at: 0.45 },
+            handle: { fires_when: "true", warn_at: 0.3, error_at: 0.45 },
           },
         ],
       },
       "inline",
     );
-    const bad = highBad.rules[0]!.handle;
-    expect(bad(0.1)).toBeNull();
-    expect(bad(0.35)).toBe("warn");
-    expect(bad(0.5)).toBe("error");
+    const t = firesTrue.rules[0]!.handle;
+    expect(t(0.1)).toBeNull();
+    expect(t(0.35)).toEqual({ severity: "warn" });
+    expect(t(0.5)).toEqual({ severity: "error" });
 
-    // error_at < warn_at: high-good — value below warn_at warns, below error_at errors
-    const highGood = validateConfig(
+    // fires_when "false": P flips to the defect pole first
+    const firesFalse = validateConfig(
       {
         input: "x",
         rules: [
@@ -150,38 +150,89 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { warn_at: 0.6, error_at: 0.5 },
+            handle: { fires_when: "false", warn_at: 0.4, error_at: 0.5 },
           },
         ],
       },
       "inline",
     );
-    const good = highGood.rules[0]!.handle;
-    expect(good(0.9)).toBeNull();
-    expect(good(0.55)).toBe("warn");
-    expect(good(0.4)).toBe("error");
+    const f = firesFalse.rules[0]!.handle;
+    expect(f(0.9)).toBeNull();
+    expect(f(0.55)).toEqual({ severity: "warn" });
+    expect(f(0.4)).toEqual({ severity: "error" });
+
+    // silent_band: defect-pole readings inside [lo, hi] stay silent
+    const banded = validateConfig(
+      {
+        input: "x",
+        rules: [
+          {
+            name: "r",
+            criteria: { true: "t", false: "f" },
+            target: "files",
+            handle: { fires_when: "true", warn_at: 0.3, silent_band: [0.4, 0.6] },
+          },
+        ],
+      },
+      "inline",
+    );
+    const b = banded.rules[0]!.handle;
+    expect(b(0.5)).toBeNull(); // inside the band
+    expect(b(0.35)).toEqual({ severity: "warn" }); // below the band still surfaces
+    expect(b(0.7)).toEqual({ severity: "warn" }); // above it too (no error_at declared)
   });
 
-  test("equal thresholds -> CONFIG_INVALID; null handle = classify-only", () => {
-    const equal = {
+  test("handler validation names the rule and the exact field", () => {
+    const rule = (handle: unknown) => ({
       input: "x",
-      rules: [
+      rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files", handle }],
+    });
+    expect(() => validateConfig(rule({ fires_when: "true", warn_at: 1.5 }), "inline")).toThrow(
+      /rule 'r' handle\.warn_at: must be within \(0, 1\)/,
+    );
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.9, error_at: 0.5 }), "inline"),
+    ).toThrow(/rule 'r' handle\.warn_at: .*warn_at < error_at/);
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.6, 0.4] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band: must be ordered/);
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0, 1] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band: must not cover the whole scale/);
+    expect(() =>
+      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.2, 0.4] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.warn_at/);
+    expect(() =>
+      validateConfig(
+        rule({ fires_when: "true", warn_at: 0.3, error_at: 0.7, silent_band: [0.4, 0.75] }),
+        "inline",
+      ),
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.error_at/);
+    // question-type vs handler-type mismatch, both directions
+    expect(() => validateConfig(rule({ map: ["ok", "warn"] }), "inline")).toThrow(
+      /rule 'r' handle\.map: a score handler on a noul rule/,
+    );
+    expect(() =>
+      validateConfig(
         {
-          name: "r",
-          criteria: { true: "t", false: "f" },
-          target: "files",
-          handle: { warn_at: 0.5, error_at: 0.5 },
+          input: "x",
+          rules: [
+            {
+              name: "r",
+              kind: "choice",
+              instructions: "score it",
+              criteria: ["clear", "opaque"],
+              target: "definitions",
+              handle: { fires_when: "true", warn_at: 0.3 },
+            },
+          ],
         },
-      ],
-    };
-    try {
-      validateConfig(equal, "inline");
-      expect.unreachable();
-    } catch (e) {
-      expect((e as SetupError).code).toBe("CONFIG_INVALID");
-      expect((e as SetupError).message).toContain("must differ");
-    }
+        "inline",
+      ),
+    ).toThrow(/rule 'r' handle\.fires_when: a noul handler on a choice rule/);
+  });
 
+  test("null handle = classify-only", () => {
     const silent = validateConfig(
       {
         input: "x",
@@ -211,14 +262,41 @@ describe("validateConfig / defaultConfig", () => {
             instructions: "score it",
             criteria: ["clear", "opaque"],
             target: "definitions",
-            handle: { warn_at: 1, error_at: 2 },
+            handle: { map: ["ok", "warn"] },
           },
         ],
       },
       "inline",
     );
-    expect(config.rules[0]!.handle(3)).toBe("error");
-    expect(config.rules[0]!.handle(2)).toBe("warn");
+    const handle = config.rules[0]!.handle;
+    expect(handle(1)).toEqual({ severity: "warn", message: "opaque" });
+    expect(handle(0)).toBeNull();
+    // Off-rubric scores are impossible states (jev bounds the score to the criteria count);
+    // they fail loud rather than silently dropping the reading.
+    expect(() => handle(7)).toThrow(/outside the criteria scale/);
+    expect(() => handle(Number.NaN)).toThrow(/outside the criteria scale/);
+  });
+
+  test("score map length must equal the criteria count; at least one non-ok", () => {
+    const rule = (map: string[]) => ({
+      input: "x",
+      rules: [
+        {
+          name: "r",
+          kind: "choice",
+          instructions: "score it",
+          criteria: ["clear", "opaque"],
+          target: "definitions",
+          handle: { map },
+        },
+      ],
+    });
+    expect(() => validateConfig(rule(["ok", "warn", "error"]), "inline")).toThrow(
+      /rule 'r' handle\.map: map has 3 level\(s\) but the criteria has 2/,
+    );
+    expect(() => validateConfig(rule(["ok", "ok"]), "inline")).toThrow(
+      /rule 'r' handle\.map: at least one level must be non-ok/,
+    );
   });
 
   test("disable removes by name after assembly", () => {

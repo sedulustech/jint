@@ -5,7 +5,7 @@
       "name": "x",
       "criteria": { "true": "y", "false": "n" },
       "target": "files",
-      "handle": { "warn_at": 0.5 }
+      "handle": { "fires_when": "true" }
     }
   ],
   "exclude": []

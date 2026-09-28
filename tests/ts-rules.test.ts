@@ -33,7 +33,7 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { comment: self.source, targets: ctx.targets.length, composed: { free: true } },
     }),
-    handle: { warn_at: 0.5, error_at: 0.9 },
+    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
   }],
 });
 `;
@@ -66,7 +66,7 @@ export default defineConfig({
     name: "will_break_contract",
     target: "comments",
     classify: () => ({ instructions: "i", criteria: { true: "t" }, state: {} }),
-    handle: { warn_at: 0.5, error_at: 0.9 },
+    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
   }],
 });
 `;

@@ -33,7 +33,7 @@ Start it with `"$schema"` pointing at the checked-in `jint.schema.json` (shipped
 - **Input kind is inferred**, not configured: on-disk directory -> dir; on-disk file whose content looks like a unified diff -> diff; rev-looking string (`HEAD`, `HEAD~2..HEAD`, a sha) -> diff via git; `"-"` -> diff from stdin. `inputType` exists only as an override for ambiguous cases.
 - **exclude** removes inputs (globs/paths). Defaults: `node_modules`, `.git`, gitignored paths, binary files.
 - **Rules are data**: omit `rules` for the full default set; entries are either a default rule's name (`"is_greppable"`) or a full rule object (last wins per name). `disable` removes rules by name — set membership, not policy.
-- **Handles are data**, never code: `{ "warn_at": n, "error_at": n }`, both required, they must differ. Polarity is inferred from their ordering — `warn_at < error_at` is high-bad (a value above warn_at warns, above error_at errors); `error_at < warn_at` is high-good (a value below warn_at warns, below error_at errors). `"handle": null` is classify-only: the measurement streams, nothing ever produces findings.
+- **Handlers are typed data**, never code — the question type decides the valid shape. Noul rules (criteria `{ true, false }`) take `{ "fires_when": "true" | "false", "warn_at": n, "error_at"?: n, "silent_band"?: [lo, hi] }`: `fires_when` names the defect pole (required, no default — declaration over inference); thresholds are confidence levels on that pole (`P(true)` is flipped first when `fires_when` is `"false"`), ordered `warn_at < error_at`, both within (0, 1); `silent_band` keeps defect-pole readings inside it silent (ordered, never covering the whole scale or containing a threshold), absent = everything surfaces. Choice rules (criteria array) take `{ "map": ("ok"|"warn"|"error")[] }`: one level per criterion, direction expressed by the map itself (high-bad `["ok","ok","warn","error"]`; high-good `["error","warn","ok","ok"]`); length must equal the criteria count and at least one level is non-"ok" — a fired level's finding message defaults to that criterion's line. `"handle": null` is classify-only: the measurement streams, nothing ever produces findings.
 
 Override a default's calibration by re-declaring the rule by name — a threshold change is a paste-able diff, no runtime required:
 
@@ -48,7 +48,7 @@ Override a default's calibration by re-declaring the rule by name — a threshol
         "false": "a name reveals implementation or is a bare generic"
       },
       "target": "definitions",
-      "handle": { "warn_at": 0.6, "error_at": 0.5 }
+      "handle": { "fires_when": "false", "warn_at": 0.6, "error_at": 0.7 }
     }
   ]
 }
@@ -167,7 +167,7 @@ The JSON tier above is the default. When a rule needs more — pairing a comment
 
 A TS rule file is a config FRAGMENT: it default-exports `defineConfig({ rules: [...] })` from the virtual module `jint:sdk` (runtime-injected, unshadowable; types via `/// <reference path="./node_modules/jint/src/core/tsrules/sdk.d.ts" />`). Fragments contribute `rules` ONLY — `input`/`exclude` stay run-level. Rule names share one namespace across both tiers (duplicates are fatal at load).
 
-A rule declares a REQUEST (`target`: a role, a list of them, or an `(elements) => Element[]` selection function evaluated once per run), a compiler (`classify(self, ctx)` — returns the state spec for one element; `ctx.targets` is the resolved slice; `self.parent` is the enclosing element), and EXACTLY ONE policy: declarative `handle` (same data shape as JSON rules) or `handleClassification(results, ctx)` — called once, returning one `{ severity, message?, data? }` per result, aligned by index. The rule never calls the classifier; jint does, and every call is dumped like any other (`JEV_DEBUG_REQUEST`). See `examples/rules/is-comment-paired.ts` for the worked pairing rule.
+A rule declares a REQUEST (`target`: a role, a list of them, or an `(elements) => Element[]` selection function evaluated once per run), a compiler (`classify(self, ctx)` — returns the state spec for one element; `ctx.targets` is the resolved slice; `self.parent` is the enclosing element), and EXACTLY ONE policy: declarative `handle` (the typed noul handler — same shape as JSON noul rules) or `handleClassification(results, ctx)` — called once, returning one `{ severity, message?, data? }` per result, aligned by index. The rule never calls the classifier; jint does, and every call is dumped like any other (`JEV_DEBUG_REQUEST`). See `examples/rules/is-comment-paired.ts` for the worked pairing rule.
 
 Guarantees and limits (v1): imports are gated — only `jint:*`, relative, and absolute (a static pre-scan; dynamic `import()` inside a rule bypasses it, documented, not supported); handlers are sync-only; a throwing handler is `RULE_FAILED` — per-unit, non-fatal, but the run exits 4; hangs are unsupported (no time budget yet). State is composed freely — observability (the dumps), not restriction, is the guarantee. Loading, execution, and the full contract: `tmp/designs/rules-context/01..04`.
 
@@ -203,7 +203,7 @@ const rules: readonly Rule[] = [
   {
     name: "is_greppable",
     target: "files",
-    handle: (v) => (v < 0.6 ? "error" : null),
+    handle: (v) => (v < 0.6 ? { severity: "error" } : null),
     criteria: { true: "every name greps to one concept", false: "a name is a placeholder or pun" },
   },
 ];

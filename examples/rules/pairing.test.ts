@@ -16,7 +16,7 @@ describe("is_comment_paired_with_code (example)", () => {
     const classifier: Classifier = async (state, questions: Record<string, QuestionSpec>) => {
       states.push(state);
       const answers: Record<string, number> = {};
-      for (const name of Object.keys(questions)) answers[name] = 0.9; // error above error_at 0.85
+      for (const name of Object.keys(questions)) answers[name] = 0.1; // defect pole 0.9 > error_at 0.85
       return answers;
     };
     const config = validateConfig(
@@ -32,7 +32,7 @@ describe("is_comment_paired_with_code (example)", () => {
     expect(String((states[0] as unknown as Record<string, unknown>).annotated)).toContain(
       "fetch_active_users",
     );
-    // Stub 0.9 > error_at 0.85 -> error finding, bound to the docstring's span.
+    // Stub P(accurate) = 0.1 -> defect pole 0.9 > error_at 0.85 -> error finding, bound to the docstring's span.
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]?.severity).toBe("error");
     expect(report.findings[0]?.location?.input).toBe(FIXTURE);

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { classify, type ClassifyOutcome } from "./classify.ts";
-import { SetupError, type Classifier, type Rule } from "./types.ts";
+import { SetupError, type Classifier, type HandleResult, type Rule } from "./types.ts";
 
 const SOURCE = [
   "export function add(a: number, b: number): number {",
@@ -13,7 +13,7 @@ const SOURCE = [
 ].join("\n");
 
 /** A handle that would fire on every reading — proves classify() never applies it. */
-const loudHandle = () => "error" as const;
+const loudHandle = (): HandleResult => ({ severity: "error" });
 
 const noulFileRule: Rule = {
   name: "r_file",

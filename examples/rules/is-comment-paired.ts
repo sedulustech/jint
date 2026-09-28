@@ -36,7 +36,9 @@ export default defineConfig({
           },
         };
       },
-      handle: { warn_at: 0.6, error_at: 0.85 },
+      // criteria.true is the GOOD case, so the defect pole is "false": thresholds sit on the
+      // inaccuracy probability — above 0.6 warns, above 0.85 errors.
+      handle: { fires_when: "false", warn_at: 0.6, error_at: 0.85 },
     },
   ],
 });

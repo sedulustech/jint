@@ -73,7 +73,7 @@ function ruleOf(patch: Partial<TsRule>): TsRule {
     name: "is_test_rule",
     target: "comments",
     classify: () => spec({ source: "x" }),
-    handle: { warn_at: 0.5, error_at: 0.9 },
+    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
     ...patch,
   } as TsRule;
 }
@@ -410,7 +410,7 @@ describe("runTsRules — policy", () => {
   test("declarative handle below warn_at stays silent (measurement only)", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(
-      ruleOf({ handle: { warn_at: 0.9, error_at: 0.95 } }),
+      ruleOf({ handle: { fires_when: "true", warn_at: 0.9, error_at: 0.95 } }),
       inventory,
       fakeClassifier(0.8),
     );

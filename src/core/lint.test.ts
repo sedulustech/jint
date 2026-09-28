@@ -541,7 +541,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
     '      criteria: { true: "t", false: "f" },',
     "      state: { source: self.source },",
     "    }),",
-    "    handle: { warn_at: 0.1, error_at: 0.2 },",
+    '    handle: { fires_when: "true", warn_at: 0.1, error_at: 0.2 },',
     "  }],",
     "});",
   ].join("\n");

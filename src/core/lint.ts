@@ -216,15 +216,20 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // One pass, no candidacy: every measurement is a reading; the rule's handle is the
         // only threshold. Element readings carry their span into the finding's location.
         const handle = byName.get(event.rule)?.handle;
-        const severity = handle?.(event.value) ?? null;
-        if (severity !== null) {
+        const outcome = handle?.(event.value) ?? null;
+        if (outcome !== null) {
+          // A score-map finding's message defaults to the level's criteria line, prefixed by the
+          // element reference; noul findings carry no message unless a callback adds one.
+          const message =
+            outcome.message !== undefined ? event.input + ": " + outcome.message : undefined;
           yield {
             type: "finding",
             finding: {
               rule: event.rule,
               input: event.input,
               value: event.value,
-              severity,
+              severity: outcome.severity,
+              ...(message !== undefined && { message }),
               ...(span !== undefined && { location: { input: event.input, span } }),
             },
           };

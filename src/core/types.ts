@@ -12,8 +12,13 @@
  */
 
 export type Severity = "error" | "warn";
-/** Handle's return type: "error" | "warn" | null (null = silent). */
-export type HandleResult = Severity | null;
+/** A fired reading: severity, plus an optional finding message (score maps carry the criteria line). */
+export interface HandleOutcome {
+  readonly severity: Severity;
+  readonly message?: string;
+}
+/** Handle's return type: an outcome, or null (silent). */
+export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir" | "diff";
 /** The kind of a resolved classifying unit. */
