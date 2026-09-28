@@ -17,10 +17,6 @@
         {
           "const": "dir",
           "type": "string"
-        },
-        {
-          "const": "diff",
-          "type": "string"
         }
       ]
     },

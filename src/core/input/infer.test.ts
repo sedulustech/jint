@@ -81,17 +81,13 @@ describe("resolveInput", () => {
     }
   });
 
-  test("inputText with inputType diff decomposes the text directly", async () => {
-    const text = await Bun.file("tests/fixtures/sample.diff").text();
-    const paths: string[] = [];
-    for await (const unit of resolveInput({
-      input: text,
-      inputType: "diff",
-      inputText: true,
-    })) {
-      paths.push(unit.state.path);
-      expect(unit.kind).toBe("diff");
+  test("a patch file is just a file: NOT_SOURCE (no diff noun, no diff inputType)", async () => {
+    try {
+      for await (const _ of resolveInput({ input: "tests/fixtures/sample.diff" })) {
+        expect.unreachable();
+      }
+    } catch (e) {
+      expect((e as SetupError).code).toBe("NOT_SOURCE");
     }
-    expect(paths).toContain("src/tui/components/overlays/box.ts");
   });
 });

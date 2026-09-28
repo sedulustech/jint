@@ -250,6 +250,8 @@ describe("lint — classification shape", () => {
 });
 
 describe("lint", () => {
+  afterAll(() => rmSync("tests/fixtures/order-test", { recursive: true, force: true }));
+
   test("concurrent completion reports deterministically: the full document is byte-identical", async () => {
     // ONE file, 8 function elements, one rule firing on all: findings tie on (input, rule), so
     // only the span key makes the sort total. The mock completes elements in REVERSE order with
@@ -506,35 +508,38 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
   });
 
-  test("diff input splits into per-file units with calibrated state", async () => {
-    const states: unknown[] = [];
-    const inner = classifierWith({
-      is_name_purposeful: 0.7,
-      is_vocabulary_consistent: 0.9,
-      is_greppable: 0.8,
-      is_cognitively_complex: 0.3,
-    });
-    const classifier: Classifier = async (state, questions) => {
-      states.push(state);
-      return inner(state, questions);
-    };
+  test("the changed list is the input: selection + the missing-entry note (never silence)", async () => {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    mkdirSync("tmp/changed-list-test", { recursive: true });
+    writeFileSync(
+      "tmp/changed-list-test/list.txt",
+      FILE + "\nno/such/file.ts\n" + FILE + "\n", // duplicate dedupes; missing noted
+    );
     const events = await drain(
       lint({
-        config: baseConfig,
-        input: "tests/fixtures/sample.diff",
-        inputType: "diff",
-        classifier,
+        config: { ...baseConfig, input: "" },
+        changed: "tmp/changed-list-test/list.txt",
+        classifier: classifierWith({
+          is_name_purposeful: 0.7,
+          is_vocabulary_consistent: 0.9,
+          is_greppable: 0.8,
+          is_cognitively_complex: 0.3,
+        }),
       }),
     );
-    // diff units map to no element units (quick path): only the whole-unit call runs per file
-    // (3 rules x 2 files); no sweep, no whole-file element judgment
-    const paths = [...new Set(states.map((s) => (s as { path: string }).path))];
-    expect(paths).toEqual([
-      "src/tui/components/overlays/box.ts",
-      "src/tui/components/overlays/help.ts",
-    ]); // deleted + binary skipped
-    expect((states[0] as { commit_message: string | null }).commit_message).toBeNull();
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
+    const notes = events
+      .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
+      .map((e) => e.note);
+    expect(
+      notes.some((n) => n.includes("not found in the walk") && n.includes("no/such/file.ts")),
+    ).toBe(true);
+    // the subject came from the list: only the listed file was judged
+    const inputs = new Set(
+      events
+        .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
+        .map((e) => e.measurement.input.split("#")[0]),
+    );
+    expect([...inputs]).toEqual([FILE]);
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {

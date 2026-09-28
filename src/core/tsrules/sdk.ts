@@ -10,7 +10,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { checkRuleScope } from "../scope.ts";
 import { checkNoulHandler } from "../sensors/handle.ts";
-import { SetupError, type RuleResult, type RuleTarget } from "../types.ts";
+import { SetupError, type ChangedPaths, type RuleResult, type RuleTarget } from "../types.ts";
 
 /**
  * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the
@@ -35,10 +35,32 @@ export interface TsElement {
   readonly parent: TsElement | null;
 }
 
-/** The rule's environment, assembled by the engine after target resolution (v1: targets only). */
+/**
+ * The ctx.diff lens: KNOWLEDGE ABOUT the judged things, never the judged things. Present ONLY when
+ * a changed-file list was given (jint - / --changed); defined with an EMPTY paths list when the
+ * list was empty or matched nothing (a rule can distinguish "no list given" from "list given but
+ * nothing survived" — and the seed rule treats the latter as loud, not silent). Each key mirrors
+ * the target grammar as the changed subset: ctx.targets.<kind> filtered to elements whose input
+ * path is in paths. diff NEVER touches the classifier path — rules that never read it are untouched
+ * by its presence.
+ */
+export interface DiffLens {
+  /** The changed-file list, verbatim (deduplicated, walked entries only). */
+  readonly paths: ChangedPaths;
+  /** Every element of a changed path (any role). */
+  readonly file: readonly TsElement[];
+  readonly functions: readonly TsElement[];
+  readonly definitions: readonly TsElement[];
+  readonly comments: readonly TsElement[];
+  readonly imports: readonly TsElement[];
+}
+
+/** The rule's environment, assembled by the engine after target resolution. */
 export interface RuleContext {
   /** The resolved elements for this rule — the request's result, aligned with results. */
   readonly targets: readonly TsElement[];
+  /** The ctx.diff lens, present iff a changed list was given (undefined otherwise). */
+  readonly diff?: DiffLens;
 }
 
 /**

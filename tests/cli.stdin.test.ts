@@ -2,7 +2,8 @@ import { describe, test, expect, afterAll } from "bun:test";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// Piped-stdin units: the kind is DECLARED by a noun (jint str - / jint diff -); the str noun
+// Piped-stdin units: the kind is DECLARED by a noun (jint str -) or the changed-list form
+// (jint -); the str noun
 // carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
 // runs classify for real.
 
@@ -146,17 +147,28 @@ describe("cli: piped stdin str unit", async () => {
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
   });
 
-  test("jint diff - is decomposed as a diff, never a str unit", async () => {
-    // stdin content is a diff here; the declared kind wins
+  test("the diff noun is removed: 'jint diff -' is a mistyped-flag usage error", async () => {
     const r = await runWithStdin("not a diff at all", ["diff", "-", "--json"]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("unknown option or missing path '-'");
+  });
+
+  test("jint - reads the stdin changed-file list (never a str snippet)", async () => {
+    const r = await runWithStdin("tests/fixtures/sample-file.ts\n", [
+      "-",
+      "--json",
+      "--rule",
+      "is_greppable",
+    ]);
+    expect(r.code).toBe(0); // the mock jev classifies the listed file cleanly
     const report = JSON.parse(r.stdout);
-    // decomposed as a diff: the JEV_AUTH-or-measurement unit names a diff path, or the diff
-    // itself failed loudly - either way it was NOT treated as a str snippet named str:stdin
     const allInputs = [
       ...report.measurements.map((m: { input: string }) => m.input),
       ...report.errors.map((e: { input: string }) => e.input),
     ];
+    // the list selected the subject; stdin was NOT treated as a str snippet named str:stdin
     expect(allInputs).not.toContain("str:stdin");
+    expect(allInputs.length).toBeGreaterThan(0);
   });
 
   test("unknown --language: usage error, exit 2, names the language and the remedy", async () => {

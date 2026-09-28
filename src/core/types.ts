@@ -20,7 +20,7 @@ export interface HandleOutcome {
 /** Handle's return type: an outcome, or null (silent). */
 export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
-export type InputKind = "file" | "dir" | "diff";
+export type InputKind = "file" | "dir";
 /** The kind of a resolved classifying unit. */
 export type UnitKind = "file" | "diff" | "str";
 
@@ -220,6 +220,13 @@ export interface DiffState {
 export type UnitState = FileState | DiffState;
 /** Everything the classifier may be handed: whole-file/diff units, plus single elements. */
 export type AnyState = UnitState | ElementState;
+
+/**
+ * The ctx.diff lens' changed set: the caller's changed-file list, verbatim (deduplicated, walked
+ * entries only). One flat list — added/modified/removed is the caller's git vocabulary, not ours
+ * (git diff --name-only HEAD~1 | jint -; --name-status | cut -f2 if they want it).
+ */
+export type ChangedPaths = readonly string[];
 
 /** A resolved thing to classify: its kind picks the rules; its state feeds the classifier. */
 export interface Unit {

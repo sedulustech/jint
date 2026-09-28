@@ -97,8 +97,7 @@ The m3 comment-bloat calibration mutant is caught by `is_comment_narration` on p
 ```bash
 jint src/                                # a directory tree
 jint src/a.ts src/b.ts                   # explicit files
-git diff HEAD~1 | jint diff -            # piped stdin, declared a diff
-jint diff fix.patch                      # a patch file, declared a diff
+git diff --name-only HEAD~1 | jint -     # a changed-file LIST from stdin (your pipeline)
 cat snippet.ts | jint str -              # piped stdin, one str unit
 jint                                     # no positional: input comes from jint.config.json
 ```
@@ -109,17 +108,42 @@ Precedence: command noun > stdin > `TYPESAFE_*` environment > `jint.config.json`
 
 Stream discipline (clig): stdout carries findings — the stylish table or the `--json` machine shape `jint-report/v1` (errors ride in it as data). stderr carries the run's own errors and diagnostics — setup failures, failed units — plus structured logs, silent by default (`--debug` or `LOG_LEVEL` to enable). Either stream stays usable with the other discarded. Color only on a TTY; `NO_COLOR`/`TERM=dumb`/`--color=never` suppress it, so piping is always clean.
 
-A diff input decomposes into per-file units: added/modified files are classified, deleted and binary files are skipped. Jint never shells out to git — the caller pipes the diff in.
+## Inputs
+
+jint accepts, as input, one of:
+
+| input                                 | invocation                                         |
+| ------------------------------------- | -------------------------------------------------- |
+| one or more paths (files, or one dir) | `jint src/` · `jint a.ts b.ts`                     |
+| a string                              | `jint str "export const x = 1"` · piped: `cat f.ts | jint str -` |
+| a changed-file LIST (stdin)           | `git diff --name-only HEAD~1                       | jint -`     |
+| a changed-file LIST (file)            | `jint --changed changed.txt`                       |
+
+### Linting a changeset
+
+The killer flow is two commands, composed — jint never shells out and never parses a VCS; your git pipeline is your own:
+
+```bash
+# selection: judge exactly what changed
+git diff --name-only HEAD~1 | jint -
+
+# the same, scoped and ruled
+git diff --name-only origin/main.. | jint - --rule is_name_purposeful
+```
+
+For rules that should KNOW what changed (without changing what is judged), the list also feeds the ctx.diff lens: `jint src/ --changed changed.txt` populates `ctx.diff` for TS rules — see the TS-rules section. A bare list carries no added/modified/removed distinction; if you want git's classification, cut it yourself (`git diff --name-status | cut -f2`) — jint takes one flat list, one path per line, relative to the input dir or absolute. Entries that resolve to no walked file are reported as notes ("not found in the walk"), never silent.
+
+Content-aware diff rules (judging the patch text itself) are composition, not a flag: `git diff | jint str -` with diff-shape rules — or the ctx.sources follow-on.
 
 ### The noun grammar
 
-The resource is the noun; the verb (classify) is implicit. `str` and `diff` are nouns only as the FIRST positional; the next positional is their payload, taken verbatim — no flag parsing — so `jint str "--json"` classifies `--json` as source. Nouns never resolve to filesystem paths: a repo file named `diff` is classified as `jint ./diff`, a `str` payload that names an existing path is rejected (exit 2) — inline source or `-` only, classify the file as `jint <path>` — and bare `jint diff` / `jint str` (no payload) are usage errors. One input per invocation.
+The resource is the noun; the verb (classify) is implicit. `str` is a noun only as the FIRST positional; the next positional is its payload, taken verbatim — no flag parsing — so `jint str "--json"` classifies `--json` as source. Nouns never resolve to filesystem paths: a repo file named `str` is classified as `jint ./str`, a `str` payload that names an existing path is rejected (exit 2) — inline source or `-` only, classify the file as `jint <path>` — and bare `jint str` (no payload) is a usage error. One input per invocation.
 
-A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -> `file`; a missing path is `ENTRYPOINT_NOT_FOUND` (exit 2). Content is never sniffed — a patch file passed as a path is judged as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`. To judge a patch as a diff, declare it: `jint diff fix.patch`.
+A path's kind is inferred by shape only: exists-as-dir -> `dir`, anything else -> `file`; a missing path is `ENTRYPOINT_NOT_FOUND` (exit 2). Content is never sniffed — a patch file passed as a path is judged as a FILE, and a `.diff`/`.patch` extension is not a source-language grammar, so it fails `NOT_SOURCE`.
 
-### Piped stdin: declared by a noun, never guessed
+### Piped stdin: declared, never guessed
 
-stdin has no default kind. `jint diff -` reads a unified diff (decomposed into per-file units); `jint str -` reads ONE str unit (identity `str:stdin`). Piping without a noun is a usage error (exit 2) with guidance; bare `jint -` likewise; a TTY with payload `-` errors immediately instead of blocking on the terminal. Empty piped stdin falls through to `config.input`.
+stdin has no default kind. `jint str -` reads ONE str unit (identity `str:stdin`); `jint -` reads a changed-file LIST (see above). Piping without either is a usage error (exit 2) with guidance; a TTY with payload `-` errors immediately instead of blocking on the terminal. Empty piped stdin falls through to `config.input`.
 
 ```bash
 cat snippet.ts | jint str - --json
@@ -129,7 +153,7 @@ cat snippet.ts | jint str - --language typescript --rule is_function_srp
 - `--` ends flag parsing for dash-paths (`jint -- --weird.ts`). Flags may appear before or after positionals (`jint --json src/` == `jint src/ --json`).
 - `--language <id>` names the tree-sitter grammar for extensionless sources (e.g. stdin); valid ids: typescript, python, go — an unknown id is a usage error (exit 2). Without a resolvable language, inventory-scoped rules fail `WALK_FAILED` in-band and unit-scoped rules still classify.
 - There is no `--classify` flag: `--json` already carries every measurement; handles only affect findings and the exit code.
-- The removed `--file`/`--dir`/`--kind`/`--diff` flags error with a pointer at the new form.
+- The removed `--file`/`--dir`/`--kind`/`--diff` flags error with a pointer at the new form (the diff noun itself is removed: a patch file is just a file, and the changed list is `jint -` / `--changed`).
 
 ### Language notes
 
@@ -171,7 +195,11 @@ A TS rule file is a config FRAGMENT: it default-exports `defineConfig({ rules: [
 
 A rule declares a REQUEST (`target`: a role, a list of them, or an `(elements) => Element[]` selection function evaluated once per run), a compiler (`classify(self, ctx)` — returns the state spec for one element; `ctx.targets` is the resolved slice; `self.parent` is the enclosing element), and EXACTLY ONE policy: declarative `handle` (the typed noul handler — same shape as JSON noul rules) or `handleClassification(results, ctx)` — called once, returning one `{ severity, message?, data? }` per result, aligned by index. The rule never calls the classifier; jint does, and every call is dumped like any other (`JEV_DEBUG_REQUEST`). See `examples/rules/is-comment-paired.ts` for the worked pairing rule.
 
-Guarantees and limits (v1): imports are gated — only `jint:*`, relative, and absolute (a static pre-scan; dynamic `import()` inside a rule bypasses it, documented, not supported); handlers are sync-only; a throwing handler is `RULE_FAILED` — per-unit, non-fatal, but the run exits 4; hangs are unsupported (no time budget yet). State is composed freely — observability (the dumps), not restriction, is the guarantee. Loading, execution, and the full contract: `tmp/designs/rules-context/01..04`.
+Guarantees and limits (v1): imports are gated — only `jint:*`, relative, and absolute (a static pre-scan; dynamic `import()` inside a rule bypasses it, documented, not supported); handlers are sync-only; a throwing handler is `RULE_FAILED` — per-unit, non-fatal, but the run exits 4; hangs are unsupported (no time budget yet). State is composed freely — observability (the dumps), not restriction, is the guarantee.
+
+### The ctx.diff lens
+
+Give the run a changed-file list (`jint -`, or `--changed <file>`) and every TS rule's `ctx` gains `ctx.diff`: `{ paths, file, functions, definitions, comments, imports }` — `paths` is the list (verbatim, deduplicated, walked entries only) and each key is `ctx.targets.<kind>` filtered to elements whose input path is in it. `ctx.diff` is `undefined` when no list was given, and defined-but-empty when the list matched nothing — a rule can distinguish absence from empty, and the seed rule (`examples/rules/docs-fit-diff.ts`) treats a defined-but-empty lens as LOUD (a warn finding), never a silent pass. diff is knowledge about the judged things: rules that never read it are untouched by its presence. Loading, execution, and the full contract: `tmp/designs/rules-context/01..04`.
 
 ## SDK
 
