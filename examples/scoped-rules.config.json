@@ -9,7 +9,14 @@
         "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
       },
       "target": "definitions",
-      "handle": { "fires_when": "false", "warn_at": 0.6, "error_at": 0.7 },
+      "handle": {
+        "warn": {
+          "less_than": 0.4
+        },
+        "error": {
+          "less_than": 0.3
+        }
+      },
       "exclude": ["tests/**", "**/*.spec.ts", "**/fixtures/**"]
     }
   ]

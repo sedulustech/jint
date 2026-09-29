@@ -24,6 +24,30 @@ export interface RequestTapSummary {
 let tapSummary: RequestTapSummary | null = null;
 
 /** The active tap's run summary (null when the tap never activated or wrote nothing counts as 0). */
+/**
+ * Persist the run's manifest next to the captures: which config ran, from where, with what argv.
+ * Required for the run to appear as first-class in the measurement UI's picker (a run dir without a
+ * manifest is legacy and is skipped with a count, never shown with a fake label).
+ */
+export function requestTapWriteManifest(manifest: {
+  configPath: string | null;
+  cwd: string;
+  argv: readonly string[];
+  ts: string;
+  /**
+   * Per-rule declarative handle snapshot (rule -> NoulHandlerData | ScoreHandlerData), so any
+   * consumer can recompute severity exactly. TS-tier rules are absent (code policy, not data).
+   */
+  handles?: Record<string, unknown>;
+}): void {
+  if (tapSummary === null) return;
+  try {
+    writeFileSync(`${tapSummary.dir}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
+  } catch {
+    // the tap never breaks the run it observes
+  }
+}
+
 export function requestTapSummary(): RequestTapSummary | null {
   return tapSummary;
 }

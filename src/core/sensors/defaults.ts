@@ -11,23 +11,24 @@
  * since thresholds are anchored to readings taken under the rule text.
  *
  * Handle policy: a healthy run never errors; warns are legitimate nudges. Every noul handler
- * declares its defect pole (fires_when); thresholds sit on that pole, so a "fires_when: false" rule
- * errors as the probability of the GOOD case drops below the healthy floor and a "fires_when: true"
- * rule errors as the probability of the DEFECT case rises above the healthy ceiling - anchored on
- * the self-lint corpus with the sibling-repo calibration fixtures as the external check. Current
- * thresholds and healthy ranges are documented in the README, next to the override examples.
+ * declares its direction per threshold (the operator IS the pole: greater_than fires on high
+ * readings, less_than on low), so a less_than rule errors as the probability of the GOOD case drops
+ * below the healthy floor and a greater_than rule errors as the probability of the DEFECT case
+ * rises above the healthy ceiling - anchored on the self-lint corpus with the sibling-repo
+ * calibration fixtures as the external check. Current thresholds and healthy ranges are documented
+ * in the README, next to the override examples.
  */
 
 import { compileNoulHandler, compileScoreHandler } from "./handle.ts";
 import type { Rule } from "../types.ts";
 
 /**
- * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (fires_when names the defect pole;
- * warn_at/error_at are thresholds on it — see handle.ts) or, for choice rules, a ScoreHandler (one
- * map level per criterion), compiled to the internal function form at module init. Recalibration is
- * now editing numbers in one place — and paste-able into jint.config.json. The declarative config
- * surface also accepts "handle": null (classify-only: the measurement streams, nothing ever
- * produces findings) — no default rule ships that form today.
+ * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (each threshold names its own
+ * direction and ceiling — see handle.ts) or, for choice rules, a ScoreHandler (one map level per
+ * criterion), compiled to the internal function form at module init. Recalibration is now editing
+ * numbers in one place — and paste-able into jint.config.json. The declarative config surface also
+ * accepts "handle": null (classify-only: the measurement streams, nothing ever produces findings) —
+ * no default rule ships that form today.
  */
 
 export const isNamePurposeful: Rule = {
@@ -45,7 +46,8 @@ export const isNamePurposeful: Rule = {
   // error_at 0.7 catches it; the healthy median is P(good) 0.56 (P(bad) 0.44), comfortably
   // under warn_at 0.6. m4_obfuscate (P(good) 0.48, P(bad) 0.52) lands in warn. Test-code noise
   // stays open as issue 008 (config granularity).
-  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.6, error_at: 0.7 }),
+  handleData: { warn: { less_than: 0.4 }, error: { less_than: 0.3 } } as const,
+  handle: compileNoulHandler({ warn: { less_than: 0.4 }, error: { less_than: 0.3 } }),
 };
 
 export const isFunctionSrp: Rule = {
@@ -63,7 +65,8 @@ export const isFunctionSrp: Rule = {
   // the low tail - dominated by test callbacks, issue 008 - starts near P(bad) 0.55, so
   // warn_at 0.55 keeps roughly the bottom 8% in warn; nothing anchors error_at 0.7 yet below
   // a clearly broken unit.
-  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.55, error_at: 0.7 }),
+  handleData: { warn: { less_than: 0.45 }, error: { less_than: 0.3 } } as const,
+  handle: compileNoulHandler({ warn: { less_than: 0.45 }, error: { less_than: 0.3 } }),
 };
 
 /**
@@ -80,7 +83,8 @@ export const willErrorLoseCause: Rule = {
       "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently.",
   },
   target: "functions",
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.4, error_at: 0.7 }),
+  handleData: { warn: { greater_than: 0.4 }, error: { greater_than: 0.7 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.4 }, error: { greater_than: 0.7 } }),
 };
 export const isVocabularyConsistent: Rule = {
   name: "is_vocabulary_consistent",
@@ -92,7 +96,8 @@ export const isVocabularyConsistent: Rule = {
       "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift.",
   },
   target: "files",
-  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.4 }),
+  handleData: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } } as const,
+  handle: compileNoulHandler({ warn: { less_than: 0.75 }, error: { less_than: 0.6 } }),
 };
 
 export const isNamingConventionConsistent: Rule = {
@@ -109,7 +114,8 @@ export const isNamingConventionConsistent: Rule = {
   // convention mixers and the consistent files (P(good) 0.56 -> 0.67, i.e. P(bad) 0.44 -> 0.33)
   // puts error_at 0.35 above the healthy p5 (P(bad) 0.28) and m1_bad_names (P(bad) 0.39)
   // errors with it; warn_at 0.25 keeps the clean corpus (P(bad) 0.09-0.11) clear.
-  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.35 }),
+  handleData: { warn: { less_than: 0.75 }, error: { less_than: 0.65 } } as const,
+  handle: compileNoulHandler({ warn: { less_than: 0.75 }, error: { less_than: 0.65 } }),
 };
 
 /**
@@ -128,7 +134,8 @@ export const isFilenameFitting: Rule = {
       "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.",
   },
   target: "files",
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.55, error_at: 0.75 }),
+  handleData: { warn: { greater_than: 0.55 }, error: { greater_than: 0.75 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.55 }, error: { greater_than: 0.75 } }),
 };
 
 export const isGreppable: Rule = {
@@ -141,7 +148,8 @@ export const isGreppable: Rule = {
       "At least one identifier cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
   },
   target: "files",
-  handle: compileNoulHandler({ fires_when: "false", warn_at: 0.25, error_at: 0.4 }),
+  handleData: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } } as const,
+  handle: compileNoulHandler({ warn: { less_than: 0.75 }, error: { less_than: 0.6 } }),
 };
 
 export const is_comment_narration: Rule = {
@@ -154,7 +162,8 @@ export const is_comment_narration: Rule = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.3, error_at: 0.45 }),
+  handleData: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } }),
 };
 
 export const is_comment_patching_readability: Rule = {
@@ -167,7 +176,8 @@ export const is_comment_patching_readability: Rule = {
       "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read.",
   },
   target: "comments",
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.4, error_at: 0.55 }),
+  handleData: { warn: { greater_than: 0.4 }, error: { greater_than: 0.55 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.4 }, error: { greater_than: 0.55 } }),
 };
 
 export const will_comment_drift: Rule = {
@@ -183,7 +193,8 @@ export const will_comment_drift: Rule = {
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.55, error_at: 0.7 }),
+  handleData: { warn: { greater_than: 0.55 }, error: { greater_than: 0.7 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.55 }, error: { greater_than: 0.7 } }),
 };
 
 export const isCognitivelyComplex: Rule = {
@@ -199,7 +210,8 @@ export const isCognitivelyComplex: Rule = {
   // Thresholds kept from the previous anchor: the scoped claim lowered the
   // healthy ceiling on both calibration corpora, widening the margin to the
   // bloat/obfuscate mutants, which land in the warn band.
-  handle: compileNoulHandler({ fires_when: "true", warn_at: 0.45, error_at: 0.6 }),
+  handleData: { warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } } as const,
+  handle: compileNoulHandler({ warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } }),
 };
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
@@ -219,7 +231,8 @@ export const isReadable: Rule = {
   criteria: IS_READABLE_CRITERIA,
   target: "definitions",
   // score scale (0..N): high-bad — ok below 2, warn at 2, error at 3
-  handle: compileScoreHandler({ map: ["ok", "ok", "warn", "error"] }),
+  handleData: { map: ["pass", "pass", "warn", "error"] } as const,
+  handle: compileScoreHandler({ map: ["pass", "pass", "warn", "error"] }),
 };
 
 /** All default rules by name — the `rules.defaults` record of the config surface. */

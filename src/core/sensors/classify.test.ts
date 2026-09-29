@@ -25,11 +25,6 @@ const fileUnit: Unit = {
     id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
   },
 };
-const diffUnit: Unit = {
-  kind: "diff",
-  state: { path: "src/a.ts", diff: "@@ -1 +1 @@", commit_message: null },
-};
-
 const allSensors: readonly Rule[] = Object.values(defaultRules);
 
 const FILE_ID = elementWireId({ start: { line: 1 }, end: { line: 2 } });
@@ -177,7 +172,7 @@ describe("classifyUnit", () => {
       throw new Error("surprise");
     };
     const events: (Measurement | ClassifyError)[] = [];
-    for await (const event of classifyUnit(diffUnit, allSensors, classifier)) events.push(event);
+    for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
     expect((events[0] as ClassifyError).code).toBe("INTERNAL");
   });
 

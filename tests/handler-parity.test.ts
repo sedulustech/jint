@@ -19,12 +19,12 @@ const tsRule = (handle: unknown) => ({
 });
 
 const BAD_SHAPES: readonly unknown[] = [
-  { fires_when: "true", warn_at: 0.5, map: ["ok", "warn"] }, // both shapes at once (hybrid)
-  { map: ["ok", "warn"] }, // score handler, noul question (TS rules are noul-only)
-  { fires_when: "true", warn_at: 1.5 }, // warn_at outside (0, 1)
-  { fires_when: "true", warn_at: 0.9, error_at: 0.5 }, // unordered on the defect pole
-  { fires_when: "true", warn_at: 0.3, silent_band: [0, 1] }, // band covers the scale
-  { fires_when: "true", warn_at: 0.3, silent_band: [0.2, 0.4] }, // band contains warn_at
+  { warn: { greater_than: 0.5 }, map: ["pass", "warn"] }, // both shapes at once (hybrid)
+  { map: ["pass", "warn"] }, // score handler, noul question (TS rules are noul-only)
+  { warn: { greater_than: 1.5 } }, // warn_at outside (0, 1)
+  { warn: { greater_than: 0.9 }, error: { greater_than: 0.5 } }, // unordered on the defect pole
+  { warn: { greater_than: 0.3 }, silent_band: [0, 1] }, // band covers the scale
+  { warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }, // band contains warn_at
 ];
 
 describe("handler validation parity (JSON tier <-> TS tier)", () => {

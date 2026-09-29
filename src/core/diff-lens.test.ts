@@ -32,7 +32,7 @@ const LENS_RULE = [
   '      criteria: { true: "t", false: "f" },',
   "      state: { ctxdiff: JSON.stringify(ctx.diff ?? null), source: self.source },",
   "    }),",
-  '    handle: { fires_when: "true", warn_at: 0.1, error_at: 0.2 },',
+  "    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.2 } },",
   "  }],",
   "});",
 ].join("\n");
@@ -177,7 +177,7 @@ describe("ctx.diff — the lens (paths-only)", () => {
                 kind: "noul",
                 criteria: { true: "t", false: "f" },
                 target: "definitions",
-                handle: null,
+                handle: () => null, // never fires: the rule classifies, nothing is actionable
               } as never,
             ],
             tsRules: [],

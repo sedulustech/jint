@@ -13,7 +13,7 @@ const jsonRule = (scope: Record<string, unknown>) => ({
       name: "r",
       criteria: { true: "t", false: "f" },
       target: "files",
-      handle: { fires_when: "true", warn_at: 0.3, error_at: 0.7 },
+      handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
       ...scope,
     },
   ],
@@ -23,7 +23,7 @@ const tsRule = (scope: Record<string, unknown>) => ({
   name: "r",
   target: "comments",
   classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
-  handle: { fires_when: "true", warn_at: 0.3, error_at: 0.7 },
+  handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
   ...scope,
 });
 
@@ -31,7 +31,7 @@ const tsRule = (scope: Record<string, unknown>) => ({
 const CHECKER_SCOPES: readonly Record<string, unknown>[] = [
   { include: [] }, // empty array
   { exclude: [] },
-  { include: ["ok", ""] }, // empty string entry
+  { include: ["pass", ""] }, // empty string entry
   { include: ["!tests/**"] }, // negated glob (rejected decision)
   { exclude: ["!src/**"] },
 ];

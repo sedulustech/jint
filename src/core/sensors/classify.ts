@@ -62,9 +62,9 @@ export function kindSentence(kind: string): string {
   return `This unit is a ${kind}.`;
 }
 
-/** The noun for a whole-unit state: a source file, or a raw diff block. */
+/** The noun for a whole-unit state: a source file. */
 export function unitKindNoun(kind: UnitKind): string {
-  return kind === "diff" ? "diff block" : "source file";
+  return kind === "str" ? "source file" : "source file";
 }
 
 /** The noun for an inventory element: its abstracted role, stated as a definition where apt. */
@@ -137,11 +137,6 @@ export function elementWireId(span: {
     : `L${span.start.line}-L${span.end.line}`;
 }
 
-/** Legacy content hash — only for diff states, which have no line identity. */
-export function contentHash(content: string): string {
-  return new Bun.CryptoHasher("sha256").update(content).digest("hex").slice(0, 8);
-}
-
 export async function* classifyUnit(
   unit: Unit,
   rules: readonly Rule[],
@@ -149,10 +144,7 @@ export async function* classifyUnit(
 ): AsyncGenerator<Measurement | ClassifyError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
-  const unitId =
-    "id" in unit.state
-      ? unit.state.id
-      : elementWireId({ start: { line: 1 }, end: { line: unit.state.diff.split(`\n`).length } });
+  const unitId = unit.state.id;
   const batch = compileRuleQuestions(rules, unitId, unit.kind);
   let answers: Record<string, number>;
   try {
@@ -359,16 +351,15 @@ export async function classifyFile(
   const fatalIn = () =>
     events.some((e) => e.event instanceof ClassifyError && e.event.code === "JEV_AUTH");
 
-  // Whole-unit rules: files-target rules are relational claims judged over the whole unit;
-  // on a diff unit the diffs-target rules join, judging the raw diff string as one unit
-  // (quick path: verbatim, no parsing, no per-unit ids - design §4 Diff units). A str unit is
+  // Whole-unit rules: files-target rules are relational claims judged over the whole unit.
+  // A str unit is
   // its own inventory: the whole input is the element, so EVERY rule judges it whole — the
   // rule's target routes elements of a parsed inventory, and a str unit has no inventory by
   // design. No grammar is ever inferred for it.
   const wholeRules = rules.filter(
     (rule) => ruleInScope(rule, state.path) && judgesWholeUnit(rule, unit.kind),
   );
-  const fileId = "id" in state ? state.id : contentHash(state.diff);
+  const fileId = state.id;
   if (wholeRules.length > 0) {
     const whole = await call(
       state,

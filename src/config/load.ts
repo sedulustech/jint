@@ -5,10 +5,10 @@
  * The config file is PLAIN JSON — no comments, no code. TypeBox validates the boundary and its
  * schema doubles as the checked-in jint.schema.json (editor autocomplete via "$schema"); a small
  * generation script (bun run schema) keeps the two from drifting. Handlers in the file are data —
- * typed by the question: choice rules take a score map, noul rules take a fires_when handler (see
- * sensors/handle.ts) — and compile to the internal function form here, at the single data ->
- * function seam, where the cross-field checks (type match, map length, threshold order) live.
- * Validation or parse failure maps to CONFIG_INVALID with joined, positioned messages (design
+ * typed by the question: choice rules take a score map, noul rules take a per-threshold operator
+ * handler (see sensors/handle.ts) — and compile to the internal function form here, at the single
+ * data -> function seam, where the cross-field checks (type match, map length, threshold order)
+ * live. Validation or parse failure maps to CONFIG_INVALID with joined, positioned messages (design
  * §3.5).
  */
 
@@ -36,10 +36,13 @@ const TARGET_SCHEMA = Type.Union([
   Type.Literal("definitions"),
   Type.Literal("comments"),
   Type.Literal("imports"),
-  Type.Literal("diffs"),
 ]);
 
-const LEVEL_SCHEMA = Type.Union([Type.Literal("ok"), Type.Literal("warn"), Type.Literal("error")]);
+const LEVEL_SCHEMA = Type.Union([
+  Type.Literal("pass"),
+  Type.Literal("warn"),
+  Type.Literal("error"),
+]);
 
 const SCORE_HANDLER_SCHEMA = Type.Object(
   {
@@ -47,20 +50,36 @@ const SCORE_HANDLER_SCHEMA = Type.Object(
   },
   {
     description:
-      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [ok, ok, warn, error]; high-good: [error, warn, ok, ok]). The length MUST equal the criteria count and at least one level must be non-ok. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+  },
+);
+
+const CONDITION_SCHEMA = Type.Union(
+  [
+    Type.Object(
+      { greater_than: Type.Number() },
+      { description: "Fires when the raw value is strictly greater." },
+    ),
+    Type.Object(
+      { less_than: Type.Number() },
+      { description: "Fires when the raw value is strictly less." },
+    ),
+  ],
+  {
+    description:
+      "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
   },
 );
 
 const NOUL_HANDLER_SCHEMA = Type.Object(
   {
-    fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
-    warn_at: Type.Number(),
-    error_at: Type.Optional(Type.Number()),
+    warn: CONDITION_SCHEMA,
+    error: Type.Optional(CONDITION_SCHEMA),
     silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
   },
   {
     description:
-      "Noul handler (noul rules only): fires_when names the defect pole (REQUIRED, no default); warn_at and error_at are confidence thresholds on the defect pole (P(true) is flipped first when fires_when is false); warn_at < error_at there and both must be within (0, 1). silent_band [lo, hi] keeps defect-pole readings inside it silent (must be ordered, must not cover the whole scale, must not contain the thresholds); absent = everything surfaces.",
+      "Noul handler (noul rules only): per-threshold comparison operators declare the direction - warn is the wider region, error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain a threshold value); absent = everything surfaces.",
   },
 );
 
@@ -81,7 +100,7 @@ const RULE_SCHEMA = Type.Union([
     instructions: Type.Optional(Type.String()),
     criteria: Type.Object({ true: Type.String(), false: Type.String() }),
     target: TARGET_SCHEMA,
-    handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
+    handle: HANDLER_SCHEMA,
     include: Type.Optional(SCOPE_SCHEMA),
     exclude: Type.Optional(SCOPE_SCHEMA),
   }),
@@ -91,7 +110,7 @@ const RULE_SCHEMA = Type.Union([
     criteria: Type.Array(Type.String(), { minItems: 2 }),
     instructions: Type.String(),
     target: TARGET_SCHEMA,
-    handle: Type.Union([HANDLER_SCHEMA, Type.Null()]),
+    handle: HANDLER_SCHEMA,
     include: Type.Optional(SCOPE_SCHEMA),
     exclude: Type.Optional(SCOPE_SCHEMA),
   }),
@@ -287,6 +306,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
     ...(entry.include !== undefined && { include: entry.include }),
     ...(entry.exclude !== undefined && { exclude: entry.exclude }),
   };
+  const handleSnapshot = entry.handle;
   if (entry.kind !== "choice") {
     return {
       name: entry.name,
@@ -294,6 +314,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
       criteria: entry.criteria,
       target: entry.target,
       handle,
+      handleData: handleSnapshot,
       ...scope,
     };
   }
@@ -304,17 +325,18 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
     instructions: (entry as { instructions: string }).instructions,
     target: entry.target,
     handle,
+    handleData: handleSnapshot,
     ...scope,
   };
 }
 
 /**
- * Null handler = classify-only (never produces findings); otherwise the handler TYPE must match the
- * question type (score map <-> choice, fires_when <-> noul) and its internal invariants hold. Every
- * failure names the rule id and the exact field.
+ * The handler TYPE must match the question type (score map <-> choice, operators <-> noul) and its
+ * internal invariants hold. Every failure names the rule id and the exact field. A rule without a
+ * handle does not compile: the schema rejects it (policy is not optional).
  */
 function compileDataHandle(
-  handle: Static<typeof HANDLER_SCHEMA> | null,
+  handle: Static<typeof HANDLER_SCHEMA>,
   name: string,
   source: string,
   isChoice: boolean,
@@ -326,12 +348,11 @@ function compileDataHandle(
       `invalid config ${source}: rule '${name}' ${field}: ${detail}`,
     );
   };
-  if (handle === null) return () => null;
   if ("map" in handle) {
     if (!isChoice) {
       fail(
         "handle.map",
-        "a score handler on a noul rule (criteria {true, false}) — noul rules take a fires_when handler",
+        "a score handler on a noul rule (criteria {true, false}) — noul rules take a warn/error operator handler",
       );
     }
     if (handle.map.length !== criteria.length) {
@@ -340,16 +361,13 @@ function compileDataHandle(
         `map has ${handle.map.length} level(s) but the criteria has ${criteria.length}`,
       );
     }
-    if (handle.map.every((level) => level === "ok")) {
-      fail("handle.map", "at least one level must be non-ok");
+    if (handle.map.every((level) => level === "pass")) {
+      fail("handle.map", "at least one level must be non-pass");
     }
     return compileScoreHandler(handle);
   }
   if (isChoice) {
-    fail(
-      "handle.fires_when",
-      "a noul handler on a choice rule — choice rules take a score handler ({ map })",
-    );
+    fail("handle", "a noul handler on a choice rule — choice rules take a score handler ({ map })");
   }
   const problem = checkNoulHandler(handle);
   if (problem !== null) {

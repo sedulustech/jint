@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { SetupError } from "../types.ts";
 import { checkNoulHandler, compileNoulHandler, compileScoreHandler } from "./handle.ts";
 
-const NOUL = { fires_when: "true", warn_at: 0.3, error_at: 0.6 } as const;
+const NOUL = { warn: { greater_than: 0.3 }, error: { greater_than: 0.6 } } as const;
 
 describe("compileScoreHandler", () => {
-  const handle = compileScoreHandler({ map: ["ok", "warn", "error"] });
+  const handle = compileScoreHandler({ map: ["pass", "warn", "error"] });
 
   test("rounding is half-up (Math.round): x.5 rounds to the next level", () => {
     // 0.5 sits between level 0 and 1: half-up pins it to 1 (warn), not 0.
@@ -22,10 +22,14 @@ describe("compileScoreHandler", () => {
   });
 
   test("checkNoulHandler: every failure mode names the exact field", () => {
-    expect(checkNoulHandler({ ...NOUL, warn_at: 1.5 })).toMatch(/handle\.warn_at:.*\(0, 1\)/);
-    expect(checkNoulHandler({ ...NOUL, error_at: 0 })).toMatch(/handle\.error_at:.*\(0, 1\)/);
-    expect(checkNoulHandler({ ...NOUL, warn_at: 0.7, error_at: 0.5 })).toMatch(
-      /handle\.warn_at:.*warn_at < error_at/,
+    expect(checkNoulHandler({ ...NOUL, warn: { greater_than: 1.5 } })).toMatch(
+      /handle\.warn:.*\(0, 1\)/,
+    );
+    expect(checkNoulHandler({ ...NOUL, error: { greater_than: 0 } })).toMatch(
+      /handle\.error:.*\(0, 1\)/,
+    );
+    expect(checkNoulHandler({ warn: { greater_than: 0.7 }, error: { greater_than: 0.5 } })).toMatch(
+      /handle\.warn\/error:.*warn < error/,
     );
     expect(checkNoulHandler({ ...NOUL, silent_band: [0.6, 0.4] })).toMatch(
       /handle\.silent_band: must be ordered/,
@@ -34,10 +38,10 @@ describe("compileScoreHandler", () => {
       /handle\.silent_band: must not cover the whole scale/,
     );
     expect(checkNoulHandler({ ...NOUL, silent_band: [0.2, 0.4] })).toMatch(
-      /handle\.silent_band:.*contains handle\.warn_at/,
+      /handle\.silent_band:.*contains the warn threshold/,
     );
     expect(checkNoulHandler({ ...NOUL, silent_band: [0.4, 0.75] })).toMatch(
-      /handle\.silent_band:.*contains handle\.error_at/,
+      /handle\.silent_band:.*contains the error threshold/,
     );
     // A band clear of the thresholds is fine.
     expect(checkNoulHandler({ ...NOUL, silent_band: [0.05, 0.15] })).toBeNull();
@@ -45,8 +49,8 @@ describe("compileScoreHandler", () => {
 
   test("compileNoulHandler: band suppresses only inside its range, thresholds stay effective", () => {
     const handle = compileNoulHandler({ ...NOUL, silent_band: [0.05, 0.15] });
-    expect(handle(0.1)).toBeNull(); // defect inside the band: silent
-    expect(handle(0.35)).toEqual({ severity: "warn" }); // below the band still surfaces
-    expect(handle(0.7)).toEqual({ severity: "error" }); // above it too
+    expect(handle(0.1)).toBeNull(); // inside the band: silent
+    expect(handle(0.35)).toEqual({ severity: "warn" }); // above the band still surfaces
+    expect(handle(0.7)).toEqual({ severity: "error" }); // past the error threshold too
   });
 });

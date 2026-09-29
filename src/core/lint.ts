@@ -334,7 +334,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // One pass, no candidacy: every measurement is a reading; the rule's handle is the
         // only threshold. Element readings carry their span into the finding's location.
         const handle = byName.get(event.rule)?.handle;
-        const outcome = handle?.(event.value) ?? null;
+        // TS-tier events run their own policy pipeline; a rule outside the JSON map has no
+        // finding policy here.
+        if (handle === undefined) continue;
+        const outcome = handle(event.value);
         if (outcome !== null) {
           // Findings carry NO message: consumers join by rule id to the config (v1 contract).
           yield {

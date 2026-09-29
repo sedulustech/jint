@@ -76,19 +76,13 @@ export interface StateSpec {
 }
 
 /** The declarative policy (data tier, same typed shape as JSON noul rules; exactly one per rule). */
-export interface TsHandleData {
-  readonly fires_when: "true" | "false";
-  readonly warn_at: number;
-  readonly error_at?: number;
-  readonly silent_band?: readonly [number, number];
-}
+// The declarative noul handle for TS rules: the contract's per-threshold operator form.
+export type TsHandleData = import("@jint/contract").NoulHandlerData;
 
 /** One policy decision, aligned by index with ctx.targets: what becomes a finding. */
 export interface TsDecision {
   /** Null = silent (measurement only, no finding). */
   readonly severity: "error" | "warn" | null;
-  /** Optional custom message: WHY this instance fired, in the rule's domain language. */
-  readonly message?: string;
   /** Optional extra structured data, attached to the finding (schema-validated). */
   readonly data?: Record<string, unknown>;
 }
@@ -114,7 +108,7 @@ export interface TsRule {
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
   readonly exclude?: readonly string[];
-  /** Policy, data form: the typed noul handler (fires_when defect pole + thresholds). */
+  /** Policy, data form: the typed noul handler (per-threshold comparison operators). */
   readonly handle?: TsHandleData;
   /**
    * Policy, callback form: called ONCE after all classifications; results[i] <-> ctx.targets[i].
@@ -141,13 +135,20 @@ export const TS_TARGET_ROLES: readonly RuleTarget[] = [
 
 const HANDLE_SCHEMA = Type.Object(
   {
-    fires_when: Type.Union([Type.Literal("true"), Type.Literal("false")]),
-    warn_at: Type.Number(),
-    error_at: Type.Optional(Type.Number()),
+    warn: Type.Union([
+      Type.Object({ greater_than: Type.Number() }, { additionalProperties: false }),
+      Type.Object({ less_than: Type.Number() }, { additionalProperties: false }),
+    ]),
+    error: Type.Optional(
+      Type.Union([
+        Type.Object({ greater_than: Type.Number() }, { additionalProperties: false }),
+        Type.Object({ less_than: Type.Number() }, { additionalProperties: false }),
+      ]),
+    ),
     silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
   },
-  // No extra keys: a { fires_when, warn_at, map } hybrid must be rejected here exactly like the
-  // JSON tier rejects it (cross-tier parity — see the shared checkNoulHandler invariants).
+  // No extra keys: a { warn, map } hybrid must be rejected here exactly like the JSON tier
+  // rejects it (cross-tier parity — see the shared checkNoulHandler invariants).
   { additionalProperties: false },
 );
 
@@ -159,7 +160,6 @@ const SPEC_SCHEMA = Type.Object({
 
 const DECISION_SCHEMA = Type.Object({
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn"), Type.Null()]),
-  message: Type.Optional(Type.String()),
   data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 });
 
@@ -257,7 +257,7 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
       fail(
         '"' +
           name +
-          '": handle must be the typed noul handler { fires_when: "true" | "false", warn_at, error_at?, silent_band? }',
+          '": handle must be the typed noul handler { warn: { greater_than | less_than }, error?, silent_band? }',
       );
     }
     const h = r.handle as TsHandleData;

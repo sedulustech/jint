@@ -243,7 +243,7 @@ describe("cli: piped stdin str unit", async () => {
           name: "is_noul_documented",
           criteria: { true: "documents a noul value", false: "it does not" },
           target: "files",
-          handle: { fires_when: "true", warn_at: 0.5, error_at: 0.7 },
+          handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.7 } },
         },
       ],
       exclude: [],
@@ -280,8 +280,8 @@ describe("cli: piped stdin str unit", async () => {
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })].filter(
-      (f) => !f.endsWith("report.json"),
-    ); // report.json is the run's own report, not a capture
+      (f) => !f.endsWith("report.json") && !f.endsWith("manifest.json"),
+    ); // report/manifest.json are the run's own metadata, not captures
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
     expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);

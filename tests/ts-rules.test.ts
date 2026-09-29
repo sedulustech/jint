@@ -33,7 +33,7 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { comment: self.source, targets: ctx.targets.length, composed: { free: true } },
     }),
-    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
+    handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
   }],
 });
 `;
@@ -66,7 +66,7 @@ export default defineConfig({
     name: "will_break_contract",
     target: "comments",
     classify: () => ({ instructions: "i", criteria: { true: "t" }, state: {} }),
-    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
+    handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
   }],
 });
 `;
@@ -149,10 +149,10 @@ describe("cli: ts rules end-to-end", () => {
     const r = await runIn(dir, { JEV_DEBUG_REQUEST_LOCATION: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
     const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
-    // report.json (the run's persisted report, not a capture) is excluded from the count
+    // report.json + manifest.json (the run's persisted metadata, not captures) are excluded
     const files = runDirs
       .flatMap((d) => readdirSync(d).map((f) => d + "/" + f))
-      .filter((f) => !f.endsWith("report.json"));
+      .filter((f) => !f.endsWith("report.json") && !f.endsWith("manifest.json"));
     // Exact contract: this fixture run makes exactly ONE classifier call (the TS rule's single
     // comment target; no JSON rules) — a manifest or second capture would break that claim.
     expect(files).toHaveLength(1);

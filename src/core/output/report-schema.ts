@@ -1,4 +1,10 @@
 import { Type, type Static } from "@sinclair/typebox";
+import type {
+  ClassifyErrorInfo,
+  Finding,
+  Measurement,
+  Report as ContractReport,
+} from "@jint/contract";
 
 export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
@@ -35,3 +41,10 @@ export const REPORT_SCHEMA = Type.Object({
 });
 
 export type Report = Static<typeof REPORT_SCHEMA>;
+
+// Type-level pin: the contract's plain interfaces and the wire schemas cannot drift.
+const _pinMeasurement: readonly Measurement[] = [] as Static<typeof MEASUREMENT_SCHEMA>[];
+const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];
+const _pinError: readonly ClassifyErrorInfo[] = [] as Static<typeof CLASSIFY_ERROR_SCHEMA>[];
+const _pinReport: ContractReport = {} as Static<typeof REPORT_SCHEMA>;
+void [_pinMeasurement, _pinFinding, _pinError, _pinReport];

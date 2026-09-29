@@ -21,7 +21,7 @@ export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir";
 /** The kind of a resolved classifying unit. */
-export type UnitKind = "file" | "diff" | "str";
+export type UnitKind = "file" | "str";
 
 /** Codes a thrown SetupError carries: setup/infrastructure failures. */
 export type SetupErrorCode =
@@ -94,7 +94,7 @@ export class ClassifyError extends Error {
  * "diffs" is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4
  * Diff units).
  */
-export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports" | "diffs";
+export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
 
 /** The judgment primitive a rule runs on. */
 export type RuleKind = "noul" | "choice";
@@ -105,6 +105,11 @@ interface RuleBase {
   readonly target: RuleTarget;
   /** Reads the value, decides whether it matters. */
   readonly handle: (value: number) => HandleResult;
+  /**
+   * The declarative data the handle was compiled from; absent when the handle is null or the rule
+   * is TS-tier (code policy). This is what the run manifest snapshots.
+   */
+  readonly handleData?: import("@jint/contract").HandlerData;
   /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
@@ -214,15 +219,8 @@ export interface ElementState {
   readonly source: string;
 }
 
-/** State for diff units — the calibrated tmp/diff-v4 shape, so the validated numbers transfer. */
-export interface DiffState {
-  readonly path: string;
-  readonly diff: string;
-  readonly commit_message: string | null;
-}
-
-export type UnitState = FileState | DiffState;
-/** Everything the classifier may be handed: whole-file/diff units, plus single elements. */
+export type UnitState = FileState;
+/** Everything the classifier may be handed: whole-file units, plus single elements. */
 export type AnyState = UnitState | ElementState;
 
 /**

@@ -111,7 +111,7 @@ describe("validateConfig / defaultConfig", () => {
             name: "is_greppable",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { fires_when: "false", warn_at: 0.25, error_at: 0.4 },
+            handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
           },
         ],
       },
@@ -121,7 +121,7 @@ describe("validateConfig / defaultConfig", () => {
   });
 
   test("noul handlers compile to the function form; thresholds sit on the declared defect pole", () => {
-    // fires_when "true": the reading itself is the defect probability
+    // greater_than: the reading itself is the defect probability
     const firesTrue = validateConfig(
       {
         input: "x",
@@ -130,7 +130,7 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { fires_when: "true", warn_at: 0.3, error_at: 0.45 },
+            handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
           },
         ],
       },
@@ -141,7 +141,7 @@ describe("validateConfig / defaultConfig", () => {
     expect(t(0.35)).toEqual({ severity: "warn" });
     expect(t(0.5)).toEqual({ severity: "error" });
 
-    // fires_when "false": P flips to the defect pole first
+    // less_than: the low side is the defect (no flip - the operator declares it)
     const firesFalse = validateConfig(
       {
         input: "x",
@@ -150,7 +150,7 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { fires_when: "false", warn_at: 0.4, error_at: 0.5 },
+            handle: { warn: { less_than: 0.6 }, error: { less_than: 0.5 } },
           },
         ],
       },
@@ -170,7 +170,7 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             criteria: { true: "t", false: "f" },
             target: "files",
-            handle: { fires_when: "true", warn_at: 0.3, silent_band: [0.4, 0.6] },
+            handle: { warn: { greater_than: 0.3 }, silent_band: [0.4, 0.6] },
           },
         ],
       },
@@ -187,29 +187,33 @@ describe("validateConfig / defaultConfig", () => {
       input: "x",
       rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files", handle }],
     });
-    expect(() => validateConfig(rule({ fires_when: "true", warn_at: 1.5 }), "inline")).toThrow(
-      /rule 'r' handle\.warn_at: must be within \(0, 1\)/,
+    expect(() => validateConfig(rule({ warn: { greater_than: 1.5 } }), "inline")).toThrow(
+      /rule 'r' handle\.warn: threshold must be within \(0, 1\)/,
     );
     expect(() =>
-      validateConfig(rule({ fires_when: "true", warn_at: 0.9, error_at: 0.5 }), "inline"),
-    ).toThrow(/rule 'r' handle\.warn_at: .*warn_at < error_at/);
+      validateConfig(rule({ warn: { greater_than: 0.9 }, error: { greater_than: 0.5 } }), "inline"),
+    ).toThrow(/rule 'r' handle\.warn\/error: .*warn < error/);
     expect(() =>
-      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.6, 0.4] }), "inline"),
+      validateConfig(rule({ warn: { greater_than: 0.3 }, silent_band: [0.6, 0.4] }), "inline"),
     ).toThrow(/rule 'r' handle\.silent_band: must be ordered/);
     expect(() =>
-      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0, 1] }), "inline"),
+      validateConfig(rule({ warn: { greater_than: 0.3 }, silent_band: [0, 1] }), "inline"),
     ).toThrow(/rule 'r' handle\.silent_band: must not cover the whole scale/);
     expect(() =>
-      validateConfig(rule({ fires_when: "true", warn_at: 0.3, silent_band: [0.2, 0.4] }), "inline"),
-    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.warn_at/);
+      validateConfig(rule({ warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }), "inline"),
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains the warn threshold/);
     expect(() =>
       validateConfig(
-        rule({ fires_when: "true", warn_at: 0.3, error_at: 0.7, silent_band: [0.4, 0.75] }),
+        rule({
+          warn: { greater_than: 0.3 },
+          error: { greater_than: 0.7 },
+          silent_band: [0.4, 0.75],
+        }),
         "inline",
       ),
-    ).toThrow(/rule 'r' handle\.silent_band:.*contains handle\.error_at/);
+    ).toThrow(/rule 'r' handle\.silent_band:.*contains the error threshold/);
     // question-type vs handler-type mismatch, both directions
-    expect(() => validateConfig(rule({ map: ["ok", "warn"] }), "inline")).toThrow(
+    expect(() => validateConfig(rule({ map: ["pass", "warn"] }), "inline")).toThrow(
       /rule 'r' handle\.map: a score handler on a noul rule/,
     );
     expect(() =>
@@ -223,24 +227,36 @@ describe("validateConfig / defaultConfig", () => {
               instructions: "score it",
               criteria: ["clear", "opaque"],
               target: "definitions",
-              handle: { fires_when: "true", warn_at: 0.3 },
+              handle: { warn: { greater_than: 0.3 } },
             },
           ],
         },
         "inline",
       ),
-    ).toThrow(/rule 'r' handle\.fires_when: a noul handler on a choice rule/);
+    ).toThrow(/rule 'r' handle: a noul handler on a choice rule/);
   });
 
-  test("null handle = classify-only", () => {
-    const silent = validateConfig(
-      {
-        input: "x",
-        rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files", handle: null }],
-      },
-      "inline",
-    );
-    expect(silent.rules[0]!.handle(0.99)).toBeNull();
+  test("handle-less rule is REJECTED (policy is not optional; probes ship real handles)", () => {
+    expect(() =>
+      validateConfig(
+        {
+          input: "x",
+          rules: [
+            { name: "r", criteria: { true: "t", false: "f" }, target: "files", handle: null },
+          ],
+        },
+        "inline",
+      ),
+    ).toThrow(/Expected union value/);
+    expect(() =>
+      validateConfig(
+        {
+          input: "x",
+          rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files" }],
+        },
+        "inline",
+      ),
+    ).toThrow(/invalid config inline/);
   });
 
   test("$schema and unknown top-level keys are accepted and ignored", () => {
@@ -262,7 +278,7 @@ describe("validateConfig / defaultConfig", () => {
             instructions: "score it",
             criteria: ["clear", "opaque"],
             target: "definitions",
-            handle: { map: ["ok", "warn"] },
+            handle: { map: ["pass", "warn"] },
           },
         ],
       },
@@ -291,11 +307,11 @@ describe("validateConfig / defaultConfig", () => {
         },
       ],
     });
-    expect(() => validateConfig(rule(["ok", "warn", "error"]), "inline")).toThrow(
+    expect(() => validateConfig(rule(["pass", "warn", "error"]), "inline")).toThrow(
       /rule 'r' handle\.map: map has 3 level\(s\) but the criteria has 2/,
     );
-    expect(() => validateConfig(rule(["ok", "ok"]), "inline")).toThrow(
-      /rule 'r' handle\.map: at least one level must be non-ok/,
+    expect(() => validateConfig(rule(["pass", "pass"]), "inline")).toThrow(
+      /rule 'r' handle\.map: at least one level must be non-pass/,
     );
   });
 
@@ -318,7 +334,7 @@ describe("validateConfig / defaultConfig", () => {
           name: "r",
           criteria: { true: "t", false: "f" },
           target: "files",
-          handle: { fires_when: "true", warn_at: 0.3, error_at: 0.7 },
+          handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
           ...scope,
         },
       ],
@@ -326,7 +342,7 @@ describe("validateConfig / defaultConfig", () => {
     expect(() => validateConfig(rule({ include: [] }), "inline")).toThrow(
       /rule 'r' include: must be a non-empty array/,
     );
-    expect(() => validateConfig(rule({ exclude: ["ok", ""] }), "inline")).toThrow(
+    expect(() => validateConfig(rule({ exclude: ["pass", ""] }), "inline")).toThrow(
       /rule 'r' exclude: every entry must be a non-empty glob string/,
     );
     expect(() => validateConfig(rule({ include: ["!tests/**"] }), "inline")).toThrow(

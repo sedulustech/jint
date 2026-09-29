@@ -718,7 +718,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
     '      criteria: { true: "t", false: "f" },',
     "      state: { source: self.source },",
     "    }),",
-    '    handle: { fires_when: "true", warn_at: 0.1, error_at: 0.2 },',
+    "    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.2 } },",
     "  }],",
     "});",
   ].join("\n");
@@ -727,7 +727,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
     kind: "noul" as const,
     criteria: { true: "t", false: "f" },
     target: "files" as const,
-    handle: null,
+    handle: () => null, // never fires: the rule classifies, nothing is actionable
   };
   const GOOD = "tests/fixtures/sample-dir/good.ts";
   const isWholeFileCall = (state: AnyState): boolean =>
@@ -775,7 +775,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
               kind: "noul" as const,
               criteria: { true: "t", false: "f" },
               target: "definitions" as const,
-              handle: null,
+              handle: () => null, // never fires: the rule classifies, nothing is actionable
             } as never,
           ],
           tsRules: [RULE_PATH],
@@ -812,7 +812,7 @@ describe("lint — walk-first yield ordering (pure JSON)", () => {
     kind: "noul" as const,
     criteria: { true: "t", false: "f" },
     target: "files" as const,
-    handle: null,
+    handle: () => null, // never fires: the rule classifies, nothing is actionable
   };
 
   test("a WALK_FAILED streams in-band, in unit order, and the run continues to classification", async () => {

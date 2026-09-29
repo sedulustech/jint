@@ -12,7 +12,7 @@ describe("checkRuleScope", () => {
   test("each failure names the exact field", () => {
     expect(checkRuleScope({ include: [] })).toMatch(/include: must be a non-empty array/);
     expect(checkRuleScope({ exclude: [] })).toMatch(/exclude: must be a non-empty array/);
-    expect(checkRuleScope({ include: ["ok", ""] })).toMatch(
+    expect(checkRuleScope({ include: ["pass", ""] })).toMatch(
       /include: every entry must be a non-empty glob string/,
     );
     expect(checkRuleScope({ exclude: [42 as never] })).toMatch(

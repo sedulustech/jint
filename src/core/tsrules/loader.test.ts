@@ -25,7 +25,7 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { source: self.source, targets: ctx.targets.length },
     }),
-    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
+    handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
   }],
 });
 `;
@@ -70,7 +70,7 @@ describe("loadTsConfigRules", () => {
           '      criteria: { true: "t", false: "f" },',
           "      state: { source: self.source, from: threshold + abs + reexported },",
           "    }),",
-          '    handle: { fires_when: "true", warn_at: 0.1, error_at: 0.9 },',
+          "    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.9 } },",
           "  }],",
           "});",
         ].join("\n"),
@@ -144,7 +144,7 @@ describe("validateTsRule (load-time, fatal)", () => {
     name: "is_fine",
     target: "comments",
     classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
-    handle: { fires_when: "true", warn_at: 0.5, error_at: 0.9 },
+    handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
   };
 
   test("missing name", () => {
@@ -173,14 +173,14 @@ describe("validateTsRule (load-time, fatal)", () => {
 
   test("every shared handler invariant rejects with the field named (parity with the JSON tier)", () => {
     const cases: readonly unknown[] = [
-      { fires_when: "true", warn_at: 1.5 }, // warn_at outside (0, 1)
-      { fires_when: "true", warn_at: 0.5, error_at: 0 }, // error_at outside (0, 1)
-      { fires_when: "true", warn_at: 0.9, error_at: 0.7 }, // unordered on the defect pole
-      { fires_when: "true", warn_at: 0.3, silent_band: [0.6, 0.4] }, // band unordered
-      { fires_when: "true", warn_at: 0.3, silent_band: [0, 1] }, // band covers the scale
-      { fires_when: "true", warn_at: 0.3, silent_band: [0.2, 0.4] }, // band contains warn_at
-      { fires_when: "true", warn_at: 0.3, error_at: 0.7, silent_band: [0.4, 0.75] }, // contains error_at
-      { fires_when: "true", warn_at: 0.5, map: ["ok", "warn"] }, // score handler on a noul rule
+      { warn: { greater_than: 1.5 } }, // warn_at outside (0, 1)
+      { warn: { greater_than: 0.5 }, error: { greater_than: 0.0 } }, // error_at outside (0, 1)
+      { warn: { greater_than: 0.9 }, error: { greater_than: 0.7 } }, // unordered on the defect pole
+      { warn: { greater_than: 0.3 }, silent_band: [0.6, 0.4] }, // band unordered
+      { warn: { greater_than: 0.3 }, silent_band: [0, 1] }, // band covers the scale
+      { warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }, // band contains warn_at
+      { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 }, silent_band: [0.4, 0.75] }, // contains error_at
+      { warn: { greater_than: 0.5 }, map: ["pass", "warn"] }, // score handler on a noul rule
     ];
     for (const handle of cases) {
       expect(() => validateTsRule({ ...ok, handle }, "f.ts")).toThrow(/"is_fine": handle/);

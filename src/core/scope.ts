@@ -46,11 +46,7 @@ function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
  * written twice in classify.ts).
  */
 export function judgesWholeUnit(rule: Pick<Rule, "target">, unitKind: UnitKind): boolean {
-  return (
-    unitKind === "str" ||
-    rule.target === "files" ||
-    (rule.target === "diffs" && unitKind === "diff")
-  );
+  return unitKind === "str" || rule.target === "files";
 }
 
 export interface ScopeKeys {

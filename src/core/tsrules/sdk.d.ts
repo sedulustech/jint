@@ -64,12 +64,7 @@ declare module "jint:sdk" {
   }
 
   /** Declarative policy: the typed noul handler (same shape as JSON noul rules). */
-  export interface TsHandleData {
-    readonly fires_when: "true" | "false";
-    readonly warn_at: number;
-    readonly error_at?: number;
-    readonly silent_band?: readonly [number, number];
-  }
+  export type TsHandleData = import("@jint/contract").NoulHandlerData;
 
   /** The jev answer type for the rule's kind (noul-only in v1). */
   export type NoulResult = { readonly type: "noul"; readonly noul: number };
@@ -79,7 +74,6 @@ declare module "jint:sdk" {
   /** One policy decision, aligned by index with ctx.targets; null severity = silent. */
   export interface TsDecision {
     readonly severity: "error" | "warn" | null;
-    readonly message?: string;
     readonly data?: Record<string, unknown>;
   }
 

@@ -12,13 +12,18 @@
  */
 
 import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
 import { knownLanguages } from "./core/input/walk.ts";
-import { requestTapSummary, requestTapWriteReport } from "./core/jev/debug.ts";
+import {
+  requestTapSummary,
+  requestTapWriteManifest,
+  requestTapWriteReport,
+} from "./core/jev/debug.ts";
 import { checkRunKnobs } from "./core/jev/pacer.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
@@ -147,6 +152,13 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   } catch (thrown) {
     return exitForThrown(thrown);
   }
+  // The config file that ran (absolute); null when no config file exists (built-in defaults).
+  const configPath =
+    cliArgs.config !== undefined
+      ? resolve(cliArgs.config)
+      : existsSync(DEFAULT_CONFIG_PATH)
+        ? resolve(DEFAULT_CONFIG_PATH)
+        : null;
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
@@ -267,6 +279,17 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // The dump tap persists the run's machine report next to its captures: the EXACT bytes
     // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
     if (cliArgs.json === true) requestTapWriteReport(rendered.stdout);
+    requestTapWriteManifest({
+      configPath,
+      cwd: process.cwd(),
+      argv: process.argv,
+      ts: new Date().toISOString(),
+      handles: Object.fromEntries(
+        resolvedConfig.rules.flatMap((r) =>
+          r.handleData ? [[r.name, r.handleData] as const] : [],
+        ),
+      ),
+    });
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
     const exit = computeExit(lintReport);
