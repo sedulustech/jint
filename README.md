@@ -58,7 +58,7 @@ Override a default's calibration by re-declaring the rule by name — a threshol
 
 ## Default rules
 
-Thresholds are anchored to the calibration corpora — jint's own src/ as the primary corpus, the sibling-repo baselines as the external cross-check: healthy runs produce zero errors; the calibration mutants (bad names, comment bloat, obfuscation) are caught.
+Thresholds are anchored to the calibration corpora — jint's own src/ as the primary corpus, the sibling-repo baselines as the external cross-check: healthy runs produce zero errors; the calibration mutants (bad names, comment bloat, obfuscation) are caught. Treat the defaults as a starting point rather than a verdict on your codebase: they are calibrated to make the tool useful out of the box, and the expectation is that you will tune them once you know what your code looks like. Every rule can be re-declared by name with your own criteria and handle — a paste-able diff that takes effect without any runtime — so the pricing of a threshold is entirely in your hands. What jint ships is less a fixed opinion than the platform to hold your own: rules in, findings out, typed data end to end, and the freedom to decide what a reading should mean for your project.
 
 | rule                              | polarity           | error     | warn      | healthy range                             |
 | --------------------------------- | ------------------ | --------- | --------- | ----------------------------------------- |
