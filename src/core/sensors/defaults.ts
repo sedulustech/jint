@@ -1,10 +1,11 @@
 /**
- * The eight default rules, each shipping a visible, overridable handle; one rule classifies one
+ * The twelve default rules, each shipping a visible, overridable handle; one rule classifies one
  * attribute. The comment family replaced the retired excessive_comments, whose attributes moved in
  * opposite directions and averaged the aggregate signal into noise.
  *
  * Rule names follow TypeSafe's proposition convention (is_/will_ prefix): each rule compiles to
- * exactly one noul question, so its name reads as the yes/no claim the question asks.
+ * exactly one question — a noul question when the claim is binary, a scored rubric (choice kind)
+ * when the attribute is graded — so its name reads as the claim the question asks.
  *
  * Each rule ships its rule as criteria — the explicit 1-rule and 0-rule that compile straight into
  * the noul question's criteria (criteria-as-rule). Editing either side is a re-calibration event,
@@ -14,7 +15,8 @@
  * declares its direction per threshold (the operator IS the pole: greater_than fires on high
  * readings, less_than on low), so a less_than rule errors as the probability of the GOOD case drops
  * below the healthy floor and a greater_than rule errors as the probability of the DEFECT case
- * rises above the healthy ceiling - anchored on the self-lint corpus with the sibling-repo
+ * rises above the healthy ceiling; a score handler maps the rubric's rounded level straight onto
+ * pass/warn/error via its map. All thresholds anchor on the self-lint corpus with the sibling-repo
  * calibration fixtures as the external check. Current thresholds and healthy ranges are documented
  * in the README, next to the override examples.
  */
@@ -199,19 +201,20 @@ export const will_comment_drift: Rule = {
 
 export const isCognitivelyComplex: Rule = {
   name: "is_cognitively_complex",
+  kind: "choice",
   instructions:
-    "Does this code carry accidental difficulty the author could remove without changing what it does?",
-  criteria: {
-    true: "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
-    false:
-      "The code's difficulty is inherent to the problem: every case genuinely exists, the data is what the domain forces, and the solution reads top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is not this failure.",
-  },
+    "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+  criteria: [
+    "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+    "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+    "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
+  ],
   target: "definitions",
-  // Thresholds kept from the previous anchor: the scoped claim lowered the
-  // healthy ceiling on both calibration corpora, widening the margin to the
-  // bloat/obfuscate mutants, which land in the warn band.
-  handleData: { warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } } as const,
-  handle: compileNoulHandler({ warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } }),
+  // Calibrated 2026-09-29 (two-language: app/src + cobra, healthy/defective fixtures):
+  // scores are bounded 0..2; error at round>=2 (>=1.5) sits between cobra healthy-max 1.46
+  // and defective stacked fixtures 1.95/1.97; warn at round>=1 (>=0.5) warns 5-13% of healthy.
+  handleData: { map: ["pass", "warn", "error"] } as const,
+  handle: compileScoreHandler({ map: ["pass", "warn", "error"] }),
 };
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until

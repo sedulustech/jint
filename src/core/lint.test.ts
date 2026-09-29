@@ -474,7 +474,7 @@ describe("lint", () => {
           is_name_purposeful: 0.2,
           is_vocabulary_consistent: 0.2,
           is_greppable: 0.2,
-          is_cognitively_complex: 0.8,
+          is_cognitively_complex: 1.8,
         }),
       }),
     );
@@ -483,8 +483,8 @@ describe("lint", () => {
       // no aggregation: a finding directly follows its own measurement
       if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
-    // vocabulary 0.2 + greppable 0.2 (file readings) + purposeful 0.2 and complex 0.8
-    // firing on both elements
+    // vocabulary 0.2 + greppable 0.2 (file readings) + purposeful 0.2 and complex 1.8
+    // (score rubric, level 2 = error) firing on both elements
     expect(events.filter((e) => e.type === "finding")).toHaveLength(6);
   });
 

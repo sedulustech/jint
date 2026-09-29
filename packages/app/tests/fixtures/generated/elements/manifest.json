@@ -2,7 +2,7 @@
   "configPath": "fixtures/sources/elements",
   "cwd": "/home/crjm/dev/sedulus/worktrees/jint/measurement-ui/packages/app",
   "argv": ["bun", "fixtures:gen"],
-  "ts": "2026-09-29T20:46:52.486Z",
+  "ts": "2026-09-29T21:12:52.248Z",
   "handles": {
     "is_name_purposeful": {
       "warn": {
@@ -77,12 +77,7 @@
       }
     },
     "is_cognitively_complex": {
-      "warn": {
-        "greater_than": 0.45
-      },
-      "error": {
-        "greater_than": 0.6
-      }
+      "map": ["pass", "warn", "error"]
     },
     "is_function_srp": {
       "warn": {

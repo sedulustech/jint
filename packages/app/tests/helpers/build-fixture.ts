@@ -132,9 +132,39 @@ add("other-borderline.ts", "elements", "src/other-b.tsx", CODE_C, { [RULE_OTHER]
 // score map index 3 -> error (noul value 3 on the operator handle)
 add("score.ts", "files", "src/score.ts", CODE_A, { [RULE_SCORE]: 3 });
 // SIBLING-ELEMENT STATE: one file, two elements - the hot one fires (finding on its span), the
-// clean one must show NO verdict (the span-stripped join leaked the sibling's error here)
-add("complex-hot.ts", "elements", "src/complex.ts", CODE_C, { [RULE_COMPLEX]: 0.8 }, [], "L2-L3");
-add("complex-clean.ts", "elements", "src/complex.ts", CODE_C, { [RULE_COMPLEX]: 0.1 }, [], "L5-L6");
+// clean one must show NO verdict (the span-stripped join leaked the sibling's error here).
+// The real rule is choice-kind since the 2026-09-29 swap: score questions, map pass/warn/error.
+{
+  const legend = { "0": "Easy", "1": "Moderate", "2": "Hard" };
+  for (const [name, id, score] of [
+    ["complex-hot.ts", "L2-L3", 2],
+    ["complex-clean.ts", "L5-L6", 0],
+  ] as const) {
+    const questions = { [key(RULE_COMPLEX, id)]: q(RULE_COMPLEX) };
+    const answers = {
+      [key(RULE_COMPLEX, id)]: {
+        type: "score" as const,
+        score,
+        confidence: 0.9,
+        legend,
+        probabilities:
+          score === 2 ? { "0": 0.05, "1": 0.1, "2": 0.85 } : { "0": 0.9, "1": 0.05, "2": 0.05 },
+      },
+    };
+    CAPS.push({
+      file: `${nextStamp()}-elements-${name}.json`,
+      cap: capture({
+        kind: "elements",
+        path: "src/complex.ts",
+        code: CODE_C,
+        questions,
+        answers,
+        elementId: id,
+      }),
+    });
+    MEAS.push({ rule: RULE_COMPLEX, input: `src/complex.ts#${id}`, value: score });
+  }
+}
 // SCORE-ANSWER STATE: score 3 -> map index 3; the card must render legend + probabilities
 {
   const id = "L1-L8";
@@ -201,7 +231,7 @@ writeFileSync(
         [RULE_SCORE]: { map: ["pass", "pass", "warn", "error"] },
         // the acceptance shape: a documented-claim rule - HIGH noul (0.8) passes
         [RULE_DOC]: { warn: { less_than: 0.4 }, error: { less_than: 0.3 } },
-        [RULE_COMPLEX]: { warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } },
+        [RULE_COMPLEX]: { map: ["pass", "warn", "error"] },
       },
       cwd: root,
       argv: ["bun", "tests/helpers/build-fixture.ts"],
@@ -232,7 +262,7 @@ const findings = [
   {
     rule: RULE_COMPLEX,
     input: "src/complex.ts#L2-L3",
-    value: 0.8,
+    value: 2,
     severity: "error",
     location: {
       input: "src/complex.ts#L2-L3",

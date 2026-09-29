@@ -47,8 +47,10 @@ describe("default handles: polarity", () => {
     expect(sev(defaultRules.will_comment_drift, 0.75)).toBe("error");
     expect(sev(defaultRules.will_comment_drift, 0.6)).toBe("warn");
     expect(sev(defaultRules.will_comment_drift, 0.5)).toBeNull();
-    expect(sev(defaultRules.is_cognitively_complex, 0.7)).toBe("error");
-    expect(sev(defaultRules.is_cognitively_complex, 0.5)).toBe("warn");
+    // is_cognitively_complex is a scored rubric (0..2): error at round>=2, warn at round>=1,
+    // calibrated two-language (app/src + cobra) — see defaults.ts and the rebuild design.
+    expect(sev(defaultRules.is_cognitively_complex, 1.7)).toBe("error");
+    expect(sev(defaultRules.is_cognitively_complex, 1.2)).toBe("warn");
     expect(sev(defaultRules.is_cognitively_complex, 0.4)).toBeNull();
   });
 });
@@ -116,11 +118,16 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
     // questions (issue 001) and read HIGHER than the new question scores the same damage
     // (name 0.52, casing 0.78 now clear even the lowered warn tiers), so the family assertion
     // covers only vocabulary + complexity; the naming error tier is pinned by m1 above.
-    const m4 = [
+    // The complexity reading (0.5) is a NOUL probability under the retired binary claim, not a
+    // score on the 0..2 rubric - interpreting it as a score is meaningless (it happens to round
+    // to warn). Like the casing reading above, assert the weak honest claim (non-error) until the
+    // mutant corpus is re-measured under the scored question.
+    expect(
       sev(defaultRules.is_vocabulary_consistent, mutants.m4_obfuscate!.is_vocabulary_consistent!),
+    ).toBe("warn");
+    expect(
       sev(defaultRules.is_cognitively_complex, mutants.m4_obfuscate!.is_cognitively_complex!),
-    ];
-    expect(m4.every((s) => s === "warn")).toBe(true);
+    ).not.toBe("error");
     // casing stays its own lane on obfuscation: single-letter renames mix forms for one kind.
     // The stale UNIT_TASK reading (0.78) predates the per-rule question (median 0.87 -> 0.82),
     // so under the re-anchored tiers it no longer warns — assert non-error until the mutant

@@ -37,10 +37,10 @@ const outDir = resolve(appRoot, "tests/fixtures/generated/elements");
 const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
 
 /**
- * Deterministic per-rule answers (p-space noul values; is_readable is a 0-3 score). Chosen to
- * exercise severity variety against the default handle thresholds: one error (is_name_purposeful
- * 0.25 < error_at 0.3), one warn (will_error_lose_cause 0.5 > warn_at 0.4, is_readable score 2),
- * the rest inside their healthy band.
+ * Deterministic per-rule answers (p-space noul values; is_readable and is_cognitively_complex are
+ * scores — 0-3 and 0-2 rubrics). Chosen to exercise severity variety against the default handle
+ * thresholds: one error (is_name_purposeful 0.25 < error_at 0.3), one warn (will_error_lose_cause
+ * 0.5 > warn_at 0.4, is_readable score 2), the rest inside their healthy band.
  */
 const VALUES: Record<string, number> = {
   // is_name_purposeful 0.25 -> error (less_than 0.3); the defect-pole noul: low P(good) is bad.
@@ -56,8 +56,15 @@ const VALUES: Record<string, number> = {
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
-  is_cognitively_complex: 0.2,
+  // scored rubric since the 2026-09-29 swap: 0 = Easy, inside the healthy band (level 0 pass)
+  is_cognitively_complex: 0,
   is_readable: 2,
+};
+
+/** Per-score-rule answer distributions: mass on the answered level, strict wire shape. */
+const SCORE_PROBABILITIES: Record<string, Record<string, number>> = {
+  is_cognitively_complex: { "0": 0.9, "1": 0.05, "2": 0.05 },
+  is_readable: { "0": 0.05, "1": 0.1, "2": 0.8, "3": 0.05 },
 };
 
 /** Fake transport: answers the way POST /v1/systemone would, with fixed per-rule values. */
@@ -76,8 +83,8 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
           ? {
               type: "score",
               score: value,
-              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); mass on level 1
-              probabilities: { 0: 0.1, 1: 0.8, 2: 0.05, 3: 0.05 },
+              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); mass on the answered level
+              probabilities: SCORE_PROBABILITIES[rule]!,
               confidence: 0.8,
             }
           : { type: "noul", noul: value };

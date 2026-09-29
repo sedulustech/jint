@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T20:46:52.484Z",
+  "ts": "2026-09-29T21:12:52.232Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
-      "path": "helpers.ts",
-      "source": "export function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}",
-      "id": "93af8725-4f96-48df-ae01-12773ca2ae85"
+      "path": "complex.ts",
+      "source": "render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }",
+      "id": "d8dc4d72-d454-41ef-93c2-74ae0a7892af"
     },
     "questions": {
       "is_name_purposeful": {
@@ -33,12 +33,13 @@
         }
       },
       "is_cognitively_complex": {
-        "type": "noul",
-        "instructions": "This unit is a function definition. Does this code carry accidental difficulty the author could remove without changing what it does?",
-        "criteria": {
-          "true": "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
-          "false": "The code's difficulty is inherent to the problem: every case genuinely exists, the data is what the domain forces, and the solution reads top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is not this failure."
-        }
+        "type": "score",
+        "instructions": "This unit is a function definition. How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "criteria": [
+          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+        ]
       },
       "is_function_srp": {
         "type": "noul",
@@ -78,8 +79,14 @@
         "noul": 0.5
       },
       "is_cognitively_complex": {
-        "type": "noul",
-        "noul": 0.2
+        "type": "score",
+        "score": 0,
+        "probabilities": {
+          "0": 0.9,
+          "1": 0.05,
+          "2": 0.05
+        },
+        "confidence": 0.8
       },
       "is_function_srp": {
         "type": "noul",
@@ -89,9 +96,9 @@
         "type": "score",
         "score": 2,
         "probabilities": {
-          "0": 0.1,
-          "1": 0.8,
-          "2": 0.05,
+          "0": 0.05,
+          "1": 0.1,
+          "2": 0.8,
           "3": 0.05
         },
         "confidence": 0.8

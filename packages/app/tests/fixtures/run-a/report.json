@@ -237,7 +237,7 @@
     {
       "rule": "is_cognitively_complex",
       "input": "src/complex.ts#L2-L3",
-      "value": 0.8,
+      "value": 2,
       "element": {
         "kind": "function",
         "label": "d0",
@@ -258,7 +258,7 @@
     {
       "rule": "is_cognitively_complex",
       "input": "src/complex.ts#L5-L6",
-      "value": 0.1,
+      "value": 0,
       "element": {
         "kind": "function",
         "label": "d0",
@@ -323,7 +323,7 @@
     {
       "rule": "is_cognitively_complex",
       "input": "src/complex.ts#L2-L3",
-      "value": 0.8,
+      "value": 2,
       "severity": "error",
       "location": {
         "input": "src/complex.ts#L2-L3",

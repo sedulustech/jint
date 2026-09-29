@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T20:46:52.482Z",
+  "ts": "2026-09-29T21:12:52.232Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;",
-      "id": "35054c6e-9243-400b-9198-45d0922a92d2"
+      "id": "58c43047-5904-4662-8e0a-41b9f1be63a9"
     },
     "questions": {
       "is_name_purposeful": {
@@ -49,12 +49,13 @@
         }
       },
       "is_cognitively_complex": {
-        "type": "noul",
-        "instructions": "This unit is a binding. Does this code carry accidental difficulty the author could remove without changing what it does?",
-        "criteria": {
-          "true": "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
-          "false": "The code's difficulty is inherent to the problem: every case genuinely exists, the data is what the domain forces, and the solution reads top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is not this failure."
-        }
+        "type": "score",
+        "instructions": "This unit is a binding. How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "criteria": [
+          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+        ]
       },
       "is_readable": {
         "type": "score",
@@ -94,16 +95,22 @@
         "noul": 0.1
       },
       "is_cognitively_complex": {
-        "type": "noul",
-        "noul": 0.2
+        "type": "score",
+        "score": 0,
+        "probabilities": {
+          "0": 0.9,
+          "1": 0.05,
+          "2": 0.05
+        },
+        "confidence": 0.8
       },
       "is_readable": {
         "type": "score",
         "score": 2,
         "probabilities": {
-          "0": 0.1,
-          "1": 0.8,
-          "2": 0.05,
+          "0": 0.05,
+          "1": 0.1,
+          "2": 0.8,
           "3": 0.05
         },
         "confidence": 0.8

@@ -24,8 +24,19 @@
     "model": "jev-1.13.0",
     "answers": {
       "is_cognitively_complex in L5-L6": {
-        "type": "noul",
-        "noul": 0.1
+        "type": "score",
+        "score": 0,
+        "confidence": 0.9,
+        "legend": {
+          "0": "Easy",
+          "1": "Moderate",
+          "2": "Hard"
+        },
+        "probabilities": {
+          "0": 0.9,
+          "1": 0.05,
+          "2": 0.05
+        }
       }
     },
     "usage": {
