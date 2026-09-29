@@ -356,3 +356,25 @@ test("score answers render the mapped index, legend, and probabilities from thei
   expect(detail).toMatch(/\berror\b/);
   await clearInput();
 });
+
+test("theme toggle: system default, persists the choice, flips the document class", async () => {
+  localStorage.clear();
+  mount();
+  await new Promise((r) => setTimeout(r, 200));
+  // system + light prefers-color-scheme (headless default) -> no .dark
+  expect(document.documentElement.classList.contains("dark")).toBe(false);
+  const sel = document.querySelector('select[aria-label="theme"]') as HTMLSelectElement;
+  expect(sel).toBeTruthy();
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;
+  setter.call(sel, "dark");
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 200));
+  expect(document.documentElement.classList.contains("dark")).toBe(true);
+  expect(localStorage.getItem("jint-theme")).toBe("dark");
+  setter.call(sel, "light");
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 200));
+  expect(document.documentElement.classList.contains("dark")).toBe(false);
+  expect(localStorage.getItem("jint-theme")).toBe("light");
+  localStorage.clear();
+});

@@ -5,7 +5,9 @@ import { fetchReport, fetchRuns } from "./api/client";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestDetail } from "./views/RequestDetail";
 import { RequestTable } from "./views/RequestTable";
+import { useTheme } from "./views/useTheme";
 import type { Report, RequestSummary } from "./types";
+import type { Theme } from "./views/useTheme";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +23,7 @@ const relTime = (mtime: string) =>
   `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
 
 export function App() {
+  const { theme, choose } = useTheme();
   const [runId, setRunId] = useState<string | null>(null);
   const [selected, setSelected] = useState<RequestSummary | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
@@ -139,6 +142,19 @@ export function App() {
             {runs.error.message}
           </span>
         )}
+        <label className="ml-auto flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+          theme
+          <select
+            aria-label="theme"
+            className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground"
+            value={theme}
+            onChange={(e) => choose(e.target.value as Theme)}
+          >
+            <option value="system">system</option>
+            <option value="light">light</option>
+            <option value="dark">dark</option>
+          </select>
+        </label>
         {selectedRun !== null && (
           <span
             className="font-mono text-xs text-muted-foreground"
