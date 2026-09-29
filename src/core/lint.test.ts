@@ -156,10 +156,11 @@ describe("lint — classification shape", () => {
     // per (element, target-matched rule): L2-L4 carries the module docblock -> 8 rules,
     // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting);
     // question keys inside a call are bare rule names (one element per call, no ambiguity)
-    // docblock-carrying function definition: 9 rules (4 comment + 4 definition + srp);
-    // bare function definition: 6 rules (4 definition-target + srp + will_error_lose_cause)
+    // docblock-carrying function definition: 10 rules (4 comment + 5 definition + srp) -
+    // is_greppable judges functions, so it joins the definition-target set;
+    // bare function definition: 7 rules (5 definition-target + srp + will_error_lose_cause)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
-    expect(counts).toEqual([6, 9]);
+    expect(counts).toEqual([7, 10]);
     const withPurposeful = elementCalls.find((c) => c.questions.includes("is_name_purposeful"))!;
     const withComplex = elementCalls.find((c) => c.questions.includes("is_cognitively_complex"))!;
     expect(withPurposeful).toBeDefined();
@@ -181,9 +182,7 @@ describe("lint — classification shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(
-        /^is_(vocabulary_consistent|greppable|filename_fitting) in L\d+(-L\d+)?$/,
-      );
+      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting) in L\d+(-L\d+)?$/);
     }
   });
 
@@ -200,7 +199,7 @@ describe("lint — classification shape", () => {
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(3); // whole-unit rules only
+      expect(measurements).toHaveLength(2); // whole-unit rules only (greppable is functions-target)
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -446,8 +445,10 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
-    // file call 3 (promoted is_filename_fitting) + element classification 15 (8 docblock + 4 bare definitions + 3 functions)
-    expect(measurements).toHaveLength(18);
+    // file call 2 (vocabulary_consistent + promoted is_filename_fitting; greppable is
+    // functions-target now) + element classification 17 (8 docblock + 4 bare definitions +
+    // 3 functions, greppable on the function elements)
+    expect(measurements).toHaveLength(19);
     // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
     // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
@@ -483,9 +484,9 @@ describe("lint", () => {
       // no aggregation: a finding directly follows its own measurement
       if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
-    // vocabulary 0.2 + greppable 0.2 (file readings) + purposeful 0.2 and complex 1.8
-    // (score rubric, level 2 = error) firing on both elements
-    expect(events.filter((e) => e.type === "finding")).toHaveLength(6);
+    // vocabulary 0.2 + greppable 0.2 (function-element readings) + purposeful 0.2 and
+    // complex 1.8 (score rubric, level 2 = error) firing on both elements
+    expect(events.filter((e) => e.type === "finding")).toHaveLength(7);
   });
 
   test("--disable removes rules by name before classifying", async () => {
@@ -670,7 +671,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(18);
+    expect(report.measurements).toHaveLength(19);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

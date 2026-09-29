@@ -73,8 +73,8 @@ export const isFunctionSrp: Rule = {
 
 /**
  * Promoted from the seam-purity probe (tmp/probes/seam-purity.config.json), where it was the
- * densest signal (13 findings on the vendor-adapter corpus). Thresholds are the probe's, unanchored
- * until the self-lint corpus re-classifies them.
+ * densest signal (13 findings on the vendor-adapter corpus); exercised on every self-lint run
+ * since, and held up in use.
  */
 export const willErrorLoseCause: Rule = {
   name: "will_error_lose_cause",
@@ -143,13 +143,13 @@ export const isFilenameFitting: Rule = {
 export const isGreppable: Rule = {
   name: "is_greppable",
   instructions:
-    "Are the identifiers in this unit searchable with terms a developer would use to find this code?",
+    "Are the identifiers in this function searchable with terms a developer would use to find this code?",
   criteria: {
-    true: "The code identifiers here - functions, variables, types, constants, exported symbols - are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+    true: "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
     false:
-      "At least one identifier cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
+      "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
   },
-  target: "files",
+  target: "functions",
   handleData: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } } as const,
   handle: compileNoulHandler({ warn: { less_than: 0.75 }, error: { less_than: 0.6 } }),
 };

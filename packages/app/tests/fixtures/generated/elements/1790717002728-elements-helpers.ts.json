@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T21:12:52.235Z",
+  "ts": "2026-09-29T21:23:22.728Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "helpers.ts",
       "source": "export type Invoice = { id: string; lines: InvoiceLine[] };",
-      "id": "4132b096-0fcc-4ffc-89fc-ea4d166ae787"
+      "id": "558a09c6-4379-464e-9eb9-1273c4e8c1fb"
     },
     "questions": {
       "is_name_purposeful": {

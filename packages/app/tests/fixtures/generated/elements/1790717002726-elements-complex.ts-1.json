@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T21:12:52.232Z",
+  "ts": "2026-09-29T21:23:22.726Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;",
-      "id": "58c43047-5904-4662-8e0a-41b9f1be63a9"
+      "id": "9434f8aa-490a-41d7-ac85-d2ca47c0d951"
     },
     "questions": {
       "is_name_purposeful": {

@@ -25,27 +25,6 @@
       }
     },
     {
-      "rule": "is_greppable",
-      "input": "complex.ts",
-      "value": 0.9,
-      "element": {
-        "kind": "file",
-        "span": {
-          "start": {
-            "line": 1,
-            "column": 0
-          },
-          "end": {
-            "line": 25,
-            "column": 0
-          },
-          "startByte": 0,
-          "endByte": 978
-        },
-        "label": "L1-L25"
-      }
-    },
-    {
       "rule": "is_vocabulary_consistent",
       "input": "complex.ts",
       "value": 0.9,
@@ -68,7 +47,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#439cf60d-a9b5-4f72-83c6-e9ca16375225",
+      "input": "complex.ts#736290fa-e222-4bbf-9327-ad0d6e1c9682",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -89,7 +68,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#439cf60d-a9b5-4f72-83c6-e9ca16375225",
+      "input": "complex.ts#736290fa-e222-4bbf-9327-ad0d6e1c9682",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -110,7 +89,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#439cf60d-a9b5-4f72-83c6-e9ca16375225",
+      "input": "complex.ts#736290fa-e222-4bbf-9327-ad0d6e1c9682",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -131,7 +110,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#5cdbebf9-834e-4c86-888c-cbf9a2dfffcf",
+      "input": "complex.ts#cb2c8dae-c44b-4ae5-be66-91ea4e2798e3",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -152,7 +131,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#5cdbebf9-834e-4c86-888c-cbf9a2dfffcf",
+      "input": "complex.ts#cb2c8dae-c44b-4ae5-be66-91ea4e2798e3",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -173,7 +152,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#5cdbebf9-834e-4c86-888c-cbf9a2dfffcf",
+      "input": "complex.ts#cb2c8dae-c44b-4ae5-be66-91ea4e2798e3",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -194,7 +173,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -222,7 +201,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -243,8 +222,30 @@
       }
     },
     {
+      "rule": "is_greppable",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
+      "value": 0.9,
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
+    },
+    {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -266,7 +267,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -288,7 +289,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -317,7 +318,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -339,7 +340,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -366,7 +367,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -387,7 +388,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -408,7 +409,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -436,7 +437,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -464,7 +465,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -485,8 +486,30 @@
       }
     },
     {
+      "rule": "is_greppable",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
+      "value": 0.9,
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
+    },
+    {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -508,7 +531,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -530,7 +553,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -559,7 +582,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -581,7 +604,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -609,7 +632,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -631,7 +654,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -653,7 +676,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.25,
       "element": {
         "kind": "binding",
@@ -675,7 +698,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.9,
       "element": {
         "kind": "binding",
@@ -697,7 +720,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -726,7 +749,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -768,27 +791,6 @@
       }
     },
     {
-      "rule": "is_greppable",
-      "input": "helpers.ts",
-      "value": 0.9,
-      "element": {
-        "kind": "file",
-        "span": {
-          "start": {
-            "line": 1,
-            "column": 0
-          },
-          "end": {
-            "line": 7,
-            "column": 0
-          },
-          "startByte": 0,
-          "endByte": 279
-        },
-        "label": "L1-L7"
-      }
-    },
-    {
       "rule": "is_vocabulary_consistent",
       "input": "helpers.ts",
       "value": 0.9,
@@ -811,7 +813,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -838,7 +840,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -859,7 +861,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -880,7 +882,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -908,7 +910,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -935,7 +937,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -956,7 +958,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -977,7 +979,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -1005,7 +1007,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0,
       "probabilities": {
         "0": 0.9,
@@ -1033,7 +1035,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -1054,8 +1056,30 @@
       }
     },
     {
+      "rule": "is_greppable",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
+      "value": 0.9,
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
+    },
+    {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -1077,7 +1101,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -1099,7 +1123,7 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 2,
       "probabilities": {
         "0": 0.05,
@@ -1128,7 +1152,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -1152,11 +1176,11 @@
   "findings": [
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+        "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
         "span": {
           "start": {
             "line": 4,
@@ -1173,11 +1197,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+        "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
         "span": {
           "start": {
             "line": 4,
@@ -1194,11 +1218,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+      "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#bd3982e3-6eba-4b1d-9b14-f2999e735830",
+        "input": "complex.ts#cc833fd3-75cc-455e-a044-18767969dd7c",
         "span": {
           "start": {
             "line": 4,
@@ -1215,11 +1239,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+        "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
         "span": {
           "start": {
             "line": 12,
@@ -1236,11 +1260,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+      "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#e6f18b9c-c662-41a9-a92f-9df0a6a26b60",
+        "input": "complex.ts#0a931750-7193-43f7-9417-573dff218ac6",
         "span": {
           "start": {
             "line": 12,
@@ -1257,11 +1281,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+        "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
         "span": {
           "start": {
             "line": 15,
@@ -1278,11 +1302,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+        "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
         "span": {
           "start": {
             "line": 15,
@@ -1299,11 +1323,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+      "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#d8dc4d72-d454-41ef-93c2-74ae0a7892af",
+        "input": "complex.ts#15b6c6c8-29e6-494a-912d-cfbec2c9b6ba",
         "span": {
           "start": {
             "line": 15,
@@ -1320,11 +1344,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+        "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
         "span": {
           "start": {
             "line": 24,
@@ -1341,11 +1365,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+      "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#58c43047-5904-4662-8e0a-41b9f1be63a9",
+        "input": "complex.ts#9434f8aa-490a-41d7-ac85-d2ca47c0d951",
         "span": {
           "start": {
             "line": 24,
@@ -1362,11 +1386,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+        "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
         "span": {
           "start": {
             "line": 1,
@@ -1383,11 +1407,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+      "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#4132b096-0fcc-4ffc-89fc-ea4d166ae787",
+        "input": "helpers.ts#558a09c6-4379-464e-9eb9-1273c4e8c1fb",
         "span": {
           "start": {
             "line": 1,
@@ -1404,11 +1428,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+        "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
         "span": {
           "start": {
             "line": 2,
@@ -1425,11 +1449,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+      "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#1fb6d507-3390-4079-9c1b-ed963088c1eb",
+        "input": "helpers.ts#77f39e00-0781-4e8d-8aea-89a8efb3d0b7",
         "span": {
           "start": {
             "line": 2,
@@ -1446,11 +1470,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+        "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
         "span": {
           "start": {
             "line": 4,
@@ -1467,11 +1491,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+        "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
         "span": {
           "start": {
             "line": 4,
@@ -1488,11 +1512,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+      "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#f7885331-bdf2-4845-95a1-ffa498a70a75",
+        "input": "helpers.ts#47ac6168-7441-4750-b6a1-5d601bdc834a",
         "span": {
           "start": {
             "line": 4,

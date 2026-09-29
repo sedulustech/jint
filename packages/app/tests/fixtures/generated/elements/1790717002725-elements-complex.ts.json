@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T21:12:52.231Z",
+  "ts": "2026-09-29T21:23:22.725Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}",
-      "id": "bd3982e3-6eba-4b1d-9b14-f2999e735830"
+      "id": "cc833fd3-75cc-455e-a044-18767969dd7c"
     },
     "questions": {
       "is_name_purposeful": {
@@ -22,6 +22,14 @@
         "criteria": {
           "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
           "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+        }
+      },
+      "is_greppable": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Are the identifiers in this function searchable with terms a developer would use to find this code?",
+        "criteria": {
+          "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+          "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
         }
       },
       "will_error_lose_cause": {
@@ -71,6 +79,10 @@
         "noul": 0.25
       },
       "is_naming_convention_consistent": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "is_greppable": {
         "type": "noul",
         "noul": 0.9
       },

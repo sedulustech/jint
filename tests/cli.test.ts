@@ -180,7 +180,9 @@ describe("cli: contract basics", () => {
       NO_SERVICE,
     );
     expect(a.code).toBe(b.code);
-    expect(JSON.parse(a.stdout)).toEqual(JSON.parse(b.stdout));
+    // element inputs carry run-scoped uuids (element-identity design): strip before comparing
+    const strip = (s: string) => JSON.parse(s.replace(/[0-9a-f-]{36}/g, "UUID"));
+    expect(strip(a.stdout)).toEqual(strip(b.stdout));
   });
 
   test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {

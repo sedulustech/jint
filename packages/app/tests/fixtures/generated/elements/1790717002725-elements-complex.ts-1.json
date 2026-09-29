@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T21:12:52.235Z",
+  "ts": "2026-09-29T21:23:22.725Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
-      "path": "helpers.ts",
-      "source": "export type InvoiceLine = { unitPrice: number; quantity: number; label: string };",
-      "id": "1fb6d507-3390-4079-9c1b-ed963088c1eb"
+      "path": "complex.ts",
+      "source": "export class InvoicePrinter",
+      "id": "0a931750-7193-43f7-9417-573dff218ac6"
     },
     "questions": {
       "is_name_purposeful": {
