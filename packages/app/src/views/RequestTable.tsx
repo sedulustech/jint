@@ -347,7 +347,7 @@ export function RequestTable({
     return (
       <button
         key={row.key}
-        onClick={() => onSelectPair({ rule: c.rule, input: c.input, requestFile: undefined })}
+        onClick={() => onSelectPair({ rule: c.rule, input: c.input, requestFile: c.requestFile })}
         style={{ height: ROW_H }}
         className={`flex w-full items-center border-b border-border pl-4 pr-0 text-left font-mono text-xs ${
           selectedFile === c.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
@@ -357,7 +357,7 @@ export function RequestTable({
           {c.rule}
         </span>
         <span className={`${INPUT_MIN} shrink-0 truncate px-2`} title={c.input}>
-          {c.kind === "file" ? "(file)" : "#" + c.input.split("#")[1]}
+          {c.kind === "file" ? "(file)" : "#" + c.input.split("#")[1]!.slice(0, 8)}
         </span>
         <span className={`${SEV_W} shrink-0 px-2`}>{sevDot(c.severity)}</span>
         <span className={`${VALUE_W} shrink-0 px-2`}>{c.value.toFixed(2)}</span>

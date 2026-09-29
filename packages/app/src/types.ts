@@ -29,6 +29,8 @@ export interface Cell {
   /** Full measurement input: the file path, or path#span for an element. */
   input: string;
   kind: "file" | "element";
+  /** The capture file this cell's measurement came from; direct fetch on click. */
+  requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
   value: number;
   /** Null = no verdict (never "clean"). */

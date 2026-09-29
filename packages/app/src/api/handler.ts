@@ -59,6 +59,8 @@ export interface ApiCell {
   /** Full measurement input: the file path, or path#span for an element. */
   input: string;
   kind: "file" | "element";
+  /** The capture file this measurement came from (element uuid / file-tier join); direct fetch. */
+  requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
   value: number;
   /** Null = no verdict (never "clean"). */
@@ -73,45 +75,41 @@ export async function handleApi(req: Request, opts: ApiOptions = {}): Promise<Re
   // path segments, empties dropped: ["api", ...]
   const parts = url.pathname.split("/").filter(Boolean);
   try {
-    if (parts.length === 2 && parts[1] === "runs" && req.method === "GET") {
-      return json(await listRuns(root));
-    }
-    if (parts.length === 3 && parts[1] === "runs" && req.method === "GET") {
-      const id = parts[2];
-      const dir = safeJoin(root, id);
-      if (dir === null) return badRequest("invalid run id");
-      return json(await getRun(root, dir, id));
-    }
-    if (
-      parts.length === 4 &&
-      parts[1] === "runs" &&
-      parts[3] === "report" &&
-      req.method === "GET"
-    ) {
-      const dir = safeJoin(root, parts[2]);
-      if (dir === null) return badRequest("invalid run id");
-      try {
-        return json(JSON.parse(await readFile(join(dir, "report.json"), "utf8")));
-      } catch {
-        // No fake joins: absence is a first-class answer, not an error.
-        return json({ absent: true });
+    // \"api\"/\"runs\" prefix; the rest is the run id path plus an optional verb. Run ids may
+    // be nested (\"generated/elements\", fixture-pipeline layout): the id is resolved segment by
+    // segment, so flat and nested runs route identically.
+    if (parts[1] === "runs" && req.method === "GET") {
+      const tail = parts.slice(2);
+      // /api/runs
+      if (tail.length === 0) return json(await listRuns(root));
+      const verb = tail[tail.length - 1]!;
+      // /api/runs/<id...>/report
+      if (verb === "report" && tail.length >= 2) {
+        const dir = resolveRunDir(root, tail.slice(0, -1));
+        if (dir === null) return badRequest("invalid run id");
+        try {
+          return json(JSON.parse(await readFile(join(dir, "report.json"), "utf8")));
+        } catch {
+          // No fake joins: absence is a first-class answer, not an error.
+          return json({ absent: true });
+        }
       }
-    }
-    if (
-      parts.length === 5 &&
-      parts[1] === "runs" &&
-      parts[3] === "requests" &&
-      req.method === "GET"
-    ) {
-      const dir = safeJoin(root, parts[2]);
-      if (dir === null) return badRequest("invalid run id");
-      const file = safeJoin(dir, parts[4]);
-      if (file === null) return badRequest("invalid request file");
-      try {
-        return json(JSON.parse(await readFile(file, "utf8")));
-      } catch {
-        return notFound("request capture not found");
+      // /api/runs/<id...>/requests/<file>
+      if (tail.length >= 3 && tail[tail.length - 2] === "requests") {
+        const dir = resolveRunDir(root, tail.slice(0, -2));
+        if (dir === null) return badRequest("invalid run id");
+        const file = safeJoin(dir, tail[tail.length - 1]!);
+        if (file === null) return badRequest("invalid request file");
+        try {
+          return json(JSON.parse(await readFile(file, "utf8")));
+        } catch {
+          return notFound("request capture not found");
+        }
       }
+      // /api/runs/<id...> — summary (flat or nested)
+      const dir = resolveRunDir(root, tail);
+      if (dir === null) return badRequest("invalid run id");
+      return json(await getRun(root, dir, tail.join("/")));
     }
     return notFound("no such api route");
   } catch (err) {
@@ -144,6 +142,16 @@ function safeJoin(base: string, name: string): string | null {
   return full;
 }
 
+/** Resolve a multi-segment run id ("generated/elements") one safe segment at a time. */
+function resolveRunDir(root: string, segments: string[]): string | null {
+  let dir: string | null = root;
+  for (const s of segments) {
+    dir = safeJoin(dir, s);
+    if (dir === null) return null;
+  }
+  return dir;
+}
+
 async function listRuns(root: string): Promise<{
   runs: RunSummary[];
   hiddenLegacy: number;
@@ -154,25 +162,47 @@ async function listRuns(root: string): Promise<{
     const dirs = entries.filter((e) => e.isDirectory());
     let notRunCount = 0;
     const legacyDirs = new Set<string>();
-    const inspected = await Promise.all(
+    // Flatten case namespaces (generated/<case>/...) alongside flat runs (run-a/...): a top-level
+    // dir holding no captures of its own is scanned one level for capture-bearing case dirs,
+    // emitted with the nested id (fixture-pipeline generated/<case> layout).
+    const candidates: { id: string; dir: string }[] = [];
+    await Promise.all(
       dirs.map(async (e) => {
         const dir = join(root, e.name);
+        const files = await readdir(dir).catch(() => []);
+        const hasCaptures = files.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"));
+        if (hasCaptures) {
+          candidates.push({ id: e.name, dir });
+          return;
+        }
+        const subs = (await readdir(dir, { withFileTypes: true }).catch(() => [])).filter((s) =>
+          s.isDirectory(),
+        );
+        const caseDirs: string[] = [];
+        await Promise.all(
+          subs.map(async (s) => {
+            const sf = await readdir(join(dir, s.name)).catch(() => []);
+            if (sf.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"))) caseDirs.push(s.name);
+          }),
+        );
+        if (caseDirs.length > 0) {
+          for (const s of caseDirs) candidates.push({ id: `${e.name}/${s}`, dir: join(dir, s) });
+          return;
+        }
+        // no captures here or one level down: not a run (assets dir), just absent
+        notRunCount += 1;
+      }),
+    );
+    const inspected = await Promise.all(
+      candidates.map(async ({ id, dir }): Promise<RunSummary | null> => {
         const [st, files, manifest] = await Promise.all([
           stat(dir),
           readdir(dir),
           readFile(join(dir, "manifest.json"), "utf8").catch(() => null),
         ]);
-        // captures are recognizable by the tap's name shape: <unixts>-<kind>-<name>.json.
-        // Non-run dirs holding loose json (e.g. an assets dir) are thereby not runs.
-        const captureCount = files.filter((f) => /^\d{13}-/.test(f) && f.endsWith(".json")).length;
-        if (captureCount === 0) {
-          // not a run (e.g. an assets dir) - not legacy, just absent
-          notRunCount += 1;
-          return null;
-        }
         if (manifest === null) {
           // legacy run: skipped, counted, never faked
-          legacyDirs.add(e.name);
+          legacyDirs.add(id);
           return null;
         }
         let configPath: string | null = null;
@@ -184,7 +214,7 @@ async function listRuns(root: string): Promise<{
         // a manifest without a config is not first-class either
         if (configPath === null) return null;
         return {
-          id: e.name,
+          id,
           mtime: st.mtime.toISOString(),
           requests: files.filter(
             (f) => f.endsWith(".json") && f !== "report.json" && f !== "manifest.json",
@@ -419,15 +449,30 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   parsed.forEach((r, i) => (r.seq = i + 1));
   // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
   // by the FULL input (path#span), so element identity survives; severity = span-aware join.
+  // requestFile joins each measurement back to its capture: element cells by the capture's
+  // elementId (state.id — the uuid the measurement input suffix carries), file-tier cells by the
+  // bare path (kind disambiguates a stray element capture without an id).
+  const elementCapture = new Map<string, string>();
+  const fileCapture = new Map<string, string>();
+  for (const r of parsed) {
+    if (r.path === null) continue;
+    if (r.elementId !== null) elementCapture.set(`${r.path}#${r.elementId}`, r.file);
+    else if (r.kind !== "elements") fileCapture.set(r.path, r.file);
+  }
   const cells: ApiCell[] = [];
   if (pathValues !== null) {
     for (const [input, entries] of pathValues) {
+      const file = input.split("#")[0]!;
+      const isElement = input.includes("#");
+      const requestFile =
+        (isElement ? elementCapture.get(input) : undefined) ?? fileCapture.get(file);
       for (const { rule, value } of entries) {
         cells.push({
           rule,
-          file: input.split("#")[0]!,
+          file,
           input,
-          kind: input.includes("#") ? "element" : "file",
+          kind: isElement ? "element" : "file",
+          requestFile,
           value,
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),
         });

@@ -32,6 +32,12 @@ measurement its handle judged actionable and is the only output that demands act
 - **input** — what a run classifies: where the bytes come from, nothing more.
 - **input kind** — how the CLI interprets an input: file, dir, diff, or str. CLI perspective;
   not to be confused with target (rule perspective).
+- **identity vs label** — every tracked entity carries one id: a uuidv4 minted at creation and
+  propagated unchanged through every payload (state, question key, measurement input, finding,
+  cell). A label ("d0", "L10", a span string) is the renderable part of an entity, never its
+  key, never a join target. The two never meet: ids are keys, labels are display. Positional
+  strings shift on edits and collide across files; ids need neither stability nor readability
+  because the run scopes every address.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   unit is). Criteria pins the boundary; editing either is a recalibration event.
 - **inventory** — the set of elements derived from one file.

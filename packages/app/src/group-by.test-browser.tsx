@@ -270,3 +270,64 @@ test("request rows still drill in: a request click opens the pair detail of its 
   expect(document.querySelector(".detail-pane")?.textContent).toContain("is_name_purposeful");
   expect(document.querySelector(".detail-pane")?.textContent).toContain("0.08");
 });
+
+test("generated fixture: an element cell click resolves to the element capture by uuid", async () => {
+  mount();
+  // the elements case (fixture-pipeline): GENERATED run, served as the nested id generated/elements
+  await page.getByRole("combobox", { name: "run" }).click();
+  await page.getByRole("option", { name: /elements/ }).click();
+  await waitFor(
+    () => {
+      if (!counter()) throw new Error("counter not rendered");
+    },
+    { timeout: 20_000 },
+  );
+  modeButton("rule").click();
+  await expectCounter("12/12 rules");
+  // is_name_purposeful targets definitions: expanding it reveals ONLY element cells
+  rowByText("is_name_purposeful").click();
+  await waitFor(
+    () => {
+      const cells = [...document.querySelectorAll("button")].filter(
+        (b) =>
+          (b.textContent ?? "").includes("#") &&
+          (b.textContent ?? "").includes("is_name_purposeful"),
+      );
+      if (cells.length === 0) throw new Error("element cells not expanded");
+    },
+    { timeout: 10_000 },
+  );
+  const cells = [...document.querySelectorAll("button")].filter(
+    (b) =>
+      (b.textContent ?? "").includes("#") && (b.textContent ?? "").includes("is_name_purposeful"),
+  );
+  // cell labels are short ids, never positional L-spans
+  for (const c of cells) expect(c.textContent).not.toMatch(/#L\d/);
+  cells[0]!.click();
+  await waitFor(
+    () => {
+      const pane = document.querySelector(".detail-pane")?.textContent ?? "";
+      if (pane.includes("no answer for")) {
+        throw new Error("pair fell back to a capture without the rule: " + pane.slice(0, 120));
+      }
+      if (!pane.includes("is_name_purposeful")) throw new Error("rule heading missing");
+    },
+    { timeout: 10_000 },
+  );
+  // the addressed element's OWN answer is present (deterministic stub: 0.25 in the element capture)
+  let answer: string | null = null;
+  await waitFor(
+    () => {
+      answer =
+        document.querySelector(".detail-pane [data-answer]")?.getAttribute("data-answer") ?? null;
+      if (answer === null) throw new Error("answer not rendered yet");
+    },
+    { timeout: 10_000 },
+  );
+  expect(answer).toBe("0.25");
+  // the code panel names the element's file + its uuid identity, proving the element capture won
+  const loc = [...document.querySelectorAll(".detail-pane span")]
+    .map((s) => s.textContent ?? "")
+    .find((t) => /^(complex|helpers)\.ts · [0-9a-f]{8}/.test(t));
+  expect(loc).toBeTruthy();
+});

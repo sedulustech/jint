@@ -24,10 +24,24 @@ Generated files - do not hand-edit; regenerate instead.
 - `run-b/` - 3 captures, deliberately NO `manifest.json`: the legacy-skipped state (hidden
   by the picker, counted in the header note).
 
+## Generated case fixtures (fixture-pipeline)
+
+New edge cases ship as GENERATED runs: the generator runs the real engine pipeline
+(walk -> classify -> jev tap -> engine report/manifest writers) against a checked-in source dir:
+
+- `sources/elements/` — real TS input (complex.ts + helpers.ts, nested functions).
+- `generated/elements/` — the run it produced: captures + report.json + manifest.json. Served
+  by the API as the nested run id `generated/elements`.
+
+Regenerate deliberately: `bun run fixtures:gen`. The only stub is the transport (fixed per-rule
+answers, like the engine's own lint tests); elements get fresh uuids per run, so tests assert
+shapes and relationships, never uuids.
+
 ## Regenerate
 
 ```bash
-bun tests/helpers/build-fixture.ts
+bun tests/helpers/build-fixture.ts   # synthesized run-a / run-b (legacy hand-built fixture)
+bun run fixtures:gen                 # generated case fixtures (real engine pipeline)
 ```
 
 The fixtures are synthesized by the script (not sampled from a live dump), so regeneration is

@@ -1,0 +1,98 @@
+{
+  "ts": "2026-09-29T17:47:57.748Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "complex.ts",
+      "source": "render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }",
+      "id": "f2c87549-cefc-4d42-adfa-eb9e16c6c4db"
+    },
+    "questions": {
+      "is_name_purposeful": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
+        "criteria": {
+          "true": "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
+          "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
+        }
+      },
+      "is_naming_convention_consistent": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Do identifiers of the same kind in this unit follow a single casing convention?",
+        "criteria": {
+          "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
+          "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+        }
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Does this function's error handling lose information about the original failure?",
+        "criteria": {
+          "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
+          "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+        }
+      },
+      "is_cognitively_complex": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Does this code carry accidental difficulty the author could remove without changing what it does?",
+        "criteria": {
+          "true": "The code carries accidental difficulty the author could remove without changing what it does: nesting so deep the reader must track a stack of conditions, several unrelated concerns mixed into one unit, state the reader must hold in mind across lines, or a non-linear order forcing jumps instead of top-to-bottom reading.",
+          "false": "The code's difficulty is inherent to the problem: every case genuinely exists, the data is what the domain forces, and the solution reads top to bottom. Complexity inherent to the problem - cases that genuinely exist, data the domain itself forces - is not this failure."
+        }
+      },
+      "is_function_srp": {
+        "type": "noul",
+        "instructions": "This unit is a function definition. Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
+        "criteria": {
+          "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
+          "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
+        }
+      },
+      "is_readable": {
+        "type": "score",
+        "instructions": "This unit is a function definition. How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
+        "criteria": [
+          "Names, structure, and types make the story obvious.",
+          "Mostly clear; a few opaque names or a slightly awkward shape.",
+          "Reader must reconstruct intent from implementation details.",
+          "Dense, misleading names, or structure that fights the problem."
+        ]
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-fixture",
+    "answers": {
+      "is_name_purposeful": {
+        "type": "noul",
+        "noul": 0.25
+      },
+      "is_naming_convention_consistent": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "noul": 0.5
+      },
+      "is_cognitively_complex": {
+        "type": "noul",
+        "noul": 0.2
+      },
+      "is_function_srp": {
+        "type": "noul",
+        "noul": 0.5
+      },
+      "is_readable": {
+        "type": "score",
+        "score": 2
+      }
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10
+    }
+  }
+}
