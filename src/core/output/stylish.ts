@@ -22,7 +22,20 @@ export interface StylishRender {
   readonly stderr: string;
 }
 
-export function renderStylish(report: LintReport, mode: ColorMode = "auto"): StylishRender {
+/**
+ * Optional per-rule criteria for choice findings: rule name -> ordered rubric. When a finding's
+ * rule is present, the chosen score level's text is appended to the line (`error 2.00 rule input`
+ * becomes `error 2.00 rule input — <level text>`), so a scored finding says WHERE the element
+ * landed on the rubric instead of emitting a bare number. Render-time join only: the report
+ * contract stays v1 (findings remain message-less); whoever renders can look up the rubric.
+ */
+export type ChoiceLevels = ReadonlyMap<string, readonly string[]>;
+
+export function renderStylish(
+  report: LintReport,
+  mode: ColorMode = "auto",
+  choiceLevels?: ChoiceLevels,
+): StylishRender {
   const outColor = shouldColor(mode, process.stdout);
   const errColor = shouldColor(mode, process.stderr);
   const out: string[] = [];
@@ -61,7 +74,11 @@ export function renderStylish(report: LintReport, mode: ColorMode = "auto"): Sty
       const sev = r.severity.padEnd(wSev);
       const val = r.value.padStart(wVal);
       const rule = r.rule.padEnd(wRule);
-      const line = `${sev}  ${val}  ${rule}  ${r.input}`;
+      // The score level text: criteria[round(value)] when the finding's rule is a choice rule
+      // with a rubric in scope (render-time join, report contract untouched).
+      const rubric = choiceLevels?.get(r.rule);
+      const levelText = rubric !== undefined ? rubric[Math.round(Number(r.value))] : undefined;
+      const line = `${sev}  ${val}  ${rule}  ${r.input}${levelText !== undefined ? ` — ${levelText}` : ""}`;
       out.push(outColor ? (r.severity === "error" ? red(line) : yellow(line)) : line);
     }
   }

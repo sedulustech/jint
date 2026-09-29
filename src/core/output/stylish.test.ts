@@ -105,6 +105,36 @@ describe("renderStylish", () => {
     expect(forced.stdout).toContain("\x1b[33m"); // yellow finding rows (warn severity)
     expect(forced.stderr).toContain("\x1b[31m"); // red ClassifyError lines
   });
+
+  test("choice findings render the chosen score level's text (render-time join)", () => {
+    const choiceReport: LintReport = {
+      notes: [],
+      measurements: [{ rule: "is_readable", input: "src/a.ts", value: 2.0 }],
+      findings: [
+        { rule: "is_readable", input: "src/a.ts", value: 2.0, severity: "warn" },
+        { rule: "is_greppable", input: "src/b.ts", value: 0.3, severity: "error" },
+      ],
+      errors: [],
+    };
+    const levels = new Map<string, readonly string[]>([
+      [
+        "is_readable",
+        [
+          "Names, structure, and types make the story obvious.",
+          "Mostly clear; a few opaque names or a slightly awkward shape.",
+          "Reader must reconstruct intent from implementation details.",
+          "Dense, misleading names, or structure that fights the problem.",
+        ],
+      ],
+    ]);
+    const { stdout } = renderStylish(choiceReport, "never", levels);
+    // the choice finding carries the level text; a noul finding stays bare (no rubric in map)
+    expect(stdout).toContain(
+      "warn    2.00  is_readable   src/a.ts — Reader must reconstruct intent from implementation details.",
+    );
+    expect(stdout).toContain("error   0.30  is_greppable  src/b.ts");
+    expect(stdout).not.toContain("Names, structure, and types make the story obvious."); // level 0, not level 2
+  });
 });
 
 describe("shouldColor", () => {

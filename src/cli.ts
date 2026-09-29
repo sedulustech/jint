@@ -28,7 +28,7 @@ import { checkRunKnobs } from "./core/jev/pacer.ts";
 import { lint, collectReport, type LintReport } from "./core/lint.ts";
 import { renderJson } from "./core/output/json.ts";
 import { renderStylish } from "./core/output/stylish.ts";
-import { ClassifyError, SetupError, type InputKind } from "./core/types.ts";
+import { ClassifyError, SetupError, type InputKind, type Rule } from "./core/types.ts";
 import { log, setLogLevel } from "./logger.ts";
 import type { ResolvedConfig } from "./config/load.ts";
 
@@ -272,10 +272,13 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     );
     // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
     // Stylish: findings on stdout, run errors/diagnostics on stderr.
+    // Stylish: findings on stdout, run errors/diagnostics on stderr. Choice findings render the
+    // chosen score level's text (criteria[round(value)]) - the renderer joins by rule id at
+    // render time, so the report contract stays message-less.
     const rendered =
       cliArgs.json === true
         ? { stdout: renderJson(lintReport), stderr: "" }
-        : renderStylish(lintReport, cliArgs.color ?? "auto");
+        : renderStylish(lintReport, cliArgs.color ?? "auto", choiceLevels(resolvedConfig.rules));
     // The dump tap persists the run's machine report next to its captures: the EXACT bytes
     // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
     if (cliArgs.json === true) requestTapWriteReport(rendered.stdout);
@@ -298,6 +301,19 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   } catch (thrown) {
     return exitForThrown(thrown);
   }
+}
+
+/**
+ * The choice rubrics in scope for stylish rendering: rule name -> criteria list, for choice rules
+ * only. Noul rules have no levels; findings for them stay bare. Empty when the config has no choice
+ * rules, so the renderer's join is a no-op.
+ */
+function choiceLevels(rules: readonly Rule[]): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, readonly string[]>();
+  for (const rule of rules) {
+    if (rule.kind === "choice") map.set(rule.name, rule.criteria);
+  }
+  return map;
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
