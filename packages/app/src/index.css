@@ -140,7 +140,7 @@ body {
   --accent: #262626;
   --accent-foreground: #d4d4d4;
   --destructive: #ef4444; /* red-500 */
-  --border: #262626; /* neutral-800 */
+  --border: #404040; /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
   --input: #404040;
   --ring: #737373;
   --chart-1: oklch(0.87 0 0);
