@@ -85,9 +85,9 @@ export function App() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted px-3 py-1.5">
-        <h1 className="font-mono text-xs font-bold text-foreground">jint</h1>
+        <h1 className="font-mono text-emphasis font-bold text-foreground">jint</h1>
         <Select value={runId ?? "none"} onValueChange={pick}>
-          <SelectTrigger className="w-96 font-mono text-xs" aria-label="run">
+          <SelectTrigger className="w-96 font-mono text-body" aria-label="run">
             <SelectValue
               placeholder={runs.isLoading ? "loading runs…" : `select a run (${list.length})`}
             />
@@ -99,7 +99,7 @@ export function App() {
               <SelectItem
                 key={r.id}
                 value={r.id}
-                className="font-mono text-xs"
+                className="font-mono text-body"
                 title={`${r.configPath}\nrun id: ${r.id}`}
               >
                 <span className="text-foreground">{baseName(r.configPath)}</span>
@@ -110,7 +110,7 @@ export function App() {
               </SelectItem>
             ))}
             {list.length > 50 && (
-              <div className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
+              <div className="px-2 py-1 font-mono text-caption text-muted-foreground">
                 showing the 50 newest of {list.length} runs
               </div>
             )}
@@ -125,7 +125,7 @@ export function App() {
             aria-controls="report-panel"
             aria-disabled={reportQ.isLoading || !reportData}
             onClick={() => setReportOverride(!reportOpen)}
-            className="font-mono text-xs"
+            className="font-mono text-body"
           >
             {reportQ.isLoading
               ? "report…"
@@ -141,10 +141,10 @@ export function App() {
         )}
         {payload.hiddenLegacy > 0 && (
           <details className="group">
-            <summary className="cursor-pointer list-none font-mono text-xs text-muted-foreground hover:text-foreground">
+            <summary className="cursor-pointer list-none font-mono text-body text-muted-foreground hover:text-foreground">
               {payload.hiddenLegacy} legacy run{payload.hiddenLegacy === 1 ? "" : "s"} hidden
             </summary>
-            <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-border bg-background p-1 font-mono text-[10px] text-muted-foreground">
+            <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-border bg-background p-1 font-mono text-caption text-muted-foreground">
               {payload.legacyRuns.slice(0, 200).map((id) => (
                 <li key={id} className="truncate">
                   {id}
@@ -158,17 +158,17 @@ export function App() {
         )}
         {runs.error instanceof Error && (
           <span
-            className="max-w-[480px] truncate break-words font-mono text-xs text-sev-error"
+            className="max-w-[480px] truncate break-words font-mono text-body text-sev-error"
             title={runs.error.message}
           >
             {runs.error.message}
           </span>
         )}
-        <label className="ml-auto flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+        <label className="ml-auto flex items-center gap-1 font-mono text-caption text-muted-foreground">
           theme
           <select
             aria-label="theme"
-            className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground"
+            className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-body text-foreground"
             value={theme}
             onChange={(e) => choose(e.target.value as Theme)}
           >
@@ -179,7 +179,7 @@ export function App() {
         </label>
         {selectedRun !== null && (
           <span
-            className="font-mono text-xs text-muted-foreground"
+            className="font-mono text-body text-muted-foreground"
             data-testid="header-time"
             title={new Date(selectedRun.mtime).toLocaleString()}
           >
@@ -188,28 +188,34 @@ export function App() {
         )}
       </header>
       {runId === null ? (
-        <div className="m-auto flex max-w-xl flex-col items-center gap-3 font-mono text-sm text-muted-foreground">
+        <div className="m-auto flex max-w-2xl flex-col items-center gap-3 font-mono text-body text-muted-foreground">
           {list.length === 0 ? (
             <p>no runs found - set JINT_REQUESTS_DIR or run jint once</p>
           ) : (
             <>
-              <p>select a run</p>
+              {/* heading one scale step above the cards it names (F8) */}
+              <p className="text-emphasis text-foreground">select a run</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {list.slice(0, 8).map((run) => (
                   <Button
                     key={run.id}
                     variant="outline"
                     size="sm"
-                    className="font-mono text-xs"
+                    className="w-72 justify-start font-mono text-body"
                     onClick={() => pick(run.id)}
                     title={`run id: ${run.id}`}
                   >
-                    {baseName(run.configPath)} · {relTime(run.mtime)} · {run.requests} req
+                    {/* fixed-width cards on one wrap grid; meta right-pinned so its columns
+                        line up across every row (F2) */}
+                    <span className="min-w-0 truncate">{baseName(run.configPath)}</span>
+                    <span className="ml-auto truncate pl-2 text-muted-foreground">
+                      · {relTime(run.mtime)} · {run.requests} req
+                    </span>
                   </Button>
                 ))}
               </div>
               {list.length > 8 && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   …{list.length - 8} more in the picker
                 </p>
               )}

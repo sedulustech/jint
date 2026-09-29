@@ -26,7 +26,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
   return (
     <div
       id="report-panel-inner"
-      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-3 py-2 font-mono text-xs"
+      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-3 py-2 font-mono text-body"
       style={{ maxHeight: "45vh" }}
     >
       {degraded && (
@@ -42,15 +42,20 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
           (findings unknown)
         </p>
       )}
+      {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="text-foreground">
-          <span className="text-base font-bold">{totalFindings}</span> findings
+          <span className="text-emphasis font-bold">{totalFindings}</span> findings
         </span>
-        <span className="text-muted-foreground">{totalMeasurements} measurements</span>
+        <span className="text-muted-foreground">
+          <span className="text-emphasis">{totalMeasurements}</span> measurements
+        </span>
         <span className={errors > 0 ? "text-sev-error" : "text-muted-foreground"}>
-          {errors} errors
+          <span className="text-emphasis">{errors}</span> errors
         </span>
-        <span className="text-muted-foreground">{notes} notes</span>
+        <span className="text-muted-foreground">
+          <span className="text-emphasis">{notes}</span> notes
+        </span>
         <span
           className="text-muted-foreground"
           title="healthy-max / defective-min gap: needs a probe corpus - a single run gives one distribution, not the gap"
@@ -58,7 +63,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
           calibration note
         </span>
       </div>
-      <table className="mt-2 w-full border-collapse text-xs">
+      <table className="mt-2 w-full border-collapse text-body">
         <thead>
           <tr className="text-left text-muted-foreground">
             <th className="py-1 pr-4 font-normal">rule</th>

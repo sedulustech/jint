@@ -32,7 +32,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   return (
     <div className="border border-border bg-background">
       <div className="flex items-center gap-3 border-b border-border px-2 py-1">
-        <span className="font-mono text-xs text-foreground">{qa.rule}</span>
+        <span className="font-mono text-body text-foreground">{qa.rule}</span>
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -51,7 +51,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
             >
               {index}
             </span>
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-mono text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
               {qa.answer?.confidence !== undefined &&
                 ` · confidence ${qa.answer.confidence.toFixed(2)}`}
@@ -59,7 +59,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
           </span>
         )}
         {sev !== null && (
-          <span className={`${SEVERITY[sev].text} font-mono text-[10px] uppercase`}>{sev}</span>
+          <span className={`${SEVERITY[sev].text} font-mono text-caption uppercase`}>{sev}</span>
         )}
       </div>
       {isScore && index !== null && (
@@ -71,7 +71,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
               .map((k) => (
                 <li
                   key={k}
-                  className={`font-mono text-[10px] leading-snug ${
+                  className={`font-mono text-caption leading-snug ${
                     Number(k) === index ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
@@ -83,20 +83,20 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <p className="border-b border-border px-2 py-1 text-[11px] leading-snug text-muted-foreground">
+        <p className="border-b border-border px-2 py-1 text-body leading-snug text-muted-foreground">
           {qa.question.instructions}
         </p>
       )}
       {!isScore && (
-        <div className="grid grid-cols-2 gap-px bg-border text-[11px] leading-snug">
+        <div className="grid grid-cols-2 gap-px bg-border text-body leading-snug">
           <div className="bg-background p-2">
-            <span className="font-mono text-[10px] text-sev-clean">true</span>
+            <span className="font-mono text-caption text-sev-clean">true</span>
             <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
           <div className="bg-background p-2">
-            <span className="font-mono text-[10px] text-sev-error">false</span>
+            <span className="font-mono text-caption text-sev-error">false</span>
             <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
             </p>

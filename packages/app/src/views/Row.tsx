@@ -20,15 +20,15 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
     <button
       onClick={onSelect}
       style={{ height }}
-      className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-xs ${tint} ${
+      className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-body ${tint} ${
         selected ? "" : "hover:bg-muted"
       }`}
     >
-      <span className="w-14 shrink-0 px-2 text-muted-foreground">{row.seq}</span>
-      <span className="w-52 shrink-0 truncate px-2 text-foreground" title={row.rules.join(", ")}>
+      <span className="w-14 shrink-0 px-3 text-muted-foreground">{row.seq}</span>
+      <span className="w-52 shrink-0 truncate px-3 text-foreground" title={row.rules.join(", ")}>
         {row.rules[0] ?? "—"}
       </span>
-      <span className="flex w-24 shrink-0 items-center gap-1.5 px-2">
+      <span className="flex w-24 shrink-0 items-center gap-1.5 px-3">
         {sev ? (
           <>
             <span className={`${sev.dot} inline-block h-2 w-2 shrink-0 rounded-full`} />
@@ -40,12 +40,14 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           </span>
         )}
       </span>
-      <span className="flex w-20 shrink-0 flex-col justify-center px-2">
+      {/* max-p baseline (F4): the number keeps the single-line box every sibling cell uses, so it
+          shares the row baseline; the bar paints below it, pinned to the cell, never displacing it */}
+      <span className="relative flex w-20 shrink-0 items-center px-3">
         <span className="text-foreground">
           {row.maxProb !== null ? row.maxProb.toFixed(2) : "—"}
         </span>
         {row.maxProb !== null && (
-          <span className="mt-0.5 block h-0.5 w-full bg-muted">
+          <span className="absolute inset-x-3 bottom-0.5 block h-0.5 bg-muted">
             {/* p-space shape, neutral fill: the bar shows WHERE the value sits, never what it means */}
             <span
               className="block h-0.5 bg-foreground/40"
@@ -54,10 +56,10 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           </span>
         )}
       </span>
-      <span className="w-10 shrink-0 px-2 text-muted-foreground">
+      <span className="w-10 shrink-0 px-3 text-muted-foreground">
         {row.questionCount > 0 ? row.questionCount : "—"}
       </span>
-      <span className="min-w-0 flex-1 truncate px-2 text-foreground" title={row.path ?? undefined}>
+      <span className="min-w-0 flex-1 truncate px-3 text-foreground" title={row.path ?? undefined}>
         {row.path ?? <span className="text-muted-foreground">no path</span>}
       </span>
     </button>

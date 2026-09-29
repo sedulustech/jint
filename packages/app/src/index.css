@@ -4,10 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
-body {
-  /* ONE theme source: the CSS vars below (html.dark). No body overrides fighting tokens. */
-  font-size: 13px;
+/* Type scale: three functional steps, the only text sizes the UI may use.
+   text-caption (10px) - micro labels, legends, chip annotations.
+   text-body (12px) - the workhorse: cells, headers, buttons, values, meta.
+   text-emphasis (14px) - stat numbers and section headings that must out-rank body.
+   Display one-offs (the AnswerCard answer at text-3xl) stay explicit. caption+body pair on the
+   same 16px line box so mixed-size lines share baselines; emphasis pairs 20px like the old text-sm. */
+@theme {
+  --text-caption: 0.625rem;
+  --text-caption--line-height: 1rem;
+  --text-body: 0.75rem;
+  --text-body--line-height: 1rem;
+  --text-emphasis: 0.875rem;
+  --text-emphasis--line-height: 1.25rem;
 }
+
+body {
+  /* ONE theme source: the CSS vars below (html.dark). No body overrides fighting tokens.
+     The root size is the scale's body step: unannotated text lands on the scale, never beside it. */
+  font-size: var(--text-body);
+}
+
+/* Spacing rhythm (declared, not re-tokenized): Tailwind's 0.25rem base with .5 halves IS the 2px
+   grid, so the contract is a fixed vocabulary rather than alias tokens:
+   rail px-3 (12px - every page-edge section: topbar, toolbar, density strip, table cells, report)
+   - cells px-3 py-1 - bars px-3 py-1.5 - inner blocks p-2 / px-2 - micro chips px-1.5 py-0.5, px-1
+   - gaps: gap-1 related controls, gap-2 siblings, gap-3 sections, gap-x-4 stat meta columns.
+   Same-kind elements share one value; arbitrary sizes (text-[Npx]) and off-rail paddings are banned. */
 
 @theme inline {
   --font-heading: var(--font-sans);

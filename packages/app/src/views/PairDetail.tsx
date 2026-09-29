@@ -64,7 +64,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   return (
     <section className="detail-pane flex h-1/2 shrink-0 flex-col border-t border-border bg-background">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <h2 className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+        <h2 className="min-w-0 flex-1 truncate font-mono text-body text-foreground">
           {rule} <span className="text-muted-foreground">@ {input}</span>
         </h2>
         {capture !== undefined && (
@@ -72,7 +72,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         )}
         <button
           onClick={onClose}
-          className="px-1 font-mono text-xs text-muted-foreground hover:text-foreground"
+          className="px-1 font-mono text-body text-muted-foreground hover:text-foreground"
         >
           ✕
         </button>
@@ -86,7 +86,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
       )}
       {capture !== undefined && pair !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-border px-3 py-1 font-mono text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-border px-3 py-1 font-mono text-caption text-muted-foreground">
             <span>
               model:{" "}
               <span className="text-foreground">{meta.model ?? capture.request?.model ?? "?"}</span>
@@ -104,7 +104,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           {code !== null && (
             <div className="border-b border-border">
               <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-caption text-muted-foreground">
                   {request?.path ?? file} {span ? "· " + span : ""}
                 </span>
                 <CopyButton text={code} label="copy code" />

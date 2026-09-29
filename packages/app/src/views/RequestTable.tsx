@@ -262,7 +262,7 @@ export function RequestTable({
       onClick={() => onMode(m)}
       aria-pressed={mode === m}
       data-testid={`mode-${m}`}
-      className="font-mono text-xs"
+      className="font-mono text-body"
     >
       {label}
     </Button>
@@ -270,7 +270,7 @@ export function RequestTable({
 
   const groupedHeader = (
     <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-xs text-foreground"
+      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
       style={{ minWidth: TABLE_MIN_W }}
     >
       {GROUPED_COLS.map((c) => (
@@ -278,7 +278,7 @@ export function RequestTable({
           key={c.key}
           disabled={!c.sortable}
           onClick={() => c.sortable && toggleSort(c.key as GroupedKey)}
-          className={`${c.className} shrink-0 px-2 py-1 text-left ${c.sortable ? "hover:text-foreground" : ""}`}
+          className={`${c.className} shrink-0 px-3 py-1 text-left ${c.sortable ? "hover:text-foreground" : ""}`}
         >
           {c.label}
           {c.sortable && sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -289,20 +289,20 @@ export function RequestTable({
 
   const requestHeader = (
     <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-xs text-foreground"
+      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
       style={{ minWidth: TABLE_MIN_W }}
     >
       {REQ_COLS.map((c) => (
         <button
           key={c.label}
           onClick={() => toggleSort(c.key)}
-          className={`${c.className} shrink-0 px-2 py-1 text-left hover:text-foreground`}
+          className={`${c.className} shrink-0 px-3 py-1 text-left hover:text-foreground`}
         >
           {c.label}
           {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
         </button>
       ))}
-      <span className="min-w-0 flex-1 px-2 py-1">input path</span>
+      <span className="min-w-0 flex-1 px-3 py-1">input path</span>
     </div>
   );
 
@@ -330,12 +330,14 @@ export function RequestTable({
           onClick={() => toggleExpand(row.key)}
           aria-expanded={isExpanded}
           style={{ height: ROW_H }}
-          className="flex w-full items-center border-b border-border bg-muted px-0 text-left font-mono text-xs text-foreground hover:bg-accent"
+          className="flex w-full items-center border-b border-border bg-muted px-0 text-left font-mono text-body text-foreground hover:bg-accent"
         >
-          <span className={`${NAME_W} shrink-0 truncate px-2`} title={row.name}>
+          {/* parents sit on the SAME column grid as header + children; the only difference is
+              content, never offsets - hierarchy comes from the caret, depth from the child indent */}
+          <span className={`${NAME_W} shrink-0 truncate px-3`} title={row.name}>
             {isExpanded ? "▾" : "▸"} {row.name}
           </span>
-          <span className={`${INPUT_MIN} flex shrink-0 items-center gap-2 px-2`}>
+          <span className={`${INPUT_MIN} flex shrink-0 items-center gap-2 px-3`}>
             <MiniStrip
               values={row.cells.map((c) => c.value)}
               marks={marksFor(query.data?.handles[row.name])}
@@ -347,10 +349,10 @@ export function RequestTable({
               {stats.err === 0 && stats.warn === 0 && `${stats.passOk} no verdict`}
             </span>
           </span>
-          <span className={`${SEV_W} shrink-0 px-2`}>{sevDot(row.sev)}</span>
-          <span className={`${VALUE_W} shrink-0 px-2 text-muted-foreground`}></span>
-          <span className={`${COUNT_W} shrink-0 px-2 text-muted-foreground`}>{countText}</span>
-          <span className={`${CHEV_W} shrink-0 px-2`}></span>
+          <span className={`${SEV_W} shrink-0 px-3`}>{sevDot(row.sev)}</span>
+          <span className={`${VALUE_W} shrink-0 px-3 text-muted-foreground`}></span>
+          <span className={`${COUNT_W} shrink-0 px-3 text-muted-foreground`}>{countText}</span>
+          <span className={`${CHEV_W} shrink-0 px-3`}></span>
         </button>
       );
     }
@@ -360,31 +362,36 @@ export function RequestTable({
         key={row.key}
         onClick={() => onSelectPair({ rule: c.rule, input: c.input, requestFile: c.requestFile })}
         style={{ height: ROW_H }}
-        className={`flex w-full items-center border-b border-border pl-4 pr-0 text-left font-mono text-xs ${
+        className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-body ${
           selectedFile === c.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
         } text-foreground`}
       >
-        <span className={`${NAME_W} shrink-0 truncate px-2`} title={c.rule}>
+        {/* pl-9 = rail 12 + a 24px indent: children sit ~13px right of the parent NAME (which
+            starts past the caret), so the tree reads spatially without shifting any column off
+            the shared grid (F1/F7). */}
+        <span className={`${NAME_W} shrink-0 truncate px-3 pl-9`} title={c.rule}>
           {c.rule}
         </span>
-        <span className={`${INPUT_MIN} shrink-0 truncate px-2`} title={c.input}>
+        {/* the full pair join (path · span) fills the short-rule tail of the name column, so no
+            dead zone opens before the input column (F5); file-tier cells keep the (file) marker */}
+        <span className={`${INPUT_MIN} shrink-0 truncate px-3`} title={c.input}>
           {c.element === undefined || c.element.kind === "file"
             ? "(file)"
-            : spanLabel(c.element.span)}
+            : `${c.file} · ${spanLabel(c.element.span)}`}
         </span>
-        <span className={`${SEV_W} shrink-0 px-2`}>{sevDot(c.severity)}</span>
-        <span className={`${VALUE_W} shrink-0 px-2`}>{c.value.toFixed(2)}</span>
-        <span className={`${COUNT_W} shrink-0 px-2`}></span>
-        <span className={`${CHEV_W} shrink-0 px-2`}></span>
+        <span className={`${SEV_W} shrink-0 px-3`}>{sevDot(c.severity)}</span>
+        <span className={`${VALUE_W} shrink-0 px-3`}>{c.value.toFixed(2)}</span>
+        <span className={`${COUNT_W} shrink-0 px-3`}></span>
+        <span className={`${CHEV_W} shrink-0 px-3`}></span>
       </button>
     );
   };
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border bg-muted px-2 py-1.5">
+      <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
         <div role="group" aria-label="group by" className="flex items-center gap-1">
-          <span className="font-mono text-[10px] text-muted-foreground">group by</span>
+          <span className="font-mono text-caption text-muted-foreground">group by</span>
           {modeButton("rule", "rule")}
           {modeButton("file", "file")}
           {modeButton("request", "request")}
@@ -393,9 +400,9 @@ export function RequestTable({
           value={filter.text}
           onChange={(e) => onFilter({ text: e.target.value })}
           placeholder="filter: path, rule, element id…"
-          className="w-64 rounded border border-neutral-700 bg-background px-2 py-1 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
+          className="h-7 w-64 rounded border border-neutral-700 bg-background px-2.5 font-mono text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
         />
-        <span className="ml-auto font-mono text-xs text-muted-foreground">
+        <span className="ml-auto font-mono text-body text-muted-foreground">
           {query.isLoading
             ? "loading…"
             : `${mode === "request" ? rows.length : grouped.list.length} / ${total} ${noun}`}
@@ -411,7 +418,7 @@ export function RequestTable({
         {!query.isLoading &&
           (mode === "request" ? rows.length : grouped.list.length) === 0 &&
           !query.isError && (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-xs text-muted-foreground">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
               <p>0 {noun} match your filters</p>
               {mode !== "request" && query.data?.cells.length === 0 && (
                 <p className="text-muted-foreground">no measurements captured for this run</p>
@@ -422,7 +429,7 @@ export function RequestTable({
               <Button
                 variant="outline"
                 size="sm"
-                className="font-mono text-xs"
+                className="font-mono text-body"
                 onClick={() => setFilter({ text: "" })}
               >
                 clear filters
