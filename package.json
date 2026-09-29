@@ -5,6 +5,9 @@
   "bin": {
     "jint": "./dist/cli.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "files": [
     "dist",
     "src",
@@ -27,6 +30,7 @@
     "build:darwin-x64": "bun run scripts/build.ts darwin-x64"
   },
   "dependencies": {
+    "@jint/contract": "workspace:*",
     "@sinclair/typebox": "^0.34.52",
     "@typesafe-ai/sdk": "^0.6.0",
     "tree-sitter-go": "^0.25.0"
