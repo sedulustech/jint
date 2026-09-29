@@ -45,6 +45,8 @@ interface RequestSummary {
    * handle snapshot projected onto the report's measurements. Null = no verdict (never "clean").
    */
   severity: Severity | null;
+  /** Per-rule verdicts at this input (span-aware join). Drives per-question answer cards. */
+  severities: Record<string, Severity | null>;
 }
 
 /** Route an /api/* request. Returns null when the URL is not an API route (caller falls through). */
@@ -211,7 +213,9 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   } catch {
     handles = null;
   }
-  // the report's own verdicts: input path + rule -> severity (authoritative over projection)
+  // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
+  // span joined a file's worst element verdict onto every sibling element - the exact inversion
+  // the handle snapshot exists to prevent.
   const findingSev = new Map<string, Severity>();
   if (reportFile) {
     try {
@@ -220,21 +224,23 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         findings?: { input: string; rule: string; severity: Severity }[];
       };
       for (const f of report.findings ?? []) {
-        findingSev.set(`${f.input.split("#")[0]}\u0000${f.rule}`, f.severity);
+        findingSev.set(f.input, f.severity);
       }
       pathRules = new Map();
       pathValues = new Map();
       for (const m of report.measurements ?? []) {
+        // pathRules keys on the bare path (captures look up by state.path); pathValues keys on
+        // the FULL input (path#span) so projection matches the element identity.
         const path = m.input.split("#")[0];
         const arr = pathRules.get(path);
         if (arr) {
           if (!arr.includes(m.rule)) arr.push(m.rule);
         } else pathRules.set(path, [m.rule]);
         if (typeof m.value === "number") {
-          const vals = pathValues.get(path);
+          const vals = pathValues.get(m.input);
           const entry = { rule: m.rule, value: m.value };
           if (vals) vals.push(entry);
-          else pathValues.set(path, [entry]);
+          else pathValues.set(m.input, [entry]);
         }
       }
     } catch {
@@ -271,31 +277,44 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           pathRules !== null && typeof state.path === "string"
             ? pathRules.get(state.path)
             : undefined;
-        // severity = finding join first (the report's own verdict), else the handle snapshot
-        // projected onto the report's measurement values. Null = no provable verdict - the UI
-        // never invents "clean" from absence.
-        let severity: Severity | null = null;
+
+        // severity per rule = finding join first (the report's own verdict, matched by FULL input
+        // identity: path#span for elements, bare path for files), else the handle snapshot
+        // projected onto that same input's measurement. Null = no provable verdict - the UI
+        // never invents "clean" from absence, and a sibling element's verdict never leaks.
         const SEV_RANK: Record<Severity, number> = { warn: 1, error: 2 };
-        if (typeof state.path === "string") {
-          for (const rule of canonical ?? []) {
-            const sev = findingSev.get(`${state.path}\u0000${rule}`);
-            if (sev !== undefined && (severity === null || SEV_RANK[sev] > SEV_RANK[severity])) {
-              severity = sev;
+        const keys =
+          typeof state.path === "string"
+            ? elementId !== null
+              ? [`${state.path}#${elementId}`, state.path]
+              : [state.path]
+            : [];
+        const joinSeverity = (rule: string): Severity | null => {
+          for (const k of keys) {
+            const sev = findingSev.get(`${k}\u0000${rule}`);
+            if (sev !== undefined) return sev;
+          }
+          return null;
+        };
+        const projectSeverity = (rule: string): Severity | null => {
+          if (handles === null) return null;
+          for (const k of keys) {
+            for (const { rule: r, value } of pathValues?.get(k) ?? []) {
+              if (r !== rule) continue;
+              const handle = handles[rule];
+              if (handle === undefined) continue;
+              const s = handleSeverity(value, handle);
+              if (s !== null) return s;
             }
           }
-        }
-        if (
-          severity === null &&
-          typeof state.path === "string" &&
-          handles !== null &&
-          pathValues !== null
-        ) {
-          for (const { rule, value } of pathValues.get(state.path) ?? []) {
-            const handle = handles[rule];
-            if (handle === undefined) continue;
-            const s = handleSeverity(value, handle);
-            if (s !== null && (severity === null || SEV_RANK[s] > SEV_RANK[severity])) severity = s;
-          }
+          return null;
+        };
+        const severities: Record<string, Severity | null> = {};
+        let severity: Severity | null = null;
+        for (const rule of canonical ?? [...new Set(rules)]) {
+          const s = joinSeverity(rule) ?? projectSeverity(rule);
+          severities[rule] = s;
+          if (s !== null && (severity === null || SEV_RANK[s] > SEV_RANK[severity])) severity = s;
         }
         return {
           file,
@@ -317,6 +336,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           answers: probs.sort((a, b) => a - b),
           borderline: probs.length ? Math.min(...probs.map((n) => Math.abs(n - 0.5))) : null,
           severity,
+          severities,
         };
       } catch {
         return null;

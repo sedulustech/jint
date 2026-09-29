@@ -29,15 +29,15 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "src/multi.tsx",
+      "input": "src/multi.tsx#E1",
       "value": 0.7,
-      "stage": "element"
+      "stage": "file"
     },
     {
       "rule": "has_nothing in mind",
-      "input": "src/multi.tsx",
+      "input": "src/multi.tsx#E1",
       "value": 0.3,
-      "stage": "element"
+      "stage": "file"
     },
     {
       "rule": "has_nothing in mind",
@@ -59,13 +59,31 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "src/other-b.tsx",
+      "input": "src/other-b.tsx#E1",
       "value": 0.45,
-      "stage": "element"
+      "stage": "file"
     },
     {
       "rule": "will_error_lose_cause",
       "input": "src/score.ts",
+      "value": 3,
+      "stage": "file"
+    },
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L2-L3",
+      "value": 0.8,
+      "stage": "file"
+    },
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L5-L6",
+      "value": 0.1,
+      "stage": "file"
+    },
+    {
+      "rule": "will_error_lose_cause",
+      "input": "src/legend.ts",
       "value": 3,
       "stage": "file"
     },
@@ -77,6 +95,25 @@
     }
   ],
   "findings": [
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L2-L3",
+      "value": 0.8,
+      "severity": "error",
+      "location": {
+        "input": "src/complex.ts#L2-L3",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 3,
+            "column": 2
+          }
+        }
+      }
+    },
     {
       "rule": "is_name_purposeful",
       "input": "src/borderline.ts",

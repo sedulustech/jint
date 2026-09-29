@@ -1,11 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { fetchCapture, fetchReport } from "../api/client";
+import { fetchCapture } from "../api/client";
 import { CodeBlock } from "./CodeBlock";
 import { SEVERITY } from "./color";
 import { CopyButton } from "./CopyButton";
 import type { Capture, RequestSummary } from "../types";
-import type { Report } from "../types";
 
 interface Props {
   runId: string;
@@ -17,12 +15,29 @@ interface QA {
   key: string;
   rule: string;
   question: { type?: string; instructions?: string; criteria?: { true?: string; false?: string } };
-  answer?: { type?: string; noul?: number };
+  answer?: {
+    type?: string;
+    noul?: number;
+    score?: number;
+    confidence?: number;
+    legend?: Record<string, string>;
+    probabilities?: Record<string, number>;
+  };
 }
 
-/** One question = its criteria side by side + its LARGE answer. The raw JSON stays reachable below. */
+/**
+ * One question = its criteria side by side + its LARGE answer. Score answers render the rounded
+ * index as the protagonist plus the legend and the probability distribution (neutral bars - shape,
+ * not verdict); verdict color comes only from the card's own span-aware severity, never from a
+ * sibling element's.
+ */
 function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
   const noul = qa.answer?.noul;
+  const score = qa.answer?.score;
+  const isScore = qa.answer?.type === "score" || (noul === undefined && score !== undefined);
+  const index = isScore && score !== undefined ? Math.round(score) : null;
+  const legend = isScore ? (qa.answer?.legend ?? {}) : {};
+  const probabilities = isScore ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-neutral-300";
   return (
@@ -38,10 +53,66 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
             {noul.toFixed(2)}
           </span>
         )}
+        {isScore && index !== null && (
+          <span className="ml-auto flex items-baseline gap-2">
+            <span
+              data-answer={String(index)}
+              className={`font-mono text-3xl font-bold leading-none ${color}`}
+              title={sev !== null ? `severity: ${sev}` : undefined}
+            >
+              {index}
+            </span>
+            <span className="font-mono text-[10px] text-neutral-500">
+              score {qa.answer?.score?.toFixed(2)}
+              {qa.answer?.confidence !== undefined &&
+                ` · confidence ${qa.answer.confidence.toFixed(2)}`}
+            </span>
+          </span>
+        )}
         {sev !== null && (
           <span className={`${SEVERITY[sev].text} font-mono text-[10px] uppercase`}>{sev}</span>
         )}
       </div>
+      {isScore && index !== null && (
+        <div className="border-b border-neutral-800 px-2 py-1">
+          <div className="flex h-4 items-end gap-px" data-score-dist>
+            {Object.keys(legend)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => {
+                const prob = probabilities[k] ?? 0;
+                return (
+                  <div
+                    key={k}
+                    className={`relative min-w-0 flex-1 bg-neutral-500/70 ${
+                      Number(k) === index ? "outline outline-1 outline-neutral-300" : ""
+                    }`}
+                    style={{ height: `${Math.max(4, prob * 100)}%` }}
+                    title={`p(${k}) = ${prob}`}
+                  >
+                    <span className="absolute -top-3.5 left-0 font-mono text-[9px] text-neutral-500">
+                      {k}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+          <ul className="mt-1 space-y-0.5">
+            {Object.keys(legend)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => (
+                <li
+                  key={k}
+                  className={`font-mono text-[10px] leading-snug ${
+                    Number(k) === index ? "text-neutral-200" : "text-neutral-500"
+                  }`}
+                >
+                  {k}: {legend[k]}
+                  {probabilities[k] !== undefined && ` (${probabilities[k]})`}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
       {qa.question.instructions && (
         <p className="border-b border-neutral-800 px-2 py-1 text-[11px] leading-snug text-neutral-400">
           {qa.question.instructions}
@@ -71,17 +142,8 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
     queryFn: () => fetchCapture(runId, summary.file),
   });
   const capture: Capture | undefined = query.data;
-  const report = useQuery({ queryKey: ["report", runId], queryFn: () => fetchReport(runId) });
-  const severity = useMemo<"error" | "warn" | null>(() => {
-    const data = report.data;
-    if (!data || "absent" in data || summary.path === null) return null;
-    const r = data as Report;
-    for (const rule of summary.rules) {
-      const f = r.findings.find((x) => x.input === summary.path && x.rule === rule);
-      if (f) return f.severity;
-    }
-    return null;
-  }, [report.data, summary]);
+  // per-question severity comes from the API's span-aware join; never re-derived client-side
+  const severityFor = (rule: string): "error" | "warn" | null => summary.severities[rule] ?? null;
 
   const questions = (capture?.request?.questions ?? {}) as Record<string, QA["question"]>;
   const answers = capture?.response?.answers ?? {};
@@ -89,10 +151,18 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
     const m = key.match(/^(.*) in (.+)$/);
     return { key, rule: m ? m[1] : key, question, answer: answers[key] };
   });
-  // protagonist order: most undecided first
-  qas.sort(
-    (a, b) => Math.abs((a.answer?.noul ?? 0.5) - 0.5) - Math.abs((b.answer?.noul ?? 0.5) - 0.5),
-  );
+  // protagonist order: most undecided first (noul: distance from 0.5; score: distance of the
+  // fractional part from a level boundary)
+  const undecided = (qa: QA): number => {
+    const a = qa.answer;
+    if (a === undefined) return 1;
+    if (a.type === "score" || (a.noul === undefined && a.score !== undefined)) {
+      const frac = (a.score ?? 0) - Math.floor(a.score ?? 0);
+      return Math.min(frac, 1 - frac);
+    }
+    return Math.abs((a.noul ?? 0.5) - 0.5);
+  };
+  qas.sort((a, b) => undecided(a) - undecided(b));
 
   const raw = capture === undefined ? "" : JSON.stringify(capture, null, 2);
   const state = (capture?.request?.state ?? {}) as {
@@ -176,7 +246,7 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
           )}
           <div className="flex flex-col gap-2 p-2">
             {qas.map((qa) => (
-              <AnswerCard key={qa.key} qa={qa} sev={severity} />
+              <AnswerCard key={qa.key} qa={qa} sev={severityFor(qa.rule)} />
             ))}
           </div>
         </div>

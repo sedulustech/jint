@@ -33,6 +33,14 @@
       "error": {
         "less_than": 0.3
       }
+    },
+    "is_cognitively_complex": {
+      "warn": {
+        "greater_than": 0.45
+      },
+      "error": {
+        "greater_than": 0.6
+      }
     }
   },
   "cwd": "/home/crjm/dev/sedulus/worktrees/jint/measurement-ui/packages/app",

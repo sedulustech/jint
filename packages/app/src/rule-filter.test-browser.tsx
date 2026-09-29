@@ -9,7 +9,7 @@ import { App } from "./App";
 // If these drift from the fixture, the fixture or the generator changed - update both together.
 // run-b has NO manifest.json -> the handler hides it; the header must show the legacy note.
 // captures in run-a
-const TOTAL = 12;
+const TOTAL = 15;
 const RULE_COUNTS: Record<string, number> = {
   // pinned: normal name / greedy-parser breaker / distinct name
   is_name_purposeful: 5,
@@ -165,7 +165,7 @@ test("picker shows the config basename + relative time; no unix stamp anywhere",
   expect(text).toMatch(/ago/);
   // no unix stamp in the label
   expect(text).not.toMatch(/17\d{11}/);
-  expect(text).toContain("12 req");
+  expect(text).toContain("15 req");
 });
 
 test("legacy runs (no manifest.json) are hidden with a header note, never shown", async () => {
@@ -213,7 +213,7 @@ test("severity projects from the handle snapshot, never from the raw number", as
   await openRun();
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("12 / 12")) throw new Error("table not ready");
+      if (!document.body.innerText.includes("15 / 15")) throw new Error("table not ready");
     },
     { timeout: 15_000 },
   );
@@ -295,5 +295,61 @@ test("ACCEPTANCE: is_noul_documented noul 0.80 (fires_when false) renders neutra
   // the verdict comes from the handle snapshot (defect pole 0.2 < warn_at 0.6), NOT the raw 0.8
   expect(row).toContain("—");
   expect(row).not.toMatch(/\berror\b/);
+  await clearInput();
+});
+
+test("sibling elements never share a verdict: span-aware join (regression for the file-level leak)", async () => {
+  mount();
+  await openRun();
+  await setInput("complex.ts");
+  await waitFor(
+    () => {
+      if (!document.body.innerText.includes("0.8")) throw new Error("rows missing");
+    },
+    { timeout: 15_000 },
+  );
+  const rows = [...document.querySelectorAll("button")]
+    .map((b) => b.textContent ?? "")
+    .filter((tx) => tx.includes("complex.ts"));
+  expect(rows).toHaveLength(2);
+  const hot = rows.find((tx) => tx.includes("0.8"))!;
+  const clean = rows.find((tx) => tx.includes("0.1"))!;
+  // the fired sibling carries its own error
+  expect(hot).toContain("error");
+  // the clean sibling shows the dash: NO verdict - the file-level join used to leak "error" here
+  expect(clean).toContain("—");
+  expect(clean).not.toMatch(/\b(error|warn)\b/);
+  await clearInput();
+});
+
+test("score answers render the mapped index, legend, and probabilities from their own severity", async () => {
+  mount();
+  await openRun();
+  await setInput("legend.ts");
+  await waitFor(
+    () => {
+      if (!document.body.innerText.includes("legend.ts")) throw new Error("row missing");
+    },
+    { timeout: 15_000 },
+  );
+  const rowEl = [...document.querySelectorAll("button")].find((b) =>
+    (b.textContent ?? "").includes("legend.ts"),
+  );
+  expect(rowEl).toBeTruthy();
+  rowEl!.click();
+  await waitFor(
+    () => {
+      if (!document.querySelector("[data-score-dist]")) throw new Error("detail not open");
+    },
+    { timeout: 10_000 },
+  );
+  const detail = document.body.innerText;
+  // the mapped index (round(3) = 3) is the protagonist
+  expect(detail).toContain("error swallowed whole");
+  // legend + distribution render
+  expect(detail).toContain("causes fully chained");
+  expect(detail).toContain("0.85");
+  // severity from the card's own rule (score 3 -> error via the handle), not a sibling's
+  expect(detail).toMatch(/\berror\b/);
   await clearInput();
 });

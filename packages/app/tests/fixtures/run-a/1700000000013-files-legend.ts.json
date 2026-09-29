@@ -1,0 +1,49 @@
+{
+  "ts": "2023-11-14T22:13:20.013Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "src/legend.ts",
+      "content": "export function alpha(x: number): number {\n  return x + 1;\n}\n",
+      "id": "L1-L5"
+    },
+    "questions": {
+      "will_error_lose_cause in L1-L8": {
+        "type": "noul",
+        "instructions": "Judge will_error_lose_cause.",
+        "criteria": {
+          "true": "holds",
+          "false": "does not hold"
+        }
+      }
+    },
+    "model": "jev-1.13.0"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "will_error_lose_cause in L1-L8": {
+        "type": "score",
+        "score": 3,
+        "confidence": 0.9,
+        "legend": {
+          "0": "causes fully chained",
+          "1": "minor detail loss",
+          "2": "cause replaced by a generic message",
+          "3": "error swallowed whole"
+        },
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10
+    }
+  }
+}

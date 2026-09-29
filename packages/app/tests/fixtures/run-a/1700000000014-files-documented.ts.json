@@ -1,0 +1,36 @@
+{
+  "ts": "2023-11-14T22:13:20.014Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "src/documented.ts",
+      "content": "export function alpha(x: number): number {\n  return x + 1;\n}\n",
+      "id": "L1-L5"
+    },
+    "questions": {
+      "is_noul_documented in L1-L5": {
+        "type": "noul",
+        "instructions": "Judge is_noul_documented.",
+        "criteria": {
+          "true": "holds",
+          "false": "does not hold"
+        }
+      }
+    },
+    "model": "jev-1.13.0"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_noul_documented in L1-L5": {
+        "type": "noul",
+        "noul": 0.8
+      }
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10
+    }
+  }
+}

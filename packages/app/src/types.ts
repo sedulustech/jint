@@ -35,6 +35,8 @@ export interface RequestSummary {
   borderline: number | null;
   /** Provable verdict: finding join first, else handle-snapshot projection. Null = no verdict. */
   severity: "error" | "warn" | null;
+  /** Per-rule verdicts at this input (span-aware join), keyed by canonical rule name. */
+  severities: Record<string, "error" | "warn" | null>;
 }
 
 export interface Capture {
@@ -51,7 +53,17 @@ export interface Capture {
   };
   response?: {
     model?: string;
-    answers?: Record<string, { type?: string; noul?: number }>;
+    answers?: Record<
+      string,
+      {
+        type?: string;
+        noul?: number;
+        score?: number;
+        confidence?: number;
+        legend?: Record<string, string>;
+        probabilities?: Record<string, number>;
+      }
+    >;
     usage?: Record<string, number>;
   };
 }

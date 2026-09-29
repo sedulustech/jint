@@ -3,14 +3,14 @@
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
-      "path": "src/documented.ts",
-      "content": "export function alpha(x: number): number {\n  return x + 1;\n}\n",
-      "id": "L1-L5"
+      "path": "src/complex.ts",
+      "source": "// gamma keeps a comment\nexport function gamma() {\n  return null;\n}\n",
+      "id": "L2-L3"
     },
     "questions": {
-      "is_noul_documented in L1-L5": {
+      "is_cognitively_complex in L2-L3": {
         "type": "noul",
-        "instructions": "Judge is_noul_documented.",
+        "instructions": "Judge is_cognitively_complex.",
         "criteria": {
           "true": "holds",
           "false": "does not hold"
@@ -23,7 +23,7 @@
   "response": {
     "model": "jev-1.13.0",
     "answers": {
-      "is_noul_documented in L1-L5": {
+      "is_cognitively_complex in L2-L3": {
         "type": "noul",
         "noul": 0.8
       }

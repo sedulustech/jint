@@ -30,6 +30,8 @@ const RULE_OTHER = "will_comment_drift";
 const RULE_SCORE = "will_error_lose_cause";
 // the acceptance shape: documents-a-noul rule, defect pole FALSE - a HIGH noul (0.8) is GOOD
 const RULE_DOC = "is_noul_documented";
+// the original inversion bug: sibling elements of one file sharing the file's worst verdict
+const RULE_COMPLEX = "is_cognitively_complex";
 
 const CODE_A = "export function alpha(x: number): number {\n  return x + 1;\n}\n";
 const CODE_B = "export const beta = (s: string): string => s.trim();\n";
@@ -43,6 +45,16 @@ interface Q {
   instructions: string;
   criteria: { true: string; false: string };
 }
+
+type Answer =
+  | { type: "noul"; noul: number }
+  | {
+      type: "score";
+      score: number;
+      confidence: number;
+      legend: Record<string, string>;
+      probabilities: Record<string, number>;
+    };
 function q(rule: string): Q {
   return {
     type: "noul",
@@ -55,12 +67,14 @@ function capture(opts: {
   path: string;
   code: string;
   questions: Record<string, unknown>;
-  answers: Record<string, { type: string; noul: number }>;
+  answers: Record<string, Answer>;
+  elementId?: string;
 }) {
+  const id = opts.elementId ?? (opts.kind === "files" ? "L1-L5" : "E1");
   const state =
     opts.kind === "files"
-      ? { path: opts.path, content: opts.code, id: "L1-L5" }
-      : { path: opts.path, source: opts.code, id: "E1" };
+      ? { path: opts.path, content: opts.code, id }
+      : { path: opts.path, source: opts.code, id };
   return {
     ts: new Date(stamp).toISOString(),
     url: "https://api.typesafe.ai/v1/systemone",
@@ -84,20 +98,21 @@ const add = (
   code: string,
   answers: Record<string, number>,
   extraQuestions: string[] = [],
+  elementId?: string,
 ) => {
-  const id = kind === "elements" ? "E1" : "L1-L5";
+  const id = elementId ?? (kind === "elements" ? "E1" : "L1-L5");
   const rules = Object.keys(answers);
   const questions: Record<string, unknown> = {};
   for (const r of [...rules, ...extraQuestions]) questions[key(r, id)] = q(r);
-  const ans: Record<string, { type: string; noul: number }> = {};
+  const ans: Record<string, Answer> = {};
   for (const [r, v] of Object.entries(answers)) {
     ans[key(r, id)] = { type: "noul", noul: v };
-    // canonical name straight from the generator
-    MEAS.push({ rule: r, input: path, value: v });
+    // canonical name straight from the generator; elements measurements carry their span
+    MEAS.push({ rule: r, input: kind === "elements" ? `${path}#${id}` : path, value: v });
   }
   CAPS.push({
     file: `${nextStamp()}-${kind}-${name}.json`,
-    cap: capture({ kind, path, code, questions, answers: ans }),
+    cap: capture({ kind, path, code, questions, answers: ans, elementId }),
   });
 };
 
@@ -112,8 +127,37 @@ add("greedy.ts", "files", "src/greedy.ts", CODE_B, { [RULE_GREEDY]: 0.8 });
 add("greedy-low.ts", "files", "src/greedy-low.ts", CODE_B, { [RULE_GREEDY]: 0.2 });
 add("other-high.ts", "files", "src/other-high.ts", CODE_C, { [RULE_OTHER]: 0.95 });
 add("other-borderline.ts", "elements", "src/other-b.tsx", CODE_C, { [RULE_OTHER]: 0.45 });
-// score map index 3 -> error
+// score map index 3 -> error (noul value 3 on the operator handle)
 add("score.ts", "files", "src/score.ts", CODE_A, { [RULE_SCORE]: 3 });
+// SIBLING-ELEMENT STATE: one file, two elements - the hot one fires (finding on its span), the
+// clean one must show NO verdict (the span-stripped join leaked the sibling's error here)
+add("complex-hot.ts", "elements", "src/complex.ts", CODE_C, { [RULE_COMPLEX]: 0.8 }, [], "L2-L3");
+add("complex-clean.ts", "elements", "src/complex.ts", CODE_C, { [RULE_COMPLEX]: 0.1 }, [], "L5-L6");
+// SCORE-ANSWER STATE: score 3 -> map index 3; the card must render legend + probabilities
+{
+  const id = "L1-L8";
+  const legend = {
+    "0": "causes fully chained",
+    "1": "minor detail loss",
+    "2": "cause replaced by a generic message",
+    "3": "error swallowed whole",
+  };
+  const questions = { [key(RULE_SCORE, id)]: q(RULE_SCORE) };
+  const answers = {
+    [key(RULE_SCORE, id)]: {
+      type: "score",
+      score: 3,
+      confidence: 0.9,
+      legend,
+      probabilities: { "0": 0.02, "1": 0.03, "2": 0.1, "3": 0.85 },
+    },
+  };
+  CAPS.push({
+    file: `${nextStamp()}-files-legend.ts.json`,
+    cap: capture({ kind: "files", path: "src/legend.ts", code: CODE_A, questions, answers }),
+  });
+  MEAS.push({ rule: RULE_SCORE, input: "src/legend.ts", value: 3 });
+}
 // high noul under fires_when:false: the unit IS documented = pass; must render neutral, never error
 add("documented.ts", "files", "src/documented.ts", CODE_A, { [RULE_DOC]: 0.8 });
 add("no-questions.ts", "files", "src/none.ts", CODE_A, {});
@@ -155,6 +199,7 @@ writeFileSync(
         [RULE_SCORE]: { map: ["pass", "pass", "warn", "error"] },
         // the acceptance shape: a documented-claim rule - HIGH noul (0.8) passes
         [RULE_DOC]: { warn: { less_than: 0.4 }, error: { less_than: 0.3 } },
+        [RULE_COMPLEX]: { warn: { greater_than: 0.45 }, error: { greater_than: 0.6 } },
       },
       cwd: root,
       argv: ["bun", "tests/helpers/build-fixture.ts"],
@@ -172,6 +217,16 @@ const measurements = MEAS.flatMap((m) => ({
 }));
 // agrees with the handle projection: defect pole of 0.5 under fires_when:false is 0.5 > warn_at 0.45
 const findings = [
+  {
+    rule: RULE_COMPLEX,
+    input: "src/complex.ts#L2-L3",
+    value: 0.8,
+    severity: "error",
+    location: {
+      input: "src/complex.ts#L2-L3",
+      span: { start: { line: 2, column: 0 }, end: { line: 3, column: 2 } },
+    },
+  },
   { rule: RULE_NORMAL, input: "src/borderline.ts", value: 0.5, severity: "warn" },
   {
     rule: RULE_OTHER,
