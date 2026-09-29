@@ -67,7 +67,7 @@ function countInternalComments(node: { type: string; namedChildren: any[] }): nu
   let count = 0;
   const walk = (n: { type: string; namedChildren: any[] }): void => {
     for (const child of n.namedChildren) {
-      if (child.type === "comment") count++;
+      if (child.type === "comment" && !isEmptyComment(child.text)) count++;
       walk(child);
     }
   };
@@ -343,6 +343,13 @@ function spanOf(node: {
   };
 }
 
+// A comment is empty when it carries no letter or digit: bare markers (//, ///, #, --) and pure
+// decoration (// ----) hold no proposition to classify. Language-agnostic: the role tables
+// already normalize every grammar's comment markers to role "comment".
+export function isEmptyComment(text: string): boolean {
+  return !/[\p{L}\p{N}]/u.test(text);
+}
+
 /** End point len chars after start (content === src.slice(startByte, endByte) invariant). */
 function pointAfter(start: UnitPoint, content: string): UnitPoint {
   const lines = content.split("\n");
@@ -539,7 +546,7 @@ export async function decompose(source: string, language: string): Promise<Inven
         continue;
       }
       if (topLevel && mapping.roleTable[type] === "comment") {
-        pending.push({ text: inner.text, span: spanOf(inner) });
+        if (!isEmptyComment(inner.text)) pending.push({ text: inner.text, span: spanOf(inner) });
         continue;
       }
       if (mapping.roleTable[type] === "import") {

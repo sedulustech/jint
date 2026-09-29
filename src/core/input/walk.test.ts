@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
-import { decompose, MAX_ELEMENT_CHARS, type Inventory } from "./walk.ts";
+import { decompose, isEmptyComment, MAX_ELEMENT_CHARS, type Inventory } from "./walk.ts";
 
 const GOLDEN = "src/core/types.ts";
 
@@ -443,6 +443,151 @@ describe("decompose — go", () => {
       ["var_declaration", "binding"],
     ]);
     expectSpansRoundTrip(source, inv);
+  });
+
+  test("the predicate: empty iff no letter or digit", () => {
+    const empty = [
+      "//",
+      "// ",
+      "//\t",
+      "/* */",
+      "/*----*/",
+      "///",
+      "/// ",
+      "#",
+      "# ---",
+      "--",
+      "// ----",
+      "// !!!",
+      "",
+      "// \u00a0",
+    ];
+    for (const text of empty) expect(isEmptyComment(text), JSON.stringify(text)).toBe(true);
+    const content = [
+      "//x",
+      "// x",
+      "// 1. first",
+      "// TODO: fix",
+      "// émoji 🎉",
+      "// 中文注释",
+      "// 0x1F",
+      "//\u00a0non-breaking",
+      "/* body */",
+    ];
+    for (const text of content) expect(isEmptyComment(text), JSON.stringify(text)).toBe(false);
+  });
+
+  test("bare markers yield no comment elements; real comments still do", async () => {
+    const source = ["package p", "", "//", "/* */", "// ----", "///", "", "func f() {}"].join("\n");
+    const inv = await decompose(source, "go");
+    expect(inv.hasError).toBe(false);
+    expect(inv.comments).toHaveLength(0);
+    // attached/internal counting is unaffected — the definition still exists.
+    expect(inv.definitions).toHaveLength(1);
+  });
+
+  test("comments with letters or digits remain comment elements", async () => {
+    const source = [
+      "package p",
+      "",
+      "// 1. retry",
+      "// TODO",
+      "// ---- divider with words",
+      "",
+      "func f() {}",
+    ].join("\n");
+    const inv = await decompose(source, "go");
+    expect(inv.comments.map((c) => c.content)).toEqual([
+      "// 1. retry",
+      "// TODO",
+      "// ---- divider with words",
+    ]);
+    expectSpansRoundTrip(source, inv);
+  });
+
+  test("decoration-only lines are dropped in every shipped grammar", async () => {
+    const ts = await decompose(
+      ["// ----", "// ====", "/* */", "function f() {}"].join("\n"),
+      "typescript",
+    );
+    expect(ts.comments).toHaveLength(0);
+    const py = await decompose(["# ---", "def f():", "    pass"].join("\n"), "python");
+    expect(py.comments).toHaveLength(0);
+  });
+
+  test("bare markers in each shipped grammar yield zero comment elements", async () => {
+    // Go: line + block + doc + decoration.
+    const go = await decompose(
+      ["package p", "", "//", "/* */", "///", "// ----", "", "func f() {}"].join("\n"),
+      "go",
+    );
+    expect(go.comments).toHaveLength(0);
+    expect(go.definitions).toHaveLength(1);
+    // TypeScript: bare line comment.
+    const ts = await decompose(["//", "function f() {}"].join("\n"), "typescript");
+    expect(ts.comments).toHaveLength(0);
+    // Python: bare `#` — the grammar DOES emit a comment node for it (verified), and the
+    // filter drops it.
+    const py = await decompose(["#", "def f():", "    pass"].join("\n"), "python");
+    expect(py.comments).toHaveLength(0);
+    // Rust is not shipped (LANGUAGES: typescript, python, go) — no /// or //! case exists.
+  });
+
+  test("tricky real comments are never dropped", async () => {
+    const source = [
+      "package p",
+      "",
+      "// 1. first",
+      "// TODO: fix",
+      "// émoji 🎉",
+      "// 中文注释",
+      "// 0x1F",
+      "// x",
+      "func f() {}",
+      "",
+    ].join("\n");
+    const inv = await decompose(source, "go");
+    // Six real comments attach to the func; nothing was lost to the filter.
+    expect(inv.definitions[0]!.attachedComment).toHaveLength(6);
+    expect(inv.comments).toHaveLength(0);
+    // Python `#` form with real content survives too. (Note: `# from __future__ ...` parses
+    // as a future_import_statement, not a comment — grammar-level, filter-independent.)
+    const py = await decompose(
+      ["# retry with backoff", "def f():", "    pass", "# tail"].join("\n"),
+      "python",
+    );
+    expect(py.comments.map((c) => c.content)).toEqual(["# tail"]);
+    expect(py.definitions[0]!.attachedComment).toEqual(["# retry with backoff"]);
+    expectSpansRoundTrip(source, inv);
+  });
+
+  test("attachment: a real comment still attaches; an empty one disconnects cleanly", async () => {
+    const real = await decompose(
+      ["package p", "", "// documented", "func f() {}"].join("\n"),
+      "go",
+    );
+    expect(real.definitions[0]!.attachedComment).toEqual(["// documented"]);
+    const bare = await decompose(["package p", "", "//", "func f() {}"].join("\n"), "go");
+    expect(bare.definitions[0]!.attachedComment).toBeUndefined();
+  });
+
+  test("an empty marker does not split a run of real comments", async () => {
+    const inv = await decompose(
+      ["package p", "", "// real", "//", "// real2", "func f() {}", ""].join("\n"),
+      "go",
+    );
+    expect(inv.definitions[0]!.attachedComment).toEqual(["// real", "// real2"]);
+    expect(inv.comments).toHaveLength(0);
+  });
+
+  test("internalCommentCount drops empty body comments, keeps real ones", async () => {
+    const real = await decompose(["package p", "", "func f() {", "// inner", "}"].join("\n"), "go");
+    expect(real.definitions[0]!.internalCommentCount).toBe(1);
+    const bare = await decompose(
+      ["package p", "", "func f() {", "//", "// ----", "}"].join("\n"),
+      "go",
+    );
+    expect(bare.definitions[0]!.internalCommentCount).toBe(0);
   });
 
   test("typescript and python are unaffected by the go mapping", async () => {
