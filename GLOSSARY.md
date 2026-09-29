@@ -41,6 +41,9 @@ measurement its handle judged actionable and is the only output that demands act
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
+- **pass** — the level a handle returned when a reading needs no action: the score-map
+  entry that never fires (score maps use pass/warn/error) and the absent-reading state for
+  noul handles. Not a finding, not noise: a reading judged acceptable.
 - **question** — one classified judgment request sent to the model about one state.
 - **role** — the classification a node gets during the walk (function, comment, binding, import,
   ...); roles are the exposed selection vocabulary.
@@ -49,7 +52,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request capture
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
-- **severity** — what a handle returned: "error" (exit code 1) or "warn".
+- **severity** — what a handle returned: "error" (exit code 1), "warn", or "pass".
 - **span** — a location pointer into the element that locates what a reading is about; rides on
   findings so a report can show the classified source.
 - **state** — exactly what the model judges for one question.
