@@ -31,17 +31,17 @@ import {
   type TsElement,
   type TsRule,
 } from "./sdk.ts";
-import type { InventoryElement } from "../input/walk.ts";
+import type { WalkElement } from "../input/walk.ts";
 
 /**
  * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are
  * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
  * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
  */
-export function tsElementsOf(inventory: readonly InventoryElement[], path: string): TsElement[] {
+export function tsElementsOf(inventory: readonly WalkElement[], path: string): TsElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, TsElement>();
-  const convert = (e: InventoryElement): TsElement => {
+  const convert = (e: WalkElement): TsElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
     const parentLabel = e.parent;
@@ -93,7 +93,7 @@ export type ResolvedTsTargets = Map<TsRule, ResolvedTsTarget>;
  */
 export function resolveAllTsTargets(
   tsRules: readonly TsRule[],
-  inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
+  inventoryByPath: ReadonlyMap<string, readonly WalkElement[]>,
 ): ResolvedTsTargets {
   const elementsByPath = new Map<string, readonly TsElement[]>();
   for (const [path, inventory] of inventoryByPath) {
@@ -289,7 +289,17 @@ export async function runTsRules(
       aligned.push(self);
       events.push({
         type: "measurement",
-        measurement: { rule: rule.name, input, value, stage: "element" },
+        measurement: {
+          rule: rule.name,
+          input,
+          value,
+          element: {
+            kind: self.role,
+            span: self.span,
+            label: self.id,
+            ...(self.parent !== null && { parent: self.parent.id }),
+          },
+        },
       });
     }
     // POLICY, once: exactly one per rule, enforced at load. Findings bind to the target's span.

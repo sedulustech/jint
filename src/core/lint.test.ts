@@ -874,7 +874,7 @@ describe("lint — str unit is its own inventory", () => {
     expect(errors).toHaveLength(0);
     const measurements = events.filter((e) => e.type === "measurement");
     expect(measurements).toHaveLength(1);
-    expect(measurements[0]!.measurement.stage).toBe("file");
+    expect(measurements[0]!.measurement.element?.kind).toBe("file");
   });
 
   test("no WALK_FAILED on the str path even with --language; extensionless FILES reject upstream", async () => {

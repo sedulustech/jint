@@ -8,7 +8,7 @@
 import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
 
-export const REPORT_FORMAT = "jint-report/v1";
+export const REPORT_FORMAT = "jint-report/v1.1";
 
 export function renderJson(report: LintReport): string {
   return (
@@ -21,7 +21,7 @@ export function renderJson(report: LintReport): string {
           rule: m.rule,
           input: m.input,
           value: m.value,
-          ...(m.stage !== undefined && { stage: m.stage }),
+          ...(m.element !== undefined && { element: m.element }),
         })),
         findings: report.findings.map((s) => ({
           rule: s.rule,

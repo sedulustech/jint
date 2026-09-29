@@ -79,7 +79,9 @@ describe("cli: piped stdin str unit", async () => {
     const report = JSON.parse(r.stdout);
     // the str unit is its own inventory: the rule's target cannot route it into parsing
     expect(report.measurements.length).toBeGreaterThan(0);
-    expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
+    expect(
+      report.measurements.every((m: { element?: { kind?: string } }) => m.element?.kind === "file"),
+    ).toBe(true);
     expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
     // no grammar ever requested: every wire call carries the whole snippet as state.content,
     // never an element state ({path, source})
@@ -226,7 +228,9 @@ describe("cli: piped stdin str unit", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0); // it classified
-    expect(report.measurements.every((m: { stage?: string }) => m.stage === "file")).toBe(true);
+    expect(
+      report.measurements.every((m: { element?: { kind?: string } }) => m.element?.kind === "file"),
+    ).toBe(true);
     expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
     expect(report.errors).toEqual([]); // the WALK_FAILED + --language remedy never fires for str
     expect(r.stderr).not.toContain("WALK_FAILED");

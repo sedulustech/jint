@@ -6,11 +6,52 @@ import type {
   Report as ContractReport,
 } from "@jint/contract";
 
+const SPAN_SCHEMA = Type.Object({
+  start: Type.Object({ line: Type.Number(), column: Type.Number() }),
+  end: Type.Object({ line: Type.Number(), column: Type.Number() }),
+  startByte: Type.Number(),
+  endByte: Type.Number(),
+});
+
+const ELEMENT_BASE = {
+  span: SPAN_SCHEMA,
+  label: Type.String(),
+  parent: Type.Optional(Type.String()),
+};
+
+export const ELEMENT_SCHEMA = Type.Union([
+  Type.Object({ kind: Type.Literal("file"), ...ELEMENT_BASE }),
+  Type.Object({
+    kind: Type.Literal("function"),
+    ...ELEMENT_BASE,
+    name: Type.Optional(Type.String()),
+  }),
+  Type.Object({ kind: Type.Literal("type"), ...ELEMENT_BASE, name: Type.Optional(Type.String()) }),
+  Type.Object({
+    kind: Type.Literal("binding"),
+    ...ELEMENT_BASE,
+    name: Type.Optional(Type.String()),
+  }),
+  Type.Object({ kind: Type.Literal("import"), ...ELEMENT_BASE }),
+  Type.Object({
+    kind: Type.Literal("comment"),
+    ...ELEMENT_BASE,
+    docstringOf: Type.Optional(
+      Type.Object({
+        kind: Type.Union([Type.Literal("module"), Type.Literal("function"), Type.Literal("class")]),
+        name: Type.String(),
+      }),
+    ),
+  }),
+]);
+
 export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
-  stage: Type.Optional(Type.Union([Type.Literal("file"), Type.Literal("element")])),
+  // v1.1: the measured subject, fully typed (tmp/designs/element.md); replaces the v1 stage/span
+  // proxies. Additive: v1 reports without it still parse.
+  element: Type.Optional(ELEMENT_SCHEMA),
 });
 
 export const FINDING_SCHEMA = Type.Object({

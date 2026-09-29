@@ -53,7 +53,21 @@ describe("classify", () => {
     });
     expect(outcome.errors).toEqual([]);
     expect(outcome.measurements).toEqual([
-      { rule: "r_file", input: "input", value: 0.7, stage: "file" },
+      {
+        rule: "r_file",
+        input: "input",
+        value: 0.7,
+        element: {
+          kind: "file",
+          label: "L1-L7",
+          span: {
+            start: { line: 1, column: 0 },
+            end: { line: 7, column: 0 },
+            startByte: 0,
+            endByte: SOURCE.length,
+          },
+        },
+      },
     ]);
     // one state: the whole source, nothing array-shaped
     expect(states).toHaveLength(1);
@@ -74,7 +88,9 @@ describe("classify", () => {
     // one call per element (two functions), never one matrix call
     expect(states).toHaveLength(2);
     expect(outcome.measurements).toHaveLength(2);
-    expect(outcome.measurements.every((m) => m.stage === "element")).toBe(true);
+    expect(
+      outcome.measurements.every((m) => m.element !== undefined && m.element.kind === "function"),
+    ).toBe(true);
     expect(outcome.measurements.every((m) => m.value === 2)).toBe(true);
     expect(outcome.measurements.every((m) => /^src\/maths\.ts#[0-9a-f-]{36}$/.test(m.input))).toBe(
       true,
@@ -110,7 +126,21 @@ describe("classify", () => {
     });
     // the whole-source rule classified anyway
     expect(outcome.measurements).toEqual([
-      { rule: "r_file", input: "input", value: 0.9, stage: "file" },
+      {
+        rule: "r_file",
+        input: "input",
+        value: 0.9,
+        element: {
+          kind: "file",
+          label: "L1",
+          span: {
+            start: { line: 1, column: 0 },
+            end: { line: 1, column: 0 },
+            startByte: 0,
+            endByte: 14,
+          },
+        },
+      },
     ]);
     // the mapping failure is a value, not a throw
     expect(outcome.errors).toHaveLength(1);
@@ -124,7 +154,21 @@ describe("classify", () => {
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
     });
     expect(outcome.measurements).toEqual([
-      { rule: "r_file", input: "input", value: 0.9, stage: "file" },
+      {
+        rule: "r_file",
+        input: "input",
+        value: 0.9,
+        element: {
+          kind: "file",
+          label: "L1",
+          span: {
+            start: { line: 1, column: 0 },
+            end: { line: 1, column: 0 },
+            startByte: 0,
+            endByte: 12,
+          },
+        },
+      },
     ]);
     expect(outcome.errors.map((e) => e.code)).toEqual(["WALK_FAILED"]);
     expect(outcome.inventory).toBeUndefined();

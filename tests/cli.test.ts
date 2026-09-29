@@ -313,7 +313,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const r = await run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
     expect(r.code).toBe(4); // reached measurement (transport failure), not a usage error
     expect(r.stderr).toContain("JEV_UNAVAILABLE str:stdin");
-    expect(r.stdout).not.toContain("jint-report/v1"); // human table: no --json flag was seen
+    expect(r.stdout).not.toContain("jint-report/v1.1"); // human table: no --json flag was seen
   });
 
   test.concurrent("jint str with inline source text classifies one str unit", async () => {

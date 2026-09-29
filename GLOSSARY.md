@@ -20,8 +20,11 @@ measurement its handle judged actionable and is the only output that demands act
   Composites exist only during the walk.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
-- **element** — one thing a rule can judge: a file, a diff block, or a node-derived function,
-  comment, definition, binding, or import. Carries its hierarchy (parent).
+- **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
+  node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
+  union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
+  the walk-time form additionally carries the element's source. Targets stay rule-side: a rule
+  resolves targets, an element is what they land on.
 - **false positive rate** — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.
 - **finding** — a measurement its handle judged actionable; the only output that demands action.
@@ -59,8 +62,8 @@ measurement its handle judged actionable and is the only output that demands act
   findings. The unit of observation: every measurement, finding, dump, and request capture
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
 - **severity** — what a handle returned: "error" (exit code 1), "warn", or "pass".
-- **span** — a location pointer into the element that locates what a reading is about; rides on
-  findings so a report can show the classified source.
+- **span** — the exact location of an element: every element is a slice of source. Rides on the
+  element (sort key, display) and on findings so a report can show the classified source.
 - **state** — exactly what the model judges for one question.
 - **strategy** — a model of the state and questions sent to the classifier, balancing
   performance, accuracy, and price; results live in STRATEGIES.md.

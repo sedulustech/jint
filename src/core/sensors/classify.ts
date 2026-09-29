@@ -7,16 +7,23 @@
  * (design §7).
  */
 
-import { decompose, languageOf, type Inventory, type InventoryElement } from "../input/walk.ts";
+import {
+  decompose,
+  fileElement,
+  languageOf,
+  projectElement,
+  type Inventory,
+  type WalkElement,
+} from "../input/walk.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
   type AnyState,
+  type Element,
   type Classifier,
   type Measurement,
   type QuestionSpec,
   type Rule,
-  type Span,
   type Unit,
   type UnitKind,
 } from "../types.ts";
@@ -192,15 +199,11 @@ export function toClassifyError(input: string, thrown: unknown): ClassifyError {
 // Element classification — derive the inventory, then classify every element
 // x every inventory-scoped rule, one concurrent call per element (bounded), ONE pass.
 
-/** Which kind of thing a measurement classified: the unit itself, or an element of its inventory. */
-export type ClassifyStage = "file" | "element";
-
-/** One streamed event plus what produced it (and where, for element readings). */
+/** One streamed event plus what produced it. Measurement events carry the element projection. */
 export interface ClassifyEvent {
   readonly event: Measurement | ClassifyError;
-  readonly stage: ClassifyStage;
-  /** The classified element's source span; element-scoped measurements only. */
-  readonly span?: Span;
+  /** The measured subject (tmp/designs/element.md): FileElement for whole-unit readings. */
+  readonly element?: Element;
 }
 
 export interface ClassifyResult {
@@ -267,7 +270,7 @@ export function matchesTarget(target: string, element: TargetableElement): boole
  */
 export const rulesForElement = (
   rules: readonly Rule[],
-  element: InventoryElement,
+  element: WalkElement,
   path?: string,
 ): Rule[] =>
   rules.filter(
@@ -294,7 +297,7 @@ export interface ClassifyFileOptions {
  * before any classification, then hands the result back to classifyFile so nothing re-walks.
  */
 export interface WalkedUnit {
-  readonly inventory: InventoryElement[];
+  readonly inventory: WalkElement[];
   readonly derived?: Inventory;
   /** Why the unit could not be mapped to elements (file units only); streamed as WALK_FAILED. */
   readonly failed: string | null;
@@ -307,7 +310,7 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
     "content" in state && typeof state.content === "string"
       ? state.content
       : String((state as unknown as Record<string, unknown>).diff ?? "");
-  let inventory: InventoryElement[] = [];
+  let inventory: WalkElement[] = [];
   let derived: Inventory | undefined;
   let failed: string | null = null;
   let failedCause: unknown;
@@ -370,7 +373,7 @@ export async function classifyFile(
     );
     collect(
       events,
-      "file",
+      fileElement(fileId, "content" in state ? String(state.content) : ""),
       whole,
       wholeRules.map((rule) => questionKey(rule.name, fileId)),
       state.path,
@@ -383,7 +386,7 @@ export async function classifyFile(
   // no WALK_FAILED either — `failed` stays unpushed for them by the kind check below).
   // Walk-first (design rules-context/03): the walk phase already ran over every file unit; a
   // passed-in walked unit is reused verbatim. Without one (the classify() one-shot door), walk now.
-  let inventory: InventoryElement[] = [];
+  let inventory: WalkElement[] = [];
   let derived: Inventory | undefined;
   let failed: string | null = null;
   let failedCause: unknown;
@@ -404,7 +407,6 @@ export async function classifyFile(
         // renderers print — output stays bounded, the cause rides the Error for debugging.
         failedCause !== undefined ? { cause: failedCause } : undefined,
       ),
-      stage: "file",
     });
   }
 
@@ -417,13 +419,7 @@ export async function classifyFile(
   // Hence: ONE element per call (state = {path, source}), all of that element's rules' questions
   // batched inside the call (multiple questions x one state is fine), elements fanned out by
   // CONCURRENCY, not questions-per-call.
-  const jobs: Array<{
-    id: string;
-    span: Span;
-    source: string;
-    rules: Rule[];
-    role: string;
-  }> = [];
+  const jobs: Array<{ id: string; element: Element; source: string; rules: Rule[] }> = [];
   // Per-rule scoping (issue 008): scoped-out pairs cost zero calls, but they are SIGNAL. One
   // AGGREGATED note per unit (review 396888e finding 4: per-unit-per-rule notes inherit the
   // rules x files fan-out and drown the stream) lists each scoped rule and what it skipped, so
@@ -452,10 +448,9 @@ export async function classifyFile(
     // tmp/designs/element-identity.md).
     jobs.push({
       id: crypto.randomUUID(),
-      span: element.span,
+      element: projectElement(element),
       source: elementContent(element),
       rules: scoped,
-      role: element.role,
     });
   }
   const oversized = derived?.oversizedCount ?? 0;
@@ -470,21 +465,21 @@ export async function classifyFile(
       const input = `${state.path}#${job.id}`;
       const result = await call(
         { path: state.path, source: job.source, id: job.id },
-        compileElementQuestions(job.rules, job.role),
+        compileElementQuestions(job.rules, job.element.kind),
         classifier,
         input,
       );
       if (result.error !== null) {
-        events.push({ event: result.error, stage: "element" });
+        events.push({ event: result.error });
         if (result.error.code === "JEV_AUTH") aborted = true;
         continue;
       }
       for (const [rule, value] of Object.entries(result.answers)) {
         if (typeof value !== "number" || !Number.isFinite(value)) {
-          events.push({ event: invalidAnswerError(input, rule), stage: "element" });
+          events.push({ event: invalidAnswerError(input, rule) });
           continue;
         }
-        events.push({ event: { rule, input, value }, stage: "element", span: job.span });
+        events.push({ event: { rule, input, value }, element: job.element });
       }
     }
   };
@@ -503,7 +498,7 @@ export async function classifyFile(
  * A definition's attached docblock is consumed into the element (design §7.2) — it reads as
  * written.
  */
-function elementContent(element: InventoryElement): string {
+function elementContent(element: WalkElement): string {
   // A docstring reads as written only with its owner: out of context a docstring always reads
   // like narration, so the payload names the module/class/function it documents.
   const owner = element.docstringOf
@@ -535,13 +530,13 @@ async function call(
 /** Distribute one call's answers as measurements keyed by the given question names. */
 function collect(
   events: ClassifyEvent[],
-  stage: ClassifyStage,
+  element: Element,
   result: CallResult,
   questionNames: readonly string[],
   input: string,
 ): void {
   if (result.error !== null) {
-    events.push({ event: result.error, stage });
+    events.push({ event: result.error });
     return;
   }
   for (const key of questionNames) {
@@ -549,9 +544,9 @@ function collect(
     // question keys are "<rule> in <unitId>"; the rule is the part before the unit id
     const rule = key.slice(0, key.indexOf(" in "));
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      events.push({ event: invalidAnswerError(input, rule), stage });
+      events.push({ event: invalidAnswerError(input, rule) });
       continue;
     }
-    events.push({ event: { rule, input, value }, stage });
+    events.push({ event: { rule, input, value }, element });
   }
 }

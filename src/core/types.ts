@@ -164,13 +164,13 @@ export interface Measurement {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
-  /** What was classified: the unit itself, or an element of its inventory. */
-  readonly stage?: "file" | "element";
   /**
-   * Element source span; element-scoped measurements only. Stable sort key (report docs) and
-   * display source — the uuid input is identity, never presentation.
+   * The measured subject, fully typed (tmp/designs/element.md): the element projection — kind,
+   * span, label, parent, kind-specific name. FileElement = the whole-unit judgment; a file IS an
+   * element (glossary), so there is no parallel stage string. The span is the stable sort key
+   * (report docs) and display source — the uuid input is identity, never presentation.
    */
-  readonly span?: Span;
+  readonly element?: Element;
 }
 
 /**
@@ -197,13 +197,17 @@ export interface Finding {
   readonly location?: { readonly input: string; readonly span: Span };
 }
 
-/** Exact location of a element: line+col points and byte offsets into the source. */
-export interface Span {
-  readonly start: { readonly line: number; readonly column: number };
-  readonly end: { readonly line: number; readonly column: number };
-  readonly startByte: number;
-  readonly endByte: number;
-}
+/** Exact location of an element: line+col points and byte offsets into the source. */
+export type Span = import("@jint/contract").Span;
+/** The typed subject of a measurement: the closed element union (tmp/designs/element.md). */
+export type Element = import("@jint/contract").Element;
+export type FileElement = import("@jint/contract").FileElement;
+export type FunctionElement = import("@jint/contract").FunctionElement;
+export type TypeElement = import("@jint/contract").TypeElement;
+export type BindingElement = import("@jint/contract").BindingElement;
+export type ImportElement = import("@jint/contract").ImportElement;
+export type CommentElement = import("@jint/contract").CommentElement;
+export type DocstringOwner = import("@jint/contract").DocstringOwner;
 
 /** State for file units — exactly the shape the model judges. */
 export interface FileState {

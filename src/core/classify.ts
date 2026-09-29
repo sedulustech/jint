@@ -108,9 +108,9 @@ export async function classify(
   );
   const measurements: Measurement[] = [];
   const errors: ClassifyError[] = [];
-  for (const { event, stage } of result.events) {
+  for (const { event, element } of result.events) {
     if (event instanceof ClassifyError) errors.push(event);
-    else measurements.push({ ...event, stage });
+    else measurements.push({ ...event, element });
   }
   return {
     measurements,

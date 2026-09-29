@@ -13,7 +13,7 @@
 
 import { parseChangedList, readChangedSource } from "./input/changed.ts";
 import { resolveInput } from "./input/infer.ts";
-import { MAX_ELEMENT_CHARS, type InventoryElement } from "./input/walk.ts";
+import { MAX_ELEMENT_CHARS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -266,7 +266,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   let tsResolved: ResolvedTsTargets | undefined;
   let diffLens: ReturnType<typeof buildDiffLens> | undefined;
   if (tsRules.length > 0) {
-    const elementsByPath = new Map<string, readonly InventoryElement[]>();
+    const elementsByPath = new Map<string, readonly WalkElement[]>();
     for (let i = 0; i < units.length; i++) {
       const w = walked.get(i);
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
@@ -324,13 +324,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         };
       }
       for (const note of result.notes) yield { type: "note", note };
-      for (const { event, stage, span } of result.events) {
+      for (const { event, element } of result.events) {
         if (event instanceof ClassifyError) {
           yield { type: "error", error: withLanguageHint(event, options) };
           continue;
         }
 
-        yield { type: "measurement", measurement: { ...event, stage, span } };
+        yield { type: "measurement", measurement: { ...event, element } };
         // One pass, no candidacy: every measurement is a reading; the rule's handle is the
         // only threshold. Element readings carry their span into the finding's location.
         const handle = byName.get(event.rule)?.handle;
@@ -347,7 +347,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               input: event.input,
               value: event.value,
               severity: outcome.severity,
-              ...(span !== undefined && { location: { input: event.input, span } }),
+              ...(element !== undefined && {
+                location: { input: event.input, span: element.span },
+              }),
             },
           };
         }
@@ -545,7 +547,7 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   const idFile = (input: string): string => input.split("#")[0] ?? input;
   const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
   const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
-  const measurementSpan = (m: Measurement): number => m.span?.startByte ?? -1;
+  const measurementSpan = (m: Measurement): number => m.element?.span.startByte ?? -1;
   report.findings.sort(
     (a, b) =>
       idFile(a.input).localeCompare(idFile(b.input)) ||
@@ -560,7 +562,7 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       measurementSpan(a) - measurementSpan(b) ||
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule) ||
-      (a.stage ?? "").localeCompare(b.stage ?? "") ||
+      (a.element?.kind ?? "").localeCompare(b.element?.kind ?? "") ||
       a.value - b.value,
   );
   report.errors.sort(

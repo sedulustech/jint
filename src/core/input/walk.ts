@@ -23,7 +23,8 @@ import { Language, Parser, type Language as LanguageType } from "web-tree-sitter
 // Grammar wasms as bundled assets: file paths when running from source, embedded ($bunfs) paths
 // inside the compiled binary — Bun.file reads both, so one loader serves both run modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
-import { SetupError } from "../types.ts";
+import { SetupError, type DocstringOwner, type Element, type Span } from "../types.ts";
+export type { DocstringOwner } from "../types.ts";
 
 /** One-based line, zero-based column — raw tree-sitter position semantics. */
 export interface UnitPoint {
@@ -31,23 +32,17 @@ export interface UnitPoint {
   readonly column: number;
 }
 
-/** Exact location of a element: line+col points and byte offsets into the source. */
-export interface UnitSpan {
-  readonly start: UnitPoint;
-  readonly end: UnitPoint;
-  readonly startByte: number;
-  readonly endByte: number;
-}
-
 /** A element of the inventory; src.slice(span.startByte, span.endByte) === content. */
-export interface InventoryElement {
+export interface WalkElement {
   /** Stable positional label: "d0", "d1", "c0", "i0". */
   readonly label: string;
-  readonly span: UnitSpan;
+  readonly span: Span;
   readonly content: string;
   readonly nodeType: string;
   /** The abstracted noun this element is ("function" | "type" for definitions; "comment"). */
   readonly role: NodeRole;
+  /** The declared name, when the walker could extract one (render-only; never an id). */
+  readonly name?: string;
   /** The comment node(s) consumed into this definition's leading run (outside its content span). */
   readonly attachedComment?: readonly string[];
   /**
@@ -128,10 +123,10 @@ function unwrap(
 export interface Inventory {
   /** True when tree-sitter flagged the parse (partial syntax); the yielded elements are still exact. */
   readonly hasError: boolean;
-  readonly definitions: InventoryElement[];
-  readonly comments: InventoryElement[];
+  readonly definitions: WalkElement[];
+  readonly comments: WalkElement[];
   /** Exactly one merged element when the file has imports; empty otherwise. */
-  readonly imports: InventoryElement[];
+  readonly imports: WalkElement[];
   /** Elements emitted with oversized: true (source over MAX_ELEMENT_CHARS); reported, never judged. */
   readonly oversizedCount: number;
 }
@@ -150,12 +145,6 @@ export const MAX_ELEMENT_CHARS = 8000;
  * touching the walker (design: language adapter, classified in tmp/langsurvey).
  */
 export type NodeRole = "function" | "type" | "binding" | "import" | "comment";
-
-/** The construct a docstring documents; name is empty for the module. */
-export interface DocstringOwner {
-  readonly kind: "module" | "function" | "class";
-  readonly name: string;
-}
 
 interface LanguageMapping {
   /** Grammar node type -> abstract role. Unlisted top-level node types are skipped. */
@@ -230,7 +219,7 @@ const GO: LanguageMapping = {
  * the string node's text and span, or null when there is no docstring. The "block" body node type
  * is python-specific, so this is null for every other language's definitions.
  */
-function docstringOf(node: { namedChildren: any[] }): { text: string; span: UnitSpan } | null {
+function docstringOf(node: { namedChildren: any[] }): { text: string; span: Span } | null {
   const body = node.namedChildren.find((c: any) => c.type === "block");
   const first = body?.namedChildren[0];
   if (!first) return null;
@@ -242,6 +231,45 @@ function docstringOf(node: { namedChildren: any[] }): { text: string; span: Unit
 /** The declared name of a python function/class definition (empty when anonymous/odd parse). */
 function defName(node: { namedChildren: any[] }): string {
   return node.namedChildren.find((c: any) => c.type === "identifier")?.text ?? "";
+}
+
+/**
+ * The declared name of a definition element, best-effort (render-only, never an id): the first
+ * identifier child for the common declaration shapes, the wrapped declarator/spec identifier for
+ * variable-shaped bindings. Undefined when the shape is composite (multi-spec const blocks,
+ * call-expression composites) or the parse is odd — a missing name is honest, a wrong one is not.
+ */
+function declaredName(type: string, node: { namedChildren: any[] }): string | undefined {
+  const firstIdentifier = (n: { namedChildren: any[] }): string | undefined =>
+    n.namedChildren.find((c: any) => c.type === "identifier")?.text;
+  const inner = (n: { namedChildren: any[] }, wrapper: string) =>
+    n.namedChildren.find((c: any) => c.type === wrapper);
+  switch (type) {
+    // variable-shaped declarations refine to a declarator/spec carrying the bound name
+    case "lexical_declaration":
+    case "variable_declaration":
+      return firstIdentifier(inner(node, "variable_declarator") ?? node);
+    case "const_declaration":
+    case "var_declaration": {
+      const spec =
+        inner(node, "const_spec") ?? inner(node, "var_spec") ?? inner(node, "var_spec_list");
+      // multiple specs in one block share no single name
+      return spec !== undefined &&
+        node.namedChildren.filter((c) => /_spec/.test(c.type)).length === 1
+        ? firstIdentifier(spec)
+        : undefined;
+    }
+    // go type_declaration wraps one or more type_spec; single-spec declarations have a name
+    case "type_declaration": {
+      const specs = node.namedChildren.filter((c: any) => c.type === "type_spec");
+      return specs.length === 1 ? firstIdentifier(specs[0]!) : undefined;
+    }
+    // a composite's first identifier is its callee, not a declared name — no name is honest
+    case "call_expression":
+      return undefined;
+    default:
+      return firstIdentifier(node);
+  }
 }
 
 const LANGUAGES: Record<string, LanguageMapping> = {
@@ -289,7 +317,7 @@ async function parserFor(language: string): Promise<Parser> {
 
 interface RawElement {
   readonly label: string;
-  readonly span: UnitSpan;
+  readonly span: Span;
   readonly content: string;
   readonly nodeType: string;
   readonly role: NodeRole;
@@ -306,7 +334,7 @@ function spanOf(node: {
   endIndex: number;
   startPosition: { row: number; column: number };
   endPosition: { row: number; column: number };
-}): UnitSpan {
+}): Span {
   return {
     start: { line: node.startPosition.row + 1, column: node.startPosition.column },
     end: { line: node.endPosition.row + 1, column: node.endPosition.column },
@@ -367,9 +395,9 @@ export async function decompose(source: string, language: string): Promise<Inven
 
   const definitions: RawElement[] = [];
   const comments: RawElement[] = [];
-  const importNodes: Array<{ nodeType: string; text: string; span: UnitSpan }> = [];
+  const importNodes: Array<{ nodeType: string; text: string; span: Span }> = [];
   // Comments awaiting a definition to attach to, in document order.
-  let pending: Array<{ text: string; span: UnitSpan }> = [];
+  let pending: Array<{ text: string; span: Span }> = [];
   const flushStandalone = (parent?: string) => {
     for (const p of pending)
       comments.push({
@@ -413,12 +441,14 @@ export async function decompose(source: string, language: string): Promise<Inven
         };
       }
     }
+    const name = declaredName(type, node);
     definitions.push({
       label,
       span,
       content,
       nodeType: type,
       role,
+      ...(name !== undefined && { name }),
       ...(parent !== undefined && { parent }),
       ...(attached ? { attachedComment: attached } : {}),
       internalCommentCount: countInternalComments(node),
@@ -554,7 +584,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   walk(tree.rootNode, true);
   flushStandalone();
 
-  let importElement: InventoryElement | undefined;
+  let importElement: WalkElement | undefined;
   if (importNodes.length > 0) {
     const first = importNodes[0]!;
     const last = importNodes.at(-1)!;
@@ -601,4 +631,56 @@ export function languageOf(path: string): string | null {
   if (/\.(m|c)?tsx?$/.test(path)) return "typescript";
   if (/\.py$/.test(path)) return "python";
   return /\.go$/.test(path) ? "go" : null;
+}
+
+/**
+ * The Element projection of one walked element (tmp/designs/element.md): kind, span, label, parent,
+ * kind-specific name — never the walk form's content. One noun, two forms: the walk-time
+ * WalkElement carries the source; the wire Element is what a measurement references.
+ */
+export function projectElement(element: WalkElement): Element {
+  const base = {
+    span: element.span,
+    label: element.label,
+    ...(element.parent !== undefined && { parent: element.parent }),
+  };
+  switch (element.role) {
+    case "comment":
+      return {
+        kind: "comment",
+        ...base,
+        ...(element.docstringOf !== undefined && { docstringOf: element.docstringOf }),
+      };
+    case "type":
+      return { kind: "type", ...base, ...(element.name !== undefined && { name: element.name }) };
+    case "binding":
+      return {
+        kind: "binding",
+        ...base,
+        ...(element.name !== undefined && { name: element.name }),
+      };
+    case "import":
+      return { kind: "import", ...base };
+    default:
+      return {
+        kind: "function",
+        ...base,
+        ...(element.name !== undefined && { name: element.name }),
+      };
+  }
+}
+
+/** The FileElement projection of a whole unit judged as one: the unit's full span. */
+export function fileElement(id: string, content: string): Element {
+  const lines = content.split("\n").length;
+  return {
+    kind: "file",
+    span: {
+      start: { line: 1, column: 0 },
+      end: { line: lines, column: 0 },
+      startByte: 0,
+      endByte: content.length,
+    },
+    label: id,
+  };
 }

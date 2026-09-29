@@ -381,8 +381,8 @@ describe("classifyFile — imports routing", () => {
     const first = classified[0]!;
     // the element's identity is a classify-time uuid, not the positional wire id
     expect((first.event as Measurement).input).toMatch(/^src\/app\.ts#[0-9a-f-]{36}$/);
-    expect(first.span?.start.line).toBe(1);
-    expect(first.span?.end.line).toBe(2);
+    expect(first.element?.span.start.line).toBe(1);
+    expect(first.element?.span.end.line).toBe(2);
   });
 
   test("a functions-target rule's count is unchanged over the same fixture", async () => {

@@ -121,7 +121,7 @@ describe("cli: ts rules end-to-end", () => {
       (m: Record<string, unknown>) => m.rule === "will_ts_rule_fire",
     );
     expect(measurement).toBeDefined();
-    expect(measurement?.stage).toBe("element");
+    expect(measurement?.element?.kind).toBe("comment");
     const finding = report.findings.find(
       (f: Record<string, unknown>) => f.rule === "will_ts_rule_fire",
     );
