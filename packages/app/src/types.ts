@@ -1,4 +1,4 @@
-import type { HandlerData } from "@jint/contract";
+import type { Element, HandlerData } from "@jint/contract";
 
 export interface RunSummary {
   id: string;
@@ -26,9 +26,10 @@ export interface Cell {
   rule: string;
   /** Bare path, never carries a #span. */
   file: string;
-  /** Full measurement input: the file path, or path#span for an element. */
+  /** Full measurement input: the file path, or path#uuid for an element. */
   input: string;
-  kind: "file" | "element";
+  /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
+  element?: Element;
   /** The capture file this cell's measurement came from; direct fetch on click. */
   requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
@@ -41,7 +42,8 @@ export interface RequestSummary {
   file: string;
   seq: number;
   ts: string;
-  kind: "elements" | "files" | "unknown";
+  /** True when the capture is a one-element call (state carries source); false = whole-unit. */
+  element: boolean;
   path: string | null;
   elementId: string | null;
   rules: string[];
@@ -86,5 +88,5 @@ export interface Capture {
   };
 }
 
-// jint-report/v1 shapes come from the contract package - one definition, shared with the engine.
-export type { ClassifyErrorInfo, Finding, Measurement, Report } from "@jint/contract";
+// jint-report shapes come from the contract package - one definition, shared with the engine.
+export type { ClassifyErrorInfo, Element, Finding, Measurement, Report } from "@jint/contract";

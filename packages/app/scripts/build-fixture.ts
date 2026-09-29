@@ -146,13 +146,17 @@ async function main(): Promise<void> {
     }
   }
   for (const m of report.measurements) {
-    if (m.stage !== "element") continue;
-    const suffix = m.input.split("#")[1];
     if (m.input.includes("#L")) throw new Error(`positional input leaked: ${m.input}`);
+    if (m.element === undefined)
+      throw new Error(`measurement ${m.input} lacks the element projection`);
+    if (m.element.kind === "file") continue;
+    const suffix = m.input.split("#")[1];
     if (suffix === undefined || !elementIds.has(suffix))
       throw new Error(`measurement ${m.input} has no matching element capture id`);
   }
-  const elementInputs = report.measurements.filter((m) => m.stage === "element").length;
+  const elementInputs = report.measurements.filter(
+    (m) => m.element !== undefined && m.element.kind !== "file",
+  ).length;
   process.stdout.write(
     `generated/elements: ${files.length} captures (${elementIds.size} element captures), ` +
       `${report.measurements.length} measurements (${elementInputs} element), ` +

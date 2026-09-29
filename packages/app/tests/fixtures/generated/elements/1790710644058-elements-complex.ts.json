@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T17:47:57.751Z",
+  "ts": "2026-09-29T19:37:24.058Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
-      "path": "helpers.ts",
-      "source": "export function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}",
-      "id": "eceb815b-bbd5-49cf-b904-ee4ae2377b96"
+      "path": "complex.ts",
+      "source": "render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }",
+      "id": "127108a8-e7e6-44d6-b70e-6e647fb0fd31"
     },
     "questions": {
       "is_name_purposeful": {

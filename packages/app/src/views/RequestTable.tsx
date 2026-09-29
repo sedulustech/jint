@@ -17,6 +17,16 @@ interface Props {
   onSelectPair: (pair: { rule: string; input: string; requestFile?: string }) => void;
 }
 
+/**
+ * The renderable span label ("L4", "L4-L10") — the display half of identity-vs-label: the uuid in
+ * the input stays the key, the span is what the user reads.
+ */
+export function spanLabel(span: { start: { line: number }; end: { line: number } }): string {
+  return span.start.line === span.end.line
+    ? "L" + span.start.line
+    : "L" + span.start.line + "-L" + span.end.line;
+}
+
 const ROW_H = 26;
 const OVERSCAN = 12;
 // sticky column-header row inside the scroll container
@@ -357,7 +367,9 @@ export function RequestTable({
           {c.rule}
         </span>
         <span className={`${INPUT_MIN} shrink-0 truncate px-2`} title={c.input}>
-          {c.kind === "file" ? "(file)" : "#" + c.input.split("#")[1]!.slice(0, 8)}
+          {c.element === undefined || c.element.kind === "file"
+            ? "(file)"
+            : spanLabel(c.element.span)}
         </span>
         <span className={`${SEV_W} shrink-0 px-2`}>{sevDot(c.severity)}</span>
         <span className={`${VALUE_W} shrink-0 px-2`}>{c.value.toFixed(2)}</span>
@@ -437,7 +449,7 @@ export function RequestTable({
                       onSelectPair({
                         rule: r.rules[0] ?? "",
                         input:
-                          r.path !== null && r.elementId !== null && r.kind === "elements"
+                          r.path !== null && r.elementId !== null && r.element
                             ? `${r.path}#${r.elementId}`
                             : (r.path ?? r.file),
                         requestFile: r.file,

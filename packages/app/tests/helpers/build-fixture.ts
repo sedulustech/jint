@@ -210,10 +210,20 @@ writeFileSync(
   ) + "\n",
 );
 
-// run-a report.json: one measurement per question, two findings (one with a #span input)
+// run-a report.json: one measurement per question, two findings (one with a #span input), element projections per v1.1
+// v1.1 element projection: every measurement names its subject — a FunctionElement for the
+// elements-tier inputs, a FileElement for whole-unit ones.
+const SPAN = {
+  start: { line: 1, column: 0 },
+  end: { line: 6, column: 0 },
+  startByte: 0,
+  endByte: 96,
+};
 const measurements = MEAS.flatMap((m) => ({
   ...m,
-  stage: m.input.endsWith(".tsx") ? "element" : "file",
+  element: m.input.includes("#")
+    ? { kind: "function", label: "d0", span: SPAN }
+    : { kind: "file", label: "L1-L6", span: SPAN },
 }));
 // agrees with the handle projection: defect pole of 0.5 under fires_when:false is 0.5 > warn_at 0.45
 const findings = [
@@ -241,7 +251,7 @@ const findings = [
 ];
 const report = {
   tool: "jint",
-  format: "jint-report/v1",
+  format: "jint-report/v1.1",
   version: "0.1.0",
   measurements,
   findings,

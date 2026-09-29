@@ -5,7 +5,7 @@ import { join, resolve, sep } from "node:path";
  * by the Bun prod server (server.ts). All routes under /api/. Paths resolve ONLY inside the
  * requests root; anything traversal-shaped is rejected with 400.
  */
-import { handleSeverity, type HandlerData, type Severity } from "@jint/contract";
+import { handleSeverity, type Element, type HandlerData, type Severity } from "@jint/contract";
 
 export interface ApiOptions {
   /** Absolute requests root. Falls back to JINT_REQUESTS_DIR, then ./tmp/requests. */
@@ -28,7 +28,8 @@ interface RequestSummary {
   file: string;
   seq: number;
   ts: string;
-  kind: "elements" | "files" | "unknown";
+  /** One-element call (state carries source) vs whole-unit (state carries content). */
+  element: boolean;
   path: string | null;
   elementId: string | null;
   rules: string[];
@@ -56,9 +57,10 @@ export interface ApiCell {
   rule: string;
   /** Bare path: matches state.path, never carries a #span. */
   file: string;
-  /** Full measurement input: the file path, or path#span for an element. */
+  /** Full measurement input: the file path, or path#uuid for an element. */
   input: string;
-  kind: "file" | "element";
+  /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
+  element?: Element;
   /** The capture file this measurement came from (element uuid / file-tier join); direct fetch. */
   requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
@@ -277,7 +279,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   let pathRules: Map<string, string[]> | null = null;
   let reportMeasurementCount = 0;
   // per-path measurements, for handle projection of rows without findings
-  let pathValues: Map<string, { rule: string; value: number }[]> | null = null;
+  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
+
   // the manifest's handle snapshot: the exact semantics the engine compiled, shipped as data
   let handles: Record<string, HandlerData> | null = null;
   try {
@@ -295,7 +298,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   if (reportFile) {
     try {
       const report = JSON.parse(await readFile(join(dir, "report.json"), "utf8")) as {
-        measurements?: { input: string; rule: string; value?: number }[];
+        measurements?: {
+          input: string;
+          rule: string;
+          value?: number;
+          element?: Element;
+        }[];
         findings?: { input: string; rule: string; severity: Severity }[];
       };
       // composite key: the join is (input, rule) - a bare-input key would let one rule's
@@ -316,7 +324,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         } else pathRules.set(path, [m.rule]);
         if (typeof m.value === "number") {
           const vals = pathValues.get(m.input);
-          const entry = { rule: m.rule, value: m.value };
+          const entry = { rule: m.rule, value: m.value, ...(m.element && { element: m.element }) };
           if (vals) vals.push(entry);
           else pathValues.set(m.input, [entry]);
         }
@@ -417,7 +425,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           file,
           seq: 0,
           ts: capture.ts ?? "",
-          kind: /-elements-/.test(file) ? "elements" : /-files-/.test(file) ? "files" : "unknown",
+          element: typeof state.source === "string",
           path: typeof state.path === "string" ? state.path : null,
           elementId,
           rules: canonical ?? [...new Set(rules)],
@@ -456,8 +464,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   const fileCapture = new Map<string, string>();
   for (const r of parsed) {
     if (r.path === null) continue;
-    if (r.elementId !== null) elementCapture.set(`${r.path}#${r.elementId}`, r.file);
-    else if (r.kind !== "elements") fileCapture.set(r.path, r.file);
+    if (r.element) elementCapture.set(`${r.path}#${r.elementId}`, r.file);
+    else fileCapture.set(r.path, r.file);
   }
   const cells: ApiCell[] = [];
   if (pathValues !== null) {
@@ -466,12 +474,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       const isElement = input.includes("#");
       const requestFile =
         (isElement ? elementCapture.get(input) : undefined) ?? fileCapture.get(file);
-      for (const { rule, value } of entries) {
+      for (const { rule, value, element } of entries) {
         cells.push({
           rule,
           file,
           input,
-          kind: isElement ? "element" : "file",
+          element,
           requestFile,
           value,
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),

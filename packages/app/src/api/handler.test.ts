@@ -57,12 +57,28 @@ describe("getRun cells index", () => {
       const dir = join(root, "100");
       mkdirSync(dir);
       writeFileSync(join(dir, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
+      const span = {
+        start: { line: 4, column: 0 },
+        end: { line: 10, column: 0 },
+        startByte: 20,
+        endByte: 200,
+      };
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
           measurements: [
-            { rule: "r_a", input: "src/x.ts", value: 0.9 },
-            { rule: "r_b", input: "src/x.ts#L1", value: 0.1 },
+            {
+              rule: "r_a",
+              input: "src/x.ts",
+              value: 0.9,
+              element: { kind: "file", label: "L1-L10", span },
+            },
+            {
+              rule: "r_b",
+              input: "src/x.ts#abc",
+              value: 0.1,
+              element: { kind: "function", label: "d0", span },
+            },
           ],
           findings: [{ rule: "r_a", input: "src/x.ts", severity: "warn" }],
           errors: [],
@@ -74,7 +90,11 @@ describe("getRun cells index", () => {
           rule: string;
           input: string;
           file: string;
-          kind: string;
+          element?: {
+            kind: string;
+            label: string;
+            span: { start: { line: number }; end: { line: number } };
+          };
           severity: string | null;
         }[];
       };
@@ -83,11 +103,16 @@ describe("getRun cells index", () => {
       expect(a).toMatchObject({
         input: "src/x.ts",
         file: "src/x.ts",
-        kind: "file",
+        element: { kind: "file" },
         severity: "warn",
       });
       const b = body.cells.find((c) => c.rule === "r_b")!;
-      expect(b).toMatchObject({ input: "src/x.ts#L1", file: "src/x.ts", kind: "element" });
+      // the union variant IS the kind: no stringly field, the projection rides the cell
+      expect(b).toMatchObject({
+        input: "src/x.ts#abc",
+        file: "src/x.ts",
+        element: { kind: "function", label: "d0", span: { start: { line: 4 }, end: { line: 10 } } },
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -120,7 +145,23 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [{ rule: "r_a", input: `src/x.ts#${id}`, value: 0.1 }],
+          measurements: [
+            {
+              rule: "r_a",
+              input: `src/x.ts#${id}`,
+              value: 0.1,
+              element: {
+                kind: "function",
+                label: "d0",
+                span: {
+                  start: { line: 1, column: 0 },
+                  end: { line: 1, column: 22 },
+                  startByte: 0,
+                  endByte: 22,
+                },
+              },
+            },
+          ],
           findings: [],
           errors: [],
         }),
@@ -132,11 +173,11 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
       const res = await get("/api/runs/generated/elements", root);
       const body = (await res.json()) as {
         id: string;
-        cells: { rule: string; kind: string; requestFile?: string }[];
+        cells: { rule: string; element?: { kind: string }; requestFile?: string }[];
       };
       expect(body.id).toBe("generated/elements");
       const cell = body.cells.find((c) => c.rule === "r_a")!;
-      expect(cell.kind).toBe("element");
+      expect(cell.element?.kind).toBe("function");
       // uuid identity join: the cell names the ELEMENT capture, not a file-tier fallback
       expect(cell.requestFile).toBe(file);
       const report = await get("/api/runs/generated/elements/report", root);

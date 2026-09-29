@@ -27,7 +27,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
     run.data?.requests.find((r) => r.file === requestFile) ??
     // span lookup: element identity is exact; a bare-path pair prefers the file-tier capture
     run.data?.requests.find(
-      (r) => r.path === file && (span !== null ? r.elementId === span : r.kind !== "elements"),
+      (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
     ) ??
     run.data?.requests.find((r) => r.path === file);
   const query = useQuery({

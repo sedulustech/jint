@@ -1,311 +1,1071 @@
 {
   "tool": "jint",
-  "format": "jint-report/v1",
+  "format": "jint-report/v1.1",
   "version": "0.1.0",
   "measurements": [
     {
       "rule": "is_filename_fitting",
       "input": "complex.ts",
       "value": 0.3,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 25,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 978
+        },
+        "label": "L1-L25"
+      }
     },
     {
       "rule": "is_greppable",
       "input": "complex.ts",
       "value": 0.9,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 25,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 978
+        },
+        "label": "L1-L25"
+      }
     },
     {
       "rule": "is_vocabulary_consistent",
       "input": "complex.ts",
       "value": 0.9,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 25,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 978
+        },
+        "label": "L1-L25"
+      }
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#6ebc1dc9-5557-4ee1-b753-faef203fd1ac",
+      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 92
+          },
+          "startByte": 0,
+          "endByte": 92
+        },
+        "label": "c0"
+      }
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#6ebc1dc9-5557-4ee1-b753-faef203fd1ac",
+      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 92
+          },
+          "startByte": 0,
+          "endByte": 92
+        },
+        "label": "c0"
+      }
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#6ebc1dc9-5557-4ee1-b753-faef203fd1ac",
+      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 92
+          },
+          "startByte": 0,
+          "endByte": 92
+        },
+        "label": "c0"
+      }
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#f6e0c63f-3b76-4578-9b37-1e97b7b9ad06",
+      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 85
+          },
+          "startByte": 93,
+          "endByte": 178
+        },
+        "label": "c1"
+      }
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#f6e0c63f-3b76-4578-9b37-1e97b7b9ad06",
+      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 85
+          },
+          "startByte": 93,
+          "endByte": 178
+        },
+        "label": "c1"
+      }
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#f6e0c63f-3b76-4578-9b37-1e97b7b9ad06",
+      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "comment",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 85
+          },
+          "startByte": 93,
+          "endByte": 178
+        },
+        "label": "c1"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 10,
+            "column": 1
+          },
+          "startByte": 180,
+          "endByte": 499
+        },
+        "label": "d0",
+        "name": "computeInvoiceTotal"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 12,
+            "column": 0
+          },
+          "end": {
+            "line": 12,
+            "column": 27
+          },
+          "startByte": 501,
+          "endByte": 528
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 12,
+            "column": 0
+          },
+          "end": {
+            "line": 12,
+            "column": 27
+          },
+          "startByte": 501,
+          "endByte": 528
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 12,
+            "column": 0
+          },
+          "end": {
+            "line": 12,
+            "column": 27
+          },
+          "startByte": 501,
+          "endByte": 528
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 12,
+            "column": 0
+          },
+          "end": {
+            "line": 12,
+            "column": 27
+          },
+          "startByte": 501,
+          "endByte": 528
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 15,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          },
+          "startByte": 556,
+          "endByte": 840
+        },
+        "label": "d2",
+        "parent": "d1"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.1,
-      "stage": "element"
+      "element": {
+        "kind": "binding",
+        "span": {
+          "start": {
+            "line": 24,
+            "column": 0
+          },
+          "end": {
+            "line": 24,
+            "column": 37
+          },
+          "startByte": 940,
+          "endByte": 977
+        },
+        "label": "d3",
+        "name": "DEFAULT_TAX_RATE"
+      }
     },
     {
       "rule": "is_filename_fitting",
       "input": "helpers.ts",
       "value": 0.3,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 7,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 279
+        },
+        "label": "L1-L7"
+      }
     },
     {
       "rule": "is_greppable",
       "input": "helpers.ts",
       "value": 0.9,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 7,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 279
+        },
+        "label": "L1-L7"
+      }
     },
     {
       "rule": "is_vocabulary_consistent",
       "input": "helpers.ts",
       "value": 0.9,
-      "stage": "file"
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 7,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 279
+        },
+        "label": "L1-L7"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 59
+          },
+          "startByte": 0,
+          "endByte": 59
+        },
+        "label": "d0"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 59
+          },
+          "startByte": 0,
+          "endByte": 59
+        },
+        "label": "d0"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 59
+          },
+          "startByte": 0,
+          "endByte": 59
+        },
+        "label": "d0"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 59
+          },
+          "startByte": 0,
+          "endByte": 59
+        },
+        "label": "d0"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 81
+          },
+          "startByte": 60,
+          "endByte": 141
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 81
+          },
+          "startByte": 60,
+          "endByte": 141
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 81
+          },
+          "startByte": 60,
+          "endByte": 141
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "type",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 2,
+            "column": 81
+          },
+          "startByte": 60,
+          "endByte": 141
+        },
+        "label": "d1"
+      }
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     },
     {
       "rule": "is_function_srp",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.25,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.9,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 2,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.5,
-      "stage": "element"
+      "element": {
+        "kind": "function",
+        "span": {
+          "start": {
+            "line": 4,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 1
+          },
+          "startByte": 143,
+          "endByte": 278
+        },
+        "label": "d2",
+        "name": "mergeInvoices"
+      }
     }
   ],
   "findings": [
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
         "span": {
           "start": {
             "line": 4,
@@ -322,11 +1082,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
         "span": {
           "start": {
             "line": 4,
@@ -343,11 +1103,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#08866dcb-e2e6-4756-86fc-5270c2ef9c74",
+        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
         "span": {
           "start": {
             "line": 4,
@@ -364,11 +1124,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+        "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
         "span": {
           "start": {
             "line": 12,
@@ -385,11 +1145,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#63d3bf8a-655a-42b6-b152-cca200309939",
+        "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
         "span": {
           "start": {
             "line": 12,
@@ -406,11 +1166,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
         "span": {
           "start": {
             "line": 15,
@@ -427,11 +1187,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
         "span": {
           "start": {
             "line": 15,
@@ -448,11 +1208,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#f2c87549-cefc-4d42-adfa-eb9e16c6c4db",
+        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
         "span": {
           "start": {
             "line": 15,
@@ -469,11 +1229,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+        "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
         "span": {
           "start": {
             "line": 24,
@@ -490,11 +1250,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#357d5117-419e-42ff-b213-8fc1e4af4622",
+        "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
         "span": {
           "start": {
             "line": 24,
@@ -511,11 +1271,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+        "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
         "span": {
           "start": {
             "line": 1,
@@ -532,11 +1292,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#d3c7cc52-4241-42e4-abb5-ed46f637335c",
+        "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
         "span": {
           "start": {
             "line": 1,
@@ -553,11 +1313,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+        "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
         "span": {
           "start": {
             "line": 2,
@@ -574,11 +1334,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#046cc48b-5daf-49ad-a1da-e4f605dbb393",
+        "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
         "span": {
           "start": {
             "line": 2,
@@ -595,11 +1355,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
         "span": {
           "start": {
             "line": 4,
@@ -616,11 +1376,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
         "span": {
           "start": {
             "line": 4,
@@ -637,11 +1397,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#eceb815b-bbd5-49cf-b904-ee4ae2377b96",
+        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
         "span": {
           "start": {
             "line": 4,

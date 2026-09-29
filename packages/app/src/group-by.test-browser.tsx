@@ -144,9 +144,10 @@ test("file mode parents expand; file-level cells render as explicit (file) rows"
     },
     { timeout: 10_000 },
   );
-  // multi.tsx holds two cells (two rules), both element-tier inputs (path#span)
+  // multi.tsx holds two cells (two rules), both element-tier: each renders its span label
+  // ("L1-L6" from Element.span) — the uuid stays the key, the span is the display
   const children = [...document.querySelectorAll("button")].filter((b) =>
-    (b.textContent ?? "").includes("#E1"),
+    (b.textContent ?? "").includes("L1-L6"),
   );
   expect(children.length).toBe(2);
 });
@@ -290,7 +291,7 @@ test("generated fixture: an element cell click resolves to the element capture b
     () => {
       const cells = [...document.querySelectorAll("button")].filter(
         (b) =>
-          (b.textContent ?? "").includes("#") &&
+          (b.textContent ?? "").includes("L") &&
           (b.textContent ?? "").includes("is_name_purposeful"),
       );
       if (cells.length === 0) throw new Error("element cells not expanded");
@@ -299,10 +300,10 @@ test("generated fixture: an element cell click resolves to the element capture b
   );
   const cells = [...document.querySelectorAll("button")].filter(
     (b) =>
-      (b.textContent ?? "").includes("#") && (b.textContent ?? "").includes("is_name_purposeful"),
+      (b.textContent ?? "").includes("L") && (b.textContent ?? "").includes("is_name_purposeful"),
   );
-  // cell labels are short ids, never positional L-spans
-  for (const c of cells) expect(c.textContent).not.toMatch(/#L\d/);
+  // cells render the span label from Element.span ("L9" / "L12-L20"), never the uuid
+  for (const c of cells) expect(c.textContent).toMatch(/L\d+(-L\d+)?/);
   cells[0]!.click();
   await waitFor(
     () => {
