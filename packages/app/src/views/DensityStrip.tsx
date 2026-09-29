@@ -87,3 +87,41 @@ export function DensityStrip({
     </div>
   );
 }
+
+/**
+ * Mini distribution for a group parent row: one bin per value bin across 0..1 with the 0.5 ref line
+ * and the rule's threshold marks. Shape, not verdict.
+ */
+export function MiniStrip({ values, marks = [] }: { values: number[]; marks?: number[] }) {
+  const BINS = 24;
+  const bins = useMemo(() => {
+    const b = new Array(BINS).fill(0);
+    for (const v of values) b[Math.min(BINS - 1, Math.floor(v * BINS))] += 1;
+    return b;
+  }, [values]);
+  const max = Math.max(1, ...bins);
+  return (
+    <div
+      className="relative h-2.5 w-28 shrink-0"
+      title="distribution of cell values 0..1 · line 0.5"
+    >
+      <div className="absolute inset-0 flex items-end gap-px">
+        {bins.map((n, i) => (
+          <div
+            key={i}
+            className="min-w-px flex-1 bg-[var(--chart-bar)]"
+            style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
+          />
+        ))}
+      </div>
+      <div className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]" style={{ left: "50%" }} />
+      {marks.map((t) => (
+        <div
+          key={t}
+          className="absolute bottom-0 top-0 w-px bg-[var(--chart-mark)]"
+          style={{ left: `${t * 100}%` }}
+        />
+      ))}
+    </div>
+  );
+}

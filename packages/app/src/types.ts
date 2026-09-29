@@ -17,6 +17,22 @@ export interface RunDetail {
   handles: Record<string, HandlerData>;
   /** Report.json was a fragment (torn write): canonical rules + severities fell back to captures. */
   reportDegraded: boolean;
+  /** Flat rule-target cells (one rule x one input). Empty when the report is degraded/absent. */
+  cells: Cell[];
+}
+
+/** One rule measured against one input - the atom the grouped table navigates by. */
+export interface Cell {
+  rule: string;
+  /** Bare path, never carries a #span. */
+  file: string;
+  /** Full measurement input: the file path, or path#span for an element. */
+  input: string;
+  kind: "file" | "element";
+  /** The rule's own reading (p-space noul, or a score index for score handles). */
+  value: number;
+  /** Null = no verdict (never "clean"). */
+  severity: "error" | "warn" | null;
 }
 
 export interface RequestSummary {
@@ -31,10 +47,8 @@ export interface RequestSummary {
   durationMs: number | null;
   maxProb: number | null;
   minProb: number | null;
-  /** Every noul answer in the capture, sorted. Drives histograms and borderline sort. */
+  /** Every noul answer in the capture, sorted. Drives histograms. */
   answers: number[];
-  /** Min |noul - 0.5| over the capture's answers: 0 == dead undecided. */
-  borderline: number | null;
   /** Provable verdict: finding join first, else handle-snapshot projection. Null = no verdict. */
   severity: "error" | "warn" | null;
   /** Per-rule verdicts at this input (span-aware join), keyed by canonical rule name. */

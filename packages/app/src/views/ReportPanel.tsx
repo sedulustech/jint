@@ -5,12 +5,11 @@ import type { Report } from "../types";
 
 interface Props {
   runId: string;
-  /** The rule the request table is currently filtered to; clicking the active rule clears it. */
-  activeRule: string | null;
-  onRuleSelect: (rule: string | null) => void;
+  /** Clicking a rule surfaces that rule's group: the table switches to rule mode, expands + scrolls. */
+  onRuleFocus: (rule: string) => void;
 }
 
-export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
+export function ReportPanel({ runId, onRuleFocus }: Props) {
   const report = useQuery({ queryKey: ["report", runId], queryFn: () => fetchReport(runId) });
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
 
@@ -73,21 +72,12 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
           {stats.map((s) => (
             <tr
               key={s.rule}
-              onClick={() => onRuleSelect(activeRule === s.rule ? null : s.rule)}
-              className={
-                "cursor-pointer border-t border-border hover:bg-muted " +
-                (activeRule === s.rule ? "bg-accent" : "")
-              }
-              title="filter the request table to this rule"
+              onClick={() => onRuleFocus(s.rule)}
+              className="cursor-pointer border-t border-border hover:bg-muted"
+              title="show this rule's group in the table"
             >
               <td className="py-1 pr-4">
-                <span
-                  className={
-                    activeRule === s.rule ? "font-bold text-accent-foreground" : "text-foreground"
-                  }
-                >
-                  {s.rule}
-                </span>
+                <span className="text-foreground">{s.rule}</span>
               </td>
               <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
               <td className={"py-1 pr-4 " + (s.findings > 0 ? "text-sev-warn" : "text-sev-clean")}>

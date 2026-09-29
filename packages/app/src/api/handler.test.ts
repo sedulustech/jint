@@ -49,3 +49,47 @@ describe("listRuns error surface", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("getRun cells index", () => {
+  test("cells are one rule x one input, severity joined span-aware, [] without a report", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-cells-"));
+    try {
+      const dir = join(root, "100");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
+      writeFileSync(
+        join(dir, "report.json"),
+        JSON.stringify({
+          measurements: [
+            { rule: "r_a", input: "src/x.ts", value: 0.9 },
+            { rule: "r_b", input: "src/x.ts#L1", value: 0.1 },
+          ],
+          findings: [{ rule: "r_a", input: "src/x.ts", severity: "warn" }],
+          errors: [],
+        }),
+      );
+      const res = await get("/api/runs/100", root);
+      const body = (await res.json()) as {
+        cells: {
+          rule: string;
+          input: string;
+          file: string;
+          kind: string;
+          severity: string | null;
+        }[];
+      };
+      expect(body.cells).toHaveLength(2);
+      const a = body.cells.find((c) => c.rule === "r_a")!;
+      expect(a).toMatchObject({
+        input: "src/x.ts",
+        file: "src/x.ts",
+        kind: "file",
+        severity: "warn",
+      });
+      const b = body.cells.find((c) => c.rule === "r_b")!;
+      expect(b).toMatchObject({ input: "src/x.ts#L1", file: "src/x.ts", kind: "element" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNowStrict } from "date-fns";
 import { useEffect, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
+import { PairDetail } from "./views/PairDetail";
 import { ReportPanel } from "./views/ReportPanel";
-import { RequestDetail } from "./views/RequestDetail";
 import { RequestTable } from "./views/RequestTable";
 import { useTheme } from "./views/useTheme";
-import type { Report, RequestSummary } from "./types";
+import type { Report } from "./types";
+import type { Mode } from "./views/useRun";
 import type { Theme } from "./views/useTheme";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,17 @@ const relTime = (mtime: string) =>
 export function App() {
   const { theme, choose } = useTheme();
   const [runId, setRunId] = useState<string | null>(null);
-  const [selected, setSelected] = useState<RequestSummary | null>(null);
+  // the detail pane is addressed by a rule-target pair, never by request identity
+  const [selectedPair, setSelectedPair] = useState<{
+    rule: string;
+    input: string;
+    requestFile?: string;
+  } | null>(null);
+  const [mode, setMode] = useState<Mode>("request");
+  // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
+  const [focusRule, setFocusRule] = useState<string | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
   const [reportOverride, setReportOverride] = useState<boolean | null>(null);
-  // rule filter shared by the report table (setter) and the request table (consumer)
-  const [ruleFilter, setRuleFilter] = useState<string | null>(null);
   const runs = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
   const reportQ = useQuery({
     queryKey: ["report", runId],
@@ -52,12 +59,13 @@ export function App() {
   // a new run resets the user's overrides so the default-open rule applies fresh
   useEffect(() => {
     setReportOverride(null);
-    setRuleFilter(null);
+    setMode("request");
+    setSelectedPair(null);
   }, [runId]);
 
   const pick = (id: string) => {
     setRunId(id === "" ? null : id);
-    setSelected(null);
+    setSelectedPair(null);
   };
 
   return (
@@ -198,19 +206,36 @@ export function App() {
         <>
           {reportOpen && (
             <div id="report-panel">
-              <ReportPanel runId={runId} activeRule={ruleFilter} onRuleSelect={setRuleFilter} />
+              <ReportPanel
+                runId={runId}
+                onRuleFocus={(rule) => {
+                  setMode("rule");
+                  setFocusRule(rule);
+                }}
+              />
             </div>
           )}
           <div className="flex min-h-0 flex-1">
             <RequestTable
               runId={runId}
-              ruleFilter={ruleFilter}
-              onClearRule={() => setRuleFilter(null)}
-              onSelect={setSelected}
-              selectedFile={selected?.file ?? null}
+              mode={mode}
+              onMode={(m) => {
+                setMode(m);
+                setSelectedPair(null);
+              }}
+              focusRule={focusRule}
+              onFocusHandled={() => setFocusRule(null)}
+              selectedFile={selectedPair?.requestFile ?? null}
+              onSelectPair={setSelectedPair}
             />
-            {selected !== null && (
-              <RequestDetail runId={runId} summary={selected} onClose={() => setSelected(null)} />
+            {selectedPair !== null && (
+              <PairDetail
+                runId={runId}
+                rule={selectedPair.rule}
+                input={selectedPair.input}
+                requestFile={selectedPair.requestFile}
+                onClose={() => setSelectedPair(null)}
+              />
             )}
           </div>
         </>

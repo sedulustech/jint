@@ -36,10 +36,8 @@ interface RequestSummary {
   durationMs: number | null;
   maxProb: number | null;
   minProb: number | null;
-  /** Every noul answer in the capture, sorted. Drives histograms and borderline sort. */
+  /** Every noul answer in the capture, sorted. Drives histograms. */
   answers: number[];
-  /** Min |noul - 0.5| over the capture's answers: 0 == dead undecided. */
-  borderline: number | null;
   /**
    * Provable verdict for the run's rules at this input: finding join first, else the manifest's
    * handle snapshot projected onto the report's measurements. Null = no verdict (never "clean").
@@ -47,6 +45,24 @@ interface RequestSummary {
   severity: Severity | null;
   /** Per-rule verdicts at this input (span-aware join). Drives per-question answer cards. */
   severities: Record<string, Severity | null>;
+}
+
+/**
+ * One rule measured against one input (file or element): the atom the grouped table navigates by.
+ * Built from the report's measurements, severity joined span-aware (finding first, handle
+ * projection second). Empty when the report is degraded/absent - no measurements, no cells.
+ */
+export interface ApiCell {
+  rule: string;
+  /** Bare path: matches state.path, never carries a #span. */
+  file: string;
+  /** Full measurement input: the file path, or path#span for an element. */
+  input: string;
+  kind: "file" | "element";
+  /** The rule's own reading (p-space noul, or a score index for score handles). */
+  value: number;
+  /** Null = no verdict (never "clean"). */
+  severity: Severity | null;
 }
 
 /** Route an /api/* request. Returns null when the URL is not an API route (caller falls through). */
@@ -194,6 +210,29 @@ async function listRuns(root: string): Promise<{
 }
 
 /**
+ * Cell severity for one (input, rule): finding join first, keyed by the FULL measurement input,
+ * else the handle snapshot projected onto that input's own reading. Null = no verdict.
+ */
+function cellSeverity(
+  input: string,
+  rule: string,
+  findingSev: Map<string, Severity>,
+  pathValues: Map<string, { rule: string; value: number }[]>,
+  handles: Record<string, HandlerData> | null,
+): Severity | null {
+  const direct = findingSev.get(`${input}\u0000${rule}`);
+  if (direct !== undefined) return direct;
+  const handle = handles?.[rule];
+  if (handle === undefined) return null;
+  for (const { rule: r, value } of pathValues.get(input) ?? []) {
+    if (r !== rule) continue;
+    const s = handleSeverity(value, handle);
+    if (s !== null) return s;
+  }
+  return null;
+}
+
+/**
  * Parse every capture in the run dir into a summary row. seq is the stable order of captures (by
  * ts, then filename); duration is approximated as file mtime - capture ts (the tap writes the file
  * right after the response lands; not a measured latency).
@@ -229,8 +268,10 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         measurements?: { input: string; rule: string; value?: number }[];
         findings?: { input: string; rule: string; severity: Severity }[];
       };
+      // composite key: the join is (input, rule) - a bare-input key would let one rule's
+      // verdict answer another rule's lookup at the same path
       for (const f of report.findings ?? []) {
-        findingSev.set(f.input, f.severity);
+        findingSev.set(`${f.input}\u0000${f.rule}`, f.severity);
       }
       pathRules = new Map();
       pathValues = new Map();
@@ -280,7 +321,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           .map((a) => {
             if (typeof a?.noul === "number") return a.noul;
             // score answers join the p-space summary normalized to 0..1 so a score-only capture
-            // (or a capture whose score is the only answer) is visible in max-p/strip/borderline
+            // (or a capture whose score is the only answer) is visible in max-p and the strip
             if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
               return a.score / (Object.keys(a.legend).length - 1);
             }
@@ -365,7 +406,6 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           maxProb: probs.length ? Math.max(...probs) : null,
           minProb: probs.length ? Math.min(...probs) : null,
           answers: probs.sort((a, b) => a - b),
-          borderline: probs.length ? Math.min(...probs.map((n) => Math.abs(n - 0.5))) : null,
           severity,
           severities,
         };
@@ -377,12 +417,30 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   const parsed = rows.filter((r): r is RequestSummary => r !== null);
   parsed.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
   parsed.forEach((r, i) => (r.seq = i + 1));
+  // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
+  // by the FULL input (path#span), so element identity survives; severity = span-aware join.
+  const cells: ApiCell[] = [];
+  if (pathValues !== null) {
+    for (const [input, entries] of pathValues) {
+      for (const { rule, value } of entries) {
+        cells.push({
+          rule,
+          file: input.split("#")[0]!,
+          input,
+          kind: input.includes("#") ? "element" : "file",
+          value,
+          severity: cellSeverity(input, rule, findingSev, pathValues, handles),
+        });
+      }
+    }
+  }
   return {
     id,
     requestCount: parsed.length,
     hasReport: reportFile,
     requests: parsed,
     handles: handles ?? {},
+    cells,
     reportDegraded,
   };
 }
