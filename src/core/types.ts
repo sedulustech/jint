@@ -103,8 +103,8 @@ interface RuleBase {
   readonly name: string;
   /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
   readonly target: RuleTarget;
-  /** Reads the value, decides whether it matters. */
-  readonly handle: (value: number) => HandleResult;
+  /** Reads the full answer, decides whether it matters. */
+  readonly handle: (answer: import("@jint/contract").ClassifiedAnswer) => HandleResult;
   /**
    * The declarative data the handle was compiled from; absent when the handle is null or the rule
    * is TS-tier (code policy). This is what the run manifest snapshots.
@@ -164,6 +164,8 @@ export interface Measurement {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
+  readonly probabilities?: Record<string, number>;
+  readonly confidence?: number;
   /**
    * The measured subject, fully typed (tmp/designs/element.md): the element projection — kind,
    * span, label, parent, kind-specific name. FileElement = the whole-unit judgment; a file IS an
@@ -285,7 +287,9 @@ export type RuleResult = NoulResult | ScoreResult;
 export type Classifier = (
   state: AnyState,
   questions: Record<string, QuestionSpec>,
-) => Promise<Record<string, number>>;
+) => Promise<Record<string, import("@jint/contract").ClassifiedAnswer>>;
+
+export type { ClassifiedAnswer } from "@jint/contract";
 
 /** What the lint pipeline streams. */
 export type LintEvent =

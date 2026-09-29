@@ -49,6 +49,10 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
+  // v1.2, additive (score rules): the distribution the value summarizes. Optional — pre-v1.2
+  // dumps without the fields still parse.
+  probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
+  confidence: Type.Optional(Type.Number()),
   // v1.1: the measured subject, fully typed (tmp/designs/element.md); replaces the v1 stage/span
   // proxies. Additive: v1 reports without it still parse.
   element: Type.Optional(ELEMENT_SCHEMA),

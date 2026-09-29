@@ -8,7 +8,7 @@
 import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
 
-export const REPORT_FORMAT = "jint-report/v1.1";
+export const REPORT_FORMAT = "jint-report/v1.2";
 
 export function renderJson(report: LintReport): string {
   return (
@@ -21,6 +21,10 @@ export function renderJson(report: LintReport): string {
           rule: m.rule,
           input: m.input,
           value: m.value,
+          // v1.2, additive (score rules): the distribution the value summarizes. Old dumps
+          // without the fields still parse.
+          ...(m.probabilities !== undefined && { probabilities: m.probabilities }),
+          ...(m.confidence !== undefined && { confidence: m.confidence }),
           ...(m.element !== undefined && { element: m.element }),
         })),
         findings: report.findings.map((s) => ({

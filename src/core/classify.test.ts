@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { classify, type ClassifyOutcome } from "./classify.ts";
 import { SetupError, type Classifier, type HandleResult, type Rule } from "./types.ts";
+import type { ClassifiedAnswer } from "@jint/contract";
 
 const SOURCE = [
   "export function add(a: number, b: number): number {",
@@ -35,10 +36,10 @@ const choiceFunctionRule: Rule = {
 function fakeClassifier(values: Record<string, number>, states: unknown[] = []): Classifier {
   return async (state, questions) => {
     states.push(state);
-    const out: Record<string, number> = {};
+    const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
       const rule = key.includes(" in ") ? key.slice(0, key.indexOf(" in ")) : key;
-      out[key] = values[rule]!;
+      out[key] = { value: values[rule]! };
     }
     return out;
   };

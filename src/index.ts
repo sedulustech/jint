@@ -30,6 +30,7 @@ export type {
   CommentElement,
   DocstringOwner,
   Span,
+  ClassifiedAnswer,
 } from "@jint/contract";
 export { defaultRules } from "./core/sensors/defaults.ts";
 export {

@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T19:37:24.057Z",
+  "ts": "2026-09-29T20:46:52.481Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "export class InvoicePrinter",
-      "id": "44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8"
+      "id": "bafe9131-1ebb-4706-8bfb-c67b7ad66166"
     },
     "questions": {
       "is_name_purposeful": {
@@ -63,7 +63,14 @@
       },
       "is_readable": {
         "type": "score",
-        "score": 2
+        "score": 2,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.8,
+          "2": 0.05,
+          "3": 0.05
+        },
+        "confidence": 0.8
       }
     },
     "usage": {

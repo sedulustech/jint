@@ -1,6 +1,6 @@
 {
   "tool": "jint",
-  "format": "jint-report/v1.1",
+  "format": "jint-report/v1.2",
   "version": "0.1.0",
   "measurements": [
     {
@@ -68,7 +68,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
+      "input": "complex.ts#9ad7d36b-54a1-4b9b-93a5-c35f54804ec1",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -89,7 +89,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
+      "input": "complex.ts#9ad7d36b-54a1-4b9b-93a5-c35f54804ec1",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -110,7 +110,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#69754cf9-7a99-4409-9413-ad8fc3ec55c8",
+      "input": "complex.ts#9ad7d36b-54a1-4b9b-93a5-c35f54804ec1",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -131,7 +131,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
+      "input": "complex.ts#641cb351-583f-4d29-aad6-0b99d47f59fa",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -152,7 +152,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
+      "input": "complex.ts#641cb351-583f-4d29-aad6-0b99d47f59fa",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -173,7 +173,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#5c62cfd9-3078-4ef2-abc4-3fea360b395c",
+      "input": "complex.ts#641cb351-583f-4d29-aad6-0b99d47f59fa",
       "value": 0.1,
       "element": {
         "kind": "comment",
@@ -194,7 +194,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.2,
       "element": {
         "kind": "function",
@@ -216,7 +216,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -238,7 +238,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -260,7 +260,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -282,8 +282,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -304,7 +311,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -326,7 +333,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 0.2,
       "element": {
         "kind": "type",
@@ -347,7 +354,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -368,7 +375,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -389,8 +396,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "type",
         "span": {
@@ -410,7 +424,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.2,
       "element": {
         "kind": "function",
@@ -432,7 +446,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -454,7 +468,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -476,7 +490,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -498,8 +512,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -520,7 +541,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -542,7 +563,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.2,
       "element": {
         "kind": "binding",
@@ -564,7 +585,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -586,7 +607,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -608,7 +629,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.25,
       "element": {
         "kind": "binding",
@@ -630,7 +651,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.9,
       "element": {
         "kind": "binding",
@@ -652,8 +673,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "binding",
         "span": {
@@ -674,7 +702,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -759,7 +787,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 0.2,
       "element": {
         "kind": "type",
@@ -780,7 +808,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -801,7 +829,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -822,8 +850,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "type",
         "span": {
@@ -843,7 +878,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 0.2,
       "element": {
         "kind": "type",
@@ -864,7 +899,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 0.25,
       "element": {
         "kind": "type",
@@ -885,7 +920,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -906,8 +941,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "type",
         "span": {
@@ -927,7 +969,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.2,
       "element": {
         "kind": "function",
@@ -949,7 +991,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -971,7 +1013,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.25,
       "element": {
         "kind": "function",
@@ -993,7 +1035,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -1015,8 +1057,15 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 2,
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.8,
+        "2": 0.05,
+        "3": 0.05
+      },
+      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -1037,7 +1086,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -1061,11 +1110,11 @@
   "findings": [
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+        "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
         "span": {
           "start": {
             "line": 4,
@@ -1082,11 +1131,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+        "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
         "span": {
           "start": {
             "line": 4,
@@ -1103,11 +1152,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+      "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#afbffe5a-cb07-4a24-8b90-73dd3ee369b0",
+        "input": "complex.ts#245c8692-8248-4324-8a3e-7e6befb46da0",
         "span": {
           "start": {
             "line": 4,
@@ -1124,11 +1173,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+        "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
         "span": {
           "start": {
             "line": 12,
@@ -1145,11 +1194,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+      "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#44ba2c6c-4ec4-4f90-a9ed-d6bd835994b8",
+        "input": "complex.ts#bafe9131-1ebb-4706-8bfb-c67b7ad66166",
         "span": {
           "start": {
             "line": 12,
@@ -1166,11 +1215,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+        "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
         "span": {
           "start": {
             "line": 15,
@@ -1187,11 +1236,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+        "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
         "span": {
           "start": {
             "line": 15,
@@ -1208,11 +1257,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+      "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#127108a8-e7e6-44d6-b70e-6e647fb0fd31",
+        "input": "complex.ts#077b4eb0-7391-418f-b9f8-e15eb370dcef",
         "span": {
           "start": {
             "line": 15,
@@ -1229,11 +1278,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+        "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
         "span": {
           "start": {
             "line": 24,
@@ -1250,11 +1299,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+      "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#7db89c10-ea6f-4944-abb3-d9989eb0091c",
+        "input": "complex.ts#35054c6e-9243-400b-9198-45d0922a92d2",
         "span": {
           "start": {
             "line": 24,
@@ -1271,11 +1320,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+        "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
         "span": {
           "start": {
             "line": 1,
@@ -1292,11 +1341,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+      "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#61140830-277a-4b65-8f4c-fee9f5c7f99a",
+        "input": "helpers.ts#d6a2d760-10d4-4a1d-9a80-ee56df4994aa",
         "span": {
           "start": {
             "line": 1,
@@ -1313,11 +1362,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+        "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
         "span": {
           "start": {
             "line": 2,
@@ -1334,11 +1383,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+      "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#d6d9f588-5f1b-461b-9c88-3f1817f74a86",
+        "input": "helpers.ts#66038643-f1b9-44dc-ae18-ebf28b9e7fe4",
         "span": {
           "start": {
             "line": 2,
@@ -1355,11 +1404,11 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.25,
       "severity": "error",
       "location": {
-        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+        "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
         "span": {
           "start": {
             "line": 4,
@@ -1376,11 +1425,11 @@
     },
     {
       "rule": "is_readable",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 2,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+        "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
         "span": {
           "start": {
             "line": 4,
@@ -1397,11 +1446,11 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+      "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#344fd46f-d725-438f-a756-46d2ea2722a4",
+        "input": "helpers.ts#93af8725-4f96-48df-ae01-12773ca2ae85",
         "span": {
           "start": {
             "line": 4,

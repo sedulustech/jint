@@ -253,7 +253,7 @@ const findings = [
 ];
 const report = {
   tool: "jint",
-  format: "jint-report/v1.1",
+  format: "jint-report/v1.2",
   version: "0.1.0",
   measurements,
   findings,

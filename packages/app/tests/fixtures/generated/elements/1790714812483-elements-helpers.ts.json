@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T19:37:24.062Z",
+  "ts": "2026-09-29T20:46:52.483Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "helpers.ts",
       "source": "export type Invoice = { id: string; lines: InvoiceLine[] };",
-      "id": "61140830-277a-4b65-8f4c-fee9f5c7f99a"
+      "id": "d6a2d760-10d4-4a1d-9a80-ee56df4994aa"
     },
     "questions": {
       "is_name_purposeful": {
@@ -63,7 +63,14 @@
       },
       "is_readable": {
         "type": "score",
-        "score": 2
+        "score": 2,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.8,
+          "2": 0.05,
+          "3": 0.05
+        },
+        "confidence": 0.8
       }
     },
     "usage": {

@@ -8,7 +8,7 @@ import {
   type ResolvedTsTarget,
   type ResolvedTsTargets,
 } from "./execute.ts";
-import type { AnyState, Classifier, QuestionSpec } from "../types.ts";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "../types.ts";
 import type { TsElement, TsRule } from "./sdk.ts";
 
 /** Splits a unit inventory by path the way lint hands it over (one file here). */
@@ -41,8 +41,8 @@ function fakeClassifier(value: number, calls: Call[] = [], error: Error | null =
   return async (state, questions) => {
     calls.push({ state, questions });
     if (error !== null) throw error;
-    const answers: Record<string, number> = {};
-    for (const name of Object.keys(questions)) answers[name] = value;
+    const answers: Record<string, ClassifiedAnswer> = {};
+    for (const name of Object.keys(questions)) answers[name] = { value };
     return answers;
   };
 }
@@ -293,7 +293,7 @@ describe("runTsRules — JEV_RESPONSE_INVALID guard", () => {
   test("a non-finite answer streams JEV_RESPONSE_INVALID too", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async (_s, q) =>
-      Object.fromEntries(Object.keys(q).map((k) => [k, Number.NaN])),
+      Object.fromEntries(Object.keys(q).map((k) => [k, { value: Number.NaN }])),
     );
     expect(
       phase.events.some((e) => e.type === "error" && e.error.code === "JEV_RESPONSE_INVALID"),

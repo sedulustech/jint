@@ -3,7 +3,8 @@ import { defaultRules } from "./defaults.ts";
 import type { Rule } from "../types.ts";
 
 /** The severity a rule's handler returns for a value (null = silent). */
-const sev = (rule: Rule | undefined, v: number): string | null => rule?.handle(v)?.severity ?? null;
+const sev = (rule: Rule | undefined, v: number): string | null =>
+  rule?.handle({ value: v })?.severity ?? null;
 
 const CALIBRATION = "tests/data/calibration/healthy-baselines.json";
 const SENSITIVITY = "tests/data/calibration/mutant-readings.json";

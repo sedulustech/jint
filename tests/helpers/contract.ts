@@ -51,7 +51,7 @@ export function expectContract(r: RunResult, spec: ContractSpec): Record<string,
   } else if (spec.stdout === "json") {
     try {
       parsed = JSON.parse(r.stdout);
-      if (parsed?.format !== "jint-report/v1.1") {
+      if (parsed?.format !== "jint-report/v1.2") {
         failures.push(
           `stdout: JSON lacks format jint-report/v1 (got ${JSON.stringify(parsed?.format)})`,
         );

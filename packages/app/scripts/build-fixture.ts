@@ -72,7 +72,15 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
       const rule = key.split(" in ")[0]!;
       const value = VALUES[rule] ?? (q.type === "score" ? 1 : 0.9);
       answers[key] =
-        q.type === "score" ? { type: "score", score: value } : { type: "noul", noul: value };
+        q.type === "score"
+          ? {
+              type: "score",
+              score: value,
+              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); mass on level 1
+              probabilities: { 0: 0.1, 1: 0.8, 2: 0.05, 3: 0.05 },
+              confidence: 0.8,
+            }
+          : { type: "noul", noul: value };
     }
     return new Response(
       JSON.stringify({

@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T19:37:24.058Z",
+  "ts": "2026-09-29T20:46:52.481Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
-      "source": "render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }",
-      "id": "127108a8-e7e6-44d6-b70e-6e647fb0fd31"
+      "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}",
+      "id": "245c8692-8248-4324-8a3e-7e6befb46da0"
     },
     "questions": {
       "is_name_purposeful": {
@@ -87,7 +87,14 @@
       },
       "is_readable": {
         "type": "score",
-        "score": 2
+        "score": 2,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.8,
+          "2": 0.05,
+          "3": 0.05
+        },
+        "confidence": 0.8
       }
     },
     "usage": {

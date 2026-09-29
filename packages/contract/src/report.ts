@@ -73,11 +73,28 @@ export type Element =
   | ImportElement
   | CommentElement;
 
+/**
+ * The full typed answer a classifier returns for one question: the value always; the score
+ * distribution (per-level probabilities, confidence) only when the question is score-kind — noul's
+ * probability IS the whole answer (no separate confidence).
+ */
+export interface ClassifiedAnswer {
+  readonly value: number;
+  readonly probabilities?: Record<string, number>;
+  readonly confidence?: number;
+}
+
 /** One judged reading: a rule's value at one input (file or element). */
 export interface Measurement {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
+  /**
+   * The score distribution when the rule is score-kind (v1.2, additive — pre-v1.2 reports lack it):
+   * the per-level probabilities and confidence the value summarizes.
+   */
+  readonly probabilities?: Record<string, number>;
+  readonly confidence?: number;
   /** The measured subject: what was classified, fully typed. Absent only in pre-v1.1 reports. */
   readonly element?: Element;
 }

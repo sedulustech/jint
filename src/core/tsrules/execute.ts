@@ -225,6 +225,7 @@ export async function runTsRules(
     // diff is context resolution only: it never changes WHO is judged, only what a rule knows.
     const ctx = diff !== undefined ? { targets, diff } : { targets };
     const results: RuleResult[] = [];
+    const values: number[] = [];
     const aligned: TsElement[] = [];
     for (const self of targets) {
       if (isAborted() || fatal) break;
@@ -267,7 +268,7 @@ export async function runTsRules(
           [rule.name]: { type: "noul", instructions: spec.instructions, criteria: spec.criteria },
         });
         const noul = answers[rule.name];
-        if (typeof noul !== "number" || !Number.isFinite(noul)) {
+        if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
           events.push({
             type: "error",
             error: new ClassifyError(
@@ -278,7 +279,7 @@ export async function runTsRules(
           });
           continue;
         }
-        value = noul;
+        value = noul.value;
       } catch (thrown) {
         const error = toClassifyError(input, thrown);
         events.push({ type: "error", error });
@@ -286,6 +287,7 @@ export async function runTsRules(
         continue;
       }
       results.push({ type: "noul", noul: value });
+      values.push(value);
       aligned.push(self);
       events.push({
         type: "measurement",
@@ -331,9 +333,8 @@ export async function runTsRules(
       }
     } else if (rule.handle !== undefined) {
       const handle = compileNoulHandler(rule.handle);
-      for (let i = 0; i < results.length; i++) {
-        const value = (results[i] as { noul: number }).noul;
-        const outcome = handle(value);
+      for (let i = 0; i < values.length; i++) {
+        const outcome = handle({ value: values[i]! });
         if (outcome === null) continue;
         const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome);
         if (finding !== null) events.push({ type: "finding", finding });

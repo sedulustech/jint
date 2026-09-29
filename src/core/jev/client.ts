@@ -34,6 +34,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSpec } from "../types.ts";
 import { requestDebug } from "./debug.ts";
+import type { ClassifiedAnswer } from "@jint/contract";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
 const NOUL_ANSWER_SCHEMA = Type.Object({
@@ -41,10 +42,16 @@ const NOUL_ANSWER_SCHEMA = Type.Object({
   noul: Type.Number({ minimum: 0, maximum: 1 }),
 });
 
-/** The score answer boundary: the expected score of the ordered rubric (may fall between levels). */
+/**
+ * The score answer boundary: the expected score of the ordered rubric (may fall between levels),
+ * plus the distribution it summarizes — every Score answer carries per-level probabilities and a
+ * confidence (docs.typesafe.ai/primitives/score.md), required on the wire.
+ */
 const SCORE_ANSWER_SCHEMA = Type.Object({
   type: Type.Literal("score"),
   score: Type.Number(),
+  probabilities: Type.Record(Type.String(), Type.Number()),
+  confidence: Type.Number(),
 });
 
 export interface ClassifierConfig {
@@ -107,8 +114,8 @@ function extractAnswers(
   result: SystemOneResult<Questions>,
   questions: Record<string, QuestionSpec>,
   input: string,
-): Record<string, number> {
-  const out: Record<string, number> = {};
+): Record<string, ClassifiedAnswer> {
+  const out: Record<string, ClassifiedAnswer> = {};
   for (const [name, spec] of Object.entries(questions)) {
     const answer: unknown = result.answers[name];
     const schema = spec.type === "score" ? SCORE_ANSWER_SCHEMA : NOUL_ANSWER_SCHEMA;
@@ -116,13 +123,16 @@ function extractAnswers(
       throw new ClassifyError(
         "JEV_RESPONSE_INVALID",
         input,
-        `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: "score", score: number }' : '{ type: "noul", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,
+        `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: "score", score, probabilities, confidence }' : '{ type: "noul", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,
       );
     }
     out[name] =
       spec.type === "score"
-        ? (answer as Static<typeof SCORE_ANSWER_SCHEMA>).score
-        : (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul;
+        ? (() => {
+            const s = answer as Static<typeof SCORE_ANSWER_SCHEMA>;
+            return { value: s.score, probabilities: s.probabilities, confidence: s.confidence };
+          })()
+        : { value: (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul };
   }
   return out;
 }

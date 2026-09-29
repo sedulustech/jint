@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import {
   ClassifyError,
+  type ClassifiedAnswer,
   type Classifier,
   type Measurement,
   type Rule,
@@ -32,13 +33,13 @@ const FILE_ID = elementWireId({ start: { line: 1 }, end: { line: 2 } });
 function classifierWith(values: Record<string, number>, calls: Unit[] = []): Classifier {
   return async (state, questions) => {
     calls.push({ kind: "file", state: state as UnitState });
-    const out: Record<string, number> = {};
+    const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
       // keys are "<rule> in <unitId>" (multi-rule) or the bare unitId (single rule)
       const rule = key.includes(" in ")
         ? key.slice(0, key.indexOf(" in "))
         : Object.keys(values)[0]!;
-      if (rule in values) out[key] = values[rule]!;
+      if (rule in values) out[key] = { value: values[rule]! };
     }
     return out;
   };
@@ -281,7 +282,7 @@ describe("classifyFile — element fan-out", () => {
       // state is the single element's source, not an elements array
       expect("source" in state).toBe(true);
       expect("elements" in state).toBe(false);
-      return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+      return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     };
     const { measurements, errors } = await classify(content, [defaultRules.is_name_purposeful!], {
       path: "src/gen.ts", // extension names the grammar; "input" (default) would WALK_FAILED
@@ -303,7 +304,7 @@ describe("classifyFile — role routing", () => {
     const { classifyFile } = await import("./classify.ts");
     const defRule = defaultRules.is_name_purposeful!; // definitions-target: judges const names too
     const classifier: Classifier = async (_state, questions) =>
-      Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+      Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     const { events } = await classifyFile(
       {
         kind: "file",
@@ -320,7 +321,7 @@ describe("classifyFile — role routing", () => {
   test("an arrow-function const still gets the functions-target measurement", async () => {
     const { classifyFile } = await import("./classify.ts");
     const classifier: Classifier = async (_state, questions) =>
-      Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+      Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     const { events } = await classifyFile(
       {
         kind: "file",
@@ -354,7 +355,7 @@ describe("classifyFile — imports routing", () => {
   ].join("\n");
   const noImports = "export function main(): number { return 1; }\n";
   const classifier: Classifier = async (_state, questions) =>
-    Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
 
   test("an imports-target rule classifies the import element when imports exist", async () => {
     const { classifyFile } = await import("./classify.ts");

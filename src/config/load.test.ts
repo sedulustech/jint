@@ -137,9 +137,9 @@ describe("validateConfig / defaultConfig", () => {
       "inline",
     );
     const t = firesTrue.rules[0]!.handle;
-    expect(t(0.1)).toBeNull();
-    expect(t(0.35)).toEqual({ severity: "warn" });
-    expect(t(0.5)).toEqual({ severity: "error" });
+    expect(t({ value: 0.1 })).toBeNull();
+    expect(t({ value: 0.35 })).toEqual({ severity: "warn" });
+    expect(t({ value: 0.5 })).toEqual({ severity: "error" });
 
     // less_than: the low side is the defect (no flip - the operator declares it)
     const firesFalse = validateConfig(
@@ -157,9 +157,9 @@ describe("validateConfig / defaultConfig", () => {
       "inline",
     );
     const f = firesFalse.rules[0]!.handle;
-    expect(f(0.9)).toBeNull();
-    expect(f(0.55)).toEqual({ severity: "warn" });
-    expect(f(0.4)).toEqual({ severity: "error" });
+    expect(f({ value: 0.9 })).toBeNull();
+    expect(f({ value: 0.55 })).toEqual({ severity: "warn" });
+    expect(f({ value: 0.4 })).toEqual({ severity: "error" });
 
     // silent_band: defect-pole readings inside [lo, hi] stay silent
     const banded = validateConfig(
@@ -177,9 +177,9 @@ describe("validateConfig / defaultConfig", () => {
       "inline",
     );
     const b = banded.rules[0]!.handle;
-    expect(b(0.5)).toBeNull(); // inside the band
-    expect(b(0.35)).toEqual({ severity: "warn" }); // below the band still surfaces
-    expect(b(0.7)).toEqual({ severity: "warn" }); // above it too (no error_at declared)
+    expect(b({ value: 0.5 })).toBeNull(); // inside the band
+    expect(b({ value: 0.35 })).toEqual({ severity: "warn" }); // below the band still surfaces
+    expect(b({ value: 0.7 })).toEqual({ severity: "warn" }); // above it too (no error_at declared)
   });
 
   test("handler validation names the rule and the exact field", () => {
@@ -285,12 +285,12 @@ describe("validateConfig / defaultConfig", () => {
       "inline",
     );
     const handle = config.rules[0]!.handle;
-    expect(handle(1)).toEqual({ severity: "warn" });
-    expect(handle(0)).toBeNull();
+    expect(handle({ value: 1 })).toEqual({ severity: "warn" });
+    expect(handle({ value: 0 })).toBeNull();
     // Off-rubric scores are impossible states (jev bounds the score to the criteria count);
     // they fail loud rather than silently dropping the reading.
-    expect(() => handle(7)).toThrow(/outside the criteria scale/);
-    expect(() => handle(Number.NaN)).toThrow(/outside the criteria scale/);
+    expect(() => handle({ value: 7 })).toThrow(/outside the criteria scale/);
+    expect(() => handle({ value: Number.NaN })).toThrow(/outside the criteria scale/);
   });
 
   test("score map length must equal the criteria count; at least one non-ok", () => {

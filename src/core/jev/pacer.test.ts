@@ -65,9 +65,9 @@ describe("withTimeout", () => {
       code: "JEV_TIMEOUT",
       input: "a.ts",
     });
-    const fast: Classifier = async () => ({ ok: 1 });
+    const fast: Classifier = async () => ({ ok: { value: 1 } });
     expect(await withTimeout(fast, 5)({ path: "a.ts", source: "a" } as AnyState, {})).toEqual({
-      ok: 1,
+      ok: { value: 1 },
     });
     // identity when no timeout
     expect(withTimeout(fast, undefined)).toBe(fast);
@@ -83,7 +83,7 @@ describe("withLimit / withPacer", () => {
       maxInFlight = Math.max(maxInFlight, inFlight);
       await new Promise((r) => setTimeout(r, 2));
       inFlight--;
-      return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+      return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     };
     const limited = withLimit(classifier, 3);
     await Promise.all(Array.from({ length: 12 }, () => limited(state, { q: {} as never })));

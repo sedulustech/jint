@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import {
   ClassifyError,
+  type ClassifiedAnswer,
   type ClassifyErrorCode,
   type QuestionSpec,
   type UnitState,
@@ -46,11 +47,18 @@ const scoreQuestions: Record<string, QuestionSpec> = {
 
 const scoreBody = {
   model: "jev-latest",
-  answers: { is_readable: { type: "score", score: 2, confidence: 0.9 } },
+  answers: {
+    is_readable: {
+      type: "score",
+      score: 2,
+      probabilities: { 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 },
+      confidence: 0.9,
+    },
+  },
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
-async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, number>> {
+async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, ClassifiedAnswer>> {
   const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
   return await classifier(state, questions);
 }
@@ -65,7 +73,7 @@ function expectClassifyError(code: ClassifyErrorCode): (e: unknown) => void {
 describe("createClassifier", () => {
   test("happy path: noul answers keyed by question name", async () => {
     const answers = await judgeOnce(fakeFetch(happyBody));
-    expect(answers.is_name_purposeful).toBe(0.72);
+    expect(answers.is_name_purposeful?.value).toBe(0.72);
   });
 
   test("score questions compile to ScoreQuestion and answers extract the score", async () => {
@@ -79,7 +87,9 @@ describe("createClassifier", () => {
     };
     const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
     const answers = await classifier(state, scoreQuestions);
-    expect(answers.is_readable).toBe(2);
+    expect(answers.is_readable?.value).toBe(2);
+    expect(answers.is_readable?.confidence).toBe(0.9);
+    expect(answers.is_readable?.probabilities).toEqual({ 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 });
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_readable.type).toBe("score");
     expect(body.questions.is_readable.criteria).toEqual([
@@ -184,6 +194,20 @@ describe("createClassifier", () => {
       {
         model: "jev-latest",
         answers: { is_name_purposeful: { type: "score", score: 3 } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+      {
+        model: "jev-latest",
+        answers: {
+          is_name_purposeful: { type: "score", score: 1, confidence: 0.9 },
+        },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+      {
+        model: "jev-latest",
+        answers: {
+          is_name_purposeful: { type: "score", score: 1, probabilities: { 0: 0.5, 1: 0.5 } },
+        },
         usage: { input_tokens: 1, output_tokens: 1 },
       },
       {

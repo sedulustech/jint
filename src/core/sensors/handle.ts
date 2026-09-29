@@ -30,10 +30,17 @@ export {
   type ThresholdCondition,
 } from "@jint/contract";
 
-import { handleSeverity, type NoulHandlerData, type ScoreHandlerData } from "@jint/contract";
+import {
+  handleSeverity,
+  resolveScore,
+  type ClassifiedAnswer,
+  type NoulHandlerData,
+  type ScoreHandlerData,
+} from "@jint/contract";
+export type { ClassifiedAnswer };
 
-/** The compiled handle: value -> outcome, or null (silent). */
-export type Handle = (value: number) => HandleOutcome | null;
+/** The compiled handle: the full classified answer -> outcome, or null (silent). */
+export type Handle = (answer: ClassifiedAnswer) => HandleOutcome | null;
 
 /**
  * The single data -> function seam for noul rules. Direction is declared per threshold (the
@@ -43,8 +50,8 @@ export type Handle = (value: number) => HandleOutcome | null;
  */
 export function compileNoulHandler(data: NoulHandlerData): Handle {
   // the contract evaluator owns the semantics (operators, band, strict comparisons)
-  return (value) => {
-    const severity = handleSeverity(value, data);
+  return (answer) => {
+    const severity = handleSeverity(answer.value, data);
     return severity === null ? null : { severity };
   };
 }
@@ -54,18 +61,19 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
  * Findings carry no message — consumers join by rule id to the config (v1 contract).
  */
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
-  return (value) => {
+  return (answer) => {
     // jev bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
     // state, not a silent null - fail loud (SetupError INTERNAL), per repo convention (the
     // contract evaluator alone would degrade to silent).
-    const index = Math.round(value);
+    const index = Math.round(answer.value);
     if (!Number.isInteger(index) || index < 0 || index >= data.map.length) {
       throw new SetupError(
         "INTERNAL",
-        `score ${value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
+        `score ${answer.value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
       );
     }
-    const severity = handleSeverity(index, data);
+    // the resolver owns the read; DEFAULT (and only) read is round-to-nearest-level
+    const severity = resolveScore(answer.value, answer.probabilities, answer.confidence, data);
     return severity === null ? null : { severity };
   };
 }

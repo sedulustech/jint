@@ -19,6 +19,7 @@ import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
   type AnyState,
+  type ClassifiedAnswer,
   type Element,
   type Classifier,
   type Measurement,
@@ -154,7 +155,7 @@ export async function* classifyUnit(
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
   const batch = compileRuleQuestions(rules, unitId, unit.kind);
-  let answers: Record<string, number>;
+  let answers: Record<string, ClassifiedAnswer>;
   try {
     answers = await classifier(unit.state, batch.questions);
   } catch (thrown) {
@@ -163,12 +164,22 @@ export async function* classifyUnit(
   }
   for (const rule of rules) {
     const key = [...batch.attribution.entries()].find(([, a]) => a.rule === rule.name)![0];
-    const value = answers[key];
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    const answer = answers[key];
+    if (
+      answer === undefined ||
+      typeof answer.value !== "number" ||
+      !Number.isFinite(answer.value)
+    ) {
       yield invalidAnswerError(unit.state.path, rule.name);
       continue;
     }
-    yield { rule: rule.name, input: unit.state.path, value };
+    yield {
+      rule: rule.name,
+      input: unit.state.path,
+      value: answer.value,
+      ...(answer.probabilities !== undefined && { probabilities: answer.probabilities }),
+      ...(answer.confidence !== undefined && { confidence: answer.confidence }),
+    };
   }
 }
 
@@ -474,12 +485,25 @@ export async function classifyFile(
         if (result.error.code === "JEV_AUTH") aborted = true;
         continue;
       }
-      for (const [rule, value] of Object.entries(result.answers)) {
-        if (typeof value !== "number" || !Number.isFinite(value)) {
+      for (const [rule, answer] of Object.entries(result.answers)) {
+        if (
+          answer === undefined ||
+          typeof answer.value !== "number" ||
+          !Number.isFinite(answer.value)
+        ) {
           events.push({ event: invalidAnswerError(input, rule) });
           continue;
         }
-        events.push({ event: { rule, input, value }, element: job.element });
+        events.push({
+          event: {
+            rule,
+            input,
+            value: answer.value,
+            ...(answer.probabilities !== undefined && { probabilities: answer.probabilities }),
+            ...(answer.confidence !== undefined && { confidence: answer.confidence }),
+          },
+          element: job.element,
+        });
       }
     }
   };
@@ -510,7 +534,7 @@ function elementContent(element: WalkElement): string {
 }
 
 interface CallResult {
-  readonly answers: Record<string, number>;
+  readonly answers: Record<string, ClassifiedAnswer>;
   readonly error: ClassifyError | null;
 }
 
@@ -540,13 +564,26 @@ function collect(
     return;
   }
   for (const key of questionNames) {
-    const value = result.answers[key];
+    const answer = result.answers[key];
     // question keys are "<rule> in <unitId>"; the rule is the part before the unit id
     const rule = key.slice(0, key.indexOf(" in "));
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (
+      answer === undefined ||
+      typeof answer.value !== "number" ||
+      !Number.isFinite(answer.value)
+    ) {
       events.push({ event: invalidAnswerError(input, rule) });
       continue;
     }
-    events.push({ event: { rule, input, value }, element });
+    events.push({
+      event: {
+        rule,
+        input,
+        value: answer.value,
+        ...(answer.probabilities !== undefined && { probabilities: answer.probabilities }),
+        ...(answer.confidence !== undefined && { confidence: answer.confidence }),
+      },
+      element,
+    });
   }
 }

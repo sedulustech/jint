@@ -24,7 +24,7 @@ describe("contract evaluator == engine compiled handles", () => {
       for (const value of values) {
         let expected = null;
         try {
-          expected = compiled(value);
+          expected = compiled({ value });
         } catch {
           expected = null; // out-of-scale score: engine fails loud, contract degrades to silent
         }

@@ -38,7 +38,7 @@ const LENS_RULE = [
 ].join("\n");
 
 const classifier: Classifier = async (_state, questions) =>
-  Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+  Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
 
 function setup(): void {
   mkdirSync(DIR + "/src", { recursive: true });
@@ -53,7 +53,7 @@ function capturingClassifier(states: string[]): Classifier {
   return async (state, questions) => {
     const s = state as { ctxdiff?: string };
     if (typeof s.ctxdiff === "string") states.push(s.ctxdiff);
-    return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
   };
 }
 

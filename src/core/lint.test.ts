@@ -8,6 +8,7 @@ import {
   ClassifyError,
   SetupError,
   type AnyState,
+  type ClassifiedAnswer,
   type Classifier,
   type LintEvent,
   type Rule,
@@ -53,15 +54,16 @@ function sensorOf(key: string): string {
 
 function classifierWith(values: Record<string, number>): Classifier {
   return async (_state, questions) => {
-    const out: Record<string, number> = {};
+    const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
       const rule = sensorOf(key);
-      out[key] =
+      const v =
         values[key] ??
         (rule !== "" ? values[rule] : undefined) ??
         (rule !== "" ? SILENT[rule as keyof typeof SILENT] : undefined) ??
         Object.values(values)[0] ??
         0.5;
+      out[key] = { value: v };
     }
     return out;
   };
@@ -273,7 +275,7 @@ describe("lint", () => {
           classifier: async (state, questions) => {
             const element = Number(/f(\d+)/.exec(state.path)?.[1] ?? 0);
             await new Promise((r) => setTimeout(r, (7 - element) * 6 + Math.random() * 6));
-            return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.3]));
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.3 }]));
           },
         }),
       );
@@ -317,7 +319,7 @@ describe("lint", () => {
             await new Promise(() => {}); // hung request: never settles
           }
           await new Promise((r) => setTimeout(r, 2));
-          return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.3]));
+          return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.3 }]));
         },
       }),
     );
@@ -340,7 +342,7 @@ describe("lint", () => {
     const calls: string[] = [];
     const classifier: Classifier = async (state, questions) => {
       calls.push(state.path);
-      return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+      return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     };
     const report = await collectReport(
       lint({
@@ -385,7 +387,7 @@ describe("lint", () => {
           input: dir,
           classifier: async (state, questions) => {
             n += Object.keys(questions).length;
-            return Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
           },
         }),
       );
@@ -410,7 +412,7 @@ describe("lint", () => {
         },
         input: dir,
         classifier: async (state, questions) =>
-          Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5])),
+          Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }])),
       }),
     );
     expect(report.measurements).toHaveLength(0);
@@ -856,7 +858,7 @@ describe("lint — walk-first yield ordering (pure JSON)", () => {
 
 describe("lint — str unit is its own inventory", () => {
   const classifier: Classifier = async (_state, questions) =>
-    Object.fromEntries(Object.keys(questions).map((k) => [k, 0.5]));
+    Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
 
   test("any rule judges the str unit whole, no grammar, no WALK_FAILED", async () => {
     // an element-target rule over a str unit: the whole input is the element, no mapping

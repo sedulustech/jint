@@ -61,9 +61,16 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
       const answers: Record<string, unknown> = {};
       for (const [rule, question] of Object.entries(body.questions ?? {})) {
         const override = opts.answerFor?.({ rule, question, request: entry });
+        // score answers carry the full distribution (the wire requires it); the mock mass sits
+        // on level 1 with the score summarized around it
         answers[rule] =
           question.type === "score"
-            ? { type: "score", score: override ?? opts.score ?? 1 }
+            ? {
+                type: "score",
+                score: override ?? opts.score ?? 1,
+                probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
+                confidence: 0.8,
+              }
             : { type: "noul", noul: override ?? opts.noul ?? 0.8 };
       }
       return Response.json(

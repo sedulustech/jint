@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateConfig } from "../../src/config/load.ts";
 import { collectReport, lint } from "../../src/core/lint.ts";
-import type { AnyState, Classifier, QuestionSpec } from "../../src/core/types.ts";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "../../src/core/types.ts";
 
 // The proof rule runs the real pipeline end to end: config tsRules -> jint:sdk load -> walk ->
 // pairing via element.parent -> classifier. The classifier is a stub that records the composed
@@ -15,8 +15,9 @@ describe("is_comment_paired_with_code (example)", () => {
     const states: AnyState[] = [];
     const classifier: Classifier = async (state, questions: Record<string, QuestionSpec>) => {
       states.push(state);
-      const answers: Record<string, number> = {};
-      for (const name of Object.keys(questions)) answers[name] = 0.1; // defect pole 0.9 > error_at 0.85
+      const answers: Record<string, ClassifiedAnswer> = {};
+      // defect pole 0.9 > error_at 0.85
+      for (const name of Object.keys(questions)) answers[name] = { value: 0.1 };
       return answers;
     };
     const config = validateConfig(

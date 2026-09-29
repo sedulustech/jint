@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T19:37:24.060Z",
+  "ts": "2026-09-29T20:46:52.483Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "complex.ts",
-      "source": "// A deliberately mixed file: nested functions, a class, varied naming — the walker has real",
-      "id": "69754cf9-7a99-4409-9413-ad8fc3ec55c8"
+      "source": "// structure to descend into and the classifier has real per-element states to judge.",
+      "id": "641cb351-583f-4d29-aad6-0b99d47f59fa"
     },
     "questions": {
       "is_comment_narration": {
