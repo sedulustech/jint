@@ -20,12 +20,25 @@ import {
 } from "@/components/ui/select";
 
 const baseName = (p: string) => p.split("/").pop() ?? p;
+
+// deep link: #runs/<id> opens that run directly (tolerate trailing slash / whitespace)
+const runIdFromHash = (): string | null => {
+  if (typeof window === "undefined" || !window.location) return null;
+  const m = window.location.hash.match(/^\s*#runs\/([^/\s]+)\/?\s*$/);
+  return m ? m[1] : null;
+};
+const syncHash = (id: string) => {
+  if (typeof window === "undefined" || !window.location) return;
+  // empty clears the link without a history entry; a real id pushes one so back works
+  if (id === "") window.history?.pushState(null, "", "#");
+  else window.location.hash = `#runs/${id}`;
+};
 const relTime = (mtime: string) =>
   `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
 
 export function App() {
   const { theme, choose } = useTheme();
-  const [runId, setRunId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(runIdFromHash);
   // the detail pane is addressed by a rule-target pair, never by request identity
   const [selectedPair, setSelectedPair] = useState<{
     rule: string;
@@ -66,6 +79,7 @@ export function App() {
   const pick = (id: string) => {
     setRunId(id === "" ? null : id);
     setSelectedPair(null);
+    syncHash(id);
   };
 
   return (
