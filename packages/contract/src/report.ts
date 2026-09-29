@@ -1,5 +1,5 @@
 /**
- * The jint-report/v1 payload shapes, as plain interfaces for consumers (the engine's TypeBox
+ * The jint machine report payload shapes, as plain interfaces for consumers (the engine's TypeBox
  * schemas remain the validation truth; a type-level identity check in the engine pins the two
  * together, so this file cannot drift from the wire format).
  */
@@ -119,10 +119,9 @@ export interface ClassifyErrorInfo {
   readonly message: string;
 }
 
-/** The jint-report/v1 document. */
+/** The jint machine report document. */
 export interface Report {
   readonly tool: "jint";
-  readonly format: string;
   readonly version: string;
   readonly measurements: readonly Measurement[];
   readonly findings: readonly Finding[];

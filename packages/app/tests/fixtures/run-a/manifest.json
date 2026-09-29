@@ -38,7 +38,7 @@
       "map": ["pass", "warn", "error"]
     }
   },
-  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/measurement-ui/packages/app",
+  "cwd": "/home/crjm/dev/sedulus/jint/packages/app",
   "argv": ["bun", "tests/helpers/build-fixture.ts"],
   "ts": "1970-01-01T00:00:00.000Z"
 }

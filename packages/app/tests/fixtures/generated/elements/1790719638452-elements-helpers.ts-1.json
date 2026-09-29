@@ -1,11 +1,11 @@
 {
-  "ts": "2026-09-29T21:23:22.729Z",
+  "ts": "2026-09-29T22:07:18.452Z",
   "url": "https://api.typesafe.ai/v1/systemone",
   "request": {
     "state": {
       "path": "helpers.ts",
       "source": "export function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}",
-      "id": "47ac6168-7441-4750-b6a1-5d601bdc834a"
+      "id": "d19d8f30-a12c-4ece-9855-41a993f34298"
     },
     "questions": {
       "is_name_purposeful": {

@@ -6,7 +6,7 @@ under `src/`; shared fixtures live in `tests/fixtures/`. Run: `bun test --parall
 ## Testing doctrine
 
 **Mocked tests assert CONTRACT and run everywhere.** A contract is what the CLI owes its callers:
-exit codes, stderr messages, and the stdout document shape (jint-report/v1) — plus the wire shape
+exit codes, stderr messages, and the stdout document shape — plus the wire shape
 on the jev boundary (state content, compiled instructions and criteria). Every mocked test runs
 against `tests/helpers/mock-jev.ts` (`startMockJev()`), which serves canned vendor-shaped answers
 on port 0; point a spawned CLI at it with `TYPESAFE_BASE_URL`. Assertions go through

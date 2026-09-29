@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { Value } from "@sinclair/typebox/value";
 import { ClassifyError } from "../types.ts";
-import { renderJson, REPORT_FORMAT } from "./json.ts";
+import { renderJson } from "./json.ts";
 import { REPORT_SCHEMA } from "./report-schema.ts";
 import type { LintReport } from "../lint.ts";
 
@@ -16,12 +16,11 @@ const report: LintReport = {
 };
 
 describe("renderJson", () => {
-  test("stable versioned shape", () => {
+  test("stable shape", () => {
     const jsonStr = renderJson(report);
     const parsed = JSON.parse(jsonStr);
     expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
     expect(parsed.tool).toBe("jint");
-    expect(parsed.format).toBe(REPORT_FORMAT);
     expect(parsed.errors).toEqual([
       { input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" },
     ]);
@@ -44,7 +43,7 @@ describe("renderJson", () => {
 
   // Review 396888e finding 1: notes (scope exclusions, oversized skips) are in-band SIGNAL —
   // the machine shape carries them too, after errors, or --json runs report scoping as silence.
-  test("notes serialize after errors (jint-report/v1)", () => {
+  test("notes serialize after errors", () => {
     const noted: LintReport = {
       ...report,
       notes: [

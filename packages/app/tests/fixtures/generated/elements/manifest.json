@@ -1,8 +1,8 @@
 {
   "configPath": "fixtures/sources/elements",
-  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/measurement-ui/packages/app",
+  "cwd": "/home/crjm/dev/sedulus/jint/packages/app",
   "argv": ["bun", "fixtures:gen"],
-  "ts": "2026-09-29T21:23:22.731Z",
+  "ts": "2026-09-29T22:07:18.454Z",
   "handles": {
     "is_name_purposeful": {
       "warn": {

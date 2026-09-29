@@ -17,8 +17,8 @@ export interface ContractSpec {
   /** Substring(s) and/or regex(es) that must all appear on stderr. */
   stderr?: string | RegExp | Array<string | RegExp>;
   /**
-   * 'empty' - stdout must be the empty string. 'json' - stdout parses and carries format
-   * "jint-report/v1.1". string / { contains } - substring that must appear on stdout.
+   * 'empty' - stdout must be the empty string. 'json' - stdout parses as the machine report JSON.
+   * string / { contains } - substring that must appear on stdout.
    */
   stdout?: "empty" | "json" | string | { contains: string };
 }
@@ -51,13 +51,8 @@ export function expectContract(r: RunResult, spec: ContractSpec): Record<string,
   } else if (spec.stdout === "json") {
     try {
       parsed = JSON.parse(r.stdout);
-      if (parsed?.format !== "jint-report/v1.2") {
-        failures.push(
-          `stdout: JSON lacks format jint-report/v1 (got ${JSON.stringify(parsed?.format)})`,
-        );
-      }
     } catch {
-      failures.push(`stdout: expected jint-report/v1 JSON, got: ${truncate(r.stdout)}`);
+      failures.push(`stdout: expected jint report JSON, got: ${truncate(r.stdout)}`);
     }
   } else if (typeof spec.stdout === "string") {
     if (!r.stdout.includes(spec.stdout)) failures.push(`stdout: missing "${spec.stdout}"`);

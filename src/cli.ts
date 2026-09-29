@@ -95,7 +95,7 @@ Options:
   --changed <file>    changed-file LIST (one path per line, relative to the input dir or
                       absolute) - the ctx.diff lens for rules; with no other input, the list IS
                       the judged subject (the changeset form: git diff --name-only HEAD~1 | jint -)
-  --json              machine report (jint-report/v1.1) instead of the human table
+  --json              machine report instead of the human table
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
   -h, --help          this help

@@ -88,5 +88,5 @@ export interface Capture {
   };
 }
 
-// jint-report shapes come from the contract package - one definition, shared with the engine.
+// jint report shapes come from the contract package - one definition, shared with the engine.
 export type { ClassifyErrorInfo, Element, Finding, Measurement, Report } from "@jint/contract";
