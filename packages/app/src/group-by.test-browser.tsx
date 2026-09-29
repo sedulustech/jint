@@ -257,6 +257,41 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
   expect(counter()).toBe("9/" + RULES + " rules");
 });
 
+test("a report-panel rule click resets rule state: closes every group, opens only the chosen rule", async () => {
+  mount();
+  await openRun();
+  modeButton("rule").click();
+  await expectCounter(RULES + "/" + RULES + " rules");
+  // open a NON-target rule group first (will_comment_drift carries 2 cells: 0.95 error, 0.45 null)
+  rowByText("will_comment_drift").click();
+  await waitFor(
+    () => {
+      if (!document.body.innerText.includes("0.45"))
+        throw new Error("will_comment_drift children missing");
+    },
+    { timeout: 10_000 },
+  );
+  // now click a DIFFERENT rule in the report panel (has_nothing in mind -> 3 cells)
+  const reportRow = [...document.querySelectorAll<HTMLElement>("#report-panel tbody tr")].find(
+    (r) => r.textContent?.includes("has_nothing in mind"),
+  );
+  expect(reportRow).toBeTruthy();
+  reportRow!.click();
+  await waitFor(
+    () => {
+      const rows = [...document.querySelectorAll("button")].filter((b) =>
+        (b.textContent ?? "").includes("has_nothing in mind"),
+      );
+      if (rows.length < 4) throw new Error("chosen group not expanded, rows: " + rows.length);
+    },
+    { timeout: 10_000 },
+  );
+  // the previously-open group is CLOSED: only the 6 parents + 3 chosen children remain
+  expect(counter()).toBe("9/" + RULES + " rules");
+  // ...and its children are gone (the 0.45 cell is no longer on screen)
+  expect(document.body.innerText).not.toContain("0.45");
+});
+
 test("request rows still drill in: a request click opens the pair detail of its first pair", async () => {
   mount();
   await openRun();

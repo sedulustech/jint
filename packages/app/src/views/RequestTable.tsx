@@ -229,7 +229,8 @@ export function RequestTable({
   useEffect(() => {
     if (focusRule === null || mode !== "rule") return;
     const key = "rule:" + focusRule;
-    setExpanded((prev) => new Set(prev).add(key));
+    // a report-panel click is a fresh focus: close every group, expand only the chosen rule
+    setExpanded(new Set([key]));
     const idx = grouped.parents.findIndex((p) => p.key === key);
     if (idx >= 0) scrollRef.current?.scrollTo({ top: idx * ROW_H });
     onFocusHandled();
@@ -384,9 +385,9 @@ export function RequestTable({
       <div className="flex items-center gap-2 border-b border-border bg-muted px-2 py-1.5">
         <div role="group" aria-label="group by" className="flex items-center gap-1">
           <span className="font-mono text-[10px] text-muted-foreground">group by</span>
-          {modeButton("request", "request")}
           {modeButton("rule", "rule")}
           {modeButton("file", "file")}
+          {modeButton("request", "request")}
         </div>
         <input
           value={filter.text}
