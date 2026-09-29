@@ -60,27 +60,26 @@ export function DensityStrip({
         }
       >
         <div className="absolute inset-0 flex items-end">
-          {bins.map((n, i) => {
-            // neutral fill: the strip shows SHAPE (calibration), never verdict
-            const cls = "bg-neutral-500/70";
-            return (
-              <div
-                key={i}
-                className={`${cls} w-full min-w-0 flex-1`}
-                style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
-              />
-            );
-          })}
+          {bins.map((n, i) => (
+            <div
+              key={i}
+              className="w-full min-w-0 flex-1 bg-[var(--chart-bar)]"
+              style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
+            />
+          ))}
         </div>
-        <div className="absolute bottom-0 top-0 w-px bg-neutral-300" style={{ left: "50%" }} />
+        <div
+          className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]"
+          style={{ left: "50%" }}
+        />
         {marks.map((t) => (
           <div
             key={t}
-            className="absolute bottom-0 top-0 w-px bg-neutral-500/40"
+            className="absolute bottom-0 top-0 w-px bg-[var(--chart-mark)]"
             style={{ left: `${t * 100}%` }}
           />
         ))}
-        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 font-mono text-[9px] leading-none text-foreground">
+        <span className="absolute left-1/2 top-0 -translate-x-1/2 bg-background px-0.5 font-mono text-[9px] leading-none text-foreground">
           0.5
         </span>
       </div>

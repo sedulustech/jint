@@ -33,10 +33,10 @@ export function CopyButton({ text, label = "copy" }: { text: string; label?: str
   return (
     <button
       onClick={copy}
-      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] hover:text-white ${
+      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] hover:text-foreground ${
         state === "failed"
-          ? "border-red-500/60 text-red-400"
-          : "border-neutral-700 text-neutral-400"
+          ? "border-sev-error/60 text-sev-error"
+          : "border-border text-muted-foreground"
       }`}
     >
       {labelShown}

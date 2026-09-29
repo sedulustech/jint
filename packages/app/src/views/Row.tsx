@@ -2,10 +2,7 @@ import { memo } from "react";
 import { SEVERITY } from "./color";
 import type { RequestSummary } from "../types";
 
-const SEV_CELL = {
-  error: { dot: "bg-red-500", text: "text-red-400", label: "error" },
-  warn: { dot: "bg-amber-400", text: "text-amber-300", label: "warn" },
-} as const;
+const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
 interface Props {
   row: RequestSummary;
@@ -17,14 +14,14 @@ interface Props {
 
 export const Row = memo(function Row({ row, height, selected, severity, onSelect }: Props) {
   const sev = severity !== null ? SEVERITY[severity] : null;
-  const tint = selected ? "bg-neutral-700 text-white" : sev ? sev.row : "";
+  const tint = selected ? "bg-accent text-accent-foreground" : sev ? sev.row : "";
 
   return (
     <button
       onClick={onSelect}
       style={{ height }}
-      className={`flex w-full items-center border-b border-neutral-900 px-0 text-left font-mono text-xs ${tint} ${
-        selected ? "" : "hover:bg-neutral-800/60"
+      className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-xs ${tint} ${
+        selected ? "" : "hover:bg-muted"
       }`}
     >
       <span className="w-14 shrink-0 px-2 text-muted-foreground">{row.seq}</span>
@@ -48,10 +45,10 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           {row.maxProb !== null ? row.maxProb.toFixed(2) : "—"}
         </span>
         {row.maxProb !== null && (
-          <span className="mt-0.5 block h-0.5 w-full bg-neutral-800">
+          <span className="mt-0.5 block h-0.5 w-full bg-muted">
             {/* p-space shape, neutral fill: the bar shows WHERE the value sits, never what it means */}
             <span
-              className="block h-0.5 bg-neutral-500"
+              className="block h-0.5 bg-foreground/40"
               style={{ width: `${row.maxProb * 100}%` }}
             />
           </span>

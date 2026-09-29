@@ -127,7 +127,7 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         className="min-h-0 flex-1 overflow-auto"
       >
-        {query.isError && <p className="p-3 text-red-400">{String(query.error)}</p>}
+        {query.isError && <p className="p-3 text-sev-error">{String(query.error)}</p>}
         {!query.isLoading && rows.length === 0 && !query.isError && (
           <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-xs text-muted-foreground">
             <p>0 requests match your filters</p>
@@ -152,7 +152,7 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
             <button
               key={c.label}
               onClick={() => toggleSort(c.key)}
-              className={`${c.className} shrink-0 px-2 py-1 text-left hover:text-white`}
+              className={`${c.className} shrink-0 px-2 py-1 text-left hover:text-foreground`}
             >
               {c.label}
               {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -160,7 +160,7 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
           ))}
           <button
             onClick={() => toggleSort("borderline")}
-            className="w-28 shrink-0 px-2 py-1 text-left hover:text-white"
+            className="w-28 shrink-0 px-2 py-1 text-left hover:text-foreground"
             title="distance of the strongest answer from 0.5"
           >
             borderline{sortKey === "borderline" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}

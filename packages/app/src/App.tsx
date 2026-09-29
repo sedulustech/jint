@@ -129,14 +129,14 @@ export function App() {
                 </li>
               ))}
               {payload.legacyRuns.length > 200 && (
-                <li className="text-neutral-600">…{payload.legacyRuns.length - 200} more</li>
+                <li className="text-muted-foreground">…{payload.legacyRuns.length - 200} more</li>
               )}
             </ul>
           </details>
         )}
         {runs.error instanceof Error && (
           <span
-            className="max-w-[480px] truncate break-words font-mono text-xs text-red-400"
+            className="max-w-[480px] truncate break-words font-mono text-xs text-sev-error"
             title={runs.error.message}
           >
             {runs.error.message}

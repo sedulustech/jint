@@ -342,16 +342,20 @@ test("score answers render the mapped index, legend, and probabilities from thei
   rowEl!.click();
   await waitFor(
     () => {
-      if (!document.querySelector("[data-score-dist]")) throw new Error("detail not open");
+      const d = document.body.innerText;
+      if (!d.includes("legend.ts") || !d.includes("error swallowed whole")) {
+        throw new Error("score detail not open");
+      }
     },
     { timeout: 10_000 },
   );
   const detail = document.body.innerText;
   // the mapped index (round(3) = 3) is the protagonist
   expect(detail).toContain("error swallowed whole");
-  // legend + distribution render
+  // legend renders (the information); the probability strip is intentionally absent for score
   expect(detail).toContain("causes fully chained");
   expect(detail).toContain("0.85");
+  expect(document.querySelector("[data-score-dist]")).toBeNull();
   // severity from the card's own rule (score 3 -> error via the handle), not a sibling's
   expect(detail).toMatch(/\berror\b/);
   await clearInput();

@@ -86,6 +86,13 @@ body {
   --sidebar-accent-foreground: #1c1c1e;
   --sidebar-border: #e4e4e7;
   --sidebar-ring: #a1a1aa;
+  --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
+  --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
+  --sev-clean: #047857; /* emerald-700 ~4.9:1 */
+  --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
+  --chart-ref: #52525b; /* ~7:1   */
+  --chart-mark: #9e9ea8; /* ~3.1:1 */
+  --scrollbar-thumb: #a1a1aa;
   color-scheme: light;
 }
 
@@ -126,6 +133,14 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
+  --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
+  --sev-error: #f87171; /* red-400    ~7:1  */
+  --sev-clean: #34d399; /* emerald-400 ~9:1 */
+  --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
+  --chart-ref: #d4d4d4; /* neutral-300 ~13:1 */
+  --chart-mark: #737373; /* neutral-500 */
+  --scrollbar-thumb: #404040;
 }
 
 @layer base {
@@ -181,4 +196,74 @@ body {
     min-width: 0;
     border-left: none;
   }
+}
+
+/* severity TEXT tokens: hue-saturated shades that clear 4.5:1 on their own theme's surfaces */
+.text-sev-error {
+  color: var(--sev-error);
+}
+.text-sev-warn {
+  color: var(--sev-warn);
+}
+.bg-sev-error {
+  background-color: var(--sev-error);
+}
+
+/* severity TEXT utilities (theme-token driven; flavors per block above) */
+.text-sev-error {
+  color: var(--sev-error);
+}
+.text-sev-warn {
+  color: var(--sev-warn);
+}
+.text-sev-clean {
+  color: var(--sev-clean);
+}
+
+/* scrollbar thumb follows the theme (was hardcoded #404040) */
+* {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+:root:not(.dark) .hljs {
+  color: #24292e;
+  background: transparent;
+}
+:root:not(.dark) .hljs-comment,
+:root:not(.dark) .hljs-quote {
+  color: #6a737d;
+}
+:root:not(.dark) .hljs-keyword,
+:root:not(.dark) .hljs-selector-tag,
+:root:not(.dark) .hljs-literal,
+:root:not(.dark) .hljs-doctag {
+  color: #d73a49;
+}
+:root:not(.dark) .hljs-string,
+:root:not(.dark) .hljs-regexp,
+:root:not(.dark) .hljs-addition {
+  color: #22863a;
+}
+:root:not(.dark) .hljs-title,
+:root:not(.dark) .hljs-section,
+:root:not(.dark) .hljs-type,
+:root:not(.dark) .hljs-name {
+  color: #6f42c1;
+}
+:root:not(.dark) .hljs-number,
+:root:not(.dark) .hljs-built_in,
+:root:not(.dark) .hljs-attr {
+  color: #005cc5;
+}
+:root:not(.dark) .hljs-params,
+:root:not(.dark) .hljs-variable,
+:root:not(.dark) .hljs-template-variable,
+:root:not(.dark) .hljs-subst {
+  color: #24292e;
+}
+/* hljs-subst interpolation measured 4.38 on its own dark bg - below 4.5 */
+.dark .hljs-subst {
+  color: #e2e8f0;
 }

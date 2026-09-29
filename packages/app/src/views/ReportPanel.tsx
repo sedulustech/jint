@@ -31,7 +31,7 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
       style={{ maxHeight: "45vh" }}
     >
       {degraded && (
-        <p className="text-amber-300">
+        <p className="text-sev-warn">
           report.json is a partial fragment (torn write) — canonical rules and severities fell back
           to capture parsing; findings below may be incomplete. Regenerate the run to restore full
           verdicts.
@@ -48,7 +48,7 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
           <span className="text-base font-bold">{totalFindings}</span> findings
         </span>
         <span className="text-muted-foreground">{totalMeasurements} measurements</span>
-        <span className={errors > 0 ? "text-red-400" : "text-muted-foreground"}>
+        <span className={errors > 0 ? "text-sev-error" : "text-muted-foreground"}>
           {errors} errors
         </span>
         <span className="text-muted-foreground">{notes} notes</span>
@@ -75,22 +75,22 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
               key={s.rule}
               onClick={() => onRuleSelect(activeRule === s.rule ? null : s.rule)}
               className={
-                "cursor-pointer border-t border-border hover:bg-neutral-800/60 " +
-                (activeRule === s.rule ? "bg-neutral-800" : "")
+                "cursor-pointer border-t border-border hover:bg-muted " +
+                (activeRule === s.rule ? "bg-accent" : "")
               }
               title="filter the request table to this rule"
             >
               <td className="py-1 pr-4">
                 <span
-                  className={activeRule === s.rule ? "font-bold text-white" : "text-foreground"}
+                  className={
+                    activeRule === s.rule ? "font-bold text-accent-foreground" : "text-foreground"
+                  }
                 >
                   {s.rule}
                 </span>
               </td>
               <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
-              <td
-                className={"py-1 pr-4 " + (s.findings > 0 ? "text-amber-300" : "text-emerald-400")}
-              >
+              <td className={"py-1 pr-4 " + (s.findings > 0 ? "text-sev-warn" : "text-sev-clean")}>
                 {s.findings}
               </td>
               <td className="py-1 pr-4 text-foreground">{(s.rate * 100).toFixed(1)}%</td>
@@ -98,7 +98,7 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
                 <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
                   {s.histogram.map((n, i) => {
                     // neutral: shape, not verdict
-                    const cls = "bg-neutral-500/70";
+                    const cls = "bg-[var(--chart-bar)]";
                     return (
                       <div
                         key={i}
@@ -108,7 +108,7 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
                     );
                   })}
                   <div
-                    className="absolute bottom-0 top-0 w-px bg-neutral-300"
+                    className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]"
                     style={{ left: "50%" }}
                   />
                 </div>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchCapture } from "../api/client";
 import { CodeBlock } from "./CodeBlock";
 import { SEVERITY } from "./color";
@@ -24,6 +24,24 @@ interface QA {
     legend?: Record<string, string>;
     probabilities?: Record<string, number>;
   };
+}
+
+function EffectCloser({
+  onEscape,
+  focusTarget,
+}: {
+  onEscape: () => void;
+  focusTarget: React.RefObject<HTMLButtonElement | null>;
+}) {
+  useEffect(() => {
+    focusTarget.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onEscape, focusTarget]);
+  return null;
 }
 
 /**
@@ -76,27 +94,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
       </div>
       {isScore && index !== null && (
         <div className="border-b border-border px-2 py-1">
-          <div className="flex h-4 items-end gap-px" data-score-dist>
-            {Object.keys(legend)
-              .sort((a, b) => Number(a) - Number(b))
-              .map((k) => {
-                const prob = probabilities[k] ?? 0;
-                return (
-                  <div
-                    key={k}
-                    className={`relative min-w-0 flex-1 bg-neutral-500/70 ${
-                      Number(k) === index ? "outline outline-1 outline-neutral-300" : ""
-                    }`}
-                    style={{ height: `${Math.max(4, prob * 100)}%` }}
-                    title={`p(${k}) = ${prob}`}
-                  >
-                    <span className="absolute -top-3.5 left-0 font-mono text-[9px] text-muted-foreground">
-                      {k}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
+          {/* the probability strip is omitted for score answers: the legend is the information */}
           <ul className="mt-1 space-y-0.5">
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
@@ -119,26 +117,29 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
           {qa.question.instructions}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-px bg-neutral-800 text-[11px] leading-snug">
-        <div className="bg-background p-2">
-          <span className="font-mono text-[10px] text-emerald-400">true</span>
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
-            {qa.question.criteria?.true ?? "—"}
-          </p>
+      {!isScore && (
+        <div className="grid grid-cols-2 gap-px bg-border text-[11px] leading-snug">
+          <div className="bg-background p-2">
+            <span className="font-mono text-[10px] text-sev-clean">true</span>
+            <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+              {qa.question.criteria?.true ?? "—"}
+            </p>
+          </div>
+          <div className="bg-background p-2">
+            <span className="font-mono text-[10px] text-sev-error">false</span>
+            <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+              {qa.question.criteria?.false ?? "—"}
+            </p>
+          </div>
         </div>
-        <div className="bg-background p-2">
-          <span className="font-mono text-[10px] text-red-400">false</span>
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
-            {qa.question.criteria?.false ?? "—"}
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export function RequestDetail({ runId, summary, onClose }: Props) {
   const [rawOpen, setRawOpen] = useState(false);
+  const rawCloseRef = useRef<HTMLButtonElement | null>(null);
   const query = useQuery({
     queryKey: ["capture", runId, summary.file],
     queryFn: () => fetchCapture(runId, summary.file),
@@ -192,14 +193,46 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
         {raw !== "" && (
           <button
             onClick={() => setRawOpen((v) => !v)}
-            className="shrink-0 cursor-pointer list-none rounded border border-neutral-700 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-white"
+            className="shrink-0 cursor-pointer list-none rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
             aria-expanded={rawOpen}
           >
             raw {rawOpen ? "▾" : "▸"}
           </button>
         )}
         {rawOpen && raw !== "" && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-background/95">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="raw capture JSON"
+            className="fixed inset-0 z-50 flex flex-col bg-background/95"
+            onClick={(e) => {
+              // backdrop-click close: only when the click lands on the modal frame itself
+              if (e.target === e.currentTarget) setRawOpen(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setRawOpen(false);
+                return;
+              }
+              if (e.key === "Tab") {
+                // minimal focus trap: keep Tab cycling inside the dialog
+                const focusables = [
+                  ...document.querySelectorAll('[role="dialog"] button, [role="dialog"] pre'),
+                ] as HTMLElement[];
+                if (focusables.length === 0) return;
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                const active = document.activeElement as HTMLElement | null;
+                if (e.shiftKey && (active === null || active === first)) {
+                  e.preventDefault();
+                  last.focus();
+                } else if (!e.shiftKey && active === last) {
+                  e.preventDefault();
+                  first.focus();
+                }
+              }
+            }}
+          >
             <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
               <span className="font-mono text-xs text-foreground">raw capture JSON</span>
               <span className="font-mono text-[10px] text-muted-foreground">
@@ -208,10 +241,11 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
               <span className="ml-auto flex items-center gap-2">
                 <CopyButton text={raw} label="copy full" />
                 <button
+                  ref={rawCloseRef}
                   onClick={() => setRawOpen(false)}
-                  className="rounded border border-neutral-700 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-white"
+                  className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
                 >
-                  close
+                  close (Esc)
                 </button>
               </span>
             </div>
@@ -220,16 +254,17 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
             </pre>
           </div>
         )}
+        {rawOpen && <EffectCloser onEscape={() => setRawOpen(false)} focusTarget={rawCloseRef} />}
         {raw !== "" && <CopyButton text={raw} label="copy full" />}
         <button
           onClick={onClose}
-          className="px-1 font-mono text-xs text-muted-foreground hover:text-white"
+          className="px-1 font-mono text-xs text-muted-foreground hover:text-foreground"
         >
           ✕
         </button>
       </header>
       {query.isLoading && <p className="p-3 text-muted-foreground">loading…</p>}
-      {query.isError && <p className="p-3 text-red-400">{String(query.error)}</p>}
+      {query.isError && <p className="p-3 text-sev-error">{String(query.error)}</p>}
       {capture !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* sampling meta above the fold */}
