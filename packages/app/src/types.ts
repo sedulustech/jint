@@ -15,6 +15,8 @@ export interface RunDetail {
   requests: RequestSummary[];
   /** Per-rule handle snapshot from manifest.json; empty when absent (legacy run). */
   handles: Record<string, HandlerData>;
+  /** Report.json was a fragment (torn write): canonical rules + severities fell back to captures. */
+  reportDegraded: boolean;
 }
 
 export interface RequestSummary {

@@ -72,12 +72,12 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-2 py-1.5">
+      <div className="flex items-center gap-2 border-b border-border bg-muted px-2 py-1.5">
         <input
           value={filter.text}
           onChange={(e) => onFilter({ text: e.target.value })}
           placeholder="filter: path, rule, element id…"
-          className="w-64 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 font-mono text-xs text-neutral-200 outline-none placeholder:text-neutral-500 focus:border-neutral-500"
+          className="w-64 rounded border border-neutral-700 bg-background px-2 py-1 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
         />
         {ruleFilter !== null && (
           <Button
@@ -98,12 +98,12 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
             "font-mono text-xs " +
             (filter.band === "borderline"
               ? "border-fuchsia-400 text-fuchsia-200"
-              : "text-neutral-400")
+              : "text-muted-foreground")
           }
         >
           borderline
         </Button>
-        <span className="ml-auto font-mono text-xs text-neutral-400">
+        <span className="ml-auto font-mono text-xs text-muted-foreground">
           {query.isLoading
             ? "loading…"
             : `${rows.length} / ${query.data?.requestCount ?? "?"} requests`}
@@ -113,6 +113,13 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
         <DensityStrip
           rows={rows}
           marks={ruleFilter !== null ? marksFor(query.data?.handles[ruleFilter]) : []}
+          scoreAxis={
+            ruleFilter !== null &&
+            query.data?.handles[ruleFilter] &&
+            "map" in query.data.handles[ruleFilter]!
+              ? (query.data.handles[ruleFilter] as { map: readonly string[] }).map.length
+              : undefined
+          }
         />
       )}
       <div
@@ -122,10 +129,10 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
       >
         {query.isError && <p className="p-3 text-red-400">{String(query.error)}</p>}
         {!query.isLoading && rows.length === 0 && !query.isError && (
-          <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-xs text-neutral-400">
+          <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-xs text-muted-foreground">
             <p>0 requests match your filters</p>
             {activeFilters.length > 0 && (
-              <p className="text-neutral-500">active: {activeFilters.join(", ")}</p>
+              <p className="text-muted-foreground">active: {activeFilters.join(", ")}</p>
             )}
             <Button
               variant="outline"
@@ -138,7 +145,7 @@ export function RequestTable({ runId, ruleFilter, onClearRule, selectedFile, onS
           </div>
         )}
         <div
-          className="sticky top-0 z-10 flex border-b border-neutral-800 bg-neutral-900 font-mono text-xs text-neutral-300"
+          className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-xs text-foreground"
           style={{ minWidth: TABLE_MIN_W }}
         >
           {COLS.map((c) => (

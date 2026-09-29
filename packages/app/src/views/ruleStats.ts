@@ -19,6 +19,18 @@ export const BINS = 20;
  */
 export function ruleStats(report: Report | undefined, run: RunDetail | undefined): RuleStat[] {
   const map = new Map<string, RuleStat>();
+  const levels = (rule: string): number | null => {
+    const handle = run?.handles[rule];
+    if (handle && "map" in handle) return handle.map.length;
+    return null;
+  };
+  const bin = (rule: string, value: number): number => {
+    const n = levels(rule);
+    // score values are 0..N indices: normalize to 0..1 before binning so the histogram axis
+    // stays honest (a score of 3 is level 3/3, not clamped into the last p-space bin)
+    const v = n !== null && n > 1 ? value / (n - 1) : value;
+    return Math.min(BINS - 1, Math.floor(v * BINS));
+  };
   const stat = (rule: string): RuleStat => {
     let s = map.get(rule);
     if (!s) {
@@ -39,7 +51,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
     for (const m of report.measurements) {
       const s = stat(m.rule);
       s.measurements += 1;
-      s.histogram[Math.min(BINS - 1, Math.floor(m.value * BINS))] += 1;
+      s.histogram[bin(m.rule, m.value)] += 1;
     }
     for (const f of report.findings) stat(f.rule).findings += 1;
     for (const e of report.errors) stat("(" + e.code + ")").errors += 1;
@@ -49,7 +61,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
       for (const rule of r.rules) {
         const s = stat(rule);
         s.measurements += r.answers.length;
-        for (const v of r.answers) s.histogram[Math.min(BINS - 1, Math.floor(v * BINS))] += 1;
+        for (const v of r.answers) s.histogram[bin(rule, v)] += 1;
       }
     }
   }

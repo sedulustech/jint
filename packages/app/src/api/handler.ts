@@ -128,7 +128,11 @@ function safeJoin(base: string, name: string): string | null {
   return full;
 }
 
-async function listRuns(root: string): Promise<{ runs: RunSummary[]; hiddenLegacy: number }> {
+async function listRuns(root: string): Promise<{
+  runs: RunSummary[];
+  hiddenLegacy: number;
+  legacyRuns: string[];
+}> {
   try {
     const entries = await readdir(root, { withFileTypes: true });
     const dirs = entries.filter((e) => e.isDirectory());
@@ -177,13 +181,14 @@ async function listRuns(root: string): Promise<{ runs: RunSummary[]; hiddenLegac
     // run id is a unixts: numeric order == chronological
     runs.sort((a, b) => b.id.localeCompare(a.id));
     // legacy = captures without manifest (skipped + counted); not-a-run dirs are just absent
-    return { runs, hiddenLegacy: legacyDirs.size };
+    return { runs, hiddenLegacy: legacyDirs.size, legacyRuns: [...legacyDirs].sort() };
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is
     // ALWAYS an array; an empty one renders as the friendly hint client-side. No path leak.
     const code =
       err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
-    if (code === "ENOENT" || code === "ENOTDIR") return { runs: [], hiddenLegacy: 0 };
+    if (code === "ENOENT" || code === "ENOTDIR")
+      return { runs: [], hiddenLegacy: 0, legacyRuns: [] };
     throw err;
   }
 }
@@ -201,6 +206,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   // keys are a derived encoding ("<rule> in <element>") and parsing them is lossy when a rule
   // name or element id itself contains " in " - so the report wins whenever it exists.
   let pathRules: Map<string, string[]> | null = null;
+  let reportMeasurementCount = 0;
   // per-path measurements, for handle projection of rows without findings
   let pathValues: Map<string, { rule: string; value: number }[]> | null = null;
   // the manifest's handle snapshot: the exact semantics the engine compiled, shipped as data
@@ -229,6 +235,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       pathRules = new Map();
       pathValues = new Map();
       for (const m of report.measurements ?? []) {
+        reportMeasurementCount += 1;
         // pathRules keys on the bare path (captures look up by state.path); pathValues keys on
         // the FULL input (path#span) so projection matches the element identity.
         const path = m.input.split("#")[0];
@@ -248,6 +255,17 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       pathRules = null;
     }
   }
+  // Torn-write guard: the engine now writes report.json atomically, but an old or mid-copy
+  // report can still be a fragment. A report with fewer measurements than captures is not
+  // authoritative - fall back to question-key parsing and say so (degraded flag). The specific
+  // failure this catches: a 6-measurement fragment shadowing every row's rule as the bare-path
+  // file measurement with no signal.
+  const reportDegraded = pathRules !== null && reportMeasurementCount < captures.length * 0.5;
+  if (reportDegraded) {
+    pathRules = null;
+    pathValues = null;
+    findingSev.clear();
+  }
   const rows = await Promise.all(
     captures.map(async (file): Promise<RequestSummary | null> => {
       try {
@@ -259,7 +277,15 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         const questions = capture.request?.questions ?? {};
         const answers = capture.response?.answers ?? {};
         const probs = Object.values(answers)
-          .map((a) => (typeof a?.noul === "number" ? a.noul : null))
+          .map((a) => {
+            if (typeof a?.noul === "number") return a.noul;
+            // score answers join the p-space summary normalized to 0..1 so a score-only capture
+            // (or a capture whose score is the only answer) is visible in max-p/strip/borderline
+            if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
+              return a.score / (Object.keys(a.legend).length - 1);
+            }
+            return null;
+          })
           .filter((n): n is number => n !== null);
         const state = capture.request?.state ?? {};
         const rules: string[] = [];
@@ -329,7 +355,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
             Number.isFinite(st.mtimeMs) &&
             capture.ts !== undefined &&
             !Number.isNaN(Date.parse(capture.ts))
-              ? Math.max(0, Math.round(st.mtimeMs - Date.parse(capture.ts)))
+              ? (() => {
+                  const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(capture.ts)));
+                  // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
+                  // >60s for one call is never real - report unknown rather than a 21-minute lie
+                  return ms > 60_000 ? null : ms;
+                })()
               : null,
           maxProb: probs.length ? Math.max(...probs) : null,
           minProb: probs.length ? Math.min(...probs) : null,
@@ -352,6 +383,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     hasReport: reportFile,
     requests: parsed,
     handles: handles ?? {},
+    reportDegraded,
   };
 }
 

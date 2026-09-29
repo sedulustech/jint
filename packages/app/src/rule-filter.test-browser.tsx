@@ -56,7 +56,7 @@ function counter(): string {
 // never rendered. NOW is the real wall clock, but assertions match the relative-time PATTERN
 // ("... ago"), never a value - fixture mtimes are static.
 async function openRun(configBasename = "sample.json") {
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "run" }).click();
   await page.getByRole("option", { name: new RegExp(configBasename) }).click();
   await waitFor(
     () => {
@@ -151,7 +151,7 @@ test("the greedy-parser rule name filters exactly (regression: non-canonical par
 
 test("picker shows the config basename + relative time; no unix stamp anywhere", async () => {
   mount();
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "run" }).click();
   const option = page.getByRole("option", { name: /sample\.json/ });
   await waitFor(
     () => {
@@ -181,7 +181,7 @@ test("legacy runs (no manifest.json) are hidden with a header note, never shown"
     },
     { timeout: 15_000 },
   );
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "run" }).click();
   // run-b (no manifest) must not appear as an option
   expect(page.getByRole("option", { name: /3 req/ }).elements().length).toBe(0);
   // run-b: no manifest -> skipped
@@ -202,7 +202,10 @@ test("the header shows the selected run's absolute time at the top right", async
       const el = document.querySelector('[data-testid="header-time"]');
       if (!el || el.textContent === "") throw new Error("header time missing");
       // human-readable absolute: toLocaleString contains a date separator and time
-      expect(el.textContent).toMatch(/\d{1,2}:\d{2}/);
+      // U8: the header shows a relative distance; the absolute locale time lives in the tooltip
+      // U8: the header shows a relative distance; the absolute locale time lives in the tooltip
+      expect(el.textContent).toMatch(/ago/);
+      expect(el.getAttribute("title")).toMatch(/\d{1,2}:\d{2}/);
     },
     { timeout: 10_000 },
   );

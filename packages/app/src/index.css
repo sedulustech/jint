@@ -53,38 +53,44 @@ body {
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* jint light palette: complement of .dark; one token source for both themes */
+  --background: #fafafa;
+  --foreground: #1c1c1e;
+  --card: #ffffff;
+  --card-foreground: #1c1c1e;
+  --popover: #ffffff;
+  --popover-foreground: #1c1c1e;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f0f0f1;
+  --secondary-foreground: #1c1c1e;
+  --muted: #f4f4f5;
+  --muted-foreground: #6b6b72;
+  --accent: #ececee;
+  --accent-foreground: #1c1c1e;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #a1a1aa;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.25rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #1c1c1e;
+  --sidebar-primary: #18181b;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #ececee;
+  --sidebar-accent-foreground: #1c1c1e;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #a1a1aa;
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 .dark {
@@ -162,4 +168,17 @@ body {
    the default (not-allowed-adjacent) cursor rather than lying about interactivity. */
 [data-slot="button"]:not(:disabled) {
   cursor: pointer;
+}
+
+/* U4: under 1100px the side-by-side split crowds the table into a 300px gutter; the detail
+   becomes a full-width overlay sheet instead. */
+@media (max-width: 1100px) {
+  .detail-pane {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    width: 100%;
+    min-width: 0;
+    border-left: none;
+  }
 }

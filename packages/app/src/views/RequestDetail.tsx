@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { fetchCapture } from "../api/client";
 import { CodeBlock } from "./CodeBlock";
 import { SEVERITY } from "./color";
@@ -39,11 +40,11 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
   const legend = isScore ? (qa.answer?.legend ?? {}) : {};
   const probabilities = isScore ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
-  const color = sev !== null ? SEVERITY[sev].text : "text-neutral-300";
+  const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   return (
-    <div className="border border-neutral-800 bg-neutral-950">
-      <div className="flex items-center gap-3 border-b border-neutral-800 px-2 py-1">
-        <span className="font-mono text-xs text-neutral-200">{qa.rule}</span>
+    <div className="border border-border bg-background">
+      <div className="flex items-center gap-3 border-b border-border px-2 py-1">
+        <span className="font-mono text-xs text-foreground">{qa.rule}</span>
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -62,7 +63,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
             >
               {index}
             </span>
-            <span className="font-mono text-[10px] text-neutral-500">
+            <span className="font-mono text-[10px] text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
               {qa.answer?.confidence !== undefined &&
                 ` · confidence ${qa.answer.confidence.toFixed(2)}`}
@@ -74,7 +75,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
         )}
       </div>
       {isScore && index !== null && (
-        <div className="border-b border-neutral-800 px-2 py-1">
+        <div className="border-b border-border px-2 py-1">
           <div className="flex h-4 items-end gap-px" data-score-dist>
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
@@ -89,7 +90,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
                     style={{ height: `${Math.max(4, prob * 100)}%` }}
                     title={`p(${k}) = ${prob}`}
                   >
-                    <span className="absolute -top-3.5 left-0 font-mono text-[9px] text-neutral-500">
+                    <span className="absolute -top-3.5 left-0 font-mono text-[9px] text-muted-foreground">
                       {k}
                     </span>
                   </div>
@@ -103,7 +104,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
                 <li
                   key={k}
                   className={`font-mono text-[10px] leading-snug ${
-                    Number(k) === index ? "text-neutral-200" : "text-neutral-500"
+                    Number(k) === index ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
                   {k}: {legend[k]}
@@ -114,20 +115,20 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
         </div>
       )}
       {qa.question.instructions && (
-        <p className="border-b border-neutral-800 px-2 py-1 text-[11px] leading-snug text-neutral-400">
+        <p className="border-b border-border px-2 py-1 text-[11px] leading-snug text-muted-foreground">
           {qa.question.instructions}
         </p>
       )}
       <div className="grid grid-cols-2 gap-px bg-neutral-800 text-[11px] leading-snug">
-        <div className="bg-neutral-950 p-2">
+        <div className="bg-background p-2">
           <span className="font-mono text-[10px] text-emerald-400">true</span>
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-neutral-300">
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
             {qa.question.criteria?.true ?? "—"}
           </p>
         </div>
-        <div className="bg-neutral-950 p-2">
+        <div className="bg-background p-2">
           <span className="font-mono text-[10px] text-red-400">false</span>
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-neutral-300">
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
             {qa.question.criteria?.false ?? "—"}
           </p>
         </div>
@@ -137,6 +138,7 @@ function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
 }
 
 export function RequestDetail({ runId, summary, onClose }: Props) {
+  const [rawOpen, setRawOpen] = useState(false);
   const query = useQuery({
     queryKey: ["capture", runId, summary.file],
     queryFn: () => fetchCapture(runId, summary.file),
@@ -181,62 +183,87 @@ export function RequestDetail({ runId, summary, onClose }: Props) {
   const meta = capture?.response ?? {};
 
   return (
-    <section className="flex w-3/5 min-w-[600px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-950">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800 px-3 py-1.5">
-        <h2 className="min-w-0 flex-1 truncate font-mono text-xs text-neutral-200">
+    <section className="detail-pane flex w-3/5 min-w-[600px] shrink-0 flex-col border-l border-border bg-background">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
+        <h2 className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           #{summary.seq} {summary.path ?? summary.file}{" "}
-          <span className="text-neutral-500">{summary.elementId ?? ""}</span>
+          <span className="text-muted-foreground">{summary.elementId ?? ""}</span>
         </h2>
         {raw !== "" && (
-          <details className="min-w-0">
-            <summary className="cursor-pointer list-none rounded border border-neutral-700 px-1.5 py-0.5 font-mono text-[11px] text-neutral-400 hover:text-white">
-              raw
-            </summary>
-            <pre className="mt-1 max-h-64 max-w-full overflow-auto whitespace-pre-wrap break-words rounded border border-neutral-800 bg-neutral-950 p-2 font-mono text-[11px] leading-tight text-neutral-300">
+          <button
+            onClick={() => setRawOpen((v) => !v)}
+            className="shrink-0 cursor-pointer list-none rounded border border-neutral-700 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-white"
+            aria-expanded={rawOpen}
+          >
+            raw {rawOpen ? "▾" : "▸"}
+          </button>
+        )}
+        {rawOpen && raw !== "" && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-background/95">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
+              <span className="font-mono text-xs text-foreground">raw capture JSON</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {summary.path ?? summary.file} · {summary.seq}
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <CopyButton text={raw} label="copy full" />
+                <button
+                  onClick={() => setRawOpen(false)}
+                  className="rounded border border-neutral-700 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-white"
+                >
+                  close
+                </button>
+              </span>
+            </div>
+            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[11px] leading-tight text-foreground">
               {raw}
             </pre>
-          </details>
+          </div>
         )}
         {raw !== "" && <CopyButton text={raw} label="copy full" />}
         <button
           onClick={onClose}
-          className="px-1 font-mono text-xs text-neutral-400 hover:text-white"
+          className="px-1 font-mono text-xs text-muted-foreground hover:text-white"
         >
           ✕
         </button>
       </header>
-      {query.isLoading && <p className="p-3 text-neutral-400">loading…</p>}
+      {query.isLoading && <p className="p-3 text-muted-foreground">loading…</p>}
       {query.isError && <p className="p-3 text-red-400">{String(query.error)}</p>}
       {capture !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* sampling meta above the fold */}
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-neutral-800 px-3 py-1 font-mono text-[11px] text-neutral-400">
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-border px-3 py-1 font-mono text-[11px] text-muted-foreground">
             <span>
               model:{" "}
-              <span className="text-neutral-200">
-                {meta.model ?? capture.request?.model ?? "?"}
-              </span>
+              <span className="text-foreground">{meta.model ?? capture.request?.model ?? "?"}</span>
             </span>
             <span>
-              status: <span className="text-neutral-200">{capture.status ?? "?"}</span>
+              status: <span className="text-foreground">{capture.status ?? "?"}</span>
             </span>
-            <span>
+            <span
+              title={
+                summary.durationMs !== null
+                  ? "file-mtime minus capture ts - a heuristic that breaks on copied/moved run dirs"
+                  : "mtime heuristic - not measurable for this capture"
+              }
+            >
               duration:{" "}
-              <span className="text-neutral-200">
+              <span className="text-foreground">
                 {summary.durationMs !== null ? `${summary.durationMs} ms` : "—"}
               </span>
             </span>
             {meta.usage &&
               Object.entries(meta.usage).map(([k, v]) => (
                 <span key={k}>
-                  {k}: <span className="text-neutral-200">{v}</span>
+                  {k}: <span className="text-foreground">{v}</span>
                 </span>
               ))}
           </div>
           {code !== null && (
-            <div className="border-b border-neutral-800">
+            <div className="border-b border-border">
               <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                <span className="font-mono text-[11px] text-neutral-500">
+                <span className="font-mono text-[11px] text-muted-foreground">
                   {codePath} {loc ? `· ${loc}` : ""}
                 </span>
                 <CopyButton text={code} label="copy code" />

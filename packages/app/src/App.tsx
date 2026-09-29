@@ -40,7 +40,9 @@ export function App() {
   // Shape guard: the endpoint must answer { runs, hiddenLegacy }. A contract slip degrades to an
   // empty list + hint, never a white screen.
   const payload =
-    runs.data && Array.isArray(runs.data.runs) ? runs.data : { runs: [], hiddenLegacy: 0 };
+    runs.data && Array.isArray(runs.data.runs)
+      ? runs.data
+      : { runs: [], hiddenLegacy: 0, legacyRuns: [] as string[] };
   const list = payload.runs;
   const selectedRun = list.find((r) => r.id === runId) ?? null;
 
@@ -57,8 +59,8 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="flex shrink-0 items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-3 py-1.5">
-        <h1 className="font-mono text-xs font-bold text-neutral-300">jint</h1>
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted px-3 py-1.5">
+        <h1 className="font-mono text-xs font-bold text-foreground">jint</h1>
         <Select value={runId ?? "none"} onValueChange={pick}>
           <SelectTrigger className="w-96 font-mono text-xs" aria-label="run">
             <SelectValue
@@ -66,20 +68,27 @@ export function App() {
             />
           </SelectTrigger>
           <SelectContent>
-            {list.map((r) => (
+            {/* virtualizing 400+ options is overkill for a picker; cap at the newest 50 and say
+                so - the quick-pick empty state covers the most recent runs anyway */}
+            {list.slice(0, 50).map((r) => (
               <SelectItem
                 key={r.id}
                 value={r.id}
                 className="font-mono text-xs"
-                title={r.configPath}
+                title={`${r.configPath}\nrun id: ${r.id}`}
               >
-                <span className="text-neutral-200">{baseName(r.configPath)}</span>
-                <span className="text-neutral-500">
+                <span className="text-foreground">{baseName(r.configPath)}</span>
+                <span className="text-muted-foreground">
                   {" "}
-                  · {relTime(r.mtime)} · {r.requests} req
+                  · {relTime(r.mtime)} · {r.requests} req · {r.id.slice(-6)}
                 </span>
               </SelectItem>
             ))}
+            {list.length > 50 && (
+              <div className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                showing the 50 newest of {list.length} runs
+              </div>
+            )}
           </SelectContent>
         </Select>
         {runId !== null && (
@@ -106,12 +115,21 @@ export function App() {
           </Badge>
         )}
         {payload.hiddenLegacy > 0 && (
-          <span
-            className="font-mono text-xs text-neutral-500"
-            title="runs without manifest.json cannot be shown - regenerate the dump or delete them"
-          >
-            {payload.hiddenLegacy} legacy run{payload.hiddenLegacy === 1 ? "" : "s"} hidden
-          </span>
+          <details className="group">
+            <summary className="cursor-pointer list-none font-mono text-xs text-muted-foreground hover:text-foreground">
+              {payload.hiddenLegacy} legacy run{payload.hiddenLegacy === 1 ? "" : "s"} hidden
+            </summary>
+            <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-border bg-background p-1 font-mono text-[10px] text-muted-foreground">
+              {payload.legacyRuns.slice(0, 200).map((id) => (
+                <li key={id} className="truncate">
+                  {id}
+                </li>
+              ))}
+              {payload.legacyRuns.length > 200 && (
+                <li className="text-neutral-600">…{payload.legacyRuns.length - 200} more</li>
+              )}
+            </ul>
+          </details>
         )}
         {runs.error instanceof Error && (
           <span
@@ -122,13 +140,17 @@ export function App() {
           </span>
         )}
         {selectedRun !== null && (
-          <span className="ml-auto font-mono text-xs text-neutral-400" data-testid="header-time">
-            {new Date(selectedRun.mtime).toLocaleString()}
+          <span
+            className="font-mono text-xs text-muted-foreground"
+            data-testid="header-time"
+            title={new Date(selectedRun.mtime).toLocaleString()}
+          >
+            {relTime(selectedRun.mtime)}
           </span>
         )}
       </header>
       {runId === null ? (
-        <div className="m-auto flex max-w-xl flex-col items-center gap-3 font-mono text-sm text-neutral-400">
+        <div className="m-auto flex max-w-xl flex-col items-center gap-3 font-mono text-sm text-muted-foreground">
           {list.length === 0 ? (
             <p>no runs found - set JINT_REQUESTS_DIR or run jint once</p>
           ) : (
@@ -142,13 +164,16 @@ export function App() {
                     size="sm"
                     className="font-mono text-xs"
                     onClick={() => pick(run.id)}
+                    title={`run id: ${run.id}`}
                   >
-                    {baseName(run.configPath)} · {run.requests} req
+                    {baseName(run.configPath)} · {relTime(run.mtime)} · {run.requests} req
                   </Button>
                 ))}
               </div>
               {list.length > 8 && (
-                <p className="text-xs text-neutral-500">…{list.length - 8} more in the picker</p>
+                <p className="text-xs text-muted-foreground">
+                  …{list.length - 8} more in the picker
+                </p>
               )}
             </>
           )}

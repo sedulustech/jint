@@ -15,7 +15,8 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
 
   const data = report.data;
-  const hasReport = data !== undefined && !("absent" in data);
+  const degraded = run.data?.reportDegraded === true;
+  const hasReport = !degraded && data !== undefined && !("absent" in data);
   const stats = ruleStats(hasReport ? (data as Report) : undefined, run.data);
   const errors = hasReport ? (data as Report).errors.length : 0;
   const notes = hasReport ? (data as Report).notes.length : 0;
@@ -26,30 +27,41 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
   return (
     <div
       id="report-panel-inner"
-      className="shrink-0 overflow-y-auto border-b border-neutral-800 bg-neutral-900 px-3 py-2 font-mono text-xs"
+      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-3 py-2 font-mono text-xs"
       style={{ maxHeight: "45vh" }}
     >
+      {degraded && (
+        <p className="text-amber-300">
+          report.json is a partial fragment (torn write) — canonical rules and severities fell back
+          to capture parsing; findings below may be incomplete. Regenerate the run to restore full
+          verdicts.
+        </p>
+      )}
       {!report.isLoading && !hasReport && (
-        <p className="text-neutral-400">
+        <p className="text-muted-foreground">
           no report captured for this run — per-rule stats below come from capture answers only
           (findings unknown)
         </p>
       )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="text-neutral-200">
+        <span className="text-foreground">
           <span className="text-base font-bold">{totalFindings}</span> findings
         </span>
-        <span className="text-neutral-400">{totalMeasurements} measurements</span>
-        <span className={errors > 0 ? "text-red-400" : "text-neutral-400"}>{errors} errors</span>
-        <span className="text-neutral-400">{notes} notes</span>
-        <span className="text-neutral-500">
-          healthy-max / defective-min gap: needs a probe corpus (single run gives one distribution,
-          not the gap)
+        <span className="text-muted-foreground">{totalMeasurements} measurements</span>
+        <span className={errors > 0 ? "text-red-400" : "text-muted-foreground"}>
+          {errors} errors
+        </span>
+        <span className="text-muted-foreground">{notes} notes</span>
+        <span
+          className="text-muted-foreground"
+          title="healthy-max / defective-min gap: needs a probe corpus - a single run gives one distribution, not the gap"
+        >
+          calibration note
         </span>
       </div>
       <table className="mt-2 w-full border-collapse text-xs">
         <thead>
-          <tr className="text-left text-neutral-400">
+          <tr className="text-left text-muted-foreground">
             <th className="py-1 pr-4 font-normal">rule</th>
             <th className="py-1 pr-4 font-normal">measurements</th>
             <th className="py-1 pr-4 font-normal">findings</th>
@@ -63,25 +75,25 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
               key={s.rule}
               onClick={() => onRuleSelect(activeRule === s.rule ? null : s.rule)}
               className={
-                "cursor-pointer border-t border-neutral-800 hover:bg-neutral-800/60 " +
+                "cursor-pointer border-t border-border hover:bg-neutral-800/60 " +
                 (activeRule === s.rule ? "bg-neutral-800" : "")
               }
               title="filter the request table to this rule"
             >
               <td className="py-1 pr-4">
                 <span
-                  className={activeRule === s.rule ? "font-bold text-white" : "text-neutral-200"}
+                  className={activeRule === s.rule ? "font-bold text-white" : "text-foreground"}
                 >
                   {s.rule}
                 </span>
               </td>
-              <td className="py-1 pr-4 text-neutral-400">{s.measurements}</td>
+              <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
               <td
                 className={"py-1 pr-4 " + (s.findings > 0 ? "text-amber-300" : "text-emerald-400")}
               >
                 {s.findings}
               </td>
-              <td className="py-1 pr-4 text-neutral-300">{(s.rate * 100).toFixed(1)}%</td>
+              <td className="py-1 pr-4 text-foreground">{(s.rate * 100).toFixed(1)}%</td>
               <td className="py-1">
                 <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
                   {s.histogram.map((n, i) => {
@@ -105,7 +117,7 @@ export function ReportPanel({ runId, activeRule, onRuleSelect }: Props) {
           ))}
           {stats.length === 0 && !report.isLoading && (
             <tr>
-              <td colSpan={5} className="py-2 text-neutral-500">
+              <td colSpan={5} className="py-2 text-muted-foreground">
                 no measurements found
               </td>
             </tr>

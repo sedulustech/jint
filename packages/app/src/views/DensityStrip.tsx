@@ -25,7 +25,16 @@ export function marksFor(handle: HandlerData | undefined): number[] {
  * boundary is the strong line; when the table is filtered to ONE rule, its handle's thresholds
  * appear as faint marks.
  */
-export function DensityStrip({ rows, marks = [] }: { rows: RequestSummary[]; marks?: number[] }) {
+export function DensityStrip({
+  rows,
+  marks = [],
+  scoreAxis,
+}: {
+  rows: RequestSummary[];
+  marks?: number[];
+  /** When the filtered rule is a score handle: its level count, so the axis reads honestly. */
+  scoreAxis?: number;
+}) {
   const bins = useMemo(() => {
     const b = new Array(WIDTH).fill(0);
     for (const r of rows) {
@@ -37,13 +46,18 @@ export function DensityStrip({ rows, marks = [] }: { rows: RequestSummary[]; mar
   const max = Math.max(1, ...bins);
 
   return (
-    <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-2 py-1">
-      <span className="shrink-0 font-mono text-[10px] text-neutral-400">
+    <div className="flex items-center gap-2 border-b border-border bg-muted px-2 py-1">
+      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
         distribution of max-p over {rows.length} requests
+        {scoreAxis !== undefined && ` (score/${scoreAxis - 1} scaled to 0…1)`}
       </span>
       <div
         className="relative h-8 min-w-0 flex-1 overflow-hidden"
-        title="x: answer probability 0..1 · strong line 0.5 · faint lines: the active rule's thresholds"
+        title={
+          scoreAxis !== undefined
+            ? `x: score/${scoreAxis - 1} normalized 0..1 · the 0.5 line sits between the middle levels`
+            : "x: answer probability 0..1 · strong line 0.5 · faint lines: the active rule's thresholds"
+        }
       >
         <div className="absolute inset-0 flex items-end">
           {bins.map((n, i) => {
@@ -66,11 +80,11 @@ export function DensityStrip({ rows, marks = [] }: { rows: RequestSummary[]; mar
             style={{ left: `${t * 100}%` }}
           />
         ))}
-        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 font-mono text-[9px] leading-none text-neutral-300">
+        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 font-mono text-[9px] leading-none text-foreground">
           0.5
         </span>
       </div>
-      <span className="shrink-0 font-mono text-[10px] text-neutral-500">0 … 1</span>
+      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">0 … 1</span>
     </div>
   );
 }
