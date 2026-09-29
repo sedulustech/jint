@@ -76,11 +76,14 @@ describe("classify", () => {
     expect(outcome.measurements).toHaveLength(2);
     expect(outcome.measurements.every((m) => m.stage === "element")).toBe(true);
     expect(outcome.measurements.every((m) => m.value === 2)).toBe(true);
-    expect(outcome.measurements.every((m) => m.input.startsWith("src/maths.ts#L"))).toBe(true);
+    expect(outcome.measurements.every((m) => /^src\/maths\.ts#[0-9a-f-]{36}$/.test(m.input))).toBe(
+      true,
+    );
     // element states are single-element sources (with attached content), under the file path
     for (const state of states) {
       expect((state as { path: string }).path).toBe("src/maths.ts");
       expect((state as { source: string }).source).toContain("return");
+      expect(typeof (state as { id: unknown }).id).toBe("string");
     }
     // inventory exposed: two definitions parsed from the source
     expect(outcome.inventory).toBeDefined();
@@ -95,7 +98,9 @@ describe("classify", () => {
     });
     expect(outcome.errors).toEqual([]);
     expect(outcome.inventory).toBeDefined();
-    expect(outcome.measurements.every((m) => m.input.startsWith("snippet.txt#L"))).toBe(true);
+    expect(outcome.measurements.every((m) => /^snippet\.txt#[0-9a-f-]{36}$/.test(m.input))).toBe(
+      true,
+    );
   });
 
   test("no resolvable language: WALK_FAILED in-band, unit-scoped rules still classified, inventory omitted", async () => {

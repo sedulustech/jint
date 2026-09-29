@@ -166,6 +166,11 @@ export interface Measurement {
   readonly value: number;
   /** What was classified: the unit itself, or an element of its inventory. */
   readonly stage?: "file" | "element";
+  /**
+   * Element source span; element-scoped measurements only. Stable sort key (report docs) and
+   * display source — the uuid input is identity, never presentation.
+   */
+  readonly span?: Span;
 }
 
 /**
@@ -217,6 +222,8 @@ export interface FileState {
 export interface ElementState {
   readonly path: string;
   readonly source: string;
+  /** Identity: a uuidv4 minted at classify time, propagated unchanged (input, finding, cell). */
+  readonly id: string;
 }
 
 export type UnitState = FileState;

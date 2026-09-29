@@ -379,7 +379,8 @@ describe("classifyFile — imports routing", () => {
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified.length).toBeGreaterThanOrEqual(1);
     const first = classified[0]!;
-    expect((first.event as Measurement).input).toBe("src/app.ts#L1-L2");
+    // the element's identity is a classify-time uuid, not the positional wire id
+    expect((first.event as Measurement).input).toMatch(/^src\/app\.ts#[0-9a-f-]{36}$/);
     expect(first.span?.start.line).toBe(1);
     expect(first.span?.end.line).toBe(2);
   });

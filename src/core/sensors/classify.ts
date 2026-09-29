@@ -126,7 +126,8 @@ export function compileElementQuestions(
  * The wire id for a judged span of a file: the treesitter LOC interval, 1-based — "L19" for a
  * single line, "L19-L28" for a range. Spans of top-level elements are disjoint, so ids are unique
  * within a file and point straight at the source (classified: readings equal the content-hash id at
- * mean delta 0.027, tmp probes).
+ * mean delta 0.027, tmp probes). Whole-file / diff-block unit ids only — element identity is a
+ * classify-time uuidv4 (element-identity design), never a positional span.
  */
 export function elementWireId(span: {
   readonly start: { readonly line: number };
@@ -417,7 +418,7 @@ export async function classifyFile(
   // batched inside the call (multiple questions x one state is fine), elements fanned out by
   // CONCURRENCY, not questions-per-call.
   const jobs: Array<{
-    wireId: string;
+    id: string;
     span: Span;
     source: string;
     rules: Rule[];
@@ -445,9 +446,12 @@ export async function classifyFile(
   for (const element of inventory) {
     const scoped = rulesForElement(rules, element, state.path);
     if (scoped.length === 0) continue;
-    const wireId = elementWireId(element.span);
+    // Identity minted once per element job and propagated unchanged: state.id -> input suffix ->
+    // findings -> UI cells. Positional ids (elementWireId's L-spans) shift on edits above and
+    // collide across files; a run-scoped uuidv4 needs neither stability nor readability (design
+    // tmp/designs/element-identity.md).
     jobs.push({
-      wireId,
+      id: crypto.randomUUID(),
       span: element.span,
       source: elementContent(element),
       rules: scoped,
@@ -463,9 +467,9 @@ export async function classifyFile(
   const worker = async (): Promise<void> => {
     while (next < jobs.length && !aborted && !isAborted()) {
       const job = jobs[next++]!;
-      const input = `${state.path}#${job.wireId}`;
+      const input = `${state.path}#${job.id}`;
       const result = await call(
-        { path: state.path, source: job.source },
+        { path: state.path, source: job.source, id: job.id },
         compileElementQuestions(job.rules, job.role),
         classifier,
         input,

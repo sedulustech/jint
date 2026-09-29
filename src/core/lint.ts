@@ -330,7 +330,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           continue;
         }
 
-        yield { type: "measurement", measurement: { ...event, stage } };
+        yield { type: "measurement", measurement: { ...event, stage, span } };
         // One pass, no candidacy: every measurement is a reading; the rule's handle is the
         // only threshold. Element readings carry their span into the finding's location.
         const handle = byName.get(event.rule)?.handle;
@@ -535,21 +535,29 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
   // array sorts on a total key over the data (never completion order, never stable-sort tie
   // preservation):
-  // - findings: (input, span startByte, span start line, rule) - one file can fire one rule on
-  //   many elements, so (input, rule) alone can tie.
-  // - measurements: (input, rule, stage, value); errors: (input, code, message); notes: lexical.
+  // - findings: (file, span startByte, span start line, input, rule) - one file can fire one rule
+  //   on many elements, so (input, rule) alone can tie. The element id suffix after '#' is a
+  //   per-run uuid (element-identity design), so it sorts only as a final tiebreak, never first —
+  //   a uuid-first key would make the document ordering differ between identical runs.
+  // - measurements: (file, span, input, rule, stage, value); errors: (file, code, message,
+  //   input); notes: lexical.
   // The event STREAM stays completion-ordered by design; the serialized document is byte-stable.
+  const idFile = (input: string): string => input.split("#")[0] ?? input;
   const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
   const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
+  const measurementSpan = (m: Measurement): number => m.span?.startByte ?? -1;
   report.findings.sort(
     (a, b) =>
-      a.input.localeCompare(b.input) ||
+      idFile(a.input).localeCompare(idFile(b.input)) ||
       spanKey(a) - spanKey(b) ||
       lineKey(a) - lineKey(b) ||
+      a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule),
   );
   report.measurements.sort(
     (a, b) =>
+      idFile(a.input).localeCompare(idFile(b.input)) ||
+      measurementSpan(a) - measurementSpan(b) ||
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule) ||
       (a.stage ?? "").localeCompare(b.stage ?? "") ||
@@ -557,9 +565,10 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   );
   report.errors.sort(
     (a, b) =>
-      a.input.localeCompare(b.input) ||
+      idFile(a.input).localeCompare(idFile(b.input)) ||
       a.code.localeCompare(b.code) ||
-      a.message.localeCompare(b.message),
+      a.message.localeCompare(b.message) ||
+      a.input.localeCompare(b.input),
   );
   report.notes.sort((a, b) => a.localeCompare(b));
   return report;

@@ -190,9 +190,9 @@ describe("ctx.diff — the lens (paths-only)", () => {
     const without = await run();
     writeFileSync(LIST_PATH, "changed.ts\n");
     const withLens = await run(LIST_PATH);
-    expect(withLens.measurements.map((m) => [m.rule, m.input] as const)).toEqual(
-      without.measurements.map((m) => [m.rule, m.input] as const),
-    );
+    // element identity is a per-run uuid — compare (file, rule) pairs, never raw inputs
+    const key = (m: { rule: string; input: string }) => [m.rule, m.input.replace(/#.*$/, "")];
+    expect(withLens.measurements.map(key)).toEqual(without.measurements.map(key));
     expect(without.measurements.length).toBeGreaterThan(0);
   });
 });

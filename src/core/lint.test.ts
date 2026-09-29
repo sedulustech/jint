@@ -278,7 +278,13 @@ describe("lint", () => {
         }),
       );
       expect(report.measurements.length).toBeGreaterThanOrEqual(8);
-      return JSON.stringify(report);
+      // Element ids are per-run uuids (element-identity design): normalize them out, compare
+      // everything else byte-for-byte — ordering included.
+      return JSON.stringify(report, (key, value) =>
+        key === "input" && typeof value === "string"
+          ? value.replace(/#[0-9a-f-]{36}$/, "#id")
+          : value,
+      );
     };
     const first = await documentOf();
     const second = await documentOf();
@@ -318,7 +324,7 @@ describe("lint", () => {
     // one hung call = one per-element error, the run continues around it
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]?.code).toBe("JEV_TIMEOUT");
-    expect(report.errors[0]?.input).toContain("#L2");
+    expect(report.errors[0]?.input).toMatch(/\/elements\.ts#[0-9a-f-]{36}$/);
     expect(report.measurements.length).toBeGreaterThanOrEqual(2);
     rmSync(dir, { recursive: true, force: true });
   });
@@ -443,7 +449,9 @@ describe("lint", () => {
     // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
     // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
-    expect(findings.map((s) => s.finding.input)).toEqual([FILE + "#L2-L4", FILE + "#L6-L11"]);
+    // element identity is a classify-time uuid, not the positional wire id
+    expect(findings.map((s) => s.finding.input.replace(/#.*$/, ""))).toEqual([FILE, FILE]);
+    for (const s of findings) expect(s.finding.input).toMatch(/#[0-9a-f-]{36}$/);
     for (const s of findings) {
       expect(s.finding).toEqual({
         rule: "is_name_purposeful",
@@ -625,7 +633,10 @@ describe("lint", () => {
     const inputs = new Set(
       events.filter((e) => e.type === "measurement").map((e) => e.measurement.input),
     );
-    expect(inputs).toEqual(new Set(["good.ts", "good.ts#L2", "good.ts#L4-L6"]));
+    // element identity is a uuid — assert shape, never the value
+    expect(inputs).toEqual(new Set(["good.ts", ...[...inputs].filter((i) => i.includes("#"))]));
+    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
+    for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
   });
 
   test("custom rule set (selection = the rule list itself)", async () => {
