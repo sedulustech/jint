@@ -62,7 +62,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   const meta = capture?.response ?? {};
 
   return (
-    <section className="detail-pane flex w-3/5 min-w-[600px] shrink-0 flex-col border-l border-border bg-background">
+    <section className="detail-pane flex h-1/2 shrink-0 flex-col border-t border-border bg-background">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
         <h2 className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           {rule} <span className="text-muted-foreground">@ {input}</span>
