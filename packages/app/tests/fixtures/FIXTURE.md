@@ -39,9 +39,11 @@ shapes and relationships, never uuids.
 
 ## Regenerate
 
+Two builders, two fixture kinds (both run from packages/app):
+
 ```bash
-bun tests/helpers/build-fixture.ts   # synthesized run-a / run-b (legacy hand-built fixture)
-bun run fixtures:gen                 # generated case fixtures (real engine pipeline)
+bun run fixtures:build   # tests/helpers/build-fixture.ts - synthesized run-a / run-b states fixture
+bun run fixtures:gen     # scripts/build-fixture.ts      - generated/<case> runs through the real engine
 ```
 
 The fixtures are synthesized by the script (not sampled from a live dump), so regeneration is

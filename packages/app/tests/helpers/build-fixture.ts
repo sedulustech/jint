@@ -1,8 +1,10 @@
 /**
- * Regenerates the checked-in test fixtures. Deterministic: the fixtures are SYNTHESIZED (not
- * sampled from a live dump), so re-running this on any machine produces identical files.
+ * BUILDER 1 of 2 — the SYNTHESIZED states fixture (run-a/run-b). Deterministic: the fixtures are
+ * hand-constructed (not sampled from a live dump or the engine), so re-running this on any machine
+ * produces identical files. For REAL-pipeline generated cases see scripts/build-fixture.ts
+ * (fixtures:gen); the two builders share nothing but the fixtures directory.
  *
- * Usage: bun tests/helpers/build-fixture.ts
+ * Usage: bun run fixtures:build (from packages/app)
  *
  * Fixtures/run-a/ 10 captures + report.json. Covers the STATES, not a corpus:
  *

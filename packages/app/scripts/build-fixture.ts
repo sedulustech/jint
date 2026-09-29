@@ -1,8 +1,9 @@
 /**
- * Regenerates the checked-in element fixture THROUGH THE REAL ENGINE PIPELINE (fixture-pipeline
- * design, tmp/designs/fixture-pipeline.md): walk.ts -> classify.ts -> jev tap captures -> the
- * engine's report/manifest writers. No hand-built capture shapes — the fixture is what the engine
- * actually emits, so format changes (like uuid element ids) are absorbed by regenerating.
+ * BUILDER 2 of 2 — the REAL-PIPELINE generated case fixture (generated/elements). Runs the actual
+ * engine end to end (fixture-pipeline design, tmp/designs/fixture-pipeline.md): walk.ts ->
+ * classify.ts -> jev tap captures -> the engine's report/manifest writers. No hand-built capture
+ * shapes — the fixture is what the engine actually emits, so format changes (like uuid element ids)
+ * are absorbed by regenerating.
  *
  * Usage: bun run fixtures:gen (from packages/app)
  *
