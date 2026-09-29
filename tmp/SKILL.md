@@ -140,6 +140,13 @@ Changing instructions is a recalibration event.
   dimensions. The CLI renders the chosen level's text on the finding line
   ("warn 1.65 is_readable - Reader must reconstruct intent..."), so the
   agent reads where to intervene, not a bare number.
+- **A score needs a pass option.** At least one level of the rubric must
+  resolve to a non-finding: the low end of the scale is the healthy case
+  and its map entry must be "pass". A rubric whose every level fires
+  (warn/error only) can never approve anything - it flags healthy code,
+  the same failure as reversed thresholds. When calibrating, the healthy
+  band should land inside the pass level(s) and the defective band above
+  them, with the map boundary between them.
 - Elements: `files`/`diffs` targets judge the whole unit; `definitions`/
   `comments`/`functions`/`imports` targets judge elements derived from the
   parse. A rule about functions needs the code to parse - snippets without a
