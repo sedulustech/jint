@@ -1,0 +1,108 @@
+{
+  "tool": "jint",
+  "format": "jint-report/v1",
+  "version": "0.1.0",
+  "measurements": [
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/borderline.ts",
+      "value": 0.5,
+      "stage": "file"
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/high.ts",
+      "value": 0.92,
+      "stage": "file"
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/low.ts",
+      "value": 0.08,
+      "stage": "file"
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/near-mid.ts",
+      "value": 0.51,
+      "stage": "file"
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/multi.tsx",
+      "value": 0.7,
+      "stage": "element"
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/multi.tsx",
+      "value": 0.3,
+      "stage": "element"
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/greedy.ts",
+      "value": 0.8,
+      "stage": "file"
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/greedy-low.ts",
+      "value": 0.2,
+      "stage": "file"
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-high.ts",
+      "value": 0.95,
+      "stage": "file"
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-b.tsx",
+      "value": 0.45,
+      "stage": "element"
+    },
+    {
+      "rule": "will_error_lose_cause",
+      "input": "src/score.ts",
+      "value": 3,
+      "stage": "file"
+    },
+    {
+      "rule": "is_noul_documented",
+      "input": "src/documented.ts",
+      "value": 0.8,
+      "stage": "file"
+    }
+  ],
+  "findings": [
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/borderline.ts",
+      "value": 0.5,
+      "severity": "warn"
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-high.ts#L1-L3",
+      "value": 0.95,
+      "severity": "error",
+      "location": {
+        "input": "src/other-high.ts#L1-L3",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 3,
+            "column": 2
+          }
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "notes": ["fixture run"]
+}

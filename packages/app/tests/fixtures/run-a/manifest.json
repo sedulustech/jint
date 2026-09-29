@@ -1,0 +1,41 @@
+{
+  "configPath": "/opt/jint-fixture/configs/sample.json",
+  "handles": {
+    "is_name_purposeful": {
+      "warn": {
+        "less_than": 0.55
+      },
+      "error": {
+        "less_than": 0.4
+      }
+    },
+    "has_nothing in mind": {
+      "warn": {
+        "greater_than": 0.6
+      },
+      "silent_band": [0.75, 0.85]
+    },
+    "will_comment_drift": {
+      "warn": {
+        "greater_than": 0.6
+      },
+      "error": {
+        "greater_than": 0.9
+      }
+    },
+    "will_error_lose_cause": {
+      "map": ["pass", "pass", "warn", "error"]
+    },
+    "is_noul_documented": {
+      "warn": {
+        "less_than": 0.4
+      },
+      "error": {
+        "less_than": 0.3
+      }
+    }
+  },
+  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/measurement-ui/packages/app",
+  "argv": ["bun", "tests/helpers/build-fixture.ts"],
+  "ts": "1970-01-01T00:00:00.000Z"
+}

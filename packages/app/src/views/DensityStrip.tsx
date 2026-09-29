@@ -1,0 +1,76 @@
+import { isScoreHandler, type HandlerData } from "@jint/contract";
+import { useMemo } from "react";
+import type { RequestSummary } from "../types";
+
+// bins; a 1px-per-request strip bins down for 2000+ rows
+const WIDTH = 240;
+/**
+ * Threshold values from the active rule's handle snapshot: already p-space (the operator carries
+ * the direction), so no mapping. Score handles index criteria, not p: no marks.
+ */
+export function marksFor(handle: HandlerData | undefined): number[] {
+  // score poles are indices, not p-space: no marks for score handles
+  if (handle === undefined || isScoreHandler(handle)) return [];
+  const at: number[] = [];
+  for (const cond of [handle.warn, handle.error]) {
+    if (cond === undefined) continue;
+    if (cond.greater_than !== undefined) at.push(cond.greater_than);
+    if (cond.less_than !== undefined) at.push(cond.less_than);
+  }
+  return at;
+}
+
+/**
+ * Distribution of one probability per request (the capture's max answer) across 0..1. The 0.5
+ * boundary is the strong line; when the table is filtered to ONE rule, its handle's thresholds
+ * appear as faint marks.
+ */
+export function DensityStrip({ rows, marks = [] }: { rows: RequestSummary[]; marks?: number[] }) {
+  const bins = useMemo(() => {
+    const b = new Array(WIDTH).fill(0);
+    for (const r of rows) {
+      if (r.maxProb === null) continue;
+      b[Math.min(WIDTH - 1, Math.floor(r.maxProb * WIDTH))] += 1;
+    }
+    return b;
+  }, [rows]);
+  const max = Math.max(1, ...bins);
+
+  return (
+    <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-2 py-1">
+      <span className="shrink-0 font-mono text-[10px] text-neutral-400">
+        distribution of max-p over {rows.length} requests
+      </span>
+      <div
+        className="relative h-8 min-w-0 flex-1 overflow-hidden"
+        title="x: answer probability 0..1 · strong line 0.5 · faint lines: the active rule's thresholds"
+      >
+        <div className="absolute inset-0 flex items-end">
+          {bins.map((n, i) => {
+            // neutral fill: the strip shows SHAPE (calibration), never verdict
+            const cls = "bg-neutral-500/70";
+            return (
+              <div
+                key={i}
+                className={`${cls} w-full min-w-0 flex-1`}
+                style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
+              />
+            );
+          })}
+        </div>
+        <div className="absolute bottom-0 top-0 w-px bg-neutral-300" style={{ left: "50%" }} />
+        {marks.map((t) => (
+          <div
+            key={t}
+            className="absolute bottom-0 top-0 w-px bg-neutral-500/40"
+            style={{ left: `${t * 100}%` }}
+          />
+        ))}
+        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 font-mono text-[9px] leading-none text-neutral-300">
+          0.5
+        </span>
+      </div>
+      <span className="shrink-0 font-mono text-[10px] text-neutral-500">0 … 1</span>
+    </div>
+  );
+}

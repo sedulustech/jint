@@ -1,0 +1,48 @@
+{
+  "ts": "2023-11-14T22:13:20.005Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "src/multi.tsx",
+      "source": "export const beta = (s: string): string => s.trim();\n",
+      "id": "E1"
+    },
+    "questions": {
+      "is_name_purposeful in E1": {
+        "type": "noul",
+        "instructions": "Judge is_name_purposeful.",
+        "criteria": {
+          "true": "holds",
+          "false": "does not hold"
+        }
+      },
+      "has_nothing in mind in E1": {
+        "type": "noul",
+        "instructions": "Judge has_nothing in mind.",
+        "criteria": {
+          "true": "holds",
+          "false": "does not hold"
+        }
+      }
+    },
+    "model": "jev-1.13.0"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_name_purposeful in E1": {
+        "type": "noul",
+        "noul": 0.7
+      },
+      "has_nothing in mind in E1": {
+        "type": "noul",
+        "noul": 0.3
+      }
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10
+    }
+  }
+}
