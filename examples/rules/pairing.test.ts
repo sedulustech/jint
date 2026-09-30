@@ -36,7 +36,7 @@ describe("is_comment_paired_with_code (example)", () => {
     // Stub P(accurate) = 0.1 -> defect pole 0.9 > error_at 0.85 -> error finding, bound to the docstring's span.
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]?.severity).toBe("error");
-    expect(report.findings[0]?.location?.input).toBe(FIXTURE);
+    expect(report.findings[0]?.location?.input).toBe(report.findings[0]?.input);
     expect(report.findings[0]?.location?.span.start.line).toBe(2);
   });
 });

@@ -366,8 +366,9 @@ describe("runTsRules — classification", () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, fakeClassifier(0.8));
     const measurement = phase.events.find((e) => e.type === "measurement");
-    expect(measurement?.type === "measurement" && measurement.measurement.input).toBe(
-      "src/fixture.ts#L8",
+    // identity is path#uuidv4 (json-tier scheme) — assert the shape, not a minted uuid
+    expect(measurement?.type === "measurement" && measurement.measurement.input).toMatch(
+      /^src\/fixture\.ts#\w{8}-\w{4}-\w{4}-\w{4}-\w{12}$/,
     );
   });
 
@@ -454,7 +455,7 @@ describe("runTsRules — policy", () => {
     expect(findings).toHaveLength(1);
     const finding = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(finding?.severity).toBe("warn");
-    expect(finding?.location?.input).toBe("src/fixture.ts");
+    expect(finding?.location?.input).toBe(finding?.input);
     expect(finding?.location?.span.start.line).toBe(8);
   });
 

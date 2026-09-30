@@ -126,7 +126,7 @@ describe("cli: ts rules end-to-end", () => {
       (f: Record<string, unknown>) => f.rule === "will_ts_rule_fire",
     );
     expect(finding?.severity).toBe("warn");
-    expect(finding?.location?.input).toBe("fixture.ts");
+    expect(finding?.location?.input).toBe(finding?.input);
     expect(finding?.location?.span.start.line).toBe(8);
   });
 

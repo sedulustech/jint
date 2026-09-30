@@ -12,7 +12,7 @@
 
 import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
 import { ruleInScope } from "../scope.ts";
-import { elementWireId, matchesTarget } from "../sensors/classify.ts";
+import { matchesTarget } from "../sensors/classify.ts";
 import { toClassifyError } from "../sensors/classify.ts";
 import { compileNoulHandler } from "../sensors/handle.ts";
 import {
@@ -146,9 +146,19 @@ function thrownMessage(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
 }
 
-/** The input id for a judged element: path#wire (same shape as the JSON element tier). */
-function inputOf(element: TsElement): string {
-  return element.path + "#" + elementWireId(element.span);
+/**
+ * The input id for a judged element: path#uuidv4, the same scheme as the JSON element tier
+ * (classify.ts) — identity is minted once per element per run and shared by the measurement and the
+ * finding location. The positional label (element.id, "d0") stays the projection label only;
+ * elementWireId's L-spans remain whole-file / diff-block unit ids.
+ */
+type ElementInputs = WeakMap<TsElement, string>;
+function inputOf(element: TsElement, inputs: ElementInputs): string {
+  const minted = inputs.get(element);
+  if (minted !== undefined) return minted;
+  const input = element.path + "#" + crypto.randomUUID();
+  inputs.set(element, input);
+  return input;
 }
 
 function ruleFailed(input: string, ruleName: string, message: string): ClassifyError {
@@ -201,6 +211,7 @@ export async function runTsRules(
 ): Promise<TsRulePhase> {
   const events: LintEvent[] = [];
   let fatal = false;
+  const inputs: ElementInputs = new WeakMap();
   for (const rule of tsRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
@@ -229,7 +240,7 @@ export async function runTsRules(
     const aligned: TsElement[] = [];
     for (const self of targets) {
       if (isAborted() || fatal) break;
-      const input = inputOf(self);
+      const input = inputOf(self, inputs);
       let spec;
       try {
         spec = rule.classify(self, ctx);
@@ -322,7 +333,7 @@ export async function runTsRules(
         }
         for (let i = 0; i < decisions.length; i++) {
           const decision = validateDecision(decisions[i], rule.name, i);
-          const finding = tsFinding(rule.name, aligned[i]!, results[i]!, decision);
+          const finding = tsFinding(rule.name, aligned[i]!, results[i]!, decision, inputs);
           if (finding !== null) events.push({ type: "finding", finding });
         }
       } catch (thrown) {
@@ -336,7 +347,7 @@ export async function runTsRules(
       for (let i = 0; i < values.length; i++) {
         const outcome = handle({ value: values[i]! });
         if (outcome === null) continue;
-        const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome);
+        const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome, inputs);
         if (finding !== null) events.push({ type: "finding", finding });
       }
     }
@@ -350,6 +361,7 @@ function tsFinding(
   target: TsElement,
   result: RuleResult,
   decision: { severity: "error" | "warn" | null; data?: Record<string, unknown> },
+  inputs: ElementInputs,
 ): Finding | null {
   if (decision.severity === null) return null;
   const value = result.type === "noul" ? result.noul : (result as { score: number }).score;
@@ -361,10 +373,10 @@ function tsFinding(
   };
   return {
     rule: ruleName,
-    input: inputOf(target),
+    input: inputOf(target, inputs),
     value,
     severity: decision.severity,
     ...(decision.data !== undefined && { data: decision.data }),
-    location: { input: target.path, span },
+    location: { input: inputOf(target, inputs), span },
   };
 }
