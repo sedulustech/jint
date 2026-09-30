@@ -39,3 +39,4 @@ jint
 
 # vitest browser attachments
 .vitest
+probes/
