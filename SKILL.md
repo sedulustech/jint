@@ -86,8 +86,9 @@ jint --dry-run                         # the rules that WOULD run - zero walks, 
   The snippet can be a single interface, function, or module - `str -` is one
   unit, so element-scoped rules run on it when `--language` supplies the
   grammar. Keep scratch configs under tmp/ and one rule per config while
-  calibrating; measure-only (`"handle": null`) first, thresholds after you have
-  seen the spread.
+  calibrating; probe with a real handle and read the
+  `--json` measurements - the handle only decides when readings surface, so discard findings
+  while calibrating and choose thresholds after you have seen the spread.
 
 ## Rules are data (jint.config.json or --config probe.json)
 
@@ -133,7 +134,8 @@ Changing instructions is a recalibration event.
   match the criteria direction: if criteria.true describes the GOOD case,
   findings fire LOW (error_at < warn_at). Getting this backwards fires on
   healthy code - the most common authoring bug.
-- `"handle": null` = measure-only (the reading streams, never signals).
+- Every rule ships a real handle; probing = read the `--json` measurements, findings are
+  noise while calibrating (a probe handle is a real handle, never null).
 - `kind: "choice"` = scored rubric; criteria is an ordered list of level
   descriptions, answer is a 0..N score (can be fractional). Use for graded
   properties (readability); use noul for yes/no claims.
@@ -197,9 +199,9 @@ Guidelines, in the order you will need them:
 9. **Calibrate with a seeded positive control.** Healthy corpus quiet is
    necessary but not evidence: write the actual defect (a swallowed catch, a
    lying name) into a scratch file and confirm the rule still fires.
-10. **Anchor thresholds to distributions.** Run measure-only ("handle": null)
-    first, read the value spread, place warn/error inside the healthy/defective
-    gap. Then paste the numbers into the config as data.
+10. **Anchor thresholds to distributions.** Run the probe first (real handle; read
+    measurements, discard findings), read the value spread, place warn/error inside the
+    healthy/defective gap. Then paste the numbers into the config as data.
 11. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
     unverified on other languages; re-probe before trusting findings there.
 

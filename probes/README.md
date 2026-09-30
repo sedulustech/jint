@@ -24,8 +24,11 @@ The Sep-24-era probes (`debug-actionability`, `seam-purity`) also carry their
 - **Several configs use dead schema shapes.** The handler schema moved from
   `fires_when`/`warn_at` to the discriminated `handle.map` (score) and
   `handle.{warn,error}.{less_than,greater_than}` (noul) forms during the
-  choice/score work (2026-09). A stale config fails `CONFIG_INVALID` today —
-  that is expected; it is evidence of the old contract, not a bug.
+  choice/score work (2026-09), and the `"handle": null` measure-only form was
+  retired by the required-policy change (7fb73ed) - probes ship a real handle
+  and read measurements, discarding findings. A stale config fails
+  `CONFIG_INVALID` today — that is expected; it is evidence of the old
+  contract, not a bug.
 - Calibration conclusions live in `tmp/designs/` (e.g.
   `is-cognitively-complex-rebuild.md`, `score-resolver.md`) and the issues
   ledger (`tmp/issues/`). The probe is the raw measurement; the design doc is

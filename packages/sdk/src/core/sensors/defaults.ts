@@ -28,9 +28,9 @@ import type { Rule } from "../types.ts";
  * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (each threshold names its own
  * direction and ceiling — see handle.ts) or, for choice rules, a ScoreHandler (one map level per
  * criterion), compiled to the internal function form at module init. Recalibration is now editing
- * numbers in one place — and paste-able into jint.config.json. The declarative config surface also
- * accepts "handle": null (classify-only: the measurement streams, nothing ever produces findings) —
- * no default rule ships that form today.
+ * numbers in one place — and paste-able into jint.config.json. The declarative config surface
+ * requires a real handle; probing is measuring - read the --json measurements and discard findings
+ * (the handle only decides when readings surface), never a null handle.
  */
 
 export const isNamePurposeful: Rule = {
