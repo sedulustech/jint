@@ -352,9 +352,9 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           readFile(join(dir, file), "utf8"),
           stat(join(dir, file)),
         ]);
-        const capture = JSON.parse(text) as CaptureFile;
-        const questions = capture.request?.questions ?? {};
-        const answers = capture.response?.answers ?? {};
+        const requestFile = JSON.parse(text) as RequestFile;
+        const questions = requestFile.request?.questions ?? {};
+        const answers = requestFile.response?.answers ?? {};
         const probs = Object.values(answers)
           .map((a) => {
             if (typeof a?.noul === "number") return a.noul;
@@ -366,7 +366,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
             return null;
           })
           .filter((n): n is number => n !== null);
-        const state = capture.request?.state ?? {};
+        const state = requestFile.request?.state ?? {};
         const rules: string[] = [];
         let elementId: string | null = typeof state.id === "string" ? state.id : null;
         for (const key of Object.keys(questions)) {
@@ -424,7 +424,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         return {
           file,
           seq: 0,
-          ts: capture.ts ?? "",
+          ts: requestFile.ts ?? "",
           element: typeof state.source === "string",
           path: typeof state.path === "string" ? state.path : null,
           elementId,
@@ -432,10 +432,10 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           questionCount: Object.keys(questions).length,
           durationMs:
             Number.isFinite(st.mtimeMs) &&
-            capture.ts !== undefined &&
-            !Number.isNaN(Date.parse(capture.ts))
+            requestFile.ts !== undefined &&
+            !Number.isNaN(Date.parse(requestFile.ts))
               ? (() => {
-                  const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(capture.ts)));
+                  const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
                   // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
                   // >60s for one call is never real - report unknown rather than a 21-minute lie
                   return ms > 60_000 ? null : ms;
@@ -491,14 +491,14 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     id,
     requestCount: parsed.length,
     hasReport: reportFile,
-    requests: parsed,
+    results: parsed,
     handles: handles ?? {},
     cells,
     reportDegraded,
   };
 }
 
-interface CaptureFile {
+interface RequestFile {
   ts?: string;
   url?: string;
   status?: number;

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchCapture, fetchRun } from "../api/client";
+import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
-import type { Capture } from "../types";
+import type { RequestFile } from "../types";
 
 interface Props {
   runId: string;
@@ -23,22 +23,22 @@ interface Props {
 export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) {
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
   const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
-  const request =
-    run.data?.requests.find((r) => r.file === requestFile) ??
+  const result =
+    run.data?.results.find((r) => r.file === requestFile) ??
     // span lookup: element identity is exact; a bare-path pair prefers the file-tier capture
-    run.data?.requests.find(
+    run.data?.results.find(
       (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
     ) ??
-    run.data?.requests.find((r) => r.path === file);
+    run.data?.results.find((r) => r.path === file);
   const query = useQuery({
-    queryKey: ["capture", runId, request?.file],
-    queryFn: () => fetchCapture(runId, request!.file),
-    enabled: request !== undefined,
+    queryKey: ["request", runId, result?.file],
+    queryFn: () => fetchRequestFile(runId, result!.file),
+    enabled: result !== undefined,
   });
-  const capture: Capture | undefined = query.data;
+  const request: RequestFile | undefined = query.data;
 
-  const questions = (capture?.request?.questions ?? {}) as Record<string, QA["question"]>;
-  const answers = capture?.response?.answers ?? {};
+  const questions = (request?.request?.questions ?? {}) as Record<string, QA["question"]>;
+  const answers = request?.response?.answers ?? {};
   const qas: QA[] = Object.entries(questions).map(([key, question]) => {
     const m = key.match(/^(.*) in (.+)$/);
     return { key, rule: m ? m[1] : key, question, answer: answers[key] };
@@ -46,9 +46,9 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   // the addressed pair is the protagonist; sibling questions of the same capture stay accessible
   const pair = qas.find((qa) => qa.rule === rule);
   // per-pair severity from the API's span-aware join; never re-derived client-side
-  const severity = request?.severities[rule] ?? null;
+  const severity = result?.severities[rule] ?? null;
 
-  const state = (capture?.request?.state ?? {}) as {
+  const state = (request?.request?.state ?? {}) as {
     content?: string;
     source?: string;
     path?: string;
@@ -59,7 +59,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
       : typeof state.source === "string"
         ? state.source
         : null;
-  const meta = capture?.response ?? {};
+  const meta = request?.response ?? {};
 
   return (
     <section className="detail-pane flex h-1/2 w-full shrink-0 flex-col border-t border-border bg-background lg:h-auto lg:w-2/5 lg:min-w-[480px] lg:border-l lg:border-t-0">
@@ -67,8 +67,8 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         <h2 className="min-w-0 flex-1 truncate font-mono text-body text-foreground">
           {rule} <span className="text-muted-foreground">@ {input}</span>
         </h2>
-        {capture !== undefined && (
-          <CopyButton text={JSON.stringify(capture, null, 2)} label="copy capture" />
+        {request !== undefined && (
+          <CopyButton text={JSON.stringify(request, null, 2)} label="copy capture" />
         )}
         <button
           onClick={onClose}
@@ -84,15 +84,15 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           no answer for {rule} at {input} in the capture
         </p>
       )}
-      {capture !== undefined && pair !== undefined && (
+      {request !== undefined && pair !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-border px-3 py-1 font-mono text-caption text-muted-foreground">
             <span>
               model:{" "}
-              <span className="text-foreground">{meta.model ?? capture.request?.model ?? "?"}</span>
+              <span className="text-foreground">{meta.model ?? request.request?.model ?? "?"}</span>
             </span>
             <span>
-              status: <span className="text-foreground">{capture.status ?? "?"}</span>
+              status: <span className="text-foreground">{request.status ?? "?"}</span>
             </span>
             {meta.usage &&
               Object.entries(meta.usage).map(([k, v]) => (
@@ -105,11 +105,11 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             <div className="border-b border-border">
               <div className="flex items-center justify-between px-3 pt-2 pb-1">
                 <span className="font-mono text-caption text-muted-foreground">
-                  {request?.path ?? file} {span ? "· " + span : ""}
+                  {result?.path ?? file} {span ? "· " + span : ""}
                 </span>
                 <CopyButton text={code} label="copy code" />
               </div>
-              <CodeBlock code={code} path={request?.path ?? file} />
+              <CodeBlock code={code} path={result?.path ?? file} />
             </div>
           )}
           <div className="flex flex-col gap-2 p-2">

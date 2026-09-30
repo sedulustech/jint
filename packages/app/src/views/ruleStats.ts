@@ -57,7 +57,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
     for (const e of report.errors) stat("(" + e.code + ")").errors += 1;
   } else if (run) {
     // No report: fall back to answer counts per rule (measurements = answers seen, findings unknown).
-    for (const r of run.requests) {
+    for (const r of run.results) {
       for (const rule of r.rules) {
         const s = stat(rule);
         s.measurements += r.answers.length;

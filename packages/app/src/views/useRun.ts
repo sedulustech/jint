@@ -62,7 +62,7 @@ export function useRun(runId: string) {
   const severityOf = (r: RequestResult): "error" | "warn" | null => r.severity;
 
   const rows = useMemo(() => {
-    const all = query.data?.requests ?? [];
+    const all = query.data?.results ?? [];
     const terms = filter.text.toLowerCase().split(/\s+/).filter(Boolean);
     const filtered = all.filter((r) => {
       // every whitespace-separated term must hit path, rule, or severity
