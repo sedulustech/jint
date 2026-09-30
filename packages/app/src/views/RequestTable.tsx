@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SEVERITY } from "./color";
-import { DensityStrip, MiniStrip, marksFor } from "./DensityStrip";
+import { DensityStrip } from "./DensityStrip";
 import { Row } from "./Row";
 import { sevRank, useRun, type Filter, type Mode } from "./useRun";
 import type { Cell } from "../types";
@@ -339,10 +339,6 @@ export function RequestTable({
             {isExpanded ? "▾" : "▸"} {row.name}
           </span>
           <span className={`${INPUT_MIN} flex shrink-0 items-center gap-2 px-3`}>
-            <MiniStrip
-              values={row.cells.map((c) => c.value)}
-              marks={marksFor(query.data?.handles[row.name])}
-            />
             <span className="text-muted-foreground">
               {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
               {stats.err > 0 && stats.warn > 0 && " · "}
