@@ -37,7 +37,8 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
   if relative, e.g. a stale `tmp/requests` in env redirects captures into the
   repo). At end of run jint prints one stderr line naming the run dir:
   `jint: request captures -> <dir> (N calls)` — trust that line, not the docs.
-  Read the captures when you need to see precisely what the model saw.
+  Read the captures when you need to see precisely what the model saw. Every captured run is
+  also browsable in the measurement UI - see "Give the user the link" below.
 
 ## CLI
 
@@ -256,6 +257,27 @@ multiple elements (violates one-attribute scope - the model compares against
 names it cannot see), and "drift" invites the model to narrate quality instead
 of checking a condition (guideline 2). The fix was never thresholds; the rule
 was suspended until its criteria could name an observable condition.
+
+## Give the user the link (run visualization)
+
+Every run that writes captures (`JEV_DEBUG_REQUEST_LOCATION`, or the default under
+tmp/requests) is an inspectable artifact: the run dir holds report.json (all measurements
+
+- findings) and one capture file per classifier call. The measurement UI turns a run dir
+  into a browsable view - rules grouped by rule/file/request, findings rendered with their
+  code context, per-pair answer detail.
+
+When a session involves a run the user will want to look at, give them a link:
+
+1. Run with captures on: `JEV_DEBUG_REQUEST_LOCATION=/path/to/requests jint ... --json`.
+2. Take the run id from the stderr line: `jint: request captures -> /path/to/requests/<RUNID> (N calls)`.
+3. Link: `http://localhost:5173/#runs/<RUNID>` (the UI must be running with its
+   `JINT_REQUESTS_DIR` pointing at that same requests dir - see packages/app).
+
+Checks before you promise the link: the UI is up (curl localhost:5173), the requests dir
+matches (`JINT_REQUESTS_DIR` == the location you wrote), and the run is in the picker
+list. The link is the run id, not the dir path. A fresh run whose captures the UI never
+sees (wrong env) is a dead link.
 
 ## SDK (programmatic)
 
