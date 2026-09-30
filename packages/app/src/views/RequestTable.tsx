@@ -388,7 +388,7 @@ export function RequestTable({
   };
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
         <div role="group" aria-label="group by" className="flex items-center gap-1">
           <span className="font-mono text-caption text-muted-foreground">group by</span>
