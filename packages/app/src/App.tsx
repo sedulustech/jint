@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNowStrict } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
 import { PairDetail } from "./views/PairDetail";
 import { ReportPanel } from "./views/ReportPanel";
@@ -11,6 +11,7 @@ import type { Mode } from "./views/useRun";
 import type { Theme } from "./views/useTheme";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   Select,
   SelectContent,
@@ -18,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 const baseName = (p: string) => p.split("/").pop() ?? p;
 
@@ -47,10 +47,6 @@ export function App() {
     requestFile?: string;
   } | null>(null);
   const [mode, setMode] = useState<Mode>("request");
-  // resizable split: detail-pane width in px (null = 40% default); clamped so neither pane
-  // collapses (rules >= 280px, result >= 320px). Session-only: resets on reload.
-  const [detailW, setDetailW] = useState<number | null>(null);
-  const splitRef = useRef<HTMLDivElement>(null);
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusRule, setFocusRule] = useState<string | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
@@ -229,44 +225,38 @@ export function App() {
               />
             </div>
           )}
-          <div ref={splitRef} className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            <RequestTable
-              runId={runId}
-              mode={mode}
-              onMode={(m) => {
-                setMode(m);
-                setSelectedPair(null);
-              }}
-              focusRule={focusRule}
-              onFocusHandled={() => setFocusRule(null)}
-              selectedFile={selectedPair?.requestFile ?? null}
-              onSelectPair={setSelectedPair}
-            />
+          <ResizablePanelGroup
+            direction="horizontal"
+            autoSaveId="jint-rules-detail"
+            className="min-h-0 flex-1"
+          >
+            <ResizablePanel
+              id="rules"
+              defaultSize={60}
+              minSize={20}
+              className="flex min-h-0 min-w-0 flex-col"
+            >
+              <RequestTable
+                runId={runId}
+                mode={mode}
+                onMode={(m) => {
+                  setMode(m);
+                  setSelectedPair(null);
+                }}
+                focusRule={focusRule}
+                onFocusHandled={() => setFocusRule(null)}
+                selectedFile={selectedPair?.requestFile ?? null}
+                onSelectPair={setSelectedPair}
+              />
+            </ResizablePanel>
             {selectedPair !== null && (
               <>
-                <div
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="resize rules and result panes"
-                  className="hidden w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-border lg:block"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                  }}
-                  onPointerMove={(e: ReactPointerEvent<HTMLDivElement>) => {
-                    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-                    const rect = splitRef.current?.getBoundingClientRect();
-                    if (!rect) return;
-                    setDetailW(Math.min(rect.width - 280, Math.max(320, rect.right - e.clientX)));
-                  }}
-                />
-                <div
-                  className="flex min-h-0 shrink-0 flex-col lg:w-[var(--detail-w,40%)] lg:max-w-[calc(100%-280px)]"
-                  style={
-                    detailW !== null
-                      ? ({ "--detail-w": `${detailW}px` } as CSSProperties)
-                      : undefined
-                  }
+                <ResizableHandle withHandle aria-label="resize rules and result panes" />
+                <ResizablePanel
+                  id="detail"
+                  defaultSize={40}
+                  minSize={25}
+                  className="flex min-h-0 min-w-0 flex-col overflow-hidden"
                 >
                   <PairDetail
                     runId={runId}
@@ -275,10 +265,10 @@ export function App() {
                     requestFile={selectedPair.requestFile}
                     onClose={() => setSelectedPair(null)}
                   />
-                </div>
+                </ResizablePanel>
               </>
             )}
-          </div>
+          </ResizablePanelGroup>
         </>
       )}
     </div>
