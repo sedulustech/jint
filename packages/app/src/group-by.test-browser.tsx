@@ -244,13 +244,14 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
     },
     { timeout: 10_000 },
   );
-  // the clicked rule's group is expanded (3 children, all no-verdict silent-band values)
+  // the clicked rule's group is expanded: children are FILES (rule-mode children name the
+  // file, not the rule - the parent holds the rule), 3 cells all no-verdict silent-band values
   await waitFor(
     () => {
       const rows = [...document.querySelectorAll("button")].filter((b) =>
-        (b.textContent ?? "").includes("has_nothing in mind"),
+        (b.textContent ?? "").includes("src/greedy.ts"),
       );
-      if (rows.length < 4) throw new Error("group not expanded, rows: " + rows.length);
+      if (rows.length < 1) throw new Error("group not expanded, greedy.ts rows: " + rows.length);
     },
     { timeout: 10_000 },
   );
@@ -281,9 +282,9 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
   await waitFor(
     () => {
       const rows = [...document.querySelectorAll("button")].filter((b) =>
-        (b.textContent ?? "").includes("has_nothing in mind"),
+        (b.textContent ?? "").includes("src/greedy.ts"),
       );
-      if (rows.length < 4) throw new Error("chosen group not expanded, rows: " + rows.length);
+      if (rows.length < 1) throw new Error("chosen group not expanded, rows: " + rows.length);
     },
     { timeout: 10_000 },
   );
@@ -321,22 +322,21 @@ test("generated fixture: an element cell click resolves to the element capture b
   );
   modeButton("rule").click();
   await expectCounter("12/12 rules");
-  // is_name_purposeful targets definitions: expanding it reveals ONLY element cells
+  // is_name_purposeful targets definitions: expanding it reveals ONLY element cells.
+  // Rule-mode children name the FILE (complex.ts / helpers.ts) with the SPAN in the
+  // location cell - the span label from Element.span, never the uuid.
   rowByText("is_name_purposeful").click();
   await waitFor(
     () => {
-      const cells = [...document.querySelectorAll("button")].filter(
-        (b) =>
-          (b.textContent ?? "").includes("L") &&
-          (b.textContent ?? "").includes("is_name_purposeful"),
+      const cells = [...document.querySelectorAll("button")].filter((b) =>
+        (b.textContent ?? "").includes("complex.ts"),
       );
       if (cells.length === 0) throw new Error("element cells not expanded");
     },
     { timeout: 10_000 },
   );
-  const cells = [...document.querySelectorAll("button")].filter(
-    (b) =>
-      (b.textContent ?? "").includes("L") && (b.textContent ?? "").includes("is_name_purposeful"),
+  const cells = [...document.querySelectorAll("button")].filter((b) =>
+    (b.textContent ?? "").includes("complex.ts"),
   );
   // cells render the span label from Element.span ("L9" / "L12-L20"), never the uuid
   for (const c of cells) expect(c.textContent).toMatch(/L\d+(-L\d+)?/);

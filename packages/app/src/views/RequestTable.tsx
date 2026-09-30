@@ -358,6 +358,12 @@ export function RequestTable({
       );
     }
     const c = row.cell;
+    // In rule mode the parent IS the rule, so the child's identity is the file it fired on
+    // (file:location for element captures); in file mode the parent IS the file, so the child
+    // stays the rule. Same grid, different identity axis per mode.
+    const childName = mode === "rule" ? c.file : c.rule;
+    const childLocation =
+      c.element === undefined || c.element.kind === "file" ? null : spanLabel(c.element.span);
     return (
       <button
         key={row.key}
@@ -370,15 +376,16 @@ export function RequestTable({
         {/* pl-9 = rail 12 + a 24px indent: children sit ~13px right of the parent NAME (which
             starts past the caret), so the tree reads spatially without shifting any column off
             the shared grid (F1/F7). */}
-        <span className={`${NAME_W} shrink-0 truncate px-3 pl-9`} title={c.rule}>
-          {c.rule}
+        <span className={`${NAME_W} shrink-0 truncate px-3 pl-9`} title={childName}>
+          {childName}
         </span>
-        {/* the full pair join (path · span) fills the short-rule tail of the name column, so no
-            dead zone opens before the input column (F5); file-tier cells keep the (file) marker */}
-        <span className={`${INPUT_MIN} shrink-0 truncate px-3`} title={c.input}>
-          {c.element === undefined || c.element.kind === "file"
-            ? "(file)"
-            : `${c.file} · ${spanLabel(c.element.span)}`}
+        {/* the location column: the span when the capture is an element, else the (file) marker;
+            in rule mode the file already names the row so only the location is left to show */}
+        <span
+          className={`${INPUT_MIN} shrink-0 truncate px-3`}
+          title={childLocation !== null ? `${c.file}:${childLocation}` : c.file}
+        >
+          {childLocation !== null ? childLocation : "(file)"}
         </span>
         <span className={`${SEV_W} shrink-0 px-3`}>{sevDot(c.severity)}</span>
         <span className={`${VALUE_W} shrink-0 px-3`}>{c.value.toFixed(2)}</span>
