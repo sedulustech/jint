@@ -1,0 +1,49 @@
+{
+  "rules": [
+    {
+      "name": "is_greppable",
+      "criteria": {
+        "true": "At least one identifier in this code is a distinctive, greppable term: a name specific enough that searching it elsewhere in the codebase finds related code, not unrelated matches.",
+        "false": "Every identifier is generic - common words that would match unrelated code all over the codebase, making the code unsearchable."
+      },
+      "target": "definitions",
+      "handle": {
+        "fires_when": "false",
+        "warn_at": 0.5
+      },
+      "include": [
+        "src/core/scope.ts"
+      ]
+    },
+    {
+      "name": "is_function_srp",
+      "criteria": {
+        "true": "Every function in this code does one job at one level of abstraction.",
+        "false": "At least one function mixes levels of abstraction or bundles unrelated responsibilities."
+      },
+      "target": "functions",
+      "handle": {
+        "fires_when": "false",
+        "warn_at": 0.7
+      },
+      "include": [
+        "src/core/scope.ts"
+      ]
+    },
+    {
+      "name": "will_comment_drift",
+      "criteria": {
+        "true": "At least one comment in this code makes a claim that the code below it does not uphold, or states a behavior that differs from the implementation. If the unit contains no comment, answer false.",
+        "false": "Every comment's claim matches the implementation, or there is no comment."
+      },
+      "target": "comments",
+      "handle": {
+        "fires_when": "false",
+        "warn_at": 0.6
+      },
+      "include": [
+        "src/core/scope.ts"
+      ]
+    }
+  ]
+}

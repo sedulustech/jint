@@ -28,5 +28,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "exclude": ["tmp", "node_modules", "dist", "packages"]
+  "exclude": ["tmp", "probes", "node_modules", "dist", "packages"]
 }

@@ -1,0 +1,43 @@
+{
+  "$schema": "../../jint.schema.json",
+  "disable": [
+    "is_name_purposeful",
+    "is_vocabulary_consistent",
+    "is_naming_convention_consistent",
+    "is_greppable",
+    "is_comment_narration",
+    "is_comment_patching_readability",
+    "will_comment_drift",
+    "will_error_lose_cause",
+    "is_cognitively_complex",
+    "is_function_srp",
+    "is_readable"
+  ],
+  "rules": [
+    {
+      "name": "will_test_pin_implementation",
+      "target": "functions",
+      "criteria": {
+        "true": "This test asserts on internal implementation details of the unit under test rather than observable behavior: it reaches into private state, asserts exact internal call order, or breaks under a behavior-preserving refactor of the unit. Asserting on the STUBBED RETURN VALUES of an injected fake or mock is wiring the fake, not pinning - that is not a defect. The defect is only when the REAL unit's internals are pinned.",
+        "false": "This test asserts on the public contract: given inputs, observable output or effects are checked, and a behavior-preserving rewrite of the unit's internals would keep the test green. Configuring fakes and asserting their recorded interactions to verify the contract is contract testing, not pinning."
+      },
+      "handle": {
+        "warn_at": 0.5,
+        "error_at": 0.7
+      }
+    },
+    {
+      "name": "will_boolean_name_confuse",
+      "target": "definitions",
+      "criteria": {
+        "true": "A boolean here is named so that call sites read as a double negative or invite misreading: negated names (isNotX, disableX, noX), names whose polarity flips between declaration and use, or a flag whose name hides what true actually does.",
+        "false": "Every boolean here has an affirmative name whose true-case is obvious at the call site (isEnabled, verbose, retry). A name is not confusing merely because the domain is subtle."
+      },
+      "handle": {
+        "warn_at": 0.5,
+        "error_at": 0.7
+      }
+    }
+  ],
+  "input": "src/core/sensors"
+}

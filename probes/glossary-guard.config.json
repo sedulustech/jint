@@ -1,0 +1,19 @@
+{
+  "input": "",
+  "rules": [
+    {
+      "name": "is_self_contained_definition",
+      "instructions": "This unit is a glossary definition. Does it mention specific artifacts (file paths, issue numbers, tool names from the repo), upstream systems, or dependency nomenclature instead of standing alone as a definition?",
+      "criteria": {
+        "true": "The definition references repo artifacts (files, issues, tools, report formats), upstream/external systems, or dependency names - content that breaks if those are renamed or that a reader outside the repo cannot parse.",
+        "false": "The definition stands alone: it defines the concept in the project's own vocabulary, mentioning no files, issue numbers, external tools, upstream systems, or dependency names."
+      },
+      "handle": {
+        "warn_at": 0.55,
+        "error_at": 0.75
+      },
+      "kind": "noul",
+      "target": "files"
+    }
+  ]
+}

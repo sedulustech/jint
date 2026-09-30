@@ -1,0 +1,47 @@
+{
+  "ts": "2026-09-24T20:59:54.257Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "client.test.ts",
+      "source": "test(\"score questions compile to ScoreQuestion and answers extract the score\", async () => {\n    let captured: { url: string; init: RequestInit } | null = null;\n    const probe: FetchLike = async (input, init) => {\n      captured = { url: String(input), init: init ?? {} };\n      return new Response(JSON.stringify(scoreBody), {\n        status: 200,\n        headers: { \"Content-Type\": \"application/json\" },\n      });\n    };\n    const classifier = createClassifier({ apiKey: \"test-key\", fetch: probe });\n    const answers = await classifier(state, scoreQuestions);\n    expect(answers.is_readability).toBe(2);\n    const body = JSON.parse(String(captured!.init.body));\n    expect(body.questions.is_readability.type).toBe(\"score\");\n    expect(body.questions.is_readability.criteria).toEqual([\n      \"obvious\",\n      \"mostly clear\",\n      \"reconstructed intent\",\n      \"dense\",\n    ]);\n  });"
+    },
+    "questions": {
+      "is_seam_isolated": {
+        "type": "noul",
+        "instructions": "Judge the syntax unit against the criteria.",
+        "criteria": {
+          "true": "The code keeps vendor SDK details (types, error classes, client construction) inside the adapter boundary; nothing vendor-specific escapes to callers.",
+          "false": "Vendor SDK details leak: vendor types appear in exported signatures, vendor error classes escape, or callers must know the vendor to use this code."
+        }
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "instructions": "Judge the syntax unit against the criteria.",
+        "criteria": {
+          "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
+          "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+        }
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_seam_isolated": {
+        "type": "noul",
+        "noul": 0.61
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "noul": 0.2
+      }
+    },
+    "usage": {
+      "input_tokens": 676,
+      "output_tokens": 45
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "ts": "2026-09-24T20:59:55.954Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "client.ts",
+      "source": "function mapTransportError(e: unknown, input: string): MeasureError {\n  if (e instanceof AuthenticationError || e instanceof PermissionDeniedError) {\n    return new MeasureError(\"JEV_AUTH\", input, `jev rejected the API key: ${e.message}`, {\n      cause: e,\n    });\n  }\n  if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {\n    return new MeasureError(\n      \"JEV_REQUEST_INVALID\",\n      input,\n      `jev rejected the request: ${e.message}`,\n      {\n        cause: e,\n      },\n    );\n  }\n  if (e instanceof RateLimitError || e instanceof InternalServerError || e instanceof APIError) {\n    return new MeasureError(\"JEV_UNAVAILABLE\", input, `jev unavailable: ${e.message}`, {\n      cause: e,\n    });\n  }\n  if (e instanceof APIConnectionError) {\n    return new MeasureError(\"JEV_UNAVAILABLE\", input, `jev unreachable: ${e.message}`, {\n      cause: e,\n    });\n  }\n  if (e instanceof TypeSafeError) {\n    return new MeasureError(\"JEV_UNAVAILABLE\", input, `jev call failed: ${e.message}`, {\n      cause: e,\n    });\n  }\n  if (e instanceof Error) {\n    return new MeasureError(\"INTERNAL\", input, `unexpected jev transport error: ${e.message}`, {\n      cause: e,\n    });\n  }\n  return new MeasureError(\"INTERNAL\", input, `unexpected jev transport error: ${String(e)}`, {\n    cause: e,\n  });\n}"
+    },
+    "questions": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "instructions": "Score how actionable the debug/diagnostic output produced by this code is for someone debugging a failure in production.",
+        "criteria": [
+          "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        ]
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "score": 1.68,
+        "confidence": 0.67,
+        "legend": {
+          "0": "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "1": "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "2": "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "3": "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.32,
+          "2": 0.67,
+          "3": 0.01
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 784,
+      "output_tokens": 22
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "ts": "2026-09-24T20:59:57.162Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "client.test.ts",
+      "source": "test(\"answer failing shape validation -> JEV_RESPONSE_INVALID\", async () => {\n    const cases: unknown[] = [\n      {\n        model: \"jev-latest\",\n        answers: { is_name_purposeful: { type: \"score\", score: 3 } },\n        usage: { input_tokens: 1, output_tokens: 1 },\n      },\n      {\n        model: \"jev-latest\",\n        answers: { is_name_purposeful: { type: \"noul\", noul: 1.5 } },\n        usage: { input_tokens: 1, output_tokens: 1 },\n      },\n      { model: \"jev-latest\", answers: {}, usage: { input_tokens: 1, output_tokens: 1 } },\n    ];\n    for (const body of cases) {\n      try {\n        await judgeOnce(fakeFetch(body));\n        expect.unreachable();\n      } catch (e) {\n        expectMeasureError(\"JEV_RESPONSE_INVALID\")(e);\n      }\n    }\n  });"
+    },
+    "questions": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "instructions": "Score how actionable the debug/diagnostic output produced by this code is for someone debugging a failure in production.",
+        "criteria": [
+          "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        ]
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "score": 0.75,
+        "confidence": 0.25,
+        "legend": {
+          "0": "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "1": "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "2": "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "3": "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        },
+        "probabilities": {
+          "0": 0.52,
+          "1": 0.26,
+          "2": 0.19,
+          "3": 0.03
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 617,
+      "output_tokens": 22
+    }
+  }
+}

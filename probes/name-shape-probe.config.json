@@ -1,0 +1,59 @@
+{
+  "rules": [
+    {
+      "name": "is_vocabulary_consistent",
+      "instructions": "Do the identifiers in this file keep one vocabulary - the same concept always the same word?",
+      "criteria": {
+        "true": "The identifiers in this file keep one vocabulary with each other: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
+        "false": "Synonym drift is present: the same concept is referred to by two different words within the file (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
+      },
+      "kind": "noul",
+      "target": "files",
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.6
+        }
+      }
+    },
+    {
+      "name": "is_naming_convention_consistent",
+      "instructions": "Do identifiers of the same kind in this file follow a single casing convention?",
+      "criteria": {
+        "true": "Identifiers of the same kind follow one casing convention in this file - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the file has already established for that kind. Different kinds may use different conventions, and a mixed name quality or mixed name shape is not this defect.",
+        "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind."
+      },
+      "kind": "noul",
+      "target": "files",
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.65
+        }
+      }
+    },
+    {
+      "name": "is_naming_shape_consistent",
+      "instructions": "Do identifiers that fill the same role in this file follow one morphological pattern - the same way of ordering the action and the object in a name (lead with the action, or lead with the thing it acts on) and the same suffixing style for that role - independent of casing?",
+      "criteria": {
+        "true": "Identifiers that fill the same role are built on one morphological pattern: names that state an action all lead with the action (verb-headed) or all lead with the thing acted on (noun-headed), and the same agent-suffix style (-er/-or) is used consistently for that role. The reader never has to re-learn which element of the name is the verb. Casing is not part of this judgment, and word choice or name quality are not shape failures.",
+        "false": "Identifiers of the same role mix morphological patterns: some names lead with the action while others lead with the object, or the same role alternates between bare verbs and agent-suffixed forms with no rule - so a reader cannot tell from the name's pattern what role the name plays without checking each one. Different roles may use different patterns; word choice, name quality, and casing are separate judgments."
+      },
+      "kind": "noul",
+      "target": "files",
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.6
+        }
+      }
+    }
+  ],
+  "input": "src"
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "./jint.schema.json",
+  "input": "src/core",
+  "exclude": ["**/*.test.ts"],
+  "rules": [
+    {
+      "name": "fails_loudly",
+      "target": "functions",
+      "instructions": "Judge only functions whose body can fail (can throw, return error, parse, call fallible I/O). A function that cannot fail is trivially true; length is not a defect.",
+      "criteria": {
+        "true": "Failure surfaces: errors are thrown, returned, or logged with context; nothing silently swallowed.",
+        "false": "Failure is swallowed: empty catch, catch-and-continue without logging, error replaced with a default as if nothing happened."
+      },
+      "handle": null
+    },
+    {
+      "name": "single_job",
+      "target": "functions",
+      "criteria": {
+        "true": "The function does one job; its steps all serve the name. Trivial helpers trivially pass; length alone is not a defect.",
+        "false": "The function does unrelated jobs in sequence: parsing + I/O + formatting, or setup + action + teardown of unrelated things."
+      },
+      "handle": null
+    },
+    {
+      "name": "name_matches_behavior",
+      "target": "definitions",
+      "criteria": {
+        "true": "The exported name says exactly what the implementation does; a reader of only the name would predict the behavior.",
+        "false": "Name lies or misleads: name says X, body does X plus surprise side effects, or a term is used with a private meaning."
+      },
+      "handle": null
+    },
+    {
+      "name": "comment_pull",
+      "kind": "choice",
+      "target": "comments",
+      "instructions": "Judge whether the comment earns its place. When the element has no comment, do not judge.",
+      "criteria": [
+        "Comment restates the code or is noise (// increment i, commented-out code).",
+        "Slightly useful: paraphrases code without adding why.",
+        "Useful: explains why, constraint, or intent the code cannot show.",
+        "Load-bearing: captures a non-obvious contract, pin, or warning that would otherwise be lost."
+      ],
+      "handle": null
+    }
+  ]
+}

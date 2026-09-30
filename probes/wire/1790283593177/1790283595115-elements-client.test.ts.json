@@ -1,0 +1,47 @@
+{
+  "ts": "2026-09-24T20:59:55.115Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "client.test.ts",
+      "source": "const cases: unknown[] = [\n      {\n        model: \"jev-latest\",\n        answers: { is_name_purposeful: { type: \"score\", score: 3 } },\n        usage: { input_tokens: 1, output_tokens: 1 },\n      },\n      {\n        model: \"jev-latest\",\n        answers: { is_name_purposeful: { type: \"noul\", noul: 1.5 } },\n        usage: { input_tokens: 1, output_tokens: 1 },\n      },\n      { model: \"jev-latest\", answers: {}, usage: { input_tokens: 1, output_tokens: 1 } },\n    ];"
+    },
+    "questions": {
+      "is_seam_isolated": {
+        "type": "noul",
+        "instructions": "Judge the syntax unit against the criteria.",
+        "criteria": {
+          "true": "The code keeps vendor SDK details (types, error classes, client construction) inside the adapter boundary; nothing vendor-specific escapes to callers.",
+          "false": "Vendor SDK details leak: vendor types appear in exported signatures, vendor error classes escape, or callers must know the vendor to use this code."
+        }
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "instructions": "Judge the syntax unit against the criteria.",
+        "criteria": {
+          "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
+          "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+        }
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_seam_isolated": {
+        "type": "noul",
+        "noul": 0.56
+      },
+      "will_error_lose_cause": {
+        "type": "noul",
+        "noul": 0.21
+      }
+    },
+    "usage": {
+      "input_tokens": 587,
+      "output_tokens": 45
+    }
+  }
+}

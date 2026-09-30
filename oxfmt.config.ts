@@ -1,6 +1,9 @@
 import { defineConfig } from "oxfmt";
 
 export default defineConfig({
+  // probes/ is archived probe data (fixtures are deliberately defective; configs are
+  // historical snapshots) - format-checked source stays out of the archive.
+  ignorePatterns: ["probes/**"],
   jsdoc: true,
   sortImports: {
     ignoreCase: true,

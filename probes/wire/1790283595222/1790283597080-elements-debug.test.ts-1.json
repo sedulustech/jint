@@ -1,0 +1,50 @@
+{
+  "ts": "2026-09-24T20:59:57.080Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "debug.test.ts",
+      "source": "const response = await config.fetch!(\"https://api.typesafe.ai/v1/systemone\", {\n      method: \"POST\",\n      body: JSON.stringify({ state: { path: \"a.ts\", content: \"x\" }, questions: {} }),\n    });"
+    },
+    "questions": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "instructions": "Score how actionable the debug/diagnostic output produced by this code is for someone debugging a failure in production.",
+        "criteria": [
+          "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        ]
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "score": 0.32,
+        "confidence": 0.68,
+        "legend": {
+          "0": "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "1": "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "2": "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "3": "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        },
+        "probabilities": {
+          "0": 0.83,
+          "1": 0.08,
+          "2": 0.03,
+          "3": 0.06
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 451,
+      "output_tokens": 22
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "ts": "2026-09-24T20:59:55.956Z",
+  "url": "https://api.typesafe.ai/v1/systemone",
+  "request": {
+    "state": {
+      "path": "client.ts",
+      "source": "function extractAnswers(\n  result: SystemOneResult<Questions>,\n  questions: Record<string, QuestionSpec>,\n  input: string,\n): Record<string, number> {\n  const out: Record<string, number> = {};\n  for (const [name, spec] of Object.entries(questions)) {\n    const answer: unknown = result.answers[name];\n    const schema = spec.type === \"score\" ? SCORE_ANSWER_SCHEMA : NOUL_ANSWER_SCHEMA;\n    if (!Value.Check(schema, answer)) {\n      throw new MeasureError(\n        \"JEV_RESPONSE_INVALID\",\n        input,\n        `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: \"score\", score: number }' : '{ type: \"noul\", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,\n      );\n    }\n    out[name] =\n      spec.type === \"score\"\n        ? (answer as Static<typeof SCORE_ANSWER_SCHEMA>).score\n        : (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul;\n  }\n  return out;\n}"
+    },
+    "questions": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "instructions": "Score how actionable the debug/diagnostic output produced by this code is for someone debugging a failure in production.",
+        "criteria": [
+          "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        ]
+      }
+    },
+    "model": "jev-latest"
+  },
+  "status": 200,
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "is_debug_output_actionable": {
+        "type": "score",
+        "score": 2.16,
+        "confidence": 0.72,
+        "legend": {
+          "0": "No diagnostics, or output so vague it cannot narrow down a failure.",
+          "1": "Some context but missing key dimensions (which unit, which phase, what differed).",
+          "2": "Clear structured context: identifies the failing unit, phase, and the distinguishing detail.",
+          "3": "Complete forensic trail: unit, phase, distinguishing detail, and enough state to reproduce without a debugger."
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.06,
+          "2": 0.72,
+          "3": 0.22
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 642,
+      "output_tokens": 22
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"$schema":"./jint.schema.json","input":"packages/app/src","rules":["is_name_purposeful","is_vocabulary_consistent","is_naming_convention_consistent"]}

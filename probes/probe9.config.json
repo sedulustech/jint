@@ -1,0 +1,18 @@
+{
+  "$schema": "./jint.schema.json",
+  "rules": [
+    {
+      "name": "is_diff_single_purpose",
+      "target": "diffs",
+      "instructions": "Judge the whole change: is it one unit of intent, or several unrelated workstreams bundled? A cohesive change may touch many files if they all serve one purpose (a rename refactor, one feature end-to-end). A block that is only whitespace/trivial reflow and nothing else has nothing to judge: answer true.",
+      "criteria": {
+        "true": "The change has one purpose: every hunk serves a single stated intent (one feature, one fix, one rename, one refactor). Reviewing it is reading one story.",
+        "false": "The change bundles unrelated work: a feature mixed with a separate refactor, logic edits mixed with version bumps or unrelated config churn, several independent fixes in one patch, or a test rewrite mixed with new behavior."
+      },
+      "handle": {
+        "warn_at": 0.55,
+        "error_at": 0.35
+      }
+    }
+  ]
+}
