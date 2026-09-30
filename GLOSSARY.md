@@ -59,13 +59,11 @@ measurement its handle judged actionable and is the only output that demands act
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
 - **request** — the recorded classifier call: the exact bytes sent to the model and the
-  response, plus metadata (ts, status, recorded under the requests dir). Software
-  terminology, deliberately broad. Distinct from question: a request is the recorded CALL
+  response, plus metadata (ts, status). Software terminology, deliberately broad. Distinct from question: a request is the recorded CALL
   (what the model saw and answered); a question is one judgment inside it.
 - **result** — the tool's derived outcome for one request: the answers, per-rule verdicts,
   and timings a request produced. A result is a SUBSET of its request — the request is the
-  recorded call, the result is what jint derived from it. UI: a RequestItem row, the
-  run detail's `results` list.
+  recorded call, the result is what jint derived from it.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
