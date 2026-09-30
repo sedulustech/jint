@@ -106,15 +106,15 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 `;
 
 /**
- * End-of-run stderr notice for the request tap: where the captures went and how many. Nothing when
- * the tap is inactive; an active tap always reports, even zero captures (the run may have failed
+ * End-of-run stderr notice for the request tap: where the requests went and how many. Nothing when
+ * the tap is inactive; an active tap always reports, even zero requests (the run may have failed
  * before any classifier call).
  */
 export function requestTapNotice(): string {
   const tap = requestTapSummary();
   if (tap === null) return "";
   const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
-  return `jint: request captures -> ${tap.dir} (${tap.count} calls)${override}\n`;
+  return `jint: requests -> ${tap.dir} (${tap.count} calls)${override}\n`;
 }
 
 export async function runCli(cliArgv: string[]): Promise<number> {
@@ -279,7 +279,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       cliArgs.json === true
         ? { stdout: renderJson(lintReport), stderr: "" }
         : renderStylish(lintReport, cliArgs.color ?? "auto", choiceLevels(resolvedConfig.rules));
-    // The dump tap persists the run's machine report next to its captures: the EXACT bytes
+    // The dump tap persists the run's machine report next to its requests: the EXACT bytes
     // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
     if (cliArgs.json === true) requestTapWriteReport(rendered.stdout);
     requestTapWriteManifest({

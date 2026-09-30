@@ -24,7 +24,7 @@ interface RunSummary {
   configPath: string;
 }
 
-interface RequestResult {
+interface RequestItem {
   file: string;
   seq: number;
   ts: string;
@@ -37,7 +37,7 @@ interface RequestResult {
   durationMs: number | null;
   maxProb: number | null;
   minProb: number | null;
-  /** Every noul answer in the capture, sorted. Drives histograms. */
+  /** Every noul answer in the request, sorted. Drives histograms. */
   answers: number[];
   /**
    * Provable verdict for the run's rules at this input: finding join first, else the manifest's
@@ -61,7 +61,7 @@ export interface ApiCell {
   input: string;
   /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
   element?: Element;
-  /** The capture file this measurement came from (element uuid / file-tier join); direct fetch. */
+  /** The request file this measurement came from (element uuid / file-tier join); direct fetch. */
   requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
   value: number;
@@ -105,7 +105,7 @@ export async function handleApi(req: Request, opts: ApiOptions = {}): Promise<Re
         try {
           return json(JSON.parse(await readFile(file, "utf8")));
         } catch {
-          return notFound("request capture not found");
+          return notFound("request not found");
         }
       }
       // /api/runs/<id...> — summary (flat or nested)
@@ -165,15 +165,15 @@ async function listRuns(root: string): Promise<{
     let notRunCount = 0;
     const legacyDirs = new Set<string>();
     // Flatten case namespaces (generated/<case>/...) alongside flat runs (run-a/...): a top-level
-    // dir holding no captures of its own is scanned one level for capture-bearing case dirs,
+    // dir holding no requests of its own is scanned one level for request-bearing case dirs,
     // emitted with the nested id (fixture-pipeline generated/<case> layout).
     const candidates: { id: string; dir: string }[] = [];
     await Promise.all(
       dirs.map(async (e) => {
         const dir = join(root, e.name);
         const files = await readdir(dir).catch(() => []);
-        const hasCaptures = files.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"));
-        if (hasCaptures) {
+        const hasRequests = files.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"));
+        if (hasRequests) {
           candidates.push({ id: e.name, dir });
           return;
         }
@@ -191,7 +191,7 @@ async function listRuns(root: string): Promise<{
           for (const s of caseDirs) candidates.push({ id: `${e.name}/${s}`, dir: join(dir, s) });
           return;
         }
-        // no captures here or one level down: not a run (assets dir), just absent
+        // no requests here or one level down: not a run (assets dir), just absent
         notRunCount += 1;
       }),
     );
@@ -228,7 +228,7 @@ async function listRuns(root: string): Promise<{
     const runs = inspected.filter((r): r is RunSummary => r !== null);
     // run id is a unixts: numeric order == chronological
     runs.sort((a, b) => b.id.localeCompare(a.id));
-    // legacy = captures without manifest (skipped + counted); not-a-run dirs are just absent
+    // legacy = requests without manifest (skipped + counted); not-a-run dirs are just absent
     return { runs, hiddenLegacy: legacyDirs.size, legacyRuns: [...legacyDirs].sort() };
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is
@@ -265,15 +265,15 @@ function cellSeverity(
 }
 
 /**
- * Parse every capture in the run dir into a summary row. seq is the stable order of captures (by
- * ts, then filename); duration is approximated as file mtime - capture ts (the tap writes the file
- * right after the response lands; not a measured latency).
+ * Parse every request file in the run dir into a summary row. seq is the stable order of requests
+ * (by ts, then filename); duration is approximated as file mtime - request ts (the tap writes the
+ * file right after the response lands; not a measured latency).
  */
 export async function getRun(root: string, dir: string, id: string): Promise<object> {
   const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
   const reportFile = files.includes("report.json");
-  const captures = files.filter((f) => f !== "report.json" && f !== "manifest.json");
-  // Canonical rule names come from the report (the engine's own spelling). The capture question
+  const requestFiles = files.filter((f) => f !== "report.json" && f !== "manifest.json");
+  // Canonical rule names come from the report (the engine's own spelling). The request question
   // keys are a derived encoding ("<rule> in <element>") and parsing them is lossy when a rule
   // name or element id itself contains " in " - so the report wins whenever it exists.
   let pathRules: Map<string, string[]> | null = null;
@@ -315,7 +315,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       pathValues = new Map();
       for (const m of report.measurements ?? []) {
         reportMeasurementCount += 1;
-        // pathRules keys on the bare path (captures look up by state.path); pathValues keys on
+        // pathRules keys on the bare path (requests look up by state.path); pathValues keys on
         // the FULL input (path#span) so projection matches the element identity.
         const path = m.input.split("#")[0];
         const arr = pathRules.get(path);
@@ -335,18 +335,18 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     }
   }
   // Torn-write guard: the engine now writes report.json atomically, but an old or mid-copy
-  // report can still be a fragment. A report with fewer measurements than captures is not
+  // report can still be a fragment. A report with fewer measurements than requests is not
   // authoritative - fall back to question-key parsing and say so (degraded flag). The specific
   // failure this catches: a 6-measurement fragment shadowing every row's rule as the bare-path
   // file measurement with no signal.
-  const reportDegraded = pathRules !== null && reportMeasurementCount < captures.length * 0.5;
+  const reportDegraded = pathRules !== null && reportMeasurementCount < requestFiles.length * 0.5;
   if (reportDegraded) {
     pathRules = null;
     pathValues = null;
     findingSev.clear();
   }
   const rows = await Promise.all(
-    captures.map(async (file): Promise<RequestResult | null> => {
+    requestFiles.map(async (file): Promise<RequestItem | null> => {
       try {
         const [text, st] = await Promise.all([
           readFile(join(dir, file), "utf8"),
@@ -358,8 +358,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         const probs = Object.values(answers)
           .map((a) => {
             if (typeof a?.noul === "number") return a.noul;
-            // score answers join the p-space summary normalized to 0..1 so a score-only capture
-            // (or a capture whose score is the only answer) is visible in max-p and the strip
+            // score answers join the p-space summary normalized to 0..1 so a score-only request
+            // (or a request whose score is the only answer) is visible in max-p and the strip
             if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
               return a.score / (Object.keys(a.legend).length - 1);
             }
@@ -452,14 +452,14 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       }
     }),
   );
-  const parsed = rows.filter((r): r is RequestResult => r !== null);
+  const parsed = rows.filter((r): r is RequestItem => r !== null);
   parsed.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
   parsed.forEach((r, i) => (r.seq = i + 1));
   // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
   // by the FULL input (path#span), so element identity survives; severity = span-aware join.
-  // requestFile joins each measurement back to its capture: element cells by the capture's
+  // requestFile joins each measurement back to its request: element cells by the request's
   // elementId (state.id — the uuid the measurement input suffix carries), file-tier cells by the
-  // bare path (kind disambiguates a stray element capture without an id).
+  // bare path (kind disambiguates a stray element request without an id).
   const elementRequestFile = new Map<string, string>();
   const fileRequestFile = new Map<string, string>();
   for (const r of parsed) {

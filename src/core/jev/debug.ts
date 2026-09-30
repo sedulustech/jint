@@ -11,7 +11,7 @@ import type { ClassifierConfig } from "./client.ts";
  * When JEV_DEBUG_REQUEST=1, every raw HTTP request/response pair is written as its own
  * pretty-printed JSON file (ts, url, request body, response status + body), named
  * <unixts>-<kind>-<file>.json, under /tmp/jint/requests/<runid>/ (runid = unix timestamp of the
- * run's first capture; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
+ * run's first request; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
  * directory. The kind (elements / files) is derived from the request's state shape.
  */
 /** What the tap observed this run, for the end-of-run stderr notice. Null when the tap is inactive. */
@@ -25,7 +25,7 @@ let tapSummary: RequestTapSummary | null = null;
 
 /** The active tap's run summary (null when the tap never activated or wrote nothing counts as 0). */
 /**
- * Persist the run's manifest next to the captures: which config ran, from where, with what argv.
+ * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
  * Required for the run to appear as first-class in the measurement UI's picker (a run dir without a
  * manifest is legacy and is skipped with a count, never shown with a fake label).
  */
@@ -53,7 +53,7 @@ export function requestTapSummary(): RequestTapSummary | null {
 }
 
 /**
- * Persist the run's machine report next to the captures: report.json, the EXACT bytes stdout --json
+ * Persist the run's machine report next to the requests: report.json, the EXACT bytes stdout --json
  * prints. Called by the CLI after rendering; a no-op when the tap is inactive (never a second write
  * path, never a failure of the run it observes).
  */
@@ -69,7 +69,7 @@ export function requestTapWriteReport(json: string): void {
 
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
   // Either variable activates: JEV_DEBUG_REQUEST=1 is the explicit on-switch; a
-  // JEV_DEBUG_REQUEST_LOCATION override alone implies the run was launched to capture.
+  // JEV_DEBUG_REQUEST_LOCATION override alone implies the run was launched to record.
   const requested =
     process.env.JEV_DEBUG_REQUEST === "1" || process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined;
   if (!requested) {
@@ -96,7 +96,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
           return text;
         }
       };
-      const capture = {
+      const record = {
         ts: new Date().toISOString(),
         url: input,
         request: asJson(
@@ -108,7 +108,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
         response: asJson(responseText),
       };
       mkdirSync(dir, { recursive: true });
-      const state = (capture.request as { state?: Record<string, unknown> }).state ?? {};
+      const state = (record.request as { state?: Record<string, unknown> }).state ?? {};
       const kind = "source" in state ? "elements" : "files";
       const name = String(state.path ?? "state")
         .split("/")
@@ -116,7 +116,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       const stamp = Date.now();
       let file = `${dir}/${stamp}-${kind}-${name}.json`;
       for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
-      writeFileSync(file, JSON.stringify(capture, null, 2));
+      writeFileSync(file, JSON.stringify(record, null, 2));
       tapSummary!.count += 1;
     } catch {
       // the tap never breaks the call it observes

@@ -1,5 +1,5 @@
 /**
- * Request-mode column spec - the ONE source of truth for the capture-log grid. The header
+ * Request-mode column spec - the ONE source of truth for the request-log grid. The header
  * (RequestTable) and the row cells (Row) both consume this; widths live here so the two can never
  * drift again (they drifted once: the rule column drop left the row at w-10 while the header went
  * w-16).

@@ -289,7 +289,7 @@ describe("cli: piped stdin str unit", async () => {
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
     expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);
-    expect(r.stderr).toContain("request captures ->");
+    expect(r.stderr).toContain("requests ->");
     expect(r.stderr).toContain(dumpDir);
   });
 });

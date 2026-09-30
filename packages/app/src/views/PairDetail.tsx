@@ -10,13 +10,13 @@ interface Props {
   /** The pair address: ONE rule at ONE input. No request identity in the address. */
   rule: string;
   input: string;
-  /** The capture file the pair was clicked from, when known - skips the request lookup. */
+  /** The request file the pair was clicked from, when known - skips the request lookup. */
   requestFile?: string;
   onClose: () => void;
 }
 
 /**
- * Detail view for a single rule-target pair. The ADDRESS is (rule, input); the capture is fetched
+ * Detail view for a single rule-target pair. The ADDRESS is (rule, input); the request is fetched
  * only to render the answer's context (code, sampling meta) - severity comes from the run payload's
  * span-aware join for exactly this pair, never from a sibling.
  */
@@ -25,7 +25,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
   const result =
     run.data?.results.find((r) => r.file === requestFile) ??
-    // span lookup: element identity is exact; a bare-path pair prefers the file-tier capture
+    // span lookup: element identity is exact; a bare-path pair prefers the file-tier request
     run.data?.results.find(
       (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
     ) ??
@@ -43,7 +43,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
     const m = key.match(/^(.*) in (.+)$/);
     return { key, rule: m ? m[1] : key, question, answer: answers[key] };
   });
-  // the addressed pair is the protagonist; sibling questions of the same capture stay accessible
+  // the addressed pair is the protagonist; sibling questions of the same request stay accessible
   const pair = qas.find((qa) => qa.rule === rule);
   // per-pair severity from the API's span-aware join; never re-derived client-side
   const severity = result?.severities[rule] ?? null;
@@ -68,7 +68,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           {rule} <span className="text-muted-foreground">@ {input}</span>
         </h2>
         {request !== undefined && (
-          <CopyButton text={JSON.stringify(request, null, 2)} label="copy capture" />
+          <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
         )}
         <button
           onClick={onClose}
@@ -81,7 +81,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
       {query.isError && <p className="p-3 text-sev-error">{String(query.error)}</p>}
       {pair === undefined && !query.isLoading && (
         <p className="p-3 text-muted-foreground">
-          no answer for {rule} at {input} in the capture
+          no answer for {rule} at {input} in the request
         </p>
       )}
       {request !== undefined && pair !== undefined && (

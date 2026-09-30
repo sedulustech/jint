@@ -4,12 +4,12 @@ import { requestDebug, requestTapSummary } from "./debug.ts";
 
 const DIR = "tmp/jev-request-test";
 
-function listCaptures(dir: string): string[] {
+function listRequests(dir: string): string[] {
   if (!existsSync(dir)) return [];
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory())
-      out.push(...listCaptures(`${dir}/${entry.name}`).map((f) => `${entry.name}/${f}`));
+      out.push(...listRequests(`${dir}/${entry.name}`).map((f) => `${entry.name}/${f}`));
     else out.push(entry.name);
   }
   return out.sort();
@@ -23,7 +23,7 @@ function passthrough(): (input: string, init?: RequestInit) => Promise<Response>
     });
 }
 
-async function captureOnce(
+async function recordOnce(
   config: ReturnType<typeof requestDebug>,
   state: Record<string, unknown>,
 ): Promise<void> {
@@ -61,32 +61,32 @@ describe("requestDebug", () => {
     delete process.env.JEV_DEBUG_REQUEST;
     const config = requestDebug({ fetch: passthrough() });
     expect(requestTapSummary()).not.toBeNull();
-    await captureOnce(config, { path: "a.ts", content: "x" });
-    expect(listCaptures(DIR)).toHaveLength(1);
+    await recordOnce(config, { path: "a.ts", content: "x" });
+    expect(listRequests(DIR)).toHaveLength(1);
   });
 
-  test("writes one pretty-printed capture per call, named <unixts>-<kind>-<file>.json", async () => {
+  test("writes one pretty-printed request per call, named <unixts>-<kind>-<file>.json", async () => {
     const config = requestDebug({ fetch: passthrough() });
-    await captureOnce(config, { path: "src/a.ts", content: "export const x = 1;" });
+    await recordOnce(config, { path: "src/a.ts", content: "export const x = 1;" });
 
-    const list = listCaptures(DIR);
+    const list = listRequests(DIR);
     expect(list).toHaveLength(1);
     expect(list[0]).toMatch(/^\d+\/\d+-files-a\.ts\.json$/);
 
-    const capture = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
-    expect(capture.url).toBe("https://api.typesafe.ai/v1/systemone");
-    expect(capture.status).toBe(200);
-    expect(capture.request.state.path).toBe("src/a.ts");
-    expect(capture.request.model).toBe("jev-latest");
-    expect(capture.response.model).toBe("jev-1.0");
+    const request = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
+    expect(request.url).toBe("https://api.typesafe.ai/v1/systemone");
+    expect(request.status).toBe(200);
+    expect(request.request.state.path).toBe("src/a.ts");
+    expect(request.request.model).toBe("jev-latest");
+    expect(request.response.model).toBe("jev-1.0");
   });
 
   test("state shape drives the kind: single-element source -> elements, else files", async () => {
     const config = requestDebug({ fetch: passthrough() });
-    await captureOnce(config, { path: "a.ts", source: "x" });
-    await captureOnce(config, { path: "b.ts", content: "x" });
+    await recordOnce(config, { path: "a.ts", source: "x" });
+    await recordOnce(config, { path: "b.ts", content: "x" });
 
-    const list = listCaptures(DIR);
+    const list = listRequests(DIR);
     expect(list.some((f) => f.endsWith("-elements-a.ts.json"))).toBe(true);
     expect(list.some((f) => f.endsWith("-files-b.ts.json"))).toBe(true);
   });
@@ -103,7 +103,7 @@ describe("requestDebug", () => {
       config.fetch!("https://api.typesafe.ai/v1/systemone", { method: "POST", body }),
     ]);
 
-    const list = listCaptures(DIR);
+    const list = listRequests(DIR);
     expect(list).toHaveLength(3);
     for (const f of list) {
       expect(() => JSON.parse(readFileSync(`${DIR}/${f}`, "utf8"))).not.toThrow();
@@ -120,12 +120,12 @@ describe("requestDebug", () => {
     expect(response.status).toBe(200);
   });
 
-  test("summary: dir + written count after captures (override location flagged)", async () => {
+  test("summary: dir + written count after recording (override location flagged)", async () => {
     const config = requestDebug({ fetch: passthrough() });
     expect(requestTapSummary()).toEqual({ dir: expect.any(String), count: 0, override: true });
 
-    await captureOnce(config, { path: "a.ts", content: "x" });
-    await captureOnce(config, { path: "a.ts", content: "x" });
+    await recordOnce(config, { path: "a.ts", content: "x" });
+    await recordOnce(config, { path: "a.ts", content: "x" });
 
     const summary = requestTapSummary()!;
     expect(summary.dir).toMatch(
@@ -138,7 +138,7 @@ describe("requestDebug", () => {
   test("summary: no override flag when the location is the default", async () => {
     delete process.env.JEV_DEBUG_REQUEST_LOCATION;
     const config = requestDebug({ fetch: passthrough() });
-    await captureOnce(config, { path: "a.ts", content: "x" });
+    await recordOnce(config, { path: "a.ts", content: "x" });
     expect(requestTapSummary()!.override).toBe(false);
   });
 

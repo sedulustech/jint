@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { fetchRun, fetchReport } from "../api/client";
-import type { Cell, Report, RequestResult } from "../types";
+import type { Cell, Report, RequestItem } from "../types";
 
 export type Mode = "request" | "rule" | "file";
 export type SortKey = "seq" | "rule" | "severity" | "maxProb" | "name" | "input" | "value";
@@ -59,7 +59,7 @@ export function useRun(runId: string) {
   }, [report.data]);
 
   // the API edge owns severity (finding join + handle projection); the client never re-derives
-  const severityOf = (r: RequestResult): "error" | "warn" | null => r.severity;
+  const severityOf = (r: RequestItem): "error" | "warn" | null => r.severity;
 
   const rows = useMemo(() => {
     const all = query.data?.results ?? [];

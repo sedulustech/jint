@@ -26,10 +26,10 @@ describe("listRuns error surface", () => {
           join(root, id, "manifest.json"),
           JSON.stringify({ configPath: `/cfg/${id}.json` }),
         );
-        writeFileSync(join(root, id, "1700000000001-files-cap.json"), "{}"); // a run has captures
+        writeFileSync(join(root, id, "1700000000001-files.json"), "{}"); // a run has requests
       }
       mkdirSync(join(root, "400"));
-      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}"); // legacy: captures, no manifest
+      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}"); // legacy: requests, no manifest
       writeFileSync(join(root, "stray.json"), "{}");
       const res = await get("/api/runs", root);
       const body = (await res.json()) as {
@@ -120,7 +120,7 @@ describe("getRun cells index", () => {
 });
 
 describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
-  test("a capture one level down lists, summarizes, and serves report under the nested id", async () => {
+  test("a request one level down lists, summarizes, and serves report under the nested id", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-nested-"));
     const file = "1700000000001-elements-fn.ts.json";
     const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -178,7 +178,7 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
       expect(body.id).toBe("generated/elements");
       const cell = body.cells.find((c) => c.rule === "r_a")!;
       expect(cell.element?.kind).toBe("function");
-      // uuid identity join: the cell names the ELEMENT capture, not a file-tier fallback
+      // uuid identity join: the cell names the ELEMENT request, not a file-tier fallback
       expect(cell.requestFile).toBe(file);
       const report = await get("/api/runs/generated/elements/report", root);
       expect(report.status).toBe(200);

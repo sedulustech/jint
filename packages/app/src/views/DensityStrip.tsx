@@ -1,6 +1,6 @@
 import { isScoreHandler, type HandlerData } from "@jint/contract";
 import { useMemo } from "react";
-import type { RequestResult } from "../types";
+import type { RequestItem } from "../types";
 
 // bins; a 1px-per-request strip bins down for 2000+ rows
 const WIDTH = 240;
@@ -21,7 +21,7 @@ export function marksFor(handle: HandlerData | undefined): number[] {
 }
 
 /**
- * Distribution of one probability per request (the capture's max answer) across 0..1. The 0.5
+ * Distribution of one probability per request (the request's max answer) across 0..1. The 0.5
  * boundary is the strong line; when the table is filtered to ONE rule, its handle's thresholds
  * appear as faint marks.
  */
@@ -30,7 +30,7 @@ export function DensityStrip({
   marks = [],
   scoreAxis,
 }: {
-  rows: RequestResult[];
+  rows: RequestItem[];
   marks?: number[];
   /** When the filtered rule is a score handle: its level count, so the axis reads honestly. */
   scoreAxis?: number;

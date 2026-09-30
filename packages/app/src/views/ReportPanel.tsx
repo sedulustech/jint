@@ -32,13 +32,13 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
       {degraded && (
         <p className="text-sev-warn">
           report.json is a partial fragment (torn write) — canonical rules and severities fell back
-          to capture parsing; findings below may be incomplete. Regenerate the run to restore full
+          to request parsing; findings below may be incomplete. Regenerate the run to restore full
           verdicts.
         </p>
       )}
       {!report.isLoading && !hasReport && (
         <p className="text-muted-foreground">
-          no report captured for this run — per-rule stats below come from capture answers only
+          no report recorded for this run — per-rule stats below come from per-request answers only
           (findings unknown)
         </p>
       )}

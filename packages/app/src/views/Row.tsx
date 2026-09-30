@@ -1,11 +1,11 @@
 import { memo } from "react";
 import { SEVERITY } from "./color";
-import type { RequestResult } from "../types";
+import type { RequestItem } from "../types";
 
 const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
 interface Props {
-  row: RequestResult;
+  row: RequestItem;
   height: number;
   selected: boolean;
   severity: "error" | "warn" | null;
@@ -13,7 +13,7 @@ interface Props {
 }
 
 /**
- * One capture-log row as a real table row. Column widths come from the thead (table-fixed on the
+ * One request-log row as a real table row. Column widths come from the thead (table-fixed on the
  * <table>), so the cells here carry no width classes - the alignment that used to live in
  * duplicated literals is the layout engine's job.
  */
@@ -45,7 +45,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
             <span className={sev.text}>{SEV_CELL[severity!].label}</span>
           </span>
         ) : (
-          <span className="text-muted-foreground" title="no finding for this capture">
+          <span className="text-muted-foreground" title="no finding for this request">
             —
           </span>
         )}

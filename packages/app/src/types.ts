@@ -12,10 +12,13 @@ export interface RunDetail {
   id: string;
   requestCount: number;
   hasReport: boolean;
-  results: RequestResult[];
+  results: RequestItem[];
   /** Per-rule handle snapshot from manifest.json; empty when absent (legacy run). */
   handles: Record<string, HandlerData>;
-  /** Report.json was a fragment (torn write): canonical rules + severities fell back to captures. */
+  /**
+   * Report.json was a fragment (torn write): canonical rules + severities fell back to per-request
+   * answers.
+   */
   reportDegraded: boolean;
   /** Flat rule-target cells (one rule x one input). Empty when the report is degraded/absent. */
   cells: Cell[];
@@ -30,7 +33,7 @@ export interface Cell {
   input: string;
   /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
   element?: Element;
-  /** The capture file this cell's measurement came from; direct fetch on click. */
+  /** The request file this cell's measurement came from; direct fetch on click. */
   requestFile?: string;
   /** The rule's own reading (p-space noul, or a score index for score handles). */
   value: number;
@@ -38,11 +41,11 @@ export interface Cell {
   severity: "error" | "warn" | null;
 }
 
-export interface RequestResult {
+export interface RequestItem {
   file: string;
   seq: number;
   ts: string;
-  /** True when the capture is a one-element call (state carries source); false = whole-unit. */
+  /** True when the request is a one-element call (state carries source); false = whole-unit. */
   element: boolean;
   path: string | null;
   elementId: string | null;
@@ -51,7 +54,7 @@ export interface RequestResult {
   durationMs: number | null;
   maxProb: number | null;
   minProb: number | null;
-  /** Every noul answer in the capture, sorted. Drives histograms. */
+  /** Every noul answer in the request, sorted. Drives histograms. */
   answers: number[];
   /** Provable verdict: finding join first, else handle-snapshot projection. Null = no verdict. */
   severity: "error" | "warn" | null;

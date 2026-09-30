@@ -359,7 +359,7 @@ export function RequestTable({
     }
     const c = row.cell;
     // In rule mode the parent IS the rule, so the child's identity is the file it fired on
-    // (file:location for element captures); in file mode the parent IS the file, so the child
+    // (file:location for element requests); in file mode the parent IS the file, so the child
     // stays the rule. Same grid, different identity axis per mode.
     const childName = mode === "rule" ? c.file : c.rule;
     const childLocation =
@@ -379,7 +379,7 @@ export function RequestTable({
         <span className={`${NAME_W} shrink-0 truncate px-3 pl-9`} title={childName}>
           {childName}
         </span>
-        {/* the location column: the span when the capture is an element, else the (file) marker;
+        {/* the location column: the span when the measurement is an element, else the (file) marker;
             in rule mode the file already names the row so only the location is left to show */}
         <span
           className={`${INPUT_MIN} shrink-0 truncate px-3`}
@@ -429,7 +429,7 @@ export function RequestTable({
             <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
               <p>0 {noun} match your filters</p>
               {mode !== "request" && query.data?.cells.length === 0 && (
-                <p className="text-muted-foreground">no measurements captured for this run</p>
+                <p className="text-muted-foreground">no measurements recorded for this run</p>
               )}
               {activeFilters.length > 0 && (
                 <p className="text-muted-foreground">active: {activeFilters.join(", ")}</p>

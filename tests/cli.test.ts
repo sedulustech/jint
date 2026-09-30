@@ -419,7 +419,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     return { code: await proc.exited, stdout, stderr };
   }
   afterAll(() => jev.stop());
-  test.concurrent("the dump tap persists report.json: the exact stdout --json bytes, next to the captures", async () => {
+  test.concurrent("the dump tap persists report.json: the exact stdout --json bytes, next to the requests", async () => {
     const { rmSync } = await import("node:fs");
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
@@ -428,8 +428,8 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
       JEV_DEBUG_REQUEST_LOCATION: dir,
     });
     expect(r.code).toBe(0);
-    // the stderr notice names THIS run's dir; report.json sits next to the captures
-    const runDir = /captures -> (.+) \(\d+ calls\)/.exec(r.stderr)?.[1];
+    // the stderr notice names THIS run's dir; report.json sits next to the requests
+    const runDir = /requests -> (.+) \(\d+ calls\)/.exec(r.stderr)?.[1];
     expect(runDir).toBeTruthy();
     const report = JSON.parse(
       await (await import("node:fs/promises")).readFile(`${runDir}/report.json`, "utf8"),
@@ -476,7 +476,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     // the notice never touches stdout: the report stays a machine document
     const report = expectContract(r, { exit: 0, stdout: "json" });
     expect(report.measurements.length).toBeGreaterThan(0);
-    expect(r.stderr).toContain(`jint: request captures -> ${dir}/`);
+    expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
     expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dir })];
     expect(captures.length).toBeGreaterThan(0);
@@ -521,7 +521,7 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     });
     expect(r.code).toBe(0);
     expect(() => JSON.parse(r.stdout)).not.toThrow(); // the notice never touches stdout
-    expect(r.stderr).toContain(`jint: request captures -> ${dir}/`);
+    expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
     expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
   }, 20_000);
 });
