@@ -35,18 +35,12 @@ const HEADER_H = 27;
 // header + rows scroll horizontally together instead.
 const TABLE_MIN_W = 660;
 
-// request-mode columns (the capture log); grouped modes have their own grids below.
-// One row per request, so a "rule" column could only show the FIRST rule and imply one -
-// the rule stays addressable through the row click (the detail pane names it). The request
+// request-mode columns live in requestCols.ts (single source of truth - the Row
+// component consumes the same spec, so header and rows cannot drift). One row per
+// request, so a "rule" column could only show the FIRST rule and imply one - the rule
+// stays addressable through the row click (the detail pane names it). The request
 // carries several rules, and the rule-count column says how many.
-type ReqKey = "seq" | "rule" | "severity" | "maxProb";
-const REQ_COLS: { key: ReqKey; label: string; className: string }[] = [
-  { key: "seq", label: "seq", className: "w-14" },
-  { key: "severity", label: "severity", className: "w-24" },
-  { key: "maxProb", label: "max-p", className: "w-20" },
-  // question count = rules judged in this request; sorts with rule (data, not signal)
-  { key: "rule", label: "rule count", className: "w-16" },
-];
+import { REQ_COLS } from "./requestCols";
 
 // grouped-mode shared grid: name | input | sev | value | counts | chevron
 const NAME_W = "w-52";
@@ -298,7 +292,7 @@ export function RequestTable({
         <button
           key={c.label}
           onClick={() => toggleSort(c.key)}
-          className={`${c.className} shrink-0 px-3 py-1 text-left hover:text-foreground`}
+          className={`${c.width} shrink-0 px-3 py-1 text-left hover:text-foreground`}
         >
           {c.label}
           {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}

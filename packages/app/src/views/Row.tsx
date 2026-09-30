@@ -1,6 +1,14 @@
 import { memo } from "react";
 import { SEVERITY } from "./color";
+import { REQ_COLS } from "./requestCols";
 import type { RequestSummary } from "../types";
+
+// width map from the shared spec: the row cells and the header columns read the same
+// source, so a column change in requestCols.ts cannot leave the rows misaligned.
+const W = Object.fromEntries(REQ_COLS.map((c) => [c.key, c.width])) as Record<
+  (typeof REQ_COLS)[number]["key"],
+  string
+>;
 
 const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
@@ -24,8 +32,8 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
         selected ? "" : "hover:bg-muted"
       }`}
     >
-      <span className="w-14 shrink-0 px-3 text-muted-foreground">{row.seq}</span>
-      <span className="flex w-24 shrink-0 items-center gap-1.5 px-3">
+      <span className={`${W.seq} shrink-0 px-3 text-muted-foreground`}>{row.seq}</span>
+      <span className={`flex ${W.severity} shrink-0 items-center gap-1.5 px-3`}>
         {sev ? (
           <>
             <span className={`${sev.dot} inline-block h-2 w-2 shrink-0 rounded-full`} />
@@ -39,7 +47,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
       </span>
       {/* max-p baseline (F4): the number keeps the single-line box every sibling cell uses, so it
           shares the row baseline; the bar paints below it, pinned to the cell, never displacing it */}
-      <span className="relative flex w-20 shrink-0 items-center px-3">
+      <span className={`relative flex ${W.maxProb} shrink-0 items-center px-3`}>
         <span className="text-foreground">
           {row.maxProb !== null ? row.maxProb.toFixed(2) : "—"}
         </span>
@@ -53,7 +61,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           </span>
         )}
       </span>
-      <span className="w-10 shrink-0 px-3 text-muted-foreground">
+      <span className={`${W.rule} shrink-0 px-3 text-muted-foreground`}>
         {row.questionCount > 0 ? row.questionCount : "—"}
       </span>
       <span className="min-w-0 flex-1 truncate px-3 text-foreground" title={row.path ?? undefined}>
