@@ -25,9 +25,6 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
       }`}
     >
       <span className="w-14 shrink-0 px-3 text-muted-foreground">{row.seq}</span>
-      <span className="w-52 shrink-0 truncate px-3 text-foreground" title={row.rules.join(", ")}>
-        {row.rules[0] ?? "—"}
-      </span>
       <span className="flex w-24 shrink-0 items-center gap-1.5 px-3">
         {sev ? (
           <>

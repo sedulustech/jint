@@ -35,15 +35,17 @@ const HEADER_H = 27;
 // header + rows scroll horizontally together instead.
 const TABLE_MIN_W = 660;
 
-// request-mode columns (the capture log); grouped modes have their own grids below
+// request-mode columns (the capture log); grouped modes have their own grids below.
+// One row per request, so a "rule" column could only show the FIRST rule and imply one -
+// the rule stays addressable through the row click (the detail pane names it). The request
+// carries several rules, and the rule-count column says how many.
 type ReqKey = "seq" | "rule" | "severity" | "maxProb";
 const REQ_COLS: { key: ReqKey; label: string; className: string }[] = [
   { key: "seq", label: "seq", className: "w-14" },
-  { key: "rule", label: "rule", className: "w-52" },
   { key: "severity", label: "severity", className: "w-24" },
   { key: "maxProb", label: "max-p", className: "w-20" },
-  // question count; sorts with rule (data, not signal)
-  { key: "rule", label: "q", className: "w-10" },
+  // question count = rules judged in this request; sorts with rule (data, not signal)
+  { key: "rule", label: "rule count", className: "w-16" },
 ];
 
 // grouped-mode shared grid: name | input | sev | value | counts | chevron
