@@ -146,7 +146,7 @@ describe("shouldColor", () => {
       process.env.NO_COLOR = "1";
       process.env.TERM = "xterm-256color";
       expect(shouldColor("auto", atty)).toBe(false);
-      process.env.NO_COLOR = undefined;
+      delete process.env.NO_COLOR;
       process.env.TERM = "dumb";
       expect(shouldColor("auto", atty)).toBe(false);
       process.env.TERM = "xterm-256color";
