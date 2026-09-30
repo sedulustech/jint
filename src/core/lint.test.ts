@@ -156,11 +156,11 @@ describe("lint — classification shape", () => {
     // per (element, target-matched rule): L2-L4 carries the module docblock -> 8 rules,
     // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting);
     // question keys inside a call are bare rule names (one element per call, no ambiguity)
-    // docblock-carrying function definition: 10 rules (4 comment + 5 definition + srp) -
+    // docblock-carrying function definition: 9 rules (4 comment + 4 definition + srp; is_readable is files-target) -
     // is_greppable judges functions, so it joins the definition-target set;
-    // bare function definition: 7 rules (5 definition-target + srp + will_error_lose_cause)
+    // bare function definition: 6 rules (4 definition-target + srp + will_error_lose_cause; is_readable is files-target)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
-    expect(counts).toEqual([7, 10]);
+    expect(counts).toEqual([6, 9]);
     const withPurposeful = elementCalls.find((c) => c.questions.includes("is_name_purposeful"))!;
     const withComplex = elementCalls.find((c) => c.questions.includes("is_cognitively_complex"))!;
     expect(withPurposeful).toBeDefined();
@@ -182,7 +182,7 @@ describe("lint — classification shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting) in L\d+(-L\d+)?$/);
+      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting|readable) in L\d+(-L\d+)?$/);
     }
   });
 
@@ -199,7 +199,7 @@ describe("lint — classification shape", () => {
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(2); // whole-unit rules only (greppable is functions-target)
+      expect(measurements).toHaveLength(3); // vocabulary_consistent + filename_fitting + is_readable (all files-target; greppable is functions-target)
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -445,10 +445,10 @@ describe("lint", () => {
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
-    // file call 2 (vocabulary_consistent + promoted is_filename_fitting; greppable is
+    // file call 3 (vocabulary_consistent + filename_fitting + is_readable; greppable is
     // functions-target now) + element classification 17 (8 docblock + 4 bare definitions +
     // 3 functions, greppable on the function elements)
-    expect(measurements).toHaveLength(19);
+    expect(measurements).toHaveLength(18);
     // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
     // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
@@ -579,7 +579,7 @@ describe("lint", () => {
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     // second unit: 3 file + 7 (comment element) + 6 (clampToLimit, function element);
     // SMALL_LIMIT is a binding — no functions-target (or other element) measurements
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(16);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(15);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -671,7 +671,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(19);
+    expect(report.measurements).toHaveLength(18);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

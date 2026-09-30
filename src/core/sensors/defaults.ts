@@ -232,7 +232,10 @@ export const isReadable: Rule = {
   instructions:
     "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
   criteria: IS_READABLE_CRITERIA,
-  target: "definitions",
+  // target: files, not definitions: readability is a whole-file judgment; small bindings are
+  // trivially readable so definition-level readings are noise (probe: 42 warn on healthy code
+  // at definitions vs 0 findings at files; two-language gap 1.0 healthy / ~2.9 defective).
+  target: "files",
   // score scale (0..N): high-bad — ok below 2, warn at 2, error at 3
   handleData: { map: ["pass", "pass", "warn", "error"] } as const,
   handle: compileScoreHandler({ map: ["pass", "pass", "warn", "error"] }),
