@@ -235,7 +235,7 @@ export function App() {
               />
             </div>
           )}
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
             <RequestTable
               runId={runId}
               mode={mode}

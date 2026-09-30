@@ -208,19 +208,6 @@ body {
   cursor: pointer;
 }
 
-/* U4: under 1100px the side-by-side split crowds the table into a 300px gutter; the detail
-   becomes a full-width overlay sheet instead. */
-@media (max-width: 1100px) {
-  .detail-pane {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    width: 100%;
-    min-width: 0;
-    border-left: none;
-  }
-}
-
 /* severity TEXT tokens: hue-saturated shades that clear 4.5:1 on their own theme's surfaces */
 .text-sev-error {
   color: var(--sev-error);
