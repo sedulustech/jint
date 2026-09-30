@@ -106,7 +106,6 @@ describe("classifyUnit", () => {
         will_comment_drift: 0.1,
         is_cognitively_complex: 0.3,
         is_function_srp: 0.8,
-        is_readable: 1,
         will_error_lose_cause: 0.2,
         is_filename_fitting: 0.1,
       },
@@ -114,7 +113,7 @@ describe("classifyUnit", () => {
     );
     const events: (Measurement | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, allSensors, classifier)) events.push(event);
-    expect(events).toHaveLength(12);
+    expect(events).toHaveLength(11);
     expect(events.every(isMeasurement)).toBe(true);
     expect((events as Measurement[]).map((m) => m.rule)).toContain("is_name_purposeful");
     expect(calls).toHaveLength(1); // one batched call, not one per rule
@@ -232,14 +231,14 @@ describe("compileRuleQuestions — composite keys", () => {
 describe("compileElementQuestions", () => {
   test("one element per call: question keys are bare rule names", () => {
     const questions = compileElementQuestions(
-      [defaultRules.will_comment_drift!, defaultRules.is_readable!],
+      [defaultRules.will_comment_drift!, defaultRules.is_cognitively_complex!],
       "comment",
     );
-    expect(Object.keys(questions).sort()).toEqual(["is_readable", "will_comment_drift"]);
-    expect(questions.is_readable!.type).toBe("score");
-    expect(questions.is_readable!.instructions).toBe(
+    expect(Object.keys(questions).sort()).toEqual(["is_cognitively_complex", "will_comment_drift"]);
+    expect(questions.is_cognitively_complex!.type).toBe("score");
+    expect(questions.is_cognitively_complex!.instructions).toBe(
       "This unit is a comment. " +
-        (defaultRules.is_readable! as { instructions: string }).instructions,
+        (defaultRules.is_cognitively_complex! as { instructions: string }).instructions,
     );
     expect(questions.will_comment_drift!.type).toBe("noul");
     expect(questions.will_comment_drift!.instructions).toBe(

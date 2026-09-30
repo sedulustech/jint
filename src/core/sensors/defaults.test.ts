@@ -183,7 +183,6 @@ describe("rule definitions", () => {
       "will_error_lose_cause",
       "is_cognitively_complex",
       "is_function_srp",
-      "is_readable",
     ]);
     for (const rule of Object.values(defaultRules)) {
       const criteria =

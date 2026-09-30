@@ -219,28 +219,6 @@ export const isCognitivelyComplex: Rule = {
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
 // the self-lint corpus has score readings
-const IS_READABLE_CRITERIA = [
-  "Names, structure, and types make the story obvious.",
-  "Mostly clear; a few opaque names or a slightly awkward shape.",
-  "Reader must reconstruct intent from implementation details.",
-  "Dense, misleading names, or structure that fights the problem.",
-] as const;
-
-export const isReadable: Rule = {
-  name: "is_readable",
-  kind: "choice",
-  instructions:
-    "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
-  criteria: IS_READABLE_CRITERIA,
-  // target: files, not definitions: readability is a whole-file judgment; small bindings are
-  // trivially readable so definition-level readings are noise (probe: 42 warn on healthy code
-  // at definitions vs 0 findings at files; two-language gap 1.0 healthy / ~2.9 defective).
-  target: "files",
-  // score scale (0..N): high-bad — ok below 2, warn at 2, error at 3
-  handleData: { map: ["pass", "pass", "warn", "error"] } as const,
-  handle: compileScoreHandler({ map: ["pass", "pass", "warn", "error"] }),
-};
-
 /** All default rules by name — the `rules.defaults` record of the config surface. */
 export const defaultRules: Record<string, Rule> = Object.freeze({
   is_name_purposeful: isNamePurposeful,
@@ -254,5 +232,4 @@ export const defaultRules: Record<string, Rule> = Object.freeze({
   will_error_lose_cause: willErrorLoseCause,
   is_cognitively_complex: isCognitivelyComplex,
   is_function_srp: isFunctionSrp,
-  is_readable: isReadable,
 });

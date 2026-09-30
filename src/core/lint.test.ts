@@ -182,7 +182,7 @@ describe("lint — classification shape", () => {
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting|readable) in L\d+(-L\d+)?$/);
+      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting) in L\d+(-L\d+)?$/);
     }
   });
 
@@ -199,7 +199,7 @@ describe("lint — classification shape", () => {
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(3); // vocabulary_consistent + filename_fitting + is_readable (all files-target; greppable is functions-target)
+      expect(measurements).toHaveLength(2); // whole-unit rules only: vocabulary_consistent + filename_fitting (greppable is functions-target)
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -448,7 +448,7 @@ describe("lint", () => {
     // file call 3 (vocabulary_consistent + filename_fitting + is_readable; greppable is
     // functions-target now) + element classification 17 (8 docblock + 4 bare definitions +
     // 3 functions, greppable on the function elements)
-    expect(measurements).toHaveLength(18);
+    expect(measurements).toHaveLength(17);
     // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
     // no aggregation, no candidacy
     expect(findings).toHaveLength(2);
@@ -504,7 +504,6 @@ describe("lint", () => {
           "is_naming_convention_consistent",
           "is_greppable",
           "is_function_srp",
-          "is_readable",
           "is_filename_fitting",
         ],
         classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
@@ -579,7 +578,7 @@ describe("lint", () => {
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     // second unit: 3 file + 7 (comment element) + 6 (clampToLimit, function element);
     // SMALL_LIMIT is a binding — no functions-target (or other element) measurements
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(15);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(14);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -671,7 +670,7 @@ describe("collectReport", () => {
         }),
       }),
     );
-    expect(report.measurements).toHaveLength(18);
+    expect(report.measurements).toHaveLength(17);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });

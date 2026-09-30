@@ -93,12 +93,12 @@ describe("validateConfig / defaultConfig", () => {
   test("defaultConfig carries every default rule and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.rules).toHaveLength(12);
+    expect(config.rules).toHaveLength(11);
   });
 
   test("no rules key = all defaults; strings select defaults; objects override by name (last wins)", () => {
     const all = validateConfig({ input: "x" }, "inline");
-    expect(all.rules).toHaveLength(12);
+    expect(all.rules).toHaveLength(11);
 
     const selected = validateConfig({ input: "x", rules: ["is_greppable"] }, "inline");
     expect(selected.rules.map((r) => r.name)).toEqual(["is_greppable"]);
@@ -363,6 +363,6 @@ describe("validateConfig / defaultConfig", () => {
   test("disable removes by name after assembly", () => {
     const config = validateConfig({ input: "x", disable: ["is_greppable"] }, "inline");
     expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");
-    expect(config.rules).toHaveLength(11);
+    expect(config.rules).toHaveLength(10);
   });
 });
