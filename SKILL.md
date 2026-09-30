@@ -164,28 +164,37 @@ Guidelines, in the order you will need them:
    boundaries" does not. If a criterion cannot be checked by reading the
    element, the rule cannot measure it (a reachability rule was tried and
    dropped: mean 0.58, no separation - the model cannot see call sites).
-3. **One attribute per rule.** Two ideas in one criteria halves its precision.
-4. **Guard against smallness bias.** Short exact-name helpers read as
+3. **Abstract the defect from the observation - do not overfit the seed.**
+   The criteria must state the generalizable axis the seed exemplifies, not
+   quote the seed. "Identifiers of the same role mix word-order patterns"
+   is a rule; "fetchUsers beside usersRetriever" is a fixture. A criteria
+   that recites the seed validates the observation, not the rule: the probe
+   fires on the seed files and reads healthy code as hot, because healthy
+   code has _other_ instances of the same axis the criteria never names.
+   Examples are encouraged - use abstracted placeholders (john_doe-style
+   roles: a fetch pattern, a builder pattern), never the real file's names.
+4. **One attribute per rule.** Two ideas in one criteria halves its precision.
+5. **Guard against smallness bias.** Short exact-name helpers read as
    low-purpose; if size is not the defect, say so ("length alone is not a
    defect").
-5. **Element fit: say what to do when the surface is absent.** Two forms, both
+6. **Element fit: say what to do when the surface is absent.** Two forms, both
    measured: "a function with no error handling is not applicable, answer
    false" and "asserting on an injected fake's stubbed values is wiring, not
    pinning". Without an absence clause, undecided 0.5s pile up and calibration
    dies in the middle.
-6. **Separate the defect from the deliberate.** Documented deliberate catches,
+7. **Separate the defect from the deliberate.** Documented deliberate catches,
    event-forwarding handlers, existence probes - name them in the criteria or
    they fire as findings.
-7. **Exclude conventions explicitly.** Banner comments, Sphinx-style `#:`
+8. **Exclude conventions explicitly.** Banner comments, Sphinx-style `#:`
    blocks, and docblocks naming flags/env vars/wire keys are load-bearing
    convention, not defects; rules rotting them must say so.
-8. **Calibrate with a seeded positive control.** Healthy corpus quiet is
+9. **Calibrate with a seeded positive control.** Healthy corpus quiet is
    necessary but not evidence: write the actual defect (a swallowed catch, a
    lying name) into a scratch file and confirm the rule still fires.
-9. **Anchor thresholds to distributions.** Run measure-only ("handle": null)
-   first, read the value spread, place warn/error inside the healthy/defective
-   gap. Then paste the numbers into the config as data.
-10. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
+10. **Anchor thresholds to distributions.** Run measure-only ("handle": null)
+    first, read the value spread, place warn/error inside the healthy/defective
+    gap. Then paste the numbers into the config as data.
+11. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
     unverified on other languages; re-probe before trusting findings there.
 
 ### Example: a noul rule with an absence clause and exemptions
