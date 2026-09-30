@@ -63,62 +63,66 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
           calibration note
         </span>
       </div>
-      <table className="mt-2 w-full border-collapse text-body">
-        <thead>
-          <tr className="text-left text-muted-foreground">
-            <th className="py-1 pr-4 font-normal">rule</th>
-            <th className="py-1 pr-4 font-normal">measurements</th>
-            <th className="py-1 pr-4 font-normal">findings</th>
-            <th className="py-1 pr-4 font-normal">finding rate</th>
-            <th className="py-1 font-normal">answer distribution (0 … 1, line at 0.5)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.map((s) => (
-            <tr
-              key={s.rule}
-              onClick={() => onRuleFocus(s.rule)}
-              className="cursor-pointer border-t border-border hover:bg-muted"
-              title="show this rule's group in the table"
-            >
-              <td className="py-1 pr-4">
-                <span className="text-foreground">{s.rule}</span>
-              </td>
-              <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
-              <td className={"py-1 pr-4 " + (s.findings > 0 ? "text-sev-warn" : "text-sev-clean")}>
-                {s.findings}
-              </td>
-              <td className="py-1 pr-4 text-foreground">{(s.rate * 100).toFixed(1)}%</td>
-              <td className="py-1">
-                <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
-                  {s.histogram.map((n, i) => {
-                    // neutral: shape, not verdict
-                    const cls = "bg-[var(--chart-bar)]";
-                    return (
-                      <div
-                        key={i}
-                        className={`${cls} min-w-px flex-1`}
-                        style={{ height: `${(n / maxBin) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
-                      />
-                    );
-                  })}
-                  <div
-                    className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]"
-                    style={{ left: "50%" }}
-                  />
-                </div>
-              </td>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full border-collapse text-body whitespace-nowrap">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="py-1 pr-4 font-normal">rule</th>
+              <th className="py-1 pr-4 font-normal">measurements</th>
+              <th className="py-1 pr-4 font-normal">findings</th>
+              <th className="py-1 pr-4 font-normal">finding rate</th>
+              <th className="py-1 font-normal">answer distribution (0 … 1, line at 0.5)</th>
             </tr>
-          ))}
-          {stats.length === 0 && !report.isLoading && (
-            <tr>
-              <td colSpan={5} className="py-2 text-muted-foreground">
-                no measurements found
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stats.map((s) => (
+              <tr
+                key={s.rule}
+                onClick={() => onRuleFocus(s.rule)}
+                className="cursor-pointer border-t border-border hover:bg-muted"
+                title="show this rule's group in the table"
+              >
+                <td className="py-1 pr-4">
+                  <span className="text-foreground">{s.rule}</span>
+                </td>
+                <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
+                <td
+                  className={"py-1 pr-4 " + (s.findings > 0 ? "text-sev-warn" : "text-sev-clean")}
+                >
+                  {s.findings}
+                </td>
+                <td className="py-1 pr-4 text-foreground">{(s.rate * 100).toFixed(1)}%</td>
+                <td className="py-1">
+                  <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
+                    {s.histogram.map((n, i) => {
+                      // neutral: shape, not verdict
+                      const cls = "bg-[var(--chart-bar)]";
+                      return (
+                        <div
+                          key={i}
+                          className={`${cls} min-w-px flex-1`}
+                          style={{ height: `${(n / maxBin) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
+                        />
+                      );
+                    })}
+                    <div
+                      className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]"
+                      style={{ left: "50%" }}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {stats.length === 0 && !report.isLoading && (
+              <tr>
+                <td colSpan={5} className="py-2 text-muted-foreground">
+                  no measurements found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
