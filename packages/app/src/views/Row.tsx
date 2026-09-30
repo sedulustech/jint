@@ -1,11 +1,11 @@
 import { memo } from "react";
 import { SEVERITY } from "./color";
-import type { RequestSummary } from "../types";
+import type { RequestResult } from "../types";
 
 const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
 interface Props {
-  row: RequestSummary;
+  row: RequestResult;
   height: number;
   selected: boolean;
   severity: "error" | "warn" | null;

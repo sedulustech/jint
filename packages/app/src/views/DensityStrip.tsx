@@ -1,6 +1,6 @@
 import { isScoreHandler, type HandlerData } from "@jint/contract";
 import { useMemo } from "react";
-import type { RequestSummary } from "../types";
+import type { RequestResult } from "../types";
 
 // bins; a 1px-per-request strip bins down for 2000+ rows
 const WIDTH = 240;
@@ -30,7 +30,7 @@ export function DensityStrip({
   marks = [],
   scoreAxis,
 }: {
-  rows: RequestSummary[];
+  rows: RequestResult[];
   marks?: number[];
   /** When the filtered rule is a score handle: its level count, so the axis reads honestly. */
   scoreAxis?: number;

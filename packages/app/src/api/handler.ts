@@ -24,7 +24,7 @@ interface RunSummary {
   configPath: string;
 }
 
-interface RequestSummary {
+interface RequestResult {
   file: string;
   seq: number;
   ts: string;
@@ -346,7 +346,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     findingSev.clear();
   }
   const rows = await Promise.all(
-    captures.map(async (file): Promise<RequestSummary | null> => {
+    captures.map(async (file): Promise<RequestResult | null> => {
       try {
         const [text, st] = await Promise.all([
           readFile(join(dir, file), "utf8"),
@@ -452,7 +452,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       }
     }),
   );
-  const parsed = rows.filter((r): r is RequestSummary => r !== null);
+  const parsed = rows.filter((r): r is RequestResult => r !== null);
   parsed.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
   parsed.forEach((r, i) => (r.seq = i + 1));
   // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
@@ -460,12 +460,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   // requestFile joins each measurement back to its capture: element cells by the capture's
   // elementId (state.id — the uuid the measurement input suffix carries), file-tier cells by the
   // bare path (kind disambiguates a stray element capture without an id).
-  const elementCapture = new Map<string, string>();
-  const fileCapture = new Map<string, string>();
+  const elementRequestFile = new Map<string, string>();
+  const fileRequestFile = new Map<string, string>();
   for (const r of parsed) {
     if (r.path === null) continue;
-    if (r.element) elementCapture.set(`${r.path}#${r.elementId}`, r.file);
-    else fileCapture.set(r.path, r.file);
+    if (r.element) elementRequestFile.set(`${r.path}#${r.elementId}`, r.file);
+    else fileRequestFile.set(r.path, r.file);
   }
   const cells: ApiCell[] = [];
   if (pathValues !== null) {
@@ -473,7 +473,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       const file = input.split("#")[0]!;
       const isElement = input.includes("#");
       const requestFile =
-        (isElement ? elementCapture.get(input) : undefined) ?? fileCapture.get(file);
+        (isElement ? elementRequestFile.get(input) : undefined) ?? fileRequestFile.get(file);
       for (const { rule, value, element } of entries) {
         cells.push({
           rule,

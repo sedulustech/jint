@@ -12,7 +12,7 @@ export interface RunDetail {
   id: string;
   requestCount: number;
   hasReport: boolean;
-  requests: RequestSummary[];
+  requests: RequestResult[];
   /** Per-rule handle snapshot from manifest.json; empty when absent (legacy run). */
   handles: Record<string, HandlerData>;
   /** Report.json was a fragment (torn write): canonical rules + severities fell back to captures. */
@@ -38,7 +38,7 @@ export interface Cell {
   severity: "error" | "warn" | null;
 }
 
-export interface RequestSummary {
+export interface RequestResult {
   file: string;
   seq: number;
   ts: string;
