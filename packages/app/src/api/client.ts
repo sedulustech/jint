@@ -7,8 +7,7 @@ async function get<T>(url: string): Promise<T> {
 }
 
 export const fetchRun = (id: string) => get<RunDetail>(`/api/runs/${id}`);
-export const fetchRuns = () =>
-  get<{ runs: RunSummary[]; hiddenLegacy: number; legacyRuns: string[] }>(`/api/runs`);
+export const fetchRuns = () => get<{ runs: RunSummary[] }>(`/api/runs`);
 export const fetchRequestFile = (runId: string, file: string) =>
   get<RequestFile>(`/api/runs/${runId}/requests/${file}`);
 export const fetchReport = (runId: string) =>

@@ -154,16 +154,11 @@ function resolveRunDir(root: string, segments: string[]): string | null {
   return dir;
 }
 
-async function listRuns(root: string): Promise<{
-  runs: RunSummary[];
-  hiddenLegacy: number;
-  legacyRuns: string[];
-}> {
+async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
   try {
     const entries = await readdir(root, { withFileTypes: true });
     const dirs = entries.filter((e) => e.isDirectory());
     let notRunCount = 0;
-    const legacyDirs = new Set<string>();
     // Flatten case namespaces (generated/<case>/...) alongside flat runs (run-a/...): a top-level
     // dir holding no requests of its own is scanned one level for request-bearing case dirs,
     // emitted with the nested id (fixture-pipeline generated/<case> layout).
@@ -202,11 +197,8 @@ async function listRuns(root: string): Promise<{
           readdir(dir),
           readFile(join(dir, "manifest.json"), "utf8").catch(() => null),
         ]);
-        if (manifest === null) {
-          // legacy run: skipped, counted, never faked
-          legacyDirs.add(id);
-          return null;
-        }
+        // no manifest: not a first-class run, just absent (like not-a-run dirs)
+        if (manifest === null) return null;
         let configPath: string | null = null;
         try {
           configPath = (JSON.parse(manifest) as { configPath?: string }).configPath ?? null;
@@ -228,15 +220,13 @@ async function listRuns(root: string): Promise<{
     const runs = inspected.filter((r): r is RunSummary => r !== null);
     // run id is a unixts: numeric order == chronological
     runs.sort((a, b) => b.id.localeCompare(a.id));
-    // legacy = requests without manifest (skipped + counted); not-a-run dirs are just absent
-    return { runs, hiddenLegacy: legacyDirs.size, legacyRuns: [...legacyDirs].sort() };
+    return { runs };
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is
     // ALWAYS an array; an empty one renders as the friendly hint client-side. No path leak.
     const code =
       err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
-    if (code === "ENOENT" || code === "ENOTDIR")
-      return { runs: [], hiddenLegacy: 0, legacyRuns: [] };
+    if (code === "ENOENT" || code === "ENOTDIR") return { runs: [] };
     throw err;
   }
 }

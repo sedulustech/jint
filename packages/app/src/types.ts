@@ -4,7 +4,7 @@ export interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
-  /** Absolute config path from manifest.json - REQUIRED; legacy runs are hidden by the handler. */
+  /** Absolute config path from manifest.json - REQUIRED; manifest-less dirs are absent. */
   configPath: string;
 }
 
@@ -13,7 +13,7 @@ export interface RunDetail {
   requestCount: number;
   hasReport: boolean;
   results: RequestItem[];
-  /** Per-rule handle snapshot from manifest.json; empty when absent (legacy run). */
+  /** Per-rule handle snapshot from manifest.json; empty when manifest.json is absent. */
   handles: Record<string, HandlerData>;
   /**
    * Report.json was a fragment (torn write): canonical rules + severities fell back to per-request

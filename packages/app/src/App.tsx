@@ -6,7 +6,7 @@ import { PairDetail } from "./views/PairDetail";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
 import { useTheme } from "./views/useTheme";
-import type { Report } from "./types";
+import type { Report, RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
 import type { Theme } from "./views/useTheme";
 import { Badge } from "@/components/ui/badge";
@@ -60,12 +60,10 @@ export function App() {
     reportQ.data && !("absent" in reportQ.data) ? (reportQ.data as Report) : undefined;
   // Only runs with an actual report.json can open the panel; the override never overrides absence.
   const reportOpen = reportData !== undefined && (reportOverride ?? true);
-  // Shape guard: the endpoint must answer { runs, hiddenLegacy }. A contract slip degrades to an
-  // empty list + hint, never a white screen.
+  // Shape guard: the endpoint must answer { runs }. A contract slip degrades to an empty list
+  // + hint, never a white screen.
   const payload =
-    runs.data && Array.isArray(runs.data.runs)
-      ? runs.data
-      : { runs: [], hiddenLegacy: 0, legacyRuns: [] as string[] };
+    runs.data && Array.isArray(runs.data.runs) ? runs.data : { runs: [] as RunSummary[] };
   const list = payload.runs;
   const selectedRun = list.find((r) => r.id === runId) ?? null;
 
@@ -140,23 +138,6 @@ export function App() {
           <Badge variant="outline" className="font-mono">
             {list.length} runs
           </Badge>
-        )}
-        {payload.hiddenLegacy > 0 && (
-          <details className="group">
-            <summary className="cursor-pointer list-none font-mono text-body text-muted-foreground hover:text-foreground">
-              {payload.hiddenLegacy} legacy run{payload.hiddenLegacy === 1 ? "" : "s"} hidden
-            </summary>
-            <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-border bg-background p-1 font-mono text-caption text-muted-foreground">
-              {payload.legacyRuns.slice(0, 200).map((id) => (
-                <li key={id} className="truncate">
-                  {id}
-                </li>
-              ))}
-              {payload.legacyRuns.length > 200 && (
-                <li className="text-muted-foreground">…{payload.legacyRuns.length - 200} more</li>
-              )}
-            </ul>
-          </details>
         )}
         {runs.error instanceof Error && (
           <span
