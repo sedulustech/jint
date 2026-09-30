@@ -168,16 +168,22 @@ export function App() {
         )}
         <label className="ml-auto flex items-center gap-1 font-mono text-caption text-muted-foreground">
           theme
-          <select
-            aria-label="theme"
-            className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-body text-foreground"
-            value={theme}
-            onChange={(e) => choose(e.target.value as Theme)}
-          >
-            <option value="system">system</option>
-            <option value="light">light</option>
-            <option value="dark">dark</option>
-          </select>
+          <Select value={theme} onValueChange={(v) => choose(v as Theme)}>
+            <SelectTrigger className="w-fit font-mono text-body" size="sm" aria-label="theme">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="system" className="font-mono text-body">
+                system
+              </SelectItem>
+              <SelectItem value="light" className="font-mono text-body">
+                light
+              </SelectItem>
+              <SelectItem value="dark" className="font-mono text-body">
+                dark
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         {selectedRun !== null && (
           <span
