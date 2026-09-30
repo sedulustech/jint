@@ -238,6 +238,15 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     }
   }
   for (const name of parsed.disable ?? []) byName.delete(name);
+  // A run that would measure NOTHING is a config error, not a "0 rules" headline: the resolved
+  // set must be non-empty across both tiers (rules: [] alone is legal ONLY when tsRules supply
+  // the set — the lint.test.ts pattern). Setup failure, named, like every config problem.
+  if (byName.size === 0 && (parsed.tsRules ?? []).length === 0) {
+    throw new SetupError(
+      "CONFIG_NO_RULES",
+      `invalid config ${source}: no rules to run - declare at least one rule (rules or tsRules), or drop the disable list`,
+    );
+  }
   // Per-rule scope validation + legal-cancellation warnings (never errors, per issue 008).
   const warnings: string[] = [];
   for (const rule of byName.values()) {

@@ -19,6 +19,8 @@ import {
   SetupError,
   checkRunKnobs,
   collectReport,
+  describeRules,
+  selectRules,
   defaultConfig,
   knownLanguages,
   lint,
@@ -50,6 +52,7 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   language: TypeBoxType.Optional(TypeBoxType.String()),
   config: TypeBoxType.Optional(TypeBoxType.String()),
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
+  "dry-run": TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
   color: TypeBoxType.Optional(COLOR_MODE_SCHEMA),
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
@@ -103,6 +106,8 @@ Options:
                       absolute) - the ctx.diff lens for rules; with no other input, the list IS
                       the judged subject (the changeset form: git diff --name-only HEAD~1 | jint -)
   --json              machine report instead of the human table
+  --dry-run           print the rule set that WOULD run (config resolved, disable/only applied)
+                      and exit 0 - zero input walks, zero classifier calls
   --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
   -h, --help          this help
@@ -122,6 +127,21 @@ export function requestTapNotice(): string {
   if (tap === null) return "";
   const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
   return `jint: requests -> ${tap.dir} (${tap.count} calls)${override}\n`;
+}
+
+/**
+ * The stderr rules pre-print: header + full-prose rule descriptions (SDK describeRules) + a ts-rule
+ * count note when the config declares TS-tier rules (their names load at run time, so only the
+ * count prints here — never claim fewer rules than the run uses). The block is the rubric in the
+ * consumer's context BEFORE the findings; stdout stays untouched. The CLI owns this function's
+ * voice; the SDK owns describeRules (same block, neutral).
+ */
+export function printRules(effective: readonly Rule[], tsCount: number): void {
+  const tsNote =
+    tsCount > 0 ? ` + ${tsCount} ts rule${tsCount === 1 ? "" : "s"} (loaded at run time)` : "";
+  process.stderr.write(
+    `jint: measuring with ${effective.length} rules${tsNote}\n\n` + describeRules(effective),
+  );
 }
 
 export async function runCli(cliArgv: string[]): Promise<number> {
@@ -259,7 +279,24 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 2;
   }
 
+  // The effective rule set — config rules filtered by --disable/--rule — shared by the stderr
+  // pre-print and --dry-run, so the block always names exactly what the run will classify.
+  const effective = selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json;
+
+  // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
+  // set, and stop BEFORE any input walk or classifier call. No requests dir, no tap notice,
+  // empty stdout — the block is the whole payload (rubric before reading, for free).
+  if (cliArgs["dry-run"] === true) {
+    printRules(effective, resolvedConfig.tsRules?.length ?? 0);
+    return 0;
+  }
+
   try {
+    // The rubric lands in the consumer's context BEFORE the findings it interprets:
+    // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
+    // place their meaning lives in-band (context timing, not artifact embedding — output can
+    // be sub-sampled, context cannot).
+    printRules(effective, resolvedConfig.tsRules?.length ?? 0);
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,
@@ -370,6 +407,7 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "--timeout",
   "--changed",
   "--json",
+  "--dry-run",
   "--debug",
   "--help",
   "-h",
@@ -458,6 +496,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         language: { type: "string" },
         config: { type: "string" },
         json: { type: "boolean" },
+        "dry-run": { type: "boolean" },
         debug: { type: "boolean" },
         color: { type: "string" },
         exclude: { type: "string", multiple: true },
@@ -521,6 +560,7 @@ function exitForThrown(thrown: unknown): number {
   process.stderr.write(`jint: ${error.code}: ${error.message}\n`);
   if (
     error.code === "CONFIG_INVALID" ||
+    error.code === "CONFIG_NO_RULES" ||
     error.code === "ENTRYPOINT_NOT_FOUND" ||
     error.code === "ENTRYPOINT_UNREADABLE" ||
     error.code === "NOT_SOURCE" ||

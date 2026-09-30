@@ -33,3 +33,69 @@ describe("cli: config load errors exit 2", () => {
     Bun.spawnSync(["rm", "-rf", tmpDir]);
   });
 });
+
+describe("cli: --dry-run prints the rules that would run, without classifying", () => {
+  const CLI = import.meta.dir + "/../src/cli.ts";
+
+  test("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
+    const tmpDir = "/tmp/jint-dryrun-" + Math.random().toString(36).substring(7);
+    Bun.spawnSync(["mkdir", "-p", tmpDir]);
+    Bun.write(
+      tmpDir + "/jint.config.json",
+      JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
+    );
+
+    const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
+      cwd: tmpDir,
+      env: { ...process.env, TYPESAFE_API_KEY: "" },
+    });
+    expect(proc.exitCode).toBe(0);
+    expect(proc.stdout.toString()).toBe("");
+    const err = proc.stderr.toString();
+    expect(err).toContain("jint: measuring with 2 rules");
+    expect(err).toContain("is_name_purposeful  [definitions]");
+    expect(err).toContain("will_comment_drift  [comments]");
+    expect(err).toContain("asks: "); // full criteria prose, not just names
+    expect(err).not.toContain("is_greppable"); // third rule never declared, never printed
+    expect(
+      Bun.spawnSync(["bash", "-c", "test ! -e tmp/requests && echo none"], { cwd: tmpDir })
+        .stdout.toString()
+        .trim(),
+    ).toBe("none");
+    Bun.spawnSync(["rm", "-rf", tmpDir]);
+  });
+
+  test("--disable narrows the printed set to the effective rules", async () => {
+    const tmpDir = "/tmp/jint-dryrun-disable-" + Math.random().toString(36).substring(7);
+    Bun.spawnSync(["mkdir", "-p", tmpDir]);
+    Bun.write(
+      tmpDir + "/jint.config.json",
+      JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
+    );
+
+    const proc = Bun.spawnSync(["bun", CLI, "--dry-run", "--disable", "is_name_purposeful"], {
+      cwd: tmpDir,
+      env: { ...process.env, TYPESAFE_API_KEY: "" },
+    });
+    expect(proc.exitCode).toBe(0);
+    const err = proc.stderr.toString();
+    expect(err).toContain("jint: measuring with 1 rules");
+    expect(err).toContain("will_comment_drift");
+    expect(err).not.toContain("is_name_purposeful");
+    Bun.spawnSync(["rm", "-rf", tmpDir]);
+  });
+
+  test("config resolving to zero rules: CONFIG_NO_RULES, exit 2", async () => {
+    const tmpDir = "/tmp/jint-dryrun-empty-" + Math.random().toString(36).substring(7);
+    Bun.spawnSync(["mkdir", "-p", tmpDir]);
+    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));
+
+    const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
+      cwd: tmpDir,
+      env: { ...process.env, TYPESAFE_API_KEY: "" },
+    });
+    expect(proc.exitCode).toBe(2);
+    expect(proc.stderr.toString()).toContain("CONFIG_NO_RULES");
+    Bun.spawnSync(["rm", "-rf", tmpDir]);
+  });
+});

@@ -500,6 +500,28 @@ function assertNoCrossTierDuplicates(jsonRules: readonly Rule[], tsRules: readon
  * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
  * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
  */
+/**
+ * The pure selection half of partitionRules: disable/only set membership, nothing more. No
+ * validation, no throw — shared by lint() (after it validates) and the CLI's rules pre-print, so
+ * the block always shows exactly the set the run will classify.
+ */
+export function selectRules(
+  jsonRules: readonly Rule[],
+  tsRules: readonly TsRule[],
+  disable: readonly string[] | undefined,
+  only: readonly string[] | undefined,
+): { json: Rule[]; ts: TsRule[] } {
+  const disabled = disable !== undefined && disable.length > 0 ? new Set(disable) : null;
+  const wanted = only !== undefined && only.length > 0 ? new Set(only) : null;
+  const keep = (rule: { name: string }): boolean =>
+    (disabled === null || !disabled.has(rule.name)) && (wanted === null || wanted.has(rule.name));
+  return { json: jsonRules.filter(keep), ts: tsRules.filter(keep) };
+}
+
+/**
+ * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
+ * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
+ */
 function partitionRules(
   jsonRules: readonly Rule[],
   tsRules: readonly TsRule[],
@@ -511,11 +533,7 @@ function partitionRules(
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
   for (const name of only ?? [])
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
-  const disabled = disable !== undefined && disable.length > 0 ? new Set(disable) : null;
-  const wanted = only !== undefined && only.length > 0 ? new Set(only) : null;
-  const keep = (rule: { name: string }): boolean =>
-    (disabled === null || !disabled.has(rule.name)) && (wanted === null || wanted.has(rule.name));
-  return { json: jsonRules.filter(keep), ts: tsRules.filter(keep) };
+  return selectRules(jsonRules, tsRules, disable, only);
 }
 
 export interface LintReport {

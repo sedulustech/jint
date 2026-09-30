@@ -26,6 +26,7 @@ export type UnitKind = "file" | "str";
 /** Codes a thrown SetupError carries: setup/infrastructure failures. */
 export type SetupErrorCode =
   | "CONFIG_INVALID"
+  | "CONFIG_NO_RULES"
   | "ENTRYPOINT_NOT_FOUND"
   | "ENTRYPOINT_UNREADABLE"
   | "NOT_SOURCE"

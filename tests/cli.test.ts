@@ -222,19 +222,19 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stdout).not.toContain("JEV_AUTH");
   });
 
-  test.concurrent("no key and no rules (empty rule set): empty run unchanged, no auth error", async () => {
+  test.concurrent("config resolving to zero rules: CONFIG_NO_RULES, exit 2 (an empty run is an error, not a headline)", async () => {
     const configPath = "/tmp/jint-no-rules-config.json";
     require("node:fs").writeFileSync(configPath, JSON.stringify({ rules: [] }));
     const r = await run(
       ["tests/fixtures/sample-file.ts", "--json", "--config", configPath],
       NO_KEY,
     );
-    // an empty run needs no classifier: no CONFIG_INVALID, no auth error; exit 4 is the
-    // pre-existing zero-measurements semantics of an empty run
-    expect(r.code).toBe(4);
-    expect(r.stderr).toBe("");
-    expect(r.stdout).not.toContain("CONFIG_INVALID");
-    expect(JSON.parse(r.stdout).measurements).toEqual([]);
+    // The old contract (empty rule set = legal, empty measurements, exit 4) enshrined the
+    // "0 rules" nonsense run: nothing could ever be measured. A run that would measure
+    // nothing is now a named setup error, like every config problem.
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("CONFIG_NO_RULES");
+    expect(r.stdout).not.toContain("CONFIG_NO_RULES"); // errors ride stderr, stdout stays data
   });
 
   test.concurrent("jint - reads the stdin changed-file list: the list IS the judged subject", async () => {
