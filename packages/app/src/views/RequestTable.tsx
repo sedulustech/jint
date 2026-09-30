@@ -283,23 +283,28 @@ export function RequestTable({
     </div>
   );
 
+  // Real table (not a virtualized flex grid): the <thead> owns the column widths via
+  // table-fixed, and every row derives alignment from it - the literal-sync drift class
+  // (header at w-16 while rows stayed w-10) cannot happen. The request log is at most a
+  // few hundred rows (~8k px), which the DOM renders fine without windowing; the windowed
+  // translateY machinery stays for the grouped tree mode only.
   const requestHeader = (
-    <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
-      style={{ minWidth: TABLE_MIN_W }}
-    >
-      {REQ_COLS.map((c) => (
-        <button
-          key={c.label}
-          onClick={() => toggleSort(c.key)}
-          className={`${c.width} shrink-0 px-3 py-1 text-left hover:text-foreground`}
-        >
-          {c.label}
-          {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-        </button>
-      ))}
-      <span className="min-w-0 flex-1 px-3 py-1">input path</span>
-    </div>
+    <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
+      <tr>
+        {REQ_COLS.map((c) => (
+          <th key={c.label} className={`${c.width} px-3 py-1 text-left font-normal`}>
+            <button
+              onClick={() => toggleSort(c.key)}
+              className="w-full text-left hover:text-foreground"
+            >
+              {c.label}
+              {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </button>
+          </th>
+        ))}
+        <th className="min-w-0 px-3 py-1 text-left font-normal">input path</th>
+      </tr>
+    </thead>
   );
 
   const sevDot = (sev: "error" | "warn" | null) =>
@@ -432,38 +437,50 @@ export function RequestTable({
               </Button>
             </div>
           )}
-        {mode === "request" ? requestHeader : groupedHeader}
-        <div
-          style={{
-            height: (mode === "request" ? rows.length : grouped.list.length) * ROW_H,
-            position: "relative",
-            minWidth: TABLE_MIN_W,
-          }}
-        >
-          <div style={{ transform: `translateY(${range.first * ROW_H}px)` }}>
-            {mode === "request"
-              ? rows.slice(range.first, range.last).map((r) => (
-                  <Row
-                    key={r.file}
-                    row={r}
-                    height={ROW_H}
-                    selected={r.file === selectedFile}
-                    severity={r.severity}
-                    onSelect={() =>
-                      onSelectPair({
-                        rule: r.rules[0] ?? "",
-                        input:
-                          r.path !== null && r.elementId !== null && r.element
-                            ? `${r.path}#${r.elementId}`
-                            : (r.path ?? r.file),
-                        requestFile: r.file,
-                      })
-                    }
-                  />
-                ))
-              : grouped.list.slice(range.first, range.last).map((row) => renderGroupedRow(row))}
-          </div>
-        </div>
+        {mode === "request" ? (
+          <table
+            className="w-full table-fixed font-mono text-body"
+            style={{ minWidth: TABLE_MIN_W }}
+          >
+            {requestHeader}
+            <tbody>
+              {rows.map((r) => (
+                <Row
+                  key={r.file}
+                  row={r}
+                  height={ROW_H}
+                  selected={r.file === selectedFile}
+                  severity={r.severity}
+                  onSelect={() =>
+                    onSelectPair({
+                      rule: r.rules[0] ?? "",
+                      input:
+                        r.path !== null && r.elementId !== null && r.element
+                          ? `${r.path}#${r.elementId}`
+                          : (r.path ?? r.file),
+                      requestFile: r.file,
+                    })
+                  }
+                />
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <>
+            {groupedHeader}
+            <div
+              style={{
+                height: grouped.list.length * ROW_H,
+                position: "relative",
+                minWidth: TABLE_MIN_W,
+              }}
+            >
+              <div style={{ transform: `translateY(${range.first * ROW_H}px)` }}>
+                {grouped.list.slice(range.first, range.last).map((row) => renderGroupedRow(row))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

@@ -51,9 +51,10 @@ function modeButton(mode: string): HTMLElement {
 }
 
 function rowByText(text: string): HTMLElement {
-  const row = [...document.querySelectorAll<HTMLElement>("section button")].find((b) =>
-    (b.textContent ?? []).includes(text),
-  );
+  // request rows are real <tr role="button">; grouped rows are buttons - both are click targets
+  const row = [
+    ...document.querySelectorAll<HTMLElement>("section tr[role=button], section button"),
+  ].find((b) => (b.textContent ?? []).includes(text));
   if (!row) throw new Error("row not found: " + text);
   return row;
 }
