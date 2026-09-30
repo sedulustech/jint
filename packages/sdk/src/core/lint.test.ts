@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { renderJson } from "../core/output/json.ts";
-import { defaultRules } from "../core/sensors/defaults.ts";
+import { defaultRules } from "../core/rules/defaults.ts";
 import {
   ClassifyError,
   SetupError,
@@ -225,7 +225,7 @@ describe("lint — classification shape", () => {
   });
 
   test("empty inventory (no elements) produces no questions and no crash", async () => {
-    const { classifyFile } = await import("./sensors/classify.ts");
+    const { classifyFile } = await import("./rules/classify.ts");
     const empty = "tests/fixtures/tmp-empty-funnel.ts";
     await Bun.write(empty, String.fromCharCode(10));
     try {

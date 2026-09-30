@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { isVocabularyConsistent } from "../../../sensors/defaults.ts";
+import { isVocabularyConsistent } from "../../../rules/defaults.ts";
 import type { Rule } from "../../../types.ts";
 
 /** Doc for thing. */

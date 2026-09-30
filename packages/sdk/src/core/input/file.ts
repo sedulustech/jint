@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { elementWireId } from "../sensors/classify.ts";
+import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 import { languageOf } from "./walk.ts";
 

@@ -7,7 +7,7 @@
  * `lint({ input: "x" })`.
  */
 
-import { defaultRules } from "./core/sensors/defaults.ts";
+import { defaultRules } from "./core/rules/defaults.ts";
 
 export {
   loadConfig,
@@ -46,7 +46,7 @@ export type {
   Span,
   ClassifiedAnswer,
 } from "@jint/contract";
-export { defaultRules } from "./core/sensors/defaults.ts";
+export { defaultRules } from "./core/rules/defaults.ts";
 export {
   ClassifyError,
   SetupError,

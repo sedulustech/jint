@@ -31,7 +31,7 @@ import {
   walkUnit,
   type ClassifyEvent,
   type WalkedUnit,
-} from "./sensors/classify.ts";
+} from "./rules/classify.ts";
 import {
   buildDiffLens,
   resolveAllTsTargets,

@@ -11,10 +11,10 @@
  */
 
 import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
+import { matchesTarget } from "../rules/classify.ts";
+import { toClassifyError } from "../rules/classify.ts";
+import { compileNoulHandler } from "../rules/handle.ts";
 import { ruleInScope } from "../scope.ts";
-import { matchesTarget } from "../sensors/classify.ts";
-import { toClassifyError } from "../sensors/classify.ts";
-import { compileNoulHandler } from "../sensors/handle.ts";
 import {
   ClassifyError,
   type AnyState,

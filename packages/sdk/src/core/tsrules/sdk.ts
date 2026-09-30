@@ -8,8 +8,8 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { checkNoulHandler } from "../rules/handle.ts";
 import { checkRuleScope } from "../scope.ts";
-import { checkNoulHandler } from "../sensors/handle.ts";
 import { SetupError, type ChangedPaths, type RuleResult, type RuleTarget } from "../types.ts";
 
 /**

@@ -6,7 +6,7 @@
  * schema doubles as the checked-in jint.schema.json (editor autocomplete via "$schema"); a small
  * generation script (bun run schema) keeps the two from drifting. Handlers in the file are data —
  * typed by the question: choice rules take a score map, noul rules take a per-threshold operator
- * handler (see sensors/handle.ts) — and compile to the internal function form here, at the single
+ * handler (see rules/handle.ts) — and compile to the internal function form here, at the single
  * data -> function seam, where the cross-field checks (type match, map length, threshold order)
  * live. Validation or parse failure maps to CONFIG_INVALID with joined, positioned messages (design
  * §3.5).
@@ -17,13 +17,9 @@ import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
+import { defaultRules } from "../core/rules/defaults.ts";
+import { checkNoulHandler, compileNoulHandler, compileScoreHandler } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
-import { defaultRules } from "../core/sensors/defaults.ts";
-import {
-  checkNoulHandler,
-  compileNoulHandler,
-  compileScoreHandler,
-} from "../core/sensors/handle.ts";
 import { SetupError, type Rule } from "../core/types.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";

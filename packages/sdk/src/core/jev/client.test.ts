@@ -10,7 +10,7 @@ import { createClassifier } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-import { elementWireId } from "../sensors/classify.ts";
+import { elementWireId } from "../rules/classify.ts";
 
 const state: UnitState = {
   path: "src/a.ts",

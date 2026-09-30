@@ -26,7 +26,7 @@ import {
   withPacer,
   withTimeout,
 } from "./jev/pacer.ts";
-import { classifyFile, elementWireId } from "./sensors/classify.ts";
+import { classifyFile, elementWireId } from "./rules/classify.ts";
 import {
   SetupError,
   ClassifyError,

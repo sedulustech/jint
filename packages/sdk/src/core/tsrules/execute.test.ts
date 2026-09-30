@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { decompose, type WalkElement } from "../input/walk.ts";
-import { rulesForElement } from "../sensors/classify.ts";
+import { rulesForElement } from "../rules/classify.ts";
 import {
   resolveAllTsTargets,
   runTsRules,
