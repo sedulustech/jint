@@ -130,7 +130,9 @@ export function App() {
             {reportQ.isLoading
               ? "report…"
               : reportData
-                ? `report · ${reportData.findings.length} findings · ${reportData.measurements.length} measurements ${reportOpen ? "▾" : "▸"}`
+                ? reportOpen
+                  ? "hide report"
+                  : "show report"
                 : "no report"}
           </Button>
         )}
