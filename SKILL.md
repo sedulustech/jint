@@ -49,6 +49,7 @@ cat snippet.ts | jint str - --language typescript --json   # stdin source, decla
 git diff HEAD~1 | jint diff -               # diffs: pipe them in (jint never shells to git)
 jint diff fix.patch                         # a patch file, declared a diff
 jint --config my-probe.config.json src/core/jev/ --json
+jint --dry-run                         # the rules that WOULD run - zero walks, zero calls
 ```
 
 - The resource is the noun; the verb (measure) is implicit. `str` and `diff` are
@@ -64,6 +65,11 @@ jint --config my-probe.config.json src/core/jev/ --json
   file-scoped rules still measure.
 - Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal,
   4 zero measurements. Findings -> stdout; run errors -> stderr.
+- **Every run prints its rubric first**: the full rule set (names, targets,
+  thresholds, complete criteria) goes to stderr BEFORE classification - read
+  it; it IS the current measurement contract. `--dry-run` prints that block
+  and exits without calling the classifier (config errors still surface, exit
+  2; a config that resolves to zero rules is CONFIG_NO_RULES).
 - `--json` carries ALL measurements (raw readings) plus findings - that is the
   calibration data.
 - **Ad-hoc rule testing (the fast loop):** write a scratch config with just the
