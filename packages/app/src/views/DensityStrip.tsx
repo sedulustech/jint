@@ -1,24 +1,8 @@
-import { isScoreHandler, type HandlerData } from "@jint/contract";
 import { useMemo } from "react";
 import type { RequestItem } from "../types";
 
 // bins; a 1px-per-request strip bins down for 2000+ rows
 const WIDTH = 240;
-/**
- * Threshold values from the active rule's handle snapshot: already p-space (the operator carries
- * the direction), so no mapping. Score handles index criteria, not p: no marks.
- */
-export function marksFor(handle: HandlerData | undefined): number[] {
-  // score poles are indices, not p-space: no marks for score handles
-  if (handle === undefined || isScoreHandler(handle)) return [];
-  const at: number[] = [];
-  for (const cond of [handle.warn, handle.error]) {
-    if (cond === undefined) continue;
-    if (cond.greater_than !== undefined) at.push(cond.greater_than);
-    if (cond.less_than !== undefined) at.push(cond.less_than);
-  }
-  return at;
-}
 
 /**
  * Distribution of one probability per request (the request's max answer) across 0..1. The 0.5
@@ -84,44 +68,6 @@ export function DensityStrip({
         </span>
       </div>
       <span className="shrink-0 font-mono text-caption text-muted-foreground">0 … 1</span>
-    </div>
-  );
-}
-
-/**
- * Mini distribution for a group parent row: one bin per value bin across 0..1 with the 0.5 ref line
- * and the rule's threshold marks. Shape, not verdict.
- */
-export function MiniStrip({ values, marks = [] }: { values: number[]; marks?: number[] }) {
-  const BINS = 24;
-  const bins = useMemo(() => {
-    const b = new Array(BINS).fill(0);
-    for (const v of values) b[Math.min(BINS - 1, Math.floor(v * BINS))] += 1;
-    return b;
-  }, [values]);
-  const max = Math.max(1, ...bins);
-  return (
-    <div
-      className="relative h-2.5 w-28 shrink-0"
-      title="distribution of cell values 0..1 · line 0.5"
-    >
-      <div className="absolute inset-0 flex items-end gap-px">
-        {bins.map((n, i) => (
-          <div
-            key={i}
-            className="min-w-px flex-1 bg-[var(--chart-bar)]"
-            style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
-          />
-        ))}
-      </div>
-      <div className="absolute bottom-0 top-0 w-px bg-[var(--chart-ref)]" style={{ left: "50%" }} />
-      {marks.map((t) => (
-        <div
-          key={t}
-          className="absolute bottom-0 top-0 w-px bg-[var(--chart-mark)]"
-          style={{ left: `${t * 100}%` }}
-        />
-      ))}
     </div>
   );
 }
