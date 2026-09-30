@@ -10,7 +10,7 @@
  * Run: jint --config <that-config> --json
  */
 
-/// <reference path="../../src/core/tsrules/sdk.d.ts" />
+/// <reference path="../../packages/sdk/src/core/tsrules/sdk.d.ts" />
 
 import { defineConfig } from "jint:sdk";
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { validateConfig } from "../../src/config/load.ts";
-import { collectReport, lint } from "../../src/core/lint.ts";
-import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "../../src/core/types.ts";
+import { validateConfig } from "@jint/sdk";
+import { collectReport, lint } from "@jint/sdk";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "@jint/sdk";
 
 // The proof rule runs the real pipeline end to end: config tsRules -> jint:sdk load -> walk ->
 // pairing via element.parent -> classifier. The classifier is a stub that records the composed

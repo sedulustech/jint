@@ -14,23 +14,30 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
-import { Value as TypeBoxValue } from "@sinclair/typebox/value";
-import packageJson from "../package.json";
-import { loadConfig, defaultConfig, DEFAULT_CONFIG_PATH } from "./config/load.ts";
-import { knownLanguages } from "./core/input/walk.ts";
 import {
+  ClassifyError,
+  SetupError,
+  checkRunKnobs,
+  collectReport,
+  defaultConfig,
+  knownLanguages,
+  lint,
+  loadConfig,
+  renderJson,
+  renderStylish,
   requestTapSummary,
   requestTapWriteManifest,
   requestTapWriteReport,
-} from "./core/jev/debug.ts";
-import { checkRunKnobs } from "./core/jev/pacer.ts";
-import { lint, collectReport, type LintReport } from "./core/lint.ts";
-import { renderJson } from "./core/output/json.ts";
-import { renderStylish } from "./core/output/stylish.ts";
-import { ClassifyError, SetupError, type InputKind, type Rule } from "./core/types.ts";
+  DEFAULT_CONFIG_PATH,
+  type InputKind,
+  type LintReport,
+  type ResolvedConfig,
+  type Rule,
+} from "@jint/sdk";
+import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
+import { Value as TypeBoxValue } from "@sinclair/typebox/value";
+import packageJson from "../package.json";
 import { log, setLogLevel } from "./logger.ts";
-import type { ResolvedConfig } from "./config/load.ts";
 
 const COLOR_MODE_SCHEMA = TypeBoxType.Union([
   TypeBoxType.Literal("auto"),

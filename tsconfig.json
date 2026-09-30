@@ -28,5 +28,6 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
+  "files": ["packages/sdk/src/wasm-assets.d.ts"],
   "exclude": ["tmp", "probes", "node_modules", "dist", "packages"]
 }

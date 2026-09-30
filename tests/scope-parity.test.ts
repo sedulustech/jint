@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { validateConfig } from "../src/config/load.ts";
-import { validateTsRule } from "../src/core/tsrules/sdk.ts";
+import { validateConfig } from "@jint/sdk";
+import { validateTsRule } from "@jint/sdk";
 
 // Cross-tier parity for per-rule scoping (issue 008): the same bad scope shapes must be rejected
 // by BOTH tiers - the JSON loader (CONFIG_INVALID) and the TS-rule loader (RULE_INVALID) - with

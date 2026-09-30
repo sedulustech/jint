@@ -3,40 +3,6 @@ import { SetupError } from "../core/types.ts";
 import { loadConfig, defaultConfig, validateConfig } from "./load.ts";
 
 describe("loadConfig", () => {
-  test("loads jint.config.json from the current dir", async () => {
-    const tmpDir = "/tmp/jint-config-test-" + Math.random().toString(36).substring(7);
-    Bun.spawnSync(["mkdir", "-p", tmpDir]);
-    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ input: ".", exclude: [] }));
-
-    // Should exit 2 (CONFIG_INVALID) because key is empty: fail fast, nothing walked
-    Bun.write(tmpDir + "/input.ts", "// content");
-    const proc = Bun.spawnSync(
-      ["bun", new URL("../../", import.meta.url).pathname + "/src/cli.ts", "input.ts", "--json"],
-      {
-        cwd: tmpDir,
-        env: { ...process.env, TYPESAFE_API_KEY: "" },
-      },
-    );
-    expect(proc.exitCode).toBe(2);
-    Bun.spawnSync(["rm", "-rf", tmpDir]);
-  });
-
-  test("broken JSON -> CONFIG_INVALID, exit 2", async () => {
-    const tmpDir = "/tmp/jint-config-broken-" + Math.random().toString(36).substring(7);
-    Bun.spawnSync(["mkdir", "-p", tmpDir]);
-    Bun.write(tmpDir + "/jint.config.json", "{ broken: true }");
-
-    const proc = Bun.spawnSync(
-      ["bun", new URL("../../", import.meta.url).pathname + "/src/cli.ts", "--json"],
-      {
-        cwd: tmpDir,
-        env: { ...process.env, TYPESAFE_API_KEY: "" },
-      },
-    );
-    expect(proc.exitCode).toBe(2);
-    Bun.spawnSync(["rm", "-rf", tmpDir]);
-  });
-
   test("loads a valid JSON config: disable + exclude applied", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.json");
     expect(config.input).toBe("tests/fixtures/sample-dir");

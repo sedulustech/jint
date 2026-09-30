@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
 import { decompose, isEmptyComment, MAX_ELEMENT_CHARS, type Inventory } from "./walk.ts";
 
-const GOLDEN = "src/core/types.ts";
+const GOLDEN = "packages/sdk/src/core/types.ts";
 
 async function countCommentNodes(source: string): Promise<number> {
   // Independent count: parse again and walk the whole tree, counting comment nodes.
@@ -42,13 +42,13 @@ function expectSpansRoundTrip(source: string, inv: Inventory): void {
   }
 }
 
-describe("decompose — golden fixture (src/core/types.ts)", () => {
+describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => {
   test("produces the expected inventory", async () => {
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
     // Top-level definitions + method elements from composite descent into the class declaration,
-    // no imports in this file (golden tracks src/core/types.ts — update when it grows).
+    // no imports in this file (golden tracks packages/sdk/src/core/types.ts — update when it grows).
     expect(inv.definitions).toHaveLength(43);
     expect(inv.imports).toHaveLength(0);
     // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
@@ -94,7 +94,9 @@ describe("decompose — golden fixture (src/core/types.ts)", () => {
 
 describe("decompose — imports fixture", () => {
   test("groups all imports into one merged element", async () => {
-    const source = await Bun.file("src/core/input/fixtures/unit-tree/imports.ts").text();
+    const source = await Bun.file(
+      "packages/sdk/src/core/input/fixtures/unit-tree/imports.ts",
+    ).text();
     const inv = await decompose(source, "typescript");
     expect(inv.imports).toHaveLength(1);
     const merged = inv.imports[0];
@@ -118,7 +120,9 @@ describe("decompose — imports fixture", () => {
 
 describe("decompose — standalone-comment fixture", () => {
   test("separated and trailing comments land standalone, never attached", async () => {
-    const source = await Bun.file("src/core/input/fixtures/unit-tree/standalone-comment.ts").text();
+    const source = await Bun.file(
+      "packages/sdk/src/core/input/fixtures/unit-tree/standalone-comment.ts",
+    ).text();
     const inv = await decompose(source, "typescript");
     expect(inv.comments).toHaveLength(2);
     expect(inv.comments[0]?.content).toContain("file-header comment");
@@ -129,7 +133,9 @@ describe("decompose — standalone-comment fixture", () => {
 
 describe("decompose — comment-orphan fixture", () => {
   test("orphans land standalone; comments before imports never attach", async () => {
-    const source = await Bun.file("src/core/input/fixtures/unit-tree/comment-orphan.ts").text();
+    const source = await Bun.file(
+      "packages/sdk/src/core/input/fixtures/unit-tree/comment-orphan.ts",
+    ).text();
     const inv = await decompose(source, "typescript");
     expect(attachedCount(inv)).toBe(0);
     expect(inv.comments).toHaveLength(2);
@@ -201,7 +207,9 @@ describe("decompose — composite-descent fixture", () => {
   });
 
   test("composites are judged AND descended into: nested calls, class methods, sub-spans", async () => {
-    const source = await Bun.file("src/core/input/fixtures/unit-tree/composite-tree.ts").text();
+    const source = await Bun.file(
+      "packages/sdk/src/core/input/fixtures/unit-tree/composite-tree.ts",
+    ).text();
     const inv = await decompose(source, "typescript");
     // Headers flow into existing roles: call expressions -> function, class -> type.
     expect(

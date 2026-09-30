@@ -19,16 +19,17 @@
  */
 import { mkdirSync, readdirSync, rmSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { defaultConfig } from "../../../src/config/load.ts";
-import { createClassifier } from "../../../src/core/jev/client.ts";
 import {
+  collectReport,
+  createClassifier,
+  defaultConfig,
+  lint,
+  renderJson,
   requestTapSummary,
   requestTapWriteManifest,
   requestTapWriteReport,
-} from "../../../src/core/jev/debug.ts";
-import { lint, collectReport } from "../../../src/core/lint.ts";
-import { renderJson } from "../../../src/core/output/json.ts";
-import type { ClassifierConfig } from "../../../src/core/jev/client.ts";
+  type ClassifierConfig,
+} from "@jint/sdk";
 
 const appRoot = resolve(import.meta.dir, "..");
 const sourceDir = resolve(appRoot, "tests/fixtures/sources/elements");

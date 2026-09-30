@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loadConfig } from "../src/config/load.ts";
+import { loadConfig } from "@jint/sdk";
 
 // The shipped scoping example (issue 008) must stay a valid config: loads, one rule, scoped out
 // of tests/fixtures via exclude.

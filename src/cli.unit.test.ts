@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { defaultConfig } from "./config/load.ts";
-import { lint } from "./core/lint.ts";
+import { defaultConfig } from "@jint/sdk";
+import { lint } from "@jint/sdk";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {

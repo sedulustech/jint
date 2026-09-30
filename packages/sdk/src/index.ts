@@ -18,6 +18,18 @@ export {
   type ResolvedConfig,
 } from "./config/load.ts";
 export { lint, collectReport, type LintOptions, type LintReport } from "./core/lint.ts";
+export { knownLanguages } from "./core/input/walk.ts";
+export {
+  requestTapSummary,
+  requestTapWriteManifest,
+  requestTapWriteReport,
+  type RequestTapSummary,
+} from "./core/jev/debug.ts";
+export { checkRunKnobs } from "./core/jev/pacer.ts";
+export { renderJson } from "./core/output/json.ts";
+export { renderStylish, type ColorMode } from "./core/output/stylish.ts";
+export { validateTsRule } from "./core/tsrules/sdk.ts";
+export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
 export type { Inventory, WalkElement, NodeRole } from "./core/input/walk.ts";
 export type {
