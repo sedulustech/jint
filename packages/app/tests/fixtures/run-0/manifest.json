@@ -1,0 +1,5 @@
+{
+  "cwd": "/tmp/fixture-no-config",
+  "argv": ["bun", "jint"],
+  "ts": "1970-01-01T00:00:00.000Z"
+}
