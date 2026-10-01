@@ -1,0 +1,369 @@
+{
+  "tool": "jint",
+  "version": "0.1.0",
+  "measurements": [
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/borderline.ts",
+      "value": 0.5,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/high.ts",
+      "value": 0.92,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/low.ts",
+      "value": 0.08,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/near-mid.ts",
+      "value": 0.51,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/multi.tsx#E1",
+      "value": 0.7,
+      "element": {
+        "kind": "function",
+        "label": "d0",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/multi.tsx#E1",
+      "value": 0.3,
+      "element": {
+        "kind": "function",
+        "label": "d0",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/greedy.ts",
+      "value": 0.8,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "has_nothing in mind",
+      "input": "src/greedy-low.ts",
+      "value": 0.2,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-high.ts",
+      "value": 0.95,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-b.tsx#E1",
+      "value": 0.45,
+      "element": {
+        "kind": "function",
+        "label": "d0",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "will_error_lose_cause",
+      "input": "src/score.ts",
+      "value": 3,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L2-L3",
+      "value": 2,
+      "element": {
+        "kind": "function",
+        "label": "d0",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L5-L6",
+      "value": 0,
+      "element": {
+        "kind": "function",
+        "label": "d0",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "will_error_lose_cause",
+      "input": "src/legend.ts",
+      "value": 3,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    },
+    {
+      "rule": "is_noul_documented",
+      "input": "src/documented.ts",
+      "value": 0.8,
+      "element": {
+        "kind": "file",
+        "label": "L1-L6",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 6,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 96
+        }
+      }
+    }
+  ],
+  "findings": [
+    {
+      "rule": "is_cognitively_complex",
+      "input": "src/complex.ts#L2-L3",
+      "value": 2,
+      "severity": "error",
+      "location": {
+        "input": "src/complex.ts#L2-L3",
+        "span": {
+          "start": {
+            "line": 2,
+            "column": 0
+          },
+          "end": {
+            "line": 3,
+            "column": 2
+          }
+        }
+      }
+    },
+    {
+      "rule": "is_name_purposeful",
+      "input": "src/borderline.ts",
+      "value": 0.5,
+      "severity": "warn"
+    },
+    {
+      "rule": "will_comment_drift",
+      "input": "src/other-high.ts#L1-L3",
+      "value": 0.95,
+      "severity": "error",
+      "location": {
+        "input": "src/other-high.ts#L1-L3",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 3,
+            "column": 2
+          }
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "notes": ["fixture run"]
+}
