@@ -1,11 +1,27 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { handleApi } from "./handler.ts";
+import { join, resolve } from "node:path";
+import { handleApi, requestsRoot } from "./handler.ts";
 
 const get = async (path: string, root: string): Promise<Response> =>
   (await handleApi(new Request("http://x" + path), { root })) as Response;
+
+describe("requestsRoot default", () => {
+  test("falls back to ~/.jint/runs; env and opts override", () => {
+    const prev = process.env.JINT_REQUESTS_DIR;
+    delete process.env.JINT_REQUESTS_DIR;
+    try {
+      expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
+      process.env.JINT_REQUESTS_DIR = "/tmp/env-root";
+      expect(requestsRoot()).toBe(resolve("/tmp/env-root"));
+      expect(requestsRoot({ root: "/tmp/opt-root" })).toBe(resolve("/tmp/opt-root"));
+    } finally {
+      if (prev === undefined) delete process.env.JINT_REQUESTS_DIR;
+      else process.env.JINT_REQUESTS_DIR = prev;
+    }
+  });
+});
 
 describe("listRuns error surface", () => {
   test("missing root -> 200 with empty runs (absence is data), no path leak", async () => {
@@ -23,17 +39,25 @@ describe("listRuns error surface", () => {
         mkdirSync(join(root, id));
         writeFileSync(
           join(root, id, "manifest.json"),
-          JSON.stringify({ configPath: `/cfg/${id}.json` }),
+          JSON.stringify({ configPath: `/cfg/${id}.json`, cwd: `/src/tree-${id}` }),
         );
         writeFileSync(join(root, id, "1700000000001-files.json"), "{}"); // a run has requests
       }
+      // config-less run: VISIBLE, marked as default rules - never silently dropped
+      mkdirSync(join(root, "500"));
+      writeFileSync(join(root, "500", "manifest.json"), "{}");
+      writeFileSync(join(root, "500", "1700000000001-files.json"), "{}");
       mkdirSync(join(root, "400"));
-      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}"); // legacy: requests, no manifest
+      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}"); // requests, no manifest: absent
       writeFileSync(join(root, "stray.json"), "{}");
       const res = await get("/api/runs", root);
-      const body = (await res.json()) as { runs: { id: string; configPath: string }[] };
-      expect(body.runs.map((r) => r.id)).toEqual(["300", "200", "100"]);
-      expect(body.runs[0]!.configPath).toBe("/cfg/300.json");
+      const body = (await res.json()) as {
+        runs: { id: string; configPath: string | null; cwd?: string }[];
+      };
+      expect(body.runs.map((r) => r.id)).toEqual(["500", "300", "200", "100"]);
+      expect(body.runs[0]!.configPath).toBeNull();
+      expect(body.runs[1]!.configPath).toBe("/cfg/300.json");
+      expect(body.runs[1]!.cwd).toBe("/src/tree-300");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

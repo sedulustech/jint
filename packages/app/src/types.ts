@@ -4,8 +4,10 @@ export interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
-  /** Absolute config path from manifest.json - REQUIRED; manifest-less dirs are absent. */
-  configPath: string;
+  /** Absolute config path from manifest.json; null = ran with the default rules (no config). */
+  configPath: string | null;
+  /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */
+  cwd?: string;
 }
 
 export interface RunDetail {

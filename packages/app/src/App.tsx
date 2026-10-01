@@ -22,6 +22,9 @@ import {
 
 const baseName = (p: string) => p.split("/").pop() ?? p;
 
+/** Dropdown label: the run's source tree (cwd, already ~-collapsed by the handler). */
+const runLabel = (r: RunSummary): string => r.cwd ?? r.configPath ?? "default rules";
+
 // deep link: #runs/<id> opens that run directly (tolerate trailing slash / whitespace)
 const runIdFromHash = (): string | null => {
   if (typeof window === "undefined" || !window.location) return null;
@@ -99,12 +102,13 @@ export function App() {
                 key={r.id}
                 value={r.id}
                 className="font-mono text-body"
-                title={`${r.configPath}\nrun id: ${r.id}`}
+                title={`${runLabel(r)}\nrun id: ${r.id}`}
               >
-                <span className="text-foreground">{baseName(r.configPath)}</span>
+                <span className="text-foreground">{runLabel(r)}</span>
                 <span className="text-muted-foreground">
-                  {" "}
-                  · {relTime(r.mtime)} · {r.requests} req · {r.id.slice(-6)}
+                  {r.configPath !== null && ` · ${baseName(r.configPath)}`}
+                  {r.configPath === null && " · default rules"} · {relTime(r.mtime)} · {r.requests}{" "}
+                  req · {r.id.slice(-6)}
                 </span>
               </SelectItem>
             ))}
@@ -197,9 +201,11 @@ export function App() {
                   >
                     {/* fixed-width cards on one wrap grid; meta right-pinned so its columns
                         line up across every row (F2) */}
-                    <span className="min-w-0 truncate">{baseName(run.configPath)}</span>
+                    <span className="min-w-0 truncate">{runLabel(run)}</span>
                     <span className="ml-auto truncate pl-2 text-muted-foreground">
-                      · {relTime(run.mtime)} · {run.requests} req
+                      {run.configPath !== null && ` · ${baseName(run.configPath)}`}
+                      {run.configPath === null && " · default rules"} · {relTime(run.mtime)} ·{" "}
+                      {run.requests} req
                     </span>
                   </Button>
                 ))}

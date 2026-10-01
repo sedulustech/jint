@@ -1,4 +1,5 @@
 import { readdir, stat, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 /**
  * THE shared API route module. Mounted twice: by the vite dev plugin (src/api/vite-plugin.ts) and
@@ -13,15 +14,24 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(opts: ApiOptions = {}): string {
-  return resolve(opts.root ?? process.env.JINT_REQUESTS_DIR ?? "tmp/requests");
+  // homedir store works with zero env; JINT_REQUESTS_DIR (or opts.root) overrides
+  return resolve(opts.root ?? process.env.JINT_REQUESTS_DIR ?? join(homedir(), ".jint/runs"));
 }
+
+/** Collapse the homedir prefix to '~' so run labels stay short (the store lives under ~/.jint). */
+const collapseHome = (p: string): string => {
+  const home = homedir();
+  return p === home ? "~" : p.startsWith(home + "/") ? "~" + p.slice(home.length) : p;
+};
 
 interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
-  /** Absolute path of the config that ran, from manifest.json (REQUIRED for a first-class run). */
-  configPath: string;
+  /** Absolute config path from manifest.json; null = ran with the default rules (no config). */
+  configPath: string | null;
+  /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */
+  cwd?: string;
 }
 
 interface RequestItem {
@@ -199,21 +209,21 @@ async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
         ]);
         // no manifest: not a first-class run, just absent (like not-a-run dirs)
         if (manifest === null) return null;
-        let configPath: string | null = null;
+        let parsed: { configPath?: string; cwd?: string } | null = null;
         try {
-          configPath = (JSON.parse(manifest) as { configPath?: string }).configPath ?? null;
+          parsed = JSON.parse(manifest) as { configPath?: string; cwd?: string };
         } catch {
-          configPath = null;
+          parsed = null;
         }
-        // a manifest without a config is not first-class either
-        if (configPath === null) return null;
+        // config-less runs are VISIBLE (default rules), never silently dropped
         return {
           id,
           mtime: st.mtime.toISOString(),
           requests: files.filter(
             (f) => f.endsWith(".json") && f !== "report.json" && f !== "manifest.json",
           ).length,
-          configPath,
+          configPath: parsed?.configPath ?? null,
+          cwd: parsed?.cwd !== undefined ? collapseHome(parsed.cwd) : undefined,
         };
       }),
     );
