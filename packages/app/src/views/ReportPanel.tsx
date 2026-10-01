@@ -15,6 +15,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
 
   const data = report.data;
   const degraded = run.data?.reportDegraded === true;
+  const legacy = run.data?.legacy === true;
   const hasReport = !degraded && data !== undefined && !("absent" in data);
   const stats = ruleStats(hasReport ? (data as Report) : undefined, run.data);
   const errors = hasReport ? (data as Report).errors.length : 0;
@@ -38,8 +39,9 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
       )}
       {!report.isLoading && !hasReport && (
         <p className="text-muted-foreground">
-          no report recorded for this run — per-rule stats below come from per-request answers only
-          (findings unknown)
+          {legacy
+            ? "no report — run recorded before reports existed (migrated pre-store run); findings unknown"
+            : "no report — run captured without --json; per-rule stats below come from per-request answers only (findings unknown)"}
         </p>
       )}
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
@@ -116,7 +118,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             {stats.length === 0 && !report.isLoading && (
               <tr>
                 <td colSpan={5} className="py-2 text-muted-foreground">
-                  no measurements found
+                  report present but zero measurements
                 </td>
               </tr>
             )}

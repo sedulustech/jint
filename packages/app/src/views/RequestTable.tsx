@@ -425,7 +425,13 @@ export function RequestTable({
             <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
               <p>0 {noun} match your filters</p>
               {mode !== "request" && query.data?.cells.length === 0 && (
-                <p className="text-muted-foreground">no measurements recorded for this run</p>
+                <p className="text-muted-foreground">
+                  {query.data.legacy
+                    ? "no report — run recorded before reports existed"
+                    : query.data.hasReport
+                      ? "report present but zero measurements"
+                      : "no report — run captured without --json"}
+                </p>
               )}
               {activeFilters.length > 0 && (
                 <p className="text-muted-foreground">active: {activeFilters.join(", ")}</p>
