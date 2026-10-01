@@ -5,12 +5,13 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import type { ClassifierConfig } from "./client.ts";
 
 /**
  * When JEV_DEBUG_REQUEST=1, every raw HTTP request/response pair is written as its own
  * pretty-printed JSON file (ts, url, request body, response status + body), named
- * <unixts>-<kind>-<file>.json, under /tmp/jint/requests/<runid>/ (runid = unix timestamp of the
+ * <unixts>-<kind>-<file>.json, under <homedir>/.jint/runs/<runid>/ (runid = unix timestamp of the
  * run's first request; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
  * directory. The kind (elements / files) is derived from the request's state shape.
  */
@@ -77,7 +78,7 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
     return config ?? {};
   }
   const runid = Date.now();
-  const base = process.env.JEV_DEBUG_REQUEST_LOCATION || "/tmp/jint/requests";
+  const base = process.env.JEV_DEBUG_REQUEST_LOCATION || `${homedir()}/.jint/runs`;
   const dir = `${base}/${runid}`;
   tapSummary = { dir, count: 0, override: process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
