@@ -20,10 +20,10 @@ export {
 export { lint, collectReport, type LintOptions, type LintReport } from "./core/lint.ts";
 export { knownLanguages } from "./core/input/walk.ts";
 export {
-  requestTapSummary,
-  requestTapWriteManifest,
-  requestTapWriteReport,
-  type RequestTapSummary,
+  recordSummary,
+  recordRunManifest,
+  recordRunReport,
+  type RequestRecordSummary,
 } from "./core/jev/debug.ts";
 export { checkRunKnobs } from "./core/jev/pacer.ts";
 export { renderJson } from "./core/output/json.ts";

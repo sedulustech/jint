@@ -27,9 +27,9 @@ import {
   loadConfig,
   renderJson,
   renderStylish,
-  requestTapSummary,
-  requestTapWriteManifest,
-  requestTapWriteReport,
+  recordSummary,
+  recordRunManifest,
+  recordRunReport,
   DEFAULT_CONFIG_PATH,
   type InputKind,
   type LintReport,
@@ -118,15 +118,15 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 `;
 
 /**
- * End-of-run stderr notice for the request tap: where the requests went and how many. Nothing when
- * the tap is inactive; an active tap always reports, even zero requests (the run may have failed
- * before any classifier call).
+ * End-of-run stderr notice for run recording: where the requests went and how many. Nothing when
+ * recording is disabled (JEV_RECORD=0); recording always reports, even zero requests (the run may
+ * have failed before any classifier call).
  */
-export function requestTapNotice(): string {
-  const tap = requestTapSummary();
-  if (tap === null) return "";
-  const override = tap.override ? " (override: JEV_DIR)" : "";
-  return `jint: requests -> ${tap.dir} (${tap.count} calls)${override}\n`;
+export function recordNotice(): string {
+  const record = recordSummary();
+  if (record === null) return "";
+  const override = record.override ? " (override: JEV_DIR)" : "";
+  return `jint: requests -> ${record.dir} (${record.count} calls)${override}\n`;
 }
 
 /**
@@ -284,7 +284,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const effective = selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json;
 
   // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
-  // set, and stop BEFORE any input walk or classifier call. No requests dir, no tap notice,
+  // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice,
   // empty stdout — the block is the whole payload (rubric before reading, for free).
   if (cliArgs["dry-run"] === true) {
     printRules(effective, resolvedConfig.tsRules?.length ?? 0);
@@ -323,10 +323,10 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       cliArgs.json === true
         ? { stdout: renderJson(lintReport), stderr: "" }
         : renderStylish(lintReport, cliArgs.color ?? "auto", choiceLevels(resolvedConfig.rules));
-    // The dump tap persists the run's machine report next to its requests: the EXACT bytes
+    // Recording persists the run's machine report next to its requests: the EXACT bytes
     // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
-    if (cliArgs.json === true) requestTapWriteReport(rendered.stdout);
-    requestTapWriteManifest({
+    if (cliArgs.json === true) recordRunReport(rendered.stdout);
+    recordRunManifest({
       configPath,
       cwd: process.cwd(),
       argv: process.argv,
@@ -340,7 +340,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
     const exit = computeExit(lintReport);
-    process.stderr.write(requestTapNotice());
+    process.stderr.write(recordNotice());
     return exit;
   } catch (thrown) {
     return exitForThrown(thrown);

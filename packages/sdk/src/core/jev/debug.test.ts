@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { requestDebug, requestTapSummary } from "./debug.ts";
+import { recordRequests, recordSummary } from "./debug.ts";
 
-const DIR = "tmp/jev-request-test";
+const DIR = "tmp/jev-record-test";
 
 function listRequests(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -24,7 +24,7 @@ function passthrough(): (input: string, init?: RequestInit) => Promise<Response>
 }
 
 async function recordOnce(
-  config: ReturnType<typeof requestDebug>,
+  config: ReturnType<typeof recordRequests>,
   state: Record<string, unknown>,
 ): Promise<void> {
   await config.fetch!("https://api.typesafe.ai/v1/systemone", {
@@ -37,36 +37,55 @@ async function recordOnce(
   });
 }
 
+// Recording is ALWAYS-ON, so every test pins JEV_DIR at the tmp store; the one default-location
+// test repoints HOME instead, so nothing ever lands in the real ~/.jint/runs.
 beforeEach(() => {
-  process.env.JEV_DEBUG_REQUEST = "1";
+  delete process.env.JEV_RECORD;
   process.env.JEV_DIR = DIR;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 afterEach(() => {
-  delete process.env.JEV_DEBUG_REQUEST;
+  delete process.env.JEV_RECORD;
   delete process.env.JEV_DIR;
+  delete process.env.HOME;
   rmSync(DIR, { recursive: true, force: true });
 });
 
-describe("requestDebug", () => {
-  test("disabled without either variable: config passes through untouched", () => {
-    delete process.env.JEV_DEBUG_REQUEST;
+describe("recordRequests", () => {
+  test("records by default, no env required: the run dir sits under the homedir store", () => {
     delete process.env.JEV_DIR;
-    const config = requestDebug(undefined);
-    expect(config.fetch).toBeUndefined();
+    recordRequests({ fetch: passthrough() });
+    // dir is computed lazily; nothing is written until the first call, so this asserts the
+    // default LOCATION without touching the real ~/.jint/runs
+    expect(recordSummary()!.dir).toMatch(/^.*\/\.jint\/runs\/\d+$/);
+    expect(recordSummary()!.override).toBe(false);
   });
 
-  test("a JEV_DIR override alone activates the tap", async () => {
-    delete process.env.JEV_DEBUG_REQUEST;
-    const config = requestDebug({ fetch: passthrough() });
-    expect(requestTapSummary()).not.toBeNull();
+  test("JEV_RECORD=0 disables recording entirely: config passes through untouched", () => {
+    process.env.JEV_RECORD = "0";
+    const config = recordRequests(undefined);
+    expect(config.fetch).toBeUndefined();
+    expect(recordSummary()).toBeNull();
+  });
+
+  test("JEV_RECORD=0 wins over JEV_DIR: no run dir, no writes", async () => {
+    process.env.JEV_RECORD = "0";
+    recordRequests({ fetch: passthrough() });
+    await Promise.resolve();
+    expect(recordSummary()).toBeNull();
+    expect(existsSync(DIR)).toBe(false);
+  });
+
+  test("a JEV_DIR override moves the run dir; recording is on regardless", async () => {
+    const config = recordRequests({ fetch: passthrough() });
+    expect(recordSummary()).not.toBeNull();
     await recordOnce(config, { path: "a.ts", content: "x" });
     expect(listRequests(DIR)).toHaveLength(1);
   });
 
   test("writes one pretty-printed request per call, named <unixts>-<kind>-<file>.json", async () => {
-    const config = requestDebug({ fetch: passthrough() });
+    const config = recordRequests({ fetch: passthrough() });
     await recordOnce(config, { path: "src/a.ts", content: "export const x = 1;" });
 
     const list = listRequests(DIR);
@@ -82,7 +101,7 @@ describe("requestDebug", () => {
   });
 
   test("state shape drives the kind: single-element source -> elements, else files", async () => {
-    const config = requestDebug({ fetch: passthrough() });
+    const config = recordRequests({ fetch: passthrough() });
     await recordOnce(config, { path: "a.ts", source: "x" });
     await recordOnce(config, { path: "b.ts", content: "x" });
 
@@ -92,7 +111,7 @@ describe("requestDebug", () => {
   });
 
   test("same-millisecond collisions get a suffix, never concatenated", async () => {
-    const config = requestDebug({ fetch: passthrough() });
+    const config = recordRequests({ fetch: passthrough() });
     const body = JSON.stringify({
       state: { path: "a.ts", content: "x" },
       questions: { q: { type: "noul", instructions: "x" } },
@@ -110,9 +129,9 @@ describe("requestDebug", () => {
     }
   });
 
-  test("a failing tap never breaks the observed call", async () => {
+  test("a failing store never breaks the observed call", async () => {
     process.env.JEV_DIR = "/proc/definitely-not-writable";
-    const config = requestDebug({ fetch: passthrough() });
+    const config = recordRequests({ fetch: passthrough() });
     const response = await config.fetch!("https://api.typesafe.ai/v1/systemone", {
       method: "POST",
       body: JSON.stringify({ state: { path: "a.ts", content: "x" }, questions: {} }),
@@ -121,13 +140,13 @@ describe("requestDebug", () => {
   });
 
   test("summary: dir + written count after recording (override location flagged)", async () => {
-    const config = requestDebug({ fetch: passthrough() });
-    expect(requestTapSummary()).toEqual({ dir: expect.any(String), count: 0, override: true });
+    const config = recordRequests({ fetch: passthrough() });
+    expect(recordSummary()).toEqual({ dir: expect.any(String), count: 0, override: true });
 
     await recordOnce(config, { path: "a.ts", content: "x" });
     await recordOnce(config, { path: "a.ts", content: "x" });
 
-    const summary = requestTapSummary()!;
+    const summary = recordSummary()!;
     expect(summary.dir).toMatch(
       new RegExp(`^${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\\\$&")}/\\d+$`),
     );
@@ -135,17 +154,16 @@ describe("requestDebug", () => {
     expect(summary.override).toBe(true);
   });
 
-  test("summary: no override flag when the location is the default", async () => {
-    delete process.env.JEV_DIR;
-    const config = requestDebug({ fetch: passthrough() });
+  test("summary: explicit JEV_RECORD=1 keeps recording on, like the default", async () => {
+    process.env.JEV_RECORD = "1";
+    const config = recordRequests({ fetch: passthrough() });
     await recordOnce(config, { path: "a.ts", content: "x" });
-    expect(requestTapSummary()!.override).toBe(false);
+    expect(recordSummary()!.count).toBe(1);
   });
 
-  test("summary: inactive tap exposes nothing", () => {
-    delete process.env.JEV_DEBUG_REQUEST;
-    delete process.env.JEV_DIR;
-    requestDebug(undefined);
-    expect(requestTapSummary()).toBeNull();
+  test("summary: disabled recording exposes nothing", () => {
+    process.env.JEV_RECORD = "0";
+    recordRequests(undefined);
+    expect(recordSummary()).toBeNull();
   });
 });

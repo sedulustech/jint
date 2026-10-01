@@ -36,7 +36,7 @@ async function runWithStdin(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...MOCK_ENV, STDIN: stdin, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, STDIN: stdin, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -277,9 +277,10 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("JEV_DIR alone turns on dumping for the str path, with the notice", async () => {
+  test("JEV_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
+      JEV_RECORD: "1",
       JEV_DIR: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map

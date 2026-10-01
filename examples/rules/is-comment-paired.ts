@@ -28,7 +28,7 @@ export default defineConfig({
             false: "the comment is narration, drifts from the code, or contradicts it",
           },
           // State is composed freely — the pairing IS the state. Every byte sent to the model is
-          // dumped (JEV_DEBUG_REQUEST), so observability is the guarantee, not restriction.
+          // dumped (JEV_RECORD), so observability is the guarantee, not restriction.
           state: {
             comment: self.source,
             annotated: self.parent?.source ?? "(no annotated code - the comment stands alone)",

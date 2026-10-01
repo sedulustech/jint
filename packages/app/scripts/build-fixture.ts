@@ -1,7 +1,7 @@
 /**
  * BUILDER 2 of 2 — the REAL-PIPELINE generated case fixture (generated/elements). Runs the actual
  * engine end to end (fixture-pipeline design, tmp/designs/fixture-pipeline.md): walk.ts ->
- * classify.ts -> jev tap captures -> the engine's report/manifest writers. No hand-built capture
+ * classify.ts -> jev record captures -> the engine's report/manifest writers. No hand-built capture
  * shapes — the fixture is what the engine actually emits, so format changes (like uuid element ids)
  * are absorbed by regenerating.
  *
@@ -25,16 +25,16 @@ import {
   defaultConfig,
   lint,
   renderJson,
-  requestTapSummary,
-  requestTapWriteManifest,
-  requestTapWriteReport,
+  recordSummary,
+  recordRunManifest,
+  recordRunReport,
   type ClassifierConfig,
 } from "@jint/sdk";
 
 const appRoot = resolve(import.meta.dir, "..");
 const sourceDir = resolve(appRoot, "tests/fixtures/sources/elements");
 const outDir = resolve(appRoot, "tests/fixtures/generated/elements");
-// staging under tmp (gitignored); the tap writes to <base>/<runid>/ and we hoist that one dir
+// staging under tmp (gitignored); recording writes to <base>/<runid>/ and we hoist that one dir
 const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
 
 /**
@@ -103,7 +103,7 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
 
 async function main(): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
-  // activate the tap BEFORE the first classifier call; point it at our staging root
+  // activate recording BEFORE the first classifier call; point it at our staging root
   process.env.JEV_DIR = stagingDir;
   process.env.TYPESAFE_API_KEY = "fixture-key";
 
@@ -117,9 +117,9 @@ async function main(): Promise<void> {
     }),
   );
 
-  // the engine's own writers persist report + manifest next to the captures the tap already wrote
-  requestTapWriteReport(renderJson(report));
-  requestTapWriteManifest({
+  // the engine's own writers persist report + manifest next to the captures recording already wrote
+  recordRunReport(renderJson(report));
+  recordRunManifest({
     configPath: "fixtures/sources/elements",
     cwd: appRoot,
     argv: ["bun", "fixtures:gen"],
@@ -130,11 +130,11 @@ async function main(): Promise<void> {
   });
 
   // hoist <staging>/<runid>/* -> outDir/
-  const summary = requestTapSummary();
+  const summary = recordSummary();
   if (summary === null || summary.count === 0)
-    throw new Error("request tap wrote no captures; generator is broken");
+    throw new Error("recording wrote no captures; generator is broken");
   const runDirs = readdirSync(stagingDir).filter((n) => /^\d+$/.test(n));
-  if (runDirs.length === 0) throw new Error(`no tap run dir under ${stagingDir}`);
+  if (runDirs.length === 0) throw new Error(`no record run dir under ${stagingDir}`);
   const newest = runDirs.map((n) => Number(n)).sort((a, b) => b - a)[0]!;
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });

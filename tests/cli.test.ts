@@ -23,7 +23,7 @@ async function run(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...envOverrides },
+    env: { ...process.env, JEV_RECORD: "0", ...envOverrides },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -41,7 +41,7 @@ async function runShell(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -410,7 +410,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
       cwd: ROOT,
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, ...MOCK_ENV, ...env },
+      env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -419,12 +419,12 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     return { code: await proc.exited, stdout, stderr };
   }
   afterAll(() => jev.stop());
-  test.concurrent("the dump tap persists report.json: the exact stdout --json bytes, next to the requests", async () => {
+  test.concurrent("recording persists report.json: the exact stdout --json bytes, next to the requests", async () => {
     const { rmSync } = await import("node:fs");
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_DEBUG_REQUEST: "1",
+      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
@@ -467,10 +467,11 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     }
   });
 
-  test.concurrent("JEV_DIR alone turns on the dump tap: captures land, stdout untouched", async () => {
+  test.concurrent("JEV_DIR moves the run dir: captures land under the override, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
+      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     // the notice never touches stdout: the report stays a machine document
@@ -512,11 +513,11 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     }
   }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
 
-  test.concurrent("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", async () => {
+  test.concurrent("always-on recording: captures land, stdout JSON untouched, stderr names the run dir", async () => {
     if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
-      JEV_DEBUG_REQUEST: "1",
+      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     expect(r.code).toBe(0);

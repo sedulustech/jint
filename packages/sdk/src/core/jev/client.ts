@@ -33,7 +33,7 @@ import {
   type Questions,
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSpec } from "../types.ts";
-import { requestDebug } from "./debug.ts";
+import { recordRequests } from "./debug.ts";
 import type { ClassifiedAnswer } from "@jint/contract";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
@@ -65,7 +65,7 @@ export interface ClassifierConfig {
 export function createClassifier(config?: ClassifierConfig): Classifier {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
-    if (client === null) client = makeClient(requestDebug(config), state.path);
+    if (client === null) client = makeClient(recordRequests(config), state.path);
     const sdkQuestions = compileQuestions(questions);
     let result: SystemOneResult<typeof sdkQuestions>;
     try {

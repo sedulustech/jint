@@ -14,7 +14,7 @@ describe("cli: config load errors exit 2", () => {
     Bun.write(tmpDir + "/input.ts", "// content");
     const proc = Bun.spawnSync(["bun", CLI, "input.ts", "--json"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" },
+      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
@@ -27,7 +27,7 @@ describe("cli: config load errors exit 2", () => {
 
     const proc = Bun.spawnSync(["bun", CLI, "--json"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" },
+      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
@@ -47,7 +47,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" },
+      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(0);
     expect(proc.stdout.toString()).toBe("");
@@ -75,7 +75,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = Bun.spawnSync(["bun", CLI, "--dry-run", "--disable", "is_name_purposeful"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" },
+      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(0);
     const err = proc.stderr.toString();
@@ -92,7 +92,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
       cwd: tmpDir,
-      env: { ...process.env, TYPESAFE_API_KEY: "" },
+      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
     });
     expect(proc.exitCode).toBe(2);
     expect(proc.stderr.toString()).toContain("CONFIG_NO_RULES");

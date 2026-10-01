@@ -1,7 +1,8 @@
 /**
- * Request debug tap for the jev adapter. Lives behind JEV_DEBUG_REQUEST=1 (or a JEV_DIR override
- * alone) and captures the exact bytes the vendor SDK serializes — not our pre-SDK question objects
- * — so schema experiments can be judged from real payloads.
+ * Run recording for the jev adapter: always on, every run. Captures the exact bytes the vendor SDK
+ * serializes — not our pre-SDK question objects — plus the manifest and the machine report, so any
+ * run can be replayed, inspected, or judged from real payloads. JEV_RECORD=0 is the only off switch
+ * (harness and tools); JEV_DIR only moves WHERE the run dir lands.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -9,28 +10,33 @@ import { homedir } from "node:os";
 import type { ClassifierConfig } from "./client.ts";
 
 /**
- * When JEV_DEBUG_REQUEST=1, every raw HTTP request/response pair is written as its own
- * pretty-printed JSON file (ts, url, request body, response status + body), named
- * <unixts>-<kind>-<file>.json, under <homedir>/.jint/runs/<runid>/ (runid = unix timestamp of the
- * run's first request; past runs are never overwritten). JEV_DIR overrides the directory. The kind
- * (elements / files) is derived from the request's state shape.
+ * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
+ * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
+ * <base>/<runid>/ (base = JEV_DIR or <homedir>/.jint/runs; runid = unix timestamp of the run's
+ * first request; past runs are never overwritten). The kind (elements / files) is derived from the
+ * request's state shape. JEV_RECORD=0 disables recording entirely; any other value (including unset
+ * and "1") records.
  */
-/** What the tap observed this run, for the end-of-run stderr notice. Null when the tap is inactive. */
-export interface RequestTapSummary {
+/** What this run recorded, for the end-of-run stderr notice. Null when recording is disabled. */
+export interface RequestRecordSummary {
   dir: string;
   count: number;
   override: boolean;
 }
 
-let tapSummary: RequestTapSummary | null = null;
+let runSummary: RequestRecordSummary | null = null;
 
-/** The active tap's run summary (null when the tap never activated or wrote nothing counts as 0). */
+/** This run's recording summary (null when recording is disabled). */
+export function recordSummary(): RequestRecordSummary | null {
+  return runSummary;
+}
+
 /**
  * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
  * Required for the run to appear as first-class in the measurement UI's picker (a run dir without a
  * manifest is legacy and is skipped with a count, never shown with a fake label).
  */
-export function requestTapWriteManifest(manifest: {
+export function recordRunManifest(manifest: {
   configPath: string | null;
   cwd: string;
   argv: readonly string[];
@@ -41,45 +47,43 @@ export function requestTapWriteManifest(manifest: {
    */
   handles?: Record<string, unknown>;
 }): void {
-  if (tapSummary === null) return;
+  if (runSummary === null) return;
   try {
-    writeFileSync(`${tapSummary.dir}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
+    writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
   } catch {
-    // the tap never breaks the run it observes
+    // recording never breaks the run it observes
   }
-}
-
-export function requestTapSummary(): RequestTapSummary | null {
-  return tapSummary;
 }
 
 /**
  * Persist the run's machine report next to the requests: report.json, the EXACT bytes stdout --json
- * prints. Called by the CLI after rendering; a no-op when the tap is inactive (never a second write
- * path, never a failure of the run it observes).
+ * prints. Called by the CLI after rendering; a no-op when recording is disabled (never a second
+ * write path, never a failure of the run it observes).
  */
-export function requestTapWriteReport(json: string): void {
-  if (tapSummary === null) return;
+export function recordRunReport(json: string): void {
+  if (runSummary === null) return;
   try {
-    mkdirSync(tapSummary.dir, { recursive: true });
-    writeFileSync(`${tapSummary.dir}/report.json`, json);
+    mkdirSync(runSummary.dir, { recursive: true });
+    writeFileSync(`${runSummary.dir}/report.json`, json);
   } catch {
-    // the tap never breaks the run it observes
+    // recording never breaks the run it observes
   }
 }
 
-export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
-  // Either variable activates: JEV_DEBUG_REQUEST=1 is the explicit on-switch; a
-  // JEV_DIR override alone implies the run was launched to record.
-  const requested = process.env.JEV_DEBUG_REQUEST === "1" || process.env.JEV_DIR !== undefined;
-  if (!requested) {
-    tapSummary = null;
+/**
+ * Wrap the classifier's fetch so every call records. Recording is the default: the only off switch
+ * is JEV_RECORD=0 (harness and tools); JEV_RECORD=1 is accepted as explicit-on. JEV_DIR never
+ * changes WHETHER — only WHERE the run dir lands.
+ */
+export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
+  if (process.env.JEV_RECORD === "0") {
+    runSummary = null;
     return config ?? {};
   }
   const runid = Date.now();
   const base = process.env.JEV_DIR || `${homedir()}/.jint/runs`;
   const dir = `${base}/${runid}`;
-  tapSummary = { dir, count: 0, override: process.env.JEV_DIR !== undefined };
+  runSummary = { dir, count: 0, override: process.env.JEV_DIR !== undefined };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
     const response = await inner(input, init);
@@ -117,9 +121,9 @@ export function requestDebug(config: ClassifierConfig | undefined): ClassifierCo
       let file = `${dir}/${stamp}-${kind}-${name}.json`;
       for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
       writeFileSync(file, JSON.stringify(record, null, 2));
-      tapSummary!.count += 1;
+      runSummary!.count += 1;
     } catch {
-      // the tap never breaks the call it observes
+      // recording never breaks the call it observes
     }
     return response;
   };
