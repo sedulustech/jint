@@ -100,14 +100,17 @@ export interface Measurement {
 }
 
 /**
- * A reading that crossed its handle's threshold: the actionable output. Findings carry NO message -
- * consumers join by rule id to the config (v1 contract).
+ * A reading that crossed its handle's threshold: the actionable output. Findings carry no free-form
+ * message — consumers join by rule id to the config (v1 contract); score findings carry the chosen
+ * rubric level's legend text as note (v1.3, additive) so the report is self-contained.
  */
 export interface Finding {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
   readonly severity: "error" | "warn";
+  /** The chosen rubric level's legend text, score rules only (v1.3, additive). */
+  readonly note?: string;
   /** Optional extra structured data, attached by a policy callback (schema-validated). */
   readonly data?: Record<string, unknown>;
 }

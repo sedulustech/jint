@@ -198,6 +198,12 @@ export interface Finding {
    * span into the source. Absent for files-target findings (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
+  /**
+   * The chosen rubric level's legend text, score rules only (v1.3, additive): the report is
+   * self-contained, so a renderer never reaches into criteria or recorded requests for display.
+   * Absent for noul findings and policy findings.
+   */
+  readonly note?: string;
 }
 
 /** Exact location of an element: line+col points and byte offsets into the source. */

@@ -1,7 +1,7 @@
 /**
- * JSON reporter — the machine shape. stdout carries nothing but this when --json is set. Stream
- * discipline (clig): the document is data — errors ride in it; human-facing operational messages
- * are a stylish-mode concern (stderr) and are never embedded here.
+ * The canonical serializer: these bytes are report.json AND stdout under --json — byte-identical,
+ * one truth. Stream discipline (clig): the document is data — errors ride in it; human-facing
+ * operational messages are the raw-line renderer's stderr concern, never embedded here.
  */
 
 import pkg from "../../../package.json";
@@ -28,6 +28,8 @@ export function renderJson(report: LintReport): string {
           input: s.input,
           value: s.value,
           severity: s.severity,
+          // additive (v1.3, score rules): the chosen rubric level's legend text
+          ...(s.note !== undefined && { note: s.note }),
           // additive: element-scoped findings carry the element's exact span.
           ...(s.location !== undefined && {
             location: { input: s.location.input, span: s.location.span },
@@ -39,7 +41,7 @@ export function renderJson(report: LintReport): string {
           code: e.code,
           message: e.message,
         })),
-        // In-band degradation (oversized skips, scope exclusions): same array the stylish
+        // In-band degradation (oversized skips, scope exclusions): the same array the raw-line
         // renderer prints on stderr — a machine consumer gets the identical signal, never less
         // (review 396888e finding 1: visibility that stops at the human renderer is not
         // visibility). Deterministic order is established by collectReport.

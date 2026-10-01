@@ -63,9 +63,24 @@ export const FINDING_SCHEMA = Type.Object({
   input: Type.String(),
   value: Type.Number(),
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),
+  // Additive (v1.3, score rules): the chosen rubric level's legend text — the report displays
+  // self-contained, no criteria or request reach-ins.
+  note: Type.Optional(Type.String()),
+  // Additive (element-scoped findings): the element's exact span; files-target findings lack it.
+  location: Type.Optional(Type.Object({ input: Type.String(), span: SPAN_SCHEMA })),
   // Additive (TS tier): a policy callback's extra structured data. finding.message dropped
   // (consumers join by rule id).
   data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+});
+
+/**
+ * The CLI's default stdout projection: one line per finding, whitespace-separated columns,
+ * regex-parseable. All columns optional except rule/level/score; note keeps its brackets.
+ */
+export const LINE_SCHEMA = Type.String({
+  // path#id(@L<line>)  rule  level  score  [note]  run=<id> — two-space separators, parseable.
+  pattern:
+    "^(\\S+)(#\\S+)?(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}(  \\[[^\\]]+\\])?(  run=\\S+)?$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({

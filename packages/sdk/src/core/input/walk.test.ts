@@ -54,10 +54,10 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
     // separated from the first declaration by a blank line), and member-doc comments inside
     // declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(45);
+    expect(accountedComments(inv)).toBe(46);
     expect(attachedCount(inv)).toBe(28);
     expect(inv.comments).toHaveLength(1);
-    expect(internalCount(inv)).toBe(16);
+    expect(internalCount(inv)).toBe(17);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),

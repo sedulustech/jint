@@ -341,7 +341,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // carries probabilities/confidence for future reads
         const outcome = handle(event);
         if (outcome !== null) {
-          // Findings carry NO message: consumers join by rule id to the config (v1 contract).
+          // Findings carry no free-form message: consumers join by rule id to the config. Score
+          // rules embed the chosen rubric level's legend text (v1.3), so the report displays
+          // self-contained; noul findings stay bare.
+          const criteria = byName.get(event.rule)?.criteria;
+          const note = Array.isArray(criteria) ? criteria[Math.round(event.value)] : undefined;
           yield {
             type: "finding",
             finding: {
@@ -349,6 +353,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               input: event.input,
               value: event.value,
               severity: outcome.severity,
+              ...(note !== undefined && { note }),
               ...(element !== undefined && {
                 location: { input: event.input, span: element.span },
               }),
