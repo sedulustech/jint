@@ -133,7 +133,7 @@ test("history walk: pick another run, back restores the previous run + panel sta
     { timeout: 10_000 },
   );
 
-  await openRun(new RegExp("default rules"));
+  await openRun(new RegExp("run-0"));
   await expectPath("/runs/run-0");
   expect(window.location.pathname).toBe("/runs/run-0");
   cleanup();
@@ -153,7 +153,7 @@ test("history walk: pick another run, back restores the previous run + panel sta
 test("config-less run carries the default-rules marker", async () => {
   boot("/");
   await page.getByRole("combobox", { name: "run" }).click();
-  await page.getByRole("option", { name: /default rules/ }).click();
+  await page.getByRole("option", { name: /run-0/ }).click();
   await expectPath("/runs/run-0");
   expect(document.body.textContent).toContain("default rules");
 });
@@ -469,7 +469,8 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
 test("report-less run: grouped modes render the empty state, request mode the rows", async () => {
   // run-0: manifest + raw captures, NO report.json (a CLI run without --json).
   // Grouped modes derive from report cells -> empty; request mode reads the raw
-  // files -> full rows. The contract: empty state, never a crash.
+  // files -> full rows. The contract: empty state, never a crash. Copy is
+  // master's three-way split; run-0 is the no-json variant (not legacy).
   const errors: string[] = [];
   // oxlint-disable-next-line no-console
   const origError = console.error;
@@ -483,7 +484,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
     boot("/runs/run-0");
     await waitFor(
       () => {
-        if (!document.body.innerText.includes("no measurements recorded for this run"))
+        if (!document.body.innerText.includes("no report — run captured without --json"))
           throw new Error("empty state missing");
       },
       { timeout: 10_000 },
@@ -500,7 +501,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
       },
       { timeout: 10_000 },
     );
-    expect(document.body.textContent).toContain("no measurements recorded for this run");
+    expect(document.body.textContent).toContain("no report — run captured without --json");
     expect(document.querySelector("h1")?.textContent).toBe("jint");
 
     // request mode: the run's real request rows, from the raw captures
