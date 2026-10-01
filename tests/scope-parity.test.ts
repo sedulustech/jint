@@ -11,6 +11,7 @@ const jsonRule = (scope: Record<string, unknown>) => ({
   rules: [
     {
       name: "r",
+      instructions: "i",
       criteria: { true: "t", false: "f" },
       target: "files",
       handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
@@ -53,12 +54,12 @@ describe("scope validation parity (JSON tier <-> TS tier)", () => {
   );
 
   test.each(SCHEMA_SCOPES.map((s) => [JSON.stringify(s), s] as const))(
-    "JSON schema rejects %s (generic union message, pinned); TS checker names the field",
+    "JSON schema rejects %s naming the field; TS checker too",
     (_label, scope) => {
-      // The schema's generic union message is PINNED: if it ever grows field-naming, make the
-      // checker-rejected assertion above cover this shape instead.
+      // The rule-schema dive names the exact field (e.g. /rules/0/exclude/0), so both tiers
+      // reject with a field-naming message — parity includes the message shape, not just the set.
       expect(() => validateConfig(jsonRule(scope), "inline")).toThrow(
-        "invalid config inline: /rules/0 Expected union value",
+        "invalid config inline: /rules/0/exclude/0",
       );
       expect(() => validateTsRule(tsRule(scope), "f.ts")).toThrow(/"r": exclude:/);
     },

@@ -248,6 +248,7 @@ describe("cli: piped stdin str unit", async () => {
       rules: [
         {
           name: "is_noul_documented",
+          instructions: "Does the unit document the noul value?",
           criteria: { true: "documents a noul value", false: "it does not" },
           target: "files",
           handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.7 } },

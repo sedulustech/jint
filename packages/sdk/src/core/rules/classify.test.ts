@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { validateConfig } from "../../config/load.ts";
 import {
   ClassifyError,
   type ClassifiedAnswer,
@@ -9,7 +10,6 @@ import {
   type UnitState,
 } from "../types.ts";
 import {
-  UNIT_TASK,
   elementWireId,
   compileRuleQuestions,
   compileElementQuestions,
@@ -48,16 +48,6 @@ function classifierWith(values: Record<string, number>, calls: Unit[] = []): Cla
 function isMeasurement(event: Measurement | ClassifyError): event is Measurement {
   return "rule" in event;
 }
-
-describe("UNIT_TASK", () => {
-  test("the calibrated task sentence is byte-exact", () => {
-    // WHY the word Judge stays: this string is calibration surface, not code naming —
-    // thresholds and baselines were classified with exactly this prompt. Renames apply to
-    // identifiers, never to prompt strings (the sensor->rule rename once rewrote it to
-    // "Classifier the ...", silently mutating every reading). Pin it byte-exact.
-    expect(UNIT_TASK).toBe("Judge the syntax unit against the criteria.");
-  });
-});
 
 describe("compileRuleQuestions", () => {
   test("whole-file unit: criteria passthrough, instructions is the rule's question", () => {
@@ -247,17 +237,25 @@ describe("compileElementQuestions", () => {
     );
   });
 
-  test("a noul rule without instructions falls back to UNIT_TASK (config backward compat)", () => {
-    const bare: Rule = {
-      name: "bare_rule",
-      criteria: { true: "yes", false: "no" },
-      target: "files",
-      handle: () => "info" as never,
-    };
-    const { questions } = compileRuleQuestions([bare], FILE_ID);
-    expect(questions[`bare_rule in ${FILE_ID}`]!.instructions).toBe(
-      `This unit is a source file. ${UNIT_TASK}`,
-    );
+  test("a noul rule without instructions fails config schema validation (strict, no fallback)", () => {
+    // The fallback is cut: a rule without its question would classify under an invented prompt
+    // and silently recalibrate every reading. The config boundary rejects it, naming the field.
+    expect(() =>
+      validateConfig(
+        {
+          input: "x",
+          rules: [
+            {
+              name: "bare_rule",
+              criteria: { true: "yes", false: "no" },
+              target: "files",
+              handle: { warn: { less_than: 0.4 } },
+            },
+          ],
+        },
+        "inline",
+      ),
+    ).toThrow(/\/rules\/0\/instructions/);
   });
 });
 
@@ -341,6 +339,7 @@ describe("classifyFile — role routing", () => {
 describe("classifyFile — imports routing", () => {
   const importRule: Rule = {
     name: "is_import_pinned",
+    instructions: "Is this an import?",
     target: "imports",
     criteria: { true: "pinned", false: "not pinned" },
     handle: () => null,

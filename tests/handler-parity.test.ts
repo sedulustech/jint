@@ -8,7 +8,15 @@ import { validateTsRule } from "@jint/sdk";
 
 const jsonRule = (handle: unknown) => ({
   input: "x",
-  rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files", handle }],
+  rules: [
+    {
+      name: "r",
+      instructions: "i",
+      criteria: { true: "t", false: "f" },
+      target: "files",
+      handle,
+    },
+  ],
 });
 
 const tsRule = (handle: unknown) => ({

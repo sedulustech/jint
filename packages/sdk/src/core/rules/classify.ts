@@ -46,17 +46,6 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 /**
- * The fallback task sentence for rules that ship no instructions of their own (configs predating
- * the field). Recalibration event: readings under this sentence differ from readings under per-rule
- * questions.
- */
-export const UNIT_TASK = "Judge the syntax unit against the criteria.";
-
-function instructionsOf(rule: Rule): string {
-  return rule.instructions ?? UNIT_TASK;
-}
-
-/**
  * States what kind of object the judged state is. Prepended to every question's instructions so the
  * model never has to infer it from the payload.
  */
@@ -101,7 +90,7 @@ export function compileRuleQuestions(
     const questionId = questionKey(rule.name, unitId);
     questions[questionId] = questionSpec(
       rule,
-      `${kindSentence(unitKindNoun(unitKind))} ${instructionsOf(rule)}`,
+      `${kindSentence(unitKindNoun(unitKind))} ${rule.instructions}`,
     );
     attribution.set(questionId, { rule: rule.name, blockId: unitId });
   }
@@ -119,7 +108,7 @@ export function compileElementQuestions(
   const kindPrefix = `${kindSentence(elementKindNoun(role))} `;
   const questions: Record<string, QuestionSpec> = {};
   for (const rule of rules) {
-    questions[rule.name] = questionSpec(rule, kindPrefix + instructionsOf(rule));
+    questions[rule.name] = questionSpec(rule, kindPrefix + rule.instructions);
   }
   return questions;
 }

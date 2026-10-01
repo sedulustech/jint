@@ -119,16 +119,16 @@ interface RuleBase {
 
 /** A noul rule: one yes/no judgment; the value is the yes probability (0..1). */
 export interface NoulRule extends RuleBase {
-  /** Optional: noul is the default kind — rules predating the field omit it. */
+  /** Optional: noul is the default kind — an omitted kind means noul. */
   readonly kind?: "noul";
   /**
-   * The yes/no question the model answers, specific to the rule's claim. When omitted, the generic
-   * UNIT_TASK sentence is used (backward compatible with configs predating the field). Either way
-   * the compiler prepends a kind sentence ("This unit is a function definition.") — the question
-   * never leaves the judged object implicit. Changing a rule's instructions is a recalibration
-   * event: readings move.
+   * The yes/no question the model answers, specific to the rule's claim. REQUIRED (config schema
+   * enforces it): a generic fallback question would silently recalibrate every reading. The
+   * compiler prepends a kind sentence ("This unit is a function definition.") — the question never
+   * leaves the judged object implicit. Changing a rule's instructions is a recalibration event:
+   * readings move.
    */
-  readonly instructions?: string;
+  readonly instructions: string;
   /**
    * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
    * cases belong in false. Passes straight through to the noul question's criteria; editing either

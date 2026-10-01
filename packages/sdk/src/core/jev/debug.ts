@@ -33,8 +33,9 @@ export function recordSummary(): RequestRecordSummary | null {
 
 /**
  * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
- * Required for the run to appear as first-class in the measurement UI's picker (a run dir without a
- * manifest is legacy and is skipped with a count, never shown with a fake label).
+ * Written for every recorded run, so the measurement UI's picker can show every new run as
+ * first-class (pre-migration runs without a manifest carry a legacy flag and only a timestamp — the
+ * store handled that; new runs always have one).
  */
 export function recordRunManifest(manifest: {
   configPath: string | null;

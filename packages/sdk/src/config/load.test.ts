@@ -75,6 +75,7 @@ describe("validateConfig / defaultConfig", () => {
         rules: [
           {
             name: "is_greppable",
+            instructions: "q",
             criteria: { true: "t", false: "f" },
             target: "files",
             handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
@@ -94,6 +95,7 @@ describe("validateConfig / defaultConfig", () => {
         rules: [
           {
             name: "r",
+            instructions: "q",
             criteria: { true: "t", false: "f" },
             target: "files",
             handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
@@ -114,6 +116,7 @@ describe("validateConfig / defaultConfig", () => {
         rules: [
           {
             name: "r",
+            instructions: "q",
             criteria: { true: "t", false: "f" },
             target: "files",
             handle: { warn: { less_than: 0.6 }, error: { less_than: 0.5 } },
@@ -134,6 +137,7 @@ describe("validateConfig / defaultConfig", () => {
         rules: [
           {
             name: "r",
+            instructions: "q",
             criteria: { true: "t", false: "f" },
             target: "files",
             handle: { warn: { greater_than: 0.3 }, silent_band: [0.4, 0.6] },
@@ -151,7 +155,15 @@ describe("validateConfig / defaultConfig", () => {
   test("handler validation names the rule and the exact field", () => {
     const rule = (handle: unknown) => ({
       input: "x",
-      rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files", handle }],
+      rules: [
+        {
+          name: "r",
+          instructions: "q",
+          criteria: { true: "t", false: "f" },
+          target: "files",
+          handle,
+        },
+      ],
     });
     expect(() => validateConfig(rule({ warn: { greater_than: 1.5 } }), "inline")).toThrow(
       /rule 'r' handle\.warn: threshold must be within \(0, 1\)/,
@@ -218,7 +230,14 @@ describe("validateConfig / defaultConfig", () => {
       validateConfig(
         {
           input: "x",
-          rules: [{ name: "r", criteria: { true: "t", false: "f" }, target: "files" }],
+          rules: [
+            {
+              name: "r",
+              instructions: "q",
+              criteria: { true: "t", false: "f" },
+              target: "files",
+            },
+          ],
         },
         "inline",
       ),
@@ -298,6 +317,7 @@ describe("validateConfig / defaultConfig", () => {
       rules: [
         {
           name: "r",
+          instructions: "q",
           criteria: { true: "t", false: "f" },
           target: "files",
           handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },

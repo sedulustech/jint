@@ -18,6 +18,7 @@ const loudHandle = (): HandleResult => ({ severity: "error" });
 
 const noulFileRule: Rule = {
   name: "r_file",
+  instructions: "Is this file the thing its name promises?",
   target: "files",
   handle: loudHandle,
   criteria: { true: "true side", false: "false side" },

@@ -333,6 +333,7 @@ describe("lint", () => {
   test("per-rule scoping (issue 008): scoped-out elements cost zero calls and are noted", async () => {
     const scopedRule: Rule = {
       name: "is_scope_probe",
+      instructions: "q",
       criteria: { true: "t", false: "f" },
       target: "definitions",
       handle: () => null,
@@ -372,6 +373,7 @@ describe("lint", () => {
     let probe = 0;
     const mk = (scope: { include?: string[]; exclude?: string[] }): Rule => ({
       name: `is_scope_probe_${probe++}`,
+      instructions: "q",
       criteria: { true: "t", false: "f" },
       target: "definitions",
       handle: () => null,

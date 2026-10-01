@@ -86,32 +86,36 @@ const HANDLER_SCHEMA = Type.Union([SCORE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA]);
 const SCOPE_SCHEMA = Type.Array(Type.String());
 
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
-// (>= two descriptions indexed by score 0..N). kind is optional in the noul branch so minimal
-// configs stay validating (the loader fills the default). The handle is REQUIRED (policy:
-// probes ship real handles) - the measurement is the calibration payload (read --json), the
-// handle only decides when readings surface as findings.
-const RULE_SCHEMA = Type.Union([
-  Type.Object({
-    name: Type.String(),
-    kind: Type.Optional(Type.Literal("noul")),
-    instructions: Type.Optional(Type.String()),
-    criteria: Type.Object({ true: Type.String(), false: Type.String() }),
-    target: TARGET_SCHEMA,
-    handle: HANDLER_SCHEMA,
-    include: Type.Optional(SCOPE_SCHEMA),
-    exclude: Type.Optional(SCOPE_SCHEMA),
+// (>= two descriptions indexed by score 0..N). kind stays optional in the noul branch (noul IS
+// the default; the loader fills it). The question and the handle are both REQUIRED (policy:
+// probes ship real questions and real handles) - a rule without its question would classify
+// under an invented prompt and silently recalibrate every reading.
+const NOUL_RULE_SCHEMA = Type.Object({
+  name: Type.String(),
+  kind: Type.Optional(Type.Literal("noul")),
+  instructions: Type.String({
+    description:
+      "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.",
   }),
-  Type.Object({
-    name: Type.String(),
-    kind: Type.Literal("choice"),
-    criteria: Type.Array(Type.String(), { minItems: 2 }),
-    instructions: Type.String(),
-    target: TARGET_SCHEMA,
-    handle: HANDLER_SCHEMA,
-    include: Type.Optional(SCOPE_SCHEMA),
-    exclude: Type.Optional(SCOPE_SCHEMA),
-  }),
-]);
+  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
+  target: TARGET_SCHEMA,
+  handle: HANDLER_SCHEMA,
+  include: Type.Optional(SCOPE_SCHEMA),
+  exclude: Type.Optional(SCOPE_SCHEMA),
+});
+
+const CHOICE_RULE_SCHEMA = Type.Object({
+  name: Type.String(),
+  kind: Type.Literal("choice"),
+  criteria: Type.Array(Type.String(), { minItems: 2 }),
+  instructions: Type.String(),
+  target: TARGET_SCHEMA,
+  handle: HANDLER_SCHEMA,
+  include: Type.Optional(SCOPE_SCHEMA),
+  exclude: Type.Optional(SCOPE_SCHEMA),
+});
+
+const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
 
 /**
  * Schema of jint.config.json — also emitted, verbatim, as the checked-in jint.schema.json (bun run
@@ -207,10 +211,35 @@ export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedCo
 /** Validates the boundary shape, compiles data handles; static types derive from the same schema. */
 export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   if (!Value.Check(CONFIG_SCHEMA, raw)) {
-    const messages = [...Value.Errors(CONFIG_SCHEMA, raw)]
-      .map((err) => `${err.path === "" ? "/" : err.path} ${err.message}`)
-      .join("; ");
-    throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${messages}`);
+    // A bad rule entry collapses into the schema union's generic "Expected union value"; dive
+    // into rule objects so the message names the exact field (e.g. /rules/0/instructions).
+    const messages = [...Value.Errors(CONFIG_SCHEMA, raw)].map((err) =>
+      err.path === "" ? "/ " + err.message : `${err.path} ${err.message}`,
+    );
+    const ruleErrors = Array.isArray((raw as { rules?: unknown }).rules)
+      ? ((raw as { rules: unknown[] }).rules as unknown[])
+          .map((entry, i) => {
+            if (typeof entry !== "object" || entry === null) return [];
+            // The union reports one generic error; validate each branch and surface the closer
+            // branch's field errors (the one that failed on fewer fields — e.g. a noul rule
+            // missing only its instructions).
+            const branchErrors = [NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA].map(
+              (branch): [string, string][] =>
+                [...Value.Errors(branch, entry)].map(
+                  (e) => [`/rules/${i}${e.path}`, e.message] as [string, string],
+                ),
+            );
+            // The branch that failed on FEWER fields is the shape the author intended (e.g. a
+            // noul rule missing only its instructions); surface its field errors.
+            const best = branchErrors.sort((a, b) => a.length - b.length)[0] ?? [];
+            return best.map(([p, msg]) => `${p} ${msg}`);
+          })
+          .flat()
+      : [];
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `invalid config ${source}: ${[...ruleErrors, ...messages].join("; ")}`,
+    );
   }
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
   // No rules key = the default rule set; entries select a default by name or declare a full rule
@@ -316,7 +345,7 @@ function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
   if (entry.kind !== "choice") {
     return {
       name: entry.name,
-      instructions: (entry as { instructions?: string }).instructions,
+      instructions: entry.instructions,
       criteria: entry.criteria,
       target: entry.target,
       handle,
