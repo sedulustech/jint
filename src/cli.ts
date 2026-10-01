@@ -26,7 +26,7 @@ import {
   lint,
   loadConfig,
   renderJson,
-  renderStylish,
+  renderLines,
   recordSummary,
   recordRunManifest,
   recordRunReport,
@@ -41,12 +41,6 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { log, setLogLevel } from "./logger.ts";
 
-const COLOR_MODE_SCHEMA = TypeBoxType.Union([
-  TypeBoxType.Literal("auto"),
-  TypeBoxType.Literal("always"),
-  TypeBoxType.Literal("never"),
-]);
-
 /** CLI args boundary — validated with TypeBox like every external input. */
 const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   language: TypeBoxType.Optional(TypeBoxType.String()),
@@ -54,7 +48,6 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   json: TypeBoxType.Optional(TypeBoxType.Boolean()),
   "dry-run": TypeBoxType.Optional(TypeBoxType.Boolean()),
   debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
-  color: TypeBoxType.Optional(COLOR_MODE_SCHEMA),
   exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
   rule: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
@@ -105,10 +98,10 @@ Options:
   --changed <file>    changed-file LIST (one path per line, relative to the input dir or
                       absolute) - the ctx.diff lens for rules; with no other input, the list IS
                       the judged subject (the changeset form: git diff --name-only HEAD~1 | jint -)
-  --json              machine report instead of the human table
+  --json              machine report (byte-identical to the run's report.json) instead of
+                      raw finding lines
   --dry-run           print the rule set that WOULD run (config resolved, disable/only applied)
                       and exit 0 - zero input walks, zero classifier calls
-  --color <mode>      auto | always | never (default: auto — color only on a TTY)
   --debug             structured debug logs on stderr
   -h, --help          this help
   --version           print the version
@@ -314,18 +307,15 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         changed: firstPositional === "-" ? "-" : cliArgs.changed,
       }),
     );
-    // JSON: the document is data (errors ride in it) — stdout only, stderr untouched.
-    // Stylish: findings on stdout, run errors/diagnostics on stderr.
-    // Stylish: findings on stdout, run errors/diagnostics on stderr. Choice findings render the
-    // chosen score level's text (criteria[round(value)]) - the renderer joins by rule id at
-    // render time, so the report contract stays message-less.
+    // One canonical artifact: renderJson's bytes ARE report.json AND the --json stdout. The
+    // default stdout is the raw-line projection of the same report (findings only); totals and
+    // run errors stay on stderr. Persistence is NEVER gated on --json — the flag is a stdout
+    // format choice (output-architecture design).
+    const reportJson = renderJson(lintReport);
+    const runId = recordSummary()?.dir.split("/").pop();
     const rendered =
-      cliArgs.json === true
-        ? { stdout: renderJson(lintReport), stderr: "" }
-        : renderStylish(lintReport, cliArgs.color ?? "auto", choiceLevels(resolvedConfig.rules));
-    // Recording persists the run's machine report next to its requests: the EXACT bytes
-    // stdout --json prints (only defined for --json runs; a stylish run has no such bytes).
-    if (cliArgs.json === true) recordRunReport(rendered.stdout);
+      cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport, runId);
+    recordRunReport(reportJson);
     recordRunManifest({
       configPath,
       cwd: process.cwd(),
@@ -345,19 +335,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   } catch (thrown) {
     return exitForThrown(thrown);
   }
-}
-
-/**
- * The choice rubrics in scope for stylish rendering: rule name -> criteria list, for choice rules
- * only. Noul rules have no levels; findings for them stay bare. Empty when the config has no choice
- * rules, so the renderer's join is a no-op.
- */
-function choiceLevels(rules: readonly Rule[]): ReadonlyMap<string, readonly string[]> {
-  const map = new Map<string, readonly string[]>();
-  for (const rule of rules) {
-    if (rule.kind === "choice") map.set(rule.name, rule.criteria);
-  }
-  return map;
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
@@ -398,7 +375,6 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   ...Object.keys(REMOVED_FLAGS),
   "--language",
   "--config",
-  "--color",
   "--exclude",
   "--disable",
   "--rule",
@@ -425,7 +401,6 @@ const NOUNS: ReadonlySet<string> = new Set(["str"]);
 const VALUED_FLAGS: ReadonlySet<string> = new Set([
   "--language",
   "--config",
-  "--color",
   "--exclude",
   "--disable",
   "--rule",
@@ -498,7 +473,6 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         json: { type: "boolean" },
         "dry-run": { type: "boolean" },
         debug: { type: "boolean" },
-        color: { type: "string" },
         exclude: { type: "string", multiple: true },
         disable: { type: "string", multiple: true },
         rule: { type: "string", multiple: true },

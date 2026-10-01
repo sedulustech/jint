@@ -214,7 +214,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stderr).not.toContain("failed to classify");
   });
 
-  test.concurrent("default stylish report without TYPESAFE_API_KEY: same exit 2, no unit failures", async () => {
+  test.concurrent("default raw-line stdout without TYPESAFE_API_KEY: same exit 2, no unit failures", async () => {
     const r = await run(["tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set");
@@ -338,7 +338,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
     const proc = await runShell(`printf 'x' | bun ${CLI} str -`, NO_SERVICE);
     expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
-    expect(proc.stderr).toContain("failed to classify");
+    // raw-line stderr: the failed unit renders as its own error line; totals stay zero-findings
+    expect(proc.stderr).toMatch(/error JEV_\w+ str:stdin:/);
+    expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
 
   test.concurrent("a patch file is just a file: NOT_SOURCE, never decomposed (there is no diff noun)", async () => {
@@ -434,9 +436,12 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const report = JSON.parse(
       await (await import("node:fs/promises")).readFile(`${runDir}/report.json`, "utf8"),
     );
-    // the persisted document is the same OBJECT stdout --json printed (bytes identical too)
+    // the persisted document is BYTE-IDENTICAL to stdout --json: one serializer, one truth
+    const reportBytes = await (
+      await import("node:fs/promises")
+    ).readFile(`${runDir}/report.json`, "utf8");
+    expect(reportBytes).toBe(r.stdout);
     expect(report).toEqual(JSON.parse(r.stdout));
-    expect(r.stdout.endsWith("\n")).toBe(true);
   });
 
   test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
@@ -470,17 +475,26 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
   test.concurrent("JEV_DIR moves the run dir: captures land under the override, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
-    const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
+    // DEFAULT stdout (no --json): raw lines are the projection; report.json persists anyway
+    const r = await runMock(["tests/fixtures/sample-file.ts", "--rule", "is_greppable"], {
       JEV_RECORD: "1",
       JEV_DIR: dir,
     });
-    // the notice never touches stdout: the report stays a machine document
-    const report = expectContract(r, { exit: 0, stdout: "json" });
-    expect(report.measurements.length).toBeGreaterThan(0);
+    expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DIR\)/);
+    expect(r.stderr).toMatch(/\(\d+ calls\) \(override: JEV_DIR\)/);
+    // the canonical artifact lands in the run dir even on raw-line runs
+    const reportPath = [...new Bun.Glob("**/report.json").scanSync({ cwd: dir })][0]!;
+    const reportJson = await (
+      await import("node:fs/promises")
+    ).readFile(`${dir}/${reportPath}`, "utf8");
+    expect(() => JSON.parse(reportJson)).not.toThrow();
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dir })];
-    expect(captures.length).toBeGreaterThan(0);
+    // report.json is written for EVERY recording run — persistence is not gated on --json
+    expect(captures.some((f) => f.endsWith("report.json"))).toBe(true);
+    expect(captures.some((f) => f.endsWith("manifest.json"))).toBe(true);
+    expect(captures.length).toBeGreaterThan(2); // the recorded requests
+    expect(r.stdout).not.toContain("{"); // raw lines, never json on default stdout
   });
 });
 

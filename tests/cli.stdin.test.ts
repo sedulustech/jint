@@ -94,11 +94,14 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("human output: same stylish table, identity 'str:stdin', clean exit", async () => {
+  test("default raw-line stdout: clean run prints nothing on stdout, totals on stderr", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
     // the str unit is its own inventory: classified whole, nothing failed, mock reading clean
-    expectContract(r, { exit: 0 }); // stderr carries only the request-tap notice, no errors
-    expect(r.stdout).toContain("no findings"); // the stylish table rendered, one clean measurement
+    expectContract(r, { exit: 0, stdout: "lines" });
+    expect(r.stdout).toBe(""); // clean run: no findings, no lines
+    expect(r.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
+    // the harness defaults JEV_RECORD=0, so this run has no record notice — and no run= column
+    expect(r.stderr).not.toContain("requests ->");
     expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
 

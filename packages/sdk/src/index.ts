@@ -27,9 +27,10 @@ export {
 } from "./core/jev/debug.ts";
 export { checkRunKnobs } from "./core/jev/pacer.ts";
 export { renderJson } from "./core/output/json.ts";
+export { renderLines } from "./core/output/lines.ts";
+export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { selectRules } from "./core/lint.ts";
-export { renderStylish, type ColorMode } from "./core/output/stylish.ts";
 export { validateTsRule } from "./core/tsrules/sdk.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
