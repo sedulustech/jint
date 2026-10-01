@@ -79,6 +79,7 @@ async function expectCounter(expected: string) {
 test("request mode is the capture log: max-p column, no borderline button, no rule chip", async () => {
   mount();
   await openRun();
+  modeButton("request").click();
   await expectCounter("15/15 requests");
   expect(document.body.innerText).toContain("max-p");
   expect(
@@ -297,8 +298,10 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
 test("request rows still drill in: a request click opens the pair detail of its first pair", async () => {
   mount();
   await openRun();
+  modeButton("request").click();
   await expectCounter("15/15 requests");
-  rowByText("low.ts").click();
+  // exact path: "low.ts" substring-matches src/greedy-low.ts (earlier seq) and opens the wrong pair
+  rowByText("src/low.ts").click();
   await waitFor(
     () => {
       if (!document.body.innerText.includes("@ src/low.ts")) throw new Error("pair detail missing");

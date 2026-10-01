@@ -49,7 +49,7 @@ export function App() {
     input: string;
     requestFile?: string;
   } | null>(null);
-  const [mode, setMode] = useState<Mode>("request");
+  const [mode, setMode] = useState<Mode>("rule");
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusRule, setFocusRule] = useState<string | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
@@ -74,7 +74,7 @@ export function App() {
   // a new run resets the user's overrides so the default-open rule applies fresh
   useEffect(() => {
     setReportOverride(null);
-    setMode("request");
+    setMode("rule");
     setSelectedPair(null);
   }, [runId]);
 
@@ -238,6 +238,7 @@ export function App() {
           >
             <ResizablePanel
               id="rules"
+              order={0}
               defaultSize={60}
               minSize={20}
               className="flex min-h-0 min-w-0 flex-col"
@@ -260,6 +261,7 @@ export function App() {
                 <ResizableHandle withHandle aria-label="resize rules and result panes" />
                 <ResizablePanel
                   id="detail"
+                  order={2}
                   defaultSize={40}
                   minSize={25}
                   className="flex min-h-0 min-w-0 flex-col overflow-hidden"
