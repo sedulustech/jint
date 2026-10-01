@@ -80,11 +80,19 @@ export const redirectLegacyHash = () => {
 // ---- not-found -------------------------------------------------------------
 // Unknown paths render INSIDE the app shell (same muted empty-state idiom the
 // run view uses), never a bare "Not Found" without chrome.
-const NotFound = () => (
+// Shared by the splat route (unknown address) and by App (known route shape,
+// nonexistent run id): one 404 idiom everywhere.
+export const NotFound = ({
+  title = "nothing here",
+  detail = "no route at this address",
+}: {
+  title?: string;
+  detail?: string;
+}) => (
   <div className="m-auto flex flex-col items-center gap-3 font-mono text-body text-muted-foreground">
-    <p className="text-emphasis text-foreground">nothing here</p>
+    <p className="text-emphasis text-foreground">{title}</p>
     <p>
-      no route at this address - <Link to="/">back to the runs</Link>
+      {detail} - <Link to="/">back to the runs</Link>
     </p>
   </div>
 );
@@ -102,7 +110,7 @@ const RootComponent = () => {
 const rootRoute = createRootRoute({
   component: RootComponent,
   validateSearch: validateRunSearch,
-  notFoundComponent: NotFound,
+  notFoundComponent: () => <NotFound />,
 });
 
 const indexRoute = createRoute({
@@ -125,14 +133,15 @@ const runRoute = createRoute({
 const catchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "$",
-  component: NotFound,
+  component: () => <NotFound />,
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, runRoute, catchRoute]);
 
 // fresh router per boot: tests simulate full page loads by remounting against
 // a new instance over the shared browser history
-export const makeRouter = () => createRouter({ routeTree, defaultNotFoundComponent: NotFound });
+export const makeRouter = () =>
+  createRouter({ routeTree, defaultNotFoundComponent: () => <NotFound /> });
 
 export const router = makeRouter();
 

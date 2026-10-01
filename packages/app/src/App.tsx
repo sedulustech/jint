@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
+import { NotFound } from "./router";
 import { PairDetail } from "./views/PairDetail";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
@@ -81,17 +82,28 @@ export function App({ runId }: { runId: string | null }) {
     });
   };
 
-  // panel toggles are URL edits so back/forward walks run + panel history
+  // panel toggles are URL edits so back/forward walks run + panel history.
+  // RAPID navigations get dropped: while one commit is in flight the router
+  // dedupes the next against the stale latestLocation (toggle hide->show
+  // within a commit window loses the second click). Serialize them so every
+  // click lands, in order.
+  const navChain = useRef<Promise<unknown>>(Promise.resolve());
   // explicit to/params: the reducer only typechecks against a known route
-  const setSearch = (patch: Partial<RunSearch>) => {
-    navigate({
-      to: runId === null ? "/" : "/runs/$runId",
-      ...(runId === null ? {} : { params: { runId } }),
-      search: (prev: RunSearch) => ({ ...prev, ...patch }),
-    });
+  const setSearch = (patch: Partial<RunSearch>): Promise<unknown> => {
+    navChain.current = navChain.current
+      .then(() =>
+        navigate({
+          to: runId === null ? "/" : "/runs/$runId",
+          ...(runId === null ? {} : { params: { runId } }),
+          search: (prev: RunSearch) => ({ ...prev, ...patch }),
+        }),
+      )
+      .catch(() => {});
+    return navChain.current;
   };
-  const setReportOverride = (v: boolean | null) =>
+  const setReportOverride = (v: boolean | null) => {
     setSearch({ report: v === null ? undefined : v ? 1 : 0 });
+  };
   const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
     setSearch(
       pair === null
@@ -197,7 +209,11 @@ export function App({ runId }: { runId: string | null }) {
           </span>
         )}
       </header>
-      {runId === null ? (
+      {runId !== null && !runs.isLoading && runs.error == null && selectedRun === null ? (
+        // the run list IS the presence check (there is no per-id gate): a well-formed
+        // route to an absent id renders the shared 404 idiom inside the shell
+        <NotFound title={`run ${runId} not found`} detail="gone or never existed" />
+      ) : runId === null ? (
         <div className="m-auto flex max-w-2xl flex-col items-center gap-3 font-mono text-body text-muted-foreground">
           {list.length === 0 ? (
             <p>no runs found - run jint once (store: ~/.jint/runs)</p>
