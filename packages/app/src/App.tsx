@@ -48,7 +48,7 @@ export function App({ runId }: { runId: string | null }) {
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusRule, setFocusRule] = useState<string | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
-  const reportOverride = search.report === undefined ? null : search.report;
+  const reportOverride = search.report === undefined ? null : search.report === 1;
   const runs = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
   const reportQ = useQuery({
     queryKey: ["report", runId],
@@ -90,7 +90,8 @@ export function App({ runId }: { runId: string | null }) {
       search: (prev: RunSearch) => ({ ...prev, ...patch }),
     });
   };
-  const setReportOverride = (v: boolean | null) => setSearch({ report: v ?? undefined });
+  const setReportOverride = (v: boolean | null) =>
+    setSearch({ report: v === null ? undefined : v ? 1 : 0 });
   const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
     setSearch(
       pair === null
