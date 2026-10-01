@@ -65,18 +65,6 @@ export const canonicalizeSearch = (): boolean => {
   return true;
 };
 
-// ---- legacy hash links -----------------------------------------------------
-// Old links are #/runs/<id> (and the older #runs/<id> spelling). History-mode
-// paths replace them: rewrite to /runs/<id> before the router boots so old
-// bookmarks keep working. Idempotent; only fires on the legacy shape.
-export const redirectLegacyHash = () => {
-  if (typeof window === "undefined" || !window.location) return;
-  const m = window.location.hash.match(/^#\/?runs\/([^/\s]+)\/?$/);
-  if (m === null) return;
-  const search = window.location.search;
-  window.history.replaceState(null, "", "/runs/" + m[1] + search);
-};
-
 // ---- not-found -------------------------------------------------------------
 // Unknown paths render INSIDE the app shell (same muted empty-state idiom the
 // run view uses), never a bare "Not Found" without chrome.

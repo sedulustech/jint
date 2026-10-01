@@ -3,7 +3,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { makeRouter, redirectLegacyHash } from "./router";
+import { makeRouter } from "./router";
 
 // Router acceptance, automated from the manual browser pass: URL is the state,
 // so every test boots at an address and asserts on what renders + what the bar says.
@@ -148,20 +148,6 @@ test("history walk: pick another run, back restores the previous run + panel sta
     { timeout: 10_000 },
   );
   expect(window.location.pathname + window.location.search).toBe("/runs/run-a?report=0");
-});
-
-test("legacy hash links rewrite to paths", () => {
-  boot("/");
-
-  window.location.hash = "#/runs/run-a";
-  redirectLegacyHash();
-  expect(window.location.pathname).toBe("/runs/run-a");
-  expect(window.location.hash).toBe("");
-
-  window.location.hash = "#runs/run-a";
-  redirectLegacyHash();
-  expect(window.location.pathname).toBe("/runs/run-a");
-  expect(window.location.hash).toBe("");
 });
 
 test("config-less run carries the default-rules marker", async () => {

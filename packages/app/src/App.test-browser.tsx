@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
-import { redirectLegacyHash, router } from "./router";
+import { router } from "./router";
 
 // App mounts against the real /api/* handler over tests/fixtures (see vitest.config.ts).
 const mount = () =>
@@ -22,8 +22,7 @@ afterEach(() => {
 test("a pre-set /runs/<id> deep link selects that run", async () => {
   const { runs } = await (await fetch("/api/runs")).json();
   expect(runs.length).toBeGreaterThan(0);
-  window.location.hash = `#runs/${runs[0].id}`;
-  redirectLegacyHash();
+  window.history.pushState(null, "", `/runs/${runs[0].id}`);
 
   mount();
 
