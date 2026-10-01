@@ -38,8 +38,21 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
   repo); `JEV_RECORD=0` is the only off switch. At end of run jint prints one
   stderr line naming the run dir:
   `jint: requests -> <dir> (N calls)` — trust that line, not the docs.
-  Read the request files when you need to see precisely what the model saw. Every recorded run is
-  also browsable in the measurement UI - see "Give the user the link" below.
+  Read the recorded request files when you need to see precisely what the model saw. Every run
+  also persists `report.json` (the canonical output — the same bytes `--json` prints) and is
+  browsable in the measurement UI - see "Give the user the link" below.
+
+## Output
+
+- Default stdout: one raw line per finding —
+  `path#id@L<line>  rule  level  score  [note]  run=<id>` — findings only, no table, no color.
+  `run=<id>` appears only when recording is active. Totals print on stderr:
+  `jint: N problems (E errors, W warnings)`.
+- `--json`: the canonical report bytes on stdout, byte-identical to the run's `report.json`
+  (measurements, findings with note + location, errors, notes). It is a stdout FORMAT choice,
+  never an artifact gate — report.json is written for every recording run.
+- Env summary: `JEV_RECORD=0` disables recording entirely (harness/tests); `JEV_DIR` moves where
+  run dirs land (default `~/.jint/runs`); `JEV_RECORD=1` is accepted as explicit-on.
 
 ## CLI
 
