@@ -7,11 +7,10 @@ import { apiPlugin } from "./src/api/vite-plugin.ts";
 
 // Component tests run in a real browser via @vitest/browser (playwright provider). The SAME
 // shared API route module is mounted into vitest's vite server through apiPlugin, so tests
-// fetch /api/* from the real handler over the real local dump dir.
-process.env.JINT_REQUESTS_DIR = resolve(import.meta.dirname, "tests/fixtures");
+// fetch /api/* from the real handler over the checked-in fixture dump (explicit root: the
 
 export default defineConfig({
-  plugins: [tailwindcss(), apiPlugin()],
+  plugins: [tailwindcss(), apiPlugin({ root: resolve(import.meta.dirname, "tests/fixtures") })],
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "./src") } },
   optimizeDeps: {
     include: ["react", "react-dom", "@testing-library/react", "@tanstack/react-query"],

@@ -8,18 +8,14 @@ const get = async (path: string, root: string): Promise<Response> =>
   (await handleApi(new Request("http://x" + path), { root })) as Response;
 
 describe("requestsRoot default", () => {
-  test("falls back to ~/.jint/runs; env and opts override", () => {
-    const prev = process.env.JINT_REQUESTS_DIR;
+  test("defaults to the homedir store ~/.jint/runs; opts override (no env fallback)", () => {
     delete process.env.JINT_REQUESTS_DIR;
-    try {
-      expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
-      process.env.JINT_REQUESTS_DIR = "/tmp/env-root";
-      expect(requestsRoot()).toBe(resolve("/tmp/env-root"));
-      expect(requestsRoot({ root: "/tmp/opt-root" })).toBe(resolve("/tmp/opt-root"));
-    } finally {
-      if (prev === undefined) delete process.env.JINT_REQUESTS_DIR;
-      else process.env.JINT_REQUESTS_DIR = prev;
-    }
+    expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
+    // env is IGNORED now: the override is opts.root only
+    process.env.JINT_REQUESTS_DIR = "/tmp/env-root";
+    expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
+    expect(requestsRoot({ root: "/tmp/opt-root" })).toBe(resolve("/tmp/opt-root"));
+    delete process.env.JINT_REQUESTS_DIR;
   });
 });
 
@@ -32,7 +28,7 @@ describe("listRuns error surface", () => {
     expect(body.runs).toEqual([]);
   });
 
-  test("manifest is REQUIRED: manifested runs list (newest first), manifest-less dirs are absent", async () => {
+  test("manifests list newest-first; legacy, config-less, and even manifest-less dirs are VISIBLE", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-"));
     try {
       for (const id of ["100", "200", "300"]) {
@@ -47,17 +43,31 @@ describe("listRuns error surface", () => {
       mkdirSync(join(root, "500"));
       writeFileSync(join(root, "500", "manifest.json"), "{}");
       writeFileSync(join(root, "500", "1700000000001-files.json"), "{}");
+      // migrated pre-store run: legacy manifest, no cwd/config - must NOT read as default rules
+      mkdirSync(join(root, "600"));
+      writeFileSync(
+        join(root, "600", "manifest.json"),
+        JSON.stringify({ configPath: null, ts: "600", legacy: true, argv: [] }),
+      );
+      writeFileSync(join(root, "600", "1700000000001-files.json"), "{}");
+      // manifest-less dir still lists (guarded) as unknown-config, never throws
       mkdirSync(join(root, "400"));
-      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}"); // requests, no manifest: absent
+      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}");
       writeFileSync(join(root, "stray.json"), "{}");
       const res = await get("/api/runs", root);
       const body = (await res.json()) as {
-        runs: { id: string; configPath: string | null; cwd?: string }[];
+        runs: { id: string; configPath: string | null; cwd?: string; legacy?: boolean }[];
       };
-      expect(body.runs.map((r) => r.id)).toEqual(["500", "300", "200", "100"]);
+      expect(body.runs.map((r) => r.id)).toEqual(["600", "500", "400", "300", "200", "100"]);
+      expect(body.runs[0]!.legacy).toBe(true);
       expect(body.runs[0]!.configPath).toBeNull();
-      expect(body.runs[1]!.configPath).toBe("/cfg/300.json");
-      expect(body.runs[1]!.cwd).toBe("/src/tree-300");
+      expect(body.runs[1]!.legacy).toBe(false);
+      expect(body.runs[1]!.configPath).toBeNull();
+      // manifest-less: lists guarded as unknown-config, never throws, never fakes legacy
+      expect(body.runs[2]!.configPath).toBeNull();
+      expect(body.runs[2]!.legacy).toBe(false);
+      expect(body.runs[3]!.configPath).toBe("/cfg/300.json");
+      expect(body.runs[3]!.cwd).toBe("/src/tree-300");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -9,13 +9,13 @@ import { join, resolve, sep } from "node:path";
 import { handleSeverity, type Element, type HandlerData, type Severity } from "@jint/contract";
 
 export interface ApiOptions {
-  /** Absolute requests root. Falls back to JINT_REQUESTS_DIR, then ./tmp/requests. */
+  /** Absolute requests root. Defaults to the homedir store (~/.jint/runs). */
   root?: string;
 }
 
 export function requestsRoot(opts: ApiOptions = {}): string {
-  // homedir store works with zero env; JINT_REQUESTS_DIR (or opts.root) overrides
-  return resolve(opts.root ?? process.env.JINT_REQUESTS_DIR ?? join(homedir(), ".jint/runs"));
+  // the homedir store works with zero env; opts.root overrides (tests, embedded servers)
+  return resolve(opts.root ?? join(homedir(), ".jint/runs"));
 }
 
 /** Collapse the homedir prefix to '~' so run labels stay short (the store lives under ~/.jint). */
@@ -28,10 +28,12 @@ interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
-  /** Absolute config path from manifest.json; null = ran with the default rules (no config). */
+  /** Absolute config path from manifest.json; null = default rules, or unknown for legacy. */
   configPath: string | null;
   /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */
   cwd?: string;
+  /** Migrated pre-store run: manifest marks it legacy; no cwd/config/report guaranteed. */
+  legacy?: boolean;
 }
 
 interface RequestItem {
@@ -205,13 +207,13 @@ async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
         const [st, files, manifest] = await Promise.all([
           stat(dir),
           readdir(dir),
-          readFile(join(dir, "manifest.json"), "utf8").catch(() => null),
+          readFile(join(dir, "manifest.json"), "utf8").catch(() => "{}"),
         ]);
-        // no manifest: not a first-class run, just absent (like not-a-run dirs)
-        if (manifest === null) return null;
-        let parsed: { configPath?: string; cwd?: string } | null = null;
+        // manifests are first-class everywhere now: a manifest-less dir still lists (guarded),
+        // it just reads as unknown-config
+        let parsed: { configPath?: string; cwd?: string; legacy?: boolean } | null = null;
         try {
-          parsed = JSON.parse(manifest) as { configPath?: string; cwd?: string };
+          parsed = JSON.parse(manifest) as { configPath?: string; cwd?: string; legacy?: boolean };
         } catch {
           parsed = null;
         }
@@ -224,6 +226,7 @@ async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
           ).length,
           configPath: parsed?.configPath ?? null,
           cwd: parsed?.cwd !== undefined ? collapseHome(parsed.cwd) : undefined,
+          legacy: parsed?.legacy === true,
         };
       }),
     );
@@ -283,11 +286,14 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
 
   // the manifest's handle snapshot: the exact semantics the engine compiled, shipped as data
   let handles: Record<string, HandlerData> | null = null;
+  let manifestLegacy = false;
   try {
     const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")) as {
       handles?: Record<string, HandlerData>;
+      legacy?: boolean;
     };
     if (manifest.handles && Object.keys(manifest.handles).length > 0) handles = manifest.handles;
+    manifestLegacy = manifest.legacy === true;
   } catch {
     handles = null;
   }
@@ -495,6 +501,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     handles: handles ?? {},
     cells,
     reportDegraded,
+    legacy: manifestLegacy,
   };
 }
 
