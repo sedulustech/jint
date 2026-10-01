@@ -479,3 +479,63 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
   );
   expect(reportPanel()).toBeNull();
 });
+
+test("report-less run: grouped modes render the empty state, request mode the rows", async () => {
+  // run-0: manifest + raw captures, NO report.json (a CLI run without --json).
+  // Grouped modes derive from report cells -> empty; request mode reads the raw
+  // files -> full rows. The contract: empty state, never a crash.
+  const errors: string[] = [];
+  // oxlint-disable-next-line no-console
+  const origError = console.error;
+  // oxlint-disable-next-line no-console
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map((a) => String(a)).join(" "));
+    origError(...args);
+  };
+  try {
+    // rule mode is the default: grouped empty state inside the intact shell
+    boot("/runs/run-0");
+    await waitFor(
+      () => {
+        if (!document.body.innerText.includes("no measurements recorded for this run"))
+          throw new Error("empty state missing");
+      },
+      { timeout: 10_000 },
+    );
+    expect(document.body.textContent).toContain("0 rules match your filters");
+    expect(document.querySelector("h1")?.textContent).toBe("jint");
+
+    // file mode: same empty idiom, files noun
+    modeButton("file").click();
+    await waitFor(
+      () => {
+        if (!document.body.textContent.includes("0 files match your filters"))
+          throw new Error("file empty state missing");
+      },
+      { timeout: 10_000 },
+    );
+    expect(document.body.textContent).toContain("no measurements recorded for this run");
+    expect(document.querySelector("h1")?.textContent).toBe("jint");
+
+    // request mode: the run's real request rows, from the raw captures
+    modeButton("request").click();
+    await waitFor(
+      () => {
+        const m = document.body.innerText.match(/(\d+) \/ (\d+) requests/);
+        if (m === null) throw new Error("counter not rendered");
+        if (m[1] !== "1" || m[2] !== "1") throw new Error("counter is " + m[0] + ", want 1/1");
+      },
+      { timeout: 10_000 },
+    );
+    expect(
+      [...document.querySelectorAll("section tr[role=button]")].some((r) =>
+        (r.textContent ?? "").includes("src/borderline.ts"),
+      ),
+    ).toBe(true);
+
+    expect(errors).toEqual([]);
+  } finally {
+    // oxlint-disable-next-line no-console
+    console.error = origError;
+  }
+});
