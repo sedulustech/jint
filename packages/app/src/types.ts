@@ -4,10 +4,12 @@ export interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
-  /** Absolute config path from manifest.json; null = ran with the default rules (no config). */
+  /** Absolute config path from manifest.json; null = default rules, or unknown for legacy. */
   configPath: string | null;
   /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */
   cwd?: string;
+  /** Migrated pre-store run: manifest marks it legacy; no cwd/config/report guaranteed. */
+  legacy?: boolean;
 }
 
 export interface RunDetail {
@@ -22,6 +24,8 @@ export interface RunDetail {
    * answers.
    */
   reportDegraded: boolean;
+  /** Migrated pre-store run: no report/handles/cwd guaranteed; severity falls back to null. */
+  legacy?: boolean;
   /** Flat rule-target cells (one rule x one input). Empty when the report is degraded/absent. */
   cells: Cell[];
 }

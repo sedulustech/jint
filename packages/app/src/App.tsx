@@ -22,8 +22,12 @@ import {
 
 const baseName = (p: string) => p.split("/").pop() ?? p;
 
-/** Dropdown label: the run's source tree (cwd, already ~-collapsed by the handler). */
-const runLabel = (r: RunSummary): string => r.cwd ?? r.configPath ?? "default rules";
+/**
+ * Dropdown label: the run's source tree (cwd, already ~-collapsed by the handler). A migrated
+ * pre-store run has no cwd/config - label it honestly instead of faking "default rules".
+ */
+const runLabel = (r: RunSummary): string =>
+  r.legacy ? "migrated run" : (r.cwd ?? r.configPath ?? "default rules");
 
 // deep link: #runs/<id> opens that run directly (tolerate trailing slash / whitespace)
 const runIdFromHash = (): string | null => {
@@ -107,8 +111,9 @@ export function App() {
                 <span className="text-foreground">{runLabel(r)}</span>
                 <span className="text-muted-foreground">
                   {r.configPath !== null && ` · ${baseName(r.configPath)}`}
-                  {r.configPath === null && " · default rules"} · {relTime(r.mtime)} · {r.requests}{" "}
-                  req · {r.id.slice(-6)}
+                  {r.configPath === null &&
+                    (r.legacy ? " · migrated run" : " · default rules")} ·{" "}
+                  {relTime(r.mtime)} ·{r.requests} req · {r.id.slice(-6)}
                 </span>
               </SelectItem>
             ))}
@@ -184,7 +189,7 @@ export function App() {
       {runId === null ? (
         <div className="m-auto flex max-w-2xl flex-col items-center gap-3 font-mono text-body text-muted-foreground">
           {list.length === 0 ? (
-            <p>no runs found - set JINT_REQUESTS_DIR or run jint once</p>
+            <p>no runs found - run jint once (store: ~/.jint/runs)</p>
           ) : (
             <>
               {/* heading one scale step above the cards it names (F8) */}
@@ -204,8 +209,9 @@ export function App() {
                     <span className="min-w-0 truncate">{runLabel(run)}</span>
                     <span className="ml-auto truncate pl-2 text-muted-foreground">
                       {run.configPath !== null && ` · ${baseName(run.configPath)}`}
-                      {run.configPath === null && " · default rules"} · {relTime(run.mtime)} ·{" "}
-                      {run.requests} req
+                      {run.configPath === null &&
+                        (run.legacy ? " · migrated run" : " · default rules")}{" "}
+                      · {relTime(run.mtime)} · {run.requests} req
                     </span>
                   </Button>
                 ))}
