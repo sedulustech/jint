@@ -1,7 +1,7 @@
 /**
- * Request debug tap for the jev adapter. Lives behind JEV_DEBUG_REQUEST=1 (or a
- * JEV_DEBUG_REQUEST_LOCATION override alone) and captures the exact bytes the vendor SDK serializes
- * — not our pre-SDK question objects — so schema experiments can be judged from real payloads.
+ * Request debug tap for the jev adapter. Lives behind JEV_DEBUG_REQUEST=1 (or a JEV_DIR override
+ * alone) and captures the exact bytes the vendor SDK serializes — not our pre-SDK question objects
+ * — so schema experiments can be judged from real payloads.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -12,8 +12,8 @@ import type { ClassifierConfig } from "./client.ts";
  * When JEV_DEBUG_REQUEST=1, every raw HTTP request/response pair is written as its own
  * pretty-printed JSON file (ts, url, request body, response status + body), named
  * <unixts>-<kind>-<file>.json, under <homedir>/.jint/runs/<runid>/ (runid = unix timestamp of the
- * run's first request; past runs are never overwritten). JEV_DEBUG_REQUEST_LOCATION overrides the
- * directory. The kind (elements / files) is derived from the request's state shape.
+ * run's first request; past runs are never overwritten). JEV_DIR overrides the directory. The kind
+ * (elements / files) is derived from the request's state shape.
  */
 /** What the tap observed this run, for the end-of-run stderr notice. Null when the tap is inactive. */
 export interface RequestTapSummary {
@@ -70,17 +70,16 @@ export function requestTapWriteReport(json: string): void {
 
 export function requestDebug(config: ClassifierConfig | undefined): ClassifierConfig {
   // Either variable activates: JEV_DEBUG_REQUEST=1 is the explicit on-switch; a
-  // JEV_DEBUG_REQUEST_LOCATION override alone implies the run was launched to record.
-  const requested =
-    process.env.JEV_DEBUG_REQUEST === "1" || process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined;
+  // JEV_DIR override alone implies the run was launched to record.
+  const requested = process.env.JEV_DEBUG_REQUEST === "1" || process.env.JEV_DIR !== undefined;
   if (!requested) {
     tapSummary = null;
     return config ?? {};
   }
   const runid = Date.now();
-  const base = process.env.JEV_DEBUG_REQUEST_LOCATION || `${homedir()}/.jint/runs`;
+  const base = process.env.JEV_DIR || `${homedir()}/.jint/runs`;
   const dir = `${base}/${runid}`;
-  tapSummary = { dir, count: 0, override: process.env.JEV_DEBUG_REQUEST_LOCATION !== undefined };
+  tapSummary = { dir, count: 0, override: process.env.JEV_DIR !== undefined };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
     const response = await inner(input, init);

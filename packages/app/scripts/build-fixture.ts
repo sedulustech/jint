@@ -104,7 +104,7 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
 async function main(): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
   // activate the tap BEFORE the first classifier call; point it at our staging root
-  process.env.JEV_DEBUG_REQUEST_LOCATION = stagingDir;
+  process.env.JEV_DIR = stagingDir;
   process.env.TYPESAFE_API_KEY = "fixture-key";
 
   const config = { ...defaultConfig(), exclude: [] };

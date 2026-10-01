@@ -425,7 +425,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
       JEV_DEBUG_REQUEST: "1",
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+      JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
     // the stderr notice names THIS run's dir; report.json sits next to the requests
@@ -467,17 +467,17 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     }
   });
 
-  test.concurrent("JEV_DEBUG_REQUEST_LOCATION alone turns on the dump tap: captures land, stdout untouched", async () => {
+  test.concurrent("JEV_DIR alone turns on the dump tap: captures land, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+      JEV_DIR: dir,
     });
     // the notice never touches stdout: the report stays a machine document
     const report = expectContract(r, { exit: 0, stdout: "json" });
     expect(report.measurements.length).toBeGreaterThan(0);
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DIR\)/);
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dir })];
     expect(captures.length).toBeGreaterThan(0);
   });
@@ -517,11 +517,11 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
       JEV_DEBUG_REQUEST: "1",
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+      JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
     expect(() => JSON.parse(r.stdout)).not.toThrow(); // the notice never touches stdout
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DIR\)/);
   }, 20_000);
 });

@@ -39,25 +39,25 @@ async function recordOnce(
 
 beforeEach(() => {
   process.env.JEV_DEBUG_REQUEST = "1";
-  process.env.JEV_DEBUG_REQUEST_LOCATION = DIR;
+  process.env.JEV_DIR = DIR;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 afterEach(() => {
   delete process.env.JEV_DEBUG_REQUEST;
-  delete process.env.JEV_DEBUG_REQUEST_LOCATION;
+  delete process.env.JEV_DIR;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 describe("requestDebug", () => {
   test("disabled without either variable: config passes through untouched", () => {
     delete process.env.JEV_DEBUG_REQUEST;
-    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
+    delete process.env.JEV_DIR;
     const config = requestDebug(undefined);
     expect(config.fetch).toBeUndefined();
   });
 
-  test("a JEV_DEBUG_REQUEST_LOCATION override alone activates the tap", async () => {
+  test("a JEV_DIR override alone activates the tap", async () => {
     delete process.env.JEV_DEBUG_REQUEST;
     const config = requestDebug({ fetch: passthrough() });
     expect(requestTapSummary()).not.toBeNull();
@@ -111,7 +111,7 @@ describe("requestDebug", () => {
   });
 
   test("a failing tap never breaks the observed call", async () => {
-    process.env.JEV_DEBUG_REQUEST_LOCATION = "/proc/definitely-not-writable";
+    process.env.JEV_DIR = "/proc/definitely-not-writable";
     const config = requestDebug({ fetch: passthrough() });
     const response = await config.fetch!("https://api.typesafe.ai/v1/systemone", {
       method: "POST",
@@ -136,7 +136,7 @@ describe("requestDebug", () => {
   });
 
   test("summary: no override flag when the location is the default", async () => {
-    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
+    delete process.env.JEV_DIR;
     const config = requestDebug({ fetch: passthrough() });
     await recordOnce(config, { path: "a.ts", content: "x" });
     expect(requestTapSummary()!.override).toBe(false);
@@ -144,7 +144,7 @@ describe("requestDebug", () => {
 
   test("summary: inactive tap exposes nothing", () => {
     delete process.env.JEV_DEBUG_REQUEST;
-    delete process.env.JEV_DEBUG_REQUEST_LOCATION;
+    delete process.env.JEV_DIR;
     requestDebug(undefined);
     expect(requestTapSummary()).toBeNull();
   });

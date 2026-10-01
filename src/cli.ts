@@ -125,7 +125,7 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 export function requestTapNotice(): string {
   const tap = requestTapSummary();
   if (tap === null) return "";
-  const override = tap.override ? " (override: JEV_DEBUG_REQUEST_LOCATION)" : "";
+  const override = tap.override ? " (override: JEV_DIR)" : "";
   return `jint: requests -> ${tap.dir} (${tap.count} calls)${override}\n`;
 }
 

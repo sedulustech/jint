@@ -33,7 +33,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 - Requires bun. `TYPESAFE_API_KEY` in the environment (used as-is).
 - Optional: `JEV_DEBUG_REQUEST=1` records the exact wire bytes per question
-  under /tmp/jint/requests/ (or `JEV_DEBUG_REQUEST_LOCATION` — note it wins even
+  under /tmp/jint/requests/ (or `JEV_DIR` — note it wins even
   if relative, e.g. a stale `tmp/requests` in env redirects requests into the
   repo). At end of run jint prints one stderr line naming the run dir:
   `jint: requests -> <dir> (N calls)` — trust that line, not the docs.
@@ -277,7 +277,7 @@ was suspended until its criteria could name an observable condition.
 
 ## Give the user the link (run visualization)
 
-Every run that records requests (`JEV_DEBUG_REQUEST_LOCATION`, or the default under
+Every run that records requests (`JEV_DIR`, or the default under
 tmp/requests) is an inspectable artifact: the run dir holds report.json (all measurements
 
 - findings) and one request file per classifier call. The measurement UI turns a run dir
@@ -286,7 +286,7 @@ tmp/requests) is an inspectable artifact: the run dir holds report.json (all mea
 
 When a session involves a run the user will want to look at, give them a link:
 
-1. Run with recording on: `JEV_DEBUG_REQUEST_LOCATION=/path/to/requests jint ... --json`.
+1. Run with recording on: `JEV_DIR=/path/to/requests jint ... --json`.
 2. Take the run id from the stderr line: `jint: requests -> /path/to/requests/<RUNID> (N calls)`.
 3. Link: `http://localhost:5173/#runs/<RUNID>` (the UI must be running with its
    `JINT_REQUESTS_DIR` pointing at that same requests dir - see packages/app).
