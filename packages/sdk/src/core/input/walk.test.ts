@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
-import { decompose, isEmptyComment, MAX_ELEMENT_CHARS, type Inventory } from "./walk.ts";
+import {
+  decompose,
+  isEmptyComment,
+  languageOf,
+  MAX_ELEMENT_CHARS,
+  type Inventory,
+} from "./walk.ts";
 
 const GOLDEN = "packages/sdk/src/core/types.ts";
 
@@ -624,5 +630,46 @@ describe("decompose — variable declaration roles", () => {
     const fn = inv.definitions.find((d) => d.content.startsWith("function declared"));
     expect(fn?.role).toBe("function");
     expectSpansRoundTrip(source, inv);
+  });
+});
+
+describe("decompose — tsx", () => {
+  test("jsx parses with the tsx grammar: no error, real spans and content", async () => {
+    const source = [
+      'import { useEffect, useState } from "react";',
+      "",
+      "export function Counter(): JSX.Element {",
+      "  const [count, setCount] = useState(0);",
+      "  useEffect(() => {",
+      "    document.title = `count: ${count}`;",
+      "  }, [count]);",
+      "  return (",
+      '    <button className="counter" onClick={() => setCount(count + 1)}>',
+      "      Clicked {count} times",
+      "    </button>",
+      "  );",
+      "}",
+    ].join("\n");
+    const inv = await decompose(source, "tsx");
+    // Under the plain typescript grammar this same source parses with hasError=true and emits
+    // ERROR-node fragments (empty/degraded units) — the dogfood finding this regression guards.
+    expect(inv.hasError).toBe(false);
+    const elements = [...inv.definitions, ...inv.comments, ...inv.imports];
+    expect(elements.length).toBeGreaterThan(0);
+    for (const element of elements) {
+      expect(element.content.length).toBeGreaterThan(0);
+    }
+    expectSpansRoundTrip(source, inv);
+    const fn = inv.definitions.find((d) => d.name === "Counter");
+    expect(fn?.role).toBe("function");
+    expect(inv.imports).toHaveLength(1);
+  });
+
+  test("languageOf routes .tsx to tsx and keeps .ts/.mts/.cts on typescript", () => {
+    expect(languageOf("src/views/App.tsx")).toBe("tsx");
+    expect(languageOf("src/core/types.ts")).toBe("typescript");
+    expect(languageOf("src/x.mts")).toBe("typescript");
+    expect(languageOf("src/x.cts")).toBe("typescript");
+    expect(languageOf("src/x.jsx")).toBe(null);
   });
 });
