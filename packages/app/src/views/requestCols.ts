@@ -6,7 +6,7 @@
  *
  * `path` has no width: it is the flex-1 tail that absorbs the remaining space.
  */
-export const REQ_COLS = [
+export const REQUEST_COLUMNS = [
   { key: "seq" as const, label: "seq", width: "w-14" },
   { key: "severity" as const, label: "severity", width: "w-24" },
   { key: "maxProb" as const, label: "max-p", width: "w-20" },
@@ -14,4 +14,4 @@ export const REQ_COLS = [
   { key: "rule" as const, label: "rule count", width: "w-16" },
 ];
 
-export type ReqColKey = (typeof REQ_COLS)[number]["key"];
+export type RequestColumnKey = (typeof REQUEST_COLUMNS)[number]["key"];

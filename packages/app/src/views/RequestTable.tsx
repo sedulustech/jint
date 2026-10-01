@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SEVERITY } from "./color";
 import { DensityStrip } from "./DensityStrip";
+import { REQUEST_COLUMNS } from "./requestCols";
 import { Row } from "./Row";
-import { sevRank, useRun, type Filter, type Mode } from "./useRun";
-import type { Cell } from "../types";
+import {
+  sevRank,
+  useRun,
+  type FileGroup,
+  type Filter,
+  type GroupStats,
+  type Mode,
+  type RuleGroup,
+  type SortKey,
+} from "./useRun";
+import type { Cell, RequestItem } from "../types";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -27,45 +37,533 @@ export function spanLabel(span: { start: { line: number }; end: { line: number }
     : "L" + span.start.line + "-L" + span.end.line;
 }
 
-const ROW_H = 26;
+const ROW_HEIGHT = 26;
 const OVERSCAN = 12;
-// sticky column-header row inside the scroll container
-const HEADER_H = 27;
-// Fixed columns total ~570px; below that the path column would collapse to an ellipsis, so the
-// header + rows scroll horizontally together instead.
-const TABLE_MIN_W = 660;
+// header + rows scroll horizontally together below this width: fixed columns would otherwise
+// collapse the path column to an ellipsis
+const HEADER_HEIGHT = 27;
+const TABLE_MIN_WIDTH = 660;
 
-// request-mode columns live in requestCols.ts (single source of truth - the Row
-// component consumes the same spec, so header and rows cannot drift). One row per
-// request, so a "rule" column could only show the FIRST rule and imply one - the rule
-// stays addressable through the row click (the detail pane names it). The request
-// carries several rules, and the rule-count column says how many.
-import { REQ_COLS } from "./requestCols";
-
-// grouped-mode shared grid: name | input | sev | value | counts | chevron
-const NAME_W = "w-52";
-const INPUT_MIN = "min-w-0 flex-1";
-const SEV_W = "w-16";
-const VALUE_W = "w-16";
-const COUNT_W = "w-24";
-const CHEV_W = "w-6";
+// grouped-mode shared grid: name | input | severity | value | counts | chevron
+const NAME_WIDTH = "w-52";
+const INPUT_MIN_WIDTH = "min-w-0 flex-1";
+const SEVERITY_WIDTH = "w-16";
+const VALUE_WIDTH = "w-16";
+const COUNTS_WIDTH = "w-24";
+const CHEVRON_WIDTH = "w-6";
 
 type GroupedKey = "name" | "input" | "severity" | "value";
 const GROUPED_COLS: {
-  key: GroupedKey | "counts" | "chev";
+  key: GroupedKey | "counts" | "chevron";
   label: string;
   className: string;
   sortable: boolean;
 }[] = [
-  { key: "name", label: "rule / file", className: NAME_W, sortable: true },
-  { key: "input", label: "input", className: INPUT_MIN, sortable: true },
-  { key: "severity", label: "sev", className: SEV_W, sortable: true },
-  { key: "value", label: "value", className: VALUE_W, sortable: true },
-  { key: "counts", label: "", className: COUNT_W, sortable: false },
-  { key: "chev", label: "", className: CHEV_W, sortable: false },
+  { key: "name", label: "rule / file", className: NAME_WIDTH, sortable: true },
+  { key: "input", label: "input", className: INPUT_MIN_WIDTH, sortable: true },
+  { key: "severity", label: "sev", className: SEVERITY_WIDTH, sortable: true },
+  { key: "value", label: "value", className: VALUE_WIDTH, sortable: true },
+  { key: "counts", label: "", className: COUNTS_WIDTH, sortable: false },
+  { key: "chevron", label: "", className: CHEVRON_WIDTH, sortable: false },
 ];
 
-const byName = (a: string, b: string) => a.localeCompare(b);
+const compareText = (left: string, right: string) => left.localeCompare(right);
+
+const ruleGroupKey = (rule: string): string => "rule:" + rule;
+const fileGroupKey = (file: string): string => "file:" + file;
+
+interface ParentRow {
+  kind: "parent";
+  key: string;
+  name: string;
+  worstSeverity: "error" | "warn" | null;
+  cells: Cell[];
+  counts: string;
+}
+interface ChildRow {
+  kind: "child";
+  key: string;
+  parentKey: string;
+  cell: Cell;
+}
+type GroupedRow = ParentRow | ChildRow;
+
+function parentComparator(
+  sortDirection: number,
+  sortColumn: GroupedKey,
+): (left: ParentRow, right: ParentRow) => number {
+  // a parent exposes no single value; unexposed columns keep group order
+  return (left, right) => {
+    switch (sortColumn) {
+      case "name":
+        return sortDirection * compareText(left.name, right.name);
+      case "input":
+        return sortDirection * compareText(left.cells[0]?.input ?? "", right.cells[0]?.input ?? "");
+      case "severity":
+        return (
+          sortDirection * (sevRank(left.worstSeverity) - sevRank(right.worstSeverity)) ||
+          compareText(left.name, right.name)
+        );
+      default:
+        return 0;
+    }
+  };
+}
+
+function cellComparator(
+  sortDirection: number,
+  sortColumn: GroupedKey,
+): (left: Cell, right: Cell) => number {
+  return (left, right) => {
+    switch (sortColumn) {
+      case "name":
+        return sortDirection * compareText(left.rule, right.rule);
+      case "input":
+        return sortDirection * compareText(left.input, right.input);
+      case "severity":
+        return (
+          sortDirection * (sevRank(left.severity) - sevRank(right.severity)) ||
+          compareText(left.input, right.input)
+        );
+      case "value":
+        return sortDirection * (left.value - right.value || compareText(left.rule, right.rule));
+      default:
+        return 0;
+    }
+  };
+}
+
+/**
+ * Grouped render model: flat [parent, ...children] rows, one sort key for both levels. Parents sort
+ * by column, children sort within their group by the same column. A child key is the parent key
+ * NUL-joined with rule and input; NUL never occurs in a rule or input name, so the join can never
+ * collide with a guest half.
+ */
+function buildGroupedRows(
+  groupSpecs: { key: string; name: string; cells: Cell[] }[],
+  sortDirection: number,
+  sortColumn: GroupedKey,
+  expandedKeys: Set<string>,
+): { flatRows: GroupedRow[]; parentRows: ParentRow[] } {
+  const parentRows: ParentRow[] = groupSpecs.map((groupSpec) => {
+    const worstSeverity = groupSpec.cells.reduce<"error" | "warn" | null>(
+      (acc, cell) => (sevRank(cell.severity) > sevRank(acc) ? cell.severity : acc),
+      null,
+    );
+    return {
+      kind: "parent",
+      key: groupSpec.key,
+      name: groupSpec.name,
+      worstSeverity,
+      cells: groupSpec.cells,
+      counts: "",
+    };
+  });
+  const sortedParentRows = [...parentRows].sort(parentComparator(sortDirection, sortColumn));
+  const compareChildren = cellComparator(sortDirection, sortColumn);
+  const flatRows: GroupedRow[] = [];
+  for (const parentRow of sortedParentRows) {
+    flatRows.push(parentRow);
+    if (expandedKeys.has(parentRow.key)) {
+      for (const cell of [...parentRow.cells].sort(compareChildren)) {
+        flatRows.push({
+          kind: "child",
+          key: parentRow.key + "\u0000" + cell.rule + "\u0000" + cell.input,
+          parentKey: parentRow.key,
+          cell,
+        });
+      }
+    }
+  }
+  return { flatRows, parentRows: sortedParentRows };
+}
+
+/** The click payload for one request-log row: the measured subject, or the file when untargeted. */
+function requestPair(requestRow: RequestItem): {
+  rule: string;
+  input: string;
+  requestFile: string;
+} {
+  return {
+    rule: requestRow.rules[0] ?? "",
+    input:
+      requestRow.path !== null && requestRow.elementId !== null && requestRow.element
+        ? `${requestRow.path}#${requestRow.elementId}`
+        : (requestRow.path ?? requestRow.file),
+    requestFile: requestRow.file,
+  };
+}
+
+function groupStatsFor(
+  mode: Mode,
+  ruleGroups: RuleGroup[],
+  fileGroups: FileGroup[],
+  row: ParentRow,
+): GroupStats & { targets?: number; rules?: number; cells?: number } {
+  return mode === "rule"
+    ? ruleGroups.find((group) => ruleGroupKey(group.rule) === row.key)!.stats
+    : fileGroups.find((group) => fileGroupKey(group.file) === row.key)!.stats;
+}
+
+type Pair = { rule: string; input: string; requestFile?: string };
+
+/** Why the grouped table is empty when the report itself is missing or silent. */
+function emptyStateNote(
+  hasNoRows: boolean,
+  mode: Mode,
+  runData: { cells: Cell[]; legacy?: boolean; hasReport?: boolean } | undefined,
+): string | null {
+  if (!hasNoRows || mode === "request" || runData === undefined) return null;
+  if (runData.cells.length !== 0) return null;
+  if (runData.legacy) return "no report — run recorded before reports existed";
+  if (runData.hasReport) return "report present but zero measurements";
+  return "no report — run captured without --json";
+}
+
+function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
+  if (severity === null) {
+    return (
+      <span className="text-muted-foreground" title="no verdict">
+        —
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${SEVERITY[severity].dot}`}
+      title={severity}
+    />
+  );
+}
+
+function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
+  const button = (buttonMode: Mode, label: string) => (
+    <Button
+      variant={mode === buttonMode ? "secondary" : "outline"}
+      size="sm"
+      onClick={() => onMode(buttonMode)}
+      aria-pressed={mode === buttonMode}
+      data-testid={`mode-${buttonMode}`}
+      className="font-mono text-body"
+    >
+      {label}
+    </Button>
+  );
+  return (
+    <div role="group" aria-label="group by" className="flex items-center gap-1">
+      <span className="font-mono text-caption text-muted-foreground">group by</span>
+      {button("rule", "rule")}
+      {button("file", "file")}
+      {button("request", "request")}
+    </div>
+  );
+}
+
+function Toolbar({
+  mode,
+  onMode,
+  filterText,
+  onFilterText,
+  countText,
+}: {
+  mode: Mode;
+  onMode: (m: Mode) => void;
+  filterText: string;
+  onFilterText: (text: string) => void;
+  countText: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
+      <ModeButtons mode={mode} onMode={onMode} />
+      <input
+        value={filterText}
+        onChange={(e) => onFilterText(e.target.value)}
+        placeholder="filter: path, rule, element id…"
+        className="h-7 w-64 rounded border border-neutral-700 bg-background px-2.5 font-mono text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
+      />
+      <span className="ml-auto font-mono text-body text-muted-foreground">{countText}</span>
+    </div>
+  );
+}
+
+function GroupedHeader({
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onToggleSort: (key: SortKey) => void;
+}) {
+  return (
+    <div
+      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
+      style={{ minWidth: TABLE_MIN_WIDTH }}
+    >
+      {GROUPED_COLS.map((col) => (
+        <button
+          key={col.key}
+          disabled={!col.sortable}
+          onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
+          className={`${col.className} shrink-0 px-3 py-1 text-left ${col.sortable ? "hover:text-foreground" : ""}`}
+        >
+          {col.label}
+          {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RequestHeader({
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onToggleSort: (key: SortKey) => void;
+}) {
+  return (
+    <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
+      <tr>
+        {REQUEST_COLUMNS.map((col) => (
+          <th key={col.label} className={`${col.width} px-3 py-1 text-left font-normal`}>
+            <button
+              onClick={() => onToggleSort(col.key)}
+              className="w-full text-left hover:text-foreground"
+            >
+              {col.label}
+              {sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </button>
+          </th>
+        ))}
+        <th className="min-w-0 px-3 py-1 text-left font-normal">input path</th>
+      </tr>
+    </thead>
+  );
+}
+
+function GroupedParentRow({
+  row,
+  stats,
+  isExpanded,
+  onToggleExpand,
+}: {
+  row: ParentRow;
+  stats: GroupStats & { targets?: number; rules?: number; cells?: number };
+  isExpanded: boolean;
+  onToggleExpand: (key: string) => void;
+}) {
+  const countText =
+    "targets" in stats ? stats.targets + " targets" : stats.rules + " rules · " + stats.cells;
+  return (
+    <button
+      key={row.key}
+      onClick={() => onToggleExpand(row.key)}
+      aria-expanded={isExpanded}
+      style={{ height: ROW_HEIGHT }}
+      className="flex w-full items-center border-b border-border bg-muted px-0 text-left font-mono text-body text-foreground hover:bg-accent"
+    >
+      {/* parents share the column grid of header + children; hierarchy comes from the caret,
+          never from shifting a column off the grid */}
+      <span className={`${NAME_WIDTH} shrink-0 truncate px-3`} title={row.name}>
+        {isExpanded ? "▾" : "▸"} {row.name}
+      </span>
+      <span className={`${INPUT_MIN_WIDTH} flex shrink-0 items-center gap-2 px-3`}>
+        <span className="text-muted-foreground">
+          {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
+          {stats.err > 0 && stats.warn > 0 && " · "}
+          {stats.warn > 0 && <span className="text-sev-warn">{stats.warn} warn</span>}
+          {stats.err === 0 && stats.warn === 0 && `${stats.passOk} no verdict`}
+        </span>
+      </span>
+      <span className={`${SEVERITY_WIDTH} shrink-0 px-3`}>
+        <SeverityDot severity={row.worstSeverity} />
+      </span>
+      <span className={`${VALUE_WIDTH} shrink-0 px-3 text-muted-foreground`}></span>
+      <span className={`${COUNTS_WIDTH} shrink-0 px-3 text-muted-foreground`}>{countText}</span>
+      <span className={`${CHEVRON_WIDTH} shrink-0 px-3`}></span>
+    </button>
+  );
+}
+
+function GroupedChildRow({
+  row,
+  mode,
+  selectedFile,
+  onSelectPair,
+}: {
+  row: ChildRow;
+  mode: Mode;
+  selectedFile: string | null;
+  onSelectPair: (pair: Pair) => void;
+}) {
+  const cell = row.cell;
+  // The child's identity axis follows the parent: in rule mode the parent is the rule, so the
+  // child names the file it fired on; in file mode the reverse. Same grid either way.
+  const childName = mode === "rule" ? cell.file : cell.rule;
+  const childLocation =
+    cell.element === undefined || cell.element.kind === "file"
+      ? null
+      : spanLabel(cell.element.span);
+  return (
+    <button
+      key={row.key}
+      onClick={() =>
+        onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
+      }
+      style={{ height: ROW_HEIGHT }}
+      className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-body ${
+        selectedFile === cell.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+      } text-foreground`}
+    >
+      {/* pl-9 = rail 12 + 24px indent: children read as nested without leaving the grid */}
+      <span className={`${NAME_WIDTH} shrink-0 truncate px-3 pl-9`} title={childName}>
+        {childName}
+      </span>
+      <span
+        className={`${INPUT_MIN_WIDTH} shrink-0 truncate px-3`}
+        title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
+      >
+        {childLocation !== null ? childLocation : "(file)"}
+      </span>
+      <span className={`${SEVERITY_WIDTH} shrink-0 px-3`}>
+        <SeverityDot severity={cell.severity} />
+      </span>
+      <span className={`${VALUE_WIDTH} shrink-0 px-3`}>{cell.value.toFixed(2)}</span>
+      <span className={`${COUNTS_WIDTH} shrink-0 px-3`}></span>
+      <span className={`${CHEVRON_WIDTH} shrink-0 px-3`}></span>
+    </button>
+  );
+}
+
+// Real table (not a virtualized flex grid): the <thead> owns the column widths via
+// table-fixed, and every row derives alignment from it - the literal-sync drift class
+// (header at w-16 while rows stayed w-10) cannot happen. The request log is at most a
+// few hundred rows (~8k px), which the DOM renders fine without windowing; the windowed
+// translateY machinery stays for the grouped tree mode only.
+function RequestLog({
+  rows,
+  selectedFile,
+  onSelectPair,
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  rows: RequestItem[];
+  selectedFile: string | null;
+  onSelectPair: (pair: Pair) => void;
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onToggleSort: (key: SortKey) => void;
+}) {
+  return (
+    <table className="w-full table-fixed font-mono text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
+      <RequestHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
+      <tbody>
+        {rows.map((requestRow) => (
+          <Row
+            key={requestRow.file}
+            row={requestRow}
+            height={ROW_HEIGHT}
+            selected={requestRow.file === selectedFile}
+            severity={requestRow.severity}
+            onSelect={() => onSelectPair(requestPair(requestRow))}
+          />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function GroupedTreeView({
+  list,
+  range,
+  mode,
+  ruleGroups,
+  fileGroups,
+  expanded,
+  onToggleExpand,
+  selectedFile,
+  onSelectPair,
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  list: GroupedRow[];
+  range: { first: number; last: number };
+  mode: Mode;
+  ruleGroups: RuleGroup[];
+  fileGroups: FileGroup[];
+  expanded: Set<string>;
+  onToggleExpand: (key: string) => void;
+  selectedFile: string | null;
+  onSelectPair: (pair: Pair) => void;
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onToggleSort: (key: SortKey) => void;
+}) {
+  return (
+    <>
+      <GroupedHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
+      <div
+        style={{
+          height: list.length * ROW_HEIGHT,
+          position: "relative",
+          minWidth: TABLE_MIN_WIDTH,
+        }}
+      >
+        <div style={{ transform: `translateY(${range.first * ROW_HEIGHT}px)` }}>
+          {list
+            .slice(range.first, range.last)
+            .map((row) =>
+              row.kind === "parent" ? (
+                <GroupedParentRow
+                  key={row.key}
+                  row={row}
+                  stats={groupStatsFor(mode, ruleGroups, fileGroups, row)}
+                  isExpanded={expanded.has(row.key)}
+                  onToggleExpand={onToggleExpand}
+                />
+              ) : (
+                <GroupedChildRow
+                  key={row.key}
+                  row={row}
+                  mode={mode}
+                  selectedFile={selectedFile}
+                  onSelectPair={onSelectPair}
+                />
+              ),
+            )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function EmptyNotice({
+  countNoun,
+  emptyDetail,
+  activeText,
+  onClearFilters,
+}: {
+  countNoun: string;
+  emptyDetail: string | null;
+  activeText: string | null;
+  onClearFilters: () => void;
+}) {
+  return (
+    <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
+      <p>0 {countNoun} match your filters</p>
+      {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
+      {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
+      <Button variant="outline" size="sm" className="font-mono text-body" onClick={onClearFilters}>
+        clear filters
+      </Button>
+    </div>
+  );
+}
 
 export function RequestTable({
   runId,
@@ -90,28 +588,28 @@ export function RequestTable({
   } = useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scrollTop, setScrollTop] = useState(0);
-  const [viewportH, setViewportH] = useState(600);
+  const [viewportHeight, setViewportHeight] = useState(600);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
-    ro.observe(el);
-    setViewportH(el.clientHeight);
-    return () => ro.disconnect();
-  }, []);
+  const syncViewportHeight = () => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+    const resizeObserver = new ResizeObserver(() => setViewportHeight(scrollElement.clientHeight));
+    resizeObserver.observe(scrollElement);
+    setViewportHeight(scrollElement.clientHeight);
+    return () => resizeObserver.disconnect();
+  };
+  useEffect(syncViewportHeight, []);
 
   // grouped modes default to error-first: sev desc is the initial toggle state, not a fixed order
-  useEffect(() => {
-    if (mode !== "request" && !(sortKey === "severity" && sortDir === "desc")) {
-      const groupedKeys = ["name", "input", "severity", "value"];
-      if (!groupedKeys.includes(sortKey)) setSort("severity", "desc");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  const ensureGroupedSort = () => {
+    const groupedIsSortable = GROUPED_COLS.some((col) => col.key === sortKey);
+    if (mode !== "request" && !groupedIsSortable) setSort("severity", "desc");
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(ensureGroupedSort, [mode]);
 
-  const onFilter = (patch: Partial<Filter>) => {
+  const applyFilterPatch = (patch: Partial<Filter>) => {
     setFilter({ ...filter, ...patch });
     scrollRef.current?.scrollTo({ top: 0 });
   };
@@ -125,371 +623,144 @@ export function RequestTable({
     });
   };
 
-  // --- grouped render model: flat [parent, ...children] rows, one sort key for both levels ---
-  const grouped = useMemo(() => {
-    const dir = sortDir === "desc" ? -1 : 1;
-    const dirKey = sortKey as GroupedKey;
-    const cellCmp = (a: Cell, b: Cell): number => {
-      switch (dirKey) {
-        case "name":
-          return dir * byName(a.rule, b.rule);
-        case "input":
-          return dir * byName(a.input, b.input);
-        case "severity":
-          return dir * (sevRank(a.severity) - sevRank(b.severity)) || byName(a.input, b.input);
-        case "value":
-          return dir * (a.value - b.value || byName(a.rule, b.rule));
-        default:
-          return 0;
-      }
-    };
-    const sortCells = (cs: Cell[]) => [...cs].sort(cellCmp);
-
-    interface ParentRow {
-      kind: "parent";
-      key: string;
-      name: string;
-      sev: "error" | "warn" | null;
-      cells: Cell[];
-      counts: string;
-    }
-    interface ChildRow {
-      kind: "child";
-      key: string;
-      parentKey: string;
-      cell: Cell;
-    }
-    type Row = ParentRow | ChildRow;
-
-    const build = (
-      groups: { key: string; name: string; cells: Cell[] }[],
-    ): { list: Row[]; parents: ParentRow[] } => {
-      const parents: ParentRow[] = groups.map((g) => {
-        const worst = g.cells.reduce<"error" | "warn" | null>(
-          (acc, c) => (sevRank(c.severity) > sevRank(acc) ? c.severity : acc),
-          null,
-        );
-        return { kind: "parent", key: g.key, name: g.name, sev: worst, cells: g.cells, counts: "" };
-      });
-      // one comparator per column; a column a parent does not expose leaves it in group order
-      const parentCmp = (a: ParentRow, b: ParentRow): number => {
-        switch (dirKey) {
-          case "name":
-            return dir * byName(a.name, b.name);
-          case "input":
-            return dir * byName(a.cells[0]?.input ?? "", b.cells[0]?.input ?? "");
-          case "severity":
-            return dir * (sevRank(a.sev) - sevRank(b.sev)) || byName(a.name, b.name);
-          case "value":
-            // parents expose no single value; stable order
-            return 0;
-          default:
-            return 0;
-        }
-      };
-      const sorted = [...parents].sort(parentCmp);
-      const list: Row[] = [];
-      for (const parent of sorted) {
-        list.push(parent);
-        if (expanded.has(parent.key)) {
-          // child key: NUL-joined (rule, input) - both halves can contain any other character
-          for (const c of sortCells(parent.cells)) {
-            list.push({
-              kind: "child",
-              key: parent.key + "\u0000" + c.rule + "\u0000" + c.input,
-              parentKey: parent.key,
-              cell: c,
-            });
-          }
-        }
-      }
-      return { list, parents: sorted };
-    };
-
+  const buildGroupedModel = () => {
+    const sortDirection = sortDir === "desc" ? -1 : 1;
+    const sortColumn = sortKey as GroupedKey;
     if (mode === "rule") {
-      const { list, parents } = build(
-        ruleGroups.map((g) => ({ key: "rule:" + g.rule, name: g.rule, cells: g.cells })),
+      return buildGroupedRows(
+        ruleGroups.map((group) => ({
+          key: ruleGroupKey(group.rule),
+          name: group.rule,
+          cells: group.cells,
+        })),
+        sortDirection,
+        sortColumn,
+        expanded,
       );
-      return { list, parents };
     }
     if (mode === "file") {
-      const { list, parents } = build(
-        fileGroups.map((g) => ({ key: "file:" + g.file, name: g.file, cells: g.cells })),
+      return buildGroupedRows(
+        fileGroups.map((group) => ({
+          key: fileGroupKey(group.file),
+          name: group.file,
+          cells: group.cells,
+        })),
+        sortDirection,
+        sortColumn,
+        expanded,
       );
-      return { list, parents };
     }
-    return { list: [], parents: [] };
-  }, [mode, ruleGroups, fileGroups, expanded, sortKey, sortDir]);
+    return { flatRows: [], parentRows: [] };
+  };
+  const grouped = useMemo(buildGroupedModel, [
+    mode,
+    ruleGroups,
+    fileGroups,
+    expanded,
+    sortKey,
+    sortDir,
+  ]);
 
-  // report click: switch to rule mode, expand the rule's group, scroll it into view (once)
-  useEffect(() => {
+  // a report-panel click is a fresh focus: close every group, expand only the chosen rule
+  const focusReportedRule = () => {
     if (focusRule === null || mode !== "rule") return;
-    const key = "rule:" + focusRule;
-    // a report-panel click is a fresh focus: close every group, expand only the chosen rule
-    setExpanded(new Set([key]));
-    const idx = grouped.parents.findIndex((p) => p.key === key);
-    if (idx >= 0) scrollRef.current?.scrollTo({ top: idx * ROW_H });
+    const focusedRuleKey = ruleGroupKey(focusRule);
+    setExpanded(new Set([focusedRuleKey]));
+    const focusedParentIndex = grouped.parentRows.findIndex(
+      (parentRow) => parentRow.key === focusedRuleKey,
+    );
+    if (focusedParentIndex >= 0)
+      scrollRef.current?.scrollTo({ top: focusedParentIndex * ROW_HEIGHT });
     onFocusHandled();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRule, mode]);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(focusReportedRule, [focusRule, mode]);
 
-  const range = useMemo(() => {
+  const visibleRange = useMemo(() => {
     // scrollTop includes the sticky header row; compensate before mapping to row indexes
-    const scrollRows = Math.max(0, scrollTop - HEADER_H);
-    const first = Math.max(0, Math.floor(scrollRows / ROW_H) - OVERSCAN);
-    const visible = Math.ceil(viewportH / ROW_H) + OVERSCAN * 2;
-    const total = mode === "request" ? rows.length : grouped.list.length;
+    const scrollRows = Math.max(0, scrollTop - HEADER_HEIGHT);
+    const first = Math.max(0, Math.floor(scrollRows / ROW_HEIGHT) - OVERSCAN);
+    const visible = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
+    const total = mode === "request" ? rows.length : grouped.flatRows.length;
     return { first, last: Math.min(total, first + visible) };
-  }, [scrollTop, viewportH, rows.length, grouped, mode]);
+  }, [scrollTop, viewportHeight, rows.length, grouped, mode]);
 
-  const activeFilters = [filter.text && `text "${filter.text}"`].filter(Boolean);
-  const total =
+  const activeFilterText = filter.text !== "" ? `text "${filter.text}"` : null;
+  const activeText = activeFilterText !== null ? `active: ${activeFilterText}` : null;
+  const totalCount =
     mode === "request"
       ? (query.data?.requestCount ?? 0)
       : mode === "rule"
         ? ruleGroups.length
         : fileGroups.length;
-  const noun = mode === "request" ? "requests" : mode === "rule" ? "rules" : "files";
+  const countNoun = mode === "request" ? "requests" : mode === "rule" ? "rules" : "files";
+  const countText = query.isLoading
+    ? "loading…"
+    : `${mode === "request" ? rows.length : grouped.flatRows.length} / ${totalCount} ${countNoun}`;
+  const isEmpty =
+    !query.isLoading &&
+    !query.isError &&
+    (mode === "request" ? rows.length : grouped.flatRows.length) === 0;
+  const emptyDetail = emptyStateNote(isEmpty, mode, query.data);
 
-  const modeButton = (m: Mode, label: string) => (
-    <Button
-      variant={mode === m ? "secondary" : "outline"}
-      size="sm"
-      onClick={() => onMode(m)}
-      aria-pressed={mode === m}
-      data-testid={`mode-${m}`}
-      className="font-mono text-body"
-    >
-      {label}
-    </Button>
-  );
-
-  const groupedHeader = (
-    <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
-      style={{ minWidth: TABLE_MIN_W }}
-    >
-      {GROUPED_COLS.map((c) => (
-        <button
-          key={c.key}
-          disabled={!c.sortable}
-          onClick={() => c.sortable && toggleSort(c.key as GroupedKey)}
-          className={`${c.className} shrink-0 px-3 py-1 text-left ${c.sortable ? "hover:text-foreground" : ""}`}
-        >
-          {c.label}
-          {c.sortable && sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-        </button>
-      ))}
-    </div>
-  );
-
-  // Real table (not a virtualized flex grid): the <thead> owns the column widths via
-  // table-fixed, and every row derives alignment from it - the literal-sync drift class
-  // (header at w-16 while rows stayed w-10) cannot happen. The request log is at most a
-  // few hundred rows (~8k px), which the DOM renders fine without windowing; the windowed
-  // translateY machinery stays for the grouped tree mode only.
-  const requestHeader = (
-    <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
-      <tr>
-        {REQ_COLS.map((c) => (
-          <th key={c.label} className={`${c.width} px-3 py-1 text-left font-normal`}>
-            <button
-              onClick={() => toggleSort(c.key)}
-              className="w-full text-left hover:text-foreground"
-            >
-              {c.label}
-              {sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-            </button>
-          </th>
-        ))}
-        <th className="min-w-0 px-3 py-1 text-left font-normal">input path</th>
-      </tr>
-    </thead>
-  );
-
-  const sevDot = (sev: "error" | "warn" | null) =>
-    sev === null ? (
-      <span className="text-muted-foreground" title="no verdict">
-        —
-      </span>
+  const densityStrip =
+    mode === "request" && !query.isLoading && rows.length > 0 ? <DensityStrip rows={rows} /> : null;
+  const errorNotice = query.isError ? (
+    <p className="p-3 text-sev-error">{String(query.error)}</p>
+  ) : null;
+  const emptyNotice = isEmpty ? (
+    <EmptyNotice
+      countNoun={countNoun}
+      emptyDetail={emptyDetail}
+      activeText={activeText}
+      onClearFilters={() => setFilter({ text: "" })}
+    />
+  ) : null;
+  const tableBody =
+    mode === "request" ? (
+      <RequestLog
+        rows={rows}
+        selectedFile={selectedFile}
+        onSelectPair={onSelectPair}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onToggleSort={(key) => toggleSort(key)}
+      />
     ) : (
-      <span className={`inline-block h-2 w-2 rounded-full ${SEVERITY[sev].dot}`} title={sev} />
+      <GroupedTreeView
+        list={grouped.flatRows}
+        range={visibleRange}
+        mode={mode}
+        ruleGroups={ruleGroups}
+        fileGroups={fileGroups}
+        expanded={expanded}
+        onToggleExpand={toggleExpand}
+        selectedFile={selectedFile}
+        onSelectPair={onSelectPair}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onToggleSort={(key) => toggleSort(key)}
+      />
     );
-
-  const renderGroupedRow = (row: (typeof grouped.list)[number]) => {
-    if (row.kind === "parent") {
-      const stats =
-        mode === "rule"
-          ? ruleGroups.find((g) => "rule:" + g.rule === row.key)!.stats
-          : fileGroups.find((g) => "file:" + g.file === row.key)!.stats;
-      const countText =
-        "targets" in stats ? stats.targets + " targets" : stats.rules + " rules · " + stats.cells;
-      const isExpanded = expanded.has(row.key);
-      return (
-        <button
-          key={row.key}
-          onClick={() => toggleExpand(row.key)}
-          aria-expanded={isExpanded}
-          style={{ height: ROW_H }}
-          className="flex w-full items-center border-b border-border bg-muted px-0 text-left font-mono text-body text-foreground hover:bg-accent"
-        >
-          {/* parents sit on the SAME column grid as header + children; the only difference is
-              content, never offsets - hierarchy comes from the caret, depth from the child indent */}
-          <span className={`${NAME_W} shrink-0 truncate px-3`} title={row.name}>
-            {isExpanded ? "▾" : "▸"} {row.name}
-          </span>
-          <span className={`${INPUT_MIN} flex shrink-0 items-center gap-2 px-3`}>
-            <span className="text-muted-foreground">
-              {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
-              {stats.err > 0 && stats.warn > 0 && " · "}
-              {stats.warn > 0 && <span className="text-sev-warn">{stats.warn} warn</span>}
-              {stats.err === 0 && stats.warn === 0 && `${stats.passOk} no verdict`}
-            </span>
-          </span>
-          <span className={`${SEV_W} shrink-0 px-3`}>{sevDot(row.sev)}</span>
-          <span className={`${VALUE_W} shrink-0 px-3 text-muted-foreground`}></span>
-          <span className={`${COUNT_W} shrink-0 px-3 text-muted-foreground`}>{countText}</span>
-          <span className={`${CHEV_W} shrink-0 px-3`}></span>
-        </button>
-      );
-    }
-    const c = row.cell;
-    // In rule mode the parent IS the rule, so the child's identity is the file it fired on
-    // (file:location for element requests); in file mode the parent IS the file, so the child
-    // stays the rule. Same grid, different identity axis per mode.
-    const childName = mode === "rule" ? c.file : c.rule;
-    const childLocation =
-      c.element === undefined || c.element.kind === "file" ? null : spanLabel(c.element.span);
-    return (
-      <button
-        key={row.key}
-        onClick={() => onSelectPair({ rule: c.rule, input: c.input, requestFile: c.requestFile })}
-        style={{ height: ROW_H }}
-        className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-body ${
-          selectedFile === c.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
-        } text-foreground`}
-      >
-        {/* pl-9 = rail 12 + a 24px indent: children sit ~13px right of the parent NAME (which
-            starts past the caret), so the tree reads spatially without shifting any column off
-            the shared grid (F1/F7). */}
-        <span className={`${NAME_W} shrink-0 truncate px-3 pl-9`} title={childName}>
-          {childName}
-        </span>
-        {/* the location column: the span when the measurement is an element, else the (file) marker;
-            in rule mode the file already names the row so only the location is left to show */}
-        <span
-          className={`${INPUT_MIN} shrink-0 truncate px-3`}
-          title={childLocation !== null ? `${c.file}:${childLocation}` : c.file}
-        >
-          {childLocation !== null ? childLocation : "(file)"}
-        </span>
-        <span className={`${SEV_W} shrink-0 px-3`}>{sevDot(c.severity)}</span>
-        <span className={`${VALUE_W} shrink-0 px-3`}>{c.value.toFixed(2)}</span>
-        <span className={`${COUNT_W} shrink-0 px-3`}></span>
-        <span className={`${CHEV_W} shrink-0 px-3`}></span>
-      </button>
-    );
-  };
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
-        <div role="group" aria-label="group by" className="flex items-center gap-1">
-          <span className="font-mono text-caption text-muted-foreground">group by</span>
-          {modeButton("rule", "rule")}
-          {modeButton("file", "file")}
-          {modeButton("request", "request")}
-        </div>
-        <input
-          value={filter.text}
-          onChange={(e) => onFilter({ text: e.target.value })}
-          placeholder="filter: path, rule, element id…"
-          className="h-7 w-64 rounded border border-neutral-700 bg-background px-2.5 font-mono text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
-        />
-        <span className="ml-auto font-mono text-body text-muted-foreground">
-          {query.isLoading
-            ? "loading…"
-            : `${mode === "request" ? rows.length : grouped.list.length} / ${total} ${noun}`}
-        </span>
-      </div>
-      {mode === "request" && !query.isLoading && rows.length > 0 && <DensityStrip rows={rows} />}
+      <Toolbar
+        mode={mode}
+        onMode={onMode}
+        filterText={filter.text}
+        onFilterText={(text) => applyFilterPatch({ text })}
+        countText={countText}
+      />
+      {densityStrip}
       <div
         ref={scrollRef}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         className="min-h-0 flex-1 overflow-auto"
       >
-        {query.isError && <p className="p-3 text-sev-error">{String(query.error)}</p>}
-        {!query.isLoading &&
-          (mode === "request" ? rows.length : grouped.list.length) === 0 &&
-          !query.isError && (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
-              <p>0 {noun} match your filters</p>
-              {mode !== "request" && query.data?.cells.length === 0 && (
-                <p className="text-muted-foreground">
-                  {query.data.legacy
-                    ? "no report — run recorded before reports existed"
-                    : query.data.hasReport
-                      ? "report present but zero measurements"
-                      : "no report — run captured without --json"}
-                </p>
-              )}
-              {activeFilters.length > 0 && (
-                <p className="text-muted-foreground">active: {activeFilters.join(", ")}</p>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="font-mono text-body"
-                onClick={() => setFilter({ text: "" })}
-              >
-                clear filters
-              </Button>
-            </div>
-          )}
-        {mode === "request" ? (
-          <table
-            className="w-full table-fixed font-mono text-body"
-            style={{ minWidth: TABLE_MIN_W }}
-          >
-            {requestHeader}
-            <tbody>
-              {rows.map((r) => (
-                <Row
-                  key={r.file}
-                  row={r}
-                  height={ROW_H}
-                  selected={r.file === selectedFile}
-                  severity={r.severity}
-                  onSelect={() =>
-                    onSelectPair({
-                      rule: r.rules[0] ?? "",
-                      input:
-                        r.path !== null && r.elementId !== null && r.element
-                          ? `${r.path}#${r.elementId}`
-                          : (r.path ?? r.file),
-                      requestFile: r.file,
-                    })
-                  }
-                />
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <>
-            {groupedHeader}
-            <div
-              style={{
-                height: grouped.list.length * ROW_H,
-                position: "relative",
-                minWidth: TABLE_MIN_W,
-              }}
-            >
-              <div style={{ transform: `translateY(${range.first * ROW_H}px)` }}>
-                {grouped.list.slice(range.first, range.last).map((row) => renderGroupedRow(row))}
-              </div>
-            </div>
-          </>
-        )}
+        {errorNotice}
+        {emptyNotice}
+        {tableBody}
       </div>
     </section>
   );
