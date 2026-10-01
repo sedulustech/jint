@@ -306,6 +306,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     },
     { timeout: 10_000 },
   );
+  expect((trigger.element() as HTMLElement).textContent ?? "").toContain("run-1");
 });
 
 // ---- interleaved param-group walk (test #10) --------------------------------
