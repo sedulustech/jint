@@ -13,7 +13,13 @@ export default defineConfig({
   plugins: [tailwindcss(), apiPlugin({ root: resolve(import.meta.dirname, "tests/fixtures") })],
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "./src") } },
   optimizeDeps: {
-    include: ["react", "react-dom", "@testing-library/react", "@tanstack/react-query"],
+    include: [
+      "react",
+      "react-dom",
+      "@testing-library/react",
+      "@tanstack/react-query",
+      "@tanstack/react-router",
+    ],
   },
   test: {
     include: ["src/**/*.test-browser.tsx"],

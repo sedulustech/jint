@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
 import { useEffect, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
@@ -6,6 +7,7 @@ import { PairDetail } from "./views/PairDetail";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
 import { useTheme } from "./views/useTheme";
+import type { RunSearch } from "./router";
 import type { Report, RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
 import type { Theme } from "./views/useTheme";
@@ -29,35 +31,24 @@ const baseName = (p: string) => p.split("/").pop() ?? p;
 const runLabel = (r: RunSummary): string =>
   r.legacy ? "migrated run" : (r.cwd ?? r.configPath ?? "default rules");
 
-// deep link: #runs/<id> opens that run directly (tolerate trailing slash / whitespace)
-const runIdFromHash = (): string | null => {
-  if (typeof window === "undefined" || !window.location) return null;
-  const m = window.location.hash.match(/^\s*#runs\/([^/\s]+)\/?\s*$/);
-  return m ? m[1] : null;
-};
-const syncHash = (id: string) => {
-  if (typeof window === "undefined" || !window.location) return;
-  // empty clears the link without a history entry; a real id pushes one so back works
-  if (id === "") window.history?.pushState(null, "", "#");
-  else window.location.hash = `#runs/${id}`;
-};
 const relTime = (mtime: string) =>
   `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
 
-export function App() {
+export function App({ runId }: { runId: string | null }) {
   const { theme, choose } = useTheme();
-  const [runId, setRunId] = useState<string | null>(runIdFromHash);
-  // the detail pane is addressed by a rule-target pair, never by request identity
-  const [selectedPair, setSelectedPair] = useState<{
-    rule: string;
-    input: string;
-    requestFile?: string;
-  } | null>(null);
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as RunSearch;
+  // the detail pane is addressed by a rule-target pair, never by request identity;
+  // its identity lives in the URL (search params) so a pane deep-links + survives reload
+  const selectedPair =
+    search.rule !== undefined
+      ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
+      : null;
   const [mode, setMode] = useState<Mode>("rule");
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusRule, setFocusRule] = useState<string | null>(null);
   // null = follow the run's default (open when a report.json exists); toggle sets an override.
-  const [reportOverride, setReportOverride] = useState<boolean | null>(null);
+  const reportOverride = search.report === undefined ? null : search.report;
   const runs = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
   const reportQ = useQuery({
     queryKey: ["report", runId],
@@ -77,16 +68,35 @@ export function App() {
 
   // a new run resets the user's overrides so the default-open rule applies fresh
   useEffect(() => {
-    setReportOverride(null);
     setMode("rule");
-    setSelectedPair(null);
+    setFocusRule(null);
   }, [runId]);
 
   const pick = (id: string) => {
-    setRunId(id === "" ? null : id);
-    setSelectedPair(null);
-    syncHash(id);
+    // picking (or clearing) a run resets the panel state with it
+    navigate({
+      to: id === "" ? "/" : "/runs/$runId",
+      ...(id === "" ? {} : { params: { runId: id } }),
+      search: {} as RunSearch,
+    });
   };
+
+  // panel toggles are URL edits so back/forward walks run + panel history
+  // explicit to/params: the reducer only typechecks against a known route
+  const setSearch = (patch: Partial<RunSearch>) => {
+    navigate({
+      to: runId === null ? "/" : "/runs/$runId",
+      ...(runId === null ? {} : { params: { runId } }),
+      search: (prev: RunSearch) => ({ ...prev, ...patch }),
+    });
+  };
+  const setReportOverride = (v: boolean | null) => setSearch({ report: v ?? undefined });
+  const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
+    setSearch(
+      pair === null
+        ? { rule: undefined, input: undefined, file: undefined }
+        : { rule: pair.rule, input: pair.input, file: pair.requestFile },
+    );
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">

@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
-import { App } from "./App";
+import { redirectLegacyHash, router } from "./router";
 
 // App mounts against the real /api/* handler over tests/fixtures (see vitest.config.ts).
 const mount = () =>
@@ -9,7 +10,7 @@ const mount = () =>
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <App />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 
@@ -18,10 +19,11 @@ afterEach(() => {
   window.history.pushState(null, "", " ");
 });
 
-test("a pre-set #runs/<id> deep link selects that run", async () => {
+test("a pre-set /runs/<id> deep link selects that run", async () => {
   const { runs } = await (await fetch("/api/runs")).json();
   expect(runs.length).toBeGreaterThan(0);
   window.location.hash = `#runs/${runs[0].id}`;
+  redirectLegacyHash();
 
   mount();
 
@@ -32,7 +34,7 @@ test("a pre-set #runs/<id> deep link selects that run", async () => {
   expect(trigger.textContent).toContain(runs[0].id);
 });
 
-test("picking a run writes the hash; clearing removes it", async () => {
+test("picking a run writes the path", async () => {
   const { runs } = await (await fetch("/api/runs")).json();
   mount();
 
@@ -42,6 +44,5 @@ test("picking a run writes the hash; clearing removes it", async () => {
   fireEvent.click(
     await screen.findByRole("option", { name: new RegExp(runs[0].id) }, { timeout: 3000 }),
   );
-  expect(window.location.hash).toBe(`#runs/${runs[0].id}`);
-  expect(location.hash.endsWith(runs[0].id)).toBe(true);
+  expect(window.location.pathname).toBe(`/runs/${runs[0].id}`);
 });

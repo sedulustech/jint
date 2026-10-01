@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { expect, test, afterEach } from "vitest";
 import { page } from "vitest/browser";
-import { App } from "./App";
+import { router } from "./router";
 
 // ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 15 captures + report.json, 12 cells) ----
 // severity comes from the span-aware join: findings first, handle projection second.
@@ -22,7 +23,7 @@ afterEach(cleanup);
 function mount() {
   return render(
     <QueryClientProvider client={qc}>
-      <App />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
