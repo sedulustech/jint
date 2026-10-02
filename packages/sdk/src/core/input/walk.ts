@@ -489,6 +489,14 @@ export async function decompose(source: string, language: string): Promise<Inven
   // Depth cap: syntax trees cannot cycle, but pathologically deep nesting (describe inside
   // describe inside ...) should not walk unbounded; composites deeper than this stay header-only.
   const MAX_DESCENT_DEPTH = 8;
+  // Degraded-parse gate (issue 021): when error recovery flattens a body (hasError), the
+  // recovered statements surface at the top level and the composite descent then emits
+  // call-argument-arrow fragments (useEffect(() =>, setMode(...)) as sibling function-kind
+  // elements. In a degraded parse those inner statements are recovery fiction, not intentional
+  // test-style composites: the recovered composite is emitted WHOLE (rescoped to its real node
+  // extent — the header truncation would cut it to its opener line) and NOT descended into.
+  // Healthy parses keep the describe(...)/it(...) descent untouched.
+  const degraded = tree.rootNode.hasError;
   const DESCENT_CONTAINERS = new Set([
     "arguments",
     "statement_block",
@@ -577,7 +585,24 @@ export async function decompose(source: string, language: string): Promise<Inven
         }
         // Composite: judged AND descended into (class -> type role; call -> function role).
         if (COMPOSITES.has(type)) {
-          descend(inner, 1, "d" + String(definitions.length - 1));
+          const label = "d" + String(definitions.length - 1);
+          if (degraded) {
+            // Degraded parse (issue 021): recovered body. The statements inside this composite
+            // are recovery fiction — never descended (no sibling fragments). The header itself
+            // is RESCOPED to its real node extent (the truncation above cut a recovered
+            // multi-line call to its opener line): anchors over the enclosed lines resolve HERE,
+            // to the unit that actually contains them, judged whole.
+            const lastDef = definitions[definitions.length - 1]!;
+            if (lastDef.label === label) {
+              definitions[definitions.length - 1] = {
+                ...lastDef,
+                content: inner.text,
+                span: spanOf(inner),
+              };
+            }
+            continue;
+          }
+          descend(inner, 1, label);
         }
         continue;
       }

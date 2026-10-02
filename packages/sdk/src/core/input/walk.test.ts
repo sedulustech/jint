@@ -626,3 +626,72 @@ describe("decompose — variable declaration roles", () => {
     expectSpansRoundTrip(source, inv);
   });
 });
+
+describe("decompose - degraded-parse statement fragments (issue 021, real-shaped fixture)", () => {
+  // The regression fixture is the REAL cut, not an idealized body: the leak only reproduces on
+  // real-body structure (multi-line ternary/expression consts before the call) under error
+  // recovery — idealized bodies parse healthy and never leaked.
+  const FIXTURE = "tests/fixtures/statements-grammar/repro-app-fn.tsx";
+
+  test("recovered body statements do not leak as sibling 1-line fragments", async () => {
+    const source = await Bun.file(FIXTURE).text();
+    const inv = await decompose(source, "typescript");
+    expect(inv.hasError).toBe(true); // the cut is truncated: recovery is the leak's precondition
+    // BEFORE: L34 'useEffect(() =>', L35 'setMode(...)', L36 'setFocusRule(...)' as sibling
+    // kind:function elements at 1-line spans. AFTER: none of those 1-line fragments exist.
+    for (const line of [34, 35, 36]) {
+      const fragment = inv.definitions.find(
+        (d) => d.span.start.line === line && d.span.end.line === line,
+      );
+      expect(fragment).toBeUndefined();
+    }
+  });
+
+  test("anchors over the leaked lines resolve to the enclosing (rescoped) unit", async () => {
+    const source = await Bun.file(FIXTURE).text();
+    const inv = await decompose(source, "typescript");
+    const container = inv.definitions.find((d) => d.span.start.line <= 35 && 35 <= d.span.end.line);
+    expect(container).toBeDefined();
+    expect(container!.span.start.line).toBe(34);
+    expect(container!.span.end.line).toBe(37);
+    expect(container!.nodeType).toBe("call_expression");
+    expect(container!.role).toBe("function");
+    expect(container!.content).toContain("setMode");
+    expect(container!.content).toContain("setFocusRule");
+  });
+
+  test("py/go gate: healthy-grammar fixtures are untouched by the degraded-path change", async () => {
+    const py = await decompose(
+      await Bun.file("probes/statements-grammar/frag.py").text(),
+      "python",
+    );
+    expect(py.hasError).toBe(false);
+    expect(py.definitions.map((d) => [d.nodeType, d.span.start.line, d.span.end.line])).toEqual([
+      ["function_definition", 1, 3],
+      ["function_definition", 5, 6],
+    ]);
+    const go = await decompose(await Bun.file("probes/statements-grammar/frag.go").text(), "go");
+    expect(go.hasError).toBe(false);
+    expect(go.definitions.map((d) => [d.nodeType, d.span.start.line, d.span.end.line])).toEqual([
+      ["function_declaration", 1, 4],
+      ["function_declaration", 6, 8],
+    ]);
+  });
+
+  test("the original app file loses the L71-L73 fragments; the rest of its inventory stands", async () => {
+    const inv = await decompose(
+      await Bun.file("tests/fixtures/statements-grammar/app-orig.tsx").text(),
+      "typescript",
+    );
+    for (const line of [71, 72, 73]) {
+      expect(
+        inv.definitions.find((d) => d.span.start.line === line && d.span.end.line === line),
+      ).toBeUndefined();
+    }
+    const rescoped = inv.definitions.find((d) => d.span.start.line === 71);
+    expect(rescoped?.span.end.line).toBe(74);
+    expect(rescoped!.content).toContain("setMode");
+    // untouched neighbours: the real nested arrow functions still emit
+    expect(inv.definitions.find((d) => d.span.start.line === 76)?.span.end.line).toBe(83);
+  });
+});

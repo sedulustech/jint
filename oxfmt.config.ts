@@ -2,8 +2,9 @@ import { defineConfig } from "oxfmt";
 
 export default defineConfig({
   // probes/ is archived probe data (fixtures are deliberately defective; configs are
-  // historical snapshots) - format-checked source stays out of the archive.
-  ignorePatterns: ["probes/**"],
+  // historical snapshots) - format-checked source stays out of the archive. The issue-021
+  // fixtures are deliberately truncated code cuts (unclosed braces) - unformattable by design.
+  ignorePatterns: ["probes/**", "tests/fixtures/statements-grammar/**"],
   jsdoc: true,
   sortImports: {
     ignoreCase: true,
