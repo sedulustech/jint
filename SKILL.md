@@ -98,11 +98,14 @@ jint src/a.ts@L58 --rule is_greppable  # narrow any selection to ONE classifier 
 - THE FIX LOOP (the workflow this tool is for):
   1. full run first — `jint src/` for the whole picture;
   2. fix one element;
-  3. verify scoped, one call: `jint src/a.ts@L58 --rule <rule>`;
+  3. verify scoped, one call: `jint src/a.ts@L<current-line> --rule <rule>` — the finding's
+     `@L` is pre-edit: editing above the anchor shifts every line below it, so re-check the
+     element where it NOW lives (the lines you just changed), never the stale finding line;
   4. repeat; 5. full re-run at the end — 0 errors.
-     To isolate ONE rule on ONE element, never copy code into probe files: `file@L --rule`
-     does it in a single call. Re-running the whole file after every fix is the expensive
-     habit this loop replaces — full runs converge at the end, not between edits.
+     Small files rarely need the scoped step (full runs are cheap); large files, where a
+     full re-run is hundreds of calls, are where it pays. To isolate ONE rule on ONE element,
+     never copy code into probe files: `file@L --rule` does it in a single call. Full runs
+     converge at the end, not between edits.
 - Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal,
   4 zero measurements. Findings -> stdout; run errors -> stderr.
 - **Every run prints its rubric first**: the full rule set (names, targets,

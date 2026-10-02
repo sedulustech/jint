@@ -79,8 +79,11 @@ FULLY ENCLOSED in [s,e] — partial overlaps never selected; a range enclosing n
 naming the file's element spans. Comma list @L<s>-<e>,@L<s>-<e>: each item independent. Each
 selected element is one classifier call (its rules batched); --rule narrows every selection to ONE.
 Finding line nouns paste back as file@L<line> — element ids are run-scoped and never selectable.
-Verifying one fix: after editing an element, re-check exactly it —
-  jint src/a.ts@L58 --rule <rule>    one call, scoped; then a full re-run at the end.
+Verifying one fix: the finding's @L is pre-edit — editing above the anchor shifts every line
+below it, so re-check the element where it NOW lives (you know the lines you just changed):
+  jint src/a.ts@L<current-line> --rule <rule>   one call, scoped; then a full re-run.
+  Small files rarely need the scoped step (full runs are cheap); large files, where a full
+  re-run is hundreds of calls, are where it pays.
 
 The resource is the noun; the verb (classify) is implicit. str is a noun only as the
 FIRST positional; the next positional is its payload, taken verbatim — no flag parsing:
