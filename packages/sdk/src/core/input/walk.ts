@@ -18,6 +18,7 @@
 
 import goWasm from "tree-sitter-go/tree-sitter-go.wasm" with { type: "file" };
 import pythonWasm from "tree-sitter-python/tree-sitter-python.wasm" with { type: "file" };
+import tsxWasm from "tree-sitter-typescript/tree-sitter-tsx.wasm" with { type: "file" };
 import typescriptWasm from "tree-sitter-typescript/tree-sitter-typescript.wasm" with { type: "file" };
 import { Language, Parser, type Language as LanguageType } from "web-tree-sitter";
 // Grammar wasms as bundled assets: file paths when running from source, embedded ($bunfs) paths
@@ -272,8 +273,14 @@ function declaredName(type: string, node: { namedChildren: any[] }): string | un
   }
 }
 
+// tsx shares the typescript role table: the tsx grammar emits the same declaration node types,
+// and JSX stays inside them (const x = () => <div/>) — a probe over real app views showed no
+// jsx_* node type at the top level, so nothing extra to map.
+const TSX: LanguageMapping = { ...TYPESCRIPT };
+
 const LANGUAGES: Record<string, LanguageMapping> = {
   typescript: TYPESCRIPT,
+  tsx: TSX,
   python: PYTHON,
   go: GO,
 };
@@ -285,6 +292,7 @@ export function knownLanguages(): string[] {
 
 const WASM_PATHS: Record<string, string> = {
   typescript: typescriptWasm,
+  tsx: tsxWasm,
   python: pythonWasm,
   go: goWasm,
 };
@@ -660,7 +668,8 @@ export async function decompose(source: string, language: string): Promise<Inven
 
 /** The inventory's languages: the tree-sitter grammars actually mapped (design §7.2). */
 export function languageOf(path: string): string | null {
-  if (/\.(m|c)?tsx?$/.test(path)) return "typescript";
+  if (/\.tsx$/.test(path)) return "tsx";
+  if (/\.(m|c)?ts$/.test(path)) return "typescript";
   if (/\.py$/.test(path)) return "python";
   return /\.go$/.test(path) ? "go" : null;
 }
