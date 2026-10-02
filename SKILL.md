@@ -45,7 +45,14 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 ## Output
 
 - Default stdout: one raw line per finding —
-  `path#id@L<line>  rule  level  score  [note]  run=<id>` — findings only, no table, no color.
+  `path@L<line>  rule  level  score  [note]  run=<id>` — findings only, no table, no color.
+  The element id never prints (it is run-scoped, an internal of the report's `input` key, not a
+  query surface).
+- Element-scoped runs echo to stderr (never stdout): a resolution map per query item
+  (`jint: @L36-L60 -> 3 elements: L38, L40, L58-L59`), then per element an edge-only section
+  carrying its verdicts —
+  `--- path@L38 (1 line) - is_greppable: error 0.23 ---` + the first/last source lines
+  (a `... N more lines ...` marker between when the span exceeds two lines).
   `run=<id>` appears only when recording is active. Totals print on stderr:
   `jint: N problems (E errors, W warnings)`.
 - `--json`: the canonical report bytes on stdout, byte-identical to the run's `report.json`

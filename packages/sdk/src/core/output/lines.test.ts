@@ -40,14 +40,15 @@ describe("renderLines", () => {
     }
   });
 
-  test("columns: path#id@L<line>  rule  level  score  [note]  run=<id>", () => {
+  test("columns: path@L<line>  rule  level  score  [note]  run=<id> (id never prints)", () => {
     const { stdout } = renderLines(report, "1790865385203");
     const lines = stdout.trimEnd().split("\n");
     expect(lines[0]).toBe("src/a.ts  is_name_purposeful  warn  0.53  run=1790865385203");
     expect(lines[1]).toBe(
-      "src/b.ts#uuid-1@L8  is_cognitively_complex  warn  2.00  [Moderate: the reader must pause once or twice]  run=1790865385203",
+      "src/b.ts@L8  is_cognitively_complex  warn  2.00  [Moderate: the reader must pause once or twice]  run=1790865385203",
     );
-    expect(lines[2]).toBe("src/c.ts#uuid-2  is_function_srp  error  1.00  run=1790865385203");
+    expect(lines[2]).toBe("src/c.ts  is_function_srp  error  1.00  run=1790865385203");
+    expect(stdout).not.toContain("#");
   });
 
   test("run column omitted when recording is inactive (no runId)", () => {

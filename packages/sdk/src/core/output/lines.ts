@@ -6,9 +6,10 @@
  *
  * Path#id@L<line> rule level score [note] run=<id>
  *
- * Path#id is the finding's input (the deep-link key); @L<line> is the human anchor (element-scoped
- * findings only — files-target findings have no span); [note] appears only for score findings;
- * run=<id> appears only when recording is active. No color: the lines are piped data.
+ * Path#id is the finding input (the run-scoped key the app pairs with; it does NOT print). The raw
+ * line is the LOC form only:
+ *
+ * Path@L<line> rule level score [note] run=<id>
  */
 
 import type { LintReport } from "../lint.ts";
@@ -23,10 +24,13 @@ export interface LinesRender {
 export function renderLines(report: LintReport, runId?: string): LinesRender {
   const out: string[] = [];
   for (const f of report.findings) {
+    // The element id is run-scoped (the report input stays path#id for the app to pair with); the
+    // public line carries the LOC anchor only.
+    const stem = f.input.split("#")[0]!;
     const anchor = f.location !== undefined ? `@L${f.location.span.start.line}` : "";
     const note = f.note !== undefined ? `  [${f.note}]` : "";
     const run = runId !== undefined ? `  run=${runId}` : "";
-    out.push(`${f.input}${anchor}  ${f.rule}  ${f.severity}  ${f.value.toFixed(2)}${note}${run}`);
+    out.push(`${stem}${anchor}  ${f.rule}  ${f.severity}  ${f.value.toFixed(2)}${note}${run}`);
   }
 
   const err: string[] = [];

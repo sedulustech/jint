@@ -28,10 +28,14 @@ import {
 import {
   classifyFile,
   elementWireId,
+  rulesForElement,
+  selectElement,
+  selectElements,
   walkUnit,
   type ClassifyEvent,
   type WalkedUnit,
 } from "./rules/classify.ts";
+import { judgesWholeUnit } from "./scope.ts";
 import {
   buildDiffLens,
   resolveAllTsTargets,
@@ -100,6 +104,19 @@ export interface LintOptions {
    * form) and ALWAYS populates the ctx.diff lens for TS rules.
    */
   changed?: string;
+  /**
+   * Element-scoped run (CLI `<file>@L<line>`): judge ONE walker element of ONE file. The input is
+   * exactly that file; the walked inventory narrows to the selected element, so element jobs fan
+   * out to a single classifier call (all of the element's rules batched — fewer with --rule).
+   * Whole-unit (files-target) rules never run element-scoped: their claim is about the file, not
+   * the element — an explicit --rule naming one is a caller contradiction and fails setup. Dir
+   * nouns and str units are incompatible by construction.
+   */
+  element?: {
+    readonly path: string;
+    readonly anchor?: number;
+    readonly ranges?: readonly { readonly start: number; readonly end: number }[];
+  };
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
@@ -149,6 +166,23 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     options.disable,
     options.only,
   );
+  // Element scope: files-target rules are claims about the FILE, never one element — they cannot
+  // run scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are
+  // silently out of the scoped set, like any rule whose target misses the subject.
+  let scopedRules = rules;
+  if (options.element !== undefined) {
+    const whole = rules.filter((rule) => judgesWholeUnit(rule, "file"));
+    if (whole.length > 0) {
+      const demanded = new Set(whole.map((rule) => rule.name));
+      const named = (options.only ?? []).find((name) => demanded.has(name));
+      if (named !== undefined)
+        throw new SetupError(
+          "ELEMENT_NOT_FOUND",
+          `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
+        );
+      scopedRules = rules.filter((rule) => !judgesWholeUnit(rule, "file"));
+    }
+  }
   // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
@@ -221,8 +255,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           })()
         : await collectUnits(
             resolveInput({
-              // the empty-input guard above established non-empty
-              input: input as string | string[],
+              // the empty-input guard above established non-empty; element scope pins the
+              // input to exactly the selector file (dir/config input is ignored)
+              input: (options.element !== undefined ? options.element.path : input) as
+                | string
+                | string[],
               inputType: options.inputType ?? options.config.inputType,
               exclude,
             }),
@@ -237,7 +274,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       yield { type: "note", note: `changed-list path not found in the walk: ${missing}` };
     }
   }
-  const byName = new Map(rules.map((s) => [s.name, s]));
+  const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;
 
   // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
@@ -258,6 +295,58 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         }
       }),
     );
+  }
+  // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
+  // selected element, so element jobs fan out to ONE classifier call. A selector that names
+  // nothing (a line outside every span) is a caller error — fail setup, naming what
+  // the file does contain.
+  if (options.element !== undefined) {
+    const w = walked.get(0);
+    if (w === undefined || w.failed !== null)
+      throw new SetupError(
+        "ELEMENT_NOT_FOUND",
+        `cannot resolve element: ${w?.failed ?? "file did not walk"}`,
+      );
+    const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
+    let selected: WalkElement[];
+    if (options.element.anchor !== undefined) {
+      // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
+      const anchor = selectElement(w.inventory, { line: options.element.anchor });
+      if (anchor === undefined)
+        throw new SetupError(
+          "ELEMENT_NOT_FOUND",
+          `${options.element.path}: line ${options.element.anchor} is inside no element (elements cover: ${coverage})`,
+        );
+      selected = [anchor];
+    } else {
+      // RANGE: fully-enclosed only; each comma item resolves independently.
+      selected = [];
+      for (const range of options.element.ranges ?? []) {
+        const enclosed = selectElements(w.inventory, range);
+        if (enclosed.length === 0)
+          throw new SetupError(
+            "ELEMENT_NOT_FOUND",
+            `${options.element.path}: no element fully enclosed in L${range.start}-L${range.end} (elements cover: ${coverage})`,
+          );
+        selected.push(...enclosed);
+      }
+    }
+    const elementOpt = options.element;
+    // Payload-less units (comment/import no scoped rule targets) are skipped + counted, never failed.
+    const skipped = selected.filter(
+      (e) => rulesForElement(scopedRules, e, elementOpt.path).length === 0,
+    ).length;
+    if (skipped > 0)
+      yield {
+        type: "note",
+        note: `${options.element.path}: ${skipped} payload-less element(s) in selection skipped (comment/import units)`,
+      };
+    walked.set(0, {
+      inventory: selected,
+      derived: w.derived,
+      failed: null,
+      failedCause: undefined,
+    });
   }
 
   // TS-tier resolution ONCE per run over the completed walk, then the retention decision: content
@@ -303,7 +392,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       units
         .slice(i, i + FILE_CONCURRENCY)
         .map((unit, j) =>
-          runUnit(unit, rules, classifier, () => aborted, options.language, walked.get(i + j)),
+          runUnit(
+            unit,
+            scopedRules,
+            classifier,
+            () => aborted,
+            options.language,
+            walked.get(i + j),
+          ),
         ),
     );
     for (let j = 0; j < results.length; j++) {

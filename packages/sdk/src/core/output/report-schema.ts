@@ -78,9 +78,9 @@ export const FINDING_SCHEMA = Type.Object({
  * regex-parseable. All columns optional except rule/level/score; note keeps its brackets.
  */
 export const LINE_SCHEMA = Type.String({
-  // path#id(@L<line>)  rule  level  score  [note]  run=<id> — two-space separators, parseable.
-  pattern:
-    "^(\\S+)(#\\S+)?(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}(  \\[[^\\]]+\\])?(  run=\\S+)?$",
+  // path(@L<line>)  rule  level  score  [note]  run=<id> — two-space separators, parseable. The
+  // element id never prints (run-scoped internal); files-target findings have no anchor.
+  pattern: "^(\\S+)(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}(  \\[[^\\]]+\\])?(  run=\\S+)?$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({

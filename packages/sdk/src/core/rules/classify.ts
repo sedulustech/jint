@@ -418,6 +418,35 @@ function scopeNotesFor(
   return [`${path}: scope excluded - ${noteParts.join("; ")}`];
 }
 
+/**
+ * The element a selector names: the one element whose span covers the line (start.line <= L <=
+ * end.line; top-level spans are disjoint, so containment is unique). Undefined = nothing matches:
+ * the caller reports in-band, never silence. (Element ids are run-scoped internals, never a
+ * selector — the only public query is the line.)
+ */
+export function selectElement(
+  inventory: readonly WalkElement[],
+  selector: { readonly line: number },
+): WalkElement | undefined {
+  return inventory.find(
+    (e) => e.span.start.line <= selector.line && selector.line <= e.span.end.line,
+  );
+}
+
+/**
+ * The elements a RANGE selector names: exactly the elements FULLY ENCLOSED in the inclusive span
+ * [start, end] - deliberately dumb, no containing-expansion. A range partially overlapping an
+ * element selects nothing from it (the two-partials-excluded case is the pinned regression); an
+ * element enclosed exactly is selected. Order-preserving; empty = the caller reports the miss
+ * in-band, never silence. (Element ids are run-scoped internals, never a selector.)
+ */
+export function selectElements(
+  inventory: readonly WalkElement[],
+  range: { readonly start: number; readonly end: number },
+): WalkElement[] {
+  return inventory.filter((e) => e.span.start.line >= range.start && e.span.end.line <= range.end);
+}
+
 interface ElementJob {
   /** Run-scoped uuidv4: state.id -> input suffix -> findings -> UI cells, never positional. */
   readonly id: string;

@@ -31,6 +31,7 @@ export type SetupErrorCode =
   | "ENTRYPOINT_UNREADABLE"
   | "NOT_SOURCE"
   | "RULE_INVALID"
+  | "ELEMENT_NOT_FOUND"
   | "INTERNAL";
 
 /**

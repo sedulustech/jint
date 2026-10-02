@@ -28,6 +28,7 @@ export {
 export { checkRunKnobs } from "./core/jev/pacer.ts";
 export { renderJson } from "./core/output/json.ts";
 export { renderLines } from "./core/output/lines.ts";
+export { selectionEcho } from "./core/output/echo.ts";
 export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { selectRules } from "./core/lint.ts";

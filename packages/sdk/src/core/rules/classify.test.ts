@@ -9,6 +9,7 @@ import {
   type Unit,
   type UnitState,
 } from "../types.ts";
+import { selectElement, selectElements } from "./classify.ts";
 import {
   elementWireId,
   compileRuleQuestions,
@@ -405,5 +406,104 @@ describe("classifyFile — imports routing", () => {
     );
     expect(events.filter((e) => e.event instanceof ClassifyError)).toHaveLength(0);
     expect(events.filter((e) => !(e.event instanceof ClassifyError))).toHaveLength(0);
+  });
+});
+
+describe("selectElement - LOC resolution for element-scoped runs", () => {
+  const inventory = [
+    {
+      label: "d0",
+      span: {
+        start: { line: 1, column: 0 },
+        end: { line: 3, column: 1 },
+        startByte: 0,
+        endByte: 82,
+      },
+      content: "fn0",
+      nodeType: "function_declaration",
+      role: "function",
+      internalCommentCount: 0,
+    },
+    {
+      label: "d1",
+      span: {
+        start: { line: 5, column: 0 },
+        end: { line: 7, column: 1 },
+        startByte: 84,
+        endByte: 160,
+      },
+      content: "fn1",
+      nodeType: "function_declaration",
+      role: "function",
+      internalCommentCount: 0,
+    },
+  ] as any[];
+
+  test("containment: first line, last line, gap, inside, miss", () => {
+    expect(selectElement(inventory, { line: 1 })?.label).toBe("d0");
+    expect(selectElement(inventory, { line: 3 })?.label).toBe("d0");
+    expect(selectElement(inventory, { line: 4 })?.label).toBeUndefined();
+    expect(selectElement(inventory, { line: 5 })?.label).toBe("d1");
+    expect(selectElement(inventory, { line: 7 })?.label).toBe("d1");
+    expect(selectElement(inventory, { line: 8 })).toBeUndefined();
+  });
+});
+
+describe("selectElements - RANGE resolution: fully-enclosed only", () => {
+  const inventory = [
+    {
+      label: "d0",
+      span: {
+        start: { line: 1, column: 0 },
+        end: { line: 3, column: 1 },
+        startByte: 0,
+        endByte: 82,
+      },
+      content: "fn0",
+      nodeType: "function_declaration",
+      role: "function",
+      internalCommentCount: 0,
+    },
+
+    {
+      label: "d1",
+      span: {
+        start: { line: 5, column: 0 },
+        end: { line: 7, column: 1 },
+        startByte: 84,
+        endByte: 160,
+      },
+      content: "fn1",
+      nodeType: "function_declaration",
+      role: "function",
+      internalCommentCount: 0,
+    },
+  ] as any[];
+
+  test("a range fully inside one unit selects exactly it", () => {
+    expect(selectElements(inventory, { start: 1, end: 3 }).map((e) => e.label)).toEqual(["d0"]);
+
+    expect(selectElements(inventory, { start: 2, end: 2 })).toEqual([]); // [2,2] does not enclose L1-L3
+  });
+
+  test("THE PIN: a range straddling a boundary selects ONLY the fully-enclosed", () => {
+    // [4,4] touches both d0 (ends L3... no) - use [3,5]: d0 ends L3 (enclosed? start>=3 no), d1 starts L5 (end<=5 no)
+
+    expect(selectElements(inventory, { start: 3, end: 5 })).toEqual([]);
+
+    // [1,7] encloses both exactly:
+
+    expect(selectElements(inventory, { start: 1, end: 7 }).map((e) => e.label)).toEqual([
+      "d0",
+      "d1",
+    ]);
+
+    // [2,7]: d0 starts L1 < 2 - excluded even though the range covers most of it:
+
+    expect(selectElements(inventory, { start: 2, end: 7 }).map((e) => e.label)).toEqual(["d1"]);
+  });
+
+  test("a range enclosing nothing selects nothing (caller reports the miss)", () => {
+    expect(selectElements(inventory, { start: 8, end: 90 })).toEqual([]);
   });
 });

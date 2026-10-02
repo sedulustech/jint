@@ -36,6 +36,7 @@ import {
   type ResolvedConfig,
   type Rule,
 } from "@jint/sdk";
+import { selectionEcho } from "@jint/sdk";
 import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
@@ -70,6 +71,14 @@ Usage:
                                          with no other input, the list is what gets judged)
   cat snippet.ts | jint str -     piped stdin, one str unit
   jint                            no positional: input comes from jint.config.json
+
+Element-scoped runs: address one element directly —
+  jint src/a.ts@L58              the element whose span contains line 58 (one classifier call)
+ANCHOR @L<n>: the element whose span contains line n (one call). RANGE @L<s>-<e>: every element
+FULLY ENCLOSED in [s,e] — partial overlaps never selected; a range enclosing none is an error
+naming the file's element spans. Comma list @L<s>-<e>,@L<s>-<e>: each item independent. Each
+selected element is one classifier call (its rules batched); --rule narrows every selection to ONE.
+Finding line nouns paste back as file@L<line> — element ids are run-scoped and never selectable.
 
 The resource is the noun; the verb (classify) is implicit. str is a noun only as the
 FIRST positional; the next positional is its payload, taken verbatim — no flag parsing:
@@ -190,6 +199,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // empty-input backstop.
   let stdinStr: { content: string } | undefined;
   let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
+  let elementScope: FileSelector | undefined;
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
@@ -247,11 +257,52 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         return 2;
       }
     }
-    // shape inference: exists-as-dir -> dir, else file
-    lintInput =
-      positionals.length === 1
-        ? { input: positionals[0]! }
-        : { input: positionals, inputType: "file" };
+    // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
+    // element. A selector on multiple positionals or on a directory is a caller contradiction —
+    // say so before any input is touched.
+    const selectors = positionals.map((p) => parseFileSelector(p));
+    const pasted = selectors.find((sel) => sel.pastedId === true);
+    if (pasted !== undefined) {
+      usageError(
+        `element ids are run-scoped and cannot select across runs — query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+      );
+      return 2;
+    }
+    const bad = selectors.find((sel) => sel.badRange !== undefined);
+    if (bad !== undefined) {
+      usageError(
+        `bad line span "${bad.path}@${bad.badRange}" - use @L<line> or @L<start>-<end>,... with start <= end (see jint --help)`,
+      );
+      return 2;
+    }
+    const selected = selectors.filter(
+      (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
+    );
+    if (selected.length > 1) {
+      usageError("one element selector per run — select from a single file");
+      return 2;
+    }
+    if (selected.length === 1) {
+      const sel = selected[0]!;
+      if (selectors.length > 1) {
+        usageError(
+          `an element selector selects one file — classify the others separately: jint ${sel.path}`,
+        );
+        return 2;
+      }
+      if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
+        usageError(`${sel.path} is a directory — element selectors take files`);
+        return 2;
+      }
+      elementScope = sel;
+      lintInput = { input: sel.path };
+    } else {
+      // shape inference: exists-as-dir -> dir, else file
+      lintInput =
+        positionals.length === 1
+          ? { input: positionals[0]! }
+          : { input: positionals, inputType: "file" };
+    }
   } else if (!process.stdin.isTTY && firstPositional !== "-") {
     const content = await Bun.stdin.text();
     if (content !== "") {
@@ -305,6 +356,13 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         rps_budget: rpsBudget,
         timeout,
         changed: firstPositional === "-" ? "-" : cliArgs.changed,
+        ...(elementScope !== undefined && {
+          element: {
+            path: elementScope.path,
+            ...(elementScope.anchor !== undefined && { anchor: elementScope.anchor }),
+            ...(elementScope.ranges !== undefined && { ranges: elementScope.ranges }),
+          },
+        }),
       }),
     );
     // One canonical artifact: renderJson's bytes ARE report.json AND the --json stdout. The
@@ -329,6 +387,12 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     });
     process.stdout.write(rendered.stdout);
     process.stderr.write(rendered.stderr);
+    // The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays
+    // pure finding data). Failure of the run itself already reported — never double-report.
+    if (elementScope !== undefined) {
+      const echo = await selectionEcho(elementScope, lintReport.findings);
+      if (echo !== "") process.stderr.write(echo);
+    }
     const exit = computeExit(lintReport);
     process.stderr.write(recordNotice());
     return exit;
@@ -350,6 +414,67 @@ function numericFlag(value: string | undefined, flag: string): number | undefine
     return undefined;
   }
   return n;
+}
+
+/** A parsed element selector riding a file noun: an anchor line, or a comma list of ranges. */
+export interface FileSelector {
+  readonly path: string;
+  /** @L<n>: the unique element containing the line. */
+  readonly anchor?: number;
+  /** @L<s>-<e> items: elements FULLY ENCLOSED in each inclusive span. */
+  readonly ranges?: readonly { readonly start: number; readonly end: number }[];
+  /** Uuid-shaped #id stem: rejected with guidance (ids are run-scoped, never a query surface). */
+  readonly pastedId?: boolean;
+  /** @L present but unparseable (end < start, non-digits, trailing characters). */
+  readonly badRange?: string;
+}
+
+const UUID_SOURCE = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+
+/**
+ * Parse the element selector off a file noun: `path` or `path@L<n>`. The suffix is only peeled when
+ * it matches its shape (digits after @L), so real paths containing @ stay paths. A uuid- shaped
+ * `#id` stem — a finding string pasted from older output — is NOT a selector: element ids are
+ * run-scoped internals and cannot select across runs; the caller reports guidance (pastedId). No
+ * selector: the token IS the path.
+ */
+export function parseFileSelector(token: string): FileSelector {
+  if (token.match(new RegExp("#" + UUID_SOURCE + "(@L([0-9]+))?$", "i")))
+    return { path: token, pastedId: true };
+  const atLine = token.indexOf("@L");
+  if (atLine !== -1) {
+    const stem = token.slice(0, atLine);
+    const items = token
+      .slice(atLine + 1)
+      .split(",")
+      .map((item) => item.trim().replace(/^@/, ""));
+    const ranges: { start: number; end: number }[] = [];
+    let anchor: number | undefined;
+    for (const item of items) {
+      const single = item.match(/^L([0-9]+)$/);
+      if (single) {
+        const n = Number(single[1]);
+        // an anchor list is nonsense (containment is unique); one anchor OR ranges
+        if (items.length === 1) anchor = n;
+        else ranges.push({ start: n, end: n });
+        continue;
+      }
+      const spread = item.match(/^L([0-9]+)-L?([0-9]+)$/);
+      if (spread) {
+        const start = Number(spread[1]);
+        const end = Number(spread[2]);
+        if (start <= end) {
+          ranges.push({ start, end });
+          continue;
+        }
+      }
+      return { path: stem, badRange: item };
+    }
+    if (anchor !== undefined) return { path: stem, anchor };
+    if (ranges.length > 0) return { path: stem, ranges };
+    return { path: stem, badRange: token.slice(atLine + 2) };
+  }
+  return { path: token };
 }
 
 /** ParseCliArgs result: validated modifier flags plus raw positionals, or a usage message. */
@@ -538,7 +663,8 @@ function exitForThrown(thrown: unknown): number {
     error.code === "ENTRYPOINT_NOT_FOUND" ||
     error.code === "ENTRYPOINT_UNREADABLE" ||
     error.code === "NOT_SOURCE" ||
-    error.code === "RULE_INVALID"
+    error.code === "RULE_INVALID" ||
+    error.code === "ELEMENT_NOT_FOUND"
   )
     return 2;
   // A ClassifyError that escaped the stream: the run happened but produced nothing
