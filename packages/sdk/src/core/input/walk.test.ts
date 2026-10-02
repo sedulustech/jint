@@ -741,4 +741,27 @@ describe("decompose — tsx", () => {
     expect(languageOf("src/x.cts")).toBe("typescript");
     expect(languageOf("src/x.jsx")).toBe(null);
   });
+
+  test("a real .tsx file parses healthy under the tsx grammar", async () => {
+    const source = await Bun.file("packages/app/src/views/PairDetail.tsx").text();
+    const inv = await decompose(source, "tsx");
+    expect(inv.hasError).toBe(false);
+    expect(inv.definitions.length).toBeGreaterThan(0);
+    expectSpansRoundTrip(source, inv);
+  });
+
+  test("a genuinely broken .tsx still takes the degraded-rescope path (pairing)", async () => {
+    const source = await Bun.file("tests/fixtures/statements-grammar/repro-app-fn.tsx").text();
+    const inv = await decompose(source, "tsx");
+    expect(inv.hasError).toBe(true); // truncated cut: recovery is the leak's precondition
+    for (const line of [34, 35, 36]) {
+      expect(
+        inv.definitions.find((d) => d.span.start.line === line && d.span.end.line === line),
+      ).toBeUndefined();
+    }
+    const container = inv.definitions.find((d) => d.span.start.line <= 35 && 35 <= d.span.end.line);
+    expect(container!.span.start.line).toBe(34);
+    expect(container!.span.end.line).toBe(37);
+    expect(container!.content).toContain("setMode");
+  });
 });
