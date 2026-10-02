@@ -2,26 +2,27 @@ import { readdir, stat, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 /**
- * THE shared API route module. Mounted twice: by the vite dev plugin (src/api/vite-plugin.ts) and
- * by the Bun prod server (server.ts). All routes under /api/. Paths resolve ONLY inside the
- * requests root; anything traversal-shaped is rejected with 400.
+ * THE shared API route module, mounted by both the dev plugin and the prod server. Paths resolve
+ * ONLY inside the requests root; anything traversal-shaped is rejected with 400.
  */
 import { handleSeverity, type Element, type HandlerData, type Severity } from "@jint/contract";
+import type { RequestFile } from "../types";
+import type { Dirent } from "node:fs";
 
 export interface ApiOptions {
   /** Absolute requests root. Defaults to the homedir store (~/.jint/runs). */
   root?: string;
 }
 
-export function requestsRoot(opts: ApiOptions = {}): string {
-  // the homedir store works with zero env; opts.root overrides (tests, embedded servers)
-  return resolve(opts.root ?? join(homedir(), ".jint/runs"));
+export function requestsRoot(options: ApiOptions = {}): string {
+  // the homedir store works with zero env; options.root overrides (tests, embedded servers)
+  return resolve(options.root ?? join(homedir(), ".jint/runs"));
 }
 
 /** Collapse the homedir prefix to '~' so run labels stay short (the store lives under ~/.jint). */
-const collapseHome = (p: string): string => {
+const collapseHome = (path: string): string => {
   const home = homedir();
-  return p === home ? "~" : p.startsWith(home + "/") ? "~" + p.slice(home.length) : p;
+  return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
 };
 
 interface RunSummary {
@@ -38,15 +39,22 @@ interface RunSummary {
 
 interface RequestItem {
   file: string;
+  /** 1-based position in ts order, assigned after parsing. */
   seq: number;
+  /** ISO timestamp of the request. */
   ts: string;
-  /** One-element call (state carries source) vs whole-unit (state carries content). */
+  /** True for a one-element call (state carries source); false for a whole-unit call. */
   element: boolean;
+  /** Source path the request measured; null when the request carried no path. */
   path: string | null;
+  /** The measured element's uuid; null for whole-unit (file-tier) requests. */
   elementId: string | null;
+  /** Rule names the request asked, in canonical spelling when the report provides it. */
   rules: string[];
   questionCount: number;
+  /** Wall-clock duration, when it can be proven; null rather than an inflated guess. */
   durationMs: number | null;
+  /** Highest and lowest noul answer in the request; null when it has none. */
   maxProb: number | null;
   minProb: number | null;
   /** Every noul answer in the request, sorted. Drives histograms. */
@@ -67,9 +75,9 @@ interface RequestItem {
  */
 export interface ApiCell {
   rule: string;
-  /** Bare path: matches state.path, never carries a #span. */
+  /** Bare file path, never carrying an element suffix. */
   file: string;
-  /** Full measurement input: the file path, or path#uuid for an element. */
+  /** The measured input verbatim: the bare file path, or that path plus the element suffix. */
   input: string;
   /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
   element?: Element;
@@ -81,67 +89,85 @@ export interface ApiCell {
   severity: Severity | null;
 }
 
-/** Route an /api/* request. Returns null when the URL is not an API route (caller falls through). */
-export async function handleApi(req: Request, opts: ApiOptions = {}): Promise<Response | null> {
-  const url = new URL(req.url);
-  if (!url.pathname.startsWith("/api/")) return null;
-  const root = requestsRoot(opts);
-  // path segments, empties dropped: ["api", ...]
-  const parts = url.pathname.split("/").filter(Boolean);
-  try {
-    // \"api\"/\"runs\" prefix; the rest is the run id path plus an optional verb. Run ids may
-    // be nested (\"generated/elements\", fixture-pipeline layout): the id is resolved segment by
-    // segment, so flat and nested runs route identically.
-    if (parts[1] === "runs" && req.method === "GET") {
-      const tail = parts.slice(2);
-      // /api/runs
-      if (tail.length === 0) return json(await listRuns(root));
-      const verb = tail[tail.length - 1]!;
-      // /api/runs/<id...>/report
-      if (verb === "report" && tail.length >= 2) {
-        const dir = resolveRunDir(root, tail.slice(0, -1));
-        if (dir === null) return badRequest("invalid run id");
-        try {
-          return json(JSON.parse(await readFile(join(dir, "report.json"), "utf8")));
-        } catch {
-          // No fake joins: absence is a first-class answer, not an error.
-          return json({ absent: true });
-        }
-      }
-      // /api/runs/<id...>/requests/<file>
-      if (tail.length >= 3 && tail[tail.length - 2] === "requests") {
-        const dir = resolveRunDir(root, tail.slice(0, -2));
-        if (dir === null) return badRequest("invalid run id");
-        const file = safeJoin(dir, tail[tail.length - 1]!);
-        if (file === null) return badRequest("invalid request file");
-        try {
-          return json(JSON.parse(await readFile(file, "utf8")));
-        } catch {
-          return notFound("request not found");
-        }
-      }
-      // /api/runs/<id...> — summary (flat or nested)
-      const dir = resolveRunDir(root, tail);
-      if (dir === null) return badRequest("invalid run id");
-      return json(await getRun(root, dir, tail.join("/")));
-    }
+export async function serveApiRequest(
+  httpRequest: Request,
+  apiOptions: ApiOptions = {},
+): Promise<Response | null> {
+  const requestUrl = new URL(httpRequest.url);
+  if (!requestUrl.pathname.startsWith("/api/")) return null;
+  const runsRoot = requestsRoot(apiOptions);
+  const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+  if (pathSegments[1] !== "runs" || httpRequest.method !== "GET")
     return notFound("no such api route");
+  const routeTail = pathSegments.slice(2);
+  try {
+    // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
+    // so flat and nested runs route identically.
+    if (routeTail.length === 0) return jsonResponse(await listRuns(runsRoot));
+    const lastSegment = routeTail[routeTail.length - 1]!;
+    // a missing report is a first-class absence, never an error
+    if (lastSegment === "report" && routeTail.length >= 2) {
+      const reportDir = resolveRunDir(runsRoot, routeTail.slice(0, -1));
+      if (reportDir === null) return badRequest("invalid run id");
+      try {
+        return jsonResponse(JSON.parse(await readFile(join(reportDir, "report.json"), "utf8")));
+      } catch (err) {
+        if (isMissingFileError(err)) return jsonResponse({ absent: true });
+        throw err;
+      }
+    }
+    if (routeTail.length >= 3 && routeTail[routeTail.length - 2] === "requests") {
+      return serveRunRequest(runsRoot, routeTail.slice(0, -2), routeTail[routeTail.length - 1]!);
+    }
+    const runDir = resolveRunDir(runsRoot, routeTail);
+    if (runDir === null) return badRequest("invalid run id");
+    return jsonResponse(await getRun(runsRoot, runDir, routeTail.join("/")));
   } catch (err) {
+    // a dropped cause turns a debuggable failure into a mystery: the original error travels
+    if (isMissingFileError(err))
+      return jsonResponse(
+        { error: "not found", detail: err instanceof Error ? err.message : String(err) },
+        404,
+      );
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("ENOENT") || message.includes("not found")) return notFound("not found");
-    return json({ error: message }, 500);
+    const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
+    return jsonResponse({ error: message, ...(cause && { cause }) }, 500);
   }
+}
+
+/** Serve one recorded request file of a run; the file name may never leave the run dir. */
+async function serveRunRequest(
+  runsRoot: string,
+  idSegments: string[],
+  fileName: string,
+): Promise<Response> {
+  const runDir = resolveRunDir(runsRoot, idSegments);
+  if (runDir === null) return badRequest("invalid run id");
+  const requestPath = safeJoin(runDir, fileName);
+  if (requestPath === null) return badRequest("invalid request file");
+  try {
+    return jsonResponse(JSON.parse(await readFile(requestPath, "utf8")));
+  } catch (err) {
+    if (isMissingFileError(err)) return notFound("request not found");
+    throw err;
+  }
+}
+
+/** True when the error is a missing file — the one case absence is the answer, not a failure. */
+function isMissingFileError(err: unknown): boolean {
+  const code = err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
+  return code === "ENOENT";
 }
 
 // --- helpers ---------------------------------------------------------------
 
-const json = (body: unknown, status = 200) =>
+const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
   });
-const badRequest = (message: string) => json({ error: message }, 400);
-const notFound = (message: string) => json({ error: message }, 404);
+const badRequest = (message: string) => jsonResponse({ error: message }, 400);
+const notFound = (message: string) => jsonResponse({ error: message }, 404);
 
 /**
  * Resolve name against base, allowing ONLY a single direct child (no traversal, no subdirectory
@@ -156,81 +182,101 @@ function safeJoin(base: string, name: string): string | null {
   return full;
 }
 
-/** Resolve a multi-segment run id ("generated/elements") one safe segment at a time. */
+/**
+ * Resolve a nested run id one safe segment at a time, so traversal in any segment fails the whole
+ * id instead of escaping the root. Null when any segment escapes.
+ */
 function resolveRunDir(root: string, segments: string[]): string | null {
   let dir: string | null = root;
-  for (const s of segments) {
-    dir = safeJoin(dir, s);
+  for (const segment of segments) {
+    dir = safeJoin(dir, segment);
     if (dir === null) return null;
   }
   return dir;
 }
 
-async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
+function isRequestFile(name: string): boolean {
+  return /^\d{13}-/.test(name) && name.endsWith(".json");
+}
+
+/** Case namespaces must list alongside flat runs, under their nested id. */
+async function collectRunCandidates(
+  runsRoot: string,
+  dirEntries: string[],
+): Promise<{ id: string; dir: string }[]> {
+  const candidates: { id: string; dir: string }[] = [];
+  await Promise.all(
+    dirEntries.map(async (entryName) => {
+      const dir = join(runsRoot, entryName);
+      const files = await readdir(dir).catch((err: unknown) => {
+        if (isMissingFileError(err)) return [] as string[];
+        throw err;
+      });
+      if (files.some(isRequestFile)) {
+        candidates.push({ id: entryName, dir });
+        return;
+      }
+      for (const caseName of await caseDirsWithRequests(dir))
+        candidates.push({ id: `${entryName}/${caseName}`, dir: join(dir, caseName) });
+    }),
+  );
+  return candidates;
+}
+
+/** Case dirs one level under a namespace dir, holding at least one recorded request. */
+async function caseDirsWithRequests(namespaceDir: string): Promise<string[]> {
+  const subEntries = await readdir(namespaceDir, { withFileTypes: true }).catch((err: unknown) => {
+    if (isMissingFileError(err)) return [] as Dirent[];
+    throw err;
+  });
+  const subdirNames = subEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  const caseDirs: string[] = [];
+  await Promise.all(
+    subdirNames.map(async (subdirName) => {
+      const subdirFiles = await readdir(join(namespaceDir, subdirName)).catch((err: unknown) => {
+        if (isMissingFileError(err)) return [] as string[];
+        throw err;
+      });
+      if (subdirFiles.some(isRequestFile)) caseDirs.push(subdirName);
+    }),
+  );
+  return caseDirs;
+}
+
+async function readRunSummary(runId: string, runDir: string): Promise<RunSummary> {
+  const [dirStats, dirFiles, manifestJson] = await Promise.all([
+    stat(runDir),
+    readdir(runDir),
+    // a manifest-less run still lists: absence of config is data, not a defect
+    readFile(join(runDir, "manifest.json"), "utf8").catch((err: unknown) => {
+      if (isMissingFileError(err)) return "{}";
+      throw err;
+    }),
+  ]);
+  // a manifest-less run reads as unknown-config; a malformed one is a real error and surfaces
+  const manifest = JSON.parse(manifestJson) as {
+    configPath?: string;
+    cwd?: string;
+    legacy?: boolean;
+  };
+  return {
+    id: runId,
+    mtime: dirStats.mtime.toISOString(),
+    requests: dirFiles.filter(
+      (name) => name.endsWith(".json") && name !== "report.json" && name !== "manifest.json",
+    ).length,
+    configPath: manifest?.configPath ?? null,
+    cwd: manifest?.cwd !== undefined ? collapseHome(manifest.cwd) : undefined,
+    legacy: manifest?.legacy === true,
+  };
+}
+
+async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
   try {
-    const entries = await readdir(root, { withFileTypes: true });
-    const dirs = entries.filter((e) => e.isDirectory());
-    let notRunCount = 0;
-    // Flatten case namespaces (generated/<case>/...) alongside flat runs (run-a/...): a top-level
-    // dir holding no requests of its own is scanned one level for request-bearing case dirs,
-    // emitted with the nested id (fixture-pipeline generated/<case> layout).
-    const candidates: { id: string; dir: string }[] = [];
-    await Promise.all(
-      dirs.map(async (e) => {
-        const dir = join(root, e.name);
-        const files = await readdir(dir).catch(() => []);
-        const hasRequests = files.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"));
-        if (hasRequests) {
-          candidates.push({ id: e.name, dir });
-          return;
-        }
-        const subs = (await readdir(dir, { withFileTypes: true }).catch(() => [])).filter((s) =>
-          s.isDirectory(),
-        );
-        const caseDirs: string[] = [];
-        await Promise.all(
-          subs.map(async (s) => {
-            const sf = await readdir(join(dir, s.name)).catch(() => []);
-            if (sf.some((f) => /^\d{13}-/.test(f) && f.endsWith(".json"))) caseDirs.push(s.name);
-          }),
-        );
-        if (caseDirs.length > 0) {
-          for (const s of caseDirs) candidates.push({ id: `${e.name}/${s}`, dir: join(dir, s) });
-          return;
-        }
-        // no requests here or one level down: not a run (assets dir), just absent
-        notRunCount += 1;
-      }),
-    );
-    const inspected = await Promise.all(
-      candidates.map(async ({ id, dir }): Promise<RunSummary | null> => {
-        const [st, files, manifest] = await Promise.all([
-          stat(dir),
-          readdir(dir),
-          readFile(join(dir, "manifest.json"), "utf8").catch(() => "{}"),
-        ]);
-        // manifests are first-class everywhere now: a manifest-less dir still lists (guarded),
-        // it just reads as unknown-config
-        let parsed: { configPath?: string; cwd?: string; legacy?: boolean } | null = null;
-        try {
-          parsed = JSON.parse(manifest) as { configPath?: string; cwd?: string; legacy?: boolean };
-        } catch {
-          parsed = null;
-        }
-        // config-less runs are VISIBLE (default rules), never silently dropped
-        return {
-          id,
-          mtime: st.mtime.toISOString(),
-          requests: files.filter(
-            (f) => f.endsWith(".json") && f !== "report.json" && f !== "manifest.json",
-          ).length,
-          configPath: parsed?.configPath ?? null,
-          cwd: parsed?.cwd !== undefined ? collapseHome(parsed.cwd) : undefined,
-          legacy: parsed?.legacy === true,
-        };
-      }),
-    );
-    const runs = inspected.filter((r): r is RunSummary => r !== null);
+    const entries = await readdir(runsRoot, { withFileTypes: true });
+    const dirNames = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    const candidates = await collectRunCandidates(runsRoot, dirNames);
+    const runs = await Promise.all(candidates.map(({ id, dir }) => readRunSummary(id, dir)));
     // run id is a unixts: numeric order == chronological
     runs.sort((a, b) => b.id.localeCompare(a.id));
     return { runs };
@@ -244,25 +290,22 @@ async function listRuns(root: string): Promise<{ runs: RunSummary[] }> {
   }
 }
 
-/**
- * Cell severity for one (input, rule): finding join first, keyed by the FULL measurement input,
- * else the handle snapshot projected onto that input's own reading. Null = no verdict.
- */
 function cellSeverity(
-  input: string,
-  rule: string,
-  findingSev: Map<string, Severity>,
-  pathValues: Map<string, { rule: string; value: number }[]>,
-  handles: Record<string, HandlerData> | null,
+  measurementInput: string,
+  ruleName: string,
+  findingSeverity: Map<string, Map<string, Severity>>,
+  readingsByInput: Map<string, { rule: string; value: number }[]>,
+  handlesByRule: Record<string, HandlerData> | null,
 ): Severity | null {
-  const direct = findingSev.get(`${input}\u0000${rule}`);
+  // the report's own finding wins; otherwise the handle snapshot projects the reading
+  const direct = findingSeverity.get(measurementInput)?.get(ruleName);
   if (direct !== undefined) return direct;
-  const handle = handles?.[rule];
+  const handle = handlesByRule?.[ruleName];
   if (handle === undefined) return null;
-  for (const { rule: r, value } of pathValues.get(input) ?? []) {
-    if (r !== rule) continue;
-    const s = handleSeverity(value, handle);
-    if (s !== null) return s;
+  for (const { rule: measuredRule, value } of readingsByInput.get(measurementInput) ?? []) {
+    if (measuredRule !== ruleName) continue;
+    const severity = handleSeverity(value, handle);
+    if (severity !== null) return severity;
   }
   return null;
 }
@@ -300,7 +343,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
   // span joined a file's worst element verdict onto every sibling element - the exact inversion
   // the handle snapshot exists to prevent.
-  const findingSev = new Map<string, Severity>();
+  const findingSev = new Map<string, Map<string, Severity>>();
   if (reportFile) {
     try {
       const report = JSON.parse(await readFile(join(dir, "report.json"), "utf8")) as {
@@ -312,10 +355,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         }[];
         findings?: { input: string; rule: string; severity: Severity }[];
       };
-      // composite key: the join is (input, rule) - a bare-input key would let one rule's
-      // verdict answer another rule's lookup at the same path
+      // the join is (input, rule) - a bare-input key would let one rule's verdict answer
+      // another rule's lookup at the same path
       for (const f of report.findings ?? []) {
-        findingSev.set(`${f.input}\u0000${f.rule}`, f.severity);
+        const byRule = findingSev.get(f.input) ?? new Map<string, Severity>();
+        byRule.set(f.rule, f.severity);
+        findingSev.set(f.input, byRule);
       }
       pathRules = new Map();
       pathValues = new Map();
@@ -401,8 +446,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
               : [state.path]
             : [];
         const joinSeverity = (rule: string): Severity | null => {
-          for (const k of keys) {
-            const sev = findingSev.get(`${k}\u0000${rule}`);
+          for (const key of keys) {
+            const sev = findingSev.get(key)?.get(rule);
             if (sev !== undefined) return sev;
           }
           return null;
@@ -502,21 +547,5 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     cells,
     reportDegraded,
     legacy: manifestLegacy,
-  };
-}
-
-interface RequestFile {
-  ts?: string;
-  url?: string;
-  status?: number;
-  request?: {
-    state?: { path?: string; id?: string; [k: string]: unknown };
-    questions?: Record<string, unknown>;
-    model?: string;
-  };
-  response?: {
-    model?: string;
-    answers?: Record<string, { type?: string; noul?: number; [k: string]: unknown }>;
-    usage?: Record<string, number>;
   };
 }

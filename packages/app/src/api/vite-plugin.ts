@@ -1,4 +1,4 @@
-import { handleApi } from "./handler.ts";
+import { serveApiRequest } from "./handler.ts";
 import type { Plugin } from "vite";
 
 /**
@@ -12,7 +12,7 @@ export function apiPlugin(opts: { root?: string } = {}): Plugin {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith("/api/")) return next();
         const origin = `http://${req.headers.host ?? "localhost"}`;
-        handleApi(
+        serveApiRequest(
           new Request(origin + req.url, {
             method: req.method,
             headers: new Headers(req.headers as Record<string, string>),

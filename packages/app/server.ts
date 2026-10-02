@@ -5,7 +5,7 @@ import { gzipSync, brotliCompressSync } from "node:zlib";
  * dev plugin mounts. Run: bun run build && bun run serve (JINT_REQUESTS_DIR overrides the requests
  * root; default ./tmp/requests).
  */
-import { handleApi } from "./src/api/handler.ts";
+import { serveApiRequest } from "./src/api/handler.ts";
 
 /**
  * Response compression, standard Accept-Encoding negotiation: br preferred, then gzip, else
@@ -40,7 +40,7 @@ const dist = join(import.meta.dir, "dist");
 Bun.serve({
   port: Number(process.env.PORT ?? 5178),
   async fetch(req) {
-    const api = await handleApi(req);
+    const api = await serveApiRequest(req);
     if (api !== null) return compress(api, req);
     const url = new URL(req.url);
     const candidates = [

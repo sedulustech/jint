@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 import { apiPlugin } from "./src/api/vite-plugin.ts";
 
 // The API route module is shared with server.ts (Bun.serve) via one mount surface:
-// handleApi(Request, { root }) -> Response | null. The vite dev plugin and the
+// serveApiRequest(Request, { root }) -> Response | null. The vite dev plugin and the
 // prod server cannot drift because both are thin callers of src/api/handler.ts.
 export default defineConfig({
   plugins: [tailwindcss(), apiPlugin()],

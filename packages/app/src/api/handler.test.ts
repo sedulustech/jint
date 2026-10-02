@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { handleApi, requestsRoot } from "./handler.ts";
+import { serveApiRequest, requestsRoot } from "./handler.ts";
 
 const get = async (path: string, root: string): Promise<Response> =>
-  (await handleApi(new Request("http://x" + path), { root })) as Response;
+  (await serveApiRequest(new Request("http://x" + path), { root })) as Response;
 
 describe("requestsRoot default", () => {
   test("defaults to the homedir store ~/.jint/runs; opts override (no env fallback)", () => {
