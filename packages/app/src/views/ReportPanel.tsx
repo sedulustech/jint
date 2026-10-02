@@ -10,19 +10,21 @@ interface Props {
 }
 
 export function ReportPanel({ runId, onRuleFocus }: Props) {
-  const report = useQuery({ queryKey: ["report", runId], queryFn: () => fetchReport(runId) });
-  const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
+  const reportQuery = useQuery({ queryKey: ["report", runId], queryFn: () => fetchReport(runId) });
+  const runQuery = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
 
-  const data = report.data;
-  const degraded = run.data?.reportDegraded === true;
-  const legacy = run.data?.legacy === true;
-  const hasReport = !degraded && data !== undefined && !("absent" in data);
-  const stats = ruleStats(hasReport ? (data as Report) : undefined, run.data);
-  const errors = hasReport ? (data as Report).errors.length : 0;
-  const notes = hasReport ? (data as Report).notes.length : 0;
-  const totalFindings = stats.reduce((n, s) => n + s.findings, 0);
-  const totalMeasurements = stats.reduce((n, s) => n + s.measurements, 0);
-  const maxBin = Math.max(1, ...stats.flatMap((s) => s.histogram));
+  const runPayload = runQuery.data;
+  const reportPayload = reportQuery.data;
+  const isDegradedReport = runPayload?.reportDegraded === true;
+  const isLegacyRun = runPayload?.legacy === true;
+  const hasReport =
+    !isDegradedReport && reportPayload !== undefined && !("absent" in reportPayload);
+  const reportRuleStats = ruleStats(hasReport ? (reportPayload as Report) : undefined, runPayload);
+  const totalErrors = hasReport ? (reportPayload as Report).errors.length : 0;
+  const totalNotes = hasReport ? (reportPayload as Report).notes.length : 0;
+  const totalFindings = reportRuleStats.reduce((sum, statRow) => sum + statRow.findings, 0);
+  const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
+  const maxHistogramBin = Math.max(1, ...reportRuleStats.flatMap((statRow) => statRow.histogram));
 
   return (
     <div
@@ -30,16 +32,16 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
       className="shrink-0 overflow-y-auto border-b border-border bg-muted px-3 py-2 font-mono text-body"
       style={{ maxHeight: "45vh" }}
     >
-      {degraded && (
+      {isDegradedReport && (
         <p className="text-sev-warn">
           report.json is a partial fragment (torn write) — canonical rules and severities fell back
           to request parsing; findings below may be incomplete. Regenerate the run to restore full
           verdicts.
         </p>
       )}
-      {!report.isLoading && !hasReport && (
+      {!reportQuery.isLoading && !hasReport && (
         <p className="text-muted-foreground">
-          {legacy
+          {isLegacyRun
             ? "no report — run recorded before reports existed (migrated pre-store run); findings unknown"
             : "no report — run captured without --json; per-rule stats below come from per-request answers only (findings unknown)"}
         </p>
@@ -52,11 +54,11 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
         <span className="text-muted-foreground">
           <span className="text-emphasis">{totalMeasurements}</span> measurements
         </span>
-        <span className={errors > 0 ? "text-sev-error" : "text-muted-foreground"}>
-          <span className="text-emphasis">{errors}</span> errors
+        <span className={totalErrors > 0 ? "text-sev-error" : "text-muted-foreground"}>
+          <span className="text-emphasis">{totalErrors}</span> errors
         </span>
         <span className="text-muted-foreground">
-          <span className="text-emphasis">{notes}</span> notes
+          <span className="text-emphasis">{totalNotes}</span> notes
         </span>
         <span
           className="text-muted-foreground"
@@ -77,33 +79,38 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             </tr>
           </thead>
           <tbody>
-            {stats.map((s) => (
+            {reportRuleStats.map((statRow) => (
               <tr
-                key={s.rule}
-                onClick={() => onRuleFocus(s.rule)}
+                key={statRow.rule}
+                onClick={() => onRuleFocus(statRow.rule)}
                 className="cursor-pointer border-t border-border hover:bg-muted"
                 title="show this rule's group in the table"
               >
                 <td className="py-1 pr-4">
-                  <span className="text-foreground">{s.rule}</span>
+                  <span className="text-foreground">{statRow.rule}</span>
                 </td>
-                <td className="py-1 pr-4 text-muted-foreground">{s.measurements}</td>
+                <td className="py-1 pr-4 text-muted-foreground">{statRow.measurements}</td>
                 <td
-                  className={"py-1 pr-4 " + (s.findings > 0 ? "text-sev-warn" : "text-sev-clean")}
+                  className={
+                    "py-1 pr-4 " + (statRow.findings > 0 ? "text-sev-warn" : "text-sev-clean")
+                  }
                 >
-                  {s.findings}
+                  {statRow.findings}
                 </td>
-                <td className="py-1 pr-4 text-foreground">{(s.rate * 100).toFixed(1)}%</td>
+                <td className="py-1 pr-4 text-foreground">{(statRow.rate * 100).toFixed(1)}%</td>
                 <td className="py-1">
                   <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
-                    {s.histogram.map((n, i) => {
+                    {statRow.histogram.map((binCount, binIndex) => {
                       // neutral: shape, not verdict
-                      const cls = "bg-[var(--chart-bar)]";
+                      const barClassName = "bg-[var(--chart-bar)]";
                       return (
                         <div
-                          key={i}
-                          className={`${cls} min-w-px flex-1`}
-                          style={{ height: `${(n / maxBin) * 100}%`, minHeight: n > 0 ? 1 : 0 }}
+                          key={binIndex}
+                          className={`${barClassName} min-w-px flex-1`}
+                          style={{
+                            height: `${(binCount / maxHistogramBin) * 100}%`,
+                            minHeight: binCount > 0 ? 1 : 0,
+                          }}
                         />
                       );
                     })}
@@ -115,7 +122,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
                 </td>
               </tr>
             ))}
-            {stats.length === 0 && !report.isLoading && (
+            {reportRuleStats.length === 0 && !reportQuery.isLoading && (
               <tr>
                 <td colSpan={5} className="py-2 text-muted-foreground">
                   report present but zero measurements
