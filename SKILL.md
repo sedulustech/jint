@@ -71,6 +71,9 @@ git diff HEAD~1 | jint diff -               # diffs: pipe them in (jint never sh
 jint diff fix.patch                         # a patch file, declared a diff
 jint --config my-probe.config.json src/core/jev/ --json
 jint --dry-run                         # the rules that WOULD run - zero walks, zero calls
+jint src/a.ts@L58                      # element-scoped: the unit containing line 58 (one call)
+jint src/a.ts@L58-L70,@L80-L92         # range list: every element fully enclosed, each one call
+jint src/a.ts@L58 --rule is_greppable  # narrow any selection to ONE classifier call
 ```
 
 - The resource is the noun; the verb (measure) is implicit. `str` and `diff` are
@@ -84,6 +87,22 @@ jint --dry-run                         # the rules that WOULD run - zero walks, 
   `--language` supplies the grammar when there is no path extension; without a
   grammar, inventory-scoped rules fail with WALK_FAILED (in-band) while
   file-scoped rules still measure.
+- Element-scoped nouns: ANCHOR `@L<n>` — the element whose span contains line n (one
+  classifier call: its rules batched). RANGE `@L<s>-<e>` — every element FULLY ENCLOSED
+  in [s,e]; partial overlaps are never selected, and a range enclosing none errors
+  listing the file's element spans. Comma list — each item independent. `--rule`
+  narrows every selection to ONE call. Stderr echo per selection: the resolution map
+  (`jint: @L36-L60 -> 3 elements: L38, L40, L58-L59`) + per element an edge-only
+  section (`--- path@L38 (1 line) - is_greppable: error 0.23 ---` + first/last
+  source lines) so you can verify the tool judged the span you meant.
+- THE FIX LOOP (the workflow this tool is for):
+  1. full run first — `jint src/` for the whole picture;
+  2. fix one element;
+  3. verify scoped, one call: `jint src/a.ts@L58 --rule <rule>`;
+  4. repeat; 5. full re-run at the end — 0 errors.
+     To isolate ONE rule on ONE element, never copy code into probe files: `file@L --rule`
+     does it in a single call. Re-running the whole file after every fix is the expensive
+     habit this loop replaces — full runs converge at the end, not between edits.
 - Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal,
   4 zero measurements. Findings -> stdout; run errors -> stderr.
 - **Every run prints its rubric first**: the full rule set (names, targets,
