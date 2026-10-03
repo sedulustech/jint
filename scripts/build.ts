@@ -22,7 +22,7 @@ const buildVersion = (await $`git rev-parse --short HEAD`.text()).trim();
 console.log(`building jint (${buildVersion})${cross ? ` for ${cross.target}` : ""}`);
 
 const result = await Bun.build({
-  entrypoints: ["./src/cli.ts"],
+  entrypoints: ["./packages/cli/src/cli.ts"],
   minify: true,
   target: "bun",
   compile: cross

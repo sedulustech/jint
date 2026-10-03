@@ -43,7 +43,7 @@ export default defineConfig({
     {
       // src/logger.ts is the single console.* choke point (structured stderr
       // logger); see typescript/logging.md - the ban applies everywhere else.
-      files: ["src/logger.ts"],
+      files: ["src/logger.ts", "packages/cli/src/logger.ts"],
       rules: { "no-console": "off" },
     },
     {

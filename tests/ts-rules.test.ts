@@ -8,7 +8,7 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // fatal-vs-streamed error boundaries) — see src/core/tsrules/*.test.ts for the unit level.
 
 const ROOT = import.meta.dir + "/..";
-const CLI = ROOT + "/src/cli.ts";
+const CLI = ROOT + "/packages/cli/src/cli.ts";
 const DIR = "/tmp/jint-ts-rules-e2e";
 
 const FIXTURE = [

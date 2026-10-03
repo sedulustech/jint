@@ -29,7 +29,9 @@ describe("no-git guard — jint never shells out", () => {
         }
       }
     }
-    await walk("src");
+    // guard both runtime packages: the sdk (spawn-free by wall W2) and the cli (spawn-free by
+    // contract — parse argv, call sdk, render; process boundaries live in api/server, not here)
+    for (const dir of ["packages/sdk/src", "packages/cli/src"]) await walk(dir);
     expect(offenders).toEqual([]);
   });
 });

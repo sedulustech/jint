@@ -3,7 +3,7 @@ import { describe, test, expect } from "bun:test";
 // CONFIG_INVALID exits 2 through the real CLI (moved here from the sdk's load.test.ts when
 // @jint/sdk was split out: sdk unit tests must not spawn the cli).
 describe("cli: config load errors exit 2", () => {
-  const CLI = import.meta.dir + "/../src/cli.ts";
+  const CLI = import.meta.dir + "/../packages/cli/src/cli.ts";
 
   test("loads jint.config.json from the current dir", async () => {
     const tmpDir = "/tmp/jint-config-test-" + Math.random().toString(36).substring(7);
@@ -35,7 +35,7 @@ describe("cli: config load errors exit 2", () => {
 });
 
 describe("cli: --dry-run prints the rules that would run, without classifying", () => {
-  const CLI = import.meta.dir + "/../src/cli.ts";
+  const CLI = import.meta.dir + "/../packages/cli/src/cli.ts";
 
   test("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
     const tmpDir = "/tmp/jint-dryrun-" + Math.random().toString(36).substring(7);

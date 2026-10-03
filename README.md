@@ -269,9 +269,9 @@ tar -xzf jint-darwin-arm64.tar.gz && ./jint --help
 bun install
 bun test            # 100+ tests incl. calibration checks against tmp/diff-v4
 bun run validate    # schema -> typecheck -> lint -> build
-bun run build       # emit dist/ (tsc -p tsconfig.build.json); schema first, it is checked in
-bun src/cli.ts --help      # from source
-bun dist/cli.js --help     # from the build (bun runtime: the CLI uses Bun.stdin/file/spawn)
+bun run build       # emit packages/cli/dist (tsc -p packages/cli); schema first, it is checked in
+bun packages/cli/src/cli.ts --help      # from source
+bun packages/cli/dist/cli.js --help     # from the build (bun runtime: the CLI uses Bun.stdin/file/spawn)
 ```
 
 The build uses tsc emit (not `bun build --compile`) because the package manifest ships `main`/`types` from `./dist` with `files: ["dist", "src"]` — a per-module JS + `.d.ts` tree. `jint.schema.json` is not a build output: the runtime loader never reads it, it exists for editor autocomplete and ships via the `files` field.

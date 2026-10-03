@@ -2,7 +2,7 @@ import { describe, test, expect, afterAll } from "bun:test";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
 const ROOT = import.meta.dir + "/..";
-const CLI = "src/cli.ts";
+const CLI = "packages/cli/src/cli.ts";
 const FIXTURE = "tests/fixtures/sample-file.ts";
 
 // Element-scoped classification (path@L<n> / path#id): ONE walker element judged per run, so a
