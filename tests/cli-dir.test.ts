@@ -15,7 +15,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...NO_SERVICE, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...NO_SERVICE, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),

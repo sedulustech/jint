@@ -36,7 +36,7 @@ async function runWithStdin(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...MOCK_ENV, STDIN: stdin, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, STDIN: stdin, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -94,11 +94,14 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("human output: same stylish table, identity 'str:stdin', clean exit", async () => {
+  test("default raw-line stdout: clean run prints nothing on stdout, totals on stderr", async () => {
     const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
     // the str unit is its own inventory: classified whole, nothing failed, mock reading clean
-    expectContract(r, { exit: 0 }); // stderr carries only the request-tap notice, no errors
-    expect(r.stdout).toContain("no findings"); // the stylish table rendered, one clean measurement
+    expectContract(r, { exit: 0, stdout: "lines" });
+    expect(r.stdout).toBe(""); // clean run: no findings, no lines
+    expect(r.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
+    // the harness defaults JEV_RECORD=0, so this run has no record notice — and no run= column
+    expect(r.stderr).not.toContain("requests ->");
     expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
 
@@ -245,6 +248,7 @@ describe("cli: piped stdin str unit", async () => {
       rules: [
         {
           name: "is_noul_documented",
+          instructions: "Does the unit document the noul value?",
           criteria: { true: "documents a noul value", false: "it does not" },
           target: "files",
           handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.7 } },
@@ -277,10 +281,11 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("JEV_DEBUG_REQUEST_LOCATION alone turns on dumping for the str path, with the notice", async () => {
+  test("JEV_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
-      JEV_DEBUG_REQUEST_LOCATION: dumpDir,
+      JEV_RECORD: "1",
+      JEV_DIR: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })].filter(

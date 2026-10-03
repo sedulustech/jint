@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { defaultConfig } from "./config/load.ts";
-import { lint } from "./core/lint.ts";
+import { defaultConfig } from "@jint/sdk";
+import { lint } from "@jint/sdk";
+import { parseFileSelector } from "./cli.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
@@ -56,5 +57,45 @@ describe("cli: in-process unit tests", () => {
       // drained
     }
     expect(asked.some((p) => p.endsWith("good.ts"))).toBe(false);
+  });
+});
+
+describe("parseFileSelector - LOC element selectors on file nouns", () => {
+  test("bare path: no selector", () => {
+    expect(parseFileSelector("src/a.ts")).toEqual({ path: "src/a.ts" });
+  });
+
+  test("@L58: anchor", () => {
+    const r = parseFileSelector("src/a.ts@L58");
+    expect(r.path).toBe("src/a.ts");
+    expect(r.anchor).toBe(58);
+    expect(r.ranges).toBeUndefined();
+  });
+
+  test("@L58-L90: one range; comma list tolerates spaces", () => {
+    expect(parseFileSelector("a.ts@L58-L90").ranges).toEqual([{ start: 58, end: 90 }]);
+    expect(parseFileSelector("a.ts@L58-L90, @L1-L8").ranges).toEqual([
+      { start: 58, end: 90 },
+      { start: 1, end: 8 },
+    ]);
+  });
+
+  test("invalid spans are badRange markers (usage error), never paths", () => {
+    expect(parseFileSelector("a.ts@L90-L58").badRange).toBe("L90-L58");
+    expect(parseFileSelector("a.ts@Lx").badRange).toBe("Lx");
+    expect(parseFileSelector("a.ts@L58-").badRange).toBe("L58-");
+    expect(parseFileSelector("a.ts@L58-L90x").badRange).toBe("L58-L90x");
+  });
+
+  test("a uuid-shaped #id stem is a pasted artifact, not a selector", () => {
+    expect(parseFileSelector("server.ts#f1c044af-a09f-43d8-8460-c87213766c47").pastedId).toBe(true);
+    expect(parseFileSelector("server.ts#f1c044af-a09f-43d8-8460-c87213766c47@L58").pastedId).toBe(
+      true,
+    );
+  });
+
+  test("non-uuid suffix after hash stays a path (no selector)", () => {
+    expect(parseFileSelector("weird#name.ts").path).toBe("weird#name.ts");
+    expect(parseFileSelector("a.ts#abc@L5").path).toBe("a.ts#abc");
   });
 });

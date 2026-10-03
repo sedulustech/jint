@@ -23,7 +23,7 @@ async function run(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...envOverrides },
+    env: { ...process.env, JEV_RECORD: "0", ...envOverrides },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -41,7 +41,7 @@ async function runShell(
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -214,7 +214,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stderr).not.toContain("failed to classify");
   });
 
-  test.concurrent("default stylish report without TYPESAFE_API_KEY: same exit 2, no unit failures", async () => {
+  test.concurrent("default raw-line stdout without TYPESAFE_API_KEY: same exit 2, no unit failures", async () => {
     const r = await run(["tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set");
@@ -222,19 +222,19 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stdout).not.toContain("JEV_AUTH");
   });
 
-  test.concurrent("no key and no rules (empty rule set): empty run unchanged, no auth error", async () => {
+  test.concurrent("config resolving to zero rules: CONFIG_NO_RULES, exit 2 (an empty run is an error, not a headline)", async () => {
     const configPath = "/tmp/jint-no-rules-config.json";
     require("node:fs").writeFileSync(configPath, JSON.stringify({ rules: [] }));
     const r = await run(
       ["tests/fixtures/sample-file.ts", "--json", "--config", configPath],
       NO_KEY,
     );
-    // an empty run needs no classifier: no CONFIG_INVALID, no auth error; exit 4 is the
-    // pre-existing zero-measurements semantics of an empty run
-    expect(r.code).toBe(4);
-    expect(r.stderr).toBe("");
-    expect(r.stdout).not.toContain("CONFIG_INVALID");
-    expect(JSON.parse(r.stdout).measurements).toEqual([]);
+    // The old contract (empty rule set = legal, empty measurements, exit 4) enshrined the
+    // "0 rules" nonsense run: nothing could ever be measured. A run that would measure
+    // nothing is now a named setup error, like every config problem.
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("CONFIG_NO_RULES");
+    expect(r.stdout).not.toContain("CONFIG_NO_RULES"); // errors ride stderr, stdout stays data
   });
 
   test.concurrent("jint - reads the stdin changed-file list: the list IS the judged subject", async () => {
@@ -338,7 +338,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
     const proc = await runShell(`printf 'x' | bun ${CLI} str -`, NO_SERVICE);
     expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
-    expect(proc.stderr).toContain("failed to classify");
+    // raw-line stderr: the failed unit renders as its own error line; totals stay zero-findings
+    expect(proc.stderr).toMatch(/error JEV_\w+ str:stdin:/);
+    expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
 
   test.concurrent("a patch file is just a file: NOT_SOURCE, never decomposed (there is no diff noun)", async () => {
@@ -410,7 +412,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
       cwd: ROOT,
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, ...MOCK_ENV, ...env },
+      env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -419,13 +421,13 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     return { code: await proc.exited, stdout, stderr };
   }
   afterAll(() => jev.stop());
-  test.concurrent("the dump tap persists report.json: the exact stdout --json bytes, next to the requests", async () => {
+  test.concurrent("recording persists report.json: the exact stdout --json bytes, next to the requests", async () => {
     const { rmSync } = await import("node:fs");
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_DEBUG_REQUEST: "1",
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+      JEV_RECORD: "1",
+      JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
     // the stderr notice names THIS run's dir; report.json sits next to the requests
@@ -434,9 +436,12 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const report = JSON.parse(
       await (await import("node:fs/promises")).readFile(`${runDir}/report.json`, "utf8"),
     );
-    // the persisted document is the same OBJECT stdout --json printed (bytes identical too)
+    // the persisted document is BYTE-IDENTICAL to stdout --json: one serializer, one truth
+    const reportBytes = await (
+      await import("node:fs/promises")
+    ).readFile(`${runDir}/report.json`, "utf8");
+    expect(reportBytes).toBe(r.stdout);
     expect(report).toEqual(JSON.parse(r.stdout));
-    expect(r.stdout.endsWith("\n")).toBe(true);
   });
 
   test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
@@ -467,19 +472,29 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     }
   });
 
-  test.concurrent("JEV_DEBUG_REQUEST_LOCATION alone turns on the dump tap: captures land, stdout untouched", async () => {
+  test.concurrent("JEV_DIR moves the run dir: captures land under the override, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
-    const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+    // DEFAULT stdout (no --json): raw lines are the projection; report.json persists anyway
+    const r = await runMock(["tests/fixtures/sample-file.ts", "--rule", "is_greppable"], {
+      JEV_RECORD: "1",
+      JEV_DIR: dir,
     });
-    // the notice never touches stdout: the report stays a machine document
-    const report = expectContract(r, { exit: 0, stdout: "json" });
-    expect(report.measurements.length).toBeGreaterThan(0);
+    expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+    expect(r.stderr).toMatch(/\(\d+ calls\) \(override: JEV_DIR\)/);
+    // the canonical artifact lands in the run dir even on raw-line runs
+    const reportPath = [...new Bun.Glob("**/report.json").scanSync({ cwd: dir })][0]!;
+    const reportJson = await (
+      await import("node:fs/promises")
+    ).readFile(`${dir}/${reportPath}`, "utf8");
+    expect(() => JSON.parse(reportJson)).not.toThrow();
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dir })];
-    expect(captures.length).toBeGreaterThan(0);
+    // report.json is written for EVERY recording run — persistence is not gated on --json
+    expect(captures.some((f) => f.endsWith("report.json"))).toBe(true);
+    expect(captures.some((f) => f.endsWith("manifest.json"))).toBe(true);
+    expect(captures.length).toBeGreaterThan(2); // the recorded requests
+    expect(r.stdout).not.toContain("{"); // raw lines, never json on default stdout
   });
 });
 
@@ -512,16 +527,16 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     }
   }, 20_000); // live network round trip: latency varies, bun's default 5s timeout is too tight
 
-  test.concurrent("JEV_DEBUG_REQUEST=1: captures land, stdout JSON untouched, stderr names the run dir", async () => {
+  test.concurrent("always-on recording: captures land, stdout JSON untouched, stderr names the run dir", async () => {
     if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
-      JEV_DEBUG_REQUEST: "1",
-      JEV_DEBUG_REQUEST_LOCATION: dir,
+      JEV_RECORD: "1",
+      JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
     expect(() => JSON.parse(r.stdout)).not.toThrow(); // the notice never touches stdout
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DEBUG_REQUEST_LOCATION\)/);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DIR\)/);
   }, 20_000);
 });

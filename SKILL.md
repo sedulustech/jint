@@ -32,13 +32,34 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 ## Setup
 
 - Requires bun. `TYPESAFE_API_KEY` in the environment (used as-is).
-- Optional: `JEV_DEBUG_REQUEST=1` records the exact wire bytes per question
-  under /tmp/jint/requests/ (or `JEV_DEBUG_REQUEST_LOCATION` — note it wins even
-  if relative, e.g. a stale `tmp/requests` in env redirects requests into the
-  repo). At end of run jint prints one stderr line naming the run dir:
+- Recording is always on: the exact wire bytes per question land under
+  `~/.jint/runs/` (or wherever `JEV_DIR` points — note it wins even if
+  relative, e.g. a stale `tmp/requests` in env redirects requests into the
+  repo); `JEV_RECORD=0` is the only off switch. At end of run jint prints one
+  stderr line naming the run dir:
   `jint: requests -> <dir> (N calls)` — trust that line, not the docs.
-  Read the request files when you need to see precisely what the model saw. Every recorded run is
-  also browsable in the measurement UI - see "Give the user the link" below.
+  Read the recorded request files when you need to see precisely what the model saw. Every run
+  also persists `report.json` (the canonical output — the same bytes `--json` prints) and is
+  browsable in the measurement UI - see "Give the user the link" below.
+
+## Output
+
+- Default stdout: one raw line per finding —
+  `path@L<line>  rule  level  score  [note]  run=<id>` — findings only, no table, no color.
+  The element id never prints (it is run-scoped, an internal of the report's `input` key, not a
+  query surface).
+- Element-scoped runs echo to stderr (never stdout): a resolution map per query item
+  (`jint: @L36-L60 -> 3 elements: L38, L40, L58-L59`), then per element an edge-only section
+  carrying its verdicts —
+  `--- path@L38 (1 line) - is_greppable: error 0.23 ---` + the first/last source lines
+  (a `... N more lines ...` marker between when the span exceeds two lines).
+  `run=<id>` appears only when recording is active. Totals print on stderr:
+  `jint: N problems (E errors, W warnings)`.
+- `--json`: the canonical report bytes on stdout, byte-identical to the run's `report.json`
+  (measurements, findings with note + location, errors, notes). It is a stdout FORMAT choice,
+  never an artifact gate — report.json is written for every recording run.
+- Env summary: `JEV_RECORD=0` disables recording entirely (harness/tests); `JEV_DIR` moves where
+  run dirs land (default `~/.jint/runs`); `JEV_RECORD=1` is accepted as explicit-on.
 
 ## CLI
 
@@ -50,6 +71,9 @@ git diff HEAD~1 | jint diff -               # diffs: pipe them in (jint never sh
 jint diff fix.patch                         # a patch file, declared a diff
 jint --config my-probe.config.json src/core/jev/ --json
 jint --dry-run                         # the rules that WOULD run - zero walks, zero calls
+jint src/a.ts@L58                      # element-scoped: the unit containing line 58 (one call)
+jint src/a.ts@L58-L70,@L80-L92         # range list: every element fully enclosed, each one call
+jint src/a.ts@L58 --rule is_greppable  # narrow any selection to ONE classifier call
 ```
 
 - The resource is the noun; the verb (measure) is implicit. `str` and `diff` are
@@ -63,6 +87,25 @@ jint --dry-run                         # the rules that WOULD run - zero walks, 
   `--language` supplies the grammar when there is no path extension; without a
   grammar, inventory-scoped rules fail with WALK_FAILED (in-band) while
   file-scoped rules still measure.
+- Element-scoped nouns: ANCHOR `@L<n>` — the element whose span contains line n (one
+  classifier call: its rules batched). RANGE `@L<s>-<e>` — every element FULLY ENCLOSED
+  in [s,e]; partial overlaps are never selected, and a range enclosing none errors
+  listing the file's element spans. Comma list — each item independent. `--rule`
+  narrows every selection to ONE call. Stderr echo per selection: the resolution map
+  (`jint: @L36-L60 -> 3 elements: L38, L40, L58-L59`) + per element an edge-only
+  section (`--- path@L38 (1 line) - is_greppable: error 0.23 ---` + first/last
+  source lines) so you can verify the tool judged the span you meant.
+- THE FIX LOOP (the workflow this tool is for):
+  1. full run first — `jint src/` for the whole picture;
+  2. fix one element;
+  3. verify scoped, one call: `jint src/a.ts@L<current-line> --rule <rule>` — the finding's
+     `@L` is pre-edit: editing above the anchor shifts every line below it, so re-check the
+     element where it NOW lives (the lines you just changed), never the stale finding line;
+  4. repeat; 5. full re-run at the end — 0 errors.
+     Small files rarely need the scoped step (full runs are cheap); large files, where a
+     full re-run is hundreds of calls, are where it pays. To isolate ONE rule on ONE element,
+     never copy code into probe files: `file@L --rule` does it in a single call. Full runs
+     converge at the end, not between edits.
 - Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal,
   4 zero measurements. Findings -> stdout; run errors -> stderr.
 - **Every run prints its rubric first**: the full rule set (names, targets,
@@ -277,8 +320,7 @@ was suspended until its criteria could name an observable condition.
 
 ## Give the user the link (run visualization)
 
-Every run that records requests (`JEV_DEBUG_REQUEST_LOCATION`, or the default under
-tmp/requests) is an inspectable artifact: the run dir holds report.json (all measurements
+Every run records (`~/.jint/runs/`, or `JEV_DIR`) and is an inspectable artifact: the run dir holds report.json (all measurements
 
 - findings) and one request file per classifier call. The measurement UI turns a run dir
   into a browsable view - rules grouped by rule/file/request, findings rendered with their
@@ -286,7 +328,7 @@ tmp/requests) is an inspectable artifact: the run dir holds report.json (all mea
 
 When a session involves a run the user will want to look at, give them a link:
 
-1. Run with recording on: `JEV_DEBUG_REQUEST_LOCATION=/path/to/requests jint ... --json`.
+1. Run (recording is on; point it somewhere with `JEV_DIR=/path/to/runs jint ... --json`).
 2. Take the run id from the stderr line: `jint: requests -> /path/to/requests/<RUNID> (N calls)`.
 3. Link: `http://localhost:5173/#runs/<RUNID>` (the UI must be running with its
    `JINT_REQUESTS_DIR` pointing at that same requests dir - see packages/app).

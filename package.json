@@ -14,14 +14,14 @@
     "jint.schema.json"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cli.js",
+  "module": "./src/cli.ts",
+  "types": "./dist/cli.d.ts",
   "scripts": {
     "test": "bun test --parallel",
     "schema": "bun scripts/generate-schema.ts",
     "build": "bun run schema && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p packages/sdk --noEmit",
     "validate": "bun run schema && bun run typecheck && bun run lint && bun run build",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",
@@ -31,9 +31,8 @@
   },
   "dependencies": {
     "@jint/contract": "workspace:*",
-    "@sinclair/typebox": "^0.34.52",
-    "@typesafe-ai/sdk": "^0.6.0",
-    "tree-sitter-go": "^0.25.0"
+    "@jint/sdk": "workspace:*",
+    "@sinclair/typebox": "^0.34.52"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",
@@ -41,9 +40,7 @@
     "oxfmt": "^0.58.0",
     "oxlint": "^1.79.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
-    "typescript": "^7.0.2",
-    "web-tree-sitter": "^0.27.0"
+    "typescript": "^7.0.2"
   }
 }

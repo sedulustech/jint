@@ -103,7 +103,7 @@ async function runIn(dir: string, env: Record<string, string | undefined> = {}) 
     cwd: dir,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...MOCK_ENV, ...env },
+    env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -146,7 +146,7 @@ describe("cli: ts rules end-to-end", () => {
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
     const dir = setup("dumps", GOOD_RULE);
     const dumps = DIR + "/dump-captures";
-    const r = await runIn(dir, { JEV_DEBUG_REQUEST_LOCATION: dumps });
+    const r = await runIn(dir, { JEV_RECORD: "1", JEV_DIR: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
     const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
     // report.json + manifest.json (the run's persisted metadata, not captures) are excluded

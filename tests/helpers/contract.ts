@@ -1,10 +1,16 @@
+import { REPORT_SCHEMA, LINE_SCHEMA } from "@jint/sdk";
 /**
  * One assertion for the three surfaces a CLI run owns: exit code, stderr, stdout. Every failure
  * message names all three surfaces so a red test reads as a full contract diff, not one symptom.
  *
- * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
- * everywhere; live tests assert MODEL BEHAVIOR and run opt-in — see tests/README.md.
+ * SCHEMA DRIFT CATCHER: 'json' stdout validates against the SDK's ReportSchema and 'lines' stdout
+ * parses per LINE_SCHEMA, so a renderer or report change that drifts from the schema fails HERE,
+ * not in a client.
+ *
+ * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, shapes) and run everywhere;
+ * live tests assert MODEL BEHAVIOR and run opt-in — see tests/README.md.
  */
+import { Value } from "@sinclair/typebox/value";
 
 export interface RunResult {
   code: number;
@@ -17,10 +23,11 @@ export interface ContractSpec {
   /** Substring(s) and/or regex(es) that must all appear on stderr. */
   stderr?: string | RegExp | Array<string | RegExp>;
   /**
-   * 'empty' - stdout must be the empty string. 'json' - stdout parses as the machine report JSON.
-   * string / { contains } - substring that must appear on stdout.
+   * 'empty' - stdout must be the empty string. 'json' - stdout parses AND validates against
+   * ReportSchema. 'lines' - every stdout line parses per LINE_SCHEMA. string / { contains } -
+   * substring that must appear on stdout.
    */
-  stdout?: "empty" | "json" | string | { contains: string };
+  stdout?: "empty" | "json" | "lines" | string | { contains: string };
 }
 
 /** The parsed stdout report when spec.stdout === 'json'; null otherwise. */
@@ -53,6 +60,17 @@ export function expectContract(r: RunResult, spec: ContractSpec): Record<string,
       parsed = JSON.parse(r.stdout);
     } catch {
       failures.push(`stdout: expected jint report JSON, got: ${truncate(r.stdout)}`);
+    }
+    if (parsed !== null && !Value.Check(REPORT_SCHEMA, parsed)) {
+      failures.push("stdout: report JSON violates ReportSchema (client drifted from the schema)");
+    }
+  } else if (spec.stdout === "lines") {
+    if (r.stdout !== "") {
+      for (const line of r.stdout.trimEnd().split("\n")) {
+        if (!Value.Check(LINE_SCHEMA, line)) {
+          failures.push(`stdout line violates LineSchema: ${truncate(line)}`);
+        }
+      }
     }
   } else if (typeof spec.stdout === "string") {
     if (!r.stdout.includes(spec.stdout)) failures.push(`stdout: missing "${spec.stdout}"`);

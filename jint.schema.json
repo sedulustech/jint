@@ -31,7 +31,7 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": ["name", "criteria", "target", "handle"],
+                "required": ["name", "instructions", "criteria", "target", "handle"],
                 "properties": {
                   "name": {
                     "type": "string"
@@ -41,6 +41,7 @@
                     "type": "string"
                   },
                   "instructions": {
+                    "description": "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.",
                     "type": "string"
                   },
                   "criteria": {

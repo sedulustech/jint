@@ -5,7 +5,7 @@
  */
 
 import { writeFileSync } from "node:fs";
-import { CONFIG_SCHEMA } from "../src/config/load.ts";
+import { CONFIG_SCHEMA } from "@jint/sdk";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
