@@ -8,7 +8,7 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // runs classify for real.
 
 const ROOT = import.meta.dir + "/..";
-const CLI = "src/cli.ts";
+const CLI = "packages/cli/src/cli.ts";
 
 const SNIPPET = [
   "export function add(a: number, b: number): number {",

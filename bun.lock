@@ -54,6 +54,18 @@
         "vitest": "^5.0.2",
       },
     },
+    "packages/cli": {
+      "name": "@jint/cli",
+      "version": "0.1.0",
+      "bin": {
+        "jint": "./dist/cli.js",
+      },
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+        "@jint/sdk": "workspace:*",
+        "@sinclair/typebox": "^0.34.52",
+      },
+    },
     "packages/contract": {
       "name": "@jint/contract",
       "version": "0.1.0",
@@ -198,6 +210,8 @@
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
     "@hono/node-server": ["@hono/node-server@2.1.3", "", { "peerDependencies": { "hono": "^4" } }, "sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw=="],
+
+    "@jint/cli": ["@jint/cli@workspace:packages/cli"],
 
     "@jint/contract": ["@jint/contract@workspace:packages/contract"],
 

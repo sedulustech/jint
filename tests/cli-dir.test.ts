@@ -4,7 +4,7 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
-const CLI = "src/cli.ts";
+const CLI = "packages/cli/src/cli.ts";
 // a key with no reachable jev: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 

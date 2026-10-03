@@ -1,7 +1,7 @@
 /**
- * Regenerates jint.schema.json from CONFIG_SCHEMA (src/config/load.ts). Run after any config schema
- * change: bun run schema. The emitted file is checked in so editors resolve "$schema" without
- * running jint, and CI can diff it against this output to catch drift.
+ * Regenerates jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts). Run after any
+ * config schema change: bun run schema. The emitted file is checked in so editors resolve "$schema"
+ * without running jint, and CI can diff it against this output to catch drift.
  */
 
 import { writeFileSync } from "node:fs";

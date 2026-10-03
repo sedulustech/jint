@@ -1,0 +1,17 @@
+{
+  "name": "@jint/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "jint": "./dist/cli.js"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@jint/contract": "workspace:*",
+    "@jint/sdk": "workspace:*",
+    "@sinclair/typebox": "^0.34.52"
+  }
+}

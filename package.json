@@ -3,25 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "jint": "./dist/cli.js"
+    "jint": "./packages/cli/dist/cli.js"
   },
   "workspaces": [
     "packages/*"
   ],
   "files": [
-    "dist",
-    "src",
     "jint.schema.json"
   ],
   "type": "module",
-  "main": "./dist/cli.js",
-  "module": "./src/cli.ts",
-  "types": "./dist/cli.d.ts",
   "scripts": {
     "test": "bun test --parallel",
     "schema": "bun scripts/generate-schema.ts",
-    "build": "bun run schema && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
-    "typecheck": "tsc --noEmit && tsc -p packages/sdk --noEmit",
+    "build": "bun run schema && tsc -p packages/cli && chmod +x packages/cli/dist/cli.js",
+    "typecheck": "tsc --noEmit && tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit",
     "validate": "bun run schema && bun run typecheck && bun run lint && bun run build",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",
