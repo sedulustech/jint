@@ -27,5 +27,5 @@
     "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src"],
-  "exclude": ["src/**/fixtures"]
+  "exclude": ["src/**/fixtures", "src/**/statements-grammar"]
 }

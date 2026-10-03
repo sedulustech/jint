@@ -668,7 +668,7 @@ describe("decompose - degraded-parse statement fragments (issue 021, real-shaped
 
   test("py/go gate: healthy-grammar fixtures are untouched by the degraded-path change", async () => {
     const py = await decompose(
-      await Bun.file("probes/statements-grammar/frag.py").text(),
+      await Bun.file("packages/sdk/src/core/input/statements-grammar/frag.py").text(),
       "python",
     );
     expect(py.hasError).toBe(false);
@@ -676,7 +676,10 @@ describe("decompose - degraded-parse statement fragments (issue 021, real-shaped
       ["function_definition", 1, 3],
       ["function_definition", 5, 6],
     ]);
-    const go = await decompose(await Bun.file("probes/statements-grammar/frag.go").text(), "go");
+    const go = await decompose(
+      await Bun.file("packages/sdk/src/core/input/statements-grammar/frag.go").text(),
+      "go",
+    );
     expect(go.hasError).toBe(false);
     expect(go.definitions.map((d) => [d.nodeType, d.span.start.line, d.span.end.line])).toEqual([
       ["function_declaration", 1, 4],
