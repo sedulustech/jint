@@ -52,6 +52,16 @@ jobs:
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # probe: does a bare Team ID resolve as a codesign identity? (the cert's
+          # OU field carries it, so it may match — evidence, not assumption)
+          echo '--- identities in keychain ---'
+          security find-identity -v -p codesigning
+          echo '--- sign with bare Team ID ---'
+          codesign --force --sign "$TEAM_ID" out/jint-darwin-arm64 && echo 'TEAM_ID_AS_IDENTITY=works' || echo 'TEAM_ID_AS_IDENTITY=fails'
+          echo '--- policy tools present ---'
+          for t in spctl syspolicy_check; do command -v "$t" >/dev/null && echo "$t: present" || echo "$t: absent"; done
+          echo '--- spctl deprecation notice? ---'
+          spctl --version 2>&1 | head -2
           IDENTITY="Developer ID Application: Julian Cruciani ($TEAM_ID)"
           for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
             codesign --force --timestamp --options runtime --sign "$IDENTITY" "$f"
