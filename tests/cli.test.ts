@@ -24,6 +24,9 @@ async function run(
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, JEV_RECORD: "0", ...envOverrides },
+    // generous ceiling: every run here boots a whole bun process, and on a loaded CI
+    // runner a spawn alone has burned seconds before the CLI's own work starts
+    timeout: 60_000,
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -183,7 +186,9 @@ describe("cli: contract basics", () => {
     // element inputs carry run-scoped uuids (element-identity design): strip before comparing
     const strip = (s: string) => JSON.parse(s.replace(/[0-9a-f-]{36}/g, "UUID"));
     expect(strip(a.stdout)).toEqual(strip(b.stdout));
-  });
+    // two CLI spawns, each fetching a dead base URL: this is the only case that pays
+    // the boot cost twice, so it needs more than bun's 5s default on a loaded runner
+  }, 30000);
 
   test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {
     // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
@@ -194,14 +199,14 @@ describe("cli: contract basics", () => {
     });
   });
 
-  // the NO_SERVICE leg performs a real fetch against a dead base URL; connection-refused
-  // latency varies on loaded CI runners, so this test gets a generous ceiling (bun's default
-  // is 5s and this flaked at exactly 5000ms on ubuntu-latest)
+  // NO_SERVICE points at a dead base URL and the CLI performs a real fetch; connection
+  // latency varies on loaded CI runners, so this test gets a generous ceiling (bun's 5s
+  // default flaked here on ubuntu-latest, and the CLI's own spawn carries its own timeout)
   test.concurrent("piped stdout carries no escape codes (--help and reports)", async () => {
     expect((await run(["-h"])).stdout).not.toContain("\x1b");
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
     expect(r.stdout).not.toContain("\x1b");
-  }, 15000);
+  }, 30000);
 });
 
 describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
