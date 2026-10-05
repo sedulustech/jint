@@ -1,0 +1,87 @@
+name: Sign & Notarize (macOS)
+
+# Manual only for now: this is the credential-proof leg before any release trigger
+# exists. It builds both darwin targets, signs with the Developer ID identity, submits
+# to Apple's notary service, staples the ticket, and verifies the result.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  darwin:
+    name: Sign & notarize (darwin-arm64 + darwin-x64)
+    runs-on: macos-26
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
+
+      - name: Install dependencies
+        run: bun ci
+
+      # build.ts cross-compiles: the runner's native arm64 makes darwin-arm64 and the
+      # same host emits darwin-x64 — one runner, both artifacts
+      - name: Build binaries
+        run: |
+          bun scripts/build.ts darwin-arm64
+          bun scripts/build.ts darwin-x64
+
+      - name: Import signing identity
+        env:
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          KEYCHAIN=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          # -A before -T: without it, codesign cannot read the key and stalls on a GUI prompt
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+
+      - name: Sign
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          IDENTITY="Developer ID Application: Julian Cruciani ($TEAM_ID)"
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            codesign --force --timestamp --options runtime --sign "$IDENTITY" "$f"
+            codesign --verify --strict --verbose=2 "$f"
+          done
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            ditto -c -k --keepParent "$f" "$f.zip"
+            xcrun notarytool submit "$f.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" --wait
+          done
+
+      - name: Staple and verify
+        run: |
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            xcrun stapler staple "$f"
+            xcrun stapler validate "$f"
+            spctl -a -vv -t exec "$f"
+          done
+
+      - name: Upload notarized binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: jint-darwin-notarized
+          path: |
+            out/jint-darwin-arm64
+            out/jint-darwin-x64
+          if-no-files-found: error
