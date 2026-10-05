@@ -194,11 +194,14 @@ describe("cli: contract basics", () => {
     });
   });
 
+  // the NO_SERVICE leg performs a real fetch against a dead base URL; connection-refused
+  // latency varies on loaded CI runners, so this test gets a generous ceiling (bun's default
+  // is 5s and this flaked at exactly 5000ms on ubuntu-latest)
   test.concurrent("piped stdout carries no escape codes (--help and reports)", async () => {
     expect((await run(["-h"])).stdout).not.toContain("\x1b");
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
     expect(r.stdout).not.toContain("\x1b");
-  });
+  }, 15000);
 });
 
 describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
@@ -302,8 +305,14 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("TTY with payload '-' -> immediate usage error, never blocks", async () => {
-    // script(1) allocates a pty so process.stdin.isTTY is true in the child
-    const proc = await runShell(`script -qec 'bun ${CLI} str -' /dev/null`, NO_KEY);
+    // script(1) allocates a pty so process.stdin.isTTY is true in the child.
+    // util-linux script takes -e -c and the command as a single arg; the BSD/macOS script
+    // takes the command positionally after the (optional) file — same effect, two spellings.
+    const script =
+      process.platform === "darwin"
+        ? `script -q /dev/null bun ${CLI} str -`
+        : `script -qec 'bun ${CLI} str -' /dev/null`;
+    const proc = await runShell(script, NO_KEY);
     const out = proc.stdout + proc.stderr;
     expect(proc.code).toBe(2);
     expect(out).toContain("no piped stdin to classify");

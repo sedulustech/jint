@@ -38,4 +38,8 @@ jobs:
         run: bun run build
 
       - name: Run Tests
+        env:
+          # W5 (the bin-liveness test) makes one real classification; every other test
+          # blanks the key in its spawn env, so the runtime key leaks nowhere else
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: bun test
