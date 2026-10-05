@@ -67,8 +67,6 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 jint src/ --json                            # directory walk, human table or JSON
 jint src/a.ts src/b.ts                      # explicit files
 cat snippet.ts | jint str - --language typescript --json   # stdin source, declared str
-git diff HEAD~1 | jint diff -               # diffs: pipe them in (jint never shells to git)
-jint diff fix.patch                         # a patch file, declared a diff
 jint --config my-probe.config.json src/core/jev/ --json
 jint --dry-run                         # the rules that WOULD run - zero walks, zero calls
 jint src/a.ts@L58                      # element-scoped: the unit containing line 58 (one call)
@@ -76,14 +74,15 @@ jint src/a.ts@L58-L70,@L80-L92         # range list: every element fully enclose
 jint src/a.ts@L58 --rule is_greppable  # narrow any selection to ONE classifier call
 ```
 
-- The resource is the noun; the verb (measure) is implicit. `str` and `diff` are
-  nouns only as the FIRST positional; their next positional is the payload, taken
-  verbatim (no flag parsing): `jint str "--json"` measures "--json" as source.
-  A path's kind is inferred by shape only: exists-as-dir -> dir, else file —
-  never content-sniffed. Nouns never resolve to paths: a repo file named `diff`
-  is measured as `jint ./diff`; bare `jint diff` / `jint str` are usage errors.
+- The resource is the noun; the verb (measure) is implicit. `str` is a noun only as
+  the FIRST positional; its next positional is the payload, taken verbatim (no flag
+  parsing): `jint str "--json"` measures "--json" as source. A path's kind is
+  inferred by shape only: exists-as-dir -> dir, else file — never content-sniffed.
+  Nouns never resolve to paths: a repo file named `str` is measured as `jint ./str`;
+  bare `jint str` is a usage error. (The `diff` noun was removed — a patch file is
+  just a file, and a changed-file list comes from `jint -` / `--changed`.)
 - Piped stdin is declared, never guessed: `jint str -` (ONE source unit) or
-  `jint diff -` (unified diff). Piping without a noun is a usage error.
+  `jint -` (a changed-file LIST). Piping without a noun is a usage error.
   `--language` supplies the grammar when there is no path extension; without a
   grammar, inventory-scoped rules fail with WALK_FAILED (in-band) while
   file-scoped rules still measure.
@@ -199,7 +198,7 @@ Changing instructions is a recalibration event.
   the same failure as reversed thresholds. When calibrating, the healthy
   band should land inside the pass level(s) and the defective band above
   them, with the map boundary between them.
-- Elements: `files`/`diffs` targets judge the whole unit; `definitions`/
+- Elements: the `files` target judges the whole unit; `definitions`/
   `comments`/`functions`/`imports` targets judge elements derived from the
   parse. A rule about functions needs the code to parse - snippets without a
   language will not reach it.

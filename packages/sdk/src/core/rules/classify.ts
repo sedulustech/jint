@@ -381,7 +381,7 @@ function emitWholeUnitMeasurements(
 }
 
 /**
- * Whole-unit rules: files/diffs-target rules are relational claims judged over the whole unit. A
+ * Whole-unit rules: files-target rules are relational claims judged over the whole unit. A
  * piped-string unit is its own inventory — the whole input is the element, so EVERY rule judges it
  * whole; a target routes elements of a parsed inventory, and a piped-string unit has none by
  * design. No grammar is ever inferred for it.

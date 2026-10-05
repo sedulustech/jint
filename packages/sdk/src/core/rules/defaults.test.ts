@@ -188,9 +188,7 @@ describe("rule definitions", () => {
       const criteria =
         rule.kind === "choice" ? rule.criteria : [rule.criteria.true, rule.criteria.false];
       expect(criteria.every((c) => c.length > 20)).toBe(true);
-      expect(["files", "functions", "definitions", "comments", "imports", "diffs"]).toContain(
-        rule.target,
-      );
+      expect(["files", "functions", "definitions", "comments", "imports"]).toContain(rule.target);
     }
   });
 

@@ -93,8 +93,6 @@ export class ClassifyError extends Error {
  * Which unit instance a rule judges (design.md §7.1): mapping an acquired file to units yields
  * target instances - one whole-file slice, N definition elements, M standalone comment elements, 1
  * merged import element - and the target selects which of them the rule's question runs over.
- * "diffs" is the raw unified-diff string of a diff unit, judged as one unit (quick path, design §4
- * Diff units).
  */
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
 
