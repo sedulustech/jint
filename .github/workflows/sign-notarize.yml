@@ -60,13 +60,17 @@ jobs:
 
       - name: Notarize
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
         run: |
+          # App Store Connect API key over Apple ID + app password: revocable, tied
+          # to the org account, and no 2FA or personal password in CI
+          KEY="$RUNNER_TEMP/AuthKey_$API_KEY_ID.p8"
+          echo "$API_KEY_BASE64" | base64 --decode > "$KEY"
           for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
             ditto -c -k --keepParent "$f" "$f.zip"
-            xcrun notarytool submit "$f.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" --wait
+            xcrun notarytool submit "$f.zip" --key "$KEY" --key-id "$API_KEY_ID" --issuer "$ISSUER_ID" --wait
           done
 
       - name: Staple and verify
