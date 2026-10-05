@@ -17,10 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         # pinned, not -latest: ubuntu-latest migrates to 26.04 on 2026-10-19,
-        # and builds must stay reproducible across that switch
-        os: [ubuntu-24.04, macos-15-arm64]
-        # The repo is developed on 1.4.x; latest catches forward breakage
-        bun-version: [1.4.x, latest]
+        # and builds must stay reproducible across that switch; macos-15-arm64
+        # sits in a contended queue, macos-14-arm64 is what macos-latest ran
+        # green on in the first matrix run
+        os: [ubuntu-24.04, macos-14-arm64]
+        # developed on 1.4.x; setup-bun's 'latest' resolved to 1.4.2 anyway,
+        # so the second leg added concurrency and flake surface, not signal
+        bun-version: [1.4.x]
 
     runs-on: ${{ matrix.os }}
 
