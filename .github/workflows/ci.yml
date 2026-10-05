@@ -13,7 +13,9 @@ jobs:
       # One failing matrix job must not cancel the others
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # pinned, not -latest: ubuntu-latest migrates to 26.04 on 2026-10-19,
+        # and builds must stay reproducible across that switch
+        os: [ubuntu-24.04, macos-15-arm64]
         # The repo is developed on 1.4.x; latest catches forward breakage
         bun-version: [1.4.x, latest]
 
@@ -21,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
