@@ -73,11 +73,12 @@ jobs:
             xcrun notarytool submit "$f.zip" --key "$KEY" --key-id "$API_KEY_ID" --issuer "$ISSUER_ID" --wait
           done
 
-      - name: Staple and verify
+      # No stapling: stapler attaches a ticket to a bundle or disk image, and the
+      # shipped artifact is a bare Mach-O in a tar.gz — Gatekeeper fetches the
+      # notarization ticket online on first run instead.
+      - name: Verify Gatekeeper acceptance
         run: |
           for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
-            xcrun stapler staple "$f"
-            xcrun stapler validate "$f"
             spctl -a -vv -t exec "$f"
           done
 
