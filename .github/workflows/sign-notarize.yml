@@ -76,10 +76,15 @@ jobs:
       # No stapling: stapler attaches a ticket to a bundle or disk image, and the
       # shipped artifact is a bare Mach-O in a tar.gz — Gatekeeper fetches the
       # notarization ticket online on first run instead.
-      - name: Verify Gatekeeper acceptance
+      - name: Verify signature and Gatekeeper acceptance
         run: |
           for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
-            spctl -a -vv -t exec "$f"
+            codesign --verify --strict --verbose=2 "$f"
+            codesign -dv --verbose=4 "$f" 2>&1 | grep -E 'Authority|TeamIdentifier'
+            # -t open, not -t exec: spctl assesses a bundle for exec, and a bare
+            # Mach-O is not one ("valid but does not seem to be an app"); for a
+            # plain executable the open assessment is the one that applies
+            spctl -a -vv -t open --context context:primary-signature "$f"
           done
 
       - name: Upload notarized binaries
