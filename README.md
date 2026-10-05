@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.svg" width="220" alt="jint">
+</p>
+
 # jint
 
 **jev lint** — classifies code with AI-classifier judgments (TypeSafe System One / jev) and turns the readings into actionable output via per-rule callbacks. Rules in, findings out.
