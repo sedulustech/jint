@@ -16,11 +16,11 @@ jobs:
       # One failing matrix job must not cancel the others
       fail-fast: false
       matrix:
-        # pinned, not -latest: ubuntu-latest migrates to 26.04 on 2026-10-19,
-        # and builds must stay reproducible across that switch; macos-15-arm64
-        # sits in a contended queue, macos-14-arm64 is what macos-latest ran
-        # green on in the first matrix run
-        os: [ubuntu-24.04, macos-14-arm64]
+        # pinned, not -latest: ubuntu-latest migrates to 26.04 on 2026-10-19 and
+        # builds must stay reproducible across that switch. macos-latest resolves to
+        # macOS 26 arm64 (the image the first green matrix ran on); macos-15-arm64
+        # sat in a contended queue that day and macos-14 is deprecated (issue #13518)
+        os: [ubuntu-24.04, macos-26]
         # developed on 1.4.x; setup-bun's 'latest' resolved to 1.4.2 anyway,
         # so the second leg added concurrency and flake surface, not signal
         bun-version: [1.4.x]
