@@ -34,8 +34,8 @@ jobs:
 
       - name: Import signing identity
         env:
-          P12_BASE64: ${{ secrets.P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          P12_BASE64: ${{ secrets.APPLE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
         run: |
           KEYCHAIN=$RUNNER_TEMP/signing.keychain-db
           security create-keychain -p "" "$KEYCHAIN"
