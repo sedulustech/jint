@@ -67,8 +67,8 @@ const HELP = `jint — jev lint: classifies code with AI-classifier judgments; r
 Usage:
   jint src/                       classify a directory tree
   jint a.ts b.ts                  classify files
-  git diff --name-only HEAD~1 | jint -   a changed-file LIST from stdin (the ctx.diff lens:
-                                         with no other input, the list is what gets judged)
+  git diff --name-only HEAD~1 | jint -   a changed-file LIST from stdin (with no other input,
+                                         the list is what gets judged)
   cat snippet.ts | jint str -     piped stdin, one str unit
   jint                            no positional: input comes from jint.config.json
 
@@ -108,8 +108,8 @@ Options:
   --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
                       JEV_TIMEOUT failure - liveness, not retry)
   --changed <file>    changed-file LIST (one path per line, relative to the input dir or
-                      absolute) - the ctx.diff lens for rules; with no other input, the list IS
-                      the judged subject (the changeset form: git diff --name-only HEAD~1 | jint -)
+                      absolute); with no other input, the list IS the judged subject (the
+                      changeset form: git diff --name-only HEAD~1 | jint -)
   --json              machine report (byte-identical to the run's report.json) instead of
                       raw finding lines
   --dry-run           print the rule set that WOULD run (config resolved, disable/only applied)
@@ -206,9 +206,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
-    // The changed-file LIST from stdin: the user's own VCS pipeline feeding the ctx.diff lens
+    // The changed-file LIST from stdin: the user's own VCS pipeline
     // (git diff --name-only HEAD~1 | jint -). Never a judged subject — a noun declares those.
-    // stdin is NOT consumed here: the lens resolver in lint() reads it lazily.
+    // stdin is NOT consumed here: the changed-list resolver in lint() reads it lazily.
     if (process.stdin.isTTY) {
       usageError("jint -: no piped stdin to read the changed list from (stdin is a terminal)");
       return 2;

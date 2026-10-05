@@ -36,13 +36,7 @@ import {
   type WalkedUnit,
 } from "./rules/classify.ts";
 import { judgesWholeUnit } from "./scope.ts";
-import {
-  buildDiffLens,
-  resolveAllTsTargets,
-  runTsRules,
-  tsElementsOf,
-  type ResolvedTsTargets,
-} from "./tsrules/execute.ts";
+import { resolveAllTsTargets, runTsRules, type ResolvedTsTargets } from "./tsrules/execute.ts";
 import { loadTsConfigRules } from "./tsrules/loader.ts";
 import {
   ClassifyError,
@@ -101,7 +95,7 @@ export interface LintOptions {
    * A changed-file LIST (CLI --changed <file>; stdin with "-" via the CLI's jint - form): one path
    * per line, relative to the input dir or absolute — the caller's own VCS pipeline, jint never
    * shells out. The list IS the input selection when no input is otherwise given (the changeset
-   * form) and ALWAYS populates the ctx.diff lens for TS rules.
+   * form).
    */
   changed?: string;
   /**
@@ -120,8 +114,8 @@ export interface LintOptions {
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  // The changed-file list (ctx.diff lens + changeset selection): read and parsed ONCE, before
-  // the input guard — the list IS the input when nothing else selected one.
+  // The changed-file list (changeset selection): read and parsed ONCE, before the input guard
+  // — the list IS the input when nothing else selected one.
   const changedList =
     options.changed !== undefined
       ? parseChangedList(await readChangedSource(options.changed))
@@ -216,8 +210,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     ),
     concurrency,
   );
-  // The changeset selection: every listed path is the file's identity verbatim, so the lens and
-  // the walk share one anchor by construction. Entries that resolve to no walked unit (missing,
+  // The changeset selection: every listed path is the file's identity verbatim — one anchor by
+  // construction. Entries that resolve to no walked unit (missing,
   // unreadable, non-source) are SIGNAL — a note names them below, never silence.
   const units =
     options.str !== undefined
@@ -353,7 +347,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // of files with zero selected targets is dropped (logical drop, no re-read) unless a files-target
   // JSON rule needs every file's text.
   let tsResolved: ResolvedTsTargets | undefined;
-  let diffLens: ReturnType<typeof buildDiffLens> | undefined;
   if (tsRules.length > 0) {
     const elementsByPath = new Map<string, readonly WalkElement[]>();
     for (let i = 0; i < units.length; i++) {
@@ -361,14 +354,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
     }
     tsResolved = resolveAllTsTargets(tsRules, elementsByPath);
-    // The lens is computed once over the FULL walk inventory (the changed set INTERSECT walk),
-    // never per rule: it is knowledge about the world, not about a rule's slice.
-    if (changedList !== undefined) {
-      diffLens = buildDiffLens(
-        changedList.filter((p) => unitPaths.has(p)),
-        [...elementsByPath.entries()].flatMap(([path, inventory]) => tsElementsOf(inventory, path)),
-      );
-    }
     // The retention guard is shape-robust on purpose: if the JSON target ever becomes an array
     // form (the TS grammar already allows one), "files" anywhere in the target still retains.
     const wantsAnyFile = (target: Rule["target"]): boolean =>
@@ -463,7 +448,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // TS-tier classification runs after the JSON waves (one resolution, fan-out, policy once per
   // rule); its findings stream at the end of the run, bound to each target's span.
   if (tsResolved !== undefined && !aborted) {
-    const phase = await runTsRules(tsRules, tsResolved, classifier, () => aborted, diffLens);
+    const phase = await runTsRules(tsRules, tsResolved, classifier, () => aborted);
     for (const event of phase.events) yield event;
     if (phase.fatal) aborted = true;
   }

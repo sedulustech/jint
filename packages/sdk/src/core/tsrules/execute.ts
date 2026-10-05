@@ -24,13 +24,7 @@ import {
   type RuleResult,
   type Span,
 } from "../types.ts";
-import {
-  validateDecision,
-  validateStateSpec,
-  type DiffLens,
-  type TsElement,
-  type TsRule,
-} from "./sdk.ts";
+import { validateDecision, validateStateSpec, type TsElement, type TsRule } from "./sdk.ts";
 import type { WalkElement } from "../input/walk.ts";
 
 /**
@@ -173,30 +167,6 @@ export interface TsRulePhase {
 }
 
 /**
- * The ctx.diff lens, computed ONCE per run over the full walk inventory: ctx.targets.<kind>
- * filtered to elements whose input path is in the changed list. ONE anchor by construction — the
- * entry string is used verbatim as the file's identity, so list entries and element paths cannot
- * disagree. jint never shells out and never parses a VCS.
- */
-export function buildDiffLens(
-  paths: readonly string[],
-  allElements: readonly TsElement[],
-): DiffLens {
-  const changed = new Set(paths);
-  const subset = allElements.filter((e) => changed.has(e.path));
-  const ofRole = (role: TsElement["role"]): readonly TsElement[] =>
-    subset.filter((e) => e.role === role);
-  return {
-    paths: [...changed],
-    file: subset,
-    functions: ofRole("function"),
-    definitions: ofRole("type"),
-    comments: ofRole("comment"),
-    imports: ofRole("import"),
-  };
-}
-
-/**
  * Runs the loaded TS rules over the completed walk: resolve, fan out classify per target, call the
  * classifier per compiled spec, then policy once per rule. Sized state parts are backstopped per
  * part (over MAX_ELEMENT_CHARS: noted, skipped — ordinary state can never crash the request).
@@ -206,8 +176,6 @@ export async function runTsRules(
   resolved: ResolvedTsTargets,
   classifier: Classifier,
   isAborted: () => boolean,
-  /** The ctx.diff lens when a changed list was given; absent otherwise. */
-  diff?: DiffLens,
 ): Promise<TsRulePhase> {
   const events: LintEvent[] = [];
   let fatal = false;
@@ -233,8 +201,7 @@ export async function runTsRules(
       });
     }
     const targets = resolvedRule.targets;
-    // diff is context resolution only: it never changes WHO is judged, only what a rule knows.
-    const ctx = diff !== undefined ? { targets, diff } : { targets };
+    const ctx = { targets };
     const results: RuleResult[] = [];
     const values: number[] = [];
     const aligned: TsElement[] = [];
