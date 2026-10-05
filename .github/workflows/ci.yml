@@ -1,0 +1,41 @@
+name: CI Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  matrix-build:
+    name: Build & Test (${{ matrix.os }} - Bun ${{ matrix.bun-version }})
+    strategy:
+      # One failing matrix job must not cancel the others
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # The repo is developed on 1.4.x; latest catches forward breakage
+        bun-version: [1.4.x, latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ matrix.bun-version }}
+
+      # 'bun ci' enforces exact versions from bun.lock and fails if package.json is out of sync
+      - name: Install dependencies
+        run: bun ci
+
+      # build BEFORE test: the W5 bin-liveness test (tests/cli.bin.test.ts) spawns the BUILT
+      # entry (packages/cli/dist/cli.js) — it skips itself when dist/ is absent
+      - name: Build
+        run: bun run build
+
+      - name: Run Tests
+        run: bun test
