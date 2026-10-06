@@ -62,8 +62,7 @@ export interface CommentElement extends ElementBase {
 /**
  * The typed subject of a measurement (tmp/designs/element.md): a closed discriminated union — the
  * projection of the walked element (kind, span, label, parent, kind-specific name), never its full
- * content. A whole-unit judgment carries FileElement; a diff-block variant opens only when a run
- * actually measures diffs.
+ * content. A whole-unit judgment carries FileElement.
  */
 export type Element =
   | FileElement

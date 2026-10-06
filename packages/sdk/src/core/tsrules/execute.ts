@@ -144,7 +144,7 @@ function thrownMessage(thrown: unknown): string {
  * The input id for a judged element: path#uuidv4, the same scheme as the JSON element tier
  * (classify.ts) — identity is minted once per element per run and shared by the measurement and the
  * finding location. The positional label (element.id, "d0") stays the projection label only;
- * elementWireId's L-spans remain whole-file / diff-block unit ids.
+ * elementWireId's L-spans remain whole-file unit ids.
  */
 type ElementInputs = WeakMap<TsElement, string>;
 function inputOf(element: TsElement, inputs: ElementInputs): string {

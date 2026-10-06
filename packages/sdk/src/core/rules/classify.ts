@@ -54,9 +54,9 @@ export function kindSentence(noun: string): string {
 }
 
 /**
- * The noun for a whole-unit state. Every kind that reaches this seam (file, diff block, piped
- * string) is judged as source text, so one noun serves all; the kind parameter stays on the
- * signature so call sites declare which kind they are judging.
+ * The noun for a whole-unit state. Every kind that reaches this seam (file, piped string) is judged
+ * as source text, so one noun serves all; the kind parameter stays on the signature so call sites
+ * declare which kind they are judging.
  */
 export function unitKindNoun(_kind: UnitKind): string {
   return "source file";
@@ -301,10 +301,9 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   const language = options.language ?? languageOf(state.path);
   if (language === null)
     return { inventory: [], failed: missingGrammarReason(state.path), failedCause: undefined };
-  const source =
-    "content" in state && typeof state.content === "string"
-      ? state.content
-      : String((state as unknown as Record<string, unknown>).diff ?? "");
+  // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
+  // retention pass) — a typed read, no union discriminator and no fallback to parse around.
+  const source = state.content;
   try {
     const parsedSource = await decompose(source, language);
     const inventory = [
@@ -555,7 +554,7 @@ async function classifyWholeUnit(
   );
   emitWholeUnitMeasurements(
     events,
-    fileElement(fileId, "content" in state ? String(state.content) : ""),
+    fileElement(fileId, state.content),
     unitReply,
     wholeRules.map((rule) => questionKey(rule.name, fileId)),
     state.path,
@@ -607,7 +606,7 @@ export async function classifyFile(
     return { events, fatal: true, oversized: 0, notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
-  // (the one-shot door), walk now. Only file units stream the failure — str/diff units have no
+  // (the one-shot door), walk now. Only file units stream the failure — a str unit has no
   // grammar to fail on by construction.
   const walkedUnit = walked ?? (await walkUnit(unit, options));
   collectWalkFailure(unit, walkedUnit, events);

@@ -143,13 +143,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
   const loadedTsRules = await loadTsConfigRules(options.config.tsRules ?? []);
   assertNoCrossTierDuplicates(options.config.rules, loadedTsRules);
-  // str/diff units have no element inventory: every TS target would resolve to zero elements and
-  // the run would complete silently empty. That combination is rejected at setup, not silently
+  // A str unit has no element inventory: every TS target would resolve to zero elements and the
+  // run would complete silently empty. That combination is rejected at setup, not silently
   // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
   if (loadedTsRules.length > 0 && options.str !== undefined) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "ts rules run on file inputs only - a str/diff unit has no element inventory, so every ts rule would resolve zero targets (drop tsRules or use a file input)",
+      "ts rules run on file inputs only - a str unit has no element inventory, so every ts rule would resolve zero targets (drop tsRules or use a file input)",
     );
   }
   const { json: rules, ts: tsRules } = partitionRules(

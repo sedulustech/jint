@@ -10,7 +10,7 @@
  * Graceful degradation: a file whose parse sets rootNode.hasError still yields whatever top-level
  * elements parsed (tree-sitter recovers per-node, so partial structure survives). Unparseable
  * stretches surface as ERROR nodes, which the walker skips; everything that did parse is accounted
- * for. This matters for future diff hunks, which routinely parse partially.
+ * for. This matters for any source that parses only partially.
  *
  * Adding a language = adding its prebuilt grammar wasm + one LANGUAGES entry; the walker is written
  * against roles, not node names.
