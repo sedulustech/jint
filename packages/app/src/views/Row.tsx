@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
 import type { RequestItem } from "../types";
 
@@ -33,8 +34,8 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           onSelect();
         }
       }}
-      className={`cursor-pointer border-b border-border font-mono text-body ${tint} ${
-        selected ? "" : "hover:bg-muted"
+      className={`${ROW_CURSOR} border-b border-border font-mono text-body ${tint} ${
+        selected ? "" : ROW_HOVER
       }`}
     >
       <td className="px-rail text-muted-foreground">{row.seq}</td>

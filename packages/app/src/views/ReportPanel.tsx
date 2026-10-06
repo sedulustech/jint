@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchReport, fetchRun } from "../api/client";
+import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { ruleStats } from "./ruleStats";
 import type { Report } from "../types";
 
@@ -85,7 +86,15 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
               <tr
                 key={statRow.rule}
                 onClick={() => onRuleFocus(statRow.rule)}
-                className="cursor-pointer border-t border-border hover:bg-muted"
+                tabIndex={0}
+                role="button"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onRuleFocus(statRow.rule);
+                  }
+                }}
+                className={`${ROW_CURSOR} border-t border-border ${ROW_HOVER}`}
                 title="show this rule's group in the table"
               >
                 <td className="px-rail py-cell-y">
