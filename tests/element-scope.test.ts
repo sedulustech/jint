@@ -1,8 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
+import { runCli } from "./helpers/cli.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-const ROOT = import.meta.dir + "/..";
-const CLI = "packages/cli/src/cli.ts";
 const FIXTURE = "tests/fixtures/sample-file.ts";
 
 // Element-scoped classification (path@L<n> / path#id): ONE walker element judged per run, so a
@@ -13,17 +12,7 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
-    const proc = Bun.spawn(["bun", CLI, ...args], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
-    });
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    return { code: await proc.exited, stdout, stderr };
+    return runCli(args, { env: { ...MOCK_ENV, ...env } });
   }
   afterAll(() => jev.stop());
 

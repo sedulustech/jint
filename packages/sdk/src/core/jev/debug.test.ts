@@ -40,13 +40,11 @@ async function recordOnce(
 // Recording is ALWAYS-ON, so every test pins JEV_DIR at the tmp store; the one default-location
 // test repoints HOME instead, so nothing ever lands in the real ~/.jint/runs.
 beforeEach(() => {
-  delete process.env.JEV_RECORD;
   process.env.JEV_DIR = DIR;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 afterEach(() => {
-  delete process.env.JEV_RECORD;
   delete process.env.JEV_DIR;
   delete process.env.HOME;
   rmSync(DIR, { recursive: true, force: true });
@@ -62,24 +60,18 @@ describe("recordRequests", () => {
     expect(recordSummary()!.override).toBe(false);
   });
 
-  test("JEV_RECORD=0 disables recording entirely: config passes through untouched", () => {
-    process.env.JEV_RECORD = "0";
-    const config = recordRequests(undefined);
-    expect(config.fetch).toBeUndefined();
-    expect(recordSummary()).toBeNull();
-  });
-
-  test("JEV_RECORD=0 wins over JEV_DIR: no run dir, no writes", async () => {
-    process.env.JEV_RECORD = "0";
-    recordRequests({ fetch: passthrough() });
-    await Promise.resolve();
-    expect(recordSummary()).toBeNull();
-    expect(existsSync(DIR)).toBe(false);
-  });
-
-  test("a JEV_DIR override moves the run dir; recording is on regardless", async () => {
+  test("a JEV_DIR override moves the run dir; recording is always on", async () => {
     const config = recordRequests({ fetch: passthrough() });
     expect(recordSummary()).not.toBeNull();
+    await recordOnce(config, { path: "a.ts", content: "x" });
+    expect(listRequests(DIR)).toHaveLength(1);
+  });
+
+  test("runsDir config wins without env: the SDK injects the path directly", async () => {
+    delete process.env.JEV_DIR;
+    const config = recordRequests({ fetch: passthrough(), runsDir: DIR });
+    expect(recordSummary()!.dir.startsWith(DIR)).toBe(true);
+    expect(recordSummary()!.override).toBe(true);
     await recordOnce(config, { path: "a.ts", content: "x" });
     expect(listRequests(DIR)).toHaveLength(1);
   });
@@ -152,18 +144,5 @@ describe("recordRequests", () => {
     );
     expect(summary.count).toBe(2);
     expect(summary.override).toBe(true);
-  });
-
-  test("summary: explicit JEV_RECORD=1 keeps recording on, like the default", async () => {
-    process.env.JEV_RECORD = "1";
-    const config = recordRequests({ fetch: passthrough() });
-    await recordOnce(config, { path: "a.ts", content: "x" });
-    expect(recordSummary()!.count).toBe(1);
-  });
-
-  test("summary: disabled recording exposes nothing", () => {
-    process.env.JEV_RECORD = "0";
-    recordRequests(undefined);
-    expect(recordSummary()).toBeNull();
   });
 });

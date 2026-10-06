@@ -2,8 +2,8 @@ import { join } from "node:path";
 import { gzipSync, brotliCompressSync } from "node:zlib";
 /**
  * Prod server: serves the built static dir (dist/) plus the SAME shared API route module the vite
- * dev plugin mounts. Run: bun run build && bun run serve (JINT_REQUESTS_DIR overrides the requests
- * root; default ./tmp/requests).
+ * dev plugin mounts. Run: bun run build && bun run serve. The API serves the runs store (default
+ * ~/.jint/runs); the runs root is overridable via server opts.
  */
 import { serveApiRequest } from "./src/api/handler.ts";
 

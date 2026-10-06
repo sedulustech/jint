@@ -1,10 +1,9 @@
 import { describe, test, expect } from "bun:test";
+import { runCliSync } from "./helpers/cli.ts";
 
 // CONFIG_INVALID exits 2 through the real CLI (moved here from the sdk's load.test.ts when
 // @jint/sdk was split out: sdk unit tests must not spawn the cli).
 describe("cli: config load errors exit 2", () => {
-  const CLI = import.meta.dir + "/../packages/cli/src/cli.ts";
-
   test("loads jint.config.json from the current dir", async () => {
     const tmpDir = "/tmp/jint-config-test-" + Math.random().toString(36).substring(7);
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
@@ -12,11 +11,8 @@ describe("cli: config load errors exit 2", () => {
 
     // Should exit 2 (CONFIG_INVALID) because key is empty: fail fast, nothing walked
     Bun.write(tmpDir + "/input.ts", "// content");
-    const proc = Bun.spawnSync(["bun", CLI, "input.ts", "--json"], {
-      cwd: tmpDir,
-      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
-    });
-    expect(proc.exitCode).toBe(2);
+    const proc = runCliSync(["input.ts", "--json"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    expect(proc.code).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
   });
 
@@ -25,18 +21,13 @@ describe("cli: config load errors exit 2", () => {
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(tmpDir + "/jint.config.json", "{ broken: true }");
 
-    const proc = Bun.spawnSync(["bun", CLI, "--json"], {
-      cwd: tmpDir,
-      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
-    });
-    expect(proc.exitCode).toBe(2);
+    const proc = runCliSync(["--json"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    expect(proc.code).toBe(2);
     Bun.spawnSync(["rm", "-rf", tmpDir]);
   });
 });
 
 describe("cli: --dry-run prints the rules that would run, without classifying", () => {
-  const CLI = import.meta.dir + "/../packages/cli/src/cli.ts";
-
   test("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
     const tmpDir = "/tmp/jint-dryrun-" + Math.random().toString(36).substring(7);
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
@@ -45,13 +36,10 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
       JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
     );
 
-    const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
-      cwd: tmpDir,
-      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
-    });
-    expect(proc.exitCode).toBe(0);
-    expect(proc.stdout.toString()).toBe("");
-    const err = proc.stderr.toString();
+    const proc = runCliSync(["--dry-run"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    expect(proc.code).toBe(0);
+    expect(proc.stdout).toBe("");
+    const err = proc.stderr;
     expect(err).toContain("jint: measuring with 2 rules");
     expect(err).toContain("is_name_purposeful  [definitions]");
     expect(err).toContain("will_comment_drift  [comments]");
@@ -73,12 +61,12 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
       JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
     );
 
-    const proc = Bun.spawnSync(["bun", CLI, "--dry-run", "--disable", "is_name_purposeful"], {
+    const proc = runCliSync(["--dry-run", "--disable", "is_name_purposeful"], {
       cwd: tmpDir,
-      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
+      env: { TYPESAFE_API_KEY: "" },
     });
-    expect(proc.exitCode).toBe(0);
-    const err = proc.stderr.toString();
+    expect(proc.code).toBe(0);
+    const err = proc.stderr;
     expect(err).toContain("jint: measuring with 1 rules");
     expect(err).toContain("will_comment_drift");
     expect(err).not.toContain("is_name_purposeful");
@@ -90,12 +78,9 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     Bun.spawnSync(["mkdir", "-p", tmpDir]);
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));
 
-    const proc = Bun.spawnSync(["bun", CLI, "--dry-run"], {
-      cwd: tmpDir,
-      env: { ...process.env, JEV_RECORD: "0", TYPESAFE_API_KEY: "" },
-    });
-    expect(proc.exitCode).toBe(2);
-    expect(proc.stderr.toString()).toContain("CONFIG_NO_RULES");
+    const proc = runCliSync(["--dry-run"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("CONFIG_NO_RULES");
     Bun.spawnSync(["rm", "-rf", tmpDir]);
   });
 });

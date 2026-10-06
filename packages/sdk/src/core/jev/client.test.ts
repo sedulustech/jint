@@ -1,4 +1,5 @@
-import { describe, test, expect } from "bun:test";
+import { afterAll, beforeAll, describe, test, expect } from "bun:test";
+import { rmSync } from "node:fs";
 import {
   ClassifyError,
   type ClassifiedAnswer,
@@ -9,6 +10,11 @@ import {
 import { createClassifier } from "./client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+/** The recorder is always-on; the suite injects a scratch dir so nothing lands in ~/.jint/runs. */
+const DIR = "tmp/jev-client-test";
+beforeAll(() => rmSync(DIR, { recursive: true, force: true }));
+afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
 import { elementWireId } from "../rules/classify.ts";
 
@@ -59,7 +65,7 @@ const scoreBody = {
 };
 
 async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, ClassifiedAnswer>> {
-  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
+  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl, runsDir: DIR });
   return await classifier(state, questions);
 }
 
@@ -85,7 +91,7 @@ describe("createClassifier", () => {
         headers: { "Content-Type": "application/json" },
       });
     };
-    const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
+    const classifier = createClassifier({ apiKey: "test-key", fetch: probe, runsDir: DIR });
     const answers = await classifier(state, scoreQuestions);
     expect(answers.is_readable?.value).toBe(2);
     expect(answers.is_readable?.confidence).toBe(0.9);

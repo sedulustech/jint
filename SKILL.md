@@ -35,7 +35,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 - Recording is always on: the exact wire bytes per question land under
   `~/.jint/runs/` (or wherever `JEV_DIR` points — note it wins even if
   relative, e.g. a stale `tmp/requests` in env redirects requests into the
-  repo); `JEV_RECORD=0` is the only off switch. At end of run jint prints one
+  repo); recording is always on. At end of run jint prints one
   stderr line naming the run dir:
   `jint: requests -> <dir> (N calls)` — trust that line, not the docs.
   Read the recorded request files when you need to see precisely what the model saw. Every run
@@ -58,8 +58,8 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 - `--json`: the canonical report bytes on stdout, byte-identical to the run's `report.json`
   (measurements, findings with note + location, errors, notes). It is a stdout FORMAT choice,
   never an artifact gate — report.json is written for every recording run.
-- Env summary: `JEV_RECORD=0` disables recording entirely (harness/tests); `JEV_DIR` moves where
-  run dirs land (default `~/.jint/runs`); `JEV_RECORD=1` is accepted as explicit-on.
+- Env summary: recording is always on (there is no off switch); `JEV_DIR` moves where
+  run dirs land (default `~/.jint/runs`).
 
 ## CLI
 

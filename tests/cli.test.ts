@@ -1,56 +1,18 @@
 import { describe, test, expect, afterEach, afterAll } from "bun:test";
+import { runCli, runShell, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
-const CLI = "packages/cli/src/cli.ts";
-
-interface RunResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.
-async function run(
-  args: string[],
-  envOverrides: Record<string, string | undefined> = {},
-): Promise<RunResult> {
-  const proc = Bun.spawn(["bun", CLI, ...args], {
-    cwd: ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0", ...envOverrides },
-    // generous ceiling: every run here boots a whole bun process, and on a loaded CI
-    // runner a spawn alone has burned seconds before the CLI's own work starts
-    timeout: 60_000,
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  return { code: await proc.exited, stdout, stderr };
-}
-
-// shell pipeline variant for stdin plumbing the CLI cannot receive through argv
-async function runShell(
-  command: string,
-  env: Record<string, string | undefined> = {},
-): Promise<RunResult> {
-  const proc = Bun.spawn(["/bin/bash", "-c", command], {
-    cwd: ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0", ...env },
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  return { code: await proc.exited, stdout, stderr };
+// Generous ceiling: every run here boots a whole bun process, and on a loaded CI runner a
+// spawn alone has burned seconds before the CLI's own work starts.
+async function run(args: string[], env: Record<string, string | undefined> = {}) {
+  return runCli(args, { env, timeout: 60_000 });
 }
 
 const NO_KEY = { TYPESAFE_API_KEY: "" }; // SDK ignores empty env values -> missing key
@@ -158,7 +120,7 @@ describe("cli: contract basics", () => {
   });
 
   test.concurrent("bare 'jint -' is undeclared: usage error naming jint paths -", async () => {
-    const proc = await runShell("printf '' | bun " + CLI + " -", NO_KEY);
+    const proc = await runShell("printf '' | bun " + CLI + " -", { env: NO_KEY });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("jint paths -");
   });
@@ -273,7 +235,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("jint paths - reads the stdin path list: the list IS the judged subject", async () => {
     const proc = await runShell(
       `printf 'tests/fixtures/sample-file.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
-      NO_SERVICE,
+      { env: NO_SERVICE },
     );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
@@ -285,7 +247,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("a path-list entry that is not in the walk is a NOTE, never silence", async () => {
     const proc = await runShell(
       `printf 'tests/fixtures/sample-file.ts\nno/such/file.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
-      NO_SERVICE,
+      { env: NO_SERVICE },
     );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
@@ -299,10 +261,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("jint paths - < file: the piped list IS the judged subject", async () => {
     const list = `tmp/cli-paths-list-${Date.now()}.txt`;
     require("node:fs").writeFileSync(list, "tests/fixtures/sample-file.ts\n");
-    const proc = await runShell(
-      `bun ${CLI} paths - < ${list} --json --rule is_greppable`,
-      NO_SERVICE,
-    );
+    const proc = await runShell(`bun ${CLI} paths - < ${list} --json --rule is_greppable`, {
+      env: NO_SERVICE,
+    });
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
     // the transport failure names the listed file: the piped list, not a file argument, selected it
@@ -323,7 +284,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
     const proc = await runShell(
       `printf 'no/such/a.ts\nno/such/b.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
-      NO_SERVICE,
+      { env: NO_SERVICE },
     );
     // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
     expect(proc.code).toBe(4);
@@ -399,7 +360,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
-    const proc = await runShell(`printf 'x' | bun ${CLI} str -`, NO_SERVICE);
+    const proc = await runShell(`printf 'x' | bun ${CLI} str -`, { env: NO_SERVICE });
     expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
     // raw-line stderr: the failed unit renders as its own error line; totals stay zero-findings
     expect(proc.stderr).toMatch(/error JEV_\w+ str:stdin:/);
@@ -452,10 +413,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
-    const proc = await runShell(
-      `cat tests/fixtures/sample.diff | bun ${CLI} str - --json`,
-      NO_SERVICE,
-    );
+    const proc = await runShell(`cat tests/fixtures/sample.diff | bun ${CLI} str - --json`, {
+      env: NO_SERVICE,
+    });
     expect(proc.code).toBe(4); // ran as ONE str unit; transport failure in-band
     const report = JSON.parse(proc.stdout);
     expect(report.errors[0]!.input).toBe("str:stdin");
@@ -471,17 +431,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
   // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block its
   // event loop and the child would hang waiting for answers.
   async function runMock(args: string[], env: Record<string, string> = {}) {
-    const proc = Bun.spawn(["bun", CLI, ...args], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
-    });
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    return { code: await proc.exited, stdout, stderr };
+    return runCli(args, { env: { ...MOCK_ENV, ...env }, timeout: 60_000 });
   }
   afterAll(() => jev.stop());
   test.concurrent("recording persists report.json: the exact stdout --json bytes, next to the requests", async () => {
@@ -489,7 +439,6 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     expect(r.code).toBe(0);
@@ -540,7 +489,6 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     // DEFAULT stdout (no --json): raw lines are the projection; report.json persists anyway
     const r = await runMock(["tests/fixtures/sample-file.ts", "--rule", "is_greppable"], {
-      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     expectContract(r, { exit: 0, stdout: "lines" });
@@ -594,7 +542,6 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
-      JEV_RECORD: "1",
       JEV_DIR: dir,
     });
     expect(r.code).toBe(0);

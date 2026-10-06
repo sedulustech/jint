@@ -1,8 +1,8 @@
 /**
  * Run recording for the jev adapter: always on, every run. Captures the exact bytes the vendor SDK
  * serializes — not our pre-SDK question objects — plus the manifest and the machine report, so any
- * run can be replayed, inspected, or judged from real payloads. JEV_RECORD=0 is the only off switch
- * (harness and tools); JEV_DIR only moves WHERE the run dir lands.
+ * run can be replayed, inspected, or judged from real payloads. There is no off switch — consumers
+ * must always be able to debug; JEV_DIR only moves WHERE the run dir lands.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -12,10 +12,10 @@ import type { ClassifierConfig } from "./client.ts";
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
  * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
- * <base>/<runid>/ (base = JEV_DIR or <homedir>/.jint/runs; runid = unix timestamp of the run's
- * first request; past runs are never overwritten). The kind (elements / files) is derived from the
- * request's state shape. JEV_RECORD=0 disables recording entirely; any other value (including unset
- * and "1") records.
+ * <base>/<runid>/ (base = config.runsDir, else JEV_DIR, else <homedir>/.jint/runs; runid = unix
+ * timestamp of the run's first request; past runs are never overwritten). The kind (elements /
+ * files) is derived from the request's state shape. Recording is unconditional — there is no off
+ * switch.
  */
 /** What this run recorded, for the end-of-run stderr notice. Null when recording is disabled. */
 export interface RequestRecordSummary {
@@ -58,8 +58,8 @@ export function recordRunManifest(manifest: {
 
 /**
  * Persist the run's machine report next to the requests: report.json, the EXACT bytes stdout --json
- * prints. Called by the CLI after rendering; a no-op when recording is disabled (never a second
- * write path, never a failure of the run it observes).
+ * prints. Called by the CLI after rendering; a no-op before the recorder has started (never a
+ * second write path, never a failure of the run it observes).
  */
 export function recordRunReport(json: string): void {
   if (runSummary === null) return;
@@ -72,19 +72,18 @@ export function recordRunReport(json: string): void {
 }
 
 /**
- * Wrap the classifier's fetch so every call records. Recording is the default: the only off switch
- * is JEV_RECORD=0 (harness and tools); JEV_RECORD=1 is accepted as explicit-on. JEV_DIR never
- * changes WHETHER — only WHERE the run dir lands.
+ * Wrap the classifier's fetch so every call records. Recording is unconditional: there is no off
+ * switch. JEV_DIR never changes WHETHER — only WHERE the run dir lands.
  */
 export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
-  if (process.env.JEV_RECORD === "0") {
-    runSummary = null;
-    return config ?? {};
-  }
   const runid = Date.now();
-  const base = process.env.JEV_DIR || `${homedir()}/.jint/runs`;
+  const base = config?.runsDir ?? process.env.JEV_DIR ?? `${homedir()}/.jint/runs`;
   const dir = `${base}/${runid}`;
-  runSummary = { dir, count: 0, override: process.env.JEV_DIR !== undefined };
+  runSummary = {
+    dir,
+    count: 0,
+    override: config?.runsDir !== undefined || process.env.JEV_DIR !== undefined,
+  };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
     const response = await inner(input, init);

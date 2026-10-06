@@ -36,6 +36,10 @@ jint                                     # no positional: input comes from jint.
 }
 ```
 
+Every run records its requests to `~/.jint/runs/` (`JEV_DIR` moves it; recording is
+always on), and `bun run ui` opens the measurement ui on the same store — the last lint run is immediately browsable. SDK callers point the recorder at
+a scratch dir with the classifier's `runsDir` option instead of the env.
+
 Re-declare a default rule by name and give it new criteria, thresholds, or both:
 
 ```json
@@ -111,6 +115,22 @@ bun install
 bun test            # incl. calibration checks
 bun run validate    # schema -> typecheck -> lint -> build
 ```
+
+### Testing
+
+Recording is always on — every jint run is an inspectable artifact, and there is no off switch.
+Tests live in the same store world, so they redirect instead of disable:
+
+- `bunfig.toml` preloads `test-preload.ts`, which sets `JEV_DIR` to a pid-scoped scratch store
+  (`tests/helpers/cli.ts` exports it as `RUNS_DIR`). In-process classifiers record there, never
+  into `~/.jint/runs`.
+- **Caveat:** bun captures the environment at process startup, so the preload's `JEV_DIR` does
+  NOT reach spawned processes. Any test that runs the CLI must go through
+  `tests/helpers/cli.ts` (`runCli` / `runCliSync` / `runShell`), which passes `JEV_DIR`
+  explicitly. Spawning the CLI bare bypasses the redirect — one test did exactly that and the
+  real store filled with fixture runs.
+- One store per test process: `RUNS_DIR` is pid-scoped, so parallel workers never write into the
+  same run directory.
 
 ## Glossary
 

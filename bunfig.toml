@@ -1,0 +1,5 @@
+# The SDK recorder is always-on, so the preload redirects the runs store for every test process
+# to a scratch dir (never the real ~/.jint/runs). Spawned CLI children get JEV_DIR explicitly
+# from tests/helpers/cli.ts — preload env mutations do not cross spawns.
+[test]
+preload = ["./test-preload.ts"]

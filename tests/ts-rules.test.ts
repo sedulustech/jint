@@ -1,5 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
+import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
@@ -7,8 +8,6 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
 // fatal-vs-streamed error boundaries) — see src/core/tsrules/*.test.ts for the unit level.
 
-const ROOT = import.meta.dir + "/..";
-const CLI = ROOT + "/packages/cli/src/cli.ts";
 const DIR = "/tmp/jint-ts-rules-e2e";
 
 const FIXTURE = [
@@ -99,17 +98,10 @@ afterAll(() => {
 });
 
 async function runIn(dir: string, env: Record<string, string | undefined> = {}) {
-  const proc = Bun.spawn(["bun", CLI, "--config", "jint.config.json", "--json"], {
+  return runCli(["--config", "jint.config.json", "--json"], {
     cwd: dir,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, ...env },
+    env: { ...MOCK_ENV, ...env },
   });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  return { code: await proc.exited, stdout, stderr };
 }
 
 describe("cli: ts rules end-to-end", () => {
@@ -146,7 +138,7 @@ describe("cli: ts rules end-to-end", () => {
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
     const dir = setup("dumps", GOOD_RULE);
     const dumps = DIR + "/dump-captures";
-    const r = await runIn(dir, { JEV_RECORD: "1", JEV_DIR: dumps });
+    const r = await runIn(dir, { JEV_DIR: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
     const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
     // report.json + manifest.json (the run's persisted metadata, not captures) are excluded

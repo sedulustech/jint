@@ -1,13 +1,11 @@
 import { describe, test, expect, afterAll } from "bun:test";
+import { runShell, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
 // Piped-stdin units: the kind is DECLARED by a noun — the str noun carries one str unit, the
 // paths noun a path list. The jev adapter is pointed at a local mock of POST /v1/systemone so the
 // runs classify for real.
-
-const ROOT = import.meta.dir + "/..";
-const CLI = "packages/cli/src/cli.ts";
 
 const SNIPPET = [
   "export function add(a: number, b: number): number {",
@@ -31,38 +29,16 @@ async function runWithStdin(
   // Async spawn: the mock jev server lives in THIS process — a synchronous wait would block
   // its event loop and the child would hang waiting for answers.
   const quoted = args.map((a) => `'${a}'`).join(" ");
-  const proc = Bun.spawn(["/bin/bash", "-c", `printf '%s' "$STDIN" | bun ${CLI} ${quoted}`], {
-    cwd: ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0", ...MOCK_ENV, STDIN: stdin, ...env },
+  return runShell(`printf '%s' "$STDIN" | bun ${CLI} ${quoted}`, {
+    env: { ...MOCK_ENV, STDIN: stdin, ...env },
   });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const code = await proc.exited;
-  return { code, stdout, stderr };
 }
 
 afterAll(() => jev.stop());
 
 /** A raw shell pipeline, for bytes env vars cannot carry (NUL, invalid UTF-8). */
-async function runShellRaw(
-  script: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const proc = Bun.spawn(["/bin/bash", "-c", script], {
-    cwd: ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0" },
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const code = await proc.exited;
-  return { code, stdout, stderr };
+async function runShellRaw(script: string) {
+  return runShell(script);
 }
 
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
@@ -147,8 +123,8 @@ describe("cli: piped stdin str unit", async () => {
     expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stdout).toBe(""); // clean run: no findings, no lines
     expect(r.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
-    // the harness defaults JEV_RECORD=0, so this run has no record notice — and no run= column
-    expect(r.stderr).not.toContain("requests ->");
+    // recording is always on; JEV_DIR points at the harness scratch store, so the notice is present
+    expect(r.stderr).toContain("requests ->");
     expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
 
@@ -332,7 +308,6 @@ describe("cli: piped stdin str unit", async () => {
   test("JEV_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
-      JEV_RECORD: "1",
       JEV_DIR: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map

@@ -269,9 +269,9 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 `;
 
 /**
- * End-of-run stderr notice for run recording: where the requests went and how many. Nothing when
- * recording is disabled (JEV_RECORD=0); recording always reports, even zero requests (the run may
- * have failed before any classifier call).
+ * End-of-run stderr notice for run recording: where the requests went and how many. Recording is
+ * always on — JEV_DIR only moves where run dirs land; the notice always reports, even zero requests
+ * (the run may have failed before any classifier call).
  */
 export function recordNotice(): string {
   const record = recordSummary();

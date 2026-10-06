@@ -1,27 +1,14 @@
 import { describe, test, expect } from "bun:test";
+import { runCli, runCliSync } from "./helpers/cli.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// the repo this test file lives in - never a sibling checkout, so worktree
-// runs exercise the worktree's own rules and calibration
-const ROOT = import.meta.dir + "/..";
-const CLI = "packages/cli/src/cli.ts";
 // a key with no reachable jev: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
 async function run(args: string[], env: Record<string, string | undefined> = {}) {
-  const proc = Bun.spawn(["bun", CLI, ...args], {
-    cwd: ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, JEV_RECORD: "0", ...NO_SERVICE, ...env },
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  return { code: await proc.exited, stdout, stderr };
+  return runCli(args, { env: { ...NO_SERVICE, ...env } });
 }
 
 describe("cli: dir walk ignores", () => {
@@ -65,19 +52,10 @@ describe("cli: dir walk ignores", () => {
     try {
       // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block
       // its event loop and the child would hang waiting for answers.
-      const proc = Bun.spawn(["bun", CLI, "tests/fixtures/sample-dir", "--json"], {
-        cwd: ROOT,
-        stdout: "pipe",
-        stderr: "pipe",
-        env: {
-          ...process.env,
-          TYPESAFE_API_KEY: "test-key",
-          TYPESAFE_BASE_URL: jev.baseUrl,
-        },
+      const proc = await runCli(["tests/fixtures/sample-dir", "--json"], {
+        env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
       });
-      const stdout = await new Response(proc.stdout).text();
-      await proc.exited;
-      const report = JSON.parse(stdout);
+      const report = JSON.parse(proc.stdout);
       const paths = (report.measurements ?? []).map((m: any) => m.input);
       expect(paths.length).toBeGreaterThan(0);
       expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
@@ -97,13 +75,8 @@ describe("cli: dir walk ignores", () => {
         "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
       );
     }
-    const proc = Bun.spawnSync(["bun", CLI, "tests/fixtures/sample-dir", "--json"], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env },
-    });
-    const report = JSON.parse(proc.stdout.toString());
+    const proc = runCliSync(["tests/fixtures/sample-dir", "--json"]);
+    const report = JSON.parse(proc.stdout);
     const paths = (report.measurements ?? []).map((m: any) => m.input);
     expect(paths.length).toBeGreaterThan(0);
     expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);

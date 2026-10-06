@@ -58,6 +58,13 @@ export interface ClassifierConfig {
   /** Overrides the environment key; tests inject a fake transport instead. */
   apiKey?: string;
   baseURL?: string;
+  /**
+   * The runs store root this classifier records into (default ~/.jint/runs). JEV_DIR is the
+   * spawn-boundary spelling of the same concept (recording itself is always on — no toggle). An
+   * explicit path, not an env indirection — SDK callers and tests point this at a scratch dir so
+   * the real store stays free of harness traffic.
+   */
+  runsDir?: string;
   /** Custom fetch for tests (structurally the vendor client's fetch). */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
 }
