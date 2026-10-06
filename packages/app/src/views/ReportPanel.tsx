@@ -29,7 +29,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
   return (
     <div
       id="report-panel-inner"
-      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-3 py-2 font-mono text-body"
+      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-rail py-inner font-mono text-body"
       style={{ maxHeight: "45vh" }}
     >
       {isDegradedReport && (
@@ -47,7 +47,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
         </p>
       )}
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-meta gap-y-related">
         <span className="text-foreground">
           <span className="text-emphasis font-bold">{totalFindings}</span> findings
         </span>
@@ -67,15 +67,17 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
           calibration note
         </span>
       </div>
-      <div className="mt-2 overflow-x-auto">
+      <div className="mt-siblings overflow-x-auto">
         <table className="w-full border-collapse text-body whitespace-nowrap">
           <thead>
             <tr className="text-left text-muted-foreground">
-              <th className="py-1 pr-4 font-normal">rule</th>
-              <th className="py-1 pr-4 font-normal">measurements</th>
-              <th className="py-1 pr-4 font-normal">findings</th>
-              <th className="py-1 pr-4 font-normal">finding rate</th>
-              <th className="py-1 font-normal">answer distribution (0 … 1, line at 0.5)</th>
+              <th className="px-rail py-cell-y font-normal">rule</th>
+              <th className="px-rail py-cell-y font-normal">measurements</th>
+              <th className="px-rail py-cell-y font-normal">findings</th>
+              <th className="px-rail py-cell-y font-normal">finding rate</th>
+              <th className="px-rail py-cell-y font-normal">
+                answer distribution (0 … 1, line at 0.5)
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -86,19 +88,22 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
                 className="cursor-pointer border-t border-border hover:bg-muted"
                 title="show this rule's group in the table"
               >
-                <td className="py-1 pr-4">
+                <td className="px-rail py-cell-y">
                   <span className="text-foreground">{statRow.rule}</span>
                 </td>
-                <td className="py-1 pr-4 text-muted-foreground">{statRow.measurements}</td>
+                <td className="px-rail py-cell-y text-muted-foreground">{statRow.measurements}</td>
                 <td
                   className={
-                    "py-1 pr-4 " + (statRow.findings > 0 ? "text-sev-warn" : "text-sev-clean")
+                    "px-rail py-cell-y " +
+                    (statRow.findings > 0 ? "text-sev-warn" : "text-sev-clean")
                   }
                 >
                   {statRow.findings}
                 </td>
-                <td className="py-1 pr-4 text-foreground">{(statRow.rate * 100).toFixed(1)}%</td>
-                <td className="py-1">
+                <td className="px-rail py-cell-y text-foreground">
+                  {(statRow.rate * 100).toFixed(1)}%
+                </td>
+                <td className="px-rail py-cell-y">
                   <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
                     {statRow.histogram.map((binCount, binIndex) => {
                       // neutral: shape, not verdict
@@ -124,7 +129,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             ))}
             {reportRuleStats.length === 0 && !reportQuery.isLoading && (
               <tr>
-                <td colSpan={5} className="py-2 text-muted-foreground">
+                <td colSpan={5} className="px-rail py-inner text-muted-foreground">
                   report present but zero measurements
                 </td>
               </tr>

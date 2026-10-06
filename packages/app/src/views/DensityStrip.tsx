@@ -30,7 +30,7 @@ export function DensityStrip({
   const max = Math.max(1, ...bins);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1">
+    <div className="flex items-center gap-siblings border-b border-border bg-muted px-rail py-related">
       <span className="shrink-0 font-mono text-caption text-muted-foreground">
         distribution of max-p over {rows.length} requests
         {scoreAxis !== undefined && ` (score/${scoreAxis - 1} scaled to 0…1)`}
@@ -63,7 +63,7 @@ export function DensityStrip({
             style={{ left: `${t * 100}%` }}
           />
         ))}
-        <span className="absolute left-1/2 top-0 -translate-x-1/2 bg-background px-0.5 font-mono text-caption leading-none text-foreground">
+        <span className="absolute left-1/2 top-0 -translate-x-1/2 bg-background px-chip-y font-mono text-caption leading-none text-foreground">
           0.5
         </span>
       </div>

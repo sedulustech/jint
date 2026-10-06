@@ -31,7 +31,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   return (
     <div className="border border-border bg-background">
-      <div className="flex items-center gap-3 border-b border-border px-2 py-1">
+      <div className="flex items-center gap-sections border-b border-border px-inner py-related">
         <span className="font-mono text-body text-foreground">{qa.rule}</span>
         {noul !== undefined && (
           <span
@@ -43,7 +43,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
           </span>
         )}
         {isScore && index !== null && (
-          <span className="ml-auto flex items-baseline gap-2">
+          <span className="ml-auto flex items-baseline gap-siblings">
             <span
               data-answer={String(index)}
               className={`font-mono text-3xl font-bold leading-none ${color}`}
@@ -63,9 +63,9 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div className="border-b border-border px-2 py-1">
+        <div className="border-b border-border px-inner py-related">
           {/* the probability strip is omitted for score answers: the legend is the information */}
-          <ul className="mt-1 space-y-0.5">
+          <ul className="mt-related space-y-chip-y">
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
               .map((k) => (
@@ -83,21 +83,21 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <p className="border-b border-border px-2 py-1 text-body leading-snug text-muted-foreground">
+        <p className="border-b border-border px-inner py-related text-body leading-snug text-muted-foreground">
           {qa.question.instructions}
         </p>
       )}
       {!isScore && (
         <div className="grid grid-cols-2 gap-px bg-border text-body leading-snug">
-          <div className="bg-background p-2">
+          <div className="bg-background p-inner">
             <span className="font-mono text-caption text-sev-clean">true</span>
-            <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="bg-background p-2">
+          <div className="bg-background p-inner">
             <span className="font-mono text-caption text-sev-error">false</span>
-            <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
             </p>
           </div>

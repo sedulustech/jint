@@ -118,7 +118,7 @@ export function App({ runId }: { runId: string | null }) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted px-3 py-1.5">
+      <header className="flex shrink-0 items-center gap-sections border-b border-border bg-muted px-rail py-bar-y">
         <h1 className="flex items-center text-foreground">
           <Logo className="h-6 w-auto" />
         </h1>
@@ -148,7 +148,7 @@ export function App({ runId }: { runId: string | null }) {
               </SelectItem>
             ))}
             {runList.length > 50 && (
-              <div className="px-2 py-1 font-mono text-caption text-muted-foreground">
+              <div className="px-inner py-related font-mono text-caption text-muted-foreground">
                 showing the 50 newest of {runList.length} runs
               </div>
             )}
@@ -187,7 +187,7 @@ export function App({ runId }: { runId: string | null }) {
             {runs.error.message}
           </span>
         )}
-        <label className="ml-auto flex items-center gap-1 font-mono text-caption text-muted-foreground">
+        <label className="ml-auto flex items-center gap-related font-mono text-caption text-muted-foreground">
           theme
           <Select value={theme} onValueChange={(v) => choose(v as Theme)}>
             <SelectTrigger className="w-fit font-mono text-body" size="sm" aria-label="theme">
@@ -221,14 +221,14 @@ export function App({ runId }: { runId: string | null }) {
         // route to an absent id renders the shared 404 idiom inside the shell
         <NotFound title={`run ${runId} not found`} detail="gone or never existed" />
       ) : runId === null ? (
-        <div className="m-auto flex max-w-2xl flex-col items-center gap-3 font-mono text-body text-muted-foreground">
+        <div className="m-auto flex max-w-2xl flex-col items-center gap-sections font-mono text-body text-muted-foreground">
           {runList.length === 0 ? (
             <p>no runs found - run jint once (store: ~/.jint/runs)</p>
           ) : (
             <>
               {/* heading one scale step above the cards it names (F8) */}
               <p className="text-emphasis text-foreground">select a run</p>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-siblings">
                 {runList.slice(0, 8).map((run) => (
                   <Button
                     key={run.id}
@@ -241,7 +241,7 @@ export function App({ runId }: { runId: string | null }) {
                     {/* fixed-width cards on one wrap grid; meta right-pinned so its columns
                         line up across every row (F2) */}
                     <span className="min-w-0 truncate">{runLabel(run)}</span>
-                    <span className="ml-auto truncate pl-2 text-muted-foreground">
+                    <span className="ml-auto truncate pl-related text-muted-foreground">
                       {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                       {run.configPath === null &&
                         (run.legacy ? " · migrated run" : " · default rules")}{" "}

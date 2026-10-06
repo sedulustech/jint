@@ -11,7 +11,7 @@ export const REQUEST_COLUMNS = [
   { key: "severity" as const, label: "severity", width: "w-24" },
   { key: "maxProb" as const, label: "max-p", width: "w-20" },
   // question count = rules judged in this request; sorts with rule (data, not signal)
-  { key: "rule" as const, label: "rule count", width: "w-16" },
+  { key: "rule" as const, label: "rule count", width: "w-24" },
 ];
 
 export type RequestColumnKey = (typeof REQUEST_COLUMNS)[number]["key"];

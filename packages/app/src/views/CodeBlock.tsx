@@ -50,7 +50,7 @@ export function CodeBlock({
   }, [code, path]);
   return (
     <pre
-      className="hljs overflow-auto bg-transparent p-2 text-body leading-snug"
+      className="hljs overflow-auto bg-transparent p-inner text-body leading-snug"
       style={{ maxHeight }}
     >
       <code dangerouslySetInnerHTML={{ __html: html }} />

@@ -37,10 +37,10 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
         selected ? "" : "hover:bg-muted"
       }`}
     >
-      <td className="px-3 text-muted-foreground">{row.seq}</td>
-      <td className="px-3">
+      <td className="px-rail text-muted-foreground">{row.seq}</td>
+      <td className="px-rail">
         {sev ? (
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-chip-x">
             <span className={`${sev.dot} inline-block h-2 w-2 shrink-0 rounded-full`} />
             <span className={sev.text}>{SEV_CELL[severity!].label}</span>
           </span>
@@ -52,7 +52,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
       </td>
       {/* max-p baseline (F4): the number keeps the single-line box every sibling cell uses, so it
           shares the row baseline; the bar paints below it, pinned to the cell, never displacing it */}
-      <td className="relative px-3">
+      <td className="relative px-rail">
         <span className="text-foreground">
           {row.maxProb !== null ? row.maxProb.toFixed(2) : "—"}
         </span>
@@ -65,10 +65,10 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           </span>
         )}
       </td>
-      <td className="px-3 text-muted-foreground">
+      <td className="px-rail text-muted-foreground">
         {row.questionCount > 0 ? row.questionCount : "—"}
       </td>
-      <td className="min-w-0 truncate px-3 text-foreground" title={row.path ?? undefined}>
+      <td className="min-w-0 truncate px-rail text-foreground" title={row.path ?? undefined}>
         {row.path ?? <span className="text-muted-foreground">no path</span>}
       </td>
     </tr>

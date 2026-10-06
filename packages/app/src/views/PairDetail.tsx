@@ -63,7 +63,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
 
   return (
     <section className="detail-pane flex h-1/2 w-full shrink-0 flex-col border-t border-border bg-background lg:h-full lg:w-full lg:min-h-0 lg:min-w-[320px] lg:border-l lg:border-t-0">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <header className="flex shrink-0 items-center gap-siblings border-b border-border px-rail py-bar-y">
         <h2 className="min-w-0 flex-1 truncate font-mono text-body text-foreground">
           {rule} <span className="text-muted-foreground">@ {input}</span>
         </h2>
@@ -72,21 +72,23 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         )}
         <button
           onClick={onClose}
-          className="px-1 font-mono text-body text-muted-foreground hover:text-foreground"
+          className="inline-flex h-6 items-center px-control-x font-mono text-body text-muted-foreground hover:text-foreground"
         >
           ✕
         </button>
       </header>
-      {(query.isLoading || run.isLoading) && <p className="p-3 text-muted-foreground">loading…</p>}
-      {query.isError && <p className="p-3 text-sev-error">{String(query.error)}</p>}
+      {(query.isLoading || run.isLoading) && (
+        <p className="p-rail text-muted-foreground">loading…</p>
+      )}
+      {query.isError && <p className="p-rail text-sev-error">{String(query.error)}</p>}
       {pair === undefined && !query.isLoading && (
-        <p className="p-3 text-muted-foreground">
+        <p className="p-rail text-muted-foreground">
           no answer for {rule} at {input} in the request
         </p>
       )}
       {request !== undefined && pair !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 border-b border-border px-3 py-1 font-mono text-caption text-muted-foreground">
+          <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-related font-mono text-caption text-muted-foreground">
             <span>
               model:{" "}
               <span className="text-foreground">{meta.model ?? request.request?.model ?? "?"}</span>
@@ -103,7 +105,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           </div>
           {code !== null && (
             <div className="border-b border-border">
-              <div className="flex items-center justify-between px-3 pt-2 pb-1">
+              <div className="flex items-center justify-between px-rail py-bar-y">
                 <span className="font-mono text-caption text-muted-foreground">
                   {result?.path ?? file} {span ? "· " + span : ""}
                 </span>
@@ -112,7 +114,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
               <CodeBlock code={code} path={result?.path ?? file} />
             </div>
           )}
-          <div className="flex flex-col gap-2 p-2">
+          <div className="flex flex-col gap-siblings px-rail py-inner">
             <AnswerCard qa={pair} sev={severity} />
           </div>
         </div>

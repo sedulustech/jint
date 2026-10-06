@@ -17,6 +17,24 @@
   --text-body--line-height: 1rem;
   --text-emphasis: 0.875rem;
   --text-emphasis--line-height: 1.25rem;
+
+  /* Spacing rhythm - the contract as tokens. Utilities: px-rail, py-cell-y, py-bar-y, p-inner,
+     px-chip-x, gap-related / gap-siblings / gap-sections / gap-meta, px-control-x, pl-indent. */
+  --spacing-rail: 0.75rem; /* 12 - page-edge sections (topbar, toolbar, report) */
+  --spacing-cell-x: 0.75rem; /* 12 - table cell horizontal */
+  --spacing-cell-y: 0.25rem; /* 4  - table cell vertical */
+  --spacing-bar-y: 0.375rem; /* 6  - bar rhythm rows (sub-headers, strips) */
+  --spacing-inner: 0.5rem; /* 8  - inner blocks (cards, panes) */
+  --spacing-chip-x: 0.375rem; /* 6  - micro chip horizontal */
+  --spacing-chip-y: 0.125rem; /* 2  - micro chip vertical */
+  --spacing-related: 0.25rem; /* 4  - gap between related controls */
+  --spacing-siblings: 0.5rem; /* 8  - gap between siblings */
+  --spacing-sections: 0.75rem; /* 12 - gap between sections */
+  --spacing-meta: 1rem; /* 16 - stat meta columns */
+  --spacing-control-x: 0.5rem; /* 8  - control horizontal padding (button, select, input) */
+  --spacing-control-y: 0.375rem; /* 6  - control vertical padding (select trigger = bar rhythm) */
+  --spacing-indent: 2.25rem; /* 36 - grouped-table child indent (rail + 24) */
+  --spacing-menu-check: 2rem; /* 32 - dropdown item clearance for the check indicator */
 }
 
 body {
@@ -25,12 +43,15 @@ body {
   font-size: var(--text-body);
 }
 
-/* Spacing rhythm (declared, not re-tokenized): Tailwind's 0.25rem base with .5 halves IS the 2px
-   grid, so the contract is a fixed vocabulary rather than alias tokens:
-   rail px-3 (12px - every page-edge section: topbar, toolbar, density strip, table cells, report)
-   - cells px-3 py-1 - bars px-3 py-1.5 - inner blocks p-2 / px-2 - micro chips px-1.5 py-0.5, px-1
-   - gaps: gap-1 related controls, gap-2 siblings, gap-3 sections, gap-x-4 stat meta columns.
-   Same-kind elements share one value; arbitrary sizes (text-[Npx]) and off-rail paddings are banned. */
+/* Controls are interactive: shadcn's buttons default to cursor: default. One rule, not per-class. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Spacing rhythm lives in the spacing tokens below (same edit surface as the palette: one place
+   to change, components consume the named utilities px-rail / py-cell-y / gap-siblings / ...).
+   Same-kind elements share one token; arbitrary sizes (text-[Npx]) and off-rail paddings are banned.
+   Deliberate non-rhythm exceptions: gap-px (1px dividers), m-auto / ml-auto (flex placement). */
 
 @theme inline {
   --font-heading: var(--font-sans);

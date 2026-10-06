@@ -250,7 +250,7 @@ function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }
     </Button>
   );
   return (
-    <div role="group" aria-label="group by" className="flex items-center gap-1">
+    <div role="group" aria-label="group by" className="flex items-center gap-related">
       <span className="font-mono text-caption text-muted-foreground">group by</span>
       {button("rule", "rule")}
       {button("file", "file")}
@@ -273,13 +273,13 @@ function Toolbar({
   countText: string;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-1.5">
+    <div className="flex items-center gap-siblings border-b border-border bg-muted px-rail py-bar-y">
       <ModeButtons mode={mode} onMode={onMode} />
       <input
         value={filterText}
         onChange={(e) => onFilterText(e.target.value)}
         placeholder="filter: path, rule, element id…"
-        className="h-7 w-64 rounded border border-neutral-700 bg-background px-2.5 font-mono text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-neutral-500"
+        className="h-7 w-64 rounded-lg border border-input bg-background px-control-x font-mono text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
       <span className="ml-auto font-mono text-body text-muted-foreground">{countText}</span>
     </div>
@@ -305,7 +305,7 @@ function GroupedHeader({
           key={col.key}
           disabled={!col.sortable}
           onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 px-3 py-1 text-left ${col.sortable ? "hover:text-foreground" : ""}`}
+          className={`${col.className} shrink-0 px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : ""}`}
         >
           {col.label}
           {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -328,7 +328,10 @@ function RequestHeader({
     <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
       <tr>
         {REQUEST_COLUMNS.map((col) => (
-          <th key={col.label} className={`${col.width} px-3 py-1 text-left font-normal`}>
+          <th
+            key={col.label}
+            className={`${col.width} whitespace-nowrap px-rail py-cell-y text-left font-normal`}
+          >
             <button
               onClick={() => onToggleSort(col.key)}
               className="w-full text-left hover:text-foreground"
@@ -338,7 +341,7 @@ function RequestHeader({
             </button>
           </th>
         ))}
-        <th className="min-w-0 px-3 py-1 text-left font-normal">input path</th>
+        <th className="min-w-0 px-rail py-cell-y text-left font-normal">input path</th>
       </tr>
     </thead>
   );
@@ -363,14 +366,14 @@ function GroupedParentRow({
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
       style={{ height: ROW_HEIGHT }}
-      className="flex w-full items-center border-b border-border bg-muted px-0 text-left font-mono text-body text-foreground hover:bg-accent"
+      className="flex w-full items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
           never from shifting a column off the grid */}
-      <span className={`${NAME_WIDTH} shrink-0 truncate px-3`} title={row.name}>
+      <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
         {isExpanded ? "▾" : "▸"} {row.name}
       </span>
-      <span className={`${INPUT_MIN_WIDTH} flex shrink-0 items-center gap-2 px-3`}>
+      <span className={`${INPUT_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
         <span className="text-muted-foreground">
           {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
           {stats.err > 0 && stats.warn > 0 && " · "}
@@ -378,12 +381,12 @@ function GroupedParentRow({
           {stats.err === 0 && stats.warn === 0 && `${stats.passOk} no verdict`}
         </span>
       </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-3`}>
+      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
         <SeverityDot severity={row.worstSeverity} />
       </span>
-      <span className={`${VALUE_WIDTH} shrink-0 px-3 text-muted-foreground`}></span>
-      <span className={`${COUNTS_WIDTH} shrink-0 px-3 text-muted-foreground`}>{countText}</span>
-      <span className={`${CHEVRON_WIDTH} shrink-0 px-3`}></span>
+      <span className={`${VALUE_WIDTH} shrink-0 px-rail text-muted-foreground`}></span>
+      <span className={`${COUNTS_WIDTH} shrink-0 px-rail text-muted-foreground`}>{countText}</span>
+      <span className={`${CHEVRON_WIDTH} shrink-0 px-rail`}></span>
     </button>
   );
 }
@@ -414,26 +417,26 @@ function GroupedChildRow({
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
       style={{ height: ROW_HEIGHT }}
-      className={`flex w-full items-center border-b border-border px-0 text-left font-mono text-body ${
+      className={`flex w-full items-center border-b border-border text-left font-mono text-body ${
         selectedFile === cell.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
       } text-foreground`}
     >
-      {/* pl-9 = rail 12 + 24px indent: children read as nested without leaving the grid */}
-      <span className={`${NAME_WIDTH} shrink-0 truncate px-3 pl-9`} title={childName}>
+      {/* pl-indent = rail 12 + 24px indent: children read as nested without leaving the grid */}
+      <span className={`${NAME_WIDTH} shrink-0 truncate px-rail pl-indent`} title={childName}>
         {childName}
       </span>
       <span
-        className={`${INPUT_MIN_WIDTH} shrink-0 truncate px-3`}
+        className={`${INPUT_MIN_WIDTH} shrink-0 truncate px-rail`}
         title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
       >
         {childLocation !== null ? childLocation : "(file)"}
       </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-3`}>
+      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
         <SeverityDot severity={cell.severity} />
       </span>
-      <span className={`${VALUE_WIDTH} shrink-0 px-3`}>{cell.value.toFixed(2)}</span>
-      <span className={`${COUNTS_WIDTH} shrink-0 px-3`}></span>
-      <span className={`${CHEVRON_WIDTH} shrink-0 px-3`}></span>
+      <span className={`${VALUE_WIDTH} shrink-0 px-rail`}>{cell.value.toFixed(2)}</span>
+      <span className={`${COUNTS_WIDTH} shrink-0 px-rail`}></span>
+      <span className={`${CHEVRON_WIDTH} shrink-0 px-rail`}></span>
     </button>
   );
 }
@@ -554,7 +557,7 @@ function EmptyNotice({
   onClearFilters: () => void;
 }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center gap-2 font-mono text-body text-muted-foreground">
+    <div className="flex h-32 flex-col items-center justify-center gap-siblings font-mono text-body text-muted-foreground">
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
@@ -706,7 +709,7 @@ export function RequestTable({
   const densityStrip =
     mode === "request" && !query.isLoading && rows.length > 0 ? <DensityStrip rows={rows} /> : null;
   const errorNotice = query.isError ? (
-    <p className="p-3 text-sev-error">{String(query.error)}</p>
+    <p className="p-rail text-sev-error">{String(query.error)}</p>
   ) : null;
   const emptyNotice = isEmpty ? (
     <EmptyNotice
