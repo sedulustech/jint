@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { formatDistanceToNowStrict } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
 import { NotFound } from "./router";
 import { PairDetail } from "./views/PairDetail";
+import { ReportHeader } from "./views/ReportHeader";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
+import { RunHeader, baseName, relTime, runLabel } from "./views/RunHeader";
 import { useTheme } from "./views/useTheme";
 import type { RunSearch } from "./router";
 import type { Report, RunSummary } from "./types";
@@ -20,21 +21,10 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectItemText,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const baseName = (path: string) => path.split("/").pop() ?? path;
-
-/**
- * Dropdown label: the run's source tree (cwd, already ~-collapsed by the handler). A migrated
- * pre-store run has no cwd/config - label it honestly instead of faking "default rules".
- */
-const runLabel = (r: RunSummary): string =>
-  r.legacy ? "migrated run" : (r.cwd ?? r.configPath ?? "default rules");
-
-const relTime = (mtime: string) =>
-  `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
 
 // a failed URL edit leaves the pane state stale; say so loudly instead of rethrowing
 // into a promise no caller awaits
@@ -123,10 +113,16 @@ export function App({ runId }: { runId: string | null }) {
           <Logo className="h-6 w-auto" />
         </h1>
         <Select value={runId ?? "none"} onValueChange={pickRun}>
+          {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
           <SelectTrigger className="w-96 font-mono text-body" aria-label="run">
+            {/* children = the slim identity (label only); the full item stays in the list */}
             <SelectValue
               placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
-            />
+            >
+              {selectedRun === null ? undefined : (
+                <span className="flex items-center text-foreground">{runLabel(selectedRun)}</span>
+              )}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {/* virtualizing 400+ options is overkill for a picker; cap at the newest 50 and say
@@ -137,8 +133,12 @@ export function App({ runId }: { runId: string | null }) {
                 value={run.id}
                 className="font-mono text-body"
                 title={`${runLabel(run)}\nrun id: ${run.id}`}
+                aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
               >
-                <span className="text-foreground">{runLabel(run)}</span>
+                {/* ItemText = what the slimmed trigger displays: label only */}
+                <SelectItemText>
+                  <span className="text-foreground">{runLabel(run)}</span>
+                </SelectItemText>
                 <span className="text-muted-foreground">
                   {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                   {run.configPath === null &&
@@ -154,26 +154,6 @@ export function App({ runId }: { runId: string | null }) {
             )}
           </SelectContent>
         </Select>
-        {runId !== null && (
-          <Button
-            variant={reportOpen ? "secondary" : "outline"}
-            size="sm"
-            disabled={reportQuery.isLoading || !reportData}
-            aria-expanded={reportOpen}
-            aria-controls="report-panel"
-            aria-disabled={reportQuery.isLoading || !reportData}
-            onClick={() => setReportOverride(!reportOpen)}
-            className="font-mono text-body"
-          >
-            {reportQuery.isLoading
-              ? "report…"
-              : reportData
-                ? reportOpen
-                  ? "hide report"
-                  : "show report"
-                : "no report"}
-          </Button>
-        )}
         {runList.length > 0 && runId === null && (
           <Badge variant="outline" className="font-mono">
             {runList.length} runs
@@ -260,6 +240,14 @@ export function App({ runId }: { runId: string | null }) {
         </div>
       ) : (
         <>
+          {selectedRun !== null && <RunHeader run={selectedRun} />}
+          {selectedRun !== null && (
+            <ReportHeader
+              runId={runId}
+              reportOpen={reportOpen}
+              onToggleReport={() => setReportOverride(!reportOpen)}
+            />
+          )}
           {reportOpen && (
             <div id="report-panel">
               <ReportPanel

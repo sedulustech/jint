@@ -95,6 +95,10 @@ function SelectLabel({ className, ...props }: React.ComponentProps<typeof Select
   );
 }
 
+function SelectItemText({ ...props }: React.ComponentProps<typeof SelectPrimitive.ItemText>) {
+  return <SelectPrimitive.ItemText data-slot="select-item-text" {...props} />;
+}
+
 function SelectItem({
   className,
   children,
@@ -173,6 +177,7 @@ export {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectItemText,
   SelectLabel,
   SelectScrollDownButton,
   SelectScrollUpButton,

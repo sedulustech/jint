@@ -20,10 +20,6 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
   const hasReport =
     !isDegradedReport && reportPayload !== undefined && !("absent" in reportPayload);
   const reportRuleStats = ruleStats(hasReport ? (reportPayload as Report) : undefined, runPayload);
-  const totalErrors = hasReport ? (reportPayload as Report).errors.length : 0;
-  const totalNotes = hasReport ? (reportPayload as Report).notes.length : 0;
-  const totalFindings = reportRuleStats.reduce((sum, statRow) => sum + statRow.findings, 0);
-  const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
   const maxHistogramBin = Math.max(1, ...reportRuleStats.flatMap((statRow) => statRow.histogram));
 
   return (
@@ -46,28 +42,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             : "no report — run captured without --json; per-rule stats below come from per-request answers only (findings unknown)"}
         </p>
       )}
-      {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
-      <div className="flex flex-wrap items-center gap-x-meta gap-y-related">
-        <span className="text-foreground">
-          <span className="text-emphasis font-bold">{totalFindings}</span> findings
-        </span>
-        <span className="text-muted-foreground">
-          <span className="text-emphasis">{totalMeasurements}</span> measurements
-        </span>
-        <span className={totalErrors > 0 ? "text-sev-error" : "text-muted-foreground"}>
-          <span className="text-emphasis">{totalErrors}</span> errors
-        </span>
-        <span className="text-muted-foreground">
-          <span className="text-emphasis">{totalNotes}</span> notes
-        </span>
-        <span
-          className="text-muted-foreground"
-          title="healthy-max / defective-min gap: needs a probe corpus - a single run gives one distribution, not the gap"
-        >
-          calibration note
-        </span>
-      </div>
-      <div className="mt-siblings overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full border-collapse text-body whitespace-nowrap">
           <thead>
             <tr className="text-left text-muted-foreground">

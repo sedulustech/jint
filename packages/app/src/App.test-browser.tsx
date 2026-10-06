@@ -30,7 +30,10 @@ test("a pre-set /runs/<id> deep link selects that run", async () => {
   const trigger = await screen.findByLabelText("run", undefined, { timeout: 5000 });
   await new Promise((r) => setTimeout(r, 300));
   expect(trigger.getAttribute("data-placeholder")).toBeNull();
-  expect(trigger.textContent).toContain(runs[0].id);
+  // the slimmed trigger shows the run's LABEL; the full identity moved to RunHeader
+  const first = runs[0];
+  const label = first.legacy ? "migrated run" : (first.cwd ?? first.configPath ?? "default rules");
+  expect(trigger.textContent).toContain(label);
 });
 
 test("picking a run writes the path", async () => {
