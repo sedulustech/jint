@@ -2,9 +2,8 @@ import { describe, test, expect, afterAll } from "bun:test";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// Piped-stdin units: the kind is DECLARED by a noun (jint str -) or the changed-list form
-// (jint -); the str noun
-// carries one str unit. The jev adapter is pointed at a local mock of POST /v1/systemone so the
+// Piped-stdin units: the kind is DECLARED by a noun — the str noun carries one str unit, the
+// paths noun a path list. The jev adapter is pointed at a local mock of POST /v1/systemone so the
 // runs classify for real.
 
 const ROOT = import.meta.dir + "/..";
@@ -158,8 +157,9 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.stderr).toContain("unknown option or missing path '-'");
   });
 
-  test("jint - reads the stdin changed-file list (never a str snippet)", async () => {
+  test("jint paths - reads the stdin path list (never a str snippet)", async () => {
     const r = await runWithStdin("tests/fixtures/sample-file.ts\n", [
+      "paths",
       "-",
       "--json",
       "--rule",

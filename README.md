@@ -21,7 +21,8 @@ jint src/                                # a directory tree
 jint src/a.ts src/b.ts                   # explicit files
 jint str "export const x = 1"            # one inline string, classified whole
 cat snippet.ts | jint str -              # piped stdin, one str unit
-git diff --name-only HEAD~1 | jint -     # a changed-file LIST from your git pipeline
+git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipeline
+jint paths list.txt                      # a path LIST from a file
 jint                                     # no positional: input comes from jint.config.json
 ```
 

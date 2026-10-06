@@ -55,7 +55,6 @@ const CLI_ARGS_SCHEMA = TypeBoxType.Object({
   concurrency: TypeBoxType.Optional(TypeBoxType.String()),
   "rps-budget": TypeBoxType.Optional(TypeBoxType.String()),
   timeout: TypeBoxType.Optional(TypeBoxType.String()),
-  changed: TypeBoxType.Optional(TypeBoxType.String()),
   help: TypeBoxType.Optional(TypeBoxType.Boolean()),
   version: TypeBoxType.Optional(TypeBoxType.Boolean()),
 });
@@ -67,8 +66,9 @@ const HELP = `jint — jev lint: classifies code with AI-classifier judgments; r
 Usage:
   jint src/                       classify a directory tree
   jint a.ts b.ts                  classify files
-  git diff --name-only HEAD~1 | jint -   a changed-file LIST from stdin (with no other input,
-                                         the list is what gets judged)
+  git diff --name-only HEAD~1 | jint paths -   a path LIST from stdin (with no other input,
+                                               the list is what gets judged)
+  jint paths list.txt             a path LIST from a file
   cat snippet.ts | jint str -     piped stdin, one str unit
   jint                            no positional: input comes from jint.config.json
 
@@ -84,12 +84,16 @@ Verifying one fix: the finding's @L is pre-edit (edits shift lines) - re-check a
   a full re-run closes the loop (when it pays: the skill's fix-loop section).
 
 The resource is the noun; the verb (classify) is implicit. str is a noun only as the
-FIRST positional; the next positional is its payload, taken verbatim — no flag parsing:
+FIRST positional; paths may sit anywhere among the positionals (jint src/ paths list.txt).
+The noun's next positional is its payload, taken verbatim — no flag parsing:
 jint str "--json" classifies "--json" as source. Nouns never resolve to paths — a file named
-str is reached as jint ./str, and a str payload that names an existing path is rejected
-(inline source or '-' only; classify the file as jint <path>). A path's kind is inferred by shape only (exists-as-dir -> dir,
-else file); content is never sniffed. A bare '-' positional is the changed-file LIST from stdin
-(your VCS pipeline: git diff --name-only HEAD~1 | jint -). --
+str is reached as jint ./str, a str payload that names an existing path is rejected
+(inline source or '-' only; classify the file as jint <path>), and a paths payload that is
+no existing path is rejected (a list is one file, or '-' for piped stdin — there is no
+inline list). With input also given, the list never selects: it only notes the entries the
+walk never saw. A path's kind is inferred by shape only (exists-as-dir -> dir, else file);
+content is never sniffed. A bare '-' positional is undeclared — name the noun:
+jint paths - (a path LIST from stdin) or jint str - (source). --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
@@ -107,9 +111,6 @@ Options:
                       the published 1200 rpm quota; overrides config rps_budget)
   --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
                       JEV_TIMEOUT failure - liveness, not retry)
-  --changed <file>    changed-file LIST (one path per line, relative to the input dir or
-                      absolute); with no other input, the list IS the judged subject (the
-                      changeset form: git diff --name-only HEAD~1 | jint -)
   --json              machine report (byte-identical to the run's report.json) instead of
                       raw finding lines
   --dry-run           print the rule set that WOULD run (config resolved, disable/only applied)
@@ -194,8 +195,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
-  // that); piped stdin is DECLARED by a noun (jint str -) or is a changed-list (jint -), never
-  // guessed. EMPTY
+  // that); piped stdin is DECLARED by a noun (jint str - for source, jint paths - for a path
+  // list), never guessed. EMPTY
   // piped stdin falls through so config.input can flow (a closed or /dev/null stdin is the
   // config-only invocation shape). A TTY is never read; a TTY with payload "-" dies here, not
   // blocking on the terminal, and a TTY with no noun and no config input dies in lint()'s
@@ -203,16 +204,17 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   let stdinStr: { content: string } | undefined;
   let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
   let elementScope: FileSelector | undefined;
+  // The paths noun's payload: "-" (stdin list) or a list-file path. stdin is NOT consumed here
+  // either way — the list resolver in lint() reads it lazily.
+  let pathsPayload: string | undefined;
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
-    // The changed-file LIST from stdin: the user's own VCS pipeline
-    // (git diff --name-only HEAD~1 | jint -). Never a judged subject — a noun declares those.
-    // stdin is NOT consumed here: the changed-list resolver in lint() reads it lazily.
-    if (process.stdin.isTTY) {
-      usageError("jint -: no piped stdin to read the changed list from (stdin is a terminal)");
-      return 2;
-    }
+    // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
+    usageError(
+      "bare '-' is undeclared — name the noun: jint paths - (a path LIST from piped stdin) or jint str - (source)",
+    );
+    return 2;
   }
   if (firstPositional === "str") {
     // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str);
@@ -240,77 +242,131 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       // inline source text, identity "input"
       stdinStr = { content: payload };
     }
-  } else if (positionals.length > 0 && firstPositional !== "-") {
-    // Paths. Files may be many; a directory is exactly one path (the walk owns its tree).
-    if (positionals.length > 1) {
-      try {
-        if (statSync(positionals[0]!).isDirectory()) {
-          usageError(`a directory is one path — use: jint ${positionals[0]}`);
-          return 2;
-        }
-      } catch {
-        // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
+  } else if (positionals.length > 0) {
+    // The paths noun may sit anywhere among the positionals (order-free, like flags): its next
+    // positional is the list payload, taken verbatim — no flag interpretation. `jint paths
+    // list.txt` with no other input is the changeset form (the list IS the judged subject);
+    // `jint <dir> paths list.txt` gives input too, and then the list never selects — it only
+    // notes the entries the walk never saw.
+    const filePositionals: string[] = [];
+    for (let i = 0; i < positionals.length; i++) {
+      if (positionals[i] !== "paths") {
+        filePositionals.push(positionals[i]!);
+        continue;
       }
-    }
-    // A dash-leading positional that does not exist is most likely a mistyped flag (or a flag
-    // whose `--` separator the bun runtime consumed): say so instead of a bare not-found.
-    for (const positional of positionals) {
-      if (positional.startsWith("-") && !existsSync(positional)) {
-        usageError(`unknown option or missing path '${positional}' — see jint --help`);
+      if (pathsPayload !== undefined) {
+        usageError("one paths noun per run");
         return 2;
       }
-    }
-    // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
-    // element. A selector on multiple positionals or on a directory is a caller contradiction —
-    // say so before any input is touched.
-    const selectors = positionals.map((p) => parseFileSelector(p));
-    const pasted = selectors.find((sel) => sel.pastedId === true);
-    if (pasted !== undefined) {
-      usageError(
-        `element ids are run-scoped and cannot select across runs — query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
-      );
-      return 2;
-    }
-    const bad = selectors.find((sel) => sel.badRange !== undefined);
-    if (bad !== undefined) {
-      usageError(
-        `bad line span "${bad.path}@${bad.badRange}" - use @L<line> or @L<start>-<end>,... with start <= end (see jint --help)`,
-      );
-      return 2;
-    }
-    const selected = selectors.filter(
-      (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
-    );
-    if (selected.length > 1) {
-      usageError("one element selector per run — select from a single file");
-      return 2;
-    }
-    if (selected.length === 1) {
-      const sel = selected[0]!;
-      if (selectors.length > 1) {
+      const payload = positionals[i + 1];
+      if (payload === undefined) {
         usageError(
-          `an element selector selects one file — classify the others separately: jint ${sel.path}`,
+          "jint paths expects a payload — use: jint paths - (piped stdin) or jint paths <list-file>",
         );
         return 2;
       }
-      if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
-        usageError(`${sel.path} is a directory — element selectors take files`);
+      if (payload === "-") {
+        if (process.stdin.isTTY) {
+          usageError(
+            "jint paths -: no piped stdin to read the path list from (stdin is a terminal)",
+          );
+          return 2;
+        }
+      } else if (!existsSync(payload)) {
+        // A paths payload that is no existing path can only be inline text, and a list has no
+        // inline form — reject with the remedy (the inverse of str's path-shaped rejection:
+        // there the payload must NOT be a path; here it must be nothing else).
+        usageError(
+          `'${payload}' is not a path — jint paths reads the list from a file or '-' (piped stdin)`,
+        );
         return 2;
       }
-      elementScope = sel;
-      lintInput = { input: sel.path };
-    } else {
-      // shape inference: exists-as-dir -> dir, else file
-      lintInput =
-        positionals.length === 1
-          ? { input: positionals[0]! }
-          : { input: positionals, inputType: "file" };
+      pathsPayload = payload;
+      // the payload is consumed, verbatim — never flag-parsed
+      i++;
     }
-  } else if (!process.stdin.isTTY && firstPositional !== "-") {
+    if (filePositionals.length > 0) {
+      // Paths. Files may be many; a directory is exactly one path (the walk owns its tree).
+      if (filePositionals.length > 1) {
+        try {
+          if (statSync(filePositionals[0]!).isDirectory()) {
+            usageError(`a directory is one path — use: jint ${filePositionals[0]}`);
+            return 2;
+          }
+        } catch {
+          // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
+        }
+      }
+      // A dash-leading positional that does not exist is most likely a mistyped flag (or a flag
+      // whose `--` separator the bun runtime consumed): say so instead of a bare not-found.
+      for (const positional of filePositionals) {
+        if (positional.startsWith("-") && !existsSync(positional)) {
+          usageError(`unknown option or missing path '${positional}' — see jint --help`);
+          return 2;
+        }
+      }
+      // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
+      // element. A selector on multiple positionals or on a directory is a caller contradiction —
+      // say so before any input is touched.
+      const selectors = filePositionals.map((p) => parseFileSelector(p));
+      const pasted = selectors.find((sel) => sel.pastedId === true);
+      if (pasted !== undefined) {
+        usageError(
+          `element ids are run-scoped and cannot select across runs — query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+        );
+        return 2;
+      }
+      const bad = selectors.find((sel) => sel.badRange !== undefined);
+      if (bad !== undefined) {
+        usageError(
+          `bad line span "${bad.path}@${bad.badRange}" - use @L<line> or @L<start>-<end>,... with start <= end (see jint --help)`,
+        );
+        return 2;
+      }
+      const selected = selectors.filter(
+        (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
+      );
+      if (selected.length > 1) {
+        usageError("one element selector per run — select from a single file");
+        return 2;
+      }
+      if (selected.length === 1) {
+        const sel = selected[0]!;
+        if (selectors.length > 1) {
+          usageError(
+            `an element selector selects one file — classify the others separately: jint ${sel.path}`,
+          );
+          return 2;
+        }
+        if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
+          usageError(`${sel.path} is a directory — element selectors take files`);
+          return 2;
+        }
+        elementScope = sel;
+        lintInput = { input: sel.path };
+      } else {
+        // shape inference: exists-as-dir -> dir, else file
+        lintInput =
+          filePositionals.length === 1
+            ? { input: filePositionals[0]! }
+            : { input: filePositionals, inputType: "file" };
+      }
+    }
+  }
+  // Piped stdin is never guessed: with no str unit (stdin already consumed) and no paths noun
+  // declaring the stdin list, a non-empty pipe is a usage error. An EMPTY pipe falls through so
+  // config.input can flow (a closed or /dev/null stdin is the config-only invocation shape); a
+  // TTY is never read.
+  if (
+    stdinStr === undefined &&
+    lintInput === undefined &&
+    pathsPayload === undefined &&
+    !process.stdin.isTTY
+  ) {
     const content = await Bun.stdin.text();
     if (content !== "") {
       usageError(
-        "piped stdin needs a kind — use: jint str - (one source snippet) or jint - (a changed-file list: git diff --name-only HEAD~1 | jint -)",
+        "piped stdin needs a kind — use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
       );
       return 2;
     }
@@ -358,7 +414,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         concurrency,
         rps_budget: rpsBudget,
         timeout,
-        changed: firstPositional === "-" ? "-" : cliArgs.changed,
+        paths: pathsPayload,
         ...(elementScope !== undefined && {
           element: {
             path: elementScope.path,
@@ -489,9 +545,10 @@ type CliArgsParse =
 const REMOVED_FLAGS: Readonly<Record<string, string>> = {
   "--file": "use: jint <path>... (e.g. jint src/a.ts)",
   "--dir": "use: jint <dir> (e.g. jint src/)",
-  "--kind": "use: jint str - (piped source); a changed-file list is jint - (stdin)",
+  "--kind": "use: jint str - (piped source); a path list is jint paths - (stdin)",
   "--diff":
-    "the diff noun was removed - pipe a changed-file list: git diff --name-only HEAD~1 | jint -",
+    "the diff noun was removed - pipe a path list: git diff --name-only HEAD~1 | jint paths -",
+  "--changed": "use: jint paths <list-file> (or pipe the list: jint paths -)",
 };
 
 /**
@@ -509,7 +566,6 @@ const KNOWN_FLAGS: ReadonlySet<string> = new Set([
   "--concurrency",
   "--rps-budget",
   "--timeout",
-  "--changed",
   "--json",
   "--dry-run",
   "--debug",
@@ -523,7 +579,9 @@ function isFlagToken(token: string): boolean {
   return KNOWN_FLAGS.has(token.split("=")[0]!);
 }
 
-const NOUNS: ReadonlySet<string> = new Set(["str"]);
+// Nouns as the FIRST positional; the next positional is their payload, consumed verbatim —
+// never flag-parsed (jint paths "--json" rejects "--json" as a payload, it is not a flag there).
+const NOUNS: ReadonlySet<string> = new Set(["str", "paths"]);
 
 /** Modifier flags that take a value token; their value must ride with them into parseArgs. */
 const VALUED_FLAGS: ReadonlySet<string> = new Set([
@@ -535,7 +593,6 @@ const VALUED_FLAGS: ReadonlySet<string> = new Set([
   "--concurrency",
   "--rps-budget",
   "--timeout",
-  "--changed",
 ]);
 
 /**
@@ -607,7 +664,6 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
         concurrency: { type: "string" },
         "rps-budget": { type: "string" },
         timeout: { type: "string" },
-        changed: { type: "string" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
       },

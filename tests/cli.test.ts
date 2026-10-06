@@ -145,21 +145,40 @@ describe("cli: contract basics", () => {
     for (const [args, hint] of [
       [["--file", "a.ts"], "use: jint <path>..."],
       [["--dir", "src"], "use: jint <dir>"],
-      [["--kind", "diff"], "a changed-file list is jint - (stdin)"],
+      [["--kind", "diff"], "a path list is jint paths - (stdin)"],
       [["--diff", "-"], "the diff noun was removed"],
+      [["--changed", "list.txt"], "use: jint paths <list-file>"],
     ] as const) {
       expectContract(await run([...args]), { exit: 2, stderr: hint });
     }
   });
 
-  test.concurrent("bare 'jint -' with empty stdin: an empty changed list, then the input backstop", async () => {
+  test.concurrent("bare 'jint -' is undeclared: usage error naming jint paths -", async () => {
     const proc = await runShell("printf '' | bun " + CLI + " -", NO_KEY);
     expect(proc.code).toBe(2);
-    expect(proc.stderr).toContain("selected no files");
+    expect(proc.stderr).toContain("jint paths -");
   });
 
   test.concurrent("bare noun without payload -> usage error, exit 2 (never a path lookup)", async () => {
     expectContract(await run(["str"]), { exit: 2, stderr: "expects a payload" });
+    expectContract(await run(["paths"]), { exit: 2, stderr: "expects a payload" });
+  });
+
+  test.concurrent("a paths payload that is no existing path -> usage error (no inline list form)", async () => {
+    expectContract(await run(["paths", "definitely-not-here.txt"]), {
+      exit: 2,
+      stderr: ["'definitely-not-here.txt' is not a path", "jint paths reads the list from a file"],
+      stdout: "empty",
+    });
+  });
+
+  test.concurrent("two paths nouns in one run -> usage error, exit 2", async () => {
+    // existing payloads: the first noun must survive its own payload validation for the second
+    // noun to be the thing under test
+    expectContract(
+      await run(["paths", "tests/fixtures/sample-file.ts", "paths", "tests/fixtures/sample-dir"]),
+      { exit: 2, stderr: "one paths noun per run" },
+    );
   });
 
   // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
@@ -245,9 +264,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.stdout).not.toContain("CONFIG_NO_RULES"); // errors ride stderr, stdout stays data
   });
 
-  test.concurrent("jint - reads the stdin changed-file list: the list IS the judged subject", async () => {
+  test.concurrent("jint paths - reads the stdin path list: the list IS the judged subject", async () => {
     const proc = await runShell(
-      `printf 'tests/fixtures/sample-file.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      `printf 'tests/fixtures/sample-file.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
       NO_SERVICE,
     );
     expect(proc.code).toBe(4);
@@ -257,9 +276,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
   });
 
-  test.concurrent("a changed-list path that is not in the walk is a NOTE, never silence", async () => {
+  test.concurrent("a path-list entry that is not in the walk is a NOTE, never silence", async () => {
     const proc = await runShell(
-      `printf 'tests/fixtures/sample-file.ts\nno/such/file.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      `printf 'tests/fixtures/sample-file.ts\nno/such/file.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
       NO_SERVICE,
     );
     expect(proc.code).toBe(4);
@@ -271,9 +290,47 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     ).toBe(true);
   });
 
-  test.concurrent("a changeset whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
+  test.concurrent("jint paths <file>: the on-disk list IS the judged subject", async () => {
+    const list = `tmp/cli-paths-list-${Date.now()}.txt`;
+    require("node:fs").writeFileSync(list, "tests/fixtures/sample-file.ts\n");
+    const proc = await runShell(`bun ${CLI} paths ${list} --json --rule is_greppable`, NO_SERVICE);
+    expect(proc.code).toBe(4);
+    const report = JSON.parse(proc.stdout);
+    // the transport failure names the listed file: the list, not stdin, selected the subject
+    expect(report.errors.length).toBeGreaterThan(0);
+    expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
+  });
+
+  test.concurrent("jint <dir> paths <file>: input selects, the list only notes (never selects)", async () => {
+    const list = `tmp/cli-paths-list-${Date.now()}.txt`;
+    // entries are relative to the input dir (the walk's own path space), never the cwd
+    require("node:fs").writeFileSync(list, "good.ts\nno/such/file.ts\n");
     const proc = await runShell(
-      `printf 'no/such/a.ts\nno/such/b.ts\n' | bun ${CLI} - --json --rule is_greppable`,
+      `bun ${CLI} tests/fixtures/sample-dir paths ${list} --json --rule is_greppable`,
+      NO_SERVICE,
+    );
+    expect(proc.code).toBe(4);
+    const report = JSON.parse(proc.stdout);
+    const inputs = [
+      ...report.measurements.map((m: { input: string }) => m.input),
+      ...report.errors.map((e: { input: string }) => e.input),
+    ].map((s: string) => s.split("#")[0]!);
+    // the dir walk selected: good.ts was judged as part of the walk, never because of the list
+    expect(inputs.some((i: string) => i.startsWith("good.ts"))).toBe(true);
+    // the list named no file outside the walk's subject except via notes: selection stayed input's
+    expect(inputs.some((i: string) => i.startsWith("tests/fixtures/sample-file.ts"))).toBe(false);
+    // the missing entry is a note; good.ts is IN the walk, so the list stays silent about it
+    expect(
+      report.notes.some(
+        (n: string) => n.includes("not found in the walk") && n.includes("no/such/file.ts"),
+      ),
+    ).toBe(true);
+    expect(report.notes.some((n: string) => n.includes("good.ts"))).toBe(false);
+  });
+
+  test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
+    const proc = await runShell(
+      `printf 'no/such/a.ts\nno/such/b.ts\n' | bun ${CLI} paths - --json --rule is_greppable`,
       NO_SERVICE,
     );
     // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
@@ -306,7 +363,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runShell(`cat tests/fixtures/sample.diff | bun ${CLI} --json`, NO_KEY);
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("jint str -");
-    expect(proc.stderr).toContain("jint -");
+    expect(proc.stderr).toContain("jint paths -");
   });
 
   test.concurrent("TTY with payload '-' -> immediate usage error, never blocks", async () => {

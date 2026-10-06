@@ -6,10 +6,10 @@
  * file is just a file — jint never parses a VCS; a non-source extension fails NOT_SOURCE in the
  * file unit); missing path -> ENTRYPOINT_NOT_FOUND
  *
- * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with the str
- * noun (jint str -) or as the changed-file list (jint -). Both the CLI and the SDK go through
+ * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with a noun
+ * (jint str - for source, jint paths - for a path list). Both the CLI and the SDK go through
  * resolveInput — no drift. Jint never shells out and never parses a VCS: the caller owns the VCS
- * (their pipeline pipes the changed list: git diff --name-only HEAD~1 | jint -).
+ * (their pipeline pipes the path list: git diff --name-only HEAD~1 | jint paths -).
  */
 
 import { stat } from "node:fs/promises";

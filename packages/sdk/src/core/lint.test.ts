@@ -520,17 +520,17 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
   });
 
-  test("the changed list is the input: selection + the missing-entry note (never silence)", async () => {
+  test("the paths list is the input: selection + the missing-entry note (never silence)", async () => {
     const { mkdirSync, writeFileSync } = await import("node:fs");
-    mkdirSync("tmp/changed-list-test", { recursive: true });
+    mkdirSync("tmp/paths-list-test", { recursive: true });
     writeFileSync(
-      "tmp/changed-list-test/list.txt",
+      "tmp/paths-list-test/list.txt",
       FILE + "\nno/such/file.ts\n" + FILE + "\n", // duplicate dedupes; missing noted
     );
     const events = await drain(
       lint({
         config: { ...baseConfig, input: "" },
-        changed: "tmp/changed-list-test/list.txt",
+        paths: "tmp/paths-list-test/list.txt",
         classifier: classifierWith({
           is_name_purposeful: 0.7,
           is_vocabulary_consistent: 0.9,
@@ -552,6 +552,49 @@ describe("lint", () => {
         .map((e) => e.measurement.input.split("#")[0]),
     );
     expect([...inputs]).toEqual([FILE]);
+  });
+
+  test("with input also given, the path list never selects: it only notes", async () => {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    mkdirSync("tmp/paths-list-test", { recursive: true });
+    writeFileSync(
+      "tmp/paths-list-test/list-with-outsider.txt",
+      "tests/fixtures/sample-dir/good.ts\nno/such/file.ts\n",
+    );
+    const events = await drain(
+      lint({
+        config: baseConfig,
+        input: FILE,
+        paths: "tmp/paths-list-test/list-with-outsider.txt",
+        classifier: classifierWith({
+          is_name_purposeful: 0.7,
+          is_vocabulary_consistent: 0.9,
+          is_greppable: 0.8,
+          is_cognitively_complex: 0.3,
+        }),
+      }),
+    );
+    // the subject came from input, never the list: only FILE was judged
+    const inputs = new Set(
+      events
+        .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
+        .map((e) => e.measurement.input.split("#")[0]),
+    );
+    expect([...inputs]).toEqual([FILE]);
+    // entries the walk never saw — a real file outside the input, and a missing one — are
+    // notes, never silence, and never a selection
+    const notes = events
+      .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
+      .map((e) => e.note);
+    expect(
+      notes.some(
+        (n) =>
+          n.includes("not found in the walk") && n.includes("tests/fixtures/sample-dir/good.ts"),
+      ),
+    ).toBe(true);
+    expect(
+      notes.some((n) => n.includes("not found in the walk") && n.includes("no/such/file.ts")),
+    ).toBe(true);
   });
 
   test("per-unit failure becomes a streamed error; the run continues", async () => {

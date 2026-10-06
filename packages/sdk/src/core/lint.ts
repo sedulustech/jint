@@ -11,8 +11,8 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { parseChangedList, readChangedSource } from "./input/changed.ts";
 import { resolveInput } from "./input/infer.ts";
+import { parsePathsList, readPathsSource } from "./input/paths.ts";
 import { MAX_ELEMENT_CHARS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
@@ -92,12 +92,12 @@ export interface LintOptions {
    */
   timeout?: number;
   /**
-   * A changed-file LIST (CLI --changed <file>; stdin with "-" via the CLI's jint - form): one path
-   * per line, relative to the input dir or absolute — the caller's own VCS pipeline, jint never
-   * shells out. The list IS the input selection when no input is otherwise given (the changeset
-   * form).
+   * A path LIST (the CLI's `paths` noun: `jint paths <list-file>`, or `jint paths -` for piped
+   * stdin): one path per line, relative to the input dir or absolute — the caller's own VCS
+   * pipeline, jint never shells out. The list IS the input selection when no input is otherwise
+   * given (the changeset form); when an input is also given, the list never selects.
    */
-  changed?: string;
+  paths?: string;
   /**
    * Element-scoped run (CLI `<file>@L<line>`): judge ONE walker element of ONE file. The input is
    * exactly that file; the walked inventory narrows to the selected element, so element jobs fan
@@ -114,15 +114,13 @@ export interface LintOptions {
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  // The changed-file list (changeset selection): read and parsed ONCE, before the input guard
-  // — the list IS the input when nothing else selected one.
-  const changedList =
-    options.changed !== undefined
-      ? parseChangedList(await readChangedSource(options.changed))
-      : undefined;
-  if (changedList !== undefined && changedList.length === 0) {
+  // The path list (changeset selection): read and parsed ONCE, before the input guard — the
+  // list IS the input when nothing else selected one.
+  const pathsList =
+    options.paths !== undefined ? parsePathsList(await readPathsSource(options.paths)) : undefined;
+  if (pathsList !== undefined && pathsList.length === 0) {
     // Fail before the auth gate: an empty list is a caller mistake, not a billing problem.
-    throw new SetupError("CONFIG_INVALID", "the changed list selected no files (empty list)");
+    throw new SetupError("CONFIG_INVALID", "the path list selected no files (empty list)");
   }
   const input: string | string[] | undefined = options.input ?? options.config.input;
   // Backstop for optional config.input: no input at all is a setup failure (the CLI resolves
@@ -130,12 +128,12 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   if (
     options.str === undefined &&
     // the changeset form: the LIST is the input (checked below)
-    changedList === undefined &&
+    pathsList === undefined &&
     (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass a path (jint src/), declare piped stdin (jint str - / jint - for a changed list), or set input in jint.config.json",
+      "no input: pass a path (jint src/), declare piped stdin (jint str - / jint paths - for a path list), or set input in jint.config.json",
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
@@ -210,24 +208,24 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     ),
     concurrency,
   );
-  // The changeset selection: every listed path is the file's identity verbatim — one anchor by
-  // construction. Entries that resolve to no walked unit (missing,
-  // unreadable, non-source) are SIGNAL — a note names them below, never silence.
+  // The changeset selection: every listed path is the file's identity verbatim. Entries that
+  // resolve to no walked unit (missing, unreadable, non-source) are SIGNAL — a note names them
+  // below, never silence.
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
-      : changedList !== undefined && (input === undefined || input === "")
+      : pathsList !== undefined && (input === undefined || input === "")
         ? await (async () => {
             // The changeset form: the list IS the judged subject, one entry at a time so a
             // missing or non-source entry degrades to the not-in-the-walk note, never fatal.
-            if (changedList.length === 0) {
+            if (pathsList.length === 0) {
               throw new SetupError(
                 "CONFIG_INVALID",
-                "the changed list selected no files (empty list)",
+                "the path list selected no files (empty list)",
               );
             }
             const resolved: Unit[] = [];
-            for (const entry of changedList) {
+            for (const entry of pathsList) {
               try {
                 for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
                   resolved.push(unit);
@@ -258,14 +256,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               exclude,
             }),
           );
-  // Changed-list entries that produced no walked unit (missing, unreadable, non-source) are
+  // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
   // SIGNAL, never silence: one note names each, the run continues around them.
   const unitPaths = new Set(
     units.map((u) => ("path" in u.state ? u.state.path : "")).filter(Boolean),
   );
-  if (changedList !== undefined) {
-    for (const missing of changedList.filter((p) => !unitPaths.has(p))) {
-      yield { type: "note", note: `changed-list path not found in the walk: ${missing}` };
+  if (pathsList !== undefined) {
+    for (const missing of pathsList.filter((p) => !unitPaths.has(p))) {
+      yield { type: "note", note: `path list entry not found in the walk: ${missing}` };
     }
   }
   const byName = new Map(scopedRules.map((s) => [s.name, s]));

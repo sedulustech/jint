@@ -55,13 +55,13 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     expect(inv.hasError).toBe(false);
     // Top-level definitions + method elements from composite descent into the class declaration,
     // no imports in this file (golden tracks packages/sdk/src/core/types.ts — update when it grows).
-    expect(inv.definitions).toHaveLength(43);
+    expect(inv.definitions).toHaveLength(42);
     expect(inv.imports).toHaveLength(0);
     // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
     // separated from the first declaration by a blank line), and member-doc comments inside
     // declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(46);
-    expect(attachedCount(inv)).toBe(28);
+    expect(accountedComments(inv)).toBe(45);
+    expect(attachedCount(inv)).toBe(27);
     expect(inv.comments).toHaveLength(1);
     expect(internalCount(inv)).toBe(17);
     // Labels are stable and positional.
