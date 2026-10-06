@@ -187,7 +187,7 @@ test("nonexistent run id renders the shared 404 inside the shell", async () => {
   );
   expect(document.body.textContent).toContain("back to the runs");
   // app shell chrome: the header (jint, run picker, theme) stays up around the 404
-  expect(document.querySelector("h1")?.textContent).toBe("jint");
+  expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
   expect(document.body.textContent).not.toContain("Not Found");
 });
 
@@ -490,7 +490,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
       { timeout: 10_000 },
     );
     expect(document.body.textContent).toContain("0 rules match your filters");
-    expect(document.querySelector("h1")?.textContent).toBe("jint");
+    expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
 
     // file mode: same empty idiom, files noun
     modeButton("file").click();
@@ -502,7 +502,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
       { timeout: 10_000 },
     );
     expect(document.body.textContent).toContain("no report — run captured without --json");
-    expect(document.querySelector("h1")?.textContent).toBe("jint");
+    expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
 
     // request mode: the run's real request rows, from the raw captures
     modeButton("request").click();

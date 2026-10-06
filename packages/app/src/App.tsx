@@ -12,6 +12,7 @@ import type { RunSearch } from "./router";
 import type { Report, RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
 import type { Theme } from "./views/useTheme";
+import { Logo } from "@/components/Logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -118,7 +119,9 @@ export function App({ runId }: { runId: string | null }) {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center gap-3 border-b border-border bg-muted px-3 py-1.5">
-        <h1 className="font-mono text-emphasis font-bold text-foreground">jint</h1>
+        <h1 className="flex items-center text-foreground">
+          <Logo className="h-6 w-auto" />
+        </h1>
         <Select value={runId ?? "none"} onValueChange={pickRun}>
           <SelectTrigger className="w-96 font-mono text-body" aria-label="run">
             <SelectValue
