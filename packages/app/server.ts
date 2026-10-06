@@ -56,5 +56,5 @@ Bun.serve({
   },
 });
 process.stdout.write(
-  `measurement-ui on http://localhost:${process.env.PORT ?? 5178} (dist: ${dist})` + "\n",
+  `jint ui on http://localhost:${process.env.PORT ?? 5178} (dist: ${dist})` + "\n",
 );

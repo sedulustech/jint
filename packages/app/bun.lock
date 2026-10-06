@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "jint-measurement-ui",
+      "name": "jint-ui",
       "dependencies": {
         "@tanstack/react-query": "^5.59.0",
         "class-variance-authority": "^0.7.1",
