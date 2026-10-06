@@ -188,18 +188,23 @@ describe("classify", () => {
     };
     const big =
       "const big = [" +
-      Array.from({ length: 500 }, () => '"' + "x".repeat(40) + '"').join(", ") +
+      Array.from({ length: 3000 }, () => '"' + "x".repeat(40) + '"').join(", ") +
       "];";
     const outcome = await classify(big, [definitionsRule], {
       path: "src/big.ts",
       classifier: fakeClassifier({ r_def: 1 }, states),
     });
-    // the oversized element is never judged: no call, no measurement, no error — the count is
-    // the in-band signal (design: composite body-size fix, the hard size backstop)
+    // the oversized element is never judged: no call, no measurement, no error — the named skip
+    // is the in-band signal (design: composite body-size fix, the hard size backstop)
     expect(states).toHaveLength(0);
     expect(outcome.measurements).toHaveLength(0);
     expect(outcome.errors).toHaveLength(0);
-    expect(outcome.oversized).toBe(1);
+    expect(outcome.oversized).toHaveLength(1);
+    expect(outcome.oversized[0]).toMatchObject({
+      label: "d0",
+      role: "binding",
+      chars: big.length,
+    });
   });
 
   test("empty source is a setup failure, thrown", async () => {

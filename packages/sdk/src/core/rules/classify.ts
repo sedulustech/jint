@@ -22,6 +22,7 @@ import {
   type Measurement,
   type QuestionSpec,
   type Rule,
+  type Span,
   type Unit,
   type UnitKind,
 } from "../types.ts";
@@ -205,14 +206,24 @@ export interface ClassifyEvent {
   readonly element?: Element;
 }
 
+/** A skipped oversized element, named for the report: identity and size, never the content. */
+export interface OversizedElement {
+  /** The stable positional walk label ("d5"). */
+  readonly label: string;
+  readonly role: string;
+  readonly span: Span;
+  /** Source size in UTF-16 code units (content.length), as the note reports it. */
+  readonly chars: number;
+}
+
 export interface ClassifyResult {
   readonly events: ClassifyEvent[];
   /** A JEV_AUTH error aborts the whole run. */
   readonly fatal: boolean;
   /** The derived inventory, when the source parsed into elements; absent on derivation failure. */
   readonly inventory?: Inventory;
-  /** Elements skipped as oversized: never judged, reported in-band. */
-  readonly oversized: number;
+  /** Elements skipped as oversized: never judged; every skip named in-band, not counted. */
+  readonly oversized: readonly OversizedElement[];
   /** Per-rule scoping (issue 008): scoped-out element counts, never silent. */
   readonly notes: string[];
 }
@@ -237,8 +248,8 @@ export interface TargetableElement {
 /**
  * THE target grammar — the routes from a rule's target to elements. One implementation serves BOTH
  * selection tiers, so a target's element mapping can never drift between them. Oversized elements
- * are never judged — the size backstop trades their readings for the run's reliability; the count
- * surfaces in-band.
+ * are never judged — the size backstop trades their readings for the run's reliability; every skip
+ * is named in-band.
  */
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
@@ -580,6 +591,18 @@ function collectWalkFailure(unit: Unit, walked: WalkedUnit, events: ClassifyEven
 }
 
 /**
+ * The inventory's oversized elements, projected to identity + size: the skips are IN the inventory
+ * already (flagged), so the report channel carries them verbatim instead of a count that loses who
+ * was skipped.
+ */
+function oversizedElements(inventory: Inventory | undefined): OversizedElement[] {
+  if (inventory === undefined) return [];
+  return [...inventory.definitions, ...inventory.comments, ...inventory.imports]
+    .filter((e) => e.oversized === true)
+    .map((e) => ({ label: e.label, role: e.role, span: e.span, chars: e.content.length }));
+}
+
+/**
  * One pass over a unit, no candidacy: every measurement is a reading the rule's handle judges.
  *
  * No fallback: a file that maps to no elements yields no element classification and its
@@ -603,7 +626,7 @@ export async function classifyFile(
   const events: ClassifyEvent[] = [];
 
   if (await classifyWholeUnit(unit, rules, classifier, events))
-    return { events, fatal: true, oversized: 0, notes: [] };
+    return { events, fatal: true, oversized: [], notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
   // (the one-shot door), walk now. Only file units stream the failure — a str unit has no
@@ -612,7 +635,7 @@ export async function classifyFile(
   collectWalkFailure(unit, walkedUnit, events);
 
   const notes = scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind);
-  const oversized = walkedUnit.derived?.oversizedCount ?? 0;
+  const oversized = oversizedElements(walkedUnit.derived);
   if (isAborted()) return { events, fatal: false, oversized, notes };
   const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path);
   if (elementJobs.length === 0) return { events, fatal: false, oversized, notes };

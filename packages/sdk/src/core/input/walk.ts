@@ -59,7 +59,10 @@ export interface WalkElement {
    * travels with the element (design rules-context/02) — pairing reads it.
    */
   readonly parent?: string;
-  /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
+  /**
+   * The element's source exceeds the size backstop (MAX_ELEMENT_TOKENS): never judged; named
+   * in-band.
+   */
   readonly oversized?: boolean;
 }
 
@@ -128,16 +131,34 @@ export interface Inventory {
   readonly comments: WalkElement[];
   /** Exactly one merged element when the file has imports; empty otherwise. */
   readonly imports: WalkElement[];
-  /** Elements emitted with oversized: true (source over MAX_ELEMENT_CHARS); reported, never judged. */
-  readonly oversizedCount: number;
 }
 
 /**
- * Hard size backstop (language-agnostic): any element whose source exceeds this is emitted with
- * oversized: true and skipped by the classifier — ordinary code can never crash the run with an
- * oversized judgment request (design: composite body-size fix). Chunking is rejected.
+ * The char -> token estimate behind the size backstop. jev's limit is a TOKEN budget, not a char
+ * budget; the walker carries no tokenizer (and must not grow one — no new deps), so the backstop
+ * converts source chars with the ~4-chars-per-token rule of thumb for code. An ESTIMATE, not a
+ * measurement: dense symbol-heavy source reads as more tokens than the ratio predicts, which is why
+ * the cap below keeps a margin under the measured ceiling instead of sitting on it.
  */
-export const MAX_ELEMENT_CHARS = 8000;
+export function charsToTokens(chars: number): number {
+  return Math.ceil(chars / 4);
+}
+
+/**
+ * The element size backstop, in TOKENS (the unit jev's budget counts): any element whose source
+ * exceeds this is emitted with oversized: true and skipped by the classifier — ordinary code can
+ * never crash the run with an oversized judgment request (design: composite body-size fix).
+ * Chunking is rejected.
+ *
+ * Why 30k: measured against the live API (2026-10-05), jev accepts ~32k tokens and rejects ~48k
+ * with 400 max_tokens_exceeded — and that budget is SHARED by the element source and the batched
+ * questions (instructions + criteria). The default 11-rule batch costs ~2,080 estimated tokens
+ * (7,879 chars, measured), so a 30k element lands just under the measured pass line: the 2k margin
+ * between this cap and the ~32k ceiling IS the criteria reserve. It is deliberately NOT subtracted
+ * per run — adding rules beyond the default set eats it. Two estimates stacked (chars/4 against a
+ * measured ceiling): a margin, not a guarantee.
+ */
+export const MAX_ELEMENT_TOKENS = 30_000;
 
 /** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
 /**
@@ -333,7 +354,10 @@ interface RawElement {
   readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
   readonly parent?: string;
-  /** The element's source exceeded MAX_ELEMENT_CHARS: never judged, counted in-band. */
+  /**
+   * The element's source exceeds the size backstop (MAX_ELEMENT_TOKENS): never judged; named
+   * in-band.
+   */
   readonly oversized?: boolean;
 }
 
@@ -405,8 +429,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   }
   const parser = await parserFor(language);
   const tree = parser.parse(source);
-  if (!tree)
-    return { hasError: true, definitions: [], comments: [], imports: [], oversizedCount: 0 };
+  if (!tree) return { hasError: true, definitions: [], comments: [], imports: [] };
 
   const definitions: RawElement[] = [];
   const comments: RawElement[] = [];
@@ -645,24 +668,22 @@ export async function decompose(source: string, language: string): Promise<Inven
   }
 
   // Hard size backstop (language-agnostic, design: composite body-size fix): any element over
-  // MAX_ELEMENT_CHARS is flagged oversized — the classifier returns no rules for it and the run
-  // reports the count in-band. Ordinary code can never crash the run with an oversized request.
+  // MAX_ELEMENT_TOKENS is flagged oversized — the classifier returns no rules for it and the run
+  // names each skip in-band. Ordinary code can never crash the run with an oversized request.
   const sized = (elements: readonly RawElement[]): RawElement[] =>
-    elements.map((e) => (e.content.length > MAX_ELEMENT_CHARS ? { ...e, oversized: true } : e));
+    elements.map((e) =>
+      charsToTokens(e.content.length) > MAX_ELEMENT_TOKENS ? { ...e, oversized: true } : e,
+    );
   const importElements = importElement ? [importElement] : [];
   const sizedDefs = sized(definitions);
   const sizedComments = sized(comments);
   const sizedImports = sized(importElements);
-  const oversizedCount = [...sizedDefs, ...sizedComments, ...sizedImports].filter(
-    (e) => e.oversized === true,
-  ).length;
   // Labels are assigned at emit time (parent links reference them); sizing is order-preserving.
   return {
     hasError: tree.rootNode.hasError,
     definitions: sizedDefs,
     comments: sizedComments,
     imports: sizedImports,
-    oversizedCount,
   };
 }
 

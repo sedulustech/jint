@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
 import {
+  charsToTokens,
   decompose,
   isEmptyComment,
   languageOf,
-  MAX_ELEMENT_CHARS,
+  MAX_ELEMENT_TOKENS,
   type Inventory,
 } from "./walk.ts";
 
@@ -250,18 +251,26 @@ describe("decompose — composite-descent fixture", () => {
 });
 
 describe("decompose — oversized backstop", () => {
-  test("an element over MAX_ELEMENT_CHARS is flagged oversized and counted, language-agnostic", async () => {
-    // A giant single expression element: over the backstop, flagged, still emitted.
+  test("an element over MAX_ELEMENT_TOKENS is flagged oversized, language-agnostic", async () => {
+    // A giant single expression element: over the backstop, flagged, still emitted (with identity —
+    // the flag rides the element itself, so the report names the skip, never just a count).
     const source =
       "const big = [" +
-      Array.from({ length: 500 }, () => '"' + "x".repeat(40) + '"').join(", ") +
+      Array.from({ length: 3000 }, () => '"' + "x".repeat(40) + '"').join(", ") +
       "];";
-    expect(source.length).toBeGreaterThan(MAX_ELEMENT_CHARS);
+    expect(charsToTokens(source.length)).toBeGreaterThan(MAX_ELEMENT_TOKENS);
     const inv = await decompose(source, "typescript");
     expect(inv.definitions).toHaveLength(1);
     expect(inv.definitions[0]!.oversized).toBe(true);
-    expect(inv.oversizedCount).toBe(1);
     expectSpansRoundTrip(source, inv);
+  });
+
+  test("charsToTokens: the ~4-chars-per-token jev-budget estimate, ceiling", () => {
+    expect(charsToTokens(0)).toBe(0);
+    expect(charsToTokens(1)).toBe(1);
+    expect(charsToTokens(4)).toBe(1);
+    expect(charsToTokens(8000)).toBe(2000); // the retired char cap, in estimated tokens
+    expect(charsToTokens(120_000)).toBe(30_000); // the current cap, in chars
   });
 
   test("a python class header ends at its colon; no brace, header still bounded", async () => {

@@ -10,7 +10,7 @@
  * the rule (observability is the guarantee — wire dumps capture the exact bytes).
  */
 
-import { MAX_ELEMENT_CHARS } from "../input/walk.ts";
+import { charsToTokens, MAX_ELEMENT_TOKENS } from "../input/walk.ts";
 import { matchesTarget } from "../rules/classify.ts";
 import { toClassifyError } from "../rules/classify.ts";
 import { compileNoulHandler } from "../rules/handle.ts";
@@ -169,7 +169,7 @@ export interface TsRulePhase {
 /**
  * Runs the loaded TS rules over the completed walk: resolve, fan out classify per target, call the
  * classifier per compiled spec, then policy once per rule. Sized state parts are backstopped per
- * part (over MAX_ELEMENT_CHARS: noted, skipped — ordinary state can never crash the request).
+ * part (over MAX_ELEMENT_TOKENS: noted, skipped — ordinary state can never crash the request).
  */
 export async function runTsRules(
   tsRules: readonly TsRule[],
@@ -222,7 +222,7 @@ export async function runTsRules(
       // Per-part size backstop: any string state part over the bound skips the element (noted),
       // mirroring the walk's oversized-element behavior — ordinary state never crashes jev.
       const oversized = Object.entries(spec.state).find(
-        ([, part]) => typeof part === "string" && part.length > MAX_ELEMENT_CHARS,
+        ([, part]) => typeof part === "string" && charsToTokens(part.length) > MAX_ELEMENT_TOKENS,
       );
       if (oversized !== undefined) {
         events.push({
@@ -235,8 +235,8 @@ export async function runTsRules(
             '" for ' +
             input +
             " exceeds " +
-            MAX_ELEMENT_CHARS +
-            " chars - skipped",
+            MAX_ELEMENT_TOKENS +
+            " tokens - skipped",
         });
         continue;
       }

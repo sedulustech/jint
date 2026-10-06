@@ -431,7 +431,7 @@ describe("runTsRules — classification", () => {
     const inventory = await oneFile(SOURCE);
     const calls: Call[] = [];
     const phase = await run(
-      ruleOf({ classify: () => spec({ blob: "x".repeat(8001) }) }),
+      ruleOf({ classify: () => spec({ blob: "x".repeat(120_001) }) }),
       inventory,
       fakeClassifier(0.8, calls),
     );

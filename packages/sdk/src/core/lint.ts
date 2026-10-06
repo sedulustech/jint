@@ -13,7 +13,7 @@
 
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList, readPathsSource } from "./input/paths.ts";
-import { MAX_ELEMENT_CHARS, type WalkElement } from "./input/walk.ts";
+import { MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -33,6 +33,7 @@ import {
   selectElements,
   walkUnit,
   type ClassifyEvent,
+  type OversizedElement,
   type WalkedUnit,
 } from "./rules/classify.ts";
 import { judgesWholeUnit } from "./scope.ts";
@@ -389,17 +390,18 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       const result = results[j]!;
       const unit = units[i + j]!;
       if (result.abort) aborted = true;
-      if (result.oversized > 0) {
+      // One note per skipped element, named the way every element in jint is named (path@L<line>,
+      // the finding convention): a count-only note said the run was incomplete, never WHERE or
+      // WHAT was skipped. The stable "skipped:" token is the machine-matchable marker — the note
+      // channel is plain strings in the report contract, so there is no code field to match on.
+      for (const skipped of result.oversized) {
         const path = "path" in unit.state ? unit.state.path : "unit";
         yield {
           type: "note",
           note:
-            path +
-            ": " +
-            result.oversized +
-            " oversized element(s) skipped (over " +
-            MAX_ELEMENT_CHARS +
-            " chars)",
+            `${path}@L${skipped.span.start.line}` +
+            ` skipped: ${skipped.role} '${skipped.label}'` +
+            ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`,
         };
       }
       for (const note of result.notes) yield { type: "note", note };
@@ -484,7 +486,7 @@ function withLanguageHint(error: ClassifyError, options: LintOptions): ClassifyE
 interface UnitResult {
   events: ClassifyEvent[];
   abort: boolean;
-  oversized: number;
+  oversized: readonly OversizedElement[];
   notes: string[];
 }
 

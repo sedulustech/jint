@@ -132,6 +132,38 @@ test("classification respects rule targets: comment rules never judge bare defin
   }
 });
 
+test("oversized element: skipped with one named note per skip, siblings still judged", async () => {
+  // big() is ~130k chars = ~32.5k estimated tokens: over the 30k-token backstop, never judged;
+  // small() proves the run is not silently clean — the skip names itself, the rest still run.
+  mkdirSync("tmp", { recursive: true });
+  const file = "tmp/lint-oversize-test.ts";
+  await Bun.write(
+    file,
+    "function big() {\n  return " +
+      "1".repeat(130_000) +
+      ";\n}\n\nfunction small() {\n  return 1;\n}\n",
+  );
+  try {
+    const log: CallLog = { calls: [] };
+    const report = await collectReport(
+      lint({ config: baseConfig, input: file, classifier: loggingClassifier({}, log) }),
+    );
+    // named the way every element is named (path@L<line>, the finding anchor convention), with
+    // role + label + size; "skipped:" is the machine-matchable marker (notes are plain strings)
+    expect(report.notes).toHaveLength(1);
+    expect(report.notes[0]).toMatch(
+      new RegExp(
+        "^" + file + "@L1 skipped: function 'd0' — \\d+ chars \\(over the 30000-token cap\\)$",
+      ),
+    );
+    const elementCalls = log.calls.filter((c) => isElementCall(c.state));
+    expect(elementCalls).toHaveLength(1);
+    expect((elementCalls[0]!.state as { source: string }).source).toContain("small");
+  } finally {
+    rmSync(file, { force: true });
+  }
+});
+
 async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
   const out: LintEvent[] = [];
   for await (const event of events) out.push(event);

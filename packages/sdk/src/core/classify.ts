@@ -26,7 +26,7 @@ import {
   withPacer,
   withTimeout,
 } from "./jev/pacer.ts";
-import { classifyFile, elementWireId } from "./rules/classify.ts";
+import { classifyFile, elementWireId, type OversizedElement } from "./rules/classify.ts";
 import {
   SetupError,
   ClassifyError,
@@ -59,8 +59,8 @@ export interface ClassifyOutcome {
   readonly errors: ClassifyError[];
   /** The derived inventory, when the source parsed into elements; absent otherwise. */
   readonly inventory?: Inventory;
-  /** Elements skipped as oversized (over MAX_ELEMENT_CHARS): never judged, reported in-band. */
-  readonly oversized: number;
+  /** Elements skipped as oversized (over the size backstop): never judged; each named in-band. */
+  readonly oversized: readonly OversizedElement[];
 }
 
 /**
