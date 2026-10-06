@@ -37,31 +37,165 @@ import {
   type Rule,
 } from "@jint/sdk";
 import { selectionEcho } from "@jint/sdk";
-import { Type as TypeBoxType, type Static as TypeBoxStatic } from "@sinclair/typebox";
+import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { log, setLogLevel } from "./logger.ts";
 
-/** CLI args boundary — validated with TypeBox like every external input. */
-const CLI_ARGS_SCHEMA = TypeBoxType.Object({
-  language: TypeBoxType.Optional(TypeBoxType.String()),
-  config: TypeBoxType.Optional(TypeBoxType.String()),
-  json: TypeBoxType.Optional(TypeBoxType.Boolean()),
-  "dry-run": TypeBoxType.Optional(TypeBoxType.Boolean()),
-  debug: TypeBoxType.Optional(TypeBoxType.Boolean()),
-  exclude: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  disable: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  rule: TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String())),
-  concurrency: TypeBoxType.Optional(TypeBoxType.String()),
-  "rps-budget": TypeBoxType.Optional(TypeBoxType.String()),
-  timeout: TypeBoxType.Optional(TypeBoxType.String()),
-  help: TypeBoxType.Optional(TypeBoxType.Boolean()),
-  version: TypeBoxType.Optional(TypeBoxType.Boolean()),
-});
+/**
+ * The flag table — the ONE source for the flag vocabulary. Every projection is a mechanical map
+ * over this table: the TypeBox parser schema (value types), parseArgs' options spec, KNOWN_FLAGS
+ * (names + aliases), VALUED_FLAGS (type !== "boolean"), and the help Options section (arg + blurb).
+ * `type` is the value shape: "boolean" flags take no value; "string" takes ONE value per
+ * occurrence; "string[]" ACCUMULATES one value per occurrence (--rule a --rule b). `arg` is the
+ * help-display placeholder for the value token; `aliases` are single-char dash aliases.
+ */
+export const FLAGS = {
+  "--language": {
+    type: "string",
+    arg: "<id>",
+    blurb:
+      "tree-sitter grammar for piped-stdin/extensionless sources; valid ids: typescript, python, go. Without a resolvable language, inventory-scoped rules fail WALK_FAILED in-band and unit-scoped rules still classify",
+  },
+  "--config": {
+    type: "string",
+    arg: "<path>",
+    blurb:
+      'config file, plain JSON (default: jint.config.json; autocomplete via the checked-in jint.schema.json "$schema" key)',
+  },
+  "--exclude": {
+    type: "string[]",
+    arg: "<glob>",
+    blurb: "input exclusion, on top of config (repeatable)",
+  },
+  "--disable": {
+    type: "string[]",
+    arg: "<name>",
+    blurb: "rule removal by name, on top of config (repeatable)",
+  },
+  "--rule": {
+    type: "string[]",
+    arg: "<name>",
+    blurb: "run ONLY these rules (repeatable); overrides --disable for the named set",
+  },
+  "--concurrency": {
+    type: "string",
+    arg: "<n>",
+    blurb:
+      "max in-flight classifier calls, run-wide (default 16, max 64; overrides the config key of the same name)",
+  },
+  "--rps-budget": {
+    type: "string",
+    arg: "<n>",
+    blurb:
+      "client-side request-start budget, requests/second (default 15, ~75% of the published 1200 rpm quota; overrides config rps_budget)",
+  },
+  "--timeout": {
+    type: "string",
+    arg: "<secs>",
+    blurb:
+      "per-call classifier timeout (default 30; a hung call becomes a per-element JEV_TIMEOUT failure - liveness, not retry)",
+  },
+  "--json": {
+    type: "boolean",
+    blurb: "machine report (byte-identical to the run's report.json) instead of raw finding lines",
+  },
+  "--dry-run": {
+    type: "boolean",
+    blurb:
+      "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
+  },
+  "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
+  "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
+  "--version": { type: "boolean", blurb: "print the version" },
+} as const;
 
-type CliArgs = TypeBoxStatic<typeof CLI_ARGS_SCHEMA>;
+/** CLI args boundary — the schema is DERIVED from FLAGS, never a second hand-written shape. */
+export const CLI_ARGS_SCHEMA = TypeBoxType.Object(
+  Object.fromEntries(
+    Object.entries(FLAGS).map(([name, flag]) => [
+      name.slice(2),
+      flag.type === "boolean"
+        ? TypeBoxType.Optional(TypeBoxType.Boolean())
+        : flag.type === "string[]"
+          ? TypeBoxType.Optional(TypeBoxType.Array(TypeBoxType.String()))
+          : TypeBoxType.Optional(TypeBoxType.String()),
+    ]),
+  ),
+);
 
-const HELP = `jint — jev lint: classifies code with AI-classifier judgments; rules in, findings out.
+/**
+ * The parsed args' static view, derived from the same table in the type system: "string[]" ->
+ * string[], "string" -> string, "boolean" -> boolean; every key optional (parseArgs omits unset
+ * flags). The schema above and this type are both projections of FLAGS — they cannot drift.
+ */
+type CliArgs = {
+  [K in keyof typeof FLAGS as K extends `--${infer Name}`
+    ? Name
+    : never]?: (typeof FLAGS)[K]["type"] extends "string[]"
+    ? string[]
+    : (typeof FLAGS)[K]["type"] extends "string"
+      ? string
+      : boolean;
+};
+
+/**
+ * ParseArgs' options spec, derived from FLAGS: value flags take one token per occurrence;
+ * "string[]" accumulates (values: string[]); a single-char alias becomes parseArgs' short.
+ */
+const PARSE_ARGS_OPTIONS: {
+  [name: string]: { type: "string" | "boolean"; multiple?: boolean; short?: string };
+} = Object.fromEntries(
+  Object.entries(FLAGS).map(([name, flag]) => [
+    name.slice(2),
+    {
+      type: flag.type === "boolean" ? ("boolean" as const) : ("string" as const),
+      ...(flag.type === "string[]" ? { multiple: true } : {}),
+      ...("aliases" in flag ? { short: flag.aliases[0]!.slice(1) } : {}),
+    },
+  ]),
+);
+
+/**
+ * One aligned two-column help block: the left column pads to the widest entry, the right column
+ * wraps on spaces at the terminal width with continuations indented to the left column.
+ */
+function helpRows(rows: readonly { left: string; right: string }[]): string {
+  const leftWidth = Math.max(...rows.map((row) => row.left.length)) + 2;
+  const textWidth = 100 - (leftWidth + 2);
+  return rows
+    .map((row) => {
+      const lines: string[] = [];
+      let line = "";
+      for (const word of row.right.split(" ")) {
+        const candidate = line === "" ? word : `${line} ${word}`;
+        if (line !== "" && candidate.length > textWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line !== "") lines.push(line);
+      const indent = " ".repeat(leftWidth + 2);
+      return lines
+        .map((text, i) => (i === 0 ? `  ${row.left.padEnd(leftWidth)}${text}` : `${indent}${text}`))
+        .join("\n");
+    })
+    .join("\n");
+}
+
+/** The Options section, derived: alias + name + value placeholder in the left column, blurb right. */
+const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
+  left:
+    ("aliases" in flag ? `${flag.aliases[0]}, ` : "") +
+    name +
+    ("arg" in flag ? ` ${flag.arg}` : ""),
+  right: flag.blurb,
+}));
+
+/** The full help text; the Options section is DERIVED from FLAGS. Exported for the derivation tests. */
+export const HELP = `jint — jev lint: classifies code with AI-classifier judgments; rules in, findings out.
 
 Usage:
   jint src/                       classify a directory tree
@@ -97,27 +231,7 @@ jint paths - (a path LIST from stdin) or jint str - (source). --
 ends flag parsing for dash-paths: jint -- --weird.ts
 
 Options:
-  --language <id>     tree-sitter grammar for piped-stdin/extensionless sources; valid ids:
-                      typescript, python, go. Without a resolvable language, inventory-scoped
-                      rules fail WALK_FAILED in-band and unit-scoped rules still classify
-  --config <path>     config file, plain JSON (default: jint.config.json; autocomplete via
-                      the checked-in jint.schema.json "$schema" key)
-  --exclude <glob>    input exclusion, on top of config (repeatable)
-  --disable <name>    rule removal by name, on top of config (repeatable)
-  --rule <name>      run ONLY these rules (repeatable); overrides --disable for the named set
-  --concurrency <n>   max in-flight classifier calls, run-wide (default 16, max 64; overrides
-                      the config key of the same name)
-  --rps-budget <n>    client-side request-start budget, requests/second (default 15, ~75% of
-                      the published 1200 rpm quota; overrides config rps_budget)
-  --timeout <secs>    per-call classifier timeout (default 30; a hung call becomes a per-element
-                      JEV_TIMEOUT failure - liveness, not retry)
-  --json              machine report (byte-identical to the run's report.json) instead of
-                      raw finding lines
-  --dry-run           print the rule set that WOULD run (config resolved, disable/only applied)
-                      and exit 0 - zero input walks, zero classifier calls
-  --debug             structured debug logs on stderr
-  -h, --help          this help
-  --version           print the version
+${helpRows(OPTION_ROWS)}
 
 Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measurements.
 
@@ -287,6 +401,16 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
     if (filePositionals.length > 0) {
       // Paths. Files may be many; a directory is exactly one path (the walk owns its tree).
+      // ONE consistent unknown-option rule, checked before anything else: a dash-leading
+      // positional that is no known flag and no existing path is a mistyped flag (or a flag whose
+      // `--` separator the bun runtime consumed) — say so, naming the token. An existing
+      // dash-leading file stays a path, reachable verbatim after `--`.
+      for (const positional of filePositionals) {
+        if (positional.startsWith("-") && !existsSync(positional)) {
+          usageError(`unknown option or missing path '${positional}' — see jint --help`);
+          return 2;
+        }
+      }
       if (filePositionals.length > 1) {
         try {
           if (statSync(filePositionals[0]!).isDirectory()) {
@@ -295,14 +419,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
           }
         } catch {
           // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
-        }
-      }
-      // A dash-leading positional that does not exist is most likely a mistyped flag (or a flag
-      // whose `--` separator the bun runtime consumed): say so instead of a bare not-found.
-      for (const positional of filePositionals) {
-        if (positional.startsWith("-") && !existsSync(positional)) {
-          usageError(`unknown option or missing path '${positional}' — see jint --help`);
-          return 2;
         }
       }
       // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
@@ -541,37 +657,15 @@ type CliArgsParse =
   | { outcome: "parsed"; cliArgs: CliArgs; positionals: string[] }
   | { outcome: "usage-error"; usageMessage: string };
 
-/** Flags removed by the noun grammar; each error points at the new form. */
-const REMOVED_FLAGS: Readonly<Record<string, string>> = {
-  "--file": "use: jint <path>... (e.g. jint src/a.ts)",
-  "--dir": "use: jint <dir> (e.g. jint src/)",
-  "--kind": "use: jint str - (piped source); a path list is jint paths - (stdin)",
-  "--diff":
-    "the diff noun was removed - pipe a path list: git diff --name-only HEAD~1 | jint paths -",
-  "--changed": "use: jint paths <list-file> (or pipe the list: jint paths -)",
-};
-
 /**
- * Modifier flags jint still knows. Anything dash-leading outside this set is a PATH (dash-path),
- * not a flag — `--` ends flags, and the bun runtime strips it from argv before we see it.
+ * Modifier flags jint still knows — DERIVED from FLAGS (names and single-char aliases). Anything
+ * dash-leading outside this set is a PATH (dash-path), not a flag: `--` ends flag parsing, and the
+ * runtime strips it from argv before we see it. An unknown dash-token reaches dispatch as a
+ * positional and dies as ONE consistent usage error naming the token — no per-flag special cases.
  */
-const KNOWN_FLAGS: ReadonlySet<string> = new Set([
-  // removed flags are parsed only so their error can point at the new form
-  ...Object.keys(REMOVED_FLAGS),
-  "--language",
-  "--config",
-  "--exclude",
-  "--disable",
-  "--rule",
-  "--concurrency",
-  "--rps-budget",
-  "--timeout",
-  "--json",
-  "--dry-run",
-  "--debug",
-  "--help",
-  "-h",
-  "--version",
+export const KNOWN_FLAGS: ReadonlySet<string> = new Set([
+  ...Object.keys(FLAGS),
+  ...Object.values(FLAGS).flatMap((flag) => ("aliases" in flag ? [...flag.aliases] : [])),
 ]);
 
 function isFlagToken(token: string): boolean {
@@ -583,17 +677,12 @@ function isFlagToken(token: string): boolean {
 // never flag-parsed (jint paths "--json" rejects "--json" as a payload, it is not a flag there).
 const NOUNS: ReadonlySet<string> = new Set(["str", "paths"]);
 
-/** Modifier flags that take a value token; their value must ride with them into parseArgs. */
-const VALUED_FLAGS: ReadonlySet<string> = new Set([
-  "--language",
-  "--config",
-  "--exclude",
-  "--disable",
-  "--rule",
-  "--concurrency",
-  "--rps-budget",
-  "--timeout",
-]);
+/** Flags that consume the next argv token as their value: every non-boolean entry in FLAGS. */
+export const VALUED_FLAGS: ReadonlySet<string> = new Set(
+  Object.entries(FLAGS)
+    .filter(([, flag]) => flag.type !== "boolean")
+    .map(([name]) => name),
+);
 
 /**
  * Split raw argv into modifier-flag tokens (for parseArgs) and positionals (for noun dispatch).
@@ -602,7 +691,7 @@ const VALUED_FLAGS: ReadonlySet<string> = new Set([
  * appear before or after positionals (jint --json src/ == jint src/ --json); after the noun payload
  * is consumed, flag scanning resumes for the rest.
  */
-function splitArgv(argv: string[]): { flagArgs: string[]; positionals: string[] } {
+export function splitArgv(argv: string[]): { flagArgs: string[]; positionals: string[] } {
   const flagArgs: string[] = [];
   const positionals: string[] = [];
   let i = 0;
@@ -650,35 +739,9 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
   const { flagArgs, positionals } = splitArgv(cliArgv);
   let values: Record<string, unknown>;
   try {
-    values = parseArgs({
-      args: flagArgs,
-      options: {
-        language: { type: "string" },
-        config: { type: "string" },
-        json: { type: "boolean" },
-        "dry-run": { type: "boolean" },
-        debug: { type: "boolean" },
-        exclude: { type: "string", multiple: true },
-        disable: { type: "string", multiple: true },
-        rule: { type: "string", multiple: true },
-        concurrency: { type: "string" },
-        "rps-budget": { type: "string" },
-        timeout: { type: "string" },
-        help: { type: "boolean", short: "h" },
-        version: { type: "boolean" },
-      },
-      strict: true,
-    }).values;
+    values = parseArgs({ args: flagArgs, options: PARSE_ARGS_OPTIONS, strict: true }).values;
   } catch (thrown) {
     const parseFailureDetail = thrown instanceof Error ? thrown.message : String(thrown);
-    for (const [removed, hint] of Object.entries(REMOVED_FLAGS)) {
-      if (parseFailureDetail.includes(removed)) {
-        return {
-          outcome: "usage-error",
-          usageMessage: `${removed} was removed — ${hint} — see jint --help`,
-        };
-      }
-    }
     return { outcome: "usage-error", usageMessage: `${parseFailureDetail} — see jint --help` };
   }
   if (!TypeBoxValue.Check(CLI_ARGS_SCHEMA, values)) {

@@ -141,15 +141,19 @@ describe("cli: contract basics", () => {
     expect(r.stderr).toContain("CONFIG_INVALID");
   });
 
-  test.concurrent("removed flags error with the new-form hint, exit 2", async () => {
-    for (const [args, hint] of [
-      [["--file", "a.ts"], "use: jint <path>..."],
-      [["--dir", "src"], "use: jint <dir>"],
-      [["--kind", "diff"], "a path list is jint paths - (stdin)"],
-      [["--diff", "-"], "the diff noun was removed"],
-      [["--changed", "list.txt"], "use: jint paths <list-file>"],
-    ] as const) {
-      expectContract(await run([...args]), { exit: 2, stderr: hint });
+  test.concurrent("removed flags are just unknown flags: ONE consistent error, exit 2", async () => {
+    // no bespoke per-flag hints; an unknown flag is an unknown flag, naming the token
+    for (const args of [
+      ["--file", "a.ts"],
+      ["--dir", "src"],
+      ["--kind", "diff"],
+      ["--diff", "-"],
+      ["--changed", "list.txt"],
+    ]) {
+      expectContract(await run([...args]), {
+        exit: 2,
+        stderr: ["unknown option or missing path", "--help"],
+      });
     }
   });
 
