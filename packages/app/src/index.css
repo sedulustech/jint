@@ -43,11 +43,6 @@ body {
   font-size: var(--text-body);
 }
 
-/* Controls are interactive: shadcn's buttons default to cursor: default. One rule, not per-class. */
-button:not(:disabled) {
-  cursor: pointer;
-}
-
 /* Spacing rhythm lives in the spacing tokens below (same edit surface as the palette: one place
    to change, components consume the named utilities px-rail / py-cell-y / gap-siblings / ...).
    Same-kind elements share one token; arbitrary sizes (text-[Npx]) and off-rail paddings are banned.
@@ -221,12 +216,6 @@ button:not(:disabled) {
 }
 *::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-/* App buttons show a pointer cursor; shadcn defaults to default cursor. Disabled buttons keep
-   the default (not-allowed-adjacent) cursor rather than lying about interactivity. */
-[data-slot="button"]:not(:disabled) {
-  cursor: pointer;
 }
 
 /* severity TEXT tokens: hue-saturated shades that clear 4.5:1 on their own theme's surfaces */

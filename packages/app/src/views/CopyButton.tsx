@@ -33,7 +33,7 @@ export function CopyButton({ text, label = "copy" }: { text: string; label?: str
   return (
     <button
       onClick={copy}
-      className={`shrink-0 rounded border px-chip-x py-chip-y font-mono text-body hover:text-foreground ${
+      className={`shrink-0 cursor-pointer rounded border px-chip-x py-chip-y font-mono text-body hover:text-foreground ${
         state === "failed"
           ? "border-sev-error/60 text-sev-error"
           : "border-border text-muted-foreground"

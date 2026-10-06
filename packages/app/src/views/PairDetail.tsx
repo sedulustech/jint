@@ -72,7 +72,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         )}
         <button
           onClick={onClose}
-          className="inline-flex h-6 items-center px-control-x font-mono text-body text-muted-foreground hover:text-foreground"
+          className="inline-flex h-6 cursor-pointer items-center px-control-x font-mono text-body text-muted-foreground hover:text-foreground"
         >
           ✕
         </button>

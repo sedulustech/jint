@@ -305,7 +305,7 @@ function GroupedHeader({
           key={col.key}
           disabled={!col.sortable}
           onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : ""}`}
+          className={`${col.className} shrink-0 cursor-pointer px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
         >
           {col.label}
           {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -334,7 +334,7 @@ function RequestHeader({
           >
             <button
               onClick={() => onToggleSort(col.key)}
-              className="w-full text-left hover:text-foreground"
+              className="w-full cursor-pointer text-left hover:text-foreground"
             >
               {col.label}
               {sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -365,8 +365,8 @@ function GroupedParentRow({
       key={row.key}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
+      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
       style={{ height: ROW_HEIGHT }}
-      className="flex w-full items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
           never from shifting a column off the grid */}
@@ -416,10 +416,10 @@ function GroupedChildRow({
       onClick={() =>
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
-      style={{ height: ROW_HEIGHT }}
-      className={`flex w-full items-center border-b border-border text-left font-mono text-body ${
+      className={`flex w-full cursor-pointer items-center border-b border-border text-left font-mono text-body ${
         selectedFile === cell.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
       } text-foreground`}
+      style={{ height: ROW_HEIGHT }}
     >
       {/* pl-indent = rail 12 + 24px indent: children read as nested without leaving the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail pl-indent`} title={childName}>
