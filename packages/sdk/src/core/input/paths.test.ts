@@ -1,5 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { SetupError } from "../types.ts";
 import { parsePathsList } from "./paths.ts";
+
+/** The thrown SetupError's code, for assertions that pin the taxonomy (not just the prose). */
+async function errorCode(run: () => Promise<unknown> | unknown): Promise<string> {
+  try {
+    await run();
+  } catch (thrown) {
+    expect(thrown).toBeInstanceOf(SetupError);
+    return (thrown as SetupError).code;
+  }
+  throw new Error("expected the run to throw");
+}
 
 describe("parsePathsList — one flat list, the caller's git output", () => {
   test("bare lines (git diff --name-only shape) pass through, order kept", () => {
@@ -28,12 +40,16 @@ describe("parsePathsList — one flat list, the caller's git output", () => {
     ],
     ["a `..` mid-path is the same rejection", "src/../../etc/passwd", /escapes the input dir/],
     ["a trailing / names a directory: rejected, entry named", "src/", /names a directory.*"src\/"/],
-    ["NUL-separated (git -z) input is not a list: rejected loud", "a.ts\0b.ts", /NUL-separated/],
   ] as ReadonlyArray<[string, string, RegExp | string[]]>)("%s", (_name, text, expected) => {
     if (Array.isArray(expected)) {
       expect(parsePathsList(text)).toEqual(expected);
     } else {
       expect(() => parsePathsList(text)).toThrow(expected as RegExp);
     }
+  });
+
+  test("entry rejections carry LIST_ENTRY_INVALID (the NUL/binary rejection is the reader's)", async () => {
+    expect(await errorCode(() => parsePathsList("src/"))).toBe("LIST_ENTRY_INVALID");
+    expect(await errorCode(() => parsePathsList("../outside.ts"))).toBe("LIST_ENTRY_INVALID");
   });
 });

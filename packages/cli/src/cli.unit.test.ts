@@ -1,7 +1,16 @@
 import { describe, test, expect } from "bun:test";
 import { defaultConfig } from "@jint/sdk";
 import { lint } from "@jint/sdk";
-import { parseFileSelector } from "./cli.ts";
+import { Value as TypeBoxValue } from "@sinclair/typebox/value";
+import {
+  CLI_ARGS_SCHEMA,
+  FLAGS,
+  HELP,
+  KNOWN_FLAGS,
+  parseFileSelector,
+  splitArgv,
+  VALUED_FLAGS,
+} from "./cli.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
@@ -97,5 +106,49 @@ describe("parseFileSelector - LOC element selectors on file nouns", () => {
   test("non-uuid suffix after hash stays a path (no selector)", () => {
     expect(parseFileSelector("weird#name.ts").path).toBe("weird#name.ts");
     expect(parseFileSelector("a.ts#abc@L5").path).toBe("a.ts#abc");
+  });
+});
+
+describe("FLAGS — the one flag table, everything else derived", () => {
+  test("KNOWN_FLAGS is exactly the table's names plus its single-char aliases", () => {
+    const expected = [
+      ...Object.keys(FLAGS),
+      ...Object.values(FLAGS).flatMap((flag) => ("aliases" in flag ? [...flag.aliases] : [])),
+    ].sort();
+    expect([...KNOWN_FLAGS].sort()).toEqual(expected);
+  });
+
+  test("VALUED_FLAGS is exactly the table's value-taking flags (type !== boolean)", () => {
+    const expected = Object.entries(FLAGS)
+      .filter(([, flag]) => flag.type !== "boolean")
+      .map(([name]) => name)
+      .sort();
+    expect([...VALUED_FLAGS].sort()).toEqual(expected);
+  });
+
+  test("HELP names every flag in the table (the Options section is derived, not hand-written)", () => {
+    for (const name of Object.keys(FLAGS)) expect(HELP).toContain(name);
+    for (const flag of Object.values(FLAGS)) {
+      if ("aliases" in flag) expect(HELP).toContain(flag.aliases[0]);
+    }
+  });
+
+  test("the TypeBox schema accepts exactly the table's value shapes", () => {
+    expect(TypeBoxValue.Check(CLI_ARGS_SCHEMA, { rule: ["a", "b"] })).toBe(true);
+    expect(TypeBoxValue.Check(CLI_ARGS_SCHEMA, { rule: "a" })).toBe(false);
+    expect(TypeBoxValue.Check(CLI_ARGS_SCHEMA, { json: true })).toBe(true);
+    expect(TypeBoxValue.Check(CLI_ARGS_SCHEMA, { json: "yes" })).toBe(false);
+    expect(TypeBoxValue.Check(CLI_ARGS_SCHEMA, { language: "go" })).toBe(true);
+  });
+
+  test("valued flags consume their next token and accumulate; boolean flags never do", () => {
+    expect(splitArgv(["--rule", "a", "--rule", "b", "src/"])).toEqual({
+      flagArgs: ["--rule", "a", "--rule", "b"],
+      positionals: ["src/"],
+    });
+    expect(splitArgv(["--json", "str", "-"])).toEqual({
+      flagArgs: ["--json"],
+      positionals: ["str", "-"],
+    });
   });
 });

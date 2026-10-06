@@ -49,10 +49,20 @@ measurement its handle judged actionable and is the only output that demands act
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
+- **noun** — the CLI word for a declared input read: the FIRST positional names the read
+  (str, paths). The resource (a path) needs no noun. A noun's next positional is its payload.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
 - **pass** — the level a handle returned when a reading needs no action: the score-map
   entry that never fires (score maps use pass/warn/error) and the absent-reading state for
   noul handles. Not a finding, not noise: a reading judged acceptable.
+- **path list** — one flat list of paths, one per line, read as declared (`jint paths -`): no
+  VCS vocabulary, no path algebra — entries are the caller's bytes used verbatim as file
+  identity. A malformed list is a named LIST_* setup error (unreadable bytes, an entry that
+  would need interpreting, empty); a listed path that resolves to nothing is a
+  not-in-the-walk note, never a silent skip.
+- **payload** — the positional after a noun: always `-`, declaring piped stdin as the read.
+  There is no inline payload; a noun followed by anything else is a usage error naming the
+  correct form.
 - **question** — one classified judgment request sent to the model about one state.
 - **role** — the classification a node gets during the walk (function, comment, binding, import,
   ...); roles are the exposed selection vocabulary.

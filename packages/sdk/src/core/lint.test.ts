@@ -553,16 +553,11 @@ describe("lint", () => {
   });
 
   test("the paths list is the input: selection + the missing-entry note (never silence)", async () => {
-    const { mkdirSync, writeFileSync } = await import("node:fs");
-    mkdirSync("tmp/paths-list-test", { recursive: true });
-    writeFileSync(
-      "tmp/paths-list-test/list.txt",
-      FILE + "\nno/such/file.ts\n" + FILE + "\n", // duplicate dedupes; missing noted
-    );
     const events = await drain(
       lint({
         config: { ...baseConfig, input: "" },
-        paths: "tmp/paths-list-test/list.txt",
+        // the SDK takes the already-read text (the caller did the I/O)
+        paths: { content: FILE + "\nno/such/file.ts\n" + FILE + "\n" }, // duplicate dedupes; missing noted
         classifier: classifierWith({
           is_name_purposeful: 0.7,
           is_vocabulary_consistent: 0.9,
@@ -587,17 +582,11 @@ describe("lint", () => {
   });
 
   test("with input also given, the path list never selects: it only notes", async () => {
-    const { mkdirSync, writeFileSync } = await import("node:fs");
-    mkdirSync("tmp/paths-list-test", { recursive: true });
-    writeFileSync(
-      "tmp/paths-list-test/list-with-outsider.txt",
-      "tests/fixtures/sample-dir/good.ts\nno/such/file.ts\n",
-    );
     const events = await drain(
       lint({
         config: baseConfig,
         input: FILE,
-        paths: "tmp/paths-list-test/list-with-outsider.txt",
+        paths: { content: "tests/fixtures/sample-dir/good.ts\nno/such/file.ts\n" },
         classifier: classifierWith({
           is_name_purposeful: 0.7,
           is_vocabulary_consistent: 0.9,
