@@ -47,12 +47,60 @@ async function runWithStdin(
 
 afterAll(() => jev.stop());
 
+/** A raw shell pipeline, for bytes env vars cannot carry (NUL, invalid UTF-8). */
+async function runShellRaw(
+  script: string,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const proc = Bun.spawn(["/bin/bash", "-c", script], {
+    cwd: ROOT,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...process.env, JEV_RECORD: "0" },
+  });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const code = await proc.exited;
+  return { code, stdout, stderr };
+}
+
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
   const path = `/tmp/jint-probe-config-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
   await Bun.write(path, JSON.stringify(config));
   return path;
 }
+
+describe("cli: the declared path-list read (jint paths -) fails loud, with named codes", () => {
+  test("binary stdin (invalid UTF-8) is LIST_UNREADABLE, exit 2 — never sniffed, never silent", async () => {
+    const proc = await runShellRaw(`printf 'src/a.ts\\n\\xff\\xfe' | bun ${CLI} paths -`);
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("LIST_UNREADABLE");
+    expect(proc.stderr).toContain("not UTF-8 text");
+  });
+
+  test("NUL bytes (git -z output) are LIST_UNREADABLE, exit 2", async () => {
+    const proc = await runShellRaw(`printf 'src/a.ts\\0src/b.ts' | bun ${CLI} paths -`);
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("LIST_UNREADABLE");
+    expect(proc.stderr).toContain("NUL-separated");
+  });
+
+  test("an EMPTY list is LIST_EMPTY, exit 2 — distinguishable from an unreadable one", async () => {
+    const proc = await runShellRaw(`printf '' | bun ${CLI} paths -`);
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("LIST_EMPTY");
+    expect(proc.stderr).toContain("empty list");
+  });
+
+  test("an entry that would need interpreting is LIST_ENTRY_INVALID, exit 2", async () => {
+    const proc = await runShellRaw(`printf 'src/\n' | bun ${CLI} paths -`);
+    expect(proc.code).toBe(2);
+    expect(proc.stderr).toContain("LIST_ENTRY_INVALID");
+    expect(proc.stderr).toContain("a list names files");
+  });
+});
 
 describe("cli: piped stdin str unit", async () => {
   test("snippet | jint --json: parses, measurements present", async () => {
@@ -186,7 +234,7 @@ describe("cli: piped stdin str unit", async () => {
     });
   });
 
-  test("jint str <existing-path> is rejected: inline source or '-' only, file remedy named", async () => {
+  test("jint str <existing-path> is rejected: the payload is always '-', never a path", async () => {
     const r = await runWithStdin("", [
       "str",
       "tests/fixtures/sample-file.ts",
@@ -196,7 +244,7 @@ describe("cli: piped stdin str unit", async () => {
     ]);
     expectContract(r, {
       exit: 2,
-      stderr: ["is a path", "jint tests/fixtures/sample-file.ts"],
+      stderr: ["is not a payload", "jint str -"],
       stdout: "empty",
     });
   });

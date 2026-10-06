@@ -1,5 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import { parsePathsList } from "./paths.ts";
+import { writeFile } from "node:fs/promises";
+import { SetupError } from "../types.ts";
+import { parsePathsList, readPathsSource } from "./paths.ts";
+
+/** The thrown SetupError's code, for assertions that pin the taxonomy (not just the prose). */
+async function errorCode(run: () => Promise<unknown> | unknown): Promise<string> {
+  try {
+    await run();
+  } catch (thrown) {
+    expect(thrown).toBeInstanceOf(SetupError);
+    return (thrown as SetupError).code;
+  }
+  throw new Error("expected the run to throw");
+}
 
 describe("parsePathsList — one flat list, the caller's git output", () => {
   test("bare lines (git diff --name-only shape) pass through, order kept", () => {
@@ -35,5 +48,25 @@ describe("parsePathsList — one flat list, the caller's git output", () => {
     } else {
       expect(() => parsePathsList(text)).toThrow(expected as RegExp);
     }
+  });
+
+  test("the malformed classes have DISTINCT typed codes", async () => {
+    expect(await errorCode(() => parsePathsList("a.ts\0b.ts"))).toBe("LIST_UNREADABLE");
+    expect(await errorCode(() => parsePathsList("src/"))).toBe("LIST_ENTRY_INVALID");
+    expect(await errorCode(() => parsePathsList("../outside.ts"))).toBe("LIST_ENTRY_INVALID");
+  });
+});
+
+describe("readPathsSource — the declared read is text, or it fails loud", () => {
+  test("binary bytes (invalid UTF-8) are LIST_UNREADABLE, on the file ingestion path", async () => {
+    const path = `tmp/paths-binary-${Date.now()}.bin`;
+    await writeFile(path, new Uint8Array([0x61, 0x2e, 0x74, 0x73, 0xff, 0xfe]));
+    expect(await errorCode(() => readPathsSource(path))).toBe("LIST_UNREADABLE");
+  });
+
+  test("a missing list file stays ENTRYPOINT_NOT_FOUND (the remedy names the pipe)", async () => {
+    expect(await errorCode(() => readPathsSource("tmp/definitely-not-here.list"))).toBe(
+      "ENTRYPOINT_NOT_FOUND",
+    );
   });
 });

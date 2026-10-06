@@ -168,21 +168,23 @@ describe("cli: contract basics", () => {
     expectContract(await run(["paths"]), { exit: 2, stderr: "expects a payload" });
   });
 
-  test.concurrent("a paths payload that is no existing path -> usage error (no inline list form)", async () => {
+  test.concurrent("a paths payload that is not '-' -> usage error naming the piped form", async () => {
     expectContract(await run(["paths", "definitely-not-here.txt"]), {
       exit: 2,
-      stderr: ["'definitely-not-here.txt' is not a path", "jint paths reads the list from a file"],
+      stderr: ["'definitely-not-here.txt' is not a payload", "jint paths - < list.txt"],
       stdout: "empty",
     });
   });
 
-  test.concurrent("two paths nouns in one run -> usage error, exit 2", async () => {
-    // existing payloads: the first noun must survive its own payload validation for the second
-    // noun to be the thing under test
-    expectContract(
-      await run(["paths", "tests/fixtures/sample-file.ts", "paths", "tests/fixtures/sample-dir"]),
-      { exit: 2, stderr: "one paths noun per run" },
-    );
+  test.concurrent("two nouns in one run -> usage error, exit 2 (nothing follows the payload)", async () => {
+    expectContract(await run(["str", "-", "paths", "-"]), {
+      exit: 2,
+      stderr: "nothing may follow the payload",
+    });
+    expectContract(await run(["paths", "-", "str", "-"]), {
+      exit: 2,
+      stderr: "nothing may follow the payload",
+    });
   });
 
   // the bun runtime eats the bare '--' from argv, so the dash-token falls through to path handling
@@ -294,42 +296,28 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     ).toBe(true);
   });
 
-  test.concurrent("jint paths <file>: the on-disk list IS the judged subject", async () => {
+  test.concurrent("jint paths - < file: the piped list IS the judged subject", async () => {
     const list = `tmp/cli-paths-list-${Date.now()}.txt`;
     require("node:fs").writeFileSync(list, "tests/fixtures/sample-file.ts\n");
-    const proc = await runShell(`bun ${CLI} paths ${list} --json --rule is_greppable`, NO_SERVICE);
-    expect(proc.code).toBe(4);
-    const report = JSON.parse(proc.stdout);
-    // the transport failure names the listed file: the list, not stdin, selected the subject
-    expect(report.errors.length).toBeGreaterThan(0);
-    expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
-  });
-
-  test.concurrent("jint <dir> paths <file>: input selects, the list only notes (never selects)", async () => {
-    const list = `tmp/cli-paths-list-${Date.now()}.txt`;
-    // entries are relative to the input dir (the walk's own path space), never the cwd
-    require("node:fs").writeFileSync(list, "good.ts\nno/such/file.ts\n");
     const proc = await runShell(
-      `bun ${CLI} tests/fixtures/sample-dir paths ${list} --json --rule is_greppable`,
+      `bun ${CLI} paths - < ${list} --json --rule is_greppable`,
       NO_SERVICE,
     );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
-    const inputs = [
-      ...report.measurements.map((m: { input: string }) => m.input),
-      ...report.errors.map((e: { input: string }) => e.input),
-    ].map((s: string) => s.split("#")[0]!);
-    // the dir walk selected: good.ts was judged as part of the walk, never because of the list
-    expect(inputs.some((i: string) => i.startsWith("good.ts"))).toBe(true);
-    // the list named no file outside the walk's subject except via notes: selection stayed input's
-    expect(inputs.some((i: string) => i.startsWith("tests/fixtures/sample-file.ts"))).toBe(false);
-    // the missing entry is a note; good.ts is IN the walk, so the list stays silent about it
-    expect(
-      report.notes.some(
-        (n: string) => n.includes("not found in the walk") && n.includes("no/such/file.ts"),
-      ),
-    ).toBe(true);
-    expect(report.notes.some((n: string) => n.includes("good.ts"))).toBe(false);
+    // the transport failure names the listed file: the piped list, not a file argument, selected it
+    expect(report.errors.length).toBeGreaterThan(0);
+    expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
+  });
+
+  test.concurrent("a noun that is not FIRST -> usage error, exit 2 (no mid-list noun)", async () => {
+    // the old order-free form (jint <dir> paths <file>) is gone: the list can never select
+    // alongside another input, because the noun IS the whole input declaration
+    expectContract(await run(["tests/fixtures/sample-dir", "paths", "-"]), {
+      exit: 2,
+      stderr: "a noun is the FIRST positional",
+      stdout: "empty",
+    });
   });
 
   test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
@@ -381,31 +369,31 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runShell(script, NO_KEY);
     const out = proc.stdout + proc.stderr;
     expect(proc.code).toBe(2);
-    expect(out).toContain("no piped stdin to classify");
+    expect(out).toContain("no piped stdin to read");
   });
 
-  test.concurrent("jint str '--json': the payload is not flag-parsed, it classifies as a str unit", async () => {
-    // '--json' becomes the str CONTENT; if it had been parsed as a flag, the noun would have no
-    // payload (exit 2 'expects a payload') and the report would be machine JSON
-    const r = await run(["str", "--json", "--rule", "is_greppable"], NO_SERVICE);
-    expect(r.code).toBe(4); // reached measurement (transport failure), not a usage error
-    expect(r.stderr).toContain("JEV_UNAVAILABLE str:stdin");
-    expect(r.stdout).not.toContain('"tool"'); // human table: no --json flag was seen
-  });
-
-  test.concurrent("jint str with inline source text classifies one str unit", async () => {
-    const r = await run(
-      ["str", "export const x = 1;", "--json", "--rule", "is_greppable"],
-      NO_SERVICE,
-    );
-    expect(r.code).toBe(4);
-    expect(JSON.parse(r.stdout).errors[0]!.input).toBe("str:stdin");
-  });
-
-  test.concurrent("jint str <existing-path>: usage error exit 2, never the path string as source", async () => {
-    expectContract(await run(["str", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE), {
+  test.concurrent("jint str '--json': '--json' is not a payload (the payload is always '-')", async () => {
+    // the payload rule is uniform: a flag-looking token after a noun is a usage error — never
+    // inline source, never a parsed flag riding the noun
+    expectContract(await run(["str", "--json"]), {
       exit: 2,
-      stderr: ["'tests/fixtures/sample-file.ts' is a path", "jint tests/fixtures/sample-file.ts"],
+      stderr: ["'--json' is not a payload", "jint str -"],
+      stdout: "empty",
+    });
+  });
+
+  test.concurrent("jint str has no inline payload: source must be piped (jint str -)", async () => {
+    expectContract(await run(["str", "export const x = 1;"]), {
+      exit: 2,
+      stderr: ["'export const x = 1;' is not a payload", "jint str -"],
+      stdout: "empty",
+    });
+  });
+
+  test.concurrent("jint str <existing-path>: usage error exit 2 (nouns never resolve to paths)", async () => {
+    expectContract(await run(["str", "tests/fixtures/sample-file.ts"]), {
+      exit: 2,
+      stderr: ["'tests/fixtures/sample-file.ts' is not a payload", "jint str -"],
       stdout: "empty",
     });
   });

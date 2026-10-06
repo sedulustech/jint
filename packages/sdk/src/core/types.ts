@@ -23,12 +23,19 @@ export type InputKind = "file" | "dir";
 /** The kind of a resolved classifying unit. */
 export type UnitKind = "file" | "str";
 
-/** Codes a thrown SetupError carries: setup/infrastructure failures. */
+/**
+ * Codes a thrown SetupError carries: setup/infrastructure failures. LIST_* names the declared
+ * path-list read (jint paths -): the bytes are not a path list (LIST_UNREADABLE), an entry would
+ * need path interpretation (LIST_ENTRY_INVALID), or the list is empty (LIST_EMPTY).
+ */
 export type SetupErrorCode =
   | "CONFIG_INVALID"
   | "CONFIG_NO_RULES"
   | "ENTRYPOINT_NOT_FOUND"
   | "ENTRYPOINT_UNREADABLE"
+  | "LIST_UNREADABLE"
+  | "LIST_ENTRY_INVALID"
+  | "LIST_EMPTY"
   | "NOT_SOURCE"
   | "RULE_INVALID"
   | "ELEMENT_NOT_FOUND"
