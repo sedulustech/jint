@@ -22,7 +22,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "build:darwin-arm64": "bun run scripts/build.ts darwin-arm64",
-    "build:darwin-x64": "bun run scripts/build.ts darwin-x64"
+    "build:darwin-x64": "bun run scripts/build.ts darwin-x64",
+    "ui": "bun run --cwd packages/app build && bun run --cwd packages/app serve"
   },
   "dependencies": {
     "@jint/contract": "workspace:*",
