@@ -15,6 +15,15 @@ A rule is not promoted to the default set from one corpus: single-language calib
 - Validate that the rule's claim survives each language's conventions (naming style, file/package layout) rather than only its syntax.
 - Precedent: is_filename_fitting (issue 006) — TS probe 0.36/0.88, Go probe 0.25/0.72 (cobra + lying-name fixtures), verb-name and package-per-dir conventions checked before promotion.
 
+## UI
+
+Styles are declared at the component (Tailwind, shadcn): declaration, behavior, and state live
+in one place — they are coupled in the UX, and rule-matching elsewhere is a second style
+authority that makes the components invisible and unmaintainable. No global element or
+data-attribute selectors for component behavior (button:not(:disabled), [data-slot="button"]).
+Globals are for shared values only: the palette + spacing tokens in @theme, base document
+styles (body), non-behavioral resets.
+
 ## Glossary
 
 Glossary (GLOSSARY.md) is a constraint to maintain, not reference material: no new term may be
