@@ -348,9 +348,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   let stdinStr: { content: string } | undefined;
   let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
   let elementScope: FileSelector | undefined;
-  // The paths noun's payload: always '-' (stdin). stdin is NOT consumed here — the list resolver
-  // in lint() reads it lazily.
-  let pathsPayload: string | undefined;
+  // The paths noun's payload: always '-' (stdin). The CLI does the read HERE (I/O at the
+  // boundary that owns it) and hands lint() the already-read text, like str's content.
+  let pathsContent: string | undefined;
   const positionals = parsedCliArgs.positionals;
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
@@ -391,8 +391,15 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
     // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str).
     if (nounName === "str") stdinStr = { content: await Bun.stdin.text() };
-    // the path list: stdin is NOT consumed here — the list resolver in lint() reads it lazily
-    else pathsPayload = payload;
+    // the path list: read NOW (the SDK takes the text; no lazy spec resolution behind lint()).
+    // A read failure is a setup error through the same exit mapping as an SDK-side one.
+    else {
+      try {
+        pathsContent = await readStdinList();
+      } catch (thrown) {
+        return exitForThrown(thrown);
+      }
+    }
   } else if (positionals.length > 0) {
     // File positionals: files may be many; a directory is exactly one path (the walk owns its
     // tree). A noun anywhere but FIRST is a misplaced declaration, and it is checked before
@@ -478,7 +485,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   if (
     stdinStr === undefined &&
     lintInput === undefined &&
-    pathsPayload === undefined &&
+    pathsContent === undefined &&
     !process.stdin.isTTY
   ) {
     const content = await Bun.stdin.text();
@@ -532,7 +539,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         concurrency,
         rps_budget: rpsBudget,
         timeout,
-        paths: pathsPayload,
+        paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
         ...(elementScope !== undefined && {
           element: {
             path: elementScope.path,
@@ -765,6 +772,39 @@ export function computeExit(lintReport: LintReport): number {
   // never pass a half-classified input, so any streamed ClassifyError fails the run (exit 4).
   if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
   return 0;
+}
+
+/** The list size ceiling for one declared stdin read (jint paths -). */
+const MAX_LIST_BYTES = 16 * 1024 * 1024;
+
+/**
+ * The stdin read behind `jint paths -` — the CLI's half of the noun: bytes are capped, must decode
+ * as UTF-8, and must contain no NUL (binary, or git -z output, is not a line-separated list).
+ * LIST_UNREADABLE fails loud here instead of degrading into mystery "not found in the walk" notes:
+ * a list is never sniffed, so garbage cannot pass as paths.
+ */
+async function readStdinList(): Promise<string> {
+  const bytes = new Uint8Array(await Bun.stdin.arrayBuffer());
+  if (bytes.byteLength > MAX_LIST_BYTES) {
+    throw new SetupError(
+      "ENTRYPOINT_UNREADABLE",
+      `path list exceeds the ${MAX_LIST_BYTES} byte cap: ${bytes.byteLength} bytes`,
+    );
+  }
+  if (bytes.includes(0)) {
+    throw new SetupError(
+      "LIST_UNREADABLE",
+      "path list entries must be line-separated paths; NUL-separated input (git -z) is not a list",
+    );
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new SetupError(
+      "LIST_UNREADABLE",
+      `path list is not UTF-8 text (${bytes.byteLength} bytes) - binary input is not a path list (a list is one path per line)`,
+    );
+  }
 }
 
 /** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped classify error -> 4. */

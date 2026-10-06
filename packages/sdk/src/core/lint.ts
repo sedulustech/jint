@@ -12,7 +12,7 @@
  */
 
 import { resolveInput } from "./input/infer.ts";
-import { parsePathsList, readPathsSource } from "./input/paths.ts";
+import { parsePathsList } from "./input/paths.ts";
 import { MAX_ELEMENT_CHARS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
@@ -92,13 +92,15 @@ export interface LintOptions {
    */
   timeout?: number;
   /**
-   * A path LIST (the CLI's `paths` noun, whose payload is always `-` — stdin): one path per line,
-   * relative to the input dir or absolute — the caller's own VCS pipeline, jint never shells out. A
-   * spec may also name an on-disk list file (an SDK-only form; the CLI pipes). The list IS the
-   * input selection when no input is otherwise given (the changeset form); when an input is also
-   * given, the list never selects.
+   * A path LIST (the CLI's `paths` noun): the ALREADY-READ text, one path per line, relative to the
+   * input dir or absolute — the caller's own VCS pipeline, jint never shells out. Same boundary as
+   * `str`'s content: the SDK takes values, the caller does I/O (no spec, no magic "-" — a consumer
+   * with a list file reads it and passes the text). No identity field: a list is not a judged unit
+   * — its ENTRIES are the identities, and nothing in a report represents the list itself. The list
+   * IS the input selection when no input is otherwise given (the changeset form); when an input is
+   * also given, the list never selects.
    */
-  paths?: string;
+  paths?: { readonly content: string };
   /**
    * Element-scoped run (CLI `<file>@L<line>`): judge ONE walker element of ONE file. The input is
    * exactly that file; the walked inventory narrows to the selected element, so element jobs fan
@@ -117,8 +119,7 @@ export interface LintOptions {
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
-  const pathsList =
-    options.paths !== undefined ? parsePathsList(await readPathsSource(options.paths)) : undefined;
+  const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
   if (pathsList !== undefined && pathsList.length === 0) {
     // Fail before the auth gate: an empty list is a caller mistake, not a billing problem.
     throw new SetupError("LIST_EMPTY", "the path list selected no files (empty list)");
