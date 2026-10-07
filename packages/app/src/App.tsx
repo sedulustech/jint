@@ -212,7 +212,7 @@ export function App({ runId }: { runId: string | null }) {
                 {runList.slice(0, 8).map((run) => (
                   <Button
                     key={run.id}
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     className="w-72 justify-start font-mono text-body"
                     onClick={() => pickRun(run.id)}

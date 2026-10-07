@@ -71,7 +71,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         {request !== undefined && (
           <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
         )}
-        <Button variant="ghost" size="icon-xs" aria-label="close" onClick={onClose}>
+        <Button variant="default" size="icon-xs" aria-label="close" onClick={onClose}>
           ✕
         </Button>
       </header>
