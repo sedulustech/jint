@@ -78,12 +78,6 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
         <span className="text-muted-foreground">
           <span className="text-emphasis">{totalNotes}</span> notes
         </span>
-        <span
-          className="text-muted-foreground"
-          title="healthy-max / defective-min gap: needs a probe corpus - a single run gives one distribution, not the gap"
-        >
-          calibration note
-        </span>
       </div>
     </div>
   );

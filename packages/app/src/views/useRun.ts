@@ -4,7 +4,7 @@ import { fetchRun, fetchReport } from "../api/client";
 import type { Cell, Report, RequestItem } from "../types";
 
 export type Mode = "request" | "rule" | "file";
-export type SortKey = "seq" | "rule" | "severity" | "maxProb" | "name" | "input" | "value";
+export type SortKey = "seq" | "rule" | "severity" | "maxProb" | "name";
 type SortDir = "asc" | "desc";
 
 export interface Filter {

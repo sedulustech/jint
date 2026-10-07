@@ -121,12 +121,7 @@ test("rule parents expand into cells; cell values sit on the rule's own scale", 
   // default: sev desc -> an error-carrying rule parents first
   await waitFor(
     () => {
-      if (
-        !all('button[data-testid^="group-"]').some((b) =>
-          (b.textContent ?? "").includes("5 targets"),
-        )
-      )
-        throw new Error("parents not rendered");
+      if (!groupRow("rule:is_name_purposeful")) throw new Error("parents not rendered");
     },
     { timeout: 10_000 },
   );

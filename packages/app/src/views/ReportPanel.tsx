@@ -26,7 +26,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
   return (
     <div
       id="report-panel-inner"
-      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-rail py-inner text-body"
+      className="shrink-0 overflow-y-auto border-b border-border bg-background px-rail py-inner text-body"
       style={{ maxHeight: "45vh" }}
     >
       {isDegradedReport && (
