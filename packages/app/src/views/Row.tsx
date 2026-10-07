@@ -34,16 +34,12 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           onSelect();
         }
       }}
-      /* top-px on the cells: +1px optical drop. ui-monospace's font box is ~10 asc / 4 desc and
-         vertical centering balances that box, so descender-less mono glyphs read ~1.5px high;
-         padding cannot move a middle-aligned cell, but a relative offset can (measured
-         8/11 -> 9/10 on the glyph gaps). Shared by every cell so the row keeps one baseline. */
       className={`${ROW_CURSOR} border-b border-border font-mono text-body ${tint} ${
         selected ? "" : ROW_HOVER
       }`}
     >
-      <td className="relative top-px px-rail text-muted-foreground">{row.seq}</td>
-      <td className="relative top-px px-rail">
+      <td className="px-rail text-muted-foreground">{row.seq}</td>
+      <td className="px-rail">
         {sev ? (
           <span className="flex items-center gap-chip-x">
             <span className={`${sev.dot} inline-block h-2 w-2 shrink-0 rounded-full`} />
@@ -57,7 +53,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
       </td>
       {/* max-p baseline (F4): the number keeps the single-line box every sibling cell uses, so it
           shares the row baseline; the bar paints below it, pinned to the cell, never displacing it */}
-      <td className="relative top-px px-rail">
+      <td className="relative px-rail">
         <span className="text-foreground">
           {row.maxProb !== null ? row.maxProb.toFixed(2) : "—"}
         </span>
@@ -70,13 +66,10 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           </span>
         )}
       </td>
-      <td className="relative top-px px-rail text-muted-foreground">
+      <td className="px-rail text-muted-foreground">
         {row.questionCount > 0 ? row.questionCount : "—"}
       </td>
-      <td
-        className="relative top-px min-w-0 truncate px-rail text-foreground"
-        title={row.path ?? undefined}
-      >
+      <td className="min-w-0 truncate px-rail text-foreground" title={row.path ?? undefined}>
         {row.path ?? <span className="text-muted-foreground">no path</span>}
       </td>
     </tr>
