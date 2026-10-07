@@ -4,7 +4,7 @@ import { fetchRun, fetchReport } from "../api/client";
 import type { Cell, Report, RequestItem } from "../types";
 
 export type Mode = "request" | "rule" | "file";
-export type SortKey = "seq" | "rule" | "severity" | "maxProb" | "name";
+export type SortKey = "seq" | "rule" | "findings" | "maxProb";
 type SortDir = "asc" | "desc";
 
 export interface Filter {
@@ -79,9 +79,6 @@ export function useRun(runId: string) {
           return dir * (a.seq - b.seq);
         case "maxProb":
           return dir * cmp(a.maxProb, b.maxProb);
-        // error > warn > no provable severity
-        case "severity":
-          return dir * (sevRank(severityOf(b)) - sevRank(severityOf(a)) || cmp(a.seq, b.seq));
         case "rule":
           return dir * (a.rules[0] ?? "").localeCompare(b.rules[0] ?? "");
         default:

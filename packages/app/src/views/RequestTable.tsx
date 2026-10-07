@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
@@ -57,22 +57,18 @@ const CHEVRON_WIDTH = "w-6";
 // nested (child) grid
 const NESTED_VALUE_WIDTH = "w-16";
 
-type GroupedKey = "name" | "severity";
 const GROUPED_COLS: {
-  key: GroupedKey | "findings" | "chevron";
+  key: "name" | "findings" | "chevron";
   label: string | ((mode: Mode) => string);
   className: string;
-  sortable: boolean;
 }[] = [
   {
     key: "name",
     label: (mode) => (mode === "rule" ? "rule" : "file"),
     className: NAME_WIDTH,
-    sortable: true,
   },
-  { key: "severity", label: "sev", className: SEVERITY_WIDTH, sortable: true },
-  { key: "findings", label: "findings", className: FINDINGS_MIN_WIDTH, sortable: false },
-  { key: "chevron", label: "", className: CHEVRON_WIDTH, sortable: false },
+  { key: "findings", label: "findings", className: FINDINGS_MIN_WIDTH },
+  { key: "chevron", label: "", className: CHEVRON_WIDTH },
 ];
 
 const compareText = (left: string, right: string) => left.localeCompare(right);
@@ -96,55 +92,19 @@ interface ChildRow {
 }
 type GroupedRow = ParentRow | ChildRow;
 
-function parentComparator(
-  sortDirection: number,
-  sortColumn: GroupedKey,
-): (left: ParentRow, right: ParentRow) => number {
-  // a parent exposes no single value; unexposed columns keep group order
-  return (left, right) => {
-    switch (sortColumn) {
-      case "name":
-        return sortDirection * compareText(left.name, right.name);
-      case "severity":
-        return (
-          sortDirection * (sevRank(left.worstSeverity) - sevRank(right.worstSeverity)) ||
-          compareText(left.name, right.name)
-        );
-      default:
-        return 0;
-    }
-  };
-}
-
-function cellComparator(
-  sortDirection: number,
-  sortColumn: GroupedKey,
-): (left: Cell, right: Cell) => number {
-  return (left, right) => {
-    switch (sortColumn) {
-      case "name":
-        return sortDirection * compareText(left.rule, right.rule);
-      case "severity":
-        return (
-          sortDirection * (sevRank(left.severity) - sevRank(right.severity)) ||
-          compareText(left.input, right.input)
-        );
-      default:
-        return 0;
-    }
-  };
-}
+// parents order by FINDINGS, heaviest first: the weighted score (err=2, warn=1) keeps 1 error
+// above 1 warning while 4 warnings outweigh 1 error; ties fall back to the name
+const findingsScore = (cells: Cell[]): number =>
+  cells.reduce((sum, c) => sum + (c.severity === "error" ? 2 : c.severity === "warn" ? 1 : 0), 0);
 
 /**
- * Grouped render model: flat [parent, ...children] rows, one sort key for both levels. Parents sort
- * by column, children sort within their group by the same column. A child key is the parent key
- * NUL-joined with rule and input; NUL never occurs in a rule or input name, so the join can never
- * collide with a guest half.
+ * Grouped render model: flat [parent, ...children] rows. Parents order by findings weight; children
+ * keep cell order under their parent's nested table. A child key is the parent key NUL-joined with
+ * rule and input; NUL never occurs in a rule or input name, so the join can never collide with a
+ * guest half.
  */
 function buildGroupedRows(
   groupSpecs: { key: string; name: string; cells: Cell[] }[],
-  sortDirection: number,
-  sortColumn: GroupedKey,
   expandedKeys: Set<string>,
 ): { flatRows: GroupedRow[]; parentRows: ParentRow[] } {
   const parentRows: ParentRow[] = groupSpecs.map((groupSpec) => {
@@ -161,13 +121,15 @@ function buildGroupedRows(
       counts: "",
     };
   });
-  const sortedParentRows = [...parentRows].sort(parentComparator(sortDirection, sortColumn));
-  const compareChildren = cellComparator(sortDirection, sortColumn);
+  const sortedParentRows = [...parentRows].sort(
+    (left, right) =>
+      findingsScore(right.cells) - findingsScore(left.cells) || compareText(left.name, right.name),
+  );
   const flatRows: GroupedRow[] = [];
   for (const parentRow of sortedParentRows) {
     flatRows.push(parentRow);
     if (expandedKeys.has(parentRow.key)) {
-      for (const cell of [...parentRow.cells].sort(compareChildren)) {
+      for (const cell of parentRow.cells) {
         flatRows.push({
           kind: "child",
           key: parentRow.key + "\u0000" + cell.rule + "\u0000" + cell.input,
@@ -290,39 +252,20 @@ function Toolbar({
   );
 }
 
-function GroupedHeader({
-  mode,
-  sortKey,
-  sortDir,
-  onToggleSort,
-}: {
-  mode: Mode;
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onToggleSort: (key: SortKey) => void;
-}) {
+function GroupedHeader({ mode }: { mode: Mode }) {
   return (
     <div
       className="sticky top-0 z-10 flex border-b border-border bg-muted text-body text-foreground"
       style={{ minWidth: TABLE_MIN_WIDTH }}
     >
       {GROUPED_COLS.map((col) => (
-        <button
+        <span
           key={col.key}
-          data-testid={`sort-${col.key}`}
-          disabled={!col.sortable}
-          onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 cursor-pointer px-rail py-bar-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
+          data-testid={`head-${col.key}`}
+          className={`${col.className} shrink-0 px-rail py-bar-y text-left`}
         >
           {typeof col.label === "function" ? col.label(mode) : col.label}
-          {col.sortable && sortKey === col.key ? (
-            sortDir === "asc" ? (
-              <ChevronUp className="size-3.5" />
-            ) : (
-              <ChevronDown className="size-3.5" />
-            )
-          ) : null}
-        </button>
+        </span>
       ))}
     </div>
   );
@@ -388,9 +331,6 @@ function GroupedParentRow({
           {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
           {row.name}
         </span>
-      </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
-        <SeverityDot severity={row.worstSeverity} />
       </span>
       <span className={`${FINDINGS_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
         {stats.err > 0 || stats.warn > 0 ? (
@@ -523,9 +463,6 @@ function GroupedTreeView({
   onToggleExpand,
   selectedFile,
   onSelectPair,
-  sortKey,
-  sortDir,
-  onToggleSort,
 }: {
   list: GroupedRow[];
   range: { first: number; last: number };
@@ -536,13 +473,10 @@ function GroupedTreeView({
   onToggleExpand: (key: string) => void;
   selectedFile: string | null;
   onSelectPair: (pair: Pair) => void;
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onToggleSort: (key: SortKey) => void;
 }) {
   return (
     <>
-      <GroupedHeader mode={mode} sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
+      <GroupedHeader mode={mode} />
       <div
         style={{
           height: list.length * ROW_HEIGHT,
@@ -630,18 +564,8 @@ export function RequestTable({
   selectedFile,
   onSelectPair,
 }: Props) {
-  const {
-    query,
-    rows,
-    ruleGroups,
-    fileGroups,
-    filter,
-    setFilter,
-    sortKey,
-    sortDir,
-    toggleSort,
-    setSort,
-  } = useRun(runId);
+  const { query, rows, ruleGroups, fileGroups, filter, setFilter, sortKey, sortDir, toggleSort } =
+    useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
@@ -658,10 +582,7 @@ export function RequestTable({
   useEffect(syncViewportHeight, []);
 
   // grouped modes default to error-first: sev desc is the initial toggle state, not a fixed order
-  const ensureGroupedSort = () => {
-    const groupedIsSortable = GROUPED_COLS.some((col) => col.key === sortKey);
-    if (mode !== "request" && !groupedIsSortable) setSort("severity", "desc");
-  };
+  const ensureGroupedSort = () => {};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(ensureGroupedSort, [mode]);
 
@@ -680,8 +601,6 @@ export function RequestTable({
   };
 
   const buildGroupedModel = () => {
-    const sortDirection = sortDir === "desc" ? -1 : 1;
-    const sortColumn = sortKey as GroupedKey;
     if (mode === "rule") {
       return buildGroupedRows(
         ruleGroups.map((group) => ({
@@ -689,8 +608,6 @@ export function RequestTable({
           name: group.rule,
           cells: group.cells,
         })),
-        sortDirection,
-        sortColumn,
         expanded,
       );
     }
@@ -701,21 +618,12 @@ export function RequestTable({
           name: group.file,
           cells: group.cells,
         })),
-        sortDirection,
-        sortColumn,
         expanded,
       );
     }
     return { flatRows: [], parentRows: [] };
   };
-  const grouped = useMemo(buildGroupedModel, [
-    mode,
-    ruleGroups,
-    fileGroups,
-    expanded,
-    sortKey,
-    sortDir,
-  ]);
+  const grouped = useMemo(buildGroupedModel, [mode, ruleGroups, fileGroups, expanded]);
 
   // a report-panel click is a fresh focus: close every group, expand only the chosen rule
   const focusReportedRule = () => {
@@ -793,9 +701,6 @@ export function RequestTable({
         onToggleExpand={toggleExpand}
         selectedFile={selectedFile}
         onSelectPair={onSelectPair}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onToggleSort={(key) => toggleSort(key)}
       />
     );
 
