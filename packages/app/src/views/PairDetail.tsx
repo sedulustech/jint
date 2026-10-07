@@ -4,6 +4,7 @@ import { AnswerCard, type QA } from "./AnswerCard";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
 import type { RequestFile } from "../types";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   runId: string;
@@ -70,12 +71,9 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         {request !== undefined && (
           <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
         )}
-        <button
-          onClick={onClose}
-          className="inline-flex h-6 cursor-pointer items-center px-control-x font-mono text-body text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" size="icon-xs" aria-label="close" onClick={onClose}>
           ✕
-        </button>
+        </Button>
       </header>
       {(query.isLoading || run.isLoading) && (
         <p className="p-rail text-muted-foreground">loading…</p>

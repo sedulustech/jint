@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function CopyButton({ text, label = "copy" }: { text: string; label?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
@@ -31,15 +32,13 @@ export function CopyButton({ text, label = "copy" }: { text: string; label?: str
   };
   const labelShown = state === "copied" ? "copied" : state === "failed" ? "failed" : label;
   return (
-    <button
+    <Button
+      variant="default"
+      size="sm"
       onClick={copy}
-      className={`shrink-0 cursor-pointer rounded border px-chip-x py-chip-y font-mono text-body hover:text-foreground ${
-        state === "failed"
-          ? "border-sev-error/60 text-sev-error"
-          : "border-border text-muted-foreground"
-      }`}
+      className={`font-mono ${state === "failed" ? "text-sev-error" : ""}`}
     >
       {labelShown}
-    </button>
+    </Button>
   );
 }

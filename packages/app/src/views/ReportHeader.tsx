@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchReport, fetchRun } from "../api/client";
 import { ruleStats } from "./ruleStats";
 import type { Report } from "../types";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   runId: string;
@@ -52,19 +53,15 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
           calibration note
         </span>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="default"
+        size="sm"
         disabled={reportQuery.isLoading || !hasReport}
         aria-expanded={reportOpen}
         aria-controls="report-panel"
         aria-disabled={reportQuery.isLoading || !hasReport}
         onClick={onToggleReport}
-        className={
-          "ml-auto rounded-lg border font-mono text-body transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 " +
-          (reportOpen
-            ? "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80"
-            : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground")
-        }
+        className="ml-auto font-mono disabled:cursor-not-allowed"
       >
         {reportQuery.isLoading
           ? "report…"
@@ -73,7 +70,7 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
               ? "hide report"
               : "show report"
             : "no report"}
-      </button>
+      </Button>
     </div>
   );
 }

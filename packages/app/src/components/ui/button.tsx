@@ -8,7 +8,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/80",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -22,8 +22,8 @@ const buttonVariants = cva(
       size: {
         default:
           "h-8 gap-chip-x px-control-x has-data-[icon=inline-end]:pr-control-x has-data-[icon=inline-start]:pl-control-x",
-        xs: "h-6 gap-related rounded-[min(var(--radius-md),10px)] px-control-x text-body in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-chip-x has-data-[icon=inline-start]:pl-chip-x [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-related rounded-[min(var(--radius-md),12px)] px-control-x text-body in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-chip-x has-data-[icon=inline-start]:pl-chip-x [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-6 gap-related rounded-[min(var(--radius-md),10px)] px-control-x in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-chip-x has-data-[icon=inline-start]:pl-chip-x [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-related rounded-[min(var(--radius-md),12px)] px-control-x in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-chip-x has-data-[icon=inline-start]:pl-chip-x [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-chip-x px-control-x has-data-[icon=inline-end]:pr-control-x has-data-[icon=inline-start]:pl-control-x",
         icon: "size-8",
         "icon-xs":

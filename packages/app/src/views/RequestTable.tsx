@@ -562,7 +562,7 @@ function EmptyNotice({
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
-      <Button variant="outline" size="sm" className="font-mono text-body" onClick={onClearFilters}>
+      <Button variant="default" size="sm" className="font-mono" onClick={onClearFilters}>
         clear filters
       </Button>
     </div>
