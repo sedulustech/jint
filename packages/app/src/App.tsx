@@ -106,55 +106,58 @@ export function App({ runId }: { runId: string | null }) {
         : { rule: pair.rule, input: pair.input, file: pair.requestFile },
     );
 
+  // the picker lives in the RunHeader strip, left of the run details
+  const picker = (
+    <Select value={runId ?? "none"} onValueChange={pickRun}>
+      {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
+      <SelectTrigger data-testid="run-picker" className="w-64 text-body" aria-label="run">
+        {/* children = the slim identity (label only); the full item stays in the list */}
+        <SelectValue
+          placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
+        >
+          {selectedRun === null ? undefined : (
+            <span className="flex items-center text-foreground">{runLabel(selectedRun)}</span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {/* virtualizing 400+ options is overkill for a picker; cap at the newest 50 and say
+                so - the quick-pick empty state covers the most recent runs anyway */}
+        {runList.slice(0, 50).map((run) => (
+          <SelectItem
+            key={run.id}
+            value={run.id}
+            data-testid={`run-option-${run.id}`}
+            className="text-body"
+            title={`${runLabel(run)}\nrun id: ${run.id}`}
+            aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
+          >
+            {/* ItemText = what the slimmed trigger displays: label only */}
+            <SelectItemText>
+              <span className="text-foreground">{runLabel(run)}</span>
+            </SelectItemText>
+            <span className="text-muted-foreground">
+              {run.configPath !== null && ` · ${baseName(run.configPath)}`}
+              {run.configPath === null &&
+                (run.legacy ? " · migrated run" : " · default rules")} ·{" "}
+              {relTime(run.mtime)} ·{run.requests} req · {run.id.slice(-6)}
+            </span>
+          </SelectItem>
+        ))}
+        {runList.length > 50 && (
+          <div className="px-inner py-related text-caption text-muted-foreground">
+            showing the 50 newest of {runList.length} runs
+          </div>
+        )}
+      </SelectContent>
+    </Select>
+  );
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center gap-sections border-b border-border bg-muted px-rail py-bar-y">
         <h1 className="flex items-center text-foreground">
           <Logo className="h-6 w-auto" />
         </h1>
-        <Select value={runId ?? "none"} onValueChange={pickRun}>
-          {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
-          <SelectTrigger data-testid="run-picker" className="w-96 text-body" aria-label="run">
-            {/* children = the slim identity (label only); the full item stays in the list */}
-            <SelectValue
-              placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
-            >
-              {selectedRun === null ? undefined : (
-                <span className="flex items-center text-foreground">{runLabel(selectedRun)}</span>
-              )}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {/* virtualizing 400+ options is overkill for a picker; cap at the newest 50 and say
-                so - the quick-pick empty state covers the most recent runs anyway */}
-            {runList.slice(0, 50).map((run) => (
-              <SelectItem
-                key={run.id}
-                value={run.id}
-                data-testid={`run-option-${run.id}`}
-                className="text-body"
-                title={`${runLabel(run)}\nrun id: ${run.id}`}
-                aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
-              >
-                {/* ItemText = what the slimmed trigger displays: label only */}
-                <SelectItemText>
-                  <span className="text-foreground">{runLabel(run)}</span>
-                </SelectItemText>
-                <span className="text-muted-foreground">
-                  {run.configPath !== null && ` · ${baseName(run.configPath)}`}
-                  {run.configPath === null &&
-                    (run.legacy ? " · migrated run" : " · default rules")}{" "}
-                  · {relTime(run.mtime)} ·{run.requests} req · {run.id.slice(-6)}
-                </span>
-              </SelectItem>
-            ))}
-            {runList.length > 50 && (
-              <div className="px-inner py-related text-caption text-muted-foreground">
-                showing the 50 newest of {runList.length} runs
-              </div>
-            )}
-          </SelectContent>
-        </Select>
         {runList.length > 0 && runId === null && (
           <Badge variant="secondary">{runList.length} runs</Badge>
         )}
@@ -190,6 +193,7 @@ export function App({ runId }: { runId: string | null }) {
           ))}
         </div>
       </header>
+      <RunHeader run={selectedRun} picker={picker} />
       {runId !== null && !runs.isLoading && runs.error == null && selectedRun === null ? (
         // the run list IS the presence check (there is no per-id gate): a well-formed
         // route to an absent id renders the shared 404 idiom inside the shell
@@ -236,7 +240,6 @@ export function App({ runId }: { runId: string | null }) {
         </div>
       ) : (
         <>
-          {selectedRun !== null && <RunHeader run={selectedRun} />}
           {selectedRun !== null && (
             <ReportHeader
               runId={runId}
