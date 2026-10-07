@@ -70,11 +70,19 @@
       "name": "@jint/contract",
       "version": "0.1.0",
     },
+    "packages/defaults": {
+      "name": "@jint/defaults",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+      },
+    },
     "packages/sdk": {
       "name": "@jint/sdk",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
+        "@jint/defaults": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
         "@typesafe-ai/sdk": "^0.6.0",
         "tree-sitter-go": "^0.25.0",
@@ -214,6 +222,8 @@
     "@jint/cli": ["@jint/cli@workspace:packages/cli"],
 
     "@jint/contract": ["@jint/contract@workspace:packages/contract"],
+
+    "@jint/defaults": ["@jint/defaults@workspace:packages/defaults"],
 
     "@jint/sdk": ["@jint/sdk@workspace:packages/sdk"],
 
