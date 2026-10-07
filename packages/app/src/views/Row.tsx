@@ -25,6 +25,8 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
   return (
     <tr
       onClick={onSelect}
+      data-testid={`request-${row.path ?? row.file}`}
+      data-element={row.elementId ?? undefined}
       style={{ height }}
       tabIndex={0}
       role="button"

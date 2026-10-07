@@ -21,7 +21,7 @@ export function RunHeader({ run }: { run: RunSummary }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border px-rail py-bar-y text-body">
       <span className="text-emphasis text-foreground">{runLabel(run)}</span>
-      <span className="text-muted-foreground">
+      <span data-testid="run-marker" className="text-muted-foreground">
         {run.configPath !== null && "config " + baseName(run.configPath)}
         {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
         {" · "}

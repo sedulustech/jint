@@ -60,6 +60,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             {reportRuleStats.map((statRow) => (
               <tr
                 key={statRow.rule}
+                data-testid={`report-rule-${statRow.rule}`}
                 onClick={() => onRuleFocus(statRow.rule)}
                 tabIndex={0}
                 role="button"

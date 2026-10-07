@@ -283,7 +283,9 @@ function Toolbar({
         placeholder="filter: path, rule, element id…"
         className="h-7 w-64 rounded-lg border border-input bg-background px-control-x text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
-      <span className="ml-auto text-body text-muted-foreground">{countText}</span>
+      <span data-testid="group-count" className="ml-auto text-body text-muted-foreground">
+        {countText}
+      </span>
     </div>
   );
 }
@@ -305,6 +307,7 @@ function GroupedHeader({
       {GROUPED_COLS.map((col) => (
         <button
           key={col.key}
+          data-testid={`sort-${col.key}`}
           disabled={!col.sortable}
           onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
           className={`${col.className} shrink-0 cursor-pointer px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
@@ -335,6 +338,7 @@ function RequestHeader({
             className={`${col.width} whitespace-nowrap px-rail py-cell-y text-left font-normal`}
           >
             <button
+              data-testid={`sort-${col.key}`}
               onClick={() => onToggleSort(col.key)}
               className="w-full cursor-pointer text-left hover:text-foreground"
             >
@@ -365,6 +369,7 @@ function GroupedParentRow({
   return (
     <button
       key={row.key}
+      data-testid={`group-${row.key}`}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
       className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left text-body text-foreground hover:bg-accent"
@@ -422,6 +427,7 @@ function GroupedChildRow({
   return (
     <button
       key={row.key}
+      data-testid={`cell-${cell.rule}@${cell.input}`}
       onClick={() =>
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
@@ -566,7 +572,10 @@ function EmptyNotice({
   onClearFilters: () => void;
 }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center gap-siblings text-body text-muted-foreground">
+    <div
+      data-testid="empty-state"
+      className="flex h-32 flex-col items-center justify-center gap-siblings text-body text-muted-foreground"
+    >
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}

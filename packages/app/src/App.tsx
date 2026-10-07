@@ -114,7 +114,7 @@ export function App({ runId }: { runId: string | null }) {
         </h1>
         <Select value={runId ?? "none"} onValueChange={pickRun}>
           {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
-          <SelectTrigger className="w-96 text-body" aria-label="run">
+          <SelectTrigger data-testid="run-picker" className="w-96 text-body" aria-label="run">
             {/* children = the slim identity (label only); the full item stays in the list */}
             <SelectValue
               placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
@@ -131,6 +131,7 @@ export function App({ runId }: { runId: string | null }) {
               <SelectItem
                 key={run.id}
                 value={run.id}
+                data-testid={`run-option-${run.id}`}
                 className="text-body"
                 title={`${runLabel(run)}\nrun id: ${run.id}`}
                 aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
@@ -177,6 +178,7 @@ export function App({ runId }: { runId: string | null }) {
               key={m}
               variant="secondary"
               size="icon-xs"
+              data-testid={`theme-${m}`}
               aria-label={`${m} theme`}
               aria-pressed={theme === m}
               title={`${m} theme`}
@@ -199,7 +201,9 @@ export function App({ runId }: { runId: string | null }) {
           ) : (
             <>
               {/* heading one scale step above the cards it names (F8) */}
-              <p className="text-emphasis text-foreground">select a run</p>
+              <p data-testid="run-picker-heading" className="text-emphasis text-foreground">
+                select a run
+              </p>
               <div className="flex flex-wrap justify-center gap-siblings">
                 {runList.slice(0, 8).map((run) => (
                   <Button

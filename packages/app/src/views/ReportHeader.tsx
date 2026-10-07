@@ -36,6 +36,7 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
       <Button
         variant="secondary"
         size="icon-xs"
+        data-testid="report-toggle"
         disabled={reportQuery.isLoading || !hasReport}
         aria-expanded={reportOpen}
         aria-controls="report-panel"
