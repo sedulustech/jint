@@ -36,7 +36,7 @@ export function CopyButton({ text, label = "copy" }: { text: string; label?: str
       variant="default"
       size="sm"
       onClick={copy}
-      className={`font-mono ${
+      className={`${
         state === "failed"
           ? "border-destructive/60 bg-sev-error hover:bg-sev-error/90 dark:hover:bg-sev-error/80"
           : ""

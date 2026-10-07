@@ -31,7 +31,7 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
   const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y font-mono text-body">
+    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y text-body">
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
       <div className="flex flex-wrap items-center gap-x-meta gap-y-related">
         <span className="text-foreground">
@@ -61,7 +61,7 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
         aria-controls="report-panel"
         aria-disabled={reportQuery.isLoading || !hasReport}
         onClick={onToggleReport}
-        className="ml-auto font-mono disabled:cursor-not-allowed"
+        className="ml-auto disabled:cursor-not-allowed"
       >
         {reportQuery.isLoading
           ? "report…"

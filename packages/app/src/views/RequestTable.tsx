@@ -245,14 +245,14 @@ function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }
       onClick={() => onMode(buttonMode)}
       aria-pressed={mode === buttonMode}
       data-testid={`mode-${buttonMode}`}
-      className="font-mono text-body"
+      className="text-body"
     >
       {label}
     </Button>
   );
   return (
     <div role="group" aria-label="group by" className="flex items-center gap-related">
-      <span className="font-mono text-caption text-muted-foreground">group by</span>
+      <span className="text-caption text-muted-foreground">group by</span>
       {button("rule", "rule")}
       {button("file", "file")}
       {button("request", "request")}
@@ -280,9 +280,9 @@ function Toolbar({
         value={filterText}
         onChange={(e) => onFilterText(e.target.value)}
         placeholder="filter: path, rule, element id…"
-        className="h-7 w-64 rounded-lg border border-input bg-background px-control-x font-mono text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="h-7 w-64 rounded-lg border border-input bg-background px-control-x text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
-      <span className="ml-auto font-mono text-body text-muted-foreground">{countText}</span>
+      <span className="ml-auto text-body text-muted-foreground">{countText}</span>
     </div>
   );
 }
@@ -298,7 +298,7 @@ function GroupedHeader({
 }) {
   return (
     <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
+      className="sticky top-0 z-10 flex border-b border-border bg-muted text-body text-foreground"
       style={{ minWidth: TABLE_MIN_WIDTH }}
     >
       {GROUPED_COLS.map((col) => (
@@ -326,7 +326,7 @@ function RequestHeader({
   onToggleSort: (key: SortKey) => void;
 }) {
   return (
-    <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
+    <thead className="sticky top-0 z-10 border-b border-border bg-muted text-body text-foreground">
       <tr>
         {REQUEST_COLUMNS.map((col) => (
           <th
@@ -366,7 +366,7 @@ function GroupedParentRow({
       key={row.key}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
-      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
+      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left text-body text-foreground hover:bg-accent"
       style={{ height: ROW_HEIGHT }}
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
@@ -418,7 +418,7 @@ function GroupedChildRow({
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
       style={{ height: ROW_HEIGHT }}
-      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left font-mono text-body ${
+      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left text-body ${
         selectedFile === cell.file ? "bg-accent text-accent-foreground" : ROW_HOVER
       } text-foreground`}
     >
@@ -463,7 +463,7 @@ function RequestLog({
   onToggleSort: (key: SortKey) => void;
 }) {
   return (
-    <table className="w-full table-fixed font-mono text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
+    <table className="w-full table-fixed text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
       <RequestHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
       <tbody>
         {rows.map((requestRow) => (
@@ -558,11 +558,11 @@ function EmptyNotice({
   onClearFilters: () => void;
 }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center gap-siblings font-mono text-body text-muted-foreground">
+    <div className="flex h-32 flex-col items-center justify-center gap-siblings text-body text-muted-foreground">
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
-      <Button variant="default" size="sm" className="font-mono" onClick={onClearFilters}>
+      <Button variant="default" size="sm" onClick={onClearFilters}>
         clear filters
       </Button>
     </div>

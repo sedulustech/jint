@@ -114,7 +114,7 @@ export function App({ runId }: { runId: string | null }) {
         </h1>
         <Select value={runId ?? "none"} onValueChange={pickRun}>
           {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
-          <SelectTrigger className="w-96 font-mono text-body" aria-label="run">
+          <SelectTrigger className="w-96 text-body" aria-label="run">
             {/* children = the slim identity (label only); the full item stays in the list */}
             <SelectValue
               placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
@@ -131,7 +131,7 @@ export function App({ runId }: { runId: string | null }) {
               <SelectItem
                 key={run.id}
                 value={run.id}
-                className="font-mono text-body"
+                className="text-body"
                 title={`${runLabel(run)}\nrun id: ${run.id}`}
                 aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
               >
@@ -148,39 +148,37 @@ export function App({ runId }: { runId: string | null }) {
               </SelectItem>
             ))}
             {runList.length > 50 && (
-              <div className="px-inner py-related font-mono text-caption text-muted-foreground">
+              <div className="px-inner py-related text-caption text-muted-foreground">
                 showing the 50 newest of {runList.length} runs
               </div>
             )}
           </SelectContent>
         </Select>
         {runList.length > 0 && runId === null && (
-          <Badge variant="outline" className="font-mono">
-            {runList.length} runs
-          </Badge>
+          <Badge variant="outline">{runList.length} runs</Badge>
         )}
         {runs.error instanceof Error && (
           <span
-            className="max-w-[480px] truncate break-words font-mono text-body text-sev-error"
+            className="max-w-[480px] truncate break-words text-body text-sev-error"
             title={runs.error.message}
           >
             {runs.error.message}
           </span>
         )}
-        <label className="ml-auto flex items-center gap-related font-mono text-caption text-muted-foreground">
+        <label className="ml-auto flex items-center gap-related text-caption text-muted-foreground">
           theme
           <Select value={theme} onValueChange={(v) => choose(v as Theme)}>
-            <SelectTrigger className="w-fit font-mono text-body" size="sm" aria-label="theme">
+            <SelectTrigger className="w-fit text-body" size="sm" aria-label="theme">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="system" className="font-mono text-body">
+              <SelectItem value="system" className="text-body">
                 system
               </SelectItem>
-              <SelectItem value="light" className="font-mono text-body">
+              <SelectItem value="light" className="text-body">
                 light
               </SelectItem>
-              <SelectItem value="dark" className="font-mono text-body">
+              <SelectItem value="dark" className="text-body">
                 dark
               </SelectItem>
             </SelectContent>
@@ -188,7 +186,7 @@ export function App({ runId }: { runId: string | null }) {
         </label>
         {selectedRun !== null && (
           <span
-            className="font-mono text-body text-muted-foreground"
+            className="text-body text-muted-foreground"
             data-testid="header-time"
             title={new Date(selectedRun.mtime).toLocaleString()}
           >
@@ -201,7 +199,7 @@ export function App({ runId }: { runId: string | null }) {
         // route to an absent id renders the shared 404 idiom inside the shell
         <NotFound title={`run ${runId} not found`} detail="gone or never existed" />
       ) : runId === null ? (
-        <div className="m-auto flex max-w-2xl flex-col items-center gap-sections font-mono text-body text-muted-foreground">
+        <div className="m-auto flex max-w-2xl flex-col items-center gap-sections text-body text-muted-foreground">
           {runList.length === 0 ? (
             <p>no runs found - run jint once (store: ~/.jint/runs)</p>
           ) : (
@@ -214,7 +212,7 @@ export function App({ runId }: { runId: string | null }) {
                     key={run.id}
                     variant="outline"
                     size="sm"
-                    className="w-72 justify-start font-mono text-body"
+                    className="w-72 justify-start text-body"
                     onClick={() => pickRun(run.id)}
                     title={`run id: ${run.id}`}
                   >

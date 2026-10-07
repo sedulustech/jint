@@ -32,11 +32,11 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   return (
     <div className="border border-border bg-background">
       <div className="flex items-center gap-sections border-b border-border px-inner py-related">
-        <span className="font-mono text-body text-foreground">{qa.rule}</span>
+        <span className="text-body text-foreground">{qa.rule}</span>
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
-            className={`ml-auto font-mono text-3xl font-bold leading-none ${color}`}
+            className={`ml-auto text-3xl font-bold leading-none ${color}`}
             title={sev !== null ? `severity: ${sev}` : undefined}
           >
             {noul.toFixed(2)}
@@ -46,12 +46,12 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
           <span className="ml-auto flex items-baseline gap-siblings">
             <span
               data-answer={String(index)}
-              className={`font-mono text-3xl font-bold leading-none ${color}`}
+              className={`text-3xl font-bold leading-none ${color}`}
               title={sev !== null ? `severity: ${sev}` : undefined}
             >
               {index}
             </span>
-            <span className="font-mono text-caption text-muted-foreground">
+            <span className="text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
               {qa.answer?.confidence !== undefined &&
                 ` · confidence ${qa.answer.confidence.toFixed(2)}`}
@@ -59,7 +59,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
           </span>
         )}
         {sev !== null && (
-          <span className={`${SEVERITY[sev].text} font-mono text-caption uppercase`}>{sev}</span>
+          <span className={`${SEVERITY[sev].text} text-caption uppercase`}>{sev}</span>
         )}
       </div>
       {isScore && index !== null && (
@@ -71,7 +71,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
               .map((k) => (
                 <li
                   key={k}
-                  className={`font-mono text-caption leading-snug ${
+                  className={`text-caption leading-snug ${
                     Number(k) === index ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
@@ -90,13 +90,13 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
       {!isScore && (
         <div className="grid grid-cols-2 gap-px bg-border text-body leading-snug">
           <div className="bg-background p-inner">
-            <span className="font-mono text-caption text-sev-clean">true</span>
+            <span className="text-caption text-sev-clean">true</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
           <div className="bg-background p-inner">
-            <span className="font-mono text-caption text-sev-error">false</span>
+            <span className="text-caption text-sev-error">false</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
             </p>

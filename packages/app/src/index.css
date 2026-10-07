@@ -4,6 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* IBM Plex Mono - the app's only font, self-hosted (public/fonts/, OFL.txt alongside).
+   One @font-face set + one token source below; nothing else declares a font. */
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* Type scale: three functional steps, the only text sizes the UI may use.
    text-caption (10px) - micro labels, legends, chip annotations.
    text-body (12px) - the workhorse: cells, headers, buttons, values, meta.
@@ -49,8 +76,11 @@ body {
    Deliberate non-rhythm exceptions: gap-px (1px dividers), m-auto / ml-auto (flex placement). */
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* One font source: the sans/heading aliases point at the mono stack, so the whole UI
+     is one family by default (Tailwind guideline: families live in @theme, utilities consume). */
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-mono);
+  --font-heading: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

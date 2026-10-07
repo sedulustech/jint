@@ -34,7 +34,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           onSelect();
         }
       }}
-      className={`${ROW_CURSOR} border-b border-border font-mono text-body ${tint} ${
+      className={`${ROW_CURSOR} border-b border-border text-body ${tint} ${
         selected ? "" : ROW_HOVER
       }`}
     >
