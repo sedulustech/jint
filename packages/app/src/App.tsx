@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fetchReport, fetchRuns } from "./api/client";
 import { NotFound } from "./router";
@@ -12,7 +13,6 @@ import { useTheme } from "./views/useTheme";
 import type { RunSearch } from "./router";
 import type { Report, RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
-import type { Theme } from "./views/useTheme";
 import { Logo } from "@/components/Logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -155,7 +155,7 @@ export function App({ runId }: { runId: string | null }) {
           </SelectContent>
         </Select>
         {runList.length > 0 && runId === null && (
-          <Badge variant="outline">{runList.length} runs</Badge>
+          <Badge variant="secondary">{runList.length} runs</Badge>
         )}
         {runs.error instanceof Error && (
           <span
@@ -165,34 +165,28 @@ export function App({ runId }: { runId: string | null }) {
             {runs.error.message}
           </span>
         )}
-        <label className="ml-auto flex items-center gap-related text-caption text-muted-foreground">
-          theme
-          <Select value={theme} onValueChange={(v) => choose(v as Theme)}>
-            <SelectTrigger className="w-fit text-body" size="sm" aria-label="theme">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="system" className="text-body">
-                system
-              </SelectItem>
-              <SelectItem value="light" className="text-body">
-                light
-              </SelectItem>
-              <SelectItem value="dark" className="text-body">
-                dark
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-        {selectedRun !== null && (
-          <span
-            className="text-body text-muted-foreground"
-            data-testid="header-time"
-            title={new Date(selectedRun.mtime).toLocaleString()}
-          >
-            {relTime(selectedRun.mtime)}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-related" role="group" aria-label="theme">
+          {(
+            [
+              ["system", Monitor],
+              ["light", Sun],
+              ["dark", Moon],
+            ] as const
+          ).map(([m, Icon]) => (
+            <Button
+              key={m}
+              variant="secondary"
+              size="icon-xs"
+              aria-label={`${m} theme`}
+              aria-pressed={theme === m}
+              title={`${m} theme`}
+              onClick={() => choose(m)}
+              className={theme === m ? undefined : "border border-input"}
+            >
+              <Icon />
+            </Button>
+          ))}
+        </div>
       </header>
       {runId !== null && !runs.isLoading && runs.error == null && selectedRun === null ? (
         // the run list IS the presence check (there is no per-id gate): a well-formed
@@ -210,7 +204,7 @@ export function App({ runId }: { runId: string | null }) {
                 {runList.slice(0, 8).map((run) => (
                   <Button
                     key={run.id}
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="w-72 justify-start text-body"
                     onClick={() => pickRun(run.id)}

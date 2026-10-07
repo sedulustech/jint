@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
@@ -240,12 +241,12 @@ function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
 function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const button = (buttonMode: Mode, label: string) => (
     <Button
-      variant={mode === buttonMode ? "secondary" : "outline"}
+      variant="secondary"
       size="sm"
       onClick={() => onMode(buttonMode)}
       aria-pressed={mode === buttonMode}
       data-testid={`mode-${buttonMode}`}
-      className="text-body"
+      className={mode === buttonMode ? "text-body" : "border border-input text-body"}
     >
       {label}
     </Button>
@@ -372,7 +373,14 @@ function GroupedParentRow({
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
           never from shifting a column off the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
-        {isExpanded ? "▾" : "▸"} {row.name}
+        <span className="inline-flex items-center gap-chip-x">
+          {isExpanded ? (
+            <ChevronDown className="size-3.5" />
+          ) : (
+            <ChevronRight className="size-3.5" />
+          )}
+          {row.name}
+        </span>
       </span>
       <span className={`${INPUT_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
         <span className="text-muted-foreground">
@@ -562,7 +570,7 @@ function EmptyNotice({
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
-      <Button variant="default" size="sm" onClick={onClearFilters}>
+      <Button variant="secondary" size="sm" onClick={onClearFilters}>
         clear filters
       </Button>
     </div>

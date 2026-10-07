@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { fetchReport, fetchRun } from "../api/client";
 import { ruleStats } from "./ruleStats";
 import type { Report } from "../types";
@@ -32,6 +33,30 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y text-body">
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={reportQuery.isLoading || !hasReport}
+        aria-expanded={reportOpen}
+        aria-controls="report-panel"
+        aria-disabled={reportQuery.isLoading || !hasReport}
+        onClick={onToggleReport}
+        className="ml-auto disabled:cursor-not-allowed"
+      >
+        {hasReport &&
+          (reportOpen ? (
+            <ChevronDown className="size-3.5" />
+          ) : (
+            <ChevronRight className="size-3.5" />
+          ))}
+        {reportQuery.isLoading
+          ? "report…"
+          : hasReport
+            ? reportOpen
+              ? "hide report"
+              : "show report"
+            : "no report"}
+      </Button>
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
       <div className="flex flex-wrap items-center gap-x-meta gap-y-related">
         <span className="text-foreground">
@@ -53,24 +78,6 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
           calibration note
         </span>
       </div>
-      <Button
-        variant="default"
-        size="sm"
-        disabled={reportQuery.isLoading || !hasReport}
-        aria-expanded={reportOpen}
-        aria-controls="report-panel"
-        aria-disabled={reportQuery.isLoading || !hasReport}
-        onClick={onToggleReport}
-        className="ml-auto disabled:cursor-not-allowed"
-      >
-        {reportQuery.isLoading
-          ? "report…"
-          : hasReport
-            ? reportOpen
-              ? "hide report"
-              : "show report"
-            : "no report"}
-      </Button>
     </div>
   );
 }

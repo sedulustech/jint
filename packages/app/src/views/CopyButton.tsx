@@ -33,7 +33,7 @@ export function CopyButton({ text, label = "copy" }: { text: string; label?: str
   const labelShown = state === "copied" ? "copied" : state === "failed" ? "failed" : label;
   return (
     <Button
-      variant="default"
+      variant="secondary"
       size="sm"
       onClick={copy}
       className={`${
