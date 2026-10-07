@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
 import { DensityStrip } from "./DensityStrip";
 import { REQUEST_COLUMNS } from "./requestCols";
@@ -416,10 +417,10 @@ function GroupedChildRow({
       onClick={() =>
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
-      className={`flex w-full cursor-pointer items-center border-b border-border text-left font-mono text-body ${
-        selectedFile === cell.file ? "bg-accent text-accent-foreground" : "hover:bg-muted"
-      } text-foreground`}
       style={{ height: ROW_HEIGHT }}
+      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left font-mono text-body ${
+        selectedFile === cell.file ? "bg-accent text-accent-foreground" : ROW_HOVER
+      } text-foreground`}
     >
       {/* pl-indent = rail 12 + 24px indent: children read as nested without leaving the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail pl-indent`} title={childName}>
