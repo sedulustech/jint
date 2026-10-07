@@ -24,7 +24,7 @@ import {
   type RuleResult,
   type Span,
 } from "../types.ts";
-import { validateDecision, validateStateSpec, type TsElement, type TsRule } from "./sdk.ts";
+import { validateDecision, validateStateSpec, type CustomElement, type CustomRule } from "./sdk.ts";
 import type { WalkElement } from "../input/walk.ts";
 
 /**
@@ -32,10 +32,10 @@ import type { WalkElement } from "../input/walk.ts";
  * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
  * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
  */
-export function tsElementsOf(inventory: readonly WalkElement[], path: string): TsElement[] {
+export function tsElementsOf(inventory: readonly WalkElement[], path: string): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
-  const cache = new Map<string, TsElement>();
-  const convert = (e: WalkElement): TsElement => {
+  const cache = new Map<string, CustomElement>();
+  const convert = (e: WalkElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
     const parentLabel = e.parent;
@@ -49,7 +49,7 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): T
           ", which does not exist",
       );
     }
-    const element: TsElement = {
+    const element: CustomElement = {
       id: e.label,
       path,
       role: e.role,
@@ -71,36 +71,39 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): T
 
 /**
  * One rule's resolved REQUEST: its slice plus how many requested elements scoping removed, or the
- * RULE_FAILED that replaced selection. scopedOut is SIGNAL (review 396888e finding 3): the TS tier
- * notes skipped elements at run level exactly like the JSON tier notes per unit.
+ * RULE_FAILED that replaced selection. scopedOut is SIGNAL (review 396888e finding 3): the custom
+ * tier notes skipped elements at run level exactly like the JSON tier notes per unit.
  */
-export type ResolvedTsTarget =
-  | { targets: readonly TsElement[]; scopedOut: number }
+export type ResolvedCustomTarget =
+  | { targets: readonly CustomElement[]; scopedOut: number }
   | { error: ClassifyError };
 /** Resolution for every rule, in declared order. */
-export type ResolvedTsTargets = Map<TsRule, ResolvedTsTarget>;
+export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 
 /**
  * Resolves every rule ONCE per run over the completed walk (design rules-context/01): role strings
  * filter the full inventory; the function form receives the FULL walk inventory — not ctx — and is
  * pure selection. Errors resolve to a RULE_FAILED for that rule.
  */
-export function resolveAllTsTargets(
-  tsRules: readonly TsRule[],
+export function resolveAllCustomTargets(
+  customRules: readonly CustomRule[],
   inventoryByPath: ReadonlyMap<string, readonly WalkElement[]>,
-): ResolvedTsTargets {
-  const elementsByPath = new Map<string, readonly TsElement[]>();
+): ResolvedCustomTargets {
+  const elementsByPath = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
     elementsByPath.set(path, tsElementsOf(inventory, path));
   }
   const allElements = [...elementsByPath.values()].flat();
-  const out: ResolvedTsTargets = new Map();
-  for (const rule of tsRules) out.set(rule, resolveTargets(rule, allElements));
+  const out: ResolvedCustomTargets = new Map();
+  for (const rule of customRules) out.set(rule, resolveTargets(rule, allElements));
   return out;
 }
 
 /** Resolves one rule's REQUEST into its slice over the full walk inventory. */
-export function resolveTargets(rule: TsRule, allElements: readonly TsElement[]): ResolvedTsTarget {
+export function resolveTargets(
+  rule: CustomRule,
+  allElements: readonly CustomElement[],
+): ResolvedCustomTarget {
   if (typeof rule.target === "function") {
     try {
       const picked = rule.target(allElements);
@@ -146,8 +149,8 @@ function thrownMessage(thrown: unknown): string {
  * finding location. The positional label (element.id, "d0") stays the projection label only;
  * elementWireId's L-spans remain whole-file unit ids.
  */
-type ElementInputs = WeakMap<TsElement, string>;
-function inputOf(element: TsElement, inputs: ElementInputs): string {
+type ElementInputs = WeakMap<CustomElement, string>;
+function inputOf(element: CustomElement, inputs: ElementInputs): string {
   const minted = inputs.get(element);
   if (minted !== undefined) return minted;
   const input = element.path + "#" + crypto.randomUUID();
@@ -156,10 +159,10 @@ function inputOf(element: TsElement, inputs: ElementInputs): string {
 }
 
 function ruleFailed(input: string, ruleName: string, message: string): ClassifyError {
-  return new ClassifyError("RULE_FAILED", input, 'ts rule "' + ruleName + '": ' + message);
+  return new ClassifyError("RULE_FAILED", input, 'custom rule "' + ruleName + '": ' + message);
 }
 
-export interface TsRulePhase {
+export interface CustomRulePhase {
   /** Events in stream order: measurements, findings, errors, degradation notes. */
   events: LintEvent[];
   /** True when a JEV_AUTH came through — the run aborts like the JSON tier. */
@@ -167,44 +170,44 @@ export interface TsRulePhase {
 }
 
 /**
- * Runs the loaded TS rules over the completed walk: resolve, fan out classify per target, call the
- * classifier per compiled spec, then policy once per rule. Sized state parts are backstopped per
- * part (over MAX_ELEMENT_TOKENS: noted, skipped — ordinary state can never crash the request).
+ * Runs the loaded custom rules over the completed walk: resolve, fan out classify per target, call
+ * the classifier per compiled spec, then policy once per rule. Sized state parts are backstopped
+ * per part (over MAX_ELEMENT_TOKENS: noted, skipped — ordinary state can never crash the request).
  */
-export async function runTsRules(
-  tsRules: readonly TsRule[],
-  resolved: ResolvedTsTargets,
+export async function runCustomRules(
+  customRules: readonly CustomRule[],
+  resolved: ResolvedCustomTargets,
   classifier: Classifier,
   isAborted: () => boolean,
-): Promise<TsRulePhase> {
+): Promise<CustomRulePhase> {
   const events: LintEvent[] = [];
   let fatal = false;
   const inputs: ElementInputs = new WeakMap();
-  for (const rule of tsRules) {
+  for (const rule of customRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
     if (resolvedRule === undefined) {
-      // resolveAllTsTargets sets an entry for EVERY rule — this is impossible state, and a silent
+      // resolveAllCustomTargets sets an entry for EVERY rule — this is impossible state, and a silent
       // skip here would be invisible data loss (a declared rule producing zero measurements).
-      throw new Error('no resolution entry for ts rule "' + rule.name + '" (engine bug)');
+      throw new Error('no resolution entry for custom rule "' + rule.name + '" (engine bug)');
     }
     if ("error" in resolvedRule) {
       events.push({ type: "error", error: resolvedRule.error });
       continue;
     }
     // Scoped-out requested elements are signal, never silence: one run-level note per rule says
-    // how many its scope removed (the TS tier resolves once per run, so run level IS its unit).
+    // how many its scope removed (the custom tier resolves once per run, so run level IS its unit).
     if ("scopedOut" in resolvedRule && resolvedRule.scopedOut > 0) {
       events.push({
         type: "note",
-        note: `ts rule "${rule.name}": scope excluded ${resolvedRule.scopedOut} element(s)`,
+        note: `custom rule "${rule.name}": scope excluded ${resolvedRule.scopedOut} element(s)`,
       });
     }
     const targets = resolvedRule.targets;
     const ctx = { targets };
     const results: RuleResult[] = [];
     const values: number[] = [];
-    const aligned: TsElement[] = [];
+    const aligned: CustomElement[] = [];
     for (const self of targets) {
       if (isAborted() || fatal) break;
       const input = inputOf(self, inputs);
@@ -228,7 +231,7 @@ export async function runTsRules(
         events.push({
           type: "note",
           note:
-            'ts rule "' +
+            'custom rule "' +
             rule.name +
             '": state part "' +
             oversized[0] +
@@ -325,7 +328,7 @@ export async function runTsRules(
 /** A policy decision becomes a finding bound to the target's span; null severity stays silent. */
 function tsFinding(
   ruleName: string,
-  target: TsElement,
+  target: CustomElement,
   result: RuleResult,
   decision: { severity: "error" | "warn" | null; data?: Record<string, unknown> },
   inputs: ElementInputs,

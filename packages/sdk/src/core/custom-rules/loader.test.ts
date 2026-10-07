@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { loadTsConfigRules } from "./loader.ts";
-import { defineConfig, validateTsRule } from "./sdk.ts";
+import { loadCustomRules } from "./loader.ts";
+import { defineConfig, validateCustomRule } from "./sdk.ts";
 
-const DIR = "tmp/tsrules-loader-test";
+const DIR = "tmp/custom-rules-loader-test";
 
 function write(name: string, code: string): string {
   mkdirSync(DIR, { recursive: true });
@@ -30,29 +30,29 @@ export default defineConfig({
 });
 `;
 
-describe("loadTsConfigRules", () => {
+describe("loadCustomRules", () => {
   test("loads a valid fragment through the jint:sdk virtual module", async () => {
     const path = write("valid.ts", VALID_RULE);
-    const rules = await loadTsConfigRules([path]);
+    const rules = await loadCustomRules([path]);
     expect(rules).toHaveLength(1);
     expect(rules[0]?.name).toBe("will_test_fire");
   });
 
   test("rejects bare specifiers BEFORE import runs (the gate)", async () => {
     const path = write("bare.ts", `import kleur from "kleur";\nexport default 1;`);
-    expect(async () => await loadTsConfigRules([path])).toThrow(/kleur/);
+    expect(async () => await loadCustomRules([path])).toThrow(/kleur/);
   });
 
   test("rejects node:* builtins at the gate", async () => {
     const path = write("builtin.ts", `import { readFileSync } from "node:fs";\nexport default 1;`);
-    expect(async () => await loadTsConfigRules([path])).toThrow(/node:fs/);
+    expect(async () => await loadCustomRules([path])).toThrow(/node:fs/);
   });
 
   test("the gate ALLOWS relative imports, re-exports, absolute paths, and jint:*", async () => {
     // The allow matrix is contract too: legitimate rule composition must keep working, and the
     // scan must see re-export forms (export ... from) as imports.
     write("helper.ts", "export const threshold = 0.5;\nexport default 7;");
-    const rules = await loadTsConfigRules([
+    const rules = await loadCustomRules([
       write(
         "composed.ts",
         [
@@ -101,7 +101,7 @@ describe("loadTsConfigRules", () => {
   test("a thrown module fails fatal, naming the file", async () => {
     const path = write("throwing.ts", 'throw new Error("boom");');
     try {
-      await loadTsConfigRules([path]);
+      await loadCustomRules([path]);
       expect.unreachable();
     } catch (e) {
       expect((e as Error).message).toContain(path);
@@ -111,13 +111,13 @@ describe("loadTsConfigRules", () => {
 
   test("a non-defineConfig default export fails fatal, naming the file", async () => {
     const path = write("garbage.ts", "export default { nope: true };");
-    expect(async () => await loadTsConfigRules([path])).toThrow(/defineConfig/);
+    expect(async () => await loadCustomRules([path])).toThrow(/defineConfig/);
   });
 
   test("duplicate rule names across files are fatal, naming both files", async () => {
     const a = write("dup-a.ts", VALID_RULE);
     const b = write("dup-b.ts", VALID_RULE);
-    expect(async () => await loadTsConfigRules([a, b])).toThrow(
+    expect(async () => await loadCustomRules([a, b])).toThrow(
       /dup-a\.ts.*dup-b\.ts|dup-b\.ts.*dup-a\.ts/,
     );
   });
@@ -139,7 +139,7 @@ describe("defineConfig validation (load-time, fatal)", () => {
   });
 });
 
-describe("validateTsRule (load-time, fatal)", () => {
+describe("validateCustomRule (load-time, fatal)", () => {
   const ok = {
     name: "is_fine",
     target: "comments",
@@ -148,27 +148,27 @@ describe("validateTsRule (load-time, fatal)", () => {
   };
 
   test("missing name", () => {
-    expect(() => validateTsRule({ ...ok, name: "" }, "f.ts")).toThrow(/name/);
+    expect(() => validateCustomRule({ ...ok, name: "" }, "f.ts")).toThrow(/name/);
   });
 
   test("invalid target string", () => {
-    expect(() => validateTsRule({ ...ok, target: "files" }, "f.ts")).toThrow(/target/);
+    expect(() => validateCustomRule({ ...ok, target: "files" }, "f.ts")).toThrow(/target/);
   });
 
   test("missing classify", () => {
     const { classify: _c, ...rest } = ok;
-    expect(() => validateTsRule(rest, "f.ts")).toThrow(/classify/);
+    expect(() => validateCustomRule(rest, "f.ts")).toThrow(/classify/);
   });
 
   test("exactly one policy: both is rejected", () => {
-    expect(() => validateTsRule({ ...ok, handleClassification: () => [] }, "f.ts")).toThrow(
+    expect(() => validateCustomRule({ ...ok, handleClassification: () => [] }, "f.ts")).toThrow(
       /exactly one/,
     );
   });
 
   test("exactly one policy: none is rejected", () => {
     const { handle: _h, ...rest } = ok;
-    expect(() => validateTsRule(rest, "f.ts")).toThrow(/exactly one/);
+    expect(() => validateCustomRule(rest, "f.ts")).toThrow(/exactly one/);
   });
 
   test("every shared handler invariant rejects with the field named (parity with the JSON tier)", () => {
@@ -183,11 +183,11 @@ describe("validateTsRule (load-time, fatal)", () => {
       { warn: { greater_than: 0.5 }, map: ["pass", "warn"] }, // score handler on a noul rule
     ];
     for (const handle of cases) {
-      expect(() => validateTsRule({ ...ok, handle }, "f.ts")).toThrow(/"is_fine": handle/);
+      expect(() => validateCustomRule({ ...ok, handle }, "f.ts")).toThrow(/"is_fine": handle/);
     }
   });
 
   test("choice kind rejected as not-yet-supported", () => {
-    expect(() => validateTsRule({ ...ok, kind: "choice" }, "f.ts")).toThrow(/noul/);
+    expect(() => validateCustomRule({ ...ok, kind: "choice" }, "f.ts")).toThrow(/noul/);
   });
 });

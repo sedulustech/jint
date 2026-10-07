@@ -1,5 +1,5 @@
 /**
- * Loads config-declared TS rule files on the embedded Bun runtime (spike-validated:
+ * Loads config-declared custom rule files on the embedded Bun runtime (spike-validated:
  * /tmp/jint-spike/host.ts, bun 1.3.14). A runtime Bun.plugin registers the virtual module
  * "jint:sdk" — the colon marks it runtime-injected (node:fs convention): unshadowable, and
  * build.module intercepts it before any disk lookup, including inside compiled binaries.
@@ -17,12 +17,17 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { SetupError } from "../types.ts";
-import { defineConfig, validateTsRule, type TsConfigFragment, type TsRule } from "./sdk.ts";
+import {
+  defineConfig,
+  validateCustomRule,
+  type CustomConfigFragment,
+  type CustomRule,
+} from "./sdk.ts";
 
 let registered = false;
 
 /** Registers the "jint:sdk" virtual module exactly once per process. */
-export function registerTsRuleLoader(): void {
+export function registerCustomRuleLoader(): void {
   if (registered) return;
   registered = true;
   Bun.plugin({
@@ -52,7 +57,7 @@ function gateImports(path: string, source: string): void {
     if (!allowedImport(imp.path)) {
       throw new SetupError(
         "RULE_INVALID",
-        'ts rule file imports "' +
+        'custom rule file imports "' +
           imp.path +
           '" (' +
           path +
@@ -63,10 +68,10 @@ function gateImports(path: string, source: string): void {
 }
 
 /** Loads one file: gate, import, validate the fragment; returns the rules it contributes. */
-export async function loadTsConfigFile(path: string): Promise<TsRule[]> {
+export async function loadCustomRuleFile(path: string): Promise<CustomRule[]> {
   const abs = resolve(path);
   let mod: unknown;
-  registerTsRuleLoader();
+  registerCustomRuleLoader();
   try {
     // The gate reads + scans before the transpile: a rejected file never executes.
     gateImports(abs, readFileSync(abs, "utf8"));
@@ -74,44 +79,48 @@ export async function loadTsConfigFile(path: string): Promise<TsRule[]> {
   } catch (thrown) {
     if (thrown instanceof SetupError) throw thrown;
     const detail = thrown instanceof Error ? thrown.message : String(thrown);
-    throw new SetupError("RULE_INVALID", "ts rule file failed to load: " + path + ": " + detail, {
-      cause: thrown,
-    });
+    throw new SetupError(
+      "RULE_INVALID",
+      "custom rule file failed to load: " + path + ": " + detail,
+      {
+        cause: thrown,
+      },
+    );
   }
   return rulesOfFragment(mod, path);
 }
 
-function rulesOfFragment(mod: unknown, path: string): TsRule[] {
+function rulesOfFragment(mod: unknown, path: string): CustomRule[] {
   const exported = (mod as { default?: unknown }).default;
   const fail = (message: string): never => {
-    throw new SetupError("RULE_INVALID", "ts rule file " + path + ": " + message);
+    throw new SetupError("RULE_INVALID", "custom rule file " + path + ": " + message);
   };
   if (exported === undefined) {
     fail('must default-export defineConfig({ rules: [...] }) from "jint:sdk"');
   }
   const fragments = Array.isArray(exported) ? exported : [exported];
-  const rules: TsRule[] = [];
+  const rules: CustomRule[] = [];
   for (const fragment of fragments) {
-    const f = fragment as TsConfigFragment;
+    const f = fragment as CustomConfigFragment;
     if (typeof f !== "object" || f === null || !Array.isArray(f.rules)) {
       fail("default export is not a defineConfig fragment (missing rules array)");
     }
-    for (const rule of f.rules) rules.push(validateTsRule(rule, path));
+    for (const rule of f.rules) rules.push(validateCustomRule(rule, path));
   }
   return rules;
 }
 
-/** Loads every config-declared TS rule file, in declared order, and rejects duplicate names. */
-export async function loadTsConfigRules(paths: readonly string[]): Promise<TsRule[]> {
-  const out: TsRule[] = [];
+/** Loads every config-declared custom rule file, in declared order, and rejects duplicate names. */
+export async function loadCustomRules(paths: readonly string[]): Promise<CustomRule[]> {
+  const out: CustomRule[] = [];
   const seen = new Map<string, string>();
   for (const path of paths) {
-    for (const rule of await loadTsConfigFile(path)) {
+    for (const rule of await loadCustomRuleFile(path)) {
       const prior = seen.get(rule.name);
       if (prior !== undefined) {
         throw new SetupError(
           "RULE_INVALID",
-          'duplicate ts rule name "' + rule.name + '" (' + prior + " and " + path + ")",
+          'duplicate custom rule name "' + rule.name + '" (' + prior + " and " + path + ")",
         );
       }
       seen.set(rule.name, path);

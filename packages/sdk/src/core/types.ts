@@ -46,7 +46,7 @@ export type SetupErrorCode =
 /**
  * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
  * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements;
- * RULE_FAILED names a TS rule's mid-run throw (classify / target fn / handleClassification) —
+ * RULE_FAILED names a custom rule's mid-run throw (classify / target fn / handleClassification) —
  * per-unit, non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL lives in both
  * unions: invariant violations throw SetupError("INTERNAL"), while a classifier-adjacent failure of
  * unknown shape streams as ClassifyError("INTERNAL").
@@ -116,7 +116,7 @@ interface RuleBase {
   readonly handle: (answer: import("@jint/contract").ClassifiedAnswer) => HandleResult;
   /**
    * The declarative data the handle was compiled from; absent when the handle is null or the rule
-   * is TS-tier (code policy). This is what the run manifest snapshots.
+   * is custom-tier (code policy). This is what the run manifest snapshots.
    */
   readonly handleData?: import("@jint/contract").HandlerData;
   /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
@@ -197,7 +197,7 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (TS tier, rules-context/04): a policy callback's extra structured data,
+   * Additive (custom tier, rules-context/04): a policy callback's extra structured data,
    * schema-validated at the callback boundary. Absent for threshold-derived findings.
    */
   readonly data?: Record<string, unknown>;

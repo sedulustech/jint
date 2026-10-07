@@ -16,7 +16,7 @@ import { SetupError, type RuleResult, type RuleTarget } from "../types.ts";
  * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the
  * element).
  */
-export interface TsElement {
+export interface CustomElement {
   /** Stable positional label ("d0", "c2", "i0"). */
   readonly id: string;
   /** The file this element belongs to (identity + wire naming). */
@@ -32,13 +32,13 @@ export interface TsElement {
   /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
   readonly attachedComment?: readonly string[];
   /** The enclosing element, when this element sits inside one; null at the top level. */
-  readonly parent: TsElement | null;
+  readonly parent: CustomElement | null;
 }
 
 /** The rule's environment, assembled by the engine after target resolution. */
 export interface RuleContext {
   /** The resolved elements for this rule — the request's result, aligned with results. */
-  readonly targets: readonly TsElement[];
+  readonly targets: readonly CustomElement[];
 }
 
 /**
@@ -54,11 +54,11 @@ export interface StateSpec {
 }
 
 /** The declarative policy (data tier, same typed shape as JSON noul rules; exactly one per rule). */
-// The declarative noul handle for TS rules: the contract's per-threshold operator form.
-export type TsHandleData = import("@jint/contract").NoulHandlerData;
+// The declarative noul handle for custom rules: the contract's per-threshold operator form.
+export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
 /** One policy decision, aligned by index with ctx.targets: what becomes a finding. */
-export interface TsDecision {
+export interface CustomDecision {
   /** Null = silent (measurement only, no finding). */
   readonly severity: "error" | "warn" | null;
   /** Optional extra structured data, attached to the finding (schema-validated). */
@@ -66,11 +66,11 @@ export interface TsDecision {
 }
 
 /**
- * A TS rule: name, target (the REQUEST), the per-element state-spec compiler, and exactly one
+ * A custom rule: name, target (the REQUEST), the per-element state-spec compiler, and exactly one
  * policy (declarative handle or the callback form). classify returns ONE spec for self; jint fans
  * it out across ctx.targets. noul-only in v1 — choice/score kinds are rejected at load.
  */
-export interface TsRule {
+export interface CustomRule {
   readonly name: string;
   readonly kind?: "noul";
   readonly target:
@@ -79,15 +79,15 @@ export interface TsRule {
     | "comments"
     | "imports"
     | readonly string[]
-    | ((elements: readonly TsElement[]) => readonly TsElement[]);
+    | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
   /** Per resolved target: the state spec for self. Returns data, never calls the classifier. */
-  readonly classify: (self: TsElement, ctx: RuleContext) => StateSpec;
+  readonly classify: (self: CustomElement, ctx: RuleContext) => StateSpec;
   /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
   readonly exclude?: readonly string[];
   /** Policy, data form: the typed noul handler (per-threshold comparison operators). */
-  readonly handle?: TsHandleData;
+  readonly handle?: CustomHandleData;
   /**
    * Policy, callback form: called ONCE after all classifications; results[i] <-> ctx.targets[i].
    * Returns one decision per result, aligned by index.
@@ -95,16 +95,16 @@ export interface TsRule {
   readonly handleClassification?: (
     results: readonly RuleResult[],
     ctx: RuleContext,
-  ) => readonly TsDecision[];
+  ) => readonly CustomDecision[];
 }
 
 /** A TS config fragment: contributes rules ONLY — run-level keys stay in jint.config.json. */
-export interface TsConfigFragment {
-  readonly rules: readonly TsRule[];
+export interface CustomConfigFragment {
+  readonly rules: readonly CustomRule[];
 }
 
-/** The element roles a TS rule may target in v1 (unit-level targets stay JSON-tier). */
-export const TS_TARGET_ROLES: readonly RuleTarget[] = [
+/** The element roles a custom rule may target in v1 (unit-level targets stay JSON-tier). */
+export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
   "functions",
   "definitions",
   "comments",
@@ -155,7 +155,12 @@ export function validateStateSpec(
       .map((err) => (err.path === "" ? "/" : err.path) + " " + err.message)
       .join("; ");
     throw new Error(
-      'ts rule "' + ruleName + '" returned an invalid state spec for ' + element + ": " + messages,
+      'custom rule "' +
+        ruleName +
+        '" returned an invalid state spec for ' +
+        element +
+        ": " +
+        messages,
     );
   }
   return spec as Static<typeof SPEC_SCHEMA>;
@@ -169,7 +174,7 @@ export function validateDecision(
 ): Static<typeof DECISION_SCHEMA> {
   if (!Value.Check(DECISION_SCHEMA, decision)) {
     throw new Error(
-      'ts rule "' +
+      'custom rule "' +
         ruleName +
         '" handleClassification returned an invalid decision at index ' +
         String(index) +
@@ -180,10 +185,10 @@ export function validateDecision(
 }
 
 function isRole(t: unknown): boolean {
-  return typeof t === "string" && (TS_TARGET_ROLES as readonly string[]).includes(t);
+  return typeof t === "string" && (CUSTOM_TARGET_ROLES as readonly string[]).includes(t);
 }
 
-function validTarget(target: TsRule["target"]): boolean {
+function validTarget(target: CustomRule["target"]): boolean {
   return (
     typeof target === "function" ||
     isRole(target) ||
@@ -192,9 +197,9 @@ function validTarget(target: TsRule["target"]): boolean {
 }
 
 /** Validates one rule object; the error names the rule. FATAL at load. */
-export function validateTsRule(rule: unknown, file: string): TsRule {
+export function validateCustomRule(rule: unknown, file: string): CustomRule {
   const fail = (message: string): never => {
-    throw new SetupError("RULE_INVALID", "ts rule in " + file + ": " + message);
+    throw new SetupError("RULE_INVALID", "custom rule in " + file + ": " + message);
   };
   if (typeof rule !== "object" || rule === null) fail("rules[] entry is not an object");
   const r = rule as Record<string, unknown>;
@@ -202,15 +207,19 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
   const name = r.name;
   if (r.kind !== undefined && r.kind !== "noul") {
     fail(
-      '"' + name + '": kind "' + String(r.kind) + '" is not supported in TS rules yet (noul only)',
+      '"' +
+        name +
+        '": kind "' +
+        String(r.kind) +
+        '" is not supported in custom rules yet (noul only)',
     );
   }
-  if (!validTarget(r.target as TsRule["target"])) {
+  if (!validTarget(r.target as CustomRule["target"])) {
     fail(
       '"' +
         name +
         '": invalid target — expected one of ' +
-        TS_TARGET_ROLES.join(", ") +
+        CUSTOM_TARGET_ROLES.join(", ") +
         ", a non-empty list of them, or an (elements) => Element[] function",
     );
   }
@@ -238,8 +247,8 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
           '": handle must be the typed noul handler { warn: { greater_than | less_than }, error?, silent_band? }',
       );
     }
-    const h = r.handle as TsHandleData;
-    // TS rules are noul-only, so the question type is fixed: a score map here is the same
+    const h = r.handle as CustomHandleData;
+    // custom rules are noul-only, so the question type is fixed: a score map here is the same
     // tier-mismatch the JSON loader rejects as CONFIG_INVALID.
     if ("map" in h) fail('"' + name + '": handle.map: a score handler on a noul rule');
     const problem = checkNoulHandler(h);
@@ -248,7 +257,7 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
   if (hasPolicyFn && typeof r.handleClassification !== "function") {
     fail('"' + name + '": handleClassification must be a function');
   }
-  return r as unknown as TsRule;
+  return r as unknown as CustomRule;
 }
 
 /**
@@ -257,8 +266,8 @@ export function validateTsRule(rule: unknown, file: string): TsRule {
  * Takes one fragment or an array of them.
  */
 export function defineConfig(
-  fragment: TsConfigFragment | readonly TsConfigFragment[],
-): TsConfigFragment {
+  fragment: CustomConfigFragment | readonly CustomConfigFragment[],
+): CustomConfigFragment {
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "defineConfig: " + message);
   };
@@ -275,8 +284,8 @@ export function defineConfig(
         );
       }
     }
-    const rules = (f as TsConfigFragment).rules;
+    const rules = (f as CustomConfigFragment).rules;
     if (!Array.isArray(rules)) fail('"rules" must be an array');
   }
-  return fragment as TsConfigFragment;
+  return fragment as CustomConfigFragment;
 }
