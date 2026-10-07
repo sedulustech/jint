@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
@@ -312,10 +312,16 @@ function GroupedHeader({
           data-testid={`sort-${col.key}`}
           disabled={!col.sortable}
           onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 cursor-pointer px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
+          className={`${col.className} shrink-0 cursor-pointer px-rail py-bar-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
         >
           {typeof col.label === "function" ? col.label(mode) : col.label}
-          {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+          {col.sortable && sortKey === col.key ? (
+            sortDir === "asc" ? (
+              <ChevronUp className="size-3.5" />
+            ) : (
+              <ChevronDown className="size-3.5" />
+            )
+          ) : null}
         </button>
       ))}
     </div>
@@ -379,11 +385,7 @@ function GroupedParentRow({
           never from shifting a column off the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
         <span className="inline-flex items-center gap-chip-x">
-          {isExpanded ? (
-            <ChevronDown className="size-3.5" />
-          ) : (
-            <ChevronRight className="size-3.5" />
-          )}
+          {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
           {row.name}
         </span>
       </span>
