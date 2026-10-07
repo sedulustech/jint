@@ -147,8 +147,12 @@ body {
   --card-foreground: #d4d4d4;
   --popover: #171717;
   --popover-foreground: #d4d4d4;
-  --primary: #e5e5e5;
-  --primary-foreground: #0a0a0a;
+  /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
+     silhouette on the zinc-950/900 surfaces and hover has nowhere to go. zinc-500 keeps
+     primary-foreground >= 4.5:1, stays clearly off muted #262626, and dark:hover:bg-primary/80
+     gives a visible darken. */
+  --primary: #71717a;
+  --primary-foreground: #fafafa;
   --secondary: #262626;
   --secondary-foreground: #d4d4d4;
   --muted: #262626;

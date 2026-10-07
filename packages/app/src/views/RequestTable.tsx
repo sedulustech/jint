@@ -306,7 +306,7 @@ function GroupedHeader({
           key={col.key}
           disabled={!col.sortable}
           onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 cursor-pointer px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
+          className={`${col.className} shrink-0 cursor-pointer px-rail pb-cell-y pt-bar-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
         >
           {col.label}
           {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -331,7 +331,7 @@ function RequestHeader({
         {REQUEST_COLUMNS.map((col) => (
           <th
             key={col.label}
-            className={`${col.width} whitespace-nowrap px-rail py-cell-y text-left font-normal`}
+            className={`${col.width} whitespace-nowrap px-rail pb-cell-y pt-bar-y text-left font-normal`}
           >
             <button
               onClick={() => onToggleSort(col.key)}
@@ -342,7 +342,7 @@ function RequestHeader({
             </button>
           </th>
         ))}
-        <th className="min-w-0 px-rail py-cell-y text-left font-normal">input path</th>
+        <th className="min-w-0 px-rail pb-cell-y pt-bar-y text-left font-normal">input path</th>
       </tr>
     </thead>
   );
@@ -366,7 +366,8 @@ function GroupedParentRow({
       key={row.key}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
-      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
+      /* pt-chip-y - pb: +1px optical drop, same mono font-box correction as button.tsx */
+      className="flex w-full cursor-pointer items-center border-b border-border bg-muted pt-chip-y text-left font-mono text-body text-foreground hover:bg-accent"
       style={{ height: ROW_HEIGHT }}
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
@@ -418,7 +419,7 @@ function GroupedChildRow({
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
       style={{ height: ROW_HEIGHT }}
-      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left font-mono text-body ${
+      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border pt-chip-y text-left font-mono text-body ${
         selectedFile === cell.file ? "bg-accent text-accent-foreground" : ROW_HOVER
       } text-foreground`}
     >
