@@ -348,7 +348,27 @@ function GroupedParentRow({
   );
 }
 
-function GroupedNestedHeader({ mode }: { mode: Mode }) {
+type NestedSort = { key: "sev" | "value"; dir: "asc" | "desc" };
+
+function GroupedNestedHeader({
+  mode,
+  parentKey,
+  onToggle,
+}: {
+  mode: Mode;
+  parentKey: string;
+  onToggle: (parentKey: string, key: "sev" | "value") => void;
+}) {
+  const sortCol = (key: "sev" | "value", label: string, width: string) => (
+    <button
+      key={key}
+      data-testid={`nested-sort-${key}`}
+      onClick={() => onToggle(parentKey, key)}
+      className={`${width} shrink-0 cursor-pointer px-rail text-left hover:text-foreground`}
+    >
+      {label}
+    </button>
+  );
   return (
     <div
       className="flex w-full items-center border-b border-border bg-background text-caption text-muted-foreground"
@@ -357,8 +377,8 @@ function GroupedNestedHeader({ mode }: { mode: Mode }) {
       <span className={`${NAME_WIDTH} shrink-0 truncate pl-indent pr-rail`}>
         {mode === "rule" ? "input" : "rule"}
       </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>sev</span>
-      <span className={`${NESTED_VALUE_WIDTH} shrink-0 px-rail`}>value</span>
+      {sortCol("sev", "sev", SEVERITY_WIDTH)}
+      {sortCol("value", "value", NESTED_VALUE_WIDTH)}
       <span className="min-w-0 flex-1" />
     </div>
   );
@@ -463,6 +483,8 @@ function GroupedTreeView({
   onToggleExpand,
   selectedFile,
   onSelectPair,
+  nestedSorts,
+  onToggleNestedSort,
 }: {
   list: GroupedRow[];
   range: { first: number; last: number };
@@ -473,6 +495,8 @@ function GroupedTreeView({
   onToggleExpand: (key: string) => void;
   selectedFile: string | null;
   onSelectPair: (pair: Pair) => void;
+  nestedSorts: Record<string, NestedSort>;
+  onToggleNestedSort: (parentKey: string, key: "sev" | "value") => void;
 }) {
   return (
     <>
@@ -490,8 +514,35 @@ function GroupedTreeView({
             const els: React.ReactNode[] = [];
             let openParent: string | null = null;
             let nestedHeaderShown = false;
+            // children of an expanded parent are buffered so the nested table can sort them
+            let childBuffer: ChildRow[] = [];
+            const flushChildren = () => {
+              if (!openParent) return;
+              const s = nestedSorts[openParent];
+              const rows = s
+                ? [...childBuffer].sort((a, b) => {
+                    const d =
+                      s.key === "sev"
+                        ? sevRank(b.cell.severity) - sevRank(a.cell.severity)
+                        : b.cell.value - a.cell.value;
+                    return s.dir === "desc" ? d : -d;
+                  })
+                : childBuffer;
+              for (const r of rows)
+                els.push(
+                  <GroupedChildRow
+                    key={r.key}
+                    row={r}
+                    mode={mode}
+                    selectedFile={selectedFile}
+                    onSelectPair={onSelectPair}
+                  />,
+                );
+              childBuffer = [];
+            };
             for (const row of windowed) {
               if (row.kind === "parent") {
+                flushChildren();
                 openParent = expanded.has(row.key) ? row.key : null;
                 nestedHeaderShown = false;
                 els.push(
@@ -503,13 +554,23 @@ function GroupedTreeView({
                     onToggleExpand={onToggleExpand}
                   />,
                 );
-              } else {
+              } else if (openParent === row.parentKey) {
                 // each expanded parent opens its own nested table: inject its header once,
                 // before the first child row of that parent
-                if (openParent === row.parentKey && !nestedHeaderShown) {
-                  els.push(<GroupedNestedHeader key={openParent + ":nested-header"} mode={mode} />);
+                if (!nestedHeaderShown) {
+                  els.push(
+                    <GroupedNestedHeader
+                      key={openParent + ":nested-header"}
+                      mode={mode}
+                      parentKey={openParent}
+                      onToggle={onToggleNestedSort}
+                    />,
+                  );
                   nestedHeaderShown = true;
                 }
+                childBuffer.push(row);
+              } else {
+                flushChildren();
                 els.push(
                   <GroupedChildRow
                     key={row.key}
@@ -521,6 +582,7 @@ function GroupedTreeView({
                 );
               }
             }
+            flushChildren();
             return els;
           })()}
         </div>
@@ -567,6 +629,15 @@ export function RequestTable({
   const { query, rows, ruleGroups, fileGroups, filter, setFilter, sortKey, sortDir, toggleSort } =
     useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // per-expansion nested-table sort: parentKey -> active column; first click heaviest-first
+  const [nestedSorts, setNestedSorts] = useState<Record<string, NestedSort>>({});
+  const toggleNestedSort = (parentKey: string, key: "sev" | "value") =>
+    setNestedSorts((prev) => {
+      const cur = prev[parentKey];
+      const next: NestedSort =
+        cur?.key === key ? { key, dir: cur.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" };
+      return { ...prev, [parentKey]: next };
+    });
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -701,6 +772,8 @@ export function RequestTable({
         onToggleExpand={toggleExpand}
         selectedFile={selectedFile}
         onSelectPair={onSelectPair}
+        nestedSorts={nestedSorts}
+        onToggleNestedSort={toggleNestedSort}
       />
     );
 
