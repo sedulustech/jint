@@ -35,27 +35,33 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
     <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y text-body">
       <Button
         variant="secondary"
-        size="sm"
+        size="icon-xs"
         disabled={reportQuery.isLoading || !hasReport}
         aria-expanded={reportOpen}
         aria-controls="report-panel"
         aria-disabled={reportQuery.isLoading || !hasReport}
+        aria-label={
+          reportQuery.isLoading
+            ? "report loading"
+            : hasReport
+              ? reportOpen
+                ? "hide report"
+                : "show report"
+              : "no report"
+        }
+        title={
+          reportQuery.isLoading
+            ? "report…"
+            : hasReport
+              ? reportOpen
+                ? "hide report"
+                : "show report"
+              : "no report"
+        }
         onClick={onToggleReport}
-        className="ml-auto disabled:cursor-not-allowed"
+        className="disabled:cursor-not-allowed"
       >
-        {hasReport &&
-          (reportOpen ? (
-            <ChevronDown className="size-3.5" />
-          ) : (
-            <ChevronRight className="size-3.5" />
-          ))}
-        {reportQuery.isLoading
-          ? "report…"
-          : hasReport
-            ? reportOpen
-              ? "hide report"
-              : "show report"
-            : "no report"}
+        {reportOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
       </Button>
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
       <div className="flex flex-wrap items-center gap-x-meta gap-y-related">

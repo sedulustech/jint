@@ -5,6 +5,12 @@ import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { makeRouter } from "./router";
 
+// the report toggle is chevron-only: find it by its aria-label (show/hide report/no report/...)
+const reportToggle = (state: string) =>
+  [...document.querySelectorAll('button[aria-controls="report-panel"]')].find((b) =>
+    (b.getAttribute("aria-label") ?? "").includes(state),
+  );
+
 // Router acceptance, automated from the manual browser pass: URL is the state,
 // so every test boots at an address and asserts on what renders + what the bar says.
 
@@ -78,7 +84,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (document.body.innerText.includes("show report")) return;
+      if (reportToggle("show report")) return;
       throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
@@ -87,9 +93,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
 
   // D1 round trip: toggle writes the SAME spelling the validator accepts, and a
   // fresh boot (reload) reads it back
-  const toggle = [...document.querySelectorAll("button")].find((b) =>
-    (b.textContent ?? "").includes("show report"),
-  )!;
+  const toggle = reportToggle("show report")!;
   toggle.click();
   await expectPath("/runs/run-a?report=1");
   cleanup();
@@ -127,8 +131,7 @@ test("history walk: pick another run, back restores the previous run + panel sta
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("show report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("show report")) throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
   );
@@ -196,8 +199,7 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no report")) throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
   );
@@ -207,8 +209,7 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no report")) throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
   );
@@ -219,8 +220,7 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0?report=1");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no report")) throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
   );
@@ -231,8 +231,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("show report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("show report")) throw new Error("run view not rendered yet");
     },
     { timeout: 10_000 },
   );
@@ -334,10 +333,7 @@ async function toggleReport(target: "0" | "1") {
       detailPane() !== ""
     )
       return;
-    const label = want ? "show report" : "hide report";
-    const b = [...document.querySelectorAll("button")].find((x) =>
-      (x.textContent ?? "").includes(label),
-    );
+    const b = reportToggle(want ? "show report" : "hide report");
     if (b !== undefined) (b as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 150));
   }
