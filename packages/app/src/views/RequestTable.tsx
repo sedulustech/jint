@@ -240,18 +240,12 @@ function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
 function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const button = (buttonMode: Mode, label: string) => (
     <Button
-      /* pressed/unpressed is a state, not a variant: every action button keeps the same default
-         fill; unpressed just runs the fill and label at reduced emphasis. */
-      variant="default"
+      variant={mode === buttonMode ? "secondary" : "outline"}
       size="sm"
       onClick={() => onMode(buttonMode)}
       aria-pressed={mode === buttonMode}
       data-testid={`mode-${buttonMode}`}
-      className={`font-mono text-body ${
-        mode === buttonMode
-          ? ""
-          : "bg-primary/60 text-primary-foreground/70 hover:bg-primary/70 hover:text-primary-foreground"
-      }`}
+      className="font-mono text-body"
     >
       {label}
     </Button>
