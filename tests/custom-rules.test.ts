@@ -4,11 +4,11 @@ import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// TS-tier end-to-end: a config-declared tsRules fragment, loaded through the jint:sdk virtual
+// custom-tier end-to-end: a config-declared customRules fragment, loaded through the jint:sdk virtual
 // module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
-// fatal-vs-streamed error boundaries) — see src/core/tsrules/*.test.ts for the unit level.
+// fatal-vs-streamed error boundaries) — see src/core/custom-rules/*.test.ts for the unit level.
 
-const DIR = "/tmp/jint-ts-rules-e2e";
+const DIR = "/tmp/jint-custom-rules-e2e";
 
 const FIXTURE = [
   "export function alpha() {",
@@ -83,7 +83,7 @@ function setup(name: string, rule: string, config?: Record<string, unknown>): st
         $schema: "../../../jint.schema.json",
         input: "fixture.ts",
         rules: [],
-        tsRules: ["rule.ts"],
+        customRules: ["rule.ts"],
       },
     ),
   );
@@ -104,8 +104,8 @@ async function runIn(dir: string, env: Record<string, string | undefined> = {}) 
   });
 }
 
-describe("cli: ts rules end-to-end", () => {
-  test("a config-declared TS rule classifies, fires, and binds the finding to the target span", async () => {
+describe("cli: custom rules end-to-end", () => {
+  test("a config-declared custom rule classifies, fires, and binds the finding to the target span", async () => {
     const dir = setup("happy", GOOD_RULE);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 0, stdout: "json" }); // 0.8 warns (warn_at 0.5), never errors
@@ -145,7 +145,7 @@ describe("cli: ts rules end-to-end", () => {
     const files = runDirs
       .flatMap((d) => readdirSync(d).map((f) => d + "/" + f))
       .filter((f) => !f.endsWith("report.json") && !f.endsWith("manifest.json"));
-    // Exact contract: this fixture run makes exactly ONE classifier call (the TS rule's single
+    // Exact contract: this fixture run makes exactly ONE classifier call (the custom rule's single
     // comment target; no JSON rules) — a manifest or second capture would break that claim.
     expect(files).toHaveLength(1);
     // The TS state is a free composition (no "source" key), so the tap kinds it "files-state".
@@ -184,13 +184,13 @@ describe("cli: ts rules end-to-end", () => {
     expect(report.errors[0]?.message).toContain("fixture.ts#");
   });
 
-  test("a duplicate name across the JSON and TS tiers is fatal", async () => {
+  test("a duplicate name across the JSON and custom tiers is fatal", async () => {
     const dir = setup("duptier", GOOD_RULE, {
       input: "fixture.ts",
-      tsRules: ["rule.ts"],
+      customRules: ["rule.ts"],
       rules: ["is_name_purposeful"],
     });
-    // the TS rule's name differs here; force a real cross-tier clash
+    // the custom rule's name differs here; force a real cross-tier clash
     writeFileSync(dir + "/rule.ts", GOOD_RULE.replace("will_ts_rule_fire", "is_name_purposeful"));
     const r = await runIn(dir);
     expectContract(r, { exit: 2, stderr: [/is_name_purposeful/, /both tiers|across/] });

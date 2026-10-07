@@ -14,20 +14,20 @@ import { describe, expect, test } from "bun:test";
 import type {
   RuleContext,
   StateSpec,
-  TsConfigFragment,
-  TsDecision,
-  TsElement,
-  TsHandleData,
-  TsRule,
+  CustomConfigFragment,
+  CustomDecision,
+  CustomElement,
+  CustomHandleData,
+  CustomRule,
 } from "./sdk.ts";
 import type {
   RuleContext as DxRuleContext,
   StateSpec as DxStateSpec,
-  TsConfigFragment as DxTsConfigFragment,
-  TsDecision as DxTsDecision,
-  TsElement as DxTsElement,
-  TsHandleData as DxTsHandleData,
-  TsRule as DxTsRule,
+  CustomConfigFragment as DxCustomConfigFragment,
+  CustomDecision as DxCustomDecision,
+  CustomElement as DxCustomElement,
+  CustomHandleData as DxCustomHandleData,
+  CustomRule as DxCustomRule,
 } from "jint:sdk";
 
 /** Type identity, not assignability: <T>() => T extends A ? 1 : 2 distinguishes even optionals. */
@@ -36,13 +36,13 @@ type Same<A, B> =
 type Expect<T extends true> = T;
 
 type Contract = [
-  Expect<Same<TsElement, DxTsElement>>,
+  Expect<Same<CustomElement, DxCustomElement>>,
   Expect<Same<RuleContext, DxRuleContext>>,
   Expect<Same<StateSpec, DxStateSpec>>,
-  Expect<Same<TsHandleData, DxTsHandleData>>,
-  Expect<Same<TsDecision, DxTsDecision>>,
-  Expect<Same<TsRule, DxTsRule>>,
-  Expect<Same<TsConfigFragment, DxTsConfigFragment>>,
+  Expect<Same<CustomHandleData, DxCustomHandleData>>,
+  Expect<Same<CustomDecision, DxCustomDecision>>,
+  Expect<Same<CustomRule, DxCustomRule>>,
+  Expect<Same<CustomConfigFragment, DxCustomConfigFragment>>,
 ];
 const _contract: Contract = [true, true, true, true, true, true, true];
 

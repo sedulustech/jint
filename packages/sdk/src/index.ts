@@ -32,7 +32,7 @@ export { selectionEcho } from "./core/output/echo.ts";
 export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { selectRules } from "./core/lint.ts";
-export { validateTsRule } from "./core/tsrules/sdk.ts";
+export { validateCustomRule } from "./core/custom-rules/sdk.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
 export type { Inventory, WalkElement, NodeRole } from "./core/input/walk.ts";

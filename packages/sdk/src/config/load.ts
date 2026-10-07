@@ -129,9 +129,9 @@ export const CONFIG_SCHEMA = Type.Object({
   input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
   rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
-  // TS-tier rules: paths to TypeScript rule files (default-exporting defineRule from "jint:api"),
+  // custom-tier rules: paths to TypeScript rule files (default-exporting defineRule from "jint:api"),
   // resolved relative to the config file. The JSON tier above is untouched by this key.
-  tsRules: Type.Optional(Type.Array(Type.String())),
+  customRules: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
@@ -162,8 +162,8 @@ export interface ResolvedConfig {
   readonly input?: string;
   readonly inputType?: "file" | "dir";
   readonly rules: readonly Rule[];
-  /** TS-tier rule files, resolved absolute; empty when the config declares none. */
-  readonly tsRules?: readonly string[];
+  /** Custom-tier rule files, resolved absolute; empty when the config declares none. */
+  readonly customRules?: readonly string[];
   readonly exclude: readonly string[];
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
@@ -181,7 +181,7 @@ export function defaultConfig(): ResolvedConfig {
   return Object.freeze({
     input: "",
     rules: Object.freeze(Object.values(defaultRules)),
-    tsRules: Object.freeze([]),
+    customRules: Object.freeze([]),
     exclude: Object.freeze(["**/fixtures/**"]),
   });
 }
@@ -265,12 +265,12 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   }
   for (const name of parsed.disable ?? []) byName.delete(name);
   // A run that would measure NOTHING is a config error, not a "0 rules" headline: the resolved
-  // set must be non-empty across both tiers (rules: [] alone is legal ONLY when tsRules supply
+  // set must be non-empty across both tiers (rules: [] alone is legal ONLY when customRules supply
   // the set — the lint.test.ts pattern). Setup failure, named, like every config problem.
-  if (byName.size === 0 && (parsed.tsRules ?? []).length === 0) {
+  if (byName.size === 0 && (parsed.customRules ?? []).length === 0) {
     throw new SetupError(
       "CONFIG_NO_RULES",
-      `invalid config ${source}: no rules to run - declare at least one rule (rules or tsRules), or drop the disable list`,
+      `invalid config ${source}: no rules to run - declare at least one rule (rules or customRules), or drop the disable list`,
     );
   }
   // Per-rule scope validation + legal-cancellation warnings (never errors, per issue 008).
@@ -294,7 +294,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
     input: string;
     inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
-    tsRules: string[];
+    customRules: string[];
     exclude: string[];
     apiKey?: string;
     concurrency?: number;
@@ -304,8 +304,8 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
-    // Relative TS rule paths resolve against the config file's directory, like the config itself.
-    tsRules: (parsed.tsRules ?? []).map((p) => resolve(dirname(resolve(source)), p)),
+    // Relative custom rule paths resolve against the config file's directory, like the config itself.
+    customRules: (parsed.customRules ?? []).map((p) => resolve(dirname(resolve(source)), p)),
     exclude: parsed.exclude ?? [],
   };
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;

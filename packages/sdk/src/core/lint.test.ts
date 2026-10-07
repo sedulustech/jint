@@ -104,7 +104,7 @@ const DEFINITION_SENSORS = [
   "is_cognitively_complex",
 ];
 
-test("classification respects rule targets: comment rules never judge bare definitions, definition rules never judge comment elements", async () => {
+test("classification respeccustom rule targets: comment rules never judge bare definitions, definition rules never judge comment elements", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
@@ -782,7 +782,7 @@ describe("lint — unknown rule names", () => {
   });
 });
 
-describe("lint — tsRules content retention (the logical content-drop)", () => {
+describe("lint — customRules content retention (the logical content-drop)", () => {
   const TS_DIR = "tmp/lint-retention-test";
   const RULE_PATH = TS_DIR + "/comment-rule.ts";
   // Targets ONLY good.ts's elements: sample-file.ts has zero selected targets.
@@ -817,12 +817,12 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
     writeFileSync(RULE_PATH, RULE_SOURCE);
   };
 
-  test("a files-target JSON rule retains EVERY file's content even when TS rules target only one file", async () => {
+  test("a files-target JSON rule retains EVERY file's content even when custom rules target only one file", async () => {
     writeRule();
     const log: CallLog = { calls: [] };
     await drain(
       lint({
-        config: { ...baseConfig, rules: [FILES_RULE as never], tsRules: [RULE_PATH] },
+        config: { ...baseConfig, rules: [FILES_RULE as never], customRules: [RULE_PATH] },
         input: [FILE, GOOD],
         classifier: loggingClassifier(
           { is_files_retention_probe: 0.9, ts_retention_probe: 0.9 },
@@ -857,7 +857,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
               handle: () => null, // never fires: the rule classifies, nothing is actionable
             } as never,
           ],
-          tsRules: [RULE_PATH],
+          customRules: [RULE_PATH],
         },
         input: [FILE, GOOD],
         classifier: loggingClassifier({ ts_retention_probe: 0.9 }, log),
@@ -870,7 +870,7 @@ describe("lint — tsRules content retention (the logical content-drop)", () => 
       (c) => isElementCall(c.state) && (c.state as { path: string }).path === FILE,
     );
     expect(sampleElementCalls.length).toBeGreaterThan(0);
-    // The TS rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
+    // The custom rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
     const tsMeasurements = events.filter(
       (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
     );

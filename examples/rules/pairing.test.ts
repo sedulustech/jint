@@ -3,7 +3,7 @@ import { validateConfig } from "@jint/sdk";
 import { collectReport, lint } from "@jint/sdk";
 import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "@jint/sdk";
 
-// The proof rule runs the real pipeline end to end: config tsRules -> jint:sdk load -> walk ->
+// The proof rule runs the real pipeline end to end: config customRules -> jint:sdk load -> walk ->
 // pairing via element.parent -> classifier. The classifier is a stub that records the composed
 // state (the pairing is asserted ON THE WIRE SHAPE, not on model behavior).
 
@@ -21,7 +21,7 @@ describe("is_comment_paired_with_code (example)", () => {
       return answers;
     };
     const config = validateConfig(
-      { input: FIXTURE, rules: [], tsRules: [RULE], apiKey: "unused" },
+      { input: FIXTURE, rules: [], customRules: [RULE], apiKey: "unused" },
       "example.config.json",
     );
     const report = await collectReport(lint({ config, classifier }));

@@ -362,7 +362,7 @@
         ]
       }
     },
-    "tsRules": {
+    "customRules": {
       "type": "array",
       "items": {
         "type": "string"

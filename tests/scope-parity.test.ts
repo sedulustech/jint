@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { validateConfig } from "@jint/sdk";
-import { validateTsRule } from "@jint/sdk";
+import { validateCustomRule } from "@jint/sdk";
 
 // Cross-tier parity for per-rule scoping (issue 008): the same bad scope shapes must be rejected
 // by BOTH tiers - the JSON loader (CONFIG_INVALID) and the TS-rule loader (RULE_INVALID) - with
@@ -20,7 +20,7 @@ const jsonRule = (scope: Record<string, unknown>) => ({
   ],
 });
 
-const tsRule = (scope: Record<string, unknown>) => ({
+const customRule = (scope: Record<string, unknown>) => ({
   name: "r",
   target: "comments",
   classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
@@ -36,10 +36,10 @@ const CHECKER_SCOPES: readonly Record<string, unknown>[] = [
   { include: ["!tests/**"] }, // negated glob (rejected decision)
   { exclude: ["!src/**"] },
 ];
-// Shape-rejected only by the JSON tier's TypeBox schema (the TS tier reaches the checker).
+// Shape-rejected only by the JSON tier's TypeBox schema (the custom tier reaches the checker).
 const SCHEMA_SCOPES: readonly Record<string, unknown>[] = [{ exclude: [42] }];
 
-describe("scope validation parity (JSON tier <-> TS tier)", () => {
+describe("scope validation parity (JSON tier <-> custom tier)", () => {
   // Review 396888e finding 5: the rejection SET alone could stay green if the JSON tier started
   // rejecting a shape via the schema union for an unrelated reason — pin the message content too.
   test.each(CHECKER_SCOPES.map((s) => [JSON.stringify(s), s] as const))(
@@ -49,7 +49,9 @@ describe("scope validation parity (JSON tier <-> TS tier)", () => {
       expect(() => validateConfig(jsonRule(scope), "inline")).toThrow(
         new RegExp(`invalid config inline: rule 'r' ${field}:`),
       );
-      expect(() => validateTsRule(tsRule(scope), "f.ts")).toThrow(new RegExp(`"r": ${field}:`));
+      expect(() => validateCustomRule(customRule(scope), "f.ts")).toThrow(
+        new RegExp(`"r": ${field}:`),
+      );
     },
   );
 
@@ -61,7 +63,7 @@ describe("scope validation parity (JSON tier <-> TS tier)", () => {
       expect(() => validateConfig(jsonRule(scope), "inline")).toThrow(
         "invalid config inline: /rules/0/exclude/0",
       );
-      expect(() => validateTsRule(tsRule(scope), "f.ts")).toThrow(/"r": exclude:/);
+      expect(() => validateCustomRule(customRule(scope), "f.ts")).toThrow(/"r": exclude:/);
     },
   );
 
@@ -72,7 +74,7 @@ describe("scope validation parity (JSON tier <-> TS tier)", () => {
       { include: ["src/**"], exclude: ["src/generated/**"] },
     ]) {
       expect(() => validateConfig(jsonRule(scope), "inline")).not.toThrow();
-      expect(() => validateTsRule(tsRule(scope), "f.ts")).not.toThrow();
+      expect(() => validateCustomRule(customRule(scope), "f.ts")).not.toThrow();
     }
   });
 });

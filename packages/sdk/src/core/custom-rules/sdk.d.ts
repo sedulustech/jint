@@ -2,7 +2,7 @@
  * Editor DX for the virtual module "jint:sdk" — the runtime does NOT typecheck; this file exists so
  * rule files get completions and checking in the editor. Reference it from the rule project:
  *
- * /// <reference path="./node_modules/jint/src/core/tsrules/sdk.d.ts" />
+ * /// <reference path="./node_modules/jint/src/core/custom-rules/sdk.d.ts" />
  *
  * (jint ships src/; see the README's TS-rules section.)
  *
@@ -15,7 +15,7 @@ declare module "jint:sdk" {
    * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the
    * element).
    */
-  export interface TsElement {
+  export interface CustomElement {
     readonly id: string;
     readonly path: string;
     readonly role: "function" | "type" | "binding" | "import" | "comment";
@@ -28,12 +28,12 @@ declare module "jint:sdk" {
     };
     /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
     readonly attachedComment?: readonly string[];
-    readonly parent: TsElement | null;
+    readonly parent: CustomElement | null;
   }
 
   /** The rule's environment, assembled after target resolution. */
   export interface RuleContext {
-    readonly targets: readonly TsElement[];
+    readonly targets: readonly CustomElement[];
   }
 
   /** One compiled judgment: question, criteria, and the freely composed state jev judges. */
@@ -44,7 +44,7 @@ declare module "jint:sdk" {
   }
 
   /** Declarative policy: the typed noul handler (same shape as JSON noul rules). */
-  export type TsHandleData = import("@jint/contract").NoulHandlerData;
+  export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
   /** The jev answer type for the rule's kind (noul-only in v1). */
   export type NoulResult = { readonly type: "noul"; readonly noul: number };
@@ -52,13 +52,13 @@ declare module "jint:sdk" {
   export type RuleResult = NoulResult | ScoreResult;
 
   /** One policy decision, aligned by index with ctx.targets; null severity = silent. */
-  export interface TsDecision {
+  export interface CustomDecision {
     readonly severity: "error" | "warn" | null;
     readonly data?: Record<string, unknown>;
   }
 
-  /** A TS rule: request (target), per-element compiler (classify), and exactly one policy. */
-  export interface TsRule {
+  /** A custom rule: request (target), per-element compiler (classify), and exactly one policy. */
+  export interface CustomRule {
     readonly name: string;
     readonly kind?: "noul";
     readonly target:
@@ -67,26 +67,26 @@ declare module "jint:sdk" {
       | "comments"
       | "imports"
       | readonly string[]
-      | ((elements: readonly TsElement[]) => readonly TsElement[]);
-    readonly classify: (self: TsElement, ctx: RuleContext) => StateSpec;
+      | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
+    readonly classify: (self: CustomElement, ctx: RuleContext) => StateSpec;
     /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */
     readonly exclude?: readonly string[];
-    readonly handle?: TsHandleData;
+    readonly handle?: CustomHandleData;
     readonly handleClassification?: (
       results: readonly RuleResult[],
       ctx: RuleContext,
-    ) => readonly TsDecision[];
+    ) => readonly CustomDecision[];
   }
 
   /** A TS config fragment: contributes rules ONLY (run-level keys stay in jint.config.json). */
-  export interface TsConfigFragment {
-    readonly rules: readonly TsRule[];
+  export interface CustomConfigFragment {
+    readonly rules: readonly CustomRule[];
   }
 
   /** Declares a fragment; takes one fragment or an array of them. */
   export function defineConfig(
-    fragment: TsConfigFragment | readonly TsConfigFragment[],
-  ): TsConfigFragment;
+    fragment: CustomConfigFragment | readonly CustomConfigFragment[],
+  ): CustomConfigFragment;
 }

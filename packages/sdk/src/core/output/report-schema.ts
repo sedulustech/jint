@@ -68,7 +68,7 @@ export const FINDING_SCHEMA = Type.Object({
   note: Type.Optional(Type.String()),
   // Additive (element-scoped findings): the element's exact span; files-target findings lack it.
   location: Type.Optional(Type.Object({ input: Type.String(), span: SPAN_SCHEMA })),
-  // Additive (TS tier): a policy callback's extra structured data. finding.message dropped
+  // Additive (custom tier): a policy callback's extra structured data. finding.message dropped
   // (consumers join by rule id).
   data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 });

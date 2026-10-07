@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { decompose, type WalkElement } from "../input/walk.ts";
 import { rulesForElement } from "../rules/classify.ts";
 import {
-  resolveAllTsTargets,
-  runTsRules,
+  resolveAllCustomTargets,
+  runCustomRules,
   tsElementsOf,
-  type ResolvedTsTarget,
-  type ResolvedTsTargets,
+  type ResolvedCustomTarget,
+  type ResolvedCustomTargets,
 } from "./execute.ts";
 import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "../types.ts";
-import type { TsElement, TsRule } from "./sdk.ts";
+import type { CustomElement, CustomRule } from "./sdk.ts";
 
 /** Splits a unit inventory by path the way lint hands it over (one file here). */
 async function oneFile(
@@ -48,7 +48,7 @@ function fakeClassifier(value: number, calls: Call[] = [], error: Error | null =
 }
 
 /** Narrows a resolved entry to its targets (tests only ever resolve valid rules). */
-function targetsOf(resolved: ResolvedTsTarget): readonly TsElement[] {
+function targetsOf(resolved: ResolvedCustomTarget): readonly CustomElement[] {
   expect("targets" in resolved).toBe(true);
   return "targets" in resolved ? resolved.targets : [];
 }
@@ -60,22 +60,22 @@ const spec = (state: Record<string, unknown>) => ({
 });
 
 async function run(
-  rule: TsRule,
+  rule: CustomRule,
   inventory: Map<string, readonly WalkElement[]>,
   classifier: Classifier,
-): Promise<Awaited<ReturnType<typeof runTsRules>>> {
-  const resolved: ResolvedTsTargets = resolveAllTsTargets([rule], inventory);
-  return runTsRules([rule], resolved, classifier, () => false);
+): Promise<Awaited<ReturnType<typeof runCustomRules>>> {
+  const resolved: ResolvedCustomTargets = resolveAllCustomTargets([rule], inventory);
+  return runCustomRules([rule], resolved, classifier, () => false);
 }
 
-function ruleOf(patch: Partial<TsRule>): TsRule {
+function ruleOf(patch: Partial<CustomRule>): CustomRule {
   return {
     name: "is_test_rule",
     target: "comments",
     classify: () => spec({ source: "x" }),
     handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
     ...patch,
-  } as TsRule;
+  } as CustomRule;
 }
 
 describe("cross-tier target consistency (the drift killer)", () => {
@@ -90,7 +90,7 @@ describe("cross-tier target consistency (the drift killer)", () => {
     "// a standalone comment (two blank lines keep it standalone)",
   ].join("\n");
 
-  test("JSON-tier rulesForElement and TS-tier selection return the SAME element set for every element target", async () => {
+  test("JSON-tier rulesForElement and custom-tier selection return the SAME element set for every element target", async () => {
     const inv = await decompose(COMMENTED, "typescript");
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
     // alpha carries the leading comment: target "comments" must match it in BOTH tiers.
@@ -104,7 +104,7 @@ describe("cross-tier target consistency (the drift killer)", () => {
       }) as never;
     for (const target of ["comments", "functions", "definitions", "imports"] as const) {
       const jsonPicked = inventory.filter((e) => rulesForElement([fakeRule(target)], e).length > 0);
-      const resolved = resolveAllTsTargets(
+      const resolved = resolveAllCustomTargets(
         [fakeRule(target)],
         new Map([["src/fixture.ts", inventory]]),
       );
@@ -114,10 +114,10 @@ describe("cross-tier target consistency (the drift killer)", () => {
   });
 });
 
-describe("resolveAllTsTargets", () => {
+describe("resolveAllCustomTargets", () => {
   test("a string target filters the full inventory by role", async () => {
     const inventory = await oneFile(SOURCE);
-    const resolved = resolveAllTsTargets([ruleOf({})], inventory);
+    const resolved = resolveAllCustomTargets([ruleOf({})], inventory);
     const resolvedRule = [...resolved.values()][0]!;
     expect("targets" in resolvedRule && resolvedRule.targets).toHaveLength(1);
     expect("targets" in resolvedRule && resolvedRule.targets[0]?.id).toBe("c0");
@@ -133,7 +133,7 @@ describe("resolveAllTsTargets", () => {
     };
     const inventory = [...inv.get("src/fixture.ts")!, oversized];
     for (const target of ["comments", "functions", "definitions", "imports"] as const) {
-      const resolved = resolveAllTsTargets(
+      const resolved = resolveAllCustomTargets(
         [ruleOf({ target })],
         new Map([["src/fixture.ts", inventory]]),
       );
@@ -141,7 +141,7 @@ describe("resolveAllTsTargets", () => {
       expect(targets.some((e) => e.id === "d9")).toBe(false);
     }
     // ...and not even the function-selection form sees it: the view excludes the element.
-    const seen = resolveAllTsTargets(
+    const seen = resolveAllCustomTargets(
       [ruleOf({ target: (elements) => elements })],
       new Map([["src/fixture.ts", inventory]]),
     );
@@ -170,7 +170,7 @@ describe("resolveAllTsTargets", () => {
   test("the function form receives the FULL inventory and is evaluated ONCE", async () => {
     const inventory = await oneFile(SOURCE);
     let evaluations = 0;
-    let seen: readonly TsElement[] = [];
+    let seen: readonly CustomElement[] = [];
     const rule = ruleOf({
       target: (elements) => {
         evaluations++;
@@ -178,7 +178,7 @@ describe("resolveAllTsTargets", () => {
         return elements.filter((e) => e.role === "function");
       },
     });
-    const resolved = resolveAllTsTargets([rule], inventory);
+    const resolved = resolveAllCustomTargets([rule], inventory);
     const resolvedRule = [...resolved.values()][0]!;
     expect(evaluations).toBe(1);
     expect(seen).toHaveLength(3); // 2 functions + 1 standalone comment = full walk inventory
@@ -201,7 +201,7 @@ describe("resolveAllTsTargets", () => {
 });
 
 describe("tsElementsOf — materialized parent view", () => {
-  test("TsElement.parent links a nested element to its owner; top-level is null", async () => {
+  test("CustomElement.parent links a nested element to its owner; top-level is null", async () => {
     const inv = await decompose(
       ["class Widget {", "  render(): string {", "    return 'x';", "  }", "}"].join("\n"),
       "typescript",
@@ -217,20 +217,20 @@ describe("tsElementsOf — materialized parent view", () => {
   });
 });
 
-describe("runTsRules — impossible state fails loud", () => {
+describe("runCustomRules — impossible state fails loud", () => {
   test("a rule missing from the resolution map throws (never a silent skip)", async () => {
     const inventory = await oneFile(SOURCE);
     const rule = ruleOf({});
-    await expect(runTsRules([rule], new Map(), fakeClassifier(0.9), () => false)).rejects.toThrow(
-      /no resolution entry/,
-    );
+    await expect(
+      runCustomRules([rule], new Map(), fakeClassifier(0.9), () => false),
+    ).rejects.toThrow(/no resolution entry/);
     void inventory;
   });
 });
 
-// Review 396888e finding 3: scoping is a cross-tier feature — the TS tier must be TESTED, not
+// Review 396888e finding 3: scoping is a cross-tier feature — the custom tier must be TESTED, not
 // just compiled. Zero-cost filtering on BOTH selection paths, and the note the JSON tier emits.
-describe("per-rule scoping on the TS tier", () => {
+describe("per-rule scoping on the custom tier", () => {
   test("zero-cost: a scoped-out element costs zero jev calls (grammar path)", async () => {
     const inventory = await oneFile(SOURCE, "tests/fixture.ts");
     const calls: Call[] = [];
@@ -245,7 +245,7 @@ describe("per-rule scoping on the TS tier", () => {
     const notes = phase.events.filter((e) => e.type === "note");
     expect(notes).toHaveLength(1);
     expect(notes[0]?.type === "note" && notes[0].note).toBe(
-      'ts rule "is_test_rule": scope excluded 1 element(s)',
+      'custom rule "is_test_rule": scope excluded 1 element(s)',
     );
   });
 
@@ -279,7 +279,7 @@ describe("per-rule scoping on the TS tier", () => {
   });
 });
 
-describe("runTsRules — JEV_RESPONSE_INVALID guard", () => {
+describe("runCustomRules — JEV_RESPONSE_INVALID guard", () => {
   test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async () => ({}));
@@ -314,7 +314,7 @@ describe("walk-first resolution (multi-file)", () => {
         return elements.filter((e) => e.role === "comment");
       },
     });
-    const resolved = resolveAllTsTargets([rule], inventory);
+    const resolved = resolveAllCustomTargets([rule], inventory);
     const targets = targetsOf([...resolved.values()][0]!);
     // Both files were fully walked BEFORE resolution: one comment per file, both visible.
     expect(seenPaths.sort()).toEqual(["src/a.ts", "src/b.ts"]);
@@ -322,7 +322,7 @@ describe("walk-first resolution (multi-file)", () => {
   });
 });
 
-describe("runTsRules — classification", () => {
+describe("runCustomRules — classification", () => {
   test("fan-out: N targets -> N classifier invocations, one question each, slice-of-one state", async () => {
     const inventory = await oneFile(SOURCE);
     const calls: Call[] = [];
@@ -399,7 +399,7 @@ describe("runTsRules — classification", () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(
       ruleOf({
-        classify: (() => Promise.resolve(spec({}))) as unknown as TsRule["classify"],
+        classify: (() => Promise.resolve(spec({}))) as unknown as CustomRule["classify"],
         handleClassification: () => [],
       }),
       inventory,
@@ -422,7 +422,7 @@ describe("runTsRules — classification", () => {
     );
     const error = phase.events.find((e) => e.type === "error");
     expect(error?.type === "error" && error.error.code).toBe("RULE_FAILED");
-    expect(error?.type === "error" && error.error.message).toContain('ts rule "is_test_rule"');
+    expect(error?.type === "error" && error.error.message).toContain('custom rule "is_test_rule"');
     expect(error?.type === "error" && error.error.message).toContain("src/fixture.ts#");
     expect(error?.type === "error" && error.error.message).toContain("criteria");
   });
@@ -447,7 +447,7 @@ describe("runTsRules — classification", () => {
   });
 });
 
-describe("runTsRules — policy", () => {
+describe("runCustomRules — policy", () => {
   test("declarative handle: findings bind to the target's span", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, fakeClassifier(0.8));

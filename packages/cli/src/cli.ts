@@ -244,7 +244,7 @@ Element-scoped runs: address one element directly —
 ANCHOR @L<n>: the element whose span contains line n (one call). RANGE @L<s>-<e>: every element
 FULLY ENCLOSED in [s,e] — partial overlaps never selected; a range enclosing none is an error
 naming the file's element spans. Comma list @L<s>-<e>,@L<s>-<e>: each item independent. Each
-selected element is one classifier call (its rules batched); --rule narrows every selection to ONE.
+selected element is one classifier call (icustom rules batched); --rule narrows every selection to ONE.
 Finding line nouns paste back as file@L<line> — element ids are run-scoped and never selectable.
 Verifying one fix: the finding's @L is pre-edit (edits shift lines) - re-check at the
   element's CURRENT line: jint src/a.ts@L<current-line> --rule <rule>   one call;
@@ -282,14 +282,16 @@ export function recordNotice(): string {
 
 /**
  * The stderr rules pre-print: header + full-prose rule descriptions (SDK describeRules) + a ts-rule
- * count note when the config declares TS-tier rules (their names load at run time, so only the
+ * count note when the config declares custom-tier rules (their names load at run time, so only the
  * count prints here — never claim fewer rules than the run uses). The block is the rubric in the
  * consumer's context BEFORE the findings; stdout stays untouched. The CLI owns this function's
  * voice; the SDK owns describeRules (same block, neutral).
  */
-export function printRules(effective: readonly Rule[], tsCount: number): void {
+export function printRules(effective: readonly Rule[], customCount: number): void {
   const tsNote =
-    tsCount > 0 ? ` + ${tsCount} ts rule${tsCount === 1 ? "" : "s"} (loaded at run time)` : "";
+    customCount > 0
+      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (loaded at run time)`
+      : "";
   process.stderr.write(
     `jint: measuring with ${effective.length} rules${tsNote}\n\n` + describeRules(effective),
   );
@@ -515,7 +517,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice,
   // empty stdout — the block is the whole payload (rubric before reading, for free).
   if (cliArgs["dry-run"] === true) {
-    printRules(effective, resolvedConfig.tsRules?.length ?? 0);
+    printRules(effective, resolvedConfig.customRules?.length ?? 0);
     return 0;
   }
 
@@ -524,7 +526,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
     // place their meaning lives in-band (context timing, not artifact embedding — output can
     // be sub-sampled, context cannot).
-    printRules(effective, resolvedConfig.tsRules?.length ?? 0);
+    printRules(effective, resolvedConfig.customRules?.length ?? 0);
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,

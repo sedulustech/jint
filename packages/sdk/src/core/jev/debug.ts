@@ -44,7 +44,7 @@ export function recordRunManifest(manifest: {
   ts: string;
   /**
    * Per-rule declarative handle snapshot (rule -> NoulHandlerData | ScoreHandlerData), so any
-   * consumer can recompute severity exactly. TS-tier rules are absent (code policy, not data).
+   * consumer can recompute severity exactly. custom-tier rules are absent (code policy, not data).
    */
   handles?: Record<string, unknown>;
 }): void {
