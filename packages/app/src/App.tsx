@@ -343,7 +343,7 @@ export function App({ runId }: { runId: string | null }) {
                   order={2}
                   defaultSize={40}
                   minSize={25}
-                  className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+                  className="flex min-h-0 min-w-0 flex-col overflow-auto"
                 >
                   <PairDetail
                     runId={runId}

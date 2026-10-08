@@ -67,7 +67,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   const meta = request?.response ?? {};
 
   return (
-    <section className="detail-pane flex h-1/2 w-full shrink-0 flex-col border-t border-border bg-background lg:h-full lg:w-full lg:min-h-0 lg:min-w-[320px] lg:border-l lg:border-t-0">
+    <section className="detail-pane flex h-full w-full min-h-0 min-w-0 flex-col border-t border-border bg-background overflow-auto lg:border-l lg:border-t-0">
       <header className="flex shrink-0 items-center gap-siblings border-b border-border px-rail py-bar-y">
         <h2 className="min-w-0 flex-1 truncate text-body text-foreground">
           {rule}{" "}
