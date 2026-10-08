@@ -701,10 +701,25 @@ describe("lint", () => {
     const inputs = new Set(
       events.filter((e) => e.type === "measurement").map((e) => e.measurement.input),
     );
-    // element identity is a uuid — assert shape, never the value
-    expect(inputs).toEqual(new Set(["good.ts", ...[...inputs].filter((i) => i.includes("#"))]));
+    // non-source files measure at the file tier (is_filename_fitting); their extensions are
+    // sweep coverage for the element rules. Element identity is a uuid - assert shape.
+    expect(inputs).toEqual(
+      new Set([
+        "good.ts",
+        "Makefile",
+        "README.md",
+        "data.json",
+        ...[...inputs].filter((i) => i.includes("#")),
+      ]),
+    );
     expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
     for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
+    // Makefile is extensionless; more.ts was excluded, so it never appears as seen
+    const coverage = events.find(
+      (e): e is Extract<LintEvent, { type: "note" }> =>
+        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+    );
+    expect(coverage?.note).toBe("parsing ts, tsx, py, go · not parsed (no grammar): .json, .md");
   });
 
   test("custom rule set (selection = the rule list itself)", async () => {

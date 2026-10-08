@@ -22,6 +22,12 @@ export interface ResolveOptions {
   inputType?: InputKind;
   /** Extra input exclusions (config exclude + CLI --exclude union). */
   exclude?: readonly string[];
+  /**
+   * Whether a file needs a grammar to be measured (an element-target rule is in scope for it).
+   * Absent = every file requires a grammar. A grammar-less file with requireGrammar false measures
+   * as raw source; with requireGrammar true it fails NOT_SOURCE, naming the grammars.
+   */
+  requireGrammarFor?: (path: string) => boolean;
 }
 
 /** Path-shape inference only: directory -> dir, file -> file, anything else is not found. */
@@ -37,12 +43,16 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
   return (async function* () {
     // explicit file paths bypass exclude
     if (Array.isArray(input)) {
-      for (const path of input) yield await fileUnit(path);
+      for (const path of input) {
+        yield await fileUnit(path, { requireGrammar: options.requireGrammarFor?.(path) ?? true });
+      }
       return;
     }
     const kind = inputType ?? (await inferKind(input));
     if (kind === "file") {
-      yield await fileUnit(input);
+      yield await fileUnit(input, {
+        requireGrammar: options.requireGrammarFor?.(input) ?? true,
+      });
       return;
     }
     if (kind === "dir") {

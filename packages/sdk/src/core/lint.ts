@@ -19,12 +19,7 @@ import {
 import { loadCustomRules } from "./custom-rules/loader.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
-import {
-  FILE_TIER_LANGUAGES,
-  languageOf,
-  MAX_ELEMENT_TOKENS,
-  type WalkElement,
-} from "./input/walk.ts";
+import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -284,15 +279,12 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // exists: a unit no in-scope rule targets at element level (files-target only) measures from
   // its raw source and is never parsed. Unwalked units read as inventory-less downstream; a
   // WALK_FAILED there is impossible by construction - the failure requires a walked-for file.
+  const skippedExtensions = new Set<string>();
   const walked = new Map<number, WalkedUnit>();
   for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
     await Promise.all(
       units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
         if (unit.kind !== "file") return;
-        // file-tier languages decompose to an empty inventory by design - no walk can ever
-        // serve them, so they are never a dependency of any rule
-        const language = languageOf(unit.state.path);
-        if (language !== null && language in FILE_TIER_LANGUAGES) return;
         // custom rules resolve their targets from the inventory (element roles only), so any
         // in-scope custom rule needs the walk just like a json-tier element rule
         const needsWalk =
@@ -300,15 +292,30 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             (rule) => ruleInScope(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
           ) || customRules.some((rule) => ruleInScope(rule, unit.state.path));
         if (!needsWalk) return;
-        walked.set(
-          i + j,
-          await walkUnit(
-            unit,
-            options.language !== undefined ? { language: options.language } : {},
-          ),
+        const w = await walkUnit(
+          unit,
+          options.language !== undefined ? { language: options.language } : {},
         );
+        // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
+        // the coverage note; the unit still classifies whole (files-target rules read raw source)
+        if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
+          const p = unit.state.path;
+          const dot = p.lastIndexOf(".");
+          skippedExtensions.add(dot === -1 ? "(extensionless)" : p.slice(dot));
+        }
+        walked.set(i + j, w);
       }),
     );
+  }
+  // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
+  // union of what is parsed and what was seen-but-skipped is the run's honesty line.
+  if (skippedExtensions.size > 0) {
+    yield {
+      type: "note",
+      note:
+        `parsing ${grammarExtensions().join(", ")} · not parsed (no grammar): ` +
+        [...skippedExtensions].sort().join(", "),
+    };
   }
   // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
   // selected element, so element jobs fan out to ONE classifier call. A selector that names

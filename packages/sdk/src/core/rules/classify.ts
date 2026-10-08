@@ -7,7 +7,6 @@
 import {
   decompose,
   fileElement,
-  FILE_TIER_LANGUAGES,
   languageOf,
   projectElement,
   type Inventory,
@@ -313,11 +312,6 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   const language = options.language ?? languageOf(state.path);
   if (language === null)
     return { inventory: [], failed: missingGrammarReason(state.path), failedCause: undefined };
-  // file-tier languages decompose to an empty inventory BY DESIGN (FILE_TIER_LANGUAGES) - a
-  // healthy empty, never a failure: element-target rules have nothing to measure there, and the
-  // files-target rules read the unit's raw source
-  if (language in FILE_TIER_LANGUAGES)
-    return { inventory: [], failed: null, failedCause: undefined };
   // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
   // retention pass) — a typed read, no union discriminator and no fallback to parse around.
   const source = state.content;
@@ -594,6 +588,9 @@ function collectWalkFailure(
   needed: boolean,
 ): void {
   if (!needed || walked.failed === null || unit.kind !== "file") return;
+  // missing grammar is sweep coverage, never an error: unsupported extensions aggregate into
+  // the coverage note; explicit file selection fails earlier at the input boundary, with the list
+  if (walked.failed.startsWith("no grammar mapping")) return;
   const state = unit.state;
   events.push({
     event: new ClassifyError(

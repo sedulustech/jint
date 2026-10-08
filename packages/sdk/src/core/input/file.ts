@@ -1,9 +1,12 @@
 import { stat } from "node:fs/promises";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { languageOf } from "./walk.ts";
+import { grammarExtensions, languageOf } from "./walk.ts";
 
-export async function fileUnit(path: string): Promise<Unit> {
+export async function fileUnit(
+  path: string,
+  options: { requireGrammar?: boolean } = {},
+): Promise<Unit> {
   const info = await stat(path).catch((e: NodeJS.ErrnoException) => {
     if (e.code === "ENOENT") {
       throw new SetupError("ENTRYPOINT_NOT_FOUND", `file not found: ${path}`);
@@ -20,10 +23,10 @@ export async function fileUnit(path: string): Promise<Unit> {
   }
   // explicit path: the user asked for THIS file, so silence would read as "nothing wrong" —
   // say plainly that it is not classifiable (walker skips non-source silently; explicit does not)
-  if (languageOf(path) === null) {
+  if (languageOf(path) === null && options.requireGrammar !== false) {
     throw new SetupError(
       "NOT_SOURCE",
-      `not classifiable: ${path} has no source-language grammar (walk sources by passing a directory, or classify raw text with the str noun)`,
+      `unknown extension, missing grammar - supported grammars: ${grammarExtensions().join(", ")} (walk sources by passing a directory, or classify raw text with the str noun)`,
     );
   }
   let content: string;

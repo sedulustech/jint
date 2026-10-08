@@ -18,11 +18,11 @@ describe("walkDir", () => {
     expect(paths).not.toContain("photo.png"); // extension
   });
 
-  test("non-source extensions and extensionless files are skipped silently: zero units, zero errors", async () => {
+  test("non-source files yield raw units: measured or covered by lint, never dropped here", async () => {
     const paths = await collect("tests/fixtures/sample-dir");
-    expect(paths).not.toContain("data.json"); // unmapped extension
-    expect(paths).not.toContain("README.md"); // unmapped extension
-    expect(paths).not.toContain("Makefile"); // extensionless: no resolvable grammar
+    expect(paths).toContain("data.json"); // unmapped extension: a unit, lint decides its fate
+    expect(paths).toContain("README.md"); // unmapped extension
+    expect(paths).toContain("Makefile"); // extensionless
     expect(paths).toContain("good.ts"); // sources unaffected
   });
   test("file units carry { path, content, id } with paths relative to the root", async () => {
@@ -34,7 +34,7 @@ describe("walkDir", () => {
 
   test("config exclude patterns prune on top of defaults", async () => {
     const paths = await collect("tests/fixtures/sample-dir", ["**/more.ts"]);
-    expect(paths).toEqual(["good.ts"]);
+    expect(paths).toEqual(["Makefile", "README.md", "data.json", "good.ts"]);
   });
 
   test("missing directory -> ENTRYPOINT_NOT_FOUND", async () => {

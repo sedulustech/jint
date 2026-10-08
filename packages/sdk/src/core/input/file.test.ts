@@ -12,9 +12,9 @@ describe("fileUnit (explicit --file path)", () => {
     expect(thrown.code).toBe("NOT_SOURCE");
   });
 
-  test("extensionless file (Makefile) -> NOT_SOURCE, same door as --language hint", async () => {
+  test("extensionless file (Makefile) -> NOT_SOURCE naming the supported grammars", async () => {
     await expect(fileUnit("tests/fixtures/sample-dir/Makefile")).rejects.toThrow(
-      /not classifiable/,
+      /missing grammar - supported grammars: ts, tsx, py, go/,
     );
   });
 
