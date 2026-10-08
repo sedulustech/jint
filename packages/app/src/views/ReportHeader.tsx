@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { fetchReport, fetchRun } from "../api/client";
-import { ruleStats } from "./ruleStats";
+import { ruleStats, verdictCounts } from "./ruleStats";
 import type { Report } from "../types";
 import { Button } from "@/components/ui/button";
 
@@ -26,10 +26,12 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
   const hasReport =
     !isDegradedReport && reportPayload !== undefined && !("absent" in reportPayload);
   const reportRuleStats = ruleStats(hasReport ? (reportPayload as Report) : undefined, runPayload);
-  const totalErrors = hasReport ? (reportPayload as Report).errors.length : 0;
-  const totalNotes = hasReport ? (reportPayload as Report).notes.length : 0;
   const totalFindings = reportRuleStats.reduce((sum, statRow) => sum + statRow.findings, 0);
   const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
+  const verdicts = verdictCounts(
+    hasReport ? (reportPayload as Report).findings : [],
+    totalMeasurements,
+  );
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y text-body">
@@ -72,11 +74,14 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
         <span className="text-muted-foreground">
           <span className="text-emphasis">{totalMeasurements}</span> measurements
         </span>
-        <span className={totalErrors > 0 ? "text-sev-error" : "text-muted-foreground"}>
-          <span className="text-emphasis">{totalErrors}</span> errors
+        <span className={verdicts.error > 0 ? "text-sev-error" : "text-muted-foreground"}>
+          <span className="text-emphasis">{verdicts.error}</span> errors
+        </span>
+        <span className={verdicts.warn > 0 ? "text-sev-warn" : "text-muted-foreground"}>
+          <span className="text-emphasis">{verdicts.warn}</span> warnings
         </span>
         <span className="text-muted-foreground">
-          <span className="text-emphasis">{totalNotes}</span> notes
+          <span className="text-emphasis">{verdicts.pass}</span> passes
         </span>
       </div>
     </div>

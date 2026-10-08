@@ -71,3 +71,21 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
   stats.sort((a, b) => b.findings - a.findings || a.rule.localeCompare(b.rule));
   return stats;
 }
+
+/**
+ * Verdict-based counts over a report: the header's errors/warnings/passes. Passes are measurements
+ * that produced no finding - the complement, so the three always sum to measurements. Findings
+ * without a severity (legacy runs) count as neither error nor warn.
+ */
+export function verdictCounts(
+  findings: readonly { severity: "error" | "warn" | null }[],
+  measurements: number,
+): { error: number; warn: number; pass: number } {
+  let error = 0;
+  let warn = 0;
+  for (const f of findings) {
+    if (f.severity === "error") error += 1;
+    else if (f.severity === "warn") warn += 1;
+  }
+  return { error, warn, pass: Math.max(0, measurements - findings.length) };
+}
