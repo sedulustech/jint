@@ -31,15 +31,7 @@ function langOf(path: string): string {
  * Syntax-highlighted code display (highlight.js, atom-one-dark over the jint dark theme).
  * Synchronous highlight; a failed/unregistered language falls back to escaped plain text.
  */
-export function CodeBlock({
-  code,
-  path,
-  maxHeight = 320,
-}: {
-  code: string;
-  path: string;
-  maxHeight?: number;
-}) {
+export function CodeBlock({ code, path }: { code: string; path: string }) {
   const html = useMemo(() => {
     const lang = langOf(path);
     try {
@@ -49,10 +41,7 @@ export function CodeBlock({
     }
   }, [code, path]);
   return (
-    <pre
-      className="hljs overflow-auto bg-transparent px-rail pb-inner text-body leading-snug"
-      style={{ maxHeight }}
-    >
+    <pre className="hljs overflow-auto bg-transparent px-rail pb-inner text-body leading-snug">
       <code dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   );

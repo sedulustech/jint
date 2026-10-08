@@ -14,7 +14,7 @@ export function RunErrors({ errors }: { errors: readonly ClassifyErrorInfo[] }) 
       <ul className="flex flex-col">
         {errors.map((e, i) => (
           <li key={i} className="border-b border-border px-rail py-related last:border-b-0">
-            <div className="flex items-center gap-siblings">
+            <div className="flex items-baseline gap-siblings">
               <span className="truncate text-foreground">{e.input}</span>
               <span className="shrink-0 text-caption font-bold text-sev-error">{e.code}</span>
             </div>
