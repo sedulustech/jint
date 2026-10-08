@@ -27,9 +27,7 @@
     "ui:dev": "bun run --cwd packages/app dev"
   },
   "dependencies": {
-    "@jint/contract": "workspace:*",
-    "@jint/sdk": "workspace:*",
-    "@sinclair/typebox": "^0.34.52"
+    "@jint/defaults": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",
