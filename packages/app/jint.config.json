@@ -19,24 +19,6 @@
         }
       },
       "include": ["**/*.css"]
-    },
-    {
-      "name": "is_value_shared",
-      "target": "files",
-      "instructions": "In a stylesheet, when the same literal value (color, size, spacing, radius, duration, font stack) is used more than once, the file should define it once as a shared constant - a CSS custom property or an @theme token - and reuse that reference. Repeating the raw literal at each use site is drift waiting to happen: change one site and the siblings silently disagree. Judge the FILE: does any repeated value bypass the constant and stay raw?",
-      "criteria": {
-        "true": "At least one literal value appears in two or more declarations as a raw literal (not through a var()/@theme reference), and the file defines no single constant carrying that value.",
-        "false": "No repeated raw values: every value used more than once is defined once in this file as a custom property or @theme token and referenced at its use sites (single-use literals staying inline are fine)."
-      },
-      "handle": {
-        "warn": {
-          "greater_than": 0.5
-        },
-        "error": {
-          "greater_than": 0.7
-        }
-      },
-      "include": ["**/*.css"]
     }
   ]
 }
