@@ -3,6 +3,7 @@ import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
+import { spanLabel } from "./RequestTable";
 import type { RequestFile } from "../types";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,9 @@ interface Props {
  */
 export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) {
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
+  // the element projection rides the run payload's cells; the input keeps the uuid as its key,
+  // the user reads the span label
+  const element = run.data?.cells?.find((c) => c.rule === rule && c.input === input)?.element;
   const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
   const result =
     run.data?.results.find((r) => r.file === requestFile) ??
@@ -114,7 +118,8 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             <div>
               <div className="flex items-center justify-between px-rail py-bar-y">
                 <span className="text-caption text-muted-foreground">
-                  {result?.path ?? file} {span ? "· " + span : ""}
+                  {result?.path ?? file}
+                  {element !== undefined ? " · " + spanLabel(element.span) : ""}
                 </span>
                 <CopyButton text={code} label="copy code" />
               </div>

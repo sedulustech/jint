@@ -31,7 +31,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   return (
     <div>
-      <div className="flex items-center gap-sections border-b border-border pb-related">
+      <div className="flex items-center gap-sections border-b border-border px-rail pb-siblings">
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -59,7 +59,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div className="border-b border-border pb-siblings">
+        <div className="border-b border-border px-rail pb-siblings">
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
@@ -82,7 +82,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <div className="border-b border-border pb-siblings">
+        <div className="border-b border-border px-rail pb-siblings">
           <span className="text-caption text-muted-foreground">instruction</span>
           <p className="mt-related text-body leading-snug text-foreground">
             {qa.question.instructions}
@@ -91,13 +91,13 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
       )}
       {!isScore && (
         <div className="mt-related grid grid-cols-2 gap-px bg-border text-body leading-snug">
-          <div className="bg-background p-inner">
+          <div className="bg-background px-rail py-related">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="bg-background p-inner">
+          <div className="bg-background px-rail py-related">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
