@@ -308,8 +308,8 @@ const nestedCompare =
 /**
  * The nested table under one expanded parent: its own header (input | severity | value) so child
  * columns never leak into the group header. Severity and value fit their content (nowrap on a w-px
- * column); the name column takes the remaining width and truncates - max-w-0 keeps its content from
- * stretching the auto-layout column past the table's width.
+ * column); the name column takes the remaining width and truncates - max-w-96 keeps a long input
+ * path from widening the panel.
  */
 function GroupedNestedTable({
   mode,
@@ -340,9 +340,12 @@ function GroupedNestedTable({
     </th>
   );
   return (
-    // auto width: the table hugs its columns instead of filling the outer table's wrapper
-    // cell; the name column is capped so a long name ellipsizes rather than widening the panel
-    <table>
+    // full width, but the slack must trail the last content column, never stretch the gaps
+    // between them: the content columns pin to their content (w-px nowrap floor) and the
+    // empty trailing cell takes width:100%, which auto layout resolves to ALL leftover space.
+    // (table-fixed cannot express this - fixed columns cannot hug their content.)
+    // The name column is capped so a long name ellipsizes rather than widening the panel.
+    <table className="w-full">
       <thead className="border-b border-border bg-background text-caption text-muted-foreground">
         <tr style={{ height: ROW_HEIGHT }}>
           <th scope="col" className="pl-indent pr-rail text-left font-normal">
@@ -350,6 +353,7 @@ function GroupedNestedTable({
           </th>
           {sortHeader("sev", "severity")}
           {sortHeader("value", "value")}
+          <th className="w-full" aria-hidden="true" />
         </tr>
       </thead>
       <tbody>
@@ -420,6 +424,7 @@ function GroupedChildRow({
         <SeverityDot severity={cell.severity} />
       </td>
       <td className="w-px whitespace-nowrap px-rail">{cell.value.toFixed(2)}</td>
+      <td className="w-full" aria-hidden="true" />
     </tr>
   );
 }
