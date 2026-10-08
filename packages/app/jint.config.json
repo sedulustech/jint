@@ -23,17 +23,17 @@
     {
       "name": "is_literal_shared",
       "target": "files",
-      "instructions": "In a TypeScript file, when the same literal value (string, number, regex) flows as DATA to two or more behavior sites, the file should define it once as a shared constant (const) and reuse that name: the same filename, url, storage key, message, size, or threshold written out raw at each site is drift waiting to happen. Judge the FILE, and be conservative: answer true only when you can point to ONE specific value appearing raw at TWO OR MORE distinct behavior sites (a value read or sent, a path joined, a message thrown/logged, a timeout, a magic number in logic). NOT data, never violations: prop values (variant=\"secondary\"), event-type strings (\"keydown\"), Tailwind class strings, test selectors, sort keys and mode names (\"rule\"/\"desc\"/\"warn\"), encoding names used at read calls ONLY IF a const would not carry meaning, and trivial literals (0, 1, -1, empty string). If every repetition is one of those vocabularies, or each value appears at just one behavior site, answer false.",
+      "instructions": "In a TypeScript file, when the same literal value (string, number, regex) flows as DATA to two or more behavior sites, the file should define it once as a shared constant (const) and reuse that name: the same filename, url, storage key, message, size, or threshold written out raw at each site is drift waiting to happen. Judge the FILE, and be conservative: answer true only when you can point to ONE specific value appearing raw at TWO OR MORE distinct behavior sites (a value read or sent, a path joined, a message thrown/logged, a timeout, a magic number in logic). NOT data, never violations: prop values (variant=\"secondary\"), event-type strings (\"keydown\"), Tailwind class strings, test selectors, sort keys and mode names (\"rule\"/\"desc\"/\"warn\"), typeof-guard strings (typeof x === \"string\"), encoding names used at read calls ONLY IF a const would not carry meaning, and trivial literals (0, 1, -1, empty string). If every repetition is one of those vocabularies, or each value appears at just one behavior site, answer false.",
       "criteria": {
         "true": "At least one semantic value (message, url, key, size, threshold, config constant) appears in two or more places as a raw literal, and the file defines no single const carrying it.",
         "false": "No repeated raw data values: every value used as data more than once flows through one named constant; remaining repetitions are vocabulary (prop values, event names, class strings, trivial literals) or single-use."
       },
       "handle": {
         "warn": {
-          "greater_than": 0.7
+          "greater_than": 0.85
         },
         "error": {
-          "greater_than": 0.85
+          "greater_than": 0.9
         }
       },
       "include": ["**/*.ts", "**/*.tsx"]

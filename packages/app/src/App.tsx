@@ -124,6 +124,8 @@ const reportSearchEditFailure = (cause: unknown): void => {
 };
 
 const DEFAULT_MODE: Mode = "file";
+// the run route id, shared by navigate and link so the two cannot drift
+const RUN_ROUTE = "/runs/$runId";
 
 export function App({ runId }: { runId: string | null }) {
   const { theme, choose } = useTheme();
@@ -164,7 +166,7 @@ export function App({ runId }: { runId: string | null }) {
   const pickRun = (pickedRunId: string) => {
     // picking (or clearing) a run resets the panel state with it
     navigate({
-      to: pickedRunId === "" ? "/" : "/runs/$runId",
+      to: pickedRunId === "" ? "/" : RUN_ROUTE,
       ...(pickedRunId === "" ? {} : { params: { runId: pickedRunId } }),
       search: {} as RunSearch,
     });
@@ -180,7 +182,7 @@ export function App({ runId }: { runId: string | null }) {
     pendingNavigation.current = pendingNavigation.current
       .then(() =>
         navigate({
-          to: runId === null ? "/" : "/runs/$runId",
+          to: runId === null ? "/" : RUN_ROUTE,
           ...(runId === null ? {} : { params: { runId } }),
           search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
         }),

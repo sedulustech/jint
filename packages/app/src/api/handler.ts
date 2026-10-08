@@ -9,6 +9,14 @@ import { handleSeverity, type Element, type HandlerData, type Severity } from "@
 import type { RequestFile } from "../types";
 import type { Dirent } from "node:fs";
 
+// filenames and encodings shared across read sites: one name, no drift
+const REPORT_FILE = "report.json";
+const MANIFEST_FILE = "manifest.json";
+const READ_ENCODING = "utf8";
+const INVALID_RUN_ID = "invalid run id";
+const JSON_SUFFIX = ".json";
+const MISSING_ERRNO = "ENOENT";
+
 export interface ApiOptions {
   /** Absolute requests root. Defaults to the homedir store (~/.jint/runs). */
   root?: string;
@@ -110,9 +118,11 @@ export async function serveApiRequest(
     // a missing report is a first-class absence, never an error
     if (lastSegment === "report" && routeTail.length >= 2) {
       const reportDir = resolveRunDir(runsRoot, routeTail.slice(0, -1));
-      if (reportDir === null) return badRequest("invalid run id");
+      if (reportDir === null) return badRequest(INVALID_RUN_ID);
       try {
-        return jsonResponse(JSON.parse(await readFile(join(reportDir, "report.json"), "utf8")));
+        return jsonResponse(
+          JSON.parse(await readFile(join(reportDir, REPORT_FILE), READ_ENCODING)),
+        );
       } catch (err) {
         if (isMissingFileError(err)) return jsonResponse({ absent: true });
         throw err;
@@ -122,7 +132,7 @@ export async function serveApiRequest(
       return serveRunRequest(runsRoot, routeTail.slice(0, -2), routeTail[routeTail.length - 1]!);
     }
     const runDir = resolveRunDir(runsRoot, routeTail);
-    if (runDir === null) return badRequest("invalid run id");
+    if (runDir === null) return badRequest(INVALID_RUN_ID);
     return jsonResponse(await getRun(runsRoot, runDir, routeTail.join("/")));
   } catch (err) {
     // a dropped cause turns a debuggable failure into a mystery: the original error travels
@@ -144,11 +154,11 @@ async function serveRunRequest(
   fileName: string,
 ): Promise<Response> {
   const runDir = resolveRunDir(runsRoot, idSegments);
-  if (runDir === null) return badRequest("invalid run id");
+  if (runDir === null) return badRequest(INVALID_RUN_ID);
   const requestPath = safeJoin(runDir, fileName);
   if (requestPath === null) return badRequest("invalid request file");
   try {
-    return jsonResponse(JSON.parse(await readFile(requestPath, "utf8")));
+    return jsonResponse(JSON.parse(await readFile(requestPath, READ_ENCODING)));
   } catch (err) {
     if (isMissingFileError(err)) return notFound("request not found");
     throw err;
@@ -158,7 +168,7 @@ async function serveRunRequest(
 /** True when the error is a missing file — the one case absence is the answer, not a failure. */
 function isMissingFileError(err: unknown): boolean {
   const code = err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
-  return code === "ENOENT";
+  return code === MISSING_ERRNO;
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -198,7 +208,7 @@ function resolveRunDir(root: string, segments: string[]): string | null {
 }
 
 function isRequestFile(name: string): boolean {
-  return /^\d{13}-/.test(name) && name.endsWith(".json");
+  return /^\d{13}-/.test(name) && name.endsWith(JSON_SUFFIX);
 }
 
 /** Case namespaces must list alongside flat runs, under their nested id. */
@@ -250,7 +260,7 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     stat(runDir),
     readdir(runDir),
     // a manifest-less run still lists: absence of config is data, not a defect
-    readFile(join(runDir, "manifest.json"), "utf8").catch((err: unknown) => {
+    readFile(join(runDir, MANIFEST_FILE), READ_ENCODING).catch((err: unknown) => {
       if (isMissingFileError(err)) return "{}";
       throw err;
     }),
@@ -266,7 +276,7 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     id: runId,
     mtime: dirStats.mtime.toISOString(),
     requests: dirFiles.filter(
-      (name) => name.endsWith(".json") && name !== "report.json" && name !== "manifest.json",
+      (name) => name.endsWith(JSON_SUFFIX) && name !== REPORT_FILE && name !== MANIFEST_FILE,
     ).length,
     ruleCount: Object.keys(manifest.handles ?? {}).length,
     configPath: manifest?.configPath ?? null,
@@ -289,7 +299,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
     // ALWAYS an array; an empty one renders as the friendly hint client-side. No path leak.
     const code =
       err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
-    if (code === "ENOENT" || code === "ENOTDIR") return { runs: [] };
+    if (code === MISSING_ERRNO || code === "ENOTDIR") return { runs: [] };
     throw err;
   }
 }
@@ -320,9 +330,9 @@ function cellSeverity(
  * file right after the response lands; not a measured latency).
  */
 export async function getRun(root: string, dir: string, id: string): Promise<object> {
-  const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
-  const reportFile = files.includes("report.json");
-  const requestFiles = files.filter((f) => f !== "report.json" && f !== "manifest.json");
+  const files = (await readdir(dir)).filter((f) => f.endsWith(JSON_SUFFIX));
+  const reportFile = files.includes(REPORT_FILE);
+  const requestFiles = files.filter((f) => f !== REPORT_FILE && f !== MANIFEST_FILE);
   // Canonical rule names come from the report (the engine's own spelling). The request question
   // keys are a derived encoding ("<rule> in <element>") and parsing them is lossy when a rule
   // name or element id itself contains " in " - so the report wins whenever it exists.
@@ -335,7 +345,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   let handles: Record<string, HandlerData> | null = null;
   let manifestLegacy = false;
   try {
-    const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")) as {
+    const manifest = JSON.parse(await readFile(join(dir, MANIFEST_FILE), READ_ENCODING)) as {
       handles?: Record<string, HandlerData>;
       legacy?: boolean;
     };
@@ -350,7 +360,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   const findingSev = new Map<string, Map<string, Severity>>();
   if (reportFile) {
     try {
-      const report = JSON.parse(await readFile(join(dir, "report.json"), "utf8")) as {
+      const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as {
         measurements?: {
           input: string;
           rule: string;
@@ -404,7 +414,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     requestFiles.map(async (file): Promise<RequestItem | null> => {
       try {
         const [text, st] = await Promise.all([
-          readFile(join(dir, file), "utf8"),
+          readFile(join(dir, file), READ_ENCODING),
           stat(join(dir, file)),
         ]);
         const requestFile = JSON.parse(text) as RequestFile;
