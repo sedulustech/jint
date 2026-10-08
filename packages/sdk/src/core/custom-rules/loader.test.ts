@@ -48,6 +48,49 @@ describe("loadCustomRules", () => {
     expect(async () => await loadCustomRules([path])).toThrow(/node:fs/);
   });
 
+  test("multi-file composition: rules from every file load, order and identity preserved", async () => {
+    // the composition story (design config-composition/03): a file may import another file's
+    // fragment and extend it - jint only sees the final rules array, last-wins per name.
+    write(
+      "shared.ts",
+      'import { defineConfig } from "jint:sdk";\n' +
+        "export const sharedRule = {\n" +
+        '  name: "shared_rule",\n' +
+        '  target: "comments" as const,\n' +
+        '  classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),\n' +
+        "  handle: { warn: { greater_than: 0.5 } },\n" +
+        "};\n" +
+        "export const base = defineConfig({ rules: [sharedRule] });\n",
+    );
+    const a = write(
+      "a.ts",
+      'import { defineConfig } from "jint:sdk";\n' +
+        'import { sharedRule } from "./shared.ts";\n' +
+        "export default defineConfig({\n" +
+        "  rules: [\n" +
+        "    sharedRule,\n" +
+        '    { name: "a_rule", target: "functions", classify: sharedRule.classify, handle: sharedRule.handle },\n' +
+        "  ],\n" +
+        "});\n",
+    );
+    const b = write(
+      "b.ts",
+      'import { sharedRule } from "./shared.ts";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        "export default defineConfig({\n" +
+        "  rules: [\n" +
+        "    // same helper, distinct name - a distinct rule built from shared parts\n" +
+        '    { name: "b_rule", target: "comments", classify: sharedRule.classify, handle: { warn: { greater_than: 0.4 } } },\n' +
+        "  ],\n" +
+        "});\n",
+    );
+    const rules = await loadCustomRules([a, b]);
+    // order follows the declared file order, then in-file order; identity is the name
+    expect(rules.map((r) => r.name)).toEqual(["shared_rule", "a_rule", "b_rule"]);
+    // the cross-file import actually composed: every loaded rule carries a working classify
+    expect(rules.every((r) => typeof r.classify === "function")).toBe(true);
+  });
+
   test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
     // the import must resolve and execute; whether a declarative spec may sit in a fragment's
     // rules is a separate question (config-composition/03 follow-up) - this pins the gate only
