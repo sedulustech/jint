@@ -3,6 +3,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { fetchReport } from "../api/client";
+import { RunErrors } from "./RunErrors";
 import type { Report, RunSummary } from "../types";
 import { Button } from "@/components/ui/button";
 export const baseName = (path: string) => path.split("/").pop() ?? path;
@@ -58,22 +59,7 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
           </Button>
         )}
       </div>
-      {errorsOpen && runErrors.length > 0 && (
-        <div
-          id="run-errors"
-          className="flex shrink-0 flex-col gap-related border-b border-border bg-muted px-rail py-related"
-        >
-          {runErrors.map((e, i) => (
-            <div key={i} className="min-w-0">
-              <div className="flex items-center gap-related">
-                <span className="text-caption font-bold text-sev-error">{e.code}</span>
-                <span className="truncate text-foreground">{e.input}</span>
-              </div>
-              <p className="whitespace-normal text-body text-muted-foreground">{e.message}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {errorsOpen && runErrors.length > 0 && <RunErrors errors={runErrors} />}
     </>
   );
 }
