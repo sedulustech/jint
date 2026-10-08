@@ -917,6 +917,68 @@ describe("lint — customRules content retention (the logical content-drop)", ()
     expect((sample.state as { content: string }).content.length).toBeGreaterThan(0);
   });
 
+  test("a custom rule file's fragment scoping filters at run time; a rule's own scope replaces it", async () => {
+    // fragment: include good.ts, exclude sample-file.ts. rule_a inherits (measures good.ts);
+    // rule_b declares include sample-file.ts - WHOLESALE replacement, so the fragment's exclude
+    // does not silence it (per-field merge would measure nothing for rule_b).
+    mkdirSync(TS_DIR, { recursive: true });
+    writeFileSync(
+      TS_DIR + "/scoped-rule.ts",
+      [
+        'import { defineConfig } from "jint:sdk";',
+        "export default defineConfig({",
+        '  include: ["**/good.ts"],',
+        '  exclude: ["**/sample-file.ts"],',
+        "  rules: [",
+        "    {",
+        '      name: "fragment_scope_inherited",',
+        "      target: (elements) => elements,",
+        "      classify: (self) => ({",
+        '        instructions: "i",',
+        '        criteria: { true: "t", false: "f" },',
+        "        state: { source: self.source },",
+        "      }),",
+        "      handle: { warn: { greater_than: 0.9 } },",
+        "    },",
+        "    {",
+        '      name: "fragment_scope_own_include",',
+        '      include: ["**/sample-file.ts"],',
+        "      target: (elements) => elements,",
+        "      classify: (self) => ({",
+        '        instructions: "i",',
+        '        criteria: { true: "t", false: "f" },',
+        "        state: { source: self.source },",
+        "      }),",
+        "      handle: { warn: { greater_than: 0.9 } },",
+        "    },",
+        "  ],",
+        "});",
+      ].join("\n"),
+    );
+    const GOOD = "tests/fixtures/sample-dir/good.ts";
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, customRules: [TS_DIR + "/scoped-rule.ts"] },
+        input: [FILE, GOOD],
+        classifier: loggingClassifier(
+          { fragment_scope_inherited: 0.5, fragment_scope_own_include: 0.5 },
+          { calls: [] },
+        ),
+      }),
+    );
+    const byRule = new Map<string, string[]>();
+    for (const e of events.filter((e) => e.type === "measurement")) {
+      const m = (e as { measurement: { rule: string; input: string } }).measurement;
+      byRule.set(m.rule, [...(byRule.get(m.rule) ?? []), m.input.split("#")[0]!]);
+    }
+    // the inherited scope filtered sample-file.ts out of rule_a entirely
+    expect(byRule.get("fragment_scope_inherited")!.every((p) => p === GOOD)).toBe(true);
+    expect(byRule.get("fragment_scope_inherited")!.length).toBeGreaterThan(0);
+    // the own-scope rule replaced wholesale: it measures sample-file.ts despite the fragment exclude
+    expect(byRule.get("fragment_scope_own_include")!.every((p) => p === FILE)).toBe(true);
+    expect(byRule.get("fragment_scope_own_include")!.length).toBeGreaterThan(0);
+  });
+
   test("zero-target files are logically dropped: no whole-file call, but element classification still runs", async () => {
     writeRule();
     const log: CallLog = { calls: [] };

@@ -118,7 +118,20 @@ describe("loadCustomRules", () => {
         'import { is_greppable } from "jint:defaults";',
         "export default defineConfig({",
         '  exclude: ["**/*.test.ts"],',
-        '  rules: [is_greppable, { ...is_greppable, name: "is_greppable_src", include: ["src/**"] }],',
+        "  rules: [",
+        "    is_greppable,",
+        '    { ...is_greppable, name: "is_greppable_src", include: ["src/**"] },',
+        "    {",
+        '      name: "callback_inherits",',
+        '      target: "comments",',
+        "      classify: (self) => ({",
+        '        instructions: "i",',
+        '        criteria: { true: "t", false: "f" },',
+        "        state: { source: self.source },",
+        "      }),",
+        "      handle: { warn: { greater_than: 0.9 } },",
+        "    },",
+        "  ],",
         "});",
       ].join("\n"),
     );
@@ -130,6 +143,10 @@ describe("loadCustomRules", () => {
     // rule-level replaces wholesale: no fragment field leaks into a rule that declares its own
     expect(own.include).toEqual(["src/**"]);
     expect(own.exclude).toBeUndefined();
+    // the callback lane inherits the same default (no own scope declared)
+    const callback = loaded.custom[0] as unknown as { name: string; exclude?: string[] };
+    expect(callback.name).toBe("callback_inherits");
+    expect(callback.exclude).toEqual(["**/*.test.ts"]);
   });
 
   test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
