@@ -59,12 +59,12 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div className="border-b border-border pb-related">
+        <div className="border-b border-border pb-siblings">
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
           {/* the probability strip is omitted for score answers: the legend is the information */}
-          <ul className="mt-chip-y space-y-chip-y">
+          <ul className="mt-related space-y-related">
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
               .map((k) => (
@@ -82,9 +82,9 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <div className="border-b border-border pb-related">
+        <div className="border-b border-border pb-siblings">
           <span className="text-caption text-muted-foreground">instruction</span>
-          <p className="mt-chip-y text-body leading-snug text-foreground">
+          <p className="mt-related text-body leading-snug text-foreground">
             {qa.question.instructions}
           </p>
         </div>
