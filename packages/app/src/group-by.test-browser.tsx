@@ -87,7 +87,7 @@ async function expectCounter(expected: string) {
     () => {
       if (counter() !== expected) throw new Error("counter is " + counter());
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 }
 
@@ -123,7 +123,7 @@ test("rule parents expand into cells; cell values sit on the rule's own scale", 
     () => {
       if (!groupRow("rule:is_name_purposeful")) throw new Error("parents not rendered");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   const parent = groupRow("rule:is_name_purposeful");
   expect(parent.getAttribute("aria-expanded")).toBe("false");
@@ -132,7 +132,7 @@ test("rule parents expand into cells; cell values sit on the rule's own scale", 
     () => {
       if (cellRows("is_name_purposeful@").length === 0) throw new Error("children missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(parent.getAttribute("aria-expanded")).toBe("true");
   // the rule's own 0.08 reading is visible as a cell value (never max-p across questions)
@@ -147,7 +147,7 @@ test("rule parents expand into cells; cell values sit on the rule's own scale", 
     () => {
       if (cellRows("is_name_purposeful@").length > 0) throw new Error("children still visible");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 });
 
@@ -162,7 +162,7 @@ test("file mode parents expand; file-level cells render as explicit (file) rows"
       if (cellRows("is_name_purposeful@src/multi.tsx").length === 0)
         throw new Error("cells missing under file parent");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // multi.tsx holds two cells (two rules), both element-tier: each renders its span label
   // ("L1-L6" from Element.span) — the uuid stays the key, the span is the display
@@ -181,7 +181,7 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
     () => {
       if (cellRows("is_name_purposeful@src/low.ts").length === 0) throw new Error("cell missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   cellRows("is_name_purposeful@src/low.ts")[0]!.click();
   await waitFor(
@@ -189,16 +189,19 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
       const d = document.body.innerText;
       if (!d.includes("is_name_purposeful @ src/low.ts")) throw new Error("pair detail not open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // the single answer's value + its own verdict, never a sibling's
   await waitFor(
     () => {
       const pane = q(".detail-pane")?.textContent ?? "";
-      if (!pane.includes("0.08") || !pane.includes("error"))
+      // the severity word is gone from the card - the verdict color carries it; the value
+      // span's title still names it structurally
+      const severityTitle = q(".detail-pane [data-answer]")?.getAttribute("title") ?? "";
+      if (!pane.includes("0.08") || !severityTitle.includes("error"))
         throw new Error("verdict missing, pane: " + pane.slice(0, 200));
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // closing returns to the table
   const close = q("[data-testid='close-pair']");
@@ -209,7 +212,7 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
       if (q('[data-testid="group-rule:is_name_purposeful"]') === null)
         throw new Error("table not back");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(q('[data-testid="group-rule:is_name_purposeful"]')).toBeTruthy();
 });
@@ -232,7 +235,7 @@ test("text filter matches cells: only parents with a matching child survive", as
       expect(rows[0]!.textContent).toContain("(file)");
       expect(rows[0]!.textContent).toContain("0.08");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 });
 
@@ -254,7 +257,7 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
       for (let i = 1; i < scores.length; i++)
         expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]);
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 });
 
@@ -268,7 +271,7 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
     () => {
       if (!counter().endsWith("rules")) throw new Error("not in rule mode");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // the clicked rule's group is expanded: children are FILES (rule-mode children name the
   // file, not the rule - the parent holds the rule), 3 cells all no-verdict silent-band values
@@ -277,7 +280,7 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
       if (cellRows("has_nothing in mind@src/greedy.ts").length < 1)
         throw new Error("group not expanded");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // 6 parents + 3 expanded children
   expect(counter()).toBe("9/" + RULES + " rules");
@@ -295,7 +298,7 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
       if (!cellRows("will_comment_drift@").some((c) => (c.textContent ?? "").includes("0.45")))
         throw new Error("will_comment_drift children missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // now click a DIFFERENT rule in the report panel (has_nothing in mind -> 3 cells)
   const reportRow = q('[data-testid="report-rule-has_nothing in mind"]');
@@ -306,7 +309,7 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
       if (cellRows("has_nothing in mind@src/greedy.ts").length < 1)
         throw new Error("chosen group not expanded");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // the previously-open group is CLOSED: only the 6 parents + 3 chosen children remain
   expect(counter()).toBe("9/" + RULES + " rules");
@@ -327,7 +330,7 @@ test("request rows still drill in: a request click opens the pair detail of its 
     () => {
       if (!document.body.innerText.includes("@ src/low.ts")) throw new Error("pair detail missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(q(".detail-pane")?.textContent).toContain("is_name_purposeful");
   expect(q(".detail-pane")?.textContent).toContain("0.08");
@@ -355,7 +358,7 @@ test("generated fixture: an element cell click resolves to the element capture b
       if (cellRows("is_name_purposeful@complex.ts").length === 0)
         throw new Error("element cells not expanded");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   const cells = cellRows("is_name_purposeful@complex.ts");
   // cells render the span label from Element.span ("L9" / "L12-L20"), never the uuid
@@ -369,7 +372,7 @@ test("generated fixture: an element cell click resolves to the element capture b
       }
       if (!pane.includes("is_name_purposeful")) throw new Error("rule heading missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   // the addressed element's OWN answer is present (deterministic stub: 0.25 in the element capture)
   let answer: string | null = null;
@@ -378,7 +381,7 @@ test("generated fixture: an element cell click resolves to the element capture b
       answer = q(".detail-pane [data-answer]")?.getAttribute("data-answer") ?? null;
       if (answer === null) throw new Error("answer not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(answer).toBe("0.25");
   // the code panel names the element's file + its uuid identity, proving the element capture won

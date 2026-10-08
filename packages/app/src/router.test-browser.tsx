@@ -75,7 +75,7 @@ test("deep link /runs/<id> renders that run", async () => {
       if (detailPane() !== "" || reportPanel() === null)
         throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(window.location.pathname).toBe("/runs/run-a");
 });
@@ -86,7 +86,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
     () => {
       if (reportPanel() === null) throw new Error("panel not open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   cleanup();
 
@@ -96,7 +96,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
       if (reportToggle("closed")) return;
       throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(reportPanel()).toBeNull();
 
@@ -112,7 +112,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
     () => {
       if (reportPanel() === null) throw new Error("panel state lost on reload");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 });
 
@@ -122,7 +122,7 @@ test("?rule+input deep link opens PairDetail and survives reload", async () => {
     () => {
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pane not open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(detailPane()).toContain("is_name_purposeful");
   cleanup();
@@ -132,7 +132,7 @@ test("?rule+input deep link opens PairDetail and survives reload", async () => {
     () => {
       if (!detailPane().includes("is_name_purposeful")) throw new Error("pane lost on reload");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 });
 
@@ -142,7 +142,7 @@ test("history walk: pick another run, back restores the previous run + panel sta
     () => {
       if (!reportToggle("closed")) throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   await openRun("run-0");
@@ -157,7 +157,7 @@ test("history walk: pick another run, back restores the previous run + panel sta
     () => {
       if (reportPanel() !== null) throw new Error("panel state not restored from URL");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(window.location.pathname + window.location.search).toBe("/runs/run-a?report=0");
 });
@@ -184,7 +184,7 @@ test("unknown path renders inside the app shell, not a bare Not Found", async ()
       if (!nf.includes("back to the runs"))
         throw new Error("chrome missing, body: " + document.body.innerHTML);
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(document.body.textContent).not.toContain("Not Found");
 });
@@ -202,7 +202,7 @@ test("nonexistent run id renders the shared 404 inside the shell", async () => {
       const nf = document.querySelector('[data-testid="not-found"]')?.textContent ?? "";
       if (!nf.includes("run 0000 not found")) throw new Error("404 copy missing");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(document.querySelector('[data-testid="not-found"]')?.textContent).toContain(
     "back to the runs",
@@ -219,7 +219,7 @@ test("absent report.json: closed by default and never overridden open", async ()
     () => {
       if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(reportPanel()).toBeNull();
   cleanup();
@@ -229,7 +229,7 @@ test("absent report.json: closed by default and never overridden open", async ()
     () => {
       if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(reportPanel()).toBeNull();
   cleanup();
@@ -240,7 +240,7 @@ test("absent report.json: closed by default and never overridden open", async ()
     () => {
       if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(reportPanel()).toBeNull();
 });
@@ -251,7 +251,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (!reportToggle("closed")) throw new Error("run view not rendered yet");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // A -> B -> C: three real pushState entries from the dropdown
@@ -261,7 +261,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() === null) throw new Error("run-1 report should default open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   await openRun("run-0");
   await expectPath("/runs/run-0");
@@ -269,7 +269,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() !== null) throw new Error("run-0 has no report");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // back x2: C -> B -> A, panel state restored from the URL at each step
@@ -279,7 +279,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() === null) throw new Error("B panel state not restored");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   window.history.back();
   await expectPath("/runs/run-a?report=0");
@@ -287,7 +287,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() !== null) throw new Error("A panel state not restored");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // forward x1: A -> B again
@@ -297,7 +297,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() === null) throw new Error("forward lost B panel state");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // state-drift edge: the picker's selected value re-syncs with the URL (run-1)
@@ -307,7 +307,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
       const text = (trigger.element() as HTMLElement).textContent ?? "";
       if (!text.includes("run-1")) throw new Error("picker stale: " + text);
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect((trigger.element() as HTMLElement).textContent ?? "").toContain("run-1");
 });
@@ -339,19 +339,21 @@ function detailClose(): HTMLElement {
 // click can land while the previous navigation is still committing); a real
 // user just clicks again. Click until URL + panes agree with the target state.
 async function toggleReport(target: "0" | "1") {
-  for (let i = 0; i < 10; i++) {
-    const want = target === "1";
-    if (
-      decodeURIComponent(window.location.search).includes("report=" + target) &&
-      (reportPanel() !== null) === want &&
-      detailPane() !== ""
-    )
-      return;
-    const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
-    if (b !== null && b.getAttribute("aria-disabled") !== "true") b.click();
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error("toggle to report=" + target + " never settled: " + window.location.search);
+  await waitFor(
+    () => {
+      const want = target === "1";
+      const settled =
+        decodeURIComponent(window.location.search).includes("report=" + target) &&
+        (reportPanel() !== null) === want &&
+        detailPane() !== "";
+      if (settled) return;
+      // a real user just clicks again when a click races a navigation commit
+      const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
+      if (b !== null && b.getAttribute("aria-disabled") !== "true") b.click();
+      throw new Error("toggle not settled yet: " + window.location.search);
+    },
+    { timeout: 2_000 },
+  );
 }
 
 // RAW comparison: urls under test are already in the router's wire encoding
@@ -369,7 +371,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (reportPanel() === null) throw new Error("report not open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(detailPane()).toBe("");
 
@@ -380,14 +382,14 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (document.querySelector('[data-testid="request-src/low.ts"]') === null)
         throw new Error("rows not ready");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   requestRow("src/low.ts").click();
   await waitFor(
     () => {
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pair not open");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   await waitFor(() => {
     const q = decodeURIComponent(window.location.search);
@@ -410,7 +412,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null) throw new Error("report not hidden");
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pair lost on hide");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // T4: show report again - clean round trip
@@ -420,7 +422,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (reportPanel() === null) throw new Error("report not reopened");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // T5: back x1 -> T3 state; back x2 -> T2 state
@@ -431,7 +433,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("back-1 state wrong");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   window.history.back();
   await expectUrl("/runs/run-a" + urlAt("1"), "T4/T5b");
@@ -440,7 +442,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() === null || !detailPane().includes("@ src/low.ts"))
         throw new Error("back-2 state wrong");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // T6: forward x1 -> T3 state again (distinct entry, nothing collapsed)
@@ -451,7 +453,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("forward state wrong");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // T7: reload - the full interleaved state survives
@@ -462,7 +464,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("reload lost interleaved state");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
 
   // T8: close the pair -> back to exactly ?report=0, nothing dropped
@@ -472,7 +474,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (detailPane() !== "") throw new Error("pair not closed");
     },
-    { timeout: 5_000 },
+    { timeout: 2_000 },
   );
   expect(reportPanel()).toBeNull();
 });
@@ -499,7 +501,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
         if (!empty.includes("no report — run captured without --json"))
           throw new Error("empty state missing, got: " + empty);
       },
-      { timeout: 5_000 },
+      { timeout: 2_000 },
     );
     expect(document.querySelector('[data-testid="empty-state"]')?.textContent).toContain(
       "0 rules match your filters",
@@ -514,7 +516,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
         if (!empty.includes("0 files match your filters"))
           throw new Error("file empty state missing, got: " + empty);
       },
-      { timeout: 5_000 },
+      { timeout: 2_000 },
     );
     expect(document.querySelector('[data-testid="empty-state"]')?.textContent).toContain(
       "no report — run captured without --json",
@@ -531,7 +533,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
         if (m === null) throw new Error("counter not rendered");
         if (m[1] !== "1" || m[2] !== "1") throw new Error("counter is " + m[0] + ", want 1/1");
       },
-      { timeout: 5_000 },
+      { timeout: 2_000 },
     );
     expect(document.querySelector('[data-testid="request-src/borderline.ts"]')).toBeTruthy();
 

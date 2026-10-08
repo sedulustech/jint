@@ -32,7 +32,6 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   return (
     <div className="border border-border bg-background">
       <div className="flex items-center gap-sections border-b border-border px-inner py-related">
-        <span className="text-body text-foreground">{qa.rule}</span>
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -57,9 +56,6 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
                 ` · confidence ${qa.answer.confidence.toFixed(2)}`}
             </span>
           </span>
-        )}
-        {sev !== null && (
-          <span className={`${SEVERITY[sev].text} text-caption uppercase`}>{sev}</span>
         )}
       </div>
       {isScore && index !== null && (

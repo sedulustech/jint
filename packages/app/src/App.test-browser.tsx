@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import { router } from "./router";
 
@@ -28,12 +28,11 @@ test("a pre-set /runs/<id> deep link selects that run", async () => {
 
   // radix only clears data-placeholder once the state value is set
   const trigger = await screen.findByTestId("run-picker", undefined, { timeout: 5000 });
-  await new Promise((r) => setTimeout(r, 300));
-  expect(trigger.getAttribute("data-placeholder")).toBeNull();
+  await waitFor(() => expect(trigger.getAttribute("data-placeholder")).toBeNull());
   // the slimmed trigger shows the run's LABEL; the full identity moved to RunHeader
   const first = runs[0];
   const label = first.legacy ? "migrated run" : (first.cwd ?? first.configPath ?? "default rules");
-  expect(trigger.textContent).toContain(label);
+  await waitFor(() => expect(trigger.textContent).toContain(label));
 });
 
 test("picking a run writes the path", async () => {
