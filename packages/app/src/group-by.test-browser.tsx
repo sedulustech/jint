@@ -40,7 +40,7 @@ function groupRow(key: string): HTMLElement {
 }
 
 function cellRows(prefix: string): HTMLElement[] {
-  return all('button[data-testid^="cell-' + prefix + '"]');
+  return all('tr[data-testid^="cell-' + prefix + '"]');
 }
 
 function requestRow(file: string): HTMLElement {
@@ -82,7 +82,7 @@ async function setInput(value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-const groupRows = () => document.querySelectorAll('[data-testid^="group-"]').length;
+const groupRows = () => document.querySelectorAll('tr[data-testid^="group-"]').length;
 
 async function ruleGroupsReady(count: number) {
   await waitFor(
@@ -109,8 +109,8 @@ test("request mode is the capture log: max-p column, no grouped rows, no rule ch
   await expectCounter("15/15 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
   // grouped rows are gone: no group parents, no rule-carrying children
-  expect(all('button[data-testid^="group-"]')).toHaveLength(0);
-  expect(all('button[data-testid^="cell-"]')).toHaveLength(0);
+  expect(all('tr[data-testid^="group-"]')).toHaveLength(0);
+  expect(all('tr[data-testid^="cell-"]')).toHaveLength(0);
 });
 
 test("the group-by toggle renders all three modes", async () => {
@@ -177,7 +177,7 @@ test("file mode parents expand; file-level cells render as explicit (file) rows"
   );
   // multi.tsx holds two cells (two rules), both element-tier: each renders its span label
   // ("L1-L6" from Element.span) — the uuid stays the key, the span is the display
-  const children = all('button[data-testid*="@src/multi.tsx"]');
+  const children = all('tr[data-testid*="@src/multi.tsx"]');
   expect(children).toHaveLength(2);
   for (const c of children) expect(c.textContent).toContain("L1-L6");
 });
@@ -258,7 +258,7 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
   // the findings score (err=2, warn=1) must be non-increasing across the parent rows
   await waitFor(
     () => {
-      const scores = all('button[data-testid^="group-"]').map((b) => {
+      const scores = all('tr[data-testid^="group-"]').map((b) => {
         const t = b.textContent ?? "";
         const err = Number(/(\d+) err/.exec(t)?.[1] ?? 0);
         const warn = Number(/(\d+) warn/.exec(t)?.[1] ?? 0);
@@ -325,9 +325,9 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
   // the previously-open group is CLOSED: only the 6 parents + 3 chosen children remain
   expect(groupRows()).toBe(RULES);
   // ...and its children are gone (the 0.45 cell is no longer on screen)
-  expect(
-    all('button[data-testid^="cell-"]').some((c) => (c.textContent ?? "").includes("0.45")),
-  ).toBe(false);
+  expect(all('tr[data-testid^="cell-"]').some((c) => (c.textContent ?? "").includes("0.45"))).toBe(
+    false,
+  );
 });
 
 test("request rows still drill in: a request click opens the pair detail of its first pair", async () => {

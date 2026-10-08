@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
 import { REQUEST_COLUMNS } from "./requestCols";
@@ -38,36 +38,14 @@ export function spanLabel(span: { start: { line: number }; end: { line: number }
 }
 
 const ROW_HEIGHT = 26;
-const OVERSCAN = 12;
 // header + rows scroll horizontally together below this width: fixed columns would otherwise
 // collapse the path column to an ellipsis
-const HEADER_HEIGHT = 27;
 const TABLE_MIN_WIDTH = 660;
 
-// grouped mode: TWO grids. The OUTER table is group-level only (name | sev | verdicts |
-// counts); each expanded parent opens a NESTED table with its own header (input | sev | value),
-// so child columns never leak into the group header and the name column says rule OR file
+// grouped mode: TWO tables. The outer table is group-level only (name | findings); each
+// expanded parent hosts a NESTED table with its own header (input | severity | value), so
+// child columns never leak into the group header and the name column says rule OR file
 // (the group-by mode already knows which).
-const NAME_WIDTH = "w-52";
-const FINDINGS_MIN_WIDTH = "min-w-0 flex-1";
-const SEVERITY_WIDTH = "w-16";
-const CHEVRON_WIDTH = "w-6";
-// nested (child) grid
-const NESTED_VALUE_WIDTH = "w-16";
-
-const GROUPED_COLS: {
-  key: "name" | "findings" | "chevron";
-  label: string | ((mode: Mode) => string);
-  className: string;
-}[] = [
-  {
-    key: "name",
-    label: (mode) => (mode === "rule" ? "rule" : "file"),
-    className: NAME_WIDTH,
-  },
-  { key: "findings", label: "findings", className: FINDINGS_MIN_WIDTH },
-  { key: "chevron", label: "", className: CHEVRON_WIDTH },
-];
 
 const compareText = (left: string, right: string) => left.localeCompare(right);
 
@@ -75,20 +53,10 @@ const ruleGroupKey = (rule: string): string => "rule:" + rule;
 const fileGroupKey = (file: string): string => "file:" + file;
 
 interface ParentRow {
-  kind: "parent";
   key: string;
   name: string;
-  worstSeverity: "error" | "warn" | null;
   cells: Cell[];
-  counts: string;
 }
-interface ChildRow {
-  kind: "child";
-  key: string;
-  parentKey: string;
-  cell: Cell;
-}
-type GroupedRow = ParentRow | ChildRow;
 
 // parents order by FINDINGS, heaviest first: the weighted score (err=2, warn=1) keeps 1 error
 // above 1 warning while 4 warnings outweigh 1 error; ties fall back to the name
@@ -96,48 +64,19 @@ const findingsScore = (cells: Cell[]): number =>
   cells.reduce((sum, c) => sum + (c.severity === "error" ? 2 : c.severity === "warn" ? 1 : 0), 0);
 
 /**
- * Grouped render model: flat [parent, ...children] rows. Parents order by findings weight; children
- * keep cell order under their parent's nested table. A child key is the parent key NUL-joined with
- * rule and input; NUL never occurs in a rule or input name, so the join can never collide with a
- * guest half.
+ * Grouped render model: parent rows order by findings weight, heaviest first; children keep cell
+ * order inside their parent's nested table.
  */
-function buildGroupedRows(
+function buildGroupedParents(
   groupSpecs: { key: string; name: string; cells: Cell[] }[],
-  expandedKeys: Set<string>,
-): { flatRows: GroupedRow[]; parentRows: ParentRow[] } {
-  const parentRows: ParentRow[] = groupSpecs.map((groupSpec) => {
-    const worstSeverity = groupSpec.cells.reduce<"error" | "warn" | null>(
-      (acc, cell) => (sevRank(cell.severity) > sevRank(acc) ? cell.severity : acc),
-      null,
+): ParentRow[] {
+  return groupSpecs
+    .map((groupSpec) => ({ key: groupSpec.key, name: groupSpec.name, cells: groupSpec.cells }))
+    .sort(
+      (left, right) =>
+        findingsScore(right.cells) - findingsScore(left.cells) ||
+        compareText(left.name, right.name),
     );
-    return {
-      kind: "parent",
-      key: groupSpec.key,
-      name: groupSpec.name,
-      worstSeverity,
-      cells: groupSpec.cells,
-      counts: "",
-    };
-  });
-  const sortedParentRows = [...parentRows].sort(
-    (left, right) =>
-      findingsScore(right.cells) - findingsScore(left.cells) || compareText(left.name, right.name),
-  );
-  const flatRows: GroupedRow[] = [];
-  for (const parentRow of sortedParentRows) {
-    flatRows.push(parentRow);
-    if (expandedKeys.has(parentRow.key)) {
-      for (const cell of parentRow.cells) {
-        flatRows.push({
-          kind: "child",
-          key: parentRow.key + "\u0000" + cell.rule + "\u0000" + cell.input,
-          parentKey: parentRow.key,
-          cell,
-        });
-      }
-    }
-  }
-  return { flatRows, parentRows: sortedParentRows };
 }
 
 /** The click payload for one request-log row: the measured subject, or the file when untargeted. */
@@ -254,20 +193,17 @@ function Toolbar({
 
 function GroupedHeader({ mode }: { mode: Mode }) {
   return (
-    <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted text-body text-foreground"
-      style={{ minWidth: TABLE_MIN_WIDTH }}
-    >
-      {GROUPED_COLS.map((col) => (
-        <span
-          key={col.key}
-          data-testid={`head-${col.key}`}
-          className={`${col.className} shrink-0 px-rail py-bar-y text-left`}
-        >
-          {typeof col.label === "function" ? col.label(mode) : col.label}
-        </span>
-      ))}
-    </div>
+    <thead className="sticky top-0 z-10 border-b border-border bg-muted text-body text-foreground">
+      <tr>
+        <th scope="col" className="w-52 px-rail py-bar-y text-left font-normal">
+          {mode === "rule" ? "rule" : "file"}
+        </th>
+        <th scope="col" className="px-rail py-bar-y text-left font-normal">
+          findings
+        </th>
+        <th scope="col" className="w-6 px-rail py-bar-y" />
+      </tr>
+    </thead>
   );
 }
 
@@ -316,22 +252,29 @@ function GroupedParentRow({
   onToggleExpand: (key: string) => void;
 }) {
   return (
-    <button
-      key={row.key}
+    <tr
       data-testid={`group-${row.key}`}
-      onClick={() => onToggleExpand(row.key)}
+      role="button"
+      tabIndex={0}
       aria-expanded={isExpanded}
-      className={`flex w-full cursor-pointer items-center border-b border-border bg-background text-left text-body text-foreground hover:bg-accent ${
+      onClick={() => onToggleExpand(row.key)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggleExpand(row.key);
+        }
+      }}
+      className={`${ROW_CURSOR} border-b border-border bg-background text-left text-body text-foreground hover:bg-accent ${
         isExpanded ? "font-bold" : ""
       }`}
       style={{ height: ROW_HEIGHT }}
     >
-      {/* parents share the column grid of header + children; hierarchy comes from the caret,
-          never from shifting a column off the grid */}
-      <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
-        <span className="inline-flex items-center">{row.name}</span>
-      </span>
-      <span className={`${FINDINGS_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
+      {/* parents share the outer table's column grid; hierarchy reads from weight, never from
+          shifting a column off the grid */}
+      <td className="truncate px-rail" title={row.name}>
+        {row.name}
+      </td>
+      <td className="whitespace-nowrap px-rail">
         {stats.err > 0 || stats.warn > 0 ? (
           <span className="text-muted-foreground">
             {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
@@ -341,60 +284,98 @@ function GroupedParentRow({
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
-      </span>
-      <span className={`${CHEVRON_WIDTH} shrink-0 px-rail`}></span>
-    </button>
+      </td>
+      <td className="px-rail" />
+    </tr>
   );
 }
 
 type NestedSort = { key: "sev" | "value"; dir: "asc" | "desc" };
 
-function GroupedNestedHeader({
+// unset sort = severity heaviest-first: the default view answers "what is worst here"
+const NESTED_DEFAULT_SORT: NestedSort = { key: "sev", dir: "desc" };
+
+const nestedCompare =
+  (sort: NestedSort) =>
+  (left: Cell, right: Cell): number => {
+    const delta =
+      sort.key === "sev"
+        ? sevRank(right.severity) - sevRank(left.severity)
+        : right.value - left.value;
+    return sort.dir === "desc" ? delta : -delta;
+  };
+
+/**
+ * The nested table under one expanded parent: its own header (input | severity | value) so child
+ * columns never leak into the group header. Severity and value fit their content (nowrap on a w-px
+ * column); the name column takes the remaining width and truncates - max-w-0 keeps its content from
+ * stretching the auto-layout column past the table's width.
+ */
+function GroupedNestedTable({
   mode,
   parentKey,
+  cells,
+  selectedFile,
+  onSelectPair,
+  sort,
   onToggle,
 }: {
   mode: Mode;
   parentKey: string;
+  cells: Cell[];
+  selectedFile: string | null;
+  onSelectPair: (pair: Pair) => void;
+  sort: NestedSort | undefined;
   onToggle: (parentKey: string, key: "sev" | "value") => void;
 }) {
-  const sortCol = (key: "sev" | "value", label: string, width: string) => (
-    <button
-      key={key}
-      data-testid={`nested-sort-${key}`}
-      onClick={() => onToggle(parentKey, key)}
-      className={`${width} shrink-0 cursor-pointer px-rail text-left hover:text-foreground`}
-    >
-      {label}
-    </button>
+  const sortHeader = (key: "sev" | "value", label: string) => (
+    <th scope="col" className="w-px whitespace-nowrap px-rail text-left font-normal">
+      <button
+        data-testid={`nested-sort-${key}`}
+        onClick={() => onToggle(parentKey, key)}
+        className="w-full cursor-pointer text-left hover:text-foreground"
+      >
+        {label}
+      </button>
+    </th>
   );
   return (
-    <div
-      className="flex w-full items-center border-b border-border bg-background text-caption text-muted-foreground"
-      style={{ height: ROW_HEIGHT }}
-    >
-      <span className={`${NAME_WIDTH} shrink-0 truncate pl-indent pr-rail`}>
-        {mode === "rule" ? "input" : "rule"}
-      </span>
-      {sortCol("sev", "severity", SEVERITY_WIDTH)}
-      {sortCol("value", "value", NESTED_VALUE_WIDTH)}
-      <span className="min-w-0 flex-1" />
-    </div>
+    <table className="w-full">
+      <thead className="border-b border-border bg-background text-caption text-muted-foreground">
+        <tr style={{ height: ROW_HEIGHT }}>
+          <th scope="col" className="pl-indent pr-rail text-left font-normal">
+            {mode === "rule" ? "input" : "rule"}
+          </th>
+          {sortHeader("sev", "severity")}
+          {sortHeader("value", "value")}
+        </tr>
+      </thead>
+      <tbody>
+        {[...cells].sort(nestedCompare(sort ?? NESTED_DEFAULT_SORT)).map((cell) => (
+          <GroupedChildRow
+            key={cell.rule + "\u0000" + cell.input}
+            cell={cell}
+            mode={mode}
+            selected={selectedFile === cell.file}
+            onSelectPair={onSelectPair}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 }
 
 function GroupedChildRow({
-  row,
+  cell,
   mode,
-  selectedFile,
+  selected,
   onSelectPair,
 }: {
-  row: ChildRow;
+  cell: Cell;
   mode: Mode;
-  selectedFile: string | null;
+  selected: boolean;
   onSelectPair: (pair: Pair) => void;
 }) {
-  const cell = row.cell;
   // The child's identity axis follows the parent: in rule mode the parent is the rule, so the
   // child names the file it fired on; in file mode the reverse. Same grid either way.
   const childName = mode === "rule" ? cell.file : cell.rule;
@@ -402,42 +383,49 @@ function GroupedChildRow({
     cell.element === undefined || cell.element.kind === "file"
       ? null
       : spanLabel(cell.element.span);
+  const select = () =>
+    onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile });
   return (
-    <button
-      key={row.key}
+    <tr
       data-testid={`cell-${cell.rule}@${cell.input}`}
-      onClick={() =>
-        onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
-      }
+      role="button"
+      tabIndex={0}
+      onClick={select}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          select();
+        }
+      }}
       style={{ height: ROW_HEIGHT }}
-      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left text-body ${
-        selectedFile === cell.file ? "bg-accent text-accent-foreground" : ROW_HOVER
+      className={`${ROW_CURSOR} border-b border-border text-left text-body ${
+        selected ? "bg-accent text-accent-foreground" : ROW_HOVER
       } text-foreground`}
     >
-      {/* nested-table grid: input | sev | value (own header row above, pl-indent nesting) */}
-      <span
-        className={`${NAME_WIDTH} flex shrink-0 items-center gap-siblings truncate pl-indent pr-rail`}
-        title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
-      >
-        <span className="truncate">{childName}</span>
-        <span className="shrink-0 text-caption text-muted-foreground">
-          {childLocation !== null ? childLocation : "(file)"}
+      {/* nested grid: input | severity | value (own header above, pl-indent nesting) */}
+      <td className="max-w-0 overflow-hidden">
+        <span
+          className="flex items-center gap-siblings truncate pl-indent pr-rail"
+          title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
+        >
+          <span className="truncate">{childName}</span>
+          <span className="shrink-0 text-caption text-muted-foreground">
+            {childLocation !== null ? childLocation : "(file)"}
+          </span>
         </span>
-      </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
+      </td>
+      <td className="w-px whitespace-nowrap px-rail">
         <SeverityDot severity={cell.severity} />
-      </span>
-      <span className={`${NESTED_VALUE_WIDTH} shrink-0 px-rail`}>{cell.value.toFixed(2)}</span>
-      <span className="min-w-0 flex-1" />
-    </button>
+      </td>
+      <td className="w-px whitespace-nowrap px-rail">{cell.value.toFixed(2)}</td>
+    </tr>
   );
 }
 
 // Real table (not a virtualized flex grid): the <thead> owns the column widths via
 // table-fixed, and every row derives alignment from it - the literal-sync drift class
 // (header at w-16 while rows stayed w-10) cannot happen. The request log is at most a
-// few hundred rows (~8k px), which the DOM renders fine without windowing; the windowed
-// translateY machinery stays for the grouped tree mode only.
+// few hundred rows (~8k px), which the DOM renders fine without windowing.
 function RequestLog({
   rows,
   selectedFile,
@@ -473,8 +461,7 @@ function RequestLog({
 }
 
 function GroupedTreeView({
-  list,
-  range,
+  parents,
   mode,
   ruleGroups,
   fileGroups,
@@ -485,8 +472,7 @@ function GroupedTreeView({
   nestedSorts,
   onToggleNestedSort,
 }: {
-  list: GroupedRow[];
-  range: { first: number; last: number };
+  parents: ParentRow[];
   mode: Mode;
   ruleGroups: RuleGroup[];
   fileGroups: FileGroup[];
@@ -498,94 +484,36 @@ function GroupedTreeView({
   onToggleNestedSort: (parentKey: string, key: "sev" | "value") => void;
 }) {
   return (
-    <>
+    <table className="w-full table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
       <GroupedHeader mode={mode} />
-      <div
-        style={{
-          height: list.length * ROW_HEIGHT,
-          position: "relative",
-          minWidth: TABLE_MIN_WIDTH,
-        }}
-      >
-        <div style={{ transform: `translateY(${range.first * ROW_HEIGHT}px)` }}>
-          {(() => {
-            const windowed = list.slice(range.first, range.last);
-            const els: React.ReactNode[] = [];
-            let openParent: string | null = null;
-            let nestedHeaderShown = false;
-            // children of an expanded parent are buffered so the nested table can sort them
-            let childBuffer: ChildRow[] = [];
-            const flushChildren = () => {
-              if (!openParent) return;
-              // unset sort = severity heaviest-first: the default view answers "what is worst here"
-              const s = nestedSorts[openParent] ?? { key: "sev", dir: "desc" };
-              const rows = [...childBuffer].sort((a, b) => {
-                const d =
-                  s.key === "sev"
-                    ? sevRank(b.cell.severity) - sevRank(a.cell.severity)
-                    : b.cell.value - a.cell.value;
-                return s.dir === "desc" ? d : -d;
-              });
-              for (const r of rows)
-                els.push(
-                  <GroupedChildRow
-                    key={r.key}
-                    row={r}
+      <tbody>
+        {parents.map((parentRow) => (
+          <Fragment key={parentRow.key}>
+            <GroupedParentRow
+              row={parentRow}
+              stats={groupStatsFor(mode, ruleGroups, fileGroups, parentRow)}
+              isExpanded={expanded.has(parentRow.key)}
+              onToggleExpand={onToggleExpand}
+            />
+            {expanded.has(parentRow.key) && (
+              <tr>
+                <td colSpan={3} className="p-0">
+                  <GroupedNestedTable
                     mode={mode}
+                    parentKey={parentRow.key}
+                    cells={parentRow.cells}
                     selectedFile={selectedFile}
                     onSelectPair={onSelectPair}
-                  />,
-                );
-              childBuffer = [];
-            };
-            for (const row of windowed) {
-              if (row.kind === "parent") {
-                flushChildren();
-                openParent = expanded.has(row.key) ? row.key : null;
-                nestedHeaderShown = false;
-                els.push(
-                  <GroupedParentRow
-                    key={row.key}
-                    row={row}
-                    stats={groupStatsFor(mode, ruleGroups, fileGroups, row)}
-                    isExpanded={expanded.has(row.key)}
-                    onToggleExpand={onToggleExpand}
-                  />,
-                );
-              } else if (openParent === row.parentKey) {
-                // each expanded parent opens its own nested table: inject its header once,
-                // before the first child row of that parent
-                if (!nestedHeaderShown) {
-                  els.push(
-                    <GroupedNestedHeader
-                      key={openParent + ":nested-header"}
-                      mode={mode}
-                      parentKey={openParent}
-                      onToggle={onToggleNestedSort}
-                    />,
-                  );
-                  nestedHeaderShown = true;
-                }
-                childBuffer.push(row);
-              } else {
-                flushChildren();
-                els.push(
-                  <GroupedChildRow
-                    key={row.key}
-                    row={row}
-                    mode={mode}
-                    selectedFile={selectedFile}
-                    onSelectPair={onSelectPair}
-                  />,
-                );
-              }
-            }
-            flushChildren();
-            return els;
-          })()}
-        </div>
-      </div>
-    </>
+                    sort={nestedSorts[parentRow.key]}
+                    onToggle={onToggleNestedSort}
+                  />
+                </td>
+              </tr>
+            )}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -636,19 +564,7 @@ export function RequestTable({
         cur?.key === key ? { key, dir: cur.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" };
       return { ...prev, [parentKey]: next };
     });
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(600);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const syncViewportHeight = () => {
-    const scrollElement = scrollRef.current;
-    if (!scrollElement) return;
-    const resizeObserver = new ResizeObserver(() => setViewportHeight(scrollElement.clientHeight));
-    resizeObserver.observe(scrollElement);
-    setViewportHeight(scrollElement.clientHeight);
-    return () => resizeObserver.disconnect();
-  };
-  useEffect(syncViewportHeight, []);
 
   // grouped modes default to error-first: sev desc is the initial toggle state, not a fixed order
   const ensureGroupedSort = () => {};
@@ -671,52 +587,39 @@ export function RequestTable({
 
   const buildGroupedModel = () => {
     if (mode === "rule") {
-      return buildGroupedRows(
+      return buildGroupedParents(
         ruleGroups.map((group) => ({
           key: ruleGroupKey(group.rule),
           name: group.rule,
           cells: group.cells,
         })),
-        expanded,
       );
     }
     if (mode === "file") {
-      return buildGroupedRows(
+      return buildGroupedParents(
         fileGroups.map((group) => ({
           key: fileGroupKey(group.file),
           name: group.file,
           cells: group.cells,
         })),
-        expanded,
       );
     }
-    return { flatRows: [], parentRows: [] };
+    return [];
   };
-  const grouped = useMemo(buildGroupedModel, [mode, ruleGroups, fileGroups, expanded]);
+  const grouped = useMemo(buildGroupedModel, [mode, ruleGroups, fileGroups]);
 
   // a report-panel click is a fresh focus: close every group, expand only the chosen rule
   const focusReportedRule = () => {
     if (focusRule === null || mode !== "rule") return;
     const focusedRuleKey = ruleGroupKey(focusRule);
     setExpanded(new Set([focusedRuleKey]));
-    const focusedParentIndex = grouped.parentRows.findIndex(
-      (parentRow) => parentRow.key === focusedRuleKey,
-    );
+    const focusedParentIndex = grouped.findIndex((parentRow) => parentRow.key === focusedRuleKey);
     if (focusedParentIndex >= 0)
       scrollRef.current?.scrollTo({ top: focusedParentIndex * ROW_HEIGHT });
     onFocusHandled();
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(focusReportedRule, [focusRule, mode]);
-
-  const visibleRange = useMemo(() => {
-    // scrollTop includes the sticky header row; compensate before mapping to row indexes
-    const scrollRows = Math.max(0, scrollTop - HEADER_HEIGHT);
-    const first = Math.max(0, Math.floor(scrollRows / ROW_HEIGHT) - OVERSCAN);
-    const visible = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
-    const total = mode === "request" ? rows.length : grouped.flatRows.length;
-    return { first, last: Math.min(total, first + visible) };
-  }, [scrollTop, viewportHeight, rows.length, grouped, mode]);
 
   const activeFilterText = filter.text !== "" ? `text "${filter.text}"` : null;
   const activeText = activeFilterText !== null ? `active: ${activeFilterText}` : null;
@@ -732,11 +635,9 @@ export function RequestTable({
     ? "loading…"
     : mode === "rule"
       ? null
-      : `${mode === "request" ? rows.length : grouped.flatRows.length} / ${totalCount} ${countNoun}`;
+      : `${mode === "request" ? rows.length : grouped.length} / ${totalCount} ${countNoun}`;
   const isEmpty =
-    !query.isLoading &&
-    !query.isError &&
-    (mode === "request" ? rows.length : grouped.flatRows.length) === 0;
+    !query.isLoading && !query.isError && (mode === "request" ? rows.length : grouped.length) === 0;
   const emptyDetail = emptyStateNote(isEmpty, mode, query.data);
 
   const errorNotice = query.isError ? (
@@ -762,8 +663,7 @@ export function RequestTable({
       />
     ) : (
       <GroupedTreeView
-        list={grouped.flatRows}
-        range={visibleRange}
+        parents={grouped}
         mode={mode}
         ruleGroups={ruleGroups}
         fileGroups={fileGroups}
@@ -785,11 +685,7 @@ export function RequestTable({
         onFilterText={(text) => applyFilterPatch({ text })}
         countText={countText}
       />
-      <div
-        ref={scrollRef}
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-        className="min-h-0 flex-1 overflow-auto"
-      >
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         {errorNotice}
         {emptyNotice}
         {tableBody}
