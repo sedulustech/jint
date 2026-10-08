@@ -48,6 +48,20 @@ describe("loadCustomRules", () => {
     expect(async () => await loadCustomRules([path])).toThrow(/node:fs/);
   });
 
+  test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
+    // the import must resolve and execute; whether a declarative spec may sit in a fragment's
+    // rules is a separate question (config-composition/03 follow-up) - this pins the gate only
+    const path = write(
+      "defaults-import.ts",
+      'import { defaultRuleSpecs } from "@jint/defaults";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        "const count = Object.keys(defaultRuleSpecs).length;\n" +
+        "export default defineConfig({ rules: [], include: count > 0 ? undefined : [] });",
+    );
+    const rules = await loadCustomRules([path]);
+    expect(rules).toHaveLength(0);
+  });
+
   test("the gate ALLOWS relative imports, re-exports, absolute paths, and jint:*", async () => {
     // The allow matrix is contract too: legitimate rule composition must keep working, and the
     // scan must see re-export forms (export ... from) as imports.

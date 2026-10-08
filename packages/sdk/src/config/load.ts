@@ -151,21 +151,21 @@ export function defaultConfig(): ResolvedConfig {
   });
 }
 
-export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedConfig> {
+/**
+ * The public entry: dispatches on the config file's extension. Both tiers share the boundary
+ * (validateConfig) and differ only in how bytes become an object - read + parse for the declarative
+ * tier, gated import for the imperative tier.
+ */
+export function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedConfig> {
+  return path.endsWith(".ts") ? loadTsConfig(path) : loadDeclarativeConfig(path);
+}
+
+/**
+ * The declarative tier: plain JSON (jint.config.json). Data only - the engine owns every behavior,
+ * so nothing here executes and no gate is needed.
+ */
+export async function loadDeclarativeConfig(path: string): Promise<ResolvedConfig> {
   const abs = resolve(path);
-  if (abs.endsWith(".ts")) {
-    // TS configs load through the custom-rule loader: the gate allows jint:* (jint:sdk,
-    // jint:defaults) and relative imports; the default export is a partial config (rules,
-    // include, exclude) validated by the same boundary as JSON. bun imports TS natively.
-    const raw = await importConfigModule(abs);
-    if (raw === undefined || typeof raw !== "object") {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `ts config must default-export defineConfig({...}): ${path}`,
-      );
-    }
-    return validateConfig(raw, path);
-  }
   let text: string;
   try {
     text = readFileSync(abs, "utf8");
@@ -181,6 +181,25 @@ export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedCo
       "CONFIG_INVALID",
       `config file is not valid JSON: ${path}: ${detail} (plain JSON only — no comments, no trailing commas)`,
       { cause: e },
+    );
+  }
+  return validateConfig(raw, path);
+}
+
+/**
+ * The imperative tier: a TS module (jint.config.ts) default-exporting defineConfig({...}). Loads
+ * through the custom-rule loader - the gate allows jint:* virtual modules, the first-party
+ *
+ * @jint/defaults package (install-time versioned), and relative/absolute files - then validates
+ * through the same boundary as JSON.
+ */
+export async function loadTsConfig(path: string): Promise<ResolvedConfig> {
+  const abs = resolve(path);
+  const raw = await importConfigModule(abs);
+  if (raw === undefined || typeof raw !== "object") {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `ts config must default-export defineConfig({...}): ${path}`,
     );
   }
   return validateConfig(raw, path);

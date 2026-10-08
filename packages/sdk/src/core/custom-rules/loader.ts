@@ -51,9 +51,21 @@ export function registerCustomRuleLoader(): void {
   });
 }
 
-/** True when a scanned import may pass the gate: the API module, or a relative/absolute file. */
+/**
+ * True when a scanned import may pass the gate: a jint:* virtual module, the first-party defaults
+ * package, or a relative/absolute file. Bare npm specifiers and node:* builtins stay rejected — the
+ * sandbox line is unchanged. @jint/defaults is allowed deliberately: it is install-time versioned,
+ * where the jint:defaults virtual module's version IS the CLI baseline (design
+ * config-composition/03, versioned-defaults/01).
+ */
 function allowedImport(specifier: string): boolean {
-  return specifier.startsWith("jint:") || specifier.startsWith(".") || specifier.startsWith("/");
+  return (
+    specifier.startsWith("jint:") ||
+    specifier === "@jint/defaults" ||
+    specifier.startsWith("./") ||
+    specifier.startsWith("../") ||
+    specifier.startsWith("/")
+  );
 }
 
 /**
@@ -97,10 +109,10 @@ export async function loadCustomRuleFile(path: string): Promise<CustomRule[]> {
       },
     );
   }
-  return rulesOfFragment(mod, path);
+  return contributedRules(mod, path);
 }
 
-function rulesOfFragment(mod: unknown, path: string): CustomRule[] {
+function contributedRules(mod: unknown, path: string): CustomRule[] {
   const exported = (mod as { default?: unknown }).default;
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "custom rule file " + path + ": " + message);
