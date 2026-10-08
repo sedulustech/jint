@@ -98,9 +98,16 @@ export interface CustomRule {
   ) => readonly CustomDecision[];
 }
 
-/** A TS config fragment: contributes rules ONLY — run-level keys stay in jint.config.json. */
+/**
+ * A TS config fragment: contributes rules — declarative entries (the jint:defaults specs and their
+ * spread-and-overrides, validated by the config boundary) or callback CustomRules. design
+ * config-composition/02: a fragment may carry include/exclude, inherited by its rules; a rule's own
+ * scoping replaces the fragment default (rule-level wins, issue-008 precedence).
+ */
 export interface CustomConfigFragment {
-  readonly rules: readonly CustomRule[];
+  readonly rules: ReadonlyArray<CustomRule | ({ readonly name: string } & Record<string, unknown>)>;
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
 }
 
 /** The element roles a custom rule may target in v1 (unit-level targets stay JSON-tier). */
@@ -265,27 +272,33 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
  * exclude, ...) are rejected — they are entry-config, and a fragment has no single run to mean.
  * Takes one fragment or an array of them.
  */
+export function defineConfig<F extends { rules: readonly unknown[] }>(fragment: F): F;
+export function defineConfig<F extends { rules: readonly unknown[] }>(
+  fragments: readonly F[],
+): readonly F[];
 export function defineConfig(
-  fragment: CustomConfigFragment | readonly CustomConfigFragment[],
-): CustomConfigFragment {
+  fragment: { rules: readonly unknown[] } | readonly { rules: readonly unknown[] }[],
+): unknown {
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "defineConfig: " + message);
   };
+  // generic passthrough: the author's literal type survives, so declarative entries and
+  // callback rules compose alike (design config-composition/03)
   const fragments = Array.isArray(fragment) ? fragment : [fragment];
   if (fragments.length === 0) fail("empty fragment array");
   for (const f of fragments) {
     if (typeof f !== "object" || f === null) fail("fragment is not an object");
     for (const key of Object.keys(f)) {
-      if (key !== "rules") {
+      if (key !== "rules" && key !== "include" && key !== "exclude") {
         fail(
           '"' +
             key +
-            '" is not allowed in a TS config fragment — fragments contribute rules ONLY (run-level keys live in jint.config.json)',
+            '" is not allowed in a TS config fragment — fragments carry rules, include, exclude (design config-composition/02)',
         );
       }
     }
     const rules = (f as CustomConfigFragment).rules;
     if (!Array.isArray(rules)) fail('"rules" must be an array');
   }
-  return fragment as CustomConfigFragment;
+  return fragment;
 }

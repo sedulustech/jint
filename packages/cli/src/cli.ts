@@ -30,7 +30,7 @@ import {
   recordSummary,
   recordRunManifest,
   recordRunReport,
-  DEFAULT_CONFIG_PATH,
+  findConfigFile,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
@@ -321,24 +321,22 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   }
   if (cliArgs.debug === true) setLogLevel("debug");
 
+  // config discovery: TS preferred, JSON fallback; --config overrides discovery
+  const foundConfig = findConfigFile();
+
   let resolvedConfig: ResolvedConfig;
   try {
     resolvedConfig =
       cliArgs.config !== undefined
         ? await loadConfig(cliArgs.config)
-        : existsSync(DEFAULT_CONFIG_PATH)
-          ? await loadConfig()
+        : foundConfig !== null
+          ? await loadConfig(foundConfig)
           : defaultConfig();
   } catch (thrown) {
     return exitForThrown(thrown);
   }
   // The config file that ran (absolute); null when no config file exists (built-in defaults).
-  const configPath =
-    cliArgs.config !== undefined
-      ? resolve(cliArgs.config)
-      : existsSync(DEFAULT_CONFIG_PATH)
-        ? resolve(DEFAULT_CONFIG_PATH)
-        : null;
+  const configPath = cliArgs.config !== undefined ? resolve(cliArgs.config) : foundConfig;
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly

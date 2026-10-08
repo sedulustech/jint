@@ -80,13 +80,21 @@ declare module "jint:sdk" {
     ) => readonly CustomDecision[];
   }
 
-  /** A TS config fragment: contributes rules ONLY (run-level keys stay in jint.config.json). */
+  /**
+   * A TS config fragment: declarative entries (jint:defaults specs, design 03) or callback rules;
+   * include/exclude are fragment-level scoping (design 02).
+   */
   export interface CustomConfigFragment {
-    readonly rules: readonly CustomRule[];
+    readonly rules: ReadonlyArray<
+      CustomRule | ({ readonly name: string } & Record<string, unknown>)
+    >;
+    readonly include?: readonly string[];
+    readonly exclude?: readonly string[];
   }
 
   /** Declares a fragment; takes one fragment or an array of them. */
-  export function defineConfig(
-    fragment: CustomConfigFragment | readonly CustomConfigFragment[],
-  ): CustomConfigFragment;
+  export function defineConfig<F extends { rules: readonly unknown[] }>(fragment: F): F;
+  export function defineConfig<F extends { rules: readonly unknown[] }>(
+    fragments: readonly F[],
+  ): readonly F[];
 }

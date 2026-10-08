@@ -16,6 +16,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { defaultRuleSpecs } from "@jint/defaults";
 import { SetupError } from "../types.ts";
 import {
   defineConfig,
@@ -26,7 +27,12 @@ import {
 
 let registered = false;
 
-/** Registers the "jint:sdk" virtual module exactly once per process. */
+/**
+ * Registers the virtual modules exactly once per process: "jint:sdk" (the rule-author API) and
+ * "jint:defaults" (the DECLARATIVE default specs — never compiled Rule objects; design
+ * config-composition/03). build.module intercepts both before any disk lookup, so they resolve
+ * inside compiled binaries too, and external users need no install.
+ */
 export function registerCustomRuleLoader(): void {
   if (registered) return;
   registered = true;
@@ -35,6 +41,10 @@ export function registerCustomRuleLoader(): void {
     setup(build) {
       build.module("jint:sdk", () => ({
         exports: { defineConfig },
+        loader: "object",
+      }));
+      build.module("jint:defaults", () => ({
+        exports: { defaultRuleSpecs, ...defaultRuleSpecs },
         loader: "object",
       }));
     },
@@ -108,6 +118,27 @@ function rulesOfFragment(mod: unknown, path: string): CustomRule[] {
     for (const rule of f.rules) rules.push(validateCustomRule(rule, path));
   }
   return rules;
+}
+
+/**
+ * Gated import of a TS config module: registers the virtual modules, pre-scans the imports (the
+ * same gate as rule files: colon-specifiers, relative, absolute), and returns the module's default
+ * export — the partial config (rules, include, exclude) the config boundary validates.
+ */
+export async function importConfigModule(abs: string): Promise<unknown> {
+  registerCustomRuleLoader();
+  // The gate reads + scans before the transpile: a rejected file never executes.
+  gateImports(abs, readFileSync(abs, "utf8"));
+  try {
+    const mod = (await import(abs)) as { default?: unknown };
+    return mod.default;
+  } catch (thrown) {
+    if (thrown instanceof SetupError) throw thrown;
+    const detail = thrown instanceof Error ? thrown.message : String(thrown);
+    throw new SetupError("CONFIG_INVALID", "config module failed to load: " + abs + ": " + detail, {
+      cause: thrown,
+    });
+  }
 }
 
 /** Loads every config-declared custom rule file, in declared order, and rejects duplicate names. */

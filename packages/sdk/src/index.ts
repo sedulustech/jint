@@ -10,6 +10,7 @@
 import { defaultRules } from "./core/rules/defaults.ts";
 
 export {
+  findConfigFile,
   loadConfig,
   defaultConfig,
   validateConfig,

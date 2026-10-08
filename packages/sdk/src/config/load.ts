@@ -12,10 +12,11 @@
  * §3.5).
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { importConfigModule } from "../core/custom-rules/loader.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { defaultRules } from "../core/rules/defaults.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
@@ -23,6 +24,17 @@ import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";
+
+/** Config files discovered in the working directory, in preference order. */
+const CONFIG_FILES = ["jint.config.ts", "jint.config.json"] as const;
+
+/** The first existing config file (TS preferred); null when the directory declares none. */
+export function findConfigFile(cwd = process.cwd()): string | null {
+  for (const name of CONFIG_FILES) {
+    if (existsSync(resolve(cwd, name))) return resolve(cwd, name);
+  }
+  return null;
+}
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
@@ -141,6 +153,19 @@ export function defaultConfig(): ResolvedConfig {
 
 export async function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedConfig> {
   const abs = resolve(path);
+  if (abs.endsWith(".ts")) {
+    // TS configs load through the custom-rule loader: the gate allows jint:* (jint:sdk,
+    // jint:defaults) and relative imports; the default export is a partial config (rules,
+    // include, exclude) validated by the same boundary as JSON. bun imports TS natively.
+    const raw = await importConfigModule(abs);
+    if (raw === undefined || typeof raw !== "object") {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `ts config must default-export defineConfig({...}): ${path}`,
+      );
+    }
+    return validateConfig(raw, path);
+  }
   let text: string;
   try {
     text = readFileSync(abs, "utf8");

@@ -129,13 +129,15 @@ describe("defineConfig validation (load-time, fatal)", () => {
     expect(fragment).toHaveLength(2);
   });
 
-  test("rejects run-level keys: fragments contribute rules ONLY", () => {
+  test("rejects run-level keys other than the fragment's own scoping (design 02)", () => {
     expect(() => {
       defineConfig({ rules: [], input: "src/" } as never);
     }).toThrow(/input/);
-    expect(() => {
-      defineConfig({ rules: [], exclude: ["x"] } as never);
-    }).toThrow(/exclude/);
+    // include/exclude are fragment-level scoping, allowed since config-composition/02
+    expect(defineConfig({ rules: [], exclude: ["x"] })).toEqual({
+      rules: [],
+      exclude: ["x"],
+    });
   });
 });
 
