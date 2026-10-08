@@ -2,7 +2,6 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
-import { DensityStrip } from "./DensityStrip";
 import { REQUEST_COLUMNS } from "./requestCols";
 import { Row } from "./Row";
 import {
@@ -738,8 +737,6 @@ export function RequestTable({
     (mode === "request" ? rows.length : grouped.flatRows.length) === 0;
   const emptyDetail = emptyStateNote(isEmpty, mode, query.data);
 
-  const densityStrip =
-    mode === "request" && !query.isLoading && rows.length > 0 ? <DensityStrip rows={rows} /> : null;
   const errorNotice = query.isError ? (
     <p className="p-rail text-sev-error">{String(query.error)}</p>
   ) : null;
@@ -786,7 +783,6 @@ export function RequestTable({
         onFilterText={(text) => applyFilterPatch({ text })}
         countText={countText}
       />
-      {densityStrip}
       <div
         ref={scrollRef}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
