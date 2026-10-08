@@ -423,6 +423,10 @@ function headerEnd(text: string, nestedBraceEndsHeader: boolean): number {
  * module doc on graceful degradation.
  */
 export async function decompose(source: string, language: string): Promise<Inventory> {
+  // file-tier languages: no grammar, no elements - the unit IS the file (see FILE_TIER_LANGUAGES)
+  if (language in FILE_TIER_LANGUAGES) {
+    return { hasError: false, definitions: [], comments: [], imports: [] };
+  }
   const mapping = LANGUAGES[language];
   if (!mapping) {
     throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
@@ -687,12 +691,25 @@ export async function decompose(source: string, language: string): Promise<Inven
   };
 }
 
-/** The inventory's languages: the tree-sitter grammars actually mapped (design §7.2). */
+/**
+ * Languages measured at the FILE tier: the whole file is the unit (raw source, no elements). No
+ * grammar mapped - element-target rules see nothing; files-target rules read the source. A grammar
+ * arrives only when a first element-level rule for the language justifies it.
+ */
+export const FILE_TIER_LANGUAGES: Readonly<Record<string, readonly string[]>> = {
+  css: [".css"],
+};
+
+/** The inventory's languages: grammars first, then the file tier (design §7.2). */
 export function languageOf(path: string): string | null {
   if (/\.tsx$/.test(path)) return "tsx";
   if (/\.(m|c)?ts$/.test(path)) return "typescript";
   if (/\.py$/.test(path)) return "python";
-  return /\.go$/.test(path) ? "go" : null;
+  if (/\.go$/.test(path)) return "go";
+  for (const [language, extensions] of Object.entries(FILE_TIER_LANGUAGES)) {
+    if (extensions.some((extension) => path.endsWith(extension))) return language;
+  }
+  return null;
 }
 
 /**

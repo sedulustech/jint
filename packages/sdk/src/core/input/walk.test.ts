@@ -753,6 +753,13 @@ describe("decompose — tsx", () => {
     expect(languageOf("src/x.cts")).toBe("typescript");
     expect(languageOf("src/x.jsx")).toBe(null);
   });
+  test("css is file-tier: routed, decomposed to an empty inventory, no grammar needed", async () => {
+    expect(languageOf("src/index.css")).toBe("css");
+    const inv = await decompose(".row:hover { background: var(--muted); }", "css");
+    expect(inv.hasError).toBe(false);
+    expect(inv.definitions).toHaveLength(0);
+    expect(inv.comments).toHaveLength(0);
+  });
 
   test("a real .tsx file parses healthy under the tsx grammar", async () => {
     const source = await Bun.file("packages/app/src/views/PairDetail.tsx").text();

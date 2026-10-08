@@ -7,6 +7,7 @@
 import {
   decompose,
   fileElement,
+  FILE_TIER_LANGUAGES,
   languageOf,
   projectElement,
   type Inventory,
@@ -312,6 +313,11 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   const language = options.language ?? languageOf(state.path);
   if (language === null)
     return { inventory: [], failed: missingGrammarReason(state.path), failedCause: undefined };
+  // file-tier languages decompose to an empty inventory BY DESIGN (FILE_TIER_LANGUAGES) - a
+  // healthy empty, never a failure: element-target rules have nothing to measure there, and the
+  // files-target rules read the unit's raw source
+  if (language in FILE_TIER_LANGUAGES)
+    return { inventory: [], failed: null, failedCause: undefined };
   // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
   // retention pass) — a typed read, no union discriminator and no fallback to parse around.
   const source = state.content;
@@ -325,7 +331,8 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
     if (inventory.length === 0)
       return {
         inventory,
-        failed: "no definitions, comments, or imports found",
+        failed:
+          "no definitions, comments, or imports found — element-target rules cannot measure this file (per-rule exclude it if that is intentional)",
         failedCause: undefined,
       };
     return { inventory, derived: parsedSource, failed: null, failedCause: undefined };
@@ -575,9 +582,18 @@ async function classifyWholeUnit(
   );
 }
 
-/** A walk failure streams as an error for the inventory-scoped rules; never silent. */
-function collectWalkFailure(unit: Unit, walked: WalkedUnit, events: ClassifyEvent[]): void {
-  if (walked.failed === null || unit.kind !== "file") return;
+/**
+ * A walk failure streams as an error — but ONLY when a rule on the unit needed the inventory.
+ * Unit-scoped (files-target) rules judge the unit itself; an empty inventory is their healthy
+ * state, not a failure (the css file tier and element-free shims measure fine without one).
+ */
+function collectWalkFailure(
+  unit: Unit,
+  walked: WalkedUnit,
+  events: ClassifyEvent[],
+  needed: boolean,
+): void {
+  if (!needed || walked.failed === null || unit.kind !== "file") return;
   const state = unit.state;
   events.push({
     event: new ClassifyError(
@@ -632,7 +648,11 @@ export async function classifyFile(
   // (the one-shot door), walk now. Only file units stream the failure — a str unit has no
   // grammar to fail on by construction.
   const walkedUnit = walked ?? (await walkUnit(unit, options));
-  collectWalkFailure(unit, walkedUnit, events);
+  // the walk is only load-bearing for inventory-scoped rules; files-tier units measure without it
+  const needsInventory = rules.some(
+    (rule) => ruleInScope(rule, state.path) && !judgesWholeUnit(rule, unit.kind),
+  );
+  collectWalkFailure(unit, walkedUnit, events, needsInventory);
 
   const notes = scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind);
   const oversized = oversizedElements(walkedUnit.derived);

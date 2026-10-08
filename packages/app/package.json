@@ -8,6 +8,7 @@
     "build": "vite build",
     "serve": "bun server.ts",
     "test:component": "vitest run",
+    "check:jint": "bun ../../packages/cli/dist/cli.js --config jint.config.json src",
     "test:api": "bun test",
     "fixtures:build": "bun tests/helpers/build-fixture.ts",
     "fixtures:gen": "bun scripts/build-fixture.ts"

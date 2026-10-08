@@ -19,7 +19,12 @@ import {
 import { loadCustomRules } from "./custom-rules/loader.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
-import { MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
+import {
+  FILE_TIER_LANGUAGES,
+  languageOf,
+  MAX_ELEMENT_TOKENS,
+  type WalkElement,
+} from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -42,7 +47,7 @@ import {
   type OversizedElement,
   type WalkedUnit,
 } from "./rules/classify.ts";
-import { judgesWholeUnit } from "./scope.ts";
+import { judgesWholeUnit, ruleInScope } from "./scope.ts";
 import {
   ClassifyError,
   SetupError,
@@ -274,19 +279,34 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
   // inventories (metadata + parent links) retained, trees freed inside walkUnit. Peak memory =
   // metadata-so-far + contents-so-far + one tree, the same profile as the old streaming walk.
+  //
+  // The walk is a DEPENDENCY of inventory-scoped rules, so it is taken only where a consumer
+  // exists: a unit no in-scope rule targets at element level (files-target only) measures from
+  // its raw source and is never parsed. Unwalked units read as inventory-less downstream; a
+  // WALK_FAILED there is impossible by construction - the failure requires a walked-for file.
   const walked = new Map<number, WalkedUnit>();
   for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
     await Promise.all(
       units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
-        if (unit.kind === "file") {
-          walked.set(
-            i + j,
-            await walkUnit(
-              unit,
-              options.language !== undefined ? { language: options.language } : {},
-            ),
-          );
-        }
+        if (unit.kind !== "file") return;
+        // file-tier languages decompose to an empty inventory by design - no walk can ever
+        // serve them, so they are never a dependency of any rule
+        const language = languageOf(unit.state.path);
+        if (language !== null && language in FILE_TIER_LANGUAGES) return;
+        // custom rules resolve their targets from the inventory (element roles only), so any
+        // in-scope custom rule needs the walk just like a json-tier element rule
+        const needsWalk =
+          rules.some(
+            (rule) => ruleInScope(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
+          ) || customRules.some((rule) => ruleInScope(rule, unit.state.path));
+        if (!needsWalk) return;
+        walked.set(
+          i + j,
+          await walkUnit(
+            unit,
+            options.language !== undefined ? { language: options.language } : {},
+          ),
+        );
       }),
     );
   }

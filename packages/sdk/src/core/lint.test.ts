@@ -894,31 +894,30 @@ describe("lint — walk-first yield ordering (pure JSON)", () => {
     handle: () => null, // never fires: the rule classifies, nothing is actionable
   };
 
-  test("a WALK_FAILED streams in-band, in unit order, and the run continues to classification", async () => {
+  test("an element-free file under files-target rules is healthy: measured in order, no WALK_FAILED", async () => {
+    // the walk is a dependency of inventory-scoped rules only; a files-target unit measures from
+    // raw source, so zero elements is its healthy state (the walk is never even taken)
     mkdirSync(ORDER_DIR, { recursive: true });
     writeFileSync(BROKEN, ";");
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [FILES_RULE as never] },
-        // The broken unit is FIRST: its events (whole-file call + WALK_FAILED) yield before the
+        // The element-free unit is FIRST: its whole-file measurement still yields before the
         // next unit's classification events (per-wave, per-unit order).
         input: [BROKEN, FILE],
         classifier: classifierWith({ is_files_order_probe: 0.9 }),
       }),
     );
-    const walkFailedIndex = events.findIndex(
-      (e) => e.type === "error" && e.error.code === "WALK_FAILED",
-    );
-    expect(walkFailedIndex).toBeGreaterThanOrEqual(0);
-    // The failed unit's whole-file measurement streamed BEFORE its WALK_FAILED (the walk failure
-    // never preempts or aborts the unit's own classification), and the next unit still classified.
+    expect(events.findIndex((e) => e.type === "error" && e.error.code === "WALK_FAILED")).toBe(-1);
     const measurements = events.filter((e) => e.type === "measurement");
     expect(measurements.length).toBeGreaterThan(1);
     expect(
       events.findIndex(
         (e) => e.type === "measurement" && e.measurement.input.includes("sample-file"),
       ),
-    ).toBeGreaterThan(walkFailedIndex);
+    ).toBeGreaterThan(
+      events.findIndex((e) => e.type === "measurement" && e.measurement.input.includes("empty.ts")),
+    );
   });
 });
 

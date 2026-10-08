@@ -1,0 +1,24 @@
+{
+  "$schema": "../../jint.schema.json",
+  "exclude": ["**/*.test.ts", "**/*.test-browser.tsx"],
+  "rules": [
+    {
+      "name": "is_style_colocated",
+      "target": "files",
+      "instructions": "Does this stylesheet style COMPONENT behavior via global selectors? Component behavior (hover/active/disabled/selected states; presentation of buttons, rows, triggers) must be styled at the component (Tailwind classes on the element). Global element or attribute selectors - button:not(:disabled), [data-slot=...], .component-class rules that set behavior states - are a second style authority and a violation. NOT violations: @theme token definitions (palette, spacing), base document styles (body, html), non-behavioral resets, and theme assignments to vendor token classes (.hljs-comment etc.).",
+      "criteria": {
+        "true": "The file contains at least one global element/attribute selector that styles component behavior (e.g. button:not(:disabled), [data-slot=\"button\"], a .component class setting hover/selected/active states).",
+        "false": "No such selector: only @theme tokens, base document styles, non-behavioral resets, and vendor-class theme assignments."
+      },
+      "handle": {
+        "warn": {
+          "greater_than": 0.5
+        },
+        "error": {
+          "greater_than": 0.7
+        }
+      },
+      "include": ["**/*.css"]
+    }
+  ]
+}
