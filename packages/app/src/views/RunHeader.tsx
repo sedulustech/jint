@@ -26,7 +26,8 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
           {run.configPath !== null && "config " + baseName(run.configPath)}
           {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
           {" · "}
-          {relTime(run.mtime)} · {run.requests} requests · id: {run.id.slice(-6)}
+          {relTime(run.mtime)} · {run.requests} {run.requests === 1 ? "request" : "requests"} · id:{" "}
+          {run.id.slice(-6)}
         </span>
       )}
     </div>

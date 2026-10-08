@@ -42,7 +42,7 @@ test("picking a run writes the path", async () => {
 
   // radix select opens on keydown; keyboard is also the path that avoids pointer quirks
   const trigger = await screen.findByTestId("run-picker", undefined, { timeout: 5000 });
-  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.click(trigger);
   fireEvent.click(
     await screen.findByTestId("run-option-" + runs[0].id, undefined, { timeout: 3000 }),
   );

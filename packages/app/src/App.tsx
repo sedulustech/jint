@@ -14,17 +14,106 @@ import type { RunSearch } from "./router";
 import type { Report, RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
 import { Logo } from "@/components/Logo";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+function RunPicker({
+  runList,
+  runsLoading,
+  selectedRun,
+  onPick,
+}: {
+  runList: RunSummary[];
+  runsLoading: boolean;
+  selectedRun: RunSummary | null;
+  onPick: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // ctrl/cmd+K toggles the palette, the way every editor does it
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        data-testid="run-picker"
+        aria-expanded={open}
+        aria-label="run"
+        onClick={() => setOpen(true)}
+        className="max-w-64 text-body"
+      >
+        <span className="truncate">
+          {selectedRun === null
+            ? runsLoading
+              ? "loading runs…"
+              : `select a run (${runList.length})`
+            : runLabel(selectedRun)}
+        </span>
+      </Button>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="run picker"
+        description="filter runs by path"
+      >
+        <Command>
+          <CommandInput placeholder="filter runs by path…" />
+          <CommandList>
+            <CommandEmpty>no runs match</CommandEmpty>
+            {runList.slice(0, 50).map((run) => (
+              <CommandItem
+                key={run.id}
+                value={`${runLabel(run)} ${run.configPath ?? ""} ${run.id}`}
+                data-testid={`run-option-${run.id}`}
+                className="text-body"
+                title={`${runLabel(run)}\nrun id: ${run.id}`}
+                onSelect={() => {
+                  onPick(run.id);
+                  setOpen(false);
+                }}
+              >
+                <span className="text-foreground">{runLabel(run)}</span>
+                <span className="text-muted-foreground">
+                  {run.configPath !== null && ` · ${baseName(run.configPath)}`}
+                  {run.configPath === null &&
+                    (run.legacy ? " · migrated run" : " · default rules")}{" "}
+                  · {relTime(run.mtime)} · {run.requests}{" "}
+                  {run.requests === 1 ? "request" : "requests"} · id:
+                  {run.id.slice(-6)}
+                </span>
+              </CommandItem>
+            ))}
+            {runList.length > 50 && (
+              <div className="px-inner py-related text-caption text-muted-foreground">
+                showing the 50 newest of {runList.length} runs
+              </div>
+            )}
+          </CommandList>
+        </Command>
+      </CommandDialog>
+    </>
+  );
+}
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectItemText,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 // a failed URL edit leaves the pane state stale; say so loudly instead of rethrowing
 // into a promise no caller awaits
@@ -108,54 +197,12 @@ export function App({ runId }: { runId: string | null }) {
 
   // the picker lives in the RunHeader strip, left of the run details
   const picker = (
-    <Select value={runId ?? "none"} onValueChange={pickRun}>
-      {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
-      <SelectTrigger
-        data-testid="run-picker"
-        variant="ghost"
-        className="w-64 text-body"
-        aria-label="run"
-      >
-        {/* children = the slim identity (label only); the full item stays in the list */}
-        <SelectValue
-          placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
-        >
-          {selectedRun === null ? undefined : (
-            <span className="flex items-center text-foreground">{runLabel(selectedRun)}</span>
-          )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {/* virtualizing 400+ options is overkill for a picker; cap at the newest 50 and say
-                so - the quick-pick empty state covers the most recent runs anyway */}
-        {runList.slice(0, 50).map((run) => (
-          <SelectItem
-            key={run.id}
-            value={run.id}
-            data-testid={`run-option-${run.id}`}
-            className="text-body"
-            title={`${runLabel(run)}\nrun id: ${run.id}`}
-            aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} requests · id: ${run.id}`}
-          >
-            {/* ItemText = what the slimmed trigger displays: label only */}
-            <SelectItemText>
-              <span className="text-foreground">{runLabel(run)}</span>
-            </SelectItemText>
-            <span className="text-muted-foreground">
-              {run.configPath !== null && ` · ${baseName(run.configPath)}`}
-              {run.configPath === null &&
-                (run.legacy ? " · migrated run" : " · default rules")} ·{" "}
-              {relTime(run.mtime)} · {run.requests} requests · id: {run.id.slice(-6)}
-            </span>
-          </SelectItem>
-        ))}
-        {runList.length > 50 && (
-          <div className="px-inner py-related text-caption text-muted-foreground">
-            showing the 50 newest of {runList.length} runs
-          </div>
-        )}
-      </SelectContent>
-    </Select>
+    <RunPicker
+      runList={runList}
+      runsLoading={runs.isLoading}
+      selectedRun={selectedRun}
+      onPick={pickRun}
+    />
   );
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
