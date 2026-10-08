@@ -38,7 +38,7 @@ export type SetupErrorCode =
   | "LIST_UNREADABLE"
   | "LIST_ENTRY_INVALID"
   | "LIST_EMPTY"
-  | "NOT_SOURCE"
+  | "MISSING_GRAMMAR"
   | "RULE_INVALID"
   | "ELEMENT_NOT_FOUND"
   | "INTERNAL";

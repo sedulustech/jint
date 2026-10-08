@@ -71,23 +71,23 @@ describe("resolveInput", () => {
 
   test("diff-looking file resolves by FILE semantics (kind is never sniffed)", async () => {
     // resolveInput goes down the file path: fileUnit rejects the .diff extension as non-source.
-    // A diff decomposition would have yielded per-file units instead of throwing NOT_SOURCE.
+    // A diff decomposition would have yielded per-file units instead of throwing MISSING_GRAMMAR.
     try {
       for await (const _ of resolveInput({ input: "tests/fixtures/sample.diff" })) {
         expect.unreachable();
       }
     } catch (e) {
-      expect((e as SetupError).code).toBe("NOT_SOURCE");
+      expect((e as SetupError).code).toBe("MISSING_GRAMMAR");
     }
   });
 
-  test("a patch file is just a file: NOT_SOURCE (no diff noun, no diff inputType)", async () => {
+  test("a patch file is just a file: MISSING_GRAMMAR (no diff noun, no diff inputType) (no diff noun, no diff inputType)", async () => {
     try {
       for await (const _ of resolveInput({ input: "tests/fixtures/sample.diff" })) {
         expect.unreachable();
       }
     } catch (e) {
-      expect((e as SetupError).code).toBe("NOT_SOURCE");
+      expect((e as SetupError).code).toBe("MISSING_GRAMMAR");
     }
   });
 });

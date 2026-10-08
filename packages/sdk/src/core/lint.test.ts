@@ -976,6 +976,6 @@ describe("lint — str unit is its own inventory", () => {
     await Bun.write(`${dir}/snippet`, "const x = 1;\n");
     await expect(
       drain(lint({ config: baseConfig, input: `${dir}/snippet`, classifier })),
-    ).rejects.toMatchObject({ name: "SetupError", code: "NOT_SOURCE" });
+    ).rejects.toMatchObject({ name: "SetupError", code: "MISSING_GRAMMAR" });
   });
 });

@@ -236,7 +236,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
                 // missing / unreadable / non-source entries take the note path below, never fatal
                 if (
                   thrown instanceof SetupError &&
-                  ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "NOT_SOURCE"].includes(
+                  ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(
                     thrown.code,
                   )
                 ) {

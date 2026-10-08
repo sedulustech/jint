@@ -25,7 +25,7 @@ export async function fileUnit(
   // say plainly that it is not classifiable (walker skips non-source silently; explicit does not)
   if (languageOf(path) === null && options.requireGrammar !== false) {
     throw new SetupError(
-      "NOT_SOURCE",
+      "MISSING_GRAMMAR",
       `unknown extension, missing grammar - supported grammars: ${grammarExtensions().join(", ")} (walk sources by passing a directory, or classify raw text with the str noun)`,
     );
   }

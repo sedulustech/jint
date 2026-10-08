@@ -825,7 +825,7 @@ function exitForThrown(thrown: unknown): number {
     error.code === "LIST_UNREADABLE" ||
     error.code === "LIST_ENTRY_INVALID" ||
     error.code === "LIST_EMPTY" ||
-    error.code === "NOT_SOURCE" ||
+    error.code === "MISSING_GRAMMAR" ||
     error.code === "RULE_INVALID" ||
     error.code === "ELEMENT_NOT_FOUND"
   )

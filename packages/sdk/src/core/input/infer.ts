@@ -3,8 +3,8 @@
  * content —
  *
  * On-disk directory -> dir (walked into file units); on-disk file -> file (even a patch file: a
- * file is just a file — jint never parses a VCS; a non-source extension fails NOT_SOURCE in the
- * file unit); missing path -> ENTRYPOINT_NOT_FOUND
+ * file is just a file — jint never parses a VCS; a non-source extension fails MISSING_GRAMMAR in
+ * the file unit); missing path -> ENTRYPOINT_NOT_FOUND
  *
  * The only input whose kind cannot be inferred is piped stdin; the CLI declares it with a noun
  * (jint str - for source, jint paths - for a path list). Both the CLI and the SDK go through
@@ -25,7 +25,7 @@ export interface ResolveOptions {
   /**
    * Whether a file needs a grammar to be measured (an element-target rule is in scope for it).
    * Absent = every file requires a grammar. A grammar-less file with requireGrammar false measures
-   * as raw source; with requireGrammar true it fails NOT_SOURCE, naming the grammars.
+   * as raw source; with requireGrammar true it fails MISSING_GRAMMAR, naming the grammars.
    */
   requireGrammarFor?: (path: string) => boolean;
 }
@@ -60,6 +60,6 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       return;
     }
     // Unreachable by the type; a guard against a future kind, not a branch.
-    throw new SetupError("NOT_SOURCE", `not a source-language file: ${input}`);
+    throw new SetupError("MISSING_GRAMMAR", `not a source-language file: ${input}`);
   })();
 }
