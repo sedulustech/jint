@@ -30,8 +30,8 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   return (
-    <div className="border border-border bg-background">
-      <div className="flex items-center gap-sections border-b border-border px-inner py-related">
+    <div>
+      <div className="flex items-center gap-sections">
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -59,7 +59,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div className="border-b border-border px-inner py-related">
+        <div>
           {/* the probability strip is omitted for score answers: the legend is the information */}
           <ul className="mt-related space-y-chip-y">
             {Object.keys(legend)
@@ -79,21 +79,21 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <p className="border-b border-border px-inner py-related text-body leading-snug text-muted-foreground">
+        <p className="mt-related text-body leading-snug text-muted-foreground">
           {qa.question.instructions}
         </p>
       )}
       {!isScore && (
-        <div className="grid grid-cols-2 gap-px bg-border text-body leading-snug">
-          <div className="bg-background p-inner">
+        <div className="mt-related grid grid-cols-2 gap-siblings text-body leading-snug">
+          <div>
             <span className="text-caption text-sev-clean">true</span>
-            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="bg-background p-inner">
+          <div>
             <span className="text-caption text-sev-error">false</span>
-            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
             </p>
           </div>

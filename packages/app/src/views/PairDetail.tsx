@@ -107,8 +107,11 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
                 </span>
               ))}
           </div>
+          <div className="flex flex-col gap-siblings px-rail py-inner">
+            <AnswerCard qa={pair} sev={severity} />
+          </div>
           {code !== null && (
-            <div className="border-b border-border">
+            <div>
               <div className="flex items-center justify-between px-rail py-bar-y">
                 <span className="text-caption text-muted-foreground">
                   {result?.path ?? file} {span ? "· " + span : ""}
@@ -118,9 +121,6 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
               <CodeBlock code={code} path={result?.path ?? file} />
             </div>
           )}
-          <div className="flex flex-col gap-siblings px-rail py-inner">
-            <AnswerCard qa={pair} sev={severity} />
-          </div>
         </div>
       )}
     </section>
