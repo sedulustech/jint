@@ -1,4 +1,3 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
@@ -322,16 +321,15 @@ function GroupedParentRow({
       data-testid={`group-${row.key}`}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
-      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left text-body text-foreground hover:bg-accent"
+      className={`flex w-full cursor-pointer items-center border-b border-border bg-background text-left text-body text-foreground hover:bg-accent ${
+        isExpanded ? "font-bold" : ""
+      }`}
       style={{ height: ROW_HEIGHT }}
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
           never from shifting a column off the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
-        <span className="inline-flex items-center gap-chip-x">
-          {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-          {row.name}
-        </span>
+        <span className="inline-flex items-center">{row.name}</span>
       </span>
       <span className={`${FINDINGS_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
         {stats.err > 0 || stats.warn > 0 ? (
