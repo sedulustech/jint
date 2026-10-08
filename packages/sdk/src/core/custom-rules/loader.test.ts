@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { loadCustomRules } from "./loader.ts";
+import { defaultRuleSpecs } from "@jint/defaults";
+import { loadCustomRules, registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./sdk.ts";
 
 const DIR = "tmp/custom-rules-loader-test";
@@ -31,6 +32,8 @@ export default defineConfig({
 `;
 
 describe("loadCustomRules", () => {
+  // the provider is the entry point's decision; registered before any jint:defaults import runs
+  registerCustomRuleLoader({ defaults: defaultRuleSpecs });
   test("loads a valid fragment through the jint:sdk virtual module", async () => {
     const path = write("valid.ts", VALID_RULE);
     const rules = (await loadCustomRules([path])).custom;

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { defaultRules } from "./defaults.ts";
+import { defaultRules } from "../../test-baseline.ts";
 import type { Rule } from "../types.ts";
 
 /** The severity a rule's handler returns for a value (null = silent). */

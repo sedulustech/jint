@@ -7,12 +7,9 @@
  * `lint({ input: "x" })`.
  */
 
-import { defaultRules } from "./core/rules/defaults.ts";
-
 export {
   findConfigFile,
   loadConfig,
-  defaultConfig,
   validateConfig,
   DEFAULT_CONFIG_PATH,
   CONFIG_SCHEMA,
@@ -32,6 +29,8 @@ export { renderLines } from "./core/output/lines.ts";
 export { selectionEcho } from "./core/output/echo.ts";
 export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
+export { compileRule } from "./config/load.ts";
+export { registerCustomRuleLoader } from "./core/custom-rules/loader.ts";
 export { selectRules } from "./core/lint.ts";
 export { validateCustomRule } from "./core/custom-rules/sdk.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
@@ -49,7 +48,6 @@ export type {
   Span,
   ClassifiedAnswer,
 } from "@jint/contract";
-export { defaultRules } from "./core/rules/defaults.ts";
 export {
   ClassifyError,
   SetupError,
@@ -75,4 +73,3 @@ export {
 } from "./core/types.ts";
 
 /** The default rule surface: select by name in jint.config.json, spread programmatically. */
-export const rules = { defaults: defaultRules };

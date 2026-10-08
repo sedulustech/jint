@@ -40,7 +40,6 @@ export function spanLabel(span: { start: { line: number }; end: { line: number }
 const ROW_HEIGHT = 26;
 // header + rows scroll horizontally together below this width: fixed columns would otherwise
 // collapse the path column to an ellipsis
-const TABLE_MIN_WIDTH = 660;
 
 // grouped mode: TWO tables. The outer table is group-level only (name | findings); each
 // expanded parent hosts a NESTED table with its own header (input | severity | value), so
@@ -195,13 +194,13 @@ function GroupedHeader({ mode }: { mode: Mode }) {
   return (
     <thead className="sticky top-0 z-10 border-b border-border bg-muted text-body text-foreground">
       <tr>
-        <th scope="col" className="w-52 px-rail py-bar-y text-left font-normal">
+        <th scope="col" className="w-px whitespace-nowrap px-rail py-bar-y text-left font-normal">
           {mode === "rule" ? "rule" : "file"}
         </th>
-        <th scope="col" className="px-rail py-bar-y text-left font-normal">
+        <th scope="col" className="w-px whitespace-nowrap px-rail py-bar-y text-left font-normal">
           findings
         </th>
-        <th scope="col" className="w-6 px-rail py-bar-y" />
+        <th scope="col" className="w-full" aria-hidden="true" />
       </tr>
     </thead>
   );
@@ -271,7 +270,7 @@ function GroupedParentRow({
     >
       {/* parents share the outer table's column grid; hierarchy reads from weight, never from
           shifting a column off the grid */}
-      <td className="truncate px-rail" title={row.name}>
+      <td className="max-w-[48rem] truncate px-rail" title={row.name}>
         {row.name}
       </td>
       <td className="whitespace-nowrap px-rail">
@@ -285,7 +284,7 @@ function GroupedParentRow({
           <span className="text-muted-foreground">-</span>
         )}
       </td>
-      <td className="px-rail" />
+      <td className="w-full" aria-hidden="true" />
     </tr>
   );
 }
@@ -449,7 +448,7 @@ function RequestLog({
   onToggleSort: (key: SortKey) => void;
 }) {
   return (
-    <table className="w-full table-fixed text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
+    <table className="w-full text-body">
       <RequestHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
       <tbody>
         {rows.map((requestRow) => (
@@ -491,7 +490,7 @@ function GroupedTreeView({
   onToggleNestedSort: (parentKey: string, key: "sev" | "value") => void;
 }) {
   return (
-    <table className="w-full table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
+    <table className="w-full">
       <GroupedHeader mode={mode} />
       <tbody>
         {parents.map((parentRow) => (

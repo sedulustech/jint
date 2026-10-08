@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defaultRuleSpecs } from "@jint/defaults";
 import { SetupError } from "../types.ts";
 import {
   defineConfig,
@@ -10,6 +9,7 @@ import {
 } from "./sdk.ts";
 
 let registered = false;
+let defaultsProvider: Record<string, unknown> | undefined;
 
 /**
  * Registers the virtual modules exactly once per process: "jint:sdk" (the rule-author API) and
@@ -17,7 +17,10 @@ let registered = false;
  * config-composition/03). build.module intercepts both before any disk lookup, so they resolve
  * inside compiled binaries too, and external users need no install.
  */
-export function registerCustomRuleLoader(): void {
+export function registerCustomRuleLoader(
+  virtuals: { defaults?: Record<string, unknown> } = {},
+): void {
+  if (virtuals.defaults !== undefined) defaultsProvider = virtuals.defaults;
   if (registered) return;
   registered = true;
   Bun.plugin({
@@ -27,10 +30,20 @@ export function registerCustomRuleLoader(): void {
         exports: { defineConfig },
         loader: "object",
       }));
-      build.module("jint:defaults", () => ({
-        exports: { defaultRuleSpecs, ...defaultRuleSpecs },
-        loader: "object",
-      }));
+      // The provider is read at import time, not captured here: an entry point may register bare
+      // first and supply the defaults later (any time before the first import resolves).
+      build.module("jint:defaults", () => {
+        if (defaultsProvider === undefined) {
+          throw new SetupError(
+            "RULE_INVALID",
+            "jint:defaults is not provided - the entry point must register the defaults provider (registerCustomRuleLoader({ defaults: defaultRuleSpecs }))",
+          );
+        }
+        return {
+          exports: { defaultRuleSpecs: defaultsProvider, ...defaultsProvider },
+          loader: "object",
+        };
+      });
     },
   });
 }

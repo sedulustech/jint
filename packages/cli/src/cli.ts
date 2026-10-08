@@ -21,7 +21,6 @@ import {
   collectReport,
   describeRules,
   selectRules,
-  defaultConfig,
   knownLanguages,
   lint,
   loadConfig,
@@ -40,6 +39,7 @@ import { selectionEcho } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
+import { defaultConfig, defaultRules, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 
 /**
@@ -297,6 +297,7 @@ export function printRules(effective: readonly Rule[], customCount: number): voi
 }
 
 export async function runCli(cliArgv: string[]): Promise<number> {
+  provideVirtualModules();
   const parsedCliArgs = parseCliArgs(cliArgv);
   if (parsedCliArgs.outcome === "usage-error") {
     usageError(parsedCliArgs.usageMessage);
@@ -327,9 +328,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   try {
     resolvedConfig =
       cliArgs.config !== undefined
-        ? await loadConfig(cliArgs.config)
+        ? await loadConfig(cliArgs.config, { baseline: defaultRules })
         : foundConfig !== null
-          ? await loadConfig(foundConfig)
+          ? await loadConfig(foundConfig, { baseline: defaultRules })
           : defaultConfig();
   } catch (thrown) {
     return exitForThrown(thrown);

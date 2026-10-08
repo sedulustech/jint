@@ -1,9 +1,7 @@
 import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { defaultConfig } from "../config/load.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { renderJson } from "../core/output/json.ts";
-import { defaultRules } from "../core/rules/defaults.ts";
 import {
   ClassifyError,
   SetupError,
@@ -13,6 +11,7 @@ import {
   type LintEvent,
   type Rule,
 } from "../core/types.ts";
+import { defaultConfig, defaultRules } from "../test-baseline.ts";
 
 const baseConfig = {
   ...defaultConfig(),

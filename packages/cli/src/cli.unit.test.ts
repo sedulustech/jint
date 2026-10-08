@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { defaultConfig } from "@jint/sdk";
 import { lint } from "@jint/sdk";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
+import { defaultConfig } from "./baseline.ts";
 import {
   CLI_ARGS_SCHEMA,
   FLAGS,

@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { validateConfig } from "../../config/load.ts";
+import { defaultRules } from "../../test-baseline.ts";
 import {
   ClassifyError,
   type ClassifiedAnswer,
@@ -17,7 +18,6 @@ import {
   classifyUnit,
   toClassifyError,
 } from "./classify.ts";
-import { defaultRules } from "./defaults.ts";
 
 const fileUnit: Unit = {
   kind: "file",

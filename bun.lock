@@ -62,6 +62,7 @@
       },
       "dependencies": {
         "@jint/contract": "workspace:*",
+        "@jint/defaults": "workspace:*",
         "@jint/sdk": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
       },
@@ -82,13 +83,15 @@
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
-        "@jint/defaults": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
         "@typesafe-ai/sdk": "^0.6.0",
         "tree-sitter-go": "^0.25.0",
         "tree-sitter-python": "^0.25.0",
         "tree-sitter-typescript": "^0.23.2",
         "web-tree-sitter": "^0.27.0",
+      },
+      "devDependencies": {
+        "@jint/defaults": "workspace:*",
       },
     },
   },

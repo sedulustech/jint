@@ -1,10 +1,13 @@
 import { describe, test, expect } from "bun:test";
 import { SetupError } from "../core/types.ts";
-import { loadConfig, defaultConfig, validateConfig } from "./load.ts";
+import { defaultConfig, defaultRules } from "../test-baseline.ts";
+import { loadConfig, validateConfig } from "./load.ts";
 
 describe("loadConfig", () => {
   test("loads a valid JSON config: disable + exclude applied", async () => {
-    const config = await loadConfig("tests/fixtures/configs/valid.config.json");
+    const config = await loadConfig("tests/fixtures/configs/valid.config.json", {
+      baseline: defaultRules,
+    });
     expect(config.input).toBe("tests/fixtures/sample-dir");
     expect(config.rules.map((s) => s.name)).not.toContain("will_comment_drift");
     expect(config.exclude).toEqual(["**/more.ts"]);
@@ -48,25 +51,36 @@ describe("loadConfig", () => {
     }
   });
 
-  test("unknown default rule name -> CONFIG_INVALID", async () => {
+  test("unknown rule name -> CONFIG_INVALID (and it names the missing baseline)", () => {
+    expect(() =>
+      validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline", defaultRules),
+    ).toThrow(/unknown rule name/);
     expect(() => validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline")).toThrow(
-      /unknown default rule name/,
+      /no defaults baseline was provided/,
     );
+  });
+
+  test("a rules-less config without a baseline is a named setup error", () => {
+    expect(() => validateConfig({ input: "x" }, "inline")).toThrow(/no defaults baseline/);
   });
 });
 
 describe("validateConfig / defaultConfig", () => {
-  test("defaultConfig carries every default rule and no input", () => {
+  test("the baseline carries every default rule and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
     expect(config.rules).toHaveLength(11);
   });
 
   test("no rules key = all defaults; strings select defaults; objects override by name (last wins)", () => {
-    const all = validateConfig({ input: "x" }, "inline");
+    const all = validateConfig({ input: "x" }, "inline", defaultRules);
     expect(all.rules).toHaveLength(11);
 
-    const selected = validateConfig({ input: "x", rules: ["is_greppable"] }, "inline");
+    const selected = validateConfig(
+      { input: "x", rules: ["is_greppable"] },
+      "inline",
+      defaultRules,
+    );
     expect(selected.rules.map((r) => r.name)).toEqual(["is_greppable"]);
 
     const overridden = validateConfig(
@@ -248,6 +262,7 @@ describe("validateConfig / defaultConfig", () => {
     const config = validateConfig(
       { $schema: "./jint.schema.json", note: "mine", input: "x" },
       "inline",
+      defaultRules,
     );
     expect(config.input).toBe("x");
   });
@@ -302,7 +317,7 @@ describe("validateConfig / defaultConfig", () => {
 
   test("run knobs validate with the field named; flags/config precedence lives above", () => {
     const config = (overrides: Record<string, unknown>) =>
-      validateConfig({ input: "x", ...overrides }, "inline");
+      validateConfig({ input: "x", ...overrides }, "inline", defaultRules);
     expect(config({ concurrency: 8 }).concurrency).toBe(8);
     expect(config({ rps_budget: 12.5 }).rps_budget).toBe(12.5);
     expect(() => config({ concurrency: 0 })).toThrow(/concurrency: must be an integer >= 1/);
@@ -347,7 +362,11 @@ describe("validateConfig / defaultConfig", () => {
   });
 
   test("disable removes by name after assembly", () => {
-    const config = validateConfig({ input: "x", disable: ["is_greppable"] }, "inline");
+    const config = validateConfig(
+      { input: "x", disable: ["is_greppable"] },
+      "inline",
+      defaultRules,
+    );
     expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");
     expect(config.rules).toHaveLength(10);
   });

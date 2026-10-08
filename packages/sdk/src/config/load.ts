@@ -18,7 +18,6 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { importConfigModule } from "../core/custom-rules/loader.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
-import { defaultRules } from "../core/rules/defaults.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";
@@ -141,30 +140,34 @@ export interface ResolvedConfig {
   readonly warnings?: readonly string[];
 }
 
-/** The built-in config used when no config file exists: no input, all default rules. */
-export function defaultConfig(): ResolvedConfig {
-  return Object.freeze({
-    input: "",
-    rules: Object.freeze(Object.values(defaultRules)),
-    customRules: Object.freeze([]),
-    exclude: Object.freeze(["**/fixtures/**"]),
-  });
-}
-
 /**
  * The public entry: dispatches on the config file's extension. Both tiers share the boundary
  * (validateConfig) and differ only in how bytes become an object - read + parse for the declarative
  * tier, gated import for the imperative tier.
  */
-export function loadConfig(path = DEFAULT_CONFIG_PATH): Promise<ResolvedConfig> {
-  return path.endsWith(".ts") ? loadTsConfig(path) : loadDeclarativeConfig(path);
+export interface LoadOptions {
+  /**
+   * The compiled defaults baseline: resolves string rule names and the rules-less config. The sdk
+   * knows no rules - the entry point supplies its bundled set (the CLI: @jint/defaults).
+   */
+  baseline?: Record<string, Rule>;
+}
+
+export function loadConfig(
+  path = DEFAULT_CONFIG_PATH,
+  options?: LoadOptions,
+): Promise<ResolvedConfig> {
+  return path.endsWith(".ts") ? loadTsConfig(path, options) : loadDeclarativeConfig(path, options);
 }
 
 /**
  * The declarative tier: plain JSON (jint.config.json). Data only - the engine owns every behavior,
  * so nothing here executes and no gate is needed.
  */
-export async function loadDeclarativeConfig(path: string): Promise<ResolvedConfig> {
+export async function loadDeclarativeConfig(
+  path: string,
+  options?: LoadOptions,
+): Promise<ResolvedConfig> {
   const abs = resolve(path);
   let text: string;
   try {
@@ -183,7 +186,7 @@ export async function loadDeclarativeConfig(path: string): Promise<ResolvedConfi
       { cause: e },
     );
   }
-  return validateConfig(raw, path);
+  return validateConfig(raw, path, options?.baseline);
 }
 
 /**
@@ -193,7 +196,7 @@ export async function loadDeclarativeConfig(path: string): Promise<ResolvedConfi
  * @jint/defaults package (install-time versioned), and relative/absolute files - then validates
  * through the same boundary as JSON.
  */
-export async function loadTsConfig(path: string): Promise<ResolvedConfig> {
+export async function loadTsConfig(path: string, options?: LoadOptions): Promise<ResolvedConfig> {
   const abs = resolve(path);
   const raw = await importConfigModule(abs);
   if (raw === undefined || typeof raw !== "object") {
@@ -202,11 +205,15 @@ export async function loadTsConfig(path: string): Promise<ResolvedConfig> {
       `ts config must default-export defineConfig({...}): ${path}`,
     );
   }
-  return validateConfig(raw, path);
+  return validateConfig(raw, path, options?.baseline);
 }
 
 /** Validates the boundary shape, compiles data handles; static types derive from the same schema. */
-export function validateConfig(raw: unknown, source: string): ResolvedConfig {
+export function validateConfig(
+  raw: unknown,
+  source: string,
+  baseline?: Record<string, Rule>,
+): ResolvedConfig {
   if (!Value.Check(CONFIG_SCHEMA, raw)) {
     // A bad rule entry collapses into the schema union's generic "Expected union value"; dive
     // into rule objects so the message names the exact field (e.g. /rules/0/instructions).
@@ -243,15 +250,23 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
   // (last wins per name). disable removes by name afterwards — set membership, not policy.
   const byName = new Map<string, Rule>();
   if (parsed.rules === undefined) {
-    for (const rule of Object.values(defaultRules)) byName.set(rule.name, rule);
+    if (baseline === undefined) {
+      throw new SetupError(
+        "CONFIG_NO_RULES",
+        `invalid config ${source}: no rules to run - the config declares no rules and no defaults baseline was provided`,
+      );
+    }
+    for (const rule of Object.values(baseline)) byName.set(rule.name, rule);
   } else {
     for (const entry of parsed.rules) {
       if (typeof entry === "string") {
-        const rule = defaultRules[entry];
+        const rule = baseline?.[entry];
         if (rule === undefined) {
           throw new SetupError(
             "CONFIG_INVALID",
-            `invalid config ${source}: unknown default rule name '${entry}'`,
+            `invalid config ${source}: unknown rule name '${entry}'${
+              baseline === undefined ? " - no defaults baseline was provided" : ""
+            }`,
           );
         }
         byName.set(entry, rule);
