@@ -114,7 +114,7 @@ export function App({ runId }: { runId: string | null }) {
         </h1>
         <Select value={runId ?? "none"} onValueChange={pickRun}>
           {/* the trigger shows the label only; the run's full identity renders in RunHeader */}
-          <SelectTrigger className="w-96 font-mono text-body" aria-label="run">
+          <SelectTrigger variant="ghost" className="w-96 font-mono text-body" aria-label="run">
             {/* children = the slim identity (label only); the full item stays in the list */}
             <SelectValue
               placeholder={runs.isLoading ? "loading runs…" : `select a run (${runList.length})`}
