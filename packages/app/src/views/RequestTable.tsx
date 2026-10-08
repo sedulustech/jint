@@ -519,16 +519,15 @@ function GroupedTreeView({
             let childBuffer: ChildRow[] = [];
             const flushChildren = () => {
               if (!openParent) return;
-              const s = nestedSorts[openParent];
-              const rows = s
-                ? [...childBuffer].sort((a, b) => {
-                    const d =
-                      s.key === "sev"
-                        ? sevRank(b.cell.severity) - sevRank(a.cell.severity)
-                        : b.cell.value - a.cell.value;
-                    return s.dir === "desc" ? d : -d;
-                  })
-                : childBuffer;
+              // unset sort = severity heaviest-first: the default view answers "what is worst here"
+              const s = nestedSorts[openParent] ?? { key: "sev", dir: "desc" };
+              const rows = [...childBuffer].sort((a, b) => {
+                const d =
+                  s.key === "sev"
+                    ? sevRank(b.cell.severity) - sevRank(a.cell.severity)
+                    : b.cell.value - a.cell.value;
+                return s.dir === "desc" ? d : -d;
+              });
               for (const r of rows)
                 els.push(
                   <GroupedChildRow
@@ -634,7 +633,7 @@ export function RequestTable({
   const [nestedSorts, setNestedSorts] = useState<Record<string, NestedSort>>({});
   const toggleNestedSort = (parentKey: string, key: "sev" | "value") =>
     setNestedSorts((prev) => {
-      const cur = prev[parentKey];
+      const cur = prev[parentKey] ?? { key: "sev", dir: "desc" };
       const next: NestedSort =
         cur?.key === key ? { key, dir: cur.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" };
       return { ...prev, [parentKey]: next };
