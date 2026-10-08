@@ -31,7 +31,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   return (
     <div>
-      <div className="flex items-center gap-sections">
+      <div className="flex items-center gap-sections border-b border-border pb-related">
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
@@ -59,9 +59,9 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div>
+        <div className="border-b border-border pb-related">
           {/* the probability strip is omitted for score answers: the legend is the information */}
-          <ul className="mt-related space-y-chip-y">
+          <ul className="mt-chip-y space-y-chip-y">
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
               .map((k) => (
@@ -79,19 +79,19 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <p className="mt-related text-body leading-snug text-muted-foreground">
+        <p className="border-b border-border pb-related text-body leading-snug text-muted-foreground">
           {qa.question.instructions}
         </p>
       )}
       {!isScore && (
-        <div className="mt-related grid grid-cols-2 gap-siblings text-body leading-snug">
-          <div>
+        <div className="mt-related grid grid-cols-2 gap-px bg-border text-body leading-snug">
+          <div className="bg-background p-inner">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div>
+          <div className="bg-background p-inner">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
