@@ -98,3 +98,9 @@ declare module "jint:sdk" {
     fragments: readonly F[],
   ): readonly F[];
 }
+
+declare module "jint:defaults" {
+  // the declarative default specs; the package's own types flow through — the ambient shim only
+  // teaches TS the colon-specifier (design config-composition/03)
+  export * from "@jint/defaults";
+}

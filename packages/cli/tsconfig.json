@@ -1,4 +1,7 @@
 {
+  // override: keep the wasm shim, drop the root program's virtual-module shims and jint.config.ts -
+  // the cli is include-driven (src only)
+  "files": ["../sdk/src/wasm-assets.d.ts"],
   // Typecheck + emit for the @jint/cli package — the root tsconfig excludes packages/, so the cli
   // is checked (and built) through this config. Kept in lockstep with the root compilerOptions;
   // root "bun run build" emits packages/cli/dist, which the root bin "jint" points at.
