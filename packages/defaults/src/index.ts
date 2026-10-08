@@ -233,3 +233,23 @@ export const defaultRuleSpecs: Record<string, RuleSpec> = Object.freeze({
   is_cognitively_complex: isCognitivelyComplex,
   is_function_srp: isFunctionSrp,
 });
+
+/**
+ * The set as an array - the whole-baseline consumption: `rules: defaultRules`. Spread it to compose
+ * (`...defaultRules, myRule`), never mutate; the record above stays the name-keyed view.
+ */
+export const defaultRules: readonly RuleSpec[] = Object.values(defaultRuleSpecs);
+
+// Named exports, one per rule - the pick-and-override consumption: a config takes the specs it
+// wants and spreads overrides over them ({ ...is_greppable, include: ["src/**"] }). The export
+// name IS the rule name, so the config reads identically to the JSON tier's rule entries.
+export const is_name_purposeful = defaultRuleSpecs.is_name_purposeful!;
+export const is_vocabulary_consistent = defaultRuleSpecs.is_vocabulary_consistent!;
+export const is_naming_convention_consistent = defaultRuleSpecs.is_naming_convention_consistent!;
+export const is_greppable = defaultRuleSpecs.is_greppable!;
+export const is_filename_fitting = defaultRuleSpecs.is_filename_fitting!;
+// is_comment_narration, is_comment_patching_readability, will_comment_drift: already exported
+// at their definitions (shorthand entries in the record)
+export const will_error_lose_cause = defaultRuleSpecs.will_error_lose_cause!;
+export const is_cognitively_complex = defaultRuleSpecs.is_cognitively_complex!;
+export const is_function_srp = defaultRuleSpecs.is_function_srp!;
