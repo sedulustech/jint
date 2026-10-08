@@ -152,8 +152,8 @@ function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }
   return (
     <div role="group" aria-label="group by" className="flex items-center gap-related">
       <span className="text-caption text-muted-foreground">group by</span>
-      {button("rule", "rule")}
       {button("file", "file")}
+      {button("rule", "rule")}
       {button("request", "request")}
     </div>
   );

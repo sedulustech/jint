@@ -133,7 +133,7 @@ export function App({ runId }: { runId: string | null }) {
     search.rule !== undefined
       ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
       : null;
-  const [viewMode, setViewMode] = useState<Mode>("rule");
+  const [viewMode, setViewMode] = useState<Mode>("file");
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusedRule, setFocusedRule] = useState<string | null>(null);
   const reportOverride = search.report === undefined ? null : search.report === 1;
