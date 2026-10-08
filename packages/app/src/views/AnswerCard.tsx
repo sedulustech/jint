@@ -35,14 +35,14 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         {noul !== undefined && (
           <span
             data-answer={noul.toFixed(2)}
-            className={`ml-auto text-3xl font-bold leading-none ${color}`}
+            className={`text-3xl font-bold leading-none ${color}`}
             title={sev !== null ? `severity: ${sev}` : undefined}
           >
             {noul.toFixed(2)}
           </span>
         )}
         {isScore && index !== null && (
-          <span className="ml-auto flex items-baseline gap-siblings">
+          <span className="flex items-baseline gap-siblings">
             <span
               data-answer={String(index)}
               className={`text-3xl font-bold leading-none ${color}`}
