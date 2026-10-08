@@ -11,6 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { compileRule } from "../config/load.ts";
 import {
   resolveAllCustomTargets,
   runCustomRules,
@@ -149,19 +150,29 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // custom-tier rules load at setup: any load failure (gate, thrown module, invalid defineConfig,
   // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
   const loadedCustomRules = await loadCustomRules(options.config.customRules ?? []);
-  assertNoCrossTierDuplicates(options.config.rules, loadedCustomRules);
+  assertNoCrossTierDuplicates(options.config.rules, loadedCustomRules.custom);
   // A str unit has no element inventory: every TS target would resolve to zero elements and the
   // run would complete silently empty. That combination is rejected at setup, not silently
   // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
-  if (loadedCustomRules.length > 0 && options.str !== undefined) {
+  if (
+    loadedCustomRules.custom.length + loadedCustomRules.declarative.length > 0 &&
+    options.str !== undefined
+  ) {
     throw new SetupError(
       "CONFIG_INVALID",
       "custom rules run on file inputs only - a str unit has no element inventory, so every custom rule would resolve zero targets (drop customRules or use a file input)",
     );
   }
+  // declarative entries from custom files compile through the config seam and join the rule set
+  // last-wins-by-name (the override idiom): a custom file re-declaring a config rule overrides it
+  const declarativeByName = new Map(options.config.rules.map((rule) => [rule.name, rule]));
+  for (const { entry, source } of loadedCustomRules.declarative) {
+    const rule = compileRule(entry as Parameters<typeof compileRule>[0], source);
+    declarativeByName.set(rule.name, rule);
+  }
   const { json: rules, custom: customRules } = partitionRules(
-    options.config.rules,
-    loadedCustomRules,
+    [...declarativeByName.values()],
+    loadedCustomRules.custom,
     options.disable,
     options.only,
   );

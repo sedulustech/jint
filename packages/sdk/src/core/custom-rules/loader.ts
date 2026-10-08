@@ -74,7 +74,7 @@ function gateImports(path: string, source: string): void {
 }
 
 /** Loads one file: gate, import, validate the fragment; returns the rules it contributes. */
-export async function loadCustomRuleFile(path: string): Promise<CustomRule[]> {
+export async function loadCustomRuleFile(path: string): Promise<LoadedRules> {
   const abs = resolve(path);
   let mod: unknown;
   registerCustomRuleLoader();
@@ -93,10 +93,21 @@ export async function loadCustomRuleFile(path: string): Promise<CustomRule[]> {
       },
     );
   }
-  return contributedRules(mod, path);
+  return customRules(mod, path);
 }
 
-function contributedRules(mod: unknown, path: string): CustomRule[] {
+export type LoadedRules = {
+  custom: CustomRule[];
+  declarative: { entry: unknown; source: string }[];
+};
+
+/**
+ * The rules a loaded module contributes, validated per shape: an entry carrying a classify function
+ * is a callback rule (custom engine); one without is DECLARATIVE data and compiles through the same
+ * seam a config-file rule entry takes (compileRule). Scoping is part of the rule - a fragment
+ * declares rules, not targets.
+ */
+function customRules(mod: unknown, path: string): LoadedRules {
   const exported = (mod as { default?: unknown }).default;
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "custom rule file " + path + ": " + message);
@@ -105,15 +116,29 @@ function contributedRules(mod: unknown, path: string): CustomRule[] {
     fail('must default-export defineConfig({ rules: [...] }) from "jint:sdk"');
   }
   const fragments = Array.isArray(exported) ? exported : [exported];
-  const rules: CustomRule[] = [];
+  const out: LoadedRules = { custom: [], declarative: [] };
   for (const fragment of fragments) {
     const f = fragment as CustomConfigFragment;
     if (typeof f !== "object" || f === null || !Array.isArray(f.rules)) {
       fail("default export is not a defineConfig fragment (missing rules array)");
     }
-    for (const rule of f.rules) rules.push(validateCustomRule(rule, path));
+    // scoping is part of the rule (rule-level) or the config (run-level) - a rule file declares
+    // neither: its fragments contribute rules to a run defined elsewhere
+    if (f.include !== undefined || f.exclude !== undefined) {
+      fail(
+        "fragment include/exclude belongs to the config (run scope) - scope each rule, or move this fragment to jint.config",
+      );
+    }
+    for (const rule of f.rules) {
+      const entry = rule as { classify?: unknown };
+      if (typeof entry.classify === "function") {
+        out.custom.push(validateCustomRule(rule, path));
+      } else {
+        out.declarative.push({ entry: rule, source: path });
+      }
+    }
   }
-  return rules;
+  return out;
 }
 
 /**
@@ -138,20 +163,28 @@ export async function importConfigModule(abs: string): Promise<unknown> {
 }
 
 /** Loads every config-declared custom rule file, in declared order, and rejects duplicate names. */
-export async function loadCustomRules(paths: readonly string[]): Promise<CustomRule[]> {
-  const out: CustomRule[] = [];
+export async function loadCustomRules(paths: readonly string[]): Promise<LoadedRules> {
+  const out: LoadedRules = { custom: [], declarative: [] };
   const seen = new Map<string, string>();
+  const claim = (name: string, path: string): void => {
+    const prior = seen.get(name);
+    if (prior !== undefined) {
+      throw new SetupError(
+        "RULE_INVALID",
+        'duplicate custom rule name "' + name + '" (' + prior + " and " + path + ")",
+      );
+    }
+    seen.set(name, path);
+  };
   for (const path of paths) {
-    for (const rule of await loadCustomRuleFile(path)) {
-      const prior = seen.get(rule.name);
-      if (prior !== undefined) {
-        throw new SetupError(
-          "RULE_INVALID",
-          'duplicate custom rule name "' + rule.name + '" (' + prior + " and " + path + ")",
-        );
-      }
-      seen.set(rule.name, path);
-      out.push(rule);
+    const loaded = await loadCustomRuleFile(path);
+    for (const rule of loaded.custom) {
+      claim(rule.name, path);
+      out.custom.push(rule);
+    }
+    for (const { entry, source } of loaded.declarative) {
+      claim((entry as { name: string }).name, path);
+      out.declarative.push({ entry, source });
     }
   }
   return out;

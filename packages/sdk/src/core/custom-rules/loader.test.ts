@@ -33,7 +33,7 @@ export default defineConfig({
 describe("loadCustomRules", () => {
   test("loads a valid fragment through the jint:sdk virtual module", async () => {
     const path = write("valid.ts", VALID_RULE);
-    const rules = await loadCustomRules([path]);
+    const rules = (await loadCustomRules([path])).custom;
     expect(rules).toHaveLength(1);
     expect(rules[0]?.name).toBe("will_test_fire");
   });
@@ -84,11 +84,37 @@ describe("loadCustomRules", () => {
         "  ],\n" +
         "});\n",
     );
-    const rules = await loadCustomRules([a, b]);
+    const rules = (await loadCustomRules([a, b])).custom;
     // order follows the declared file order, then in-file order; identity is the name
     expect(rules.map((r) => r.name)).toEqual(["shared_rule", "a_rule", "b_rule"]);
     // the cross-file import actually composed: every loaded rule carries a working classify
     expect(rules.every((r) => typeof r.classify === "function")).toBe(true);
+  });
+
+  test("a declarative spec import loads through the declarative lane (no classify needed)", async () => {
+    const path = write(
+      "declarative.ts",
+      'import { defaultRuleSpecs } from "jint:defaults";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        'import { is_greppable } from "jint:defaults";\n' +
+        'export default defineConfig({ rules: [{ ...is_greppable, exclude: ["**/*.test.ts"] }] });',
+    );
+    const loaded = await loadCustomRules([path]);
+    expect(loaded.custom).toHaveLength(0);
+    expect(loaded.declarative).toHaveLength(1);
+    const entry = loaded.declarative[0]?.entry as { name: string; exclude: string[] };
+    expect(entry.name).toBe("is_greppable");
+    expect(entry.exclude).toEqual(["**/*.test.ts"]);
+  });
+
+  test("fragment scoping in a rule file is rejected - scoping is part of the rule or the config", async () => {
+    const path = write(
+      "scoped-fragment.ts",
+      'import { defineConfig } from "jint:sdk";\n' +
+        'import { is_greppable } from "jint:defaults";\n' +
+        'export default defineConfig({ rules: [is_greppable], exclude: ["x"] });',
+    );
+    expect(async () => await loadCustomRules([path])).toThrow(/run scope/);
   });
 
   test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
@@ -101,7 +127,7 @@ describe("loadCustomRules", () => {
         "const count = Object.keys(defaultRuleSpecs).length;\n" +
         "export default defineConfig({ rules: [], include: count > 0 ? undefined : [] });",
     );
-    const rules = await loadCustomRules([path]);
+    const rules = (await loadCustomRules([path])).custom;
     expect(rules).toHaveLength(0);
   });
 
@@ -132,7 +158,7 @@ describe("loadCustomRules", () => {
           "});",
         ].join("\n"),
       ),
-    ]);
+    ]).then((r) => r.custom);
     expect(rules).toHaveLength(1);
     expect(rules[0]?.name).toBe("composed_rule");
     // The imported values actually crossed the gate: run classify and read the composed state.

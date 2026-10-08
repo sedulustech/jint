@@ -325,7 +325,7 @@ export function validateConfig(raw: unknown, source: string): ResolvedConfig {
 }
 
 /** The data -> function seam for one rule: validates the handler, compiles, freezes shape. */
-function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
+export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
   const isChoice = entry.kind === "choice";
   const handle = compileDataHandle(
     entry.handle,
