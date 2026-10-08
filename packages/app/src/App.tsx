@@ -135,7 +135,7 @@ export function App({ runId }: { runId: string | null }) {
             data-testid={`run-option-${run.id}`}
             className="text-body"
             title={`${runLabel(run)}\nrun id: ${run.id}`}
-            aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} req · ${run.id}`}
+            aria-label={`${runLabel(run)} · ${run.configPath !== null ? baseName(run.configPath) : run.legacy ? "migrated run" : "default rules"} · ${relTime(run.mtime)} · ${run.requests} requests · id: ${run.id}`}
           >
             {/* ItemText = what the slimmed trigger displays: label only */}
             <SelectItemText>
@@ -145,7 +145,7 @@ export function App({ runId }: { runId: string | null }) {
               {run.configPath !== null && ` · ${baseName(run.configPath)}`}
               {run.configPath === null &&
                 (run.legacy ? " · migrated run" : " · default rules")} ·{" "}
-              {relTime(run.mtime)} ·{run.requests} req · {run.id.slice(-6)}
+              {relTime(run.mtime)} · {run.requests} requests · id: {run.id.slice(-6)}
             </span>
           </SelectItem>
         ))}
