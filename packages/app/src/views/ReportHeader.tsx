@@ -80,9 +80,6 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
         <span className={verdicts.warn > 0 ? "text-sev-warn" : "text-muted-foreground"}>
           <span className="text-emphasis">{verdicts.warn}</span> warnings
         </span>
-        <span className="text-muted-foreground">
-          <span className="text-emphasis">{verdicts.pass}</span> passes
-        </span>
       </div>
     </div>
   );
