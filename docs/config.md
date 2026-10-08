@@ -21,7 +21,7 @@ for editor autocomplete via `$schema`.
 | `exclude`                                | input exclusion globs, on top of the walker's defaults                                                          |
 | `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                                           |
 
-A rule object is a [default-rule-shaped spec](rules.mdx): `name`, `instructions`, `criteria`
+A rule object is a [default-rule-shaped spec](rules.md): `name`, `instructions`, `criteria`
 (`{true, false}` for noul, an ordered rubric for `kind: "choice"`), `target`, `handle`, plus
 per-rule `include`/`exclude` globs (exclude always wins; a rule whose exclude cancels its
 include is a warning, never an error).

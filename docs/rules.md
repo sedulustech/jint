@@ -9,8 +9,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_name_purposeful`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target      | handle                                  |
+| ---- | ----------- | --------------------------------------- |
 | noul | definitions | warn less than 0.4, error less than 0.3 |
 
 **Instructions.** Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?
@@ -21,9 +21,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_vocabulary_consistent`
 
-| kind | target | handle |
-|---|---|---|
-| noul | files | warn less than 0.75, error less than 0.6 |
+| kind | target | handle                                   |
+| ---- | ------ | ---------------------------------------- |
+| noul | files  | warn less than 0.75, error less than 0.6 |
 
 **Instructions.** Do the identifiers in this change keep one vocabulary - the same concept always the same word?
 
@@ -33,8 +33,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_naming_convention_consistent`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target      | handle                                    |
+| ---- | ----------- | ----------------------------------------- |
 | noul | definitions | warn less than 0.75, error less than 0.65 |
 
 **Instructions.** Do identifiers of the same kind in this unit follow a single casing convention?
@@ -45,8 +45,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_greppable`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target    | handle                                   |
+| ---- | --------- | ---------------------------------------- |
 | noul | functions | warn less than 0.75, error less than 0.6 |
 
 **Instructions.** Are the identifiers in this function searchable with terms a developer would use to find this code?
@@ -57,9 +57,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_filename_fitting`
 
-| kind | target | handle |
-|---|---|---|
-| noul | files | warn greater than 0.55, error greater than 0.75 |
+| kind | target | handle                                          |
+| ---- | ------ | ----------------------------------------------- |
+| noul | files  | warn greater than 0.55, error greater than 0.75 |
 
 **Instructions.** Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?
 
@@ -69,8 +69,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_comment_narration`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target   | handle                                         |
+| ---- | -------- | ---------------------------------------------- |
 | noul | comments | warn greater than 0.3, error greater than 0.45 |
 
 **Instructions.** Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?
@@ -81,8 +81,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_comment_patching_readability`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target   | handle                                         |
+| ---- | -------- | ---------------------------------------------- |
 | noul | comments | warn greater than 0.4, error greater than 0.55 |
 
 **Instructions.** Does any comment here patch code that should read itself, instead of the code being made readable?
@@ -93,8 +93,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `will_comment_drift`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target   | handle                                         |
+| ---- | -------- | ---------------------------------------------- |
 | noul | comments | warn greater than 0.55, error greater than 0.7 |
 
 **Instructions.** Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?
@@ -105,8 +105,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `will_error_lose_cause`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target    | handle                                        |
+| ---- | --------- | --------------------------------------------- |
 | noul | functions | warn greater than 0.4, error greater than 0.7 |
 
 **Instructions.** Does this function's error handling lose information about the original failure?
@@ -117,8 +117,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_cognitively_complex`
 
-| kind | target | handle |
-|---|---|---|
+| kind   | target      | handle                         |
+| ------ | ----------- | ------------------------------ |
 | choice | definitions | score map: pass → warn → error |
 
 **Instructions.** How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.
@@ -131,8 +131,8 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_function_srp`
 
-| kind | target | handle |
-|---|---|---|
+| kind | target    | handle                                   |
+| ---- | --------- | ---------------------------------------- |
 | noul | functions | warn less than 0.45, error less than 0.3 |
 
 **Instructions.** Does this unit serve a single cohesive responsibility, every step serving one stated purpose?
@@ -140,5 +140,3 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 **True.** The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.
 
 **False.** There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.
-
-

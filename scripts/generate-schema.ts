@@ -2,7 +2,7 @@
  * Regenerates two checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Docs/rules.mdx from the default rule specs (packages/defaults/src/index.ts)
+ * - Docs/rules.md from the default rule specs (packages/defaults/src/index.ts)
  *
  * Run after any config-schema or default-spec change: bun run schema (wired into bun run validate).
  * Both emitted files are checked in so editors resolve "$schema" without running jint and docs stay
@@ -23,7 +23,7 @@ writeFileSync(schemaOut, JSON.stringify(schema, null, 2) + "\n");
 Bun.spawnSync(["bunx", "oxfmt", schemaOut]);
 process.stdout.write("wrote " + schemaOut + "\n");
 
-const mdxOut = new URL("../docs/rules.mdx", import.meta.url).pathname;
+const mdxOut = new URL("../docs/rules.md", import.meta.url).pathname;
 const frontmatter =
   "---\n" +
   "title: Rules\n" +
@@ -40,7 +40,6 @@ const body = [
 for (const spec of Object.values(defaultRuleSpecs)) {
   const isChoice = spec.kind === "choice";
   body.push(`## \`${spec.name}\`\n\n`);
-  body.push(`| kind | target | handle |\n|---|---|---|\n`);
   const handle = isChoice
     ? `score map: ${spec.handle.map.join(" → ")}`
     : Object.entries(spec.handle)
@@ -49,7 +48,18 @@ for (const spec of Object.values(defaultRuleSpecs)) {
           return `${level} ${opName.replace(/_/g, " ")} ${threshold}`;
         })
         .join(", ");
-  body.push(`| ${isChoice ? "choice" : "noul"} | ${spec.target} | ${handle} |\n\n`);
+  // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
+  const cells = [
+    ["kind", isChoice ? "choice" : "noul"],
+    ["target", spec.target],
+    ["handle", handle],
+  ];
+  const width = cells.map(([header, value]) => Math.max(header.length, value.length));
+  const row = (values: string[]) =>
+    `| ${values.map((v, i) => v.padEnd(width[i]!)).join(" | ")} |\n`;
+  body.push(row(cells.map(([h]) => h)));
+  body.push(`| ${width.map((w) => "-".repeat(w)).join(" | ")} |\n`);
+  body.push(row(cells.map(([, v]) => v)) + "\n");
   body.push(`**Instructions.** ${spec.instructions}\n\n`);
   if (isChoice) {
     spec.criteria.forEach((criterion, i) => body.push(`**Score ${i}.** ${criterion}\n\n`));
@@ -58,5 +68,5 @@ for (const spec of Object.values(defaultRuleSpecs)) {
     body.push(`**False.** ${spec.criteria.false}\n\n`);
   }
 }
-writeFileSync(mdxOut, body.join("") + "\n");
+writeFileSync(mdxOut, body.join("").replace(/\n+$/, "\n"));
 process.stdout.write("wrote " + mdxOut + "\n");
