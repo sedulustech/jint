@@ -340,7 +340,9 @@ function GroupedNestedTable({
     </th>
   );
   return (
-    <table className="w-full">
+    // auto width: the table hugs its columns instead of filling the outer table's wrapper
+    // cell; the name column is capped so a long name ellipsizes rather than widening the panel
+    <table>
       <thead className="border-b border-border bg-background text-caption text-muted-foreground">
         <tr style={{ height: ROW_HEIGHT }}>
           <th scope="col" className="pl-indent pr-rail text-left font-normal">
@@ -403,7 +405,7 @@ function GroupedChildRow({
       } text-foreground`}
     >
       {/* nested grid: input | severity | value (own header above, pl-indent nesting) */}
-      <td className="max-w-0 overflow-hidden">
+      <td className="max-w-96 overflow-hidden">
         <span
           className="flex items-center gap-siblings truncate pl-indent pr-rail"
           title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
