@@ -77,7 +77,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           </span>
         </h2>
         {request !== undefined && (
-          <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
+          <CopyButton text={JSON.stringify(request, null, 2)} label="copy request" />
         )}
         <Button
           variant="secondary"
