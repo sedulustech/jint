@@ -256,6 +256,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
                 | string[],
               inputType: options.inputType ?? options.config.inputType,
               exclude,
+              // explicit file selection measures raw when only files-target rules are in scope
+              requireGrammarFor: (p) =>
+                customRules.some((rule) => ruleInScope(rule, p)) ||
+                rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
             }),
           );
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are

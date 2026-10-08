@@ -15,6 +15,7 @@
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
  */
 
+import { languageOf } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -85,6 +86,18 @@ export async function classify(
   const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
+  // an element-target rule needs a parsed inventory; when neither the path nor the language
+  // option resolves a grammar there is none - fail at setup, never as a silent empty run
+  if (
+    options.language === undefined &&
+    languageOf(path) === null &&
+    rules.some((rule) => rule.target !== "files")
+  ) {
+    throw new SetupError(
+      "MISSING_GRAMMAR",
+      "cannot infer a grammar for the given source - declare it with the language option",
+    );
+  }
   const unit: Unit = {
     kind: "file",
     state: {

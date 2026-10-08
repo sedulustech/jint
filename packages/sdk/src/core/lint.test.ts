@@ -282,6 +282,9 @@ describe("lint — classification shape", () => {
   });
 });
 
+const COVERAGE_TS_DIR = "tmp/lint-coverage-test";
+const CUSTOM_RULE_PATH = COVERAGE_TS_DIR + "/elements-rule.ts";
+
 describe("lint", () => {
   afterAll(() => rmSync("tests/fixtures/order-test", { recursive: true, force: true }));
 
@@ -719,7 +722,68 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
     );
-    expect(coverage?.note).toBe("parsing ts, tsx, py, go · not parsed (no grammar): .json, .md");
+    expect(coverage?.note).toBe(
+      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+    );
+  });
+
+  test("explicit file + files-target rules only: measured raw, no MISSING_GRAMMAR", async () => {
+    const events = await drain(
+      lint({
+        config: {
+          ...defaultConfig(),
+          input: "tests/fixtures/sample-dir/data.json",
+          inputType: "file",
+          rules: [defaultRules.is_filename_fitting!],
+        },
+        classifier: classifierWith({ is_filename_fitting: 0.9 }),
+      }),
+    );
+    expect(events.filter((e) => e.type === "error")).toHaveLength(0);
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
+  });
+
+  test("a custom element rule forces the walk: non-source files become sweep coverage", async () => {
+    const fs = await import("node:fs");
+    fs.mkdirSync(COVERAGE_TS_DIR, { recursive: true });
+    fs.writeFileSync(
+      CUSTOM_RULE_PATH,
+      [
+        'import { defineConfig } from "jint:sdk";',
+        "export default defineConfig({",
+        "  rules: [{",
+        '    name: "custom_elements",',
+        "    target: (elements) => elements,",
+        "    classify: (self) => ({",
+        '      instructions: "i",',
+        '      criteria: { true: "t", false: "f" },',
+        "      state: { source: self.source },",
+        "    }),",
+        "    handle: { warn: { greater_than: 0.1 } },",
+        "  }],",
+        "});",
+      ].join("\n"),
+    );
+    const events = await drain(
+      lint({
+        config: {
+          ...defaultConfig(),
+          input: "tests/fixtures/sample-dir",
+          inputType: "dir",
+          rules: [],
+          customRules: [CUSTOM_RULE_PATH],
+        },
+        classifier: classifierWith({}),
+      }),
+    );
+    const coverage = events.find(
+      (e): e is Extract<LintEvent, { type: "note" }> =>
+        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+    );
+    expect(coverage?.note).toBe(
+      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+    );
+    expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
 
   test("custom rule set (selection = the rule list itself)", async () => {

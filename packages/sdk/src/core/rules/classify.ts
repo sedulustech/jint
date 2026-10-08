@@ -297,21 +297,21 @@ export interface WalkedUnit {
   readonly failedCause: unknown;
 }
 
-function missingGrammarReason(path: string): string {
-  // The message names the remedy: with an extension, fix the mapping; an extensionless path is
-  // piped stdin — there is nothing to map, so declare the grammar.
-  return /\.[^./]+$/.test(path)
+function missingGrammarReason(unit: Unit): string {
+  // The message names the remedy: a file extension can gain a grammar mapping (sweep coverage);
+  // a str unit has nothing to map, so the caller declares the language.
+  return unit.kind === "file"
     ? "no grammar mapping for extension"
     : "cannot infer a grammar for piped stdin - declare it with --language";
 }
 
 export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): Promise<WalkedUnit> {
   if (unit.kind !== "file")
-    return { inventory: [], failed: "non-file unit", failedCause: undefined };
+    return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
   const state = unit.state;
   const language = options.language ?? languageOf(state.path);
   if (language === null)
-    return { inventory: [], failed: missingGrammarReason(state.path), failedCause: undefined };
+    return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
   // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
   // retention pass) — a typed read, no union discriminator and no fallback to parse around.
   const source = state.content;
@@ -587,10 +587,11 @@ function collectWalkFailure(
   events: ClassifyEvent[],
   needed: boolean,
 ): void {
-  if (!needed || walked.failed === null || unit.kind !== "file") return;
-  // missing grammar is sweep coverage, never an error: unsupported extensions aggregate into
-  // the coverage note; explicit file selection fails earlier at the input boundary, with the list
-  if (walked.failed.startsWith("no grammar mapping")) return;
+  if (!needed || walked.failed === null) return;
+  // missing grammar on a FILE is sweep coverage, never an error: unsupported extensions
+  // aggregate into the coverage note; explicit file selection fails earlier at the input
+  // boundary, with the supported list. On a str unit it stays an error: declare --language.
+  if (unit.kind === "file" && walked.failed.startsWith("no grammar mapping")) return;
   const state = unit.state;
   events.push({
     event: new ClassifyError(

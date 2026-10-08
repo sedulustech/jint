@@ -121,33 +121,13 @@ describe("classify", () => {
     );
   });
 
-  test("no resolvable language: WALK_FAILED in-band, unit-scoped rules still classified, inventory omitted", async () => {
-    const states: unknown[] = [];
-    const outcome = await classify("just some text", [noulFileRule, choiceFunctionRule], {
-      classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }, states),
-    });
-    // the whole-source rule classified anyway
-    expect(outcome.measurements).toEqual([
-      {
-        rule: "r_file",
-        input: "input",
-        value: 0.9,
-        element: {
-          kind: "file",
-          label: "L1",
-          span: {
-            start: { line: 1, column: 0 },
-            end: { line: 1, column: 0 },
-            startByte: 0,
-            endByte: 14,
-          },
-        },
-      },
-    ]);
-    // the mapping failure is a value, not a throw
-    expect(outcome.errors).toHaveLength(1);
-    expect(outcome.errors[0]!.code).toBe("WALK_FAILED");
-    expect(outcome.inventory).toBeUndefined();
+  test("no resolvable language with an element-target rule -> MISSING_GRAMMAR setup error", async () => {
+    const thrown = await classify("just some text", [noulFileRule, choiceFunctionRule], {
+      classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
+    }).catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(SetupError);
+    expect((thrown as SetupError).code).toBe("MISSING_GRAMMAR");
+    expect((thrown as Error).message).toContain("declare it with the language option");
   });
 
   test("unparseable source with explicit language: WALK_FAILED in-band, unit-scoped rules still classified", async () => {
