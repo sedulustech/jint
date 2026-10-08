@@ -22,7 +22,7 @@ export function Logo({ className }: { className?: string }): JSX.Element {
         <path strokeWidth={5.5} d="M148 42H156V118H148" />
         <path strokeWidth={4} d="M130 54H136V106H130" />
       </g>
-      <rect x={91} y={62} width={18} height={36} fill="currentColor" />
+      <rect x={91} y={26.5} width={18} height={107} fill="currentColor" />
     </svg>
   );
 }
