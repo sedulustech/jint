@@ -1,19 +1,3 @@
-/**
- * Loads config-declared custom rule files on the embedded Bun runtime (spike-validated:
- * /tmp/jint-spike/host.ts, bun 1.3.14). A runtime Bun.plugin registers the virtual module
- * "jint:sdk" — the colon marks it runtime-injected (node:fs convention): unshadowable, and
- * build.module intercepts it before any disk lookup, including inside compiled binaries.
- *
- * The import gate is a STATIC PRE-SCAN, not plugin denial: plugins cannot deny node:* builtins
- * (build.module on a builtin throws at setup and kills every rule), so before import() the file is
- * scanned with Bun.Transpiler.scanImports — jint:*, ./, / pass; bare specifiers and builtins are
- * rejected with a clear jint error. Known v1 limits (design rules-context/03): the scan covers the
- * entry file only; dynamic import() inside rules bypasses the gate.
- *
- * Loading is a setup concern: any failure (gate, thrown module, invalid defineConfig) throws
- * SetupError RULE_INVALID naming the file — the run fails fast, never half-configured.
- */
-
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaultRuleSpecs } from "@jint/defaults";
