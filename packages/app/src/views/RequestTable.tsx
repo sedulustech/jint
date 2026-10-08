@@ -376,7 +376,7 @@ function GroupedNestedHeader({
       <span className={`${NAME_WIDTH} shrink-0 truncate pl-indent pr-rail`}>
         {mode === "rule" ? "input" : "rule"}
       </span>
-      {sortCol("sev", "sev", SEVERITY_WIDTH)}
+      {sortCol("sev", "severity", SEVERITY_WIDTH)}
       {sortCol("value", "value", NESTED_VALUE_WIDTH)}
       <span className="min-w-0 flex-1" />
     </div>
