@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNowStrict } from "date-fns";
-import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { fetchReport } from "../api/client";
 import type { Report, RunSummary } from "../types";
+import { Button } from "@/components/ui/button";
 export const baseName = (path: string) => path.split("/").pop() ?? path;
 
 /**
@@ -43,23 +44,18 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
           </span>
         )}
         {runErrors.length > 0 && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-xs"
             data-testid="run-errors-toggle"
             aria-expanded={errorsOpen}
             aria-controls="run-errors"
             onClick={() => setErrorsOpen((o) => !o)}
-            className="flex items-center gap-related text-sev-error"
+            className="text-sev-error"
             title={runErrors[0]!.message}
           >
-            {errorsOpen ? (
-              <ChevronDown className="size-3.5 shrink-0" />
-            ) : (
-              <ChevronRight className="size-3.5 shrink-0" />
-            )}
-            <TriangleAlert className="size-3.5 shrink-0" />
-            {runErrors.length}
-          </button>
+            <TriangleAlert className="size-3.5" />
+          </Button>
         )}
       </div>
       {errorsOpen && runErrors.length > 0 && (
