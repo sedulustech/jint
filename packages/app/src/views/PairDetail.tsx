@@ -70,7 +70,11 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
     <section className="detail-pane flex h-1/2 w-full shrink-0 flex-col border-t border-border bg-background lg:h-full lg:w-full lg:min-h-0 lg:min-w-[320px] lg:border-l lg:border-t-0">
       <header className="flex shrink-0 items-center gap-siblings border-b border-border px-rail py-bar-y">
         <h2 className="min-w-0 flex-1 truncate text-body text-foreground">
-          {rule} <span className="text-muted-foreground">@ {input}</span>
+          {rule}{" "}
+          <span className="text-muted-foreground">
+            @ {file}
+            {element !== undefined ? " · " + spanLabel(element.span) : ""}
+          </span>
         </h2>
         {request !== undefined && (
           <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
@@ -115,13 +119,9 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             <AnswerCard qa={pair} sev={severity} />
           </div>
           {code !== null && (
-            <div>
-              <div className="flex items-center justify-between px-rail py-bar-y">
-                <span className="text-caption text-muted-foreground">
-                  {result?.path ?? file}
-                  {element !== undefined ? " · " + spanLabel(element.span) : ""}
-                </span>
-                <CopyButton text={code} label="copy code" />
+            <div className="relative">
+              <div className="absolute right-related top-related z-10">
+                <CopyButton text={code} label="copy code" icon />
               </div>
               <CodeBlock code={code} path={result?.path ?? file} />
             </div>

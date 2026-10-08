@@ -384,10 +384,10 @@ test("generated fixture: an element cell click resolves to the element capture b
     { timeout: 2_000 },
   );
   expect(answer).toBe("0.25");
-  // the code panel names the element's file + its span label (Element.span), proving the
+  // the pane title names the element's file + its span label (Element.span), proving the
   // element capture won - the uuid stays a key, never a display string
   const loc = all(".detail-pane span")
     .map((s) => s.textContent ?? "")
-    .find((t) => /^(complex|helpers)\.ts · L\d+(-L\d+)?$/.test(t));
+    .find((t) => /^@ (complex|helpers)\.ts · L\d+(-L\d+)?$/.test(t));
   expect(loc).toBeTruthy();
 });
