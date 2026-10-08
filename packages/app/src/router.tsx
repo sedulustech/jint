@@ -77,7 +77,10 @@ export const NotFound = ({
   title?: string;
   detail?: string;
 }) => (
-  <div className="m-auto flex flex-col items-center gap-sections font-mono text-body text-muted-foreground">
+  <div
+    data-testid="not-found"
+    className="m-auto flex flex-col items-center gap-sections text-body text-muted-foreground"
+  >
     <p className="text-emphasis text-foreground">{title}</p>
     <p>
       {detail} - <Link to="/">back to the runs</Link>

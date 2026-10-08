@@ -26,7 +26,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
   return (
     <div
       id="report-panel-inner"
-      className="shrink-0 overflow-y-auto border-b border-border bg-muted px-rail py-inner font-mono text-body"
+      className="shrink-0 overflow-y-auto border-b border-border bg-background py-inner text-body"
       style={{ maxHeight: "45vh" }}
     >
       {isDegradedReport && (
@@ -47,11 +47,11 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
         <table className="w-full border-collapse text-body whitespace-nowrap">
           <thead>
             <tr className="text-left text-muted-foreground">
-              <th className="px-rail py-cell-y font-normal">rule</th>
-              <th className="px-rail py-cell-y font-normal">measurements</th>
-              <th className="px-rail py-cell-y font-normal">findings</th>
-              <th className="px-rail py-cell-y font-normal">finding rate</th>
-              <th className="px-rail py-cell-y font-normal">
+              <th className="px-cell-x py-cell-y font-normal">rule</th>
+              <th className="px-cell-x py-cell-y font-normal">measurements</th>
+              <th className="px-cell-x py-cell-y font-normal">findings</th>
+              <th className="px-cell-x py-cell-y font-normal">finding rate</th>
+              <th className="px-cell-x py-cell-y font-normal">
                 answer distribution (0 … 1, line at 0.5)
               </th>
             </tr>
@@ -60,6 +60,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             {reportRuleStats.map((statRow) => (
               <tr
                 key={statRow.rule}
+                data-testid={`report-rule-${statRow.rule}`}
                 onClick={() => onRuleFocus(statRow.rule)}
                 tabIndex={0}
                 role="button"
@@ -72,22 +73,24 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
                 className={`${ROW_CURSOR} border-t border-border ${ROW_HOVER}`}
                 title="show this rule's group in the table"
               >
-                <td className="px-rail py-cell-y">
+                <td className="px-cell-x py-cell-y">
                   <span className="text-foreground">{statRow.rule}</span>
                 </td>
-                <td className="px-rail py-cell-y text-muted-foreground">{statRow.measurements}</td>
+                <td className="px-cell-x py-cell-y text-muted-foreground">
+                  {statRow.measurements}
+                </td>
                 <td
                   className={
-                    "px-rail py-cell-y " +
+                    "px-cell-x py-cell-y " +
                     (statRow.findings > 0 ? "text-sev-warn" : "text-sev-clean")
                   }
                 >
                   {statRow.findings}
                 </td>
-                <td className="px-rail py-cell-y text-foreground">
+                <td className="px-cell-x py-cell-y text-foreground">
                   {(statRow.rate * 100).toFixed(1)}%
                 </td>
-                <td className="px-rail py-cell-y">
+                <td className="px-cell-x py-cell-y">
                   <div className="pointer-events-none relative flex h-4 w-full min-w-64 items-end gap-px">
                     {statRow.histogram.map((binCount, binIndex) => {
                       // neutral: shape, not verdict
@@ -113,7 +116,7 @@ export function ReportPanel({ runId, onRuleFocus }: Props) {
             ))}
             {reportRuleStats.length === 0 && !reportQuery.isLoading && (
               <tr>
-                <td colSpan={5} className="px-rail py-inner text-muted-foreground">
+                <td colSpan={5} className="px-cell-x py-inner text-muted-foreground">
                   report present but zero measurements
                 </td>
               </tr>

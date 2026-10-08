@@ -5,6 +5,18 @@ import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { makeRouter } from "./router";
 
+// the report toggle: selected by testid; its STATE is read from aria-expanded /
+// aria-disabled (state semantics belong to ARIA, selection does not)
+const reportToggle = (state: "open" | "closed" | "no-report") => {
+  const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
+  if (b === null) return undefined;
+  if (state === "no-report") return b.getAttribute("aria-disabled") === "true" ? b : undefined;
+  const expanded = b.getAttribute("aria-expanded") === "true";
+  return expanded === (state === "open") && b.getAttribute("aria-disabled") !== "true"
+    ? b
+    : undefined;
+};
+
 // Router acceptance, automated from the manual browser pass: URL is the state,
 // so every test boots at an address and asserts on what renders + what the bar says.
 
@@ -31,9 +43,9 @@ function boot(path: string) {
   mount();
 }
 
-async function openRun(name: RegExp) {
-  await page.getByRole("combobox", { name: "run" }).click();
-  await page.getByRole("option", { name }).click();
+async function openRun(id: string) {
+  await page.getByTestId("run-picker").click();
+  await page.getByTestId("run-option-" + id).click();
 }
 
 const reportPanel = () => document.getElementById("report-panel");
@@ -48,9 +60,12 @@ async function expectPath(path: string) {
 
 test("boot at / shows the run picker, no run selected", async () => {
   boot("/");
-  await page.getByRole("combobox", { name: "run" }).click();
+  await page.getByTestId("run-picker").click();
   expect(window.location.pathname).toBe("/");
-  expect(document.body.textContent).toContain("select a run");
+  await waitFor(() => {
+    if (document.querySelector('[data-testid="run-picker-heading"]') === null)
+      throw new Error("run picker not rendered");
+  });
 });
 
 test("deep link /runs/<id> renders that run", async () => {
@@ -60,7 +75,7 @@ test("deep link /runs/<id> renders that run", async () => {
       if (detailPane() !== "" || reportPanel() === null)
         throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(window.location.pathname).toBe("/runs/run-a");
 });
@@ -71,25 +86,23 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
     () => {
       if (reportPanel() === null) throw new Error("panel not open");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   cleanup();
 
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (document.body.innerText.includes("show report")) return;
+      if (reportToggle("closed")) return;
       throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(reportPanel()).toBeNull();
 
   // D1 round trip: toggle writes the SAME spelling the validator accepts, and a
   // fresh boot (reload) reads it back
-  const toggle = [...document.querySelectorAll("button")].find((b) =>
-    (b.textContent ?? "").includes("show report"),
-  )!;
+  const toggle = reportToggle("closed")!;
   toggle.click();
   await expectPath("/runs/run-a?report=1");
   cleanup();
@@ -99,7 +112,7 @@ test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
     () => {
       if (reportPanel() === null) throw new Error("panel state lost on reload");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 });
 
@@ -109,7 +122,7 @@ test("?rule+input deep link opens PairDetail and survives reload", async () => {
     () => {
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pane not open");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(detailPane()).toContain("is_name_purposeful");
   cleanup();
@@ -119,7 +132,7 @@ test("?rule+input deep link opens PairDetail and survives reload", async () => {
     () => {
       if (!detailPane().includes("is_name_purposeful")) throw new Error("pane lost on reload");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 });
 
@@ -127,13 +140,12 @@ test("history walk: pick another run, back restores the previous run + panel sta
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("show report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("closed")) throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
-  await openRun(new RegExp("run-0"));
+  await openRun("run-0");
   await expectPath("/runs/run-0");
   expect(window.location.pathname).toBe("/runs/run-0");
   cleanup();
@@ -145,24 +157,31 @@ test("history walk: pick another run, back restores the previous run + panel sta
     () => {
       if (reportPanel() !== null) throw new Error("panel state not restored from URL");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(window.location.pathname + window.location.search).toBe("/runs/run-a?report=0");
 });
 
 test("config-less run carries the default-rules marker", async () => {
   boot("/");
-  await page.getByRole("combobox", { name: "run" }).click();
-  await page.getByRole("option", { name: /run-0/ }).click();
+  await page.getByTestId("run-picker").click();
+  await page.getByTestId("run-option-run-0").click();
   await expectPath("/runs/run-0");
-  expect(document.body.textContent).toContain("default rules");
+  await waitFor(() => {
+    const marker = document.querySelector('[data-testid="run-marker"]')?.textContent ?? "";
+    if (!marker.includes("default rules")) throw new Error("marker missing, got: " + marker);
+  });
+  expect(document.querySelector('[data-testid="run-marker"]')?.textContent).toContain(
+    "default rules",
+  );
 });
 
 test("unknown path renders inside the app shell, not a bare Not Found", async () => {
   boot("/definitely/not/a/route");
   await waitFor(
     () => {
-      if (!document.body.textContent.includes("back to the runs"))
+      const nf = document.querySelector('[data-testid="not-found"]')?.textContent ?? "";
+      if (!nf.includes("back to the runs"))
         throw new Error("chrome missing, body: " + document.body.innerHTML);
     },
     { timeout: 5_000 },
@@ -180,12 +199,14 @@ test("nonexistent run id renders the shared 404 inside the shell", async () => {
   boot("/runs/0000");
   await waitFor(
     () => {
-      if (!document.body.textContent.includes("run 0000 not found"))
-        throw new Error("404 copy missing");
+      const nf = document.querySelector('[data-testid="not-found"]')?.textContent ?? "";
+      if (!nf.includes("run 0000 not found")) throw new Error("404 copy missing");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
-  expect(document.body.textContent).toContain("back to the runs");
+  expect(document.querySelector('[data-testid="not-found"]')?.textContent).toContain(
+    "back to the runs",
+  );
   // app shell chrome: the header (jint, run picker, theme) stays up around the 404
   expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
   expect(document.body.textContent).not.toContain("Not Found");
@@ -196,10 +217,9 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(reportPanel()).toBeNull();
   cleanup();
@@ -207,10 +227,9 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(reportPanel()).toBeNull();
   cleanup();
@@ -219,10 +238,9 @@ test("absent report.json: closed by default and never overridden open", async ()
   boot("/runs/run-0?report=1");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("no report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(reportPanel()).toBeNull();
 });
@@ -231,28 +249,27 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
   boot("/runs/run-a?report=0");
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("show report"))
-        throw new Error("run view not rendered yet");
+      if (!reportToggle("closed")) throw new Error("run view not rendered yet");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // A -> B -> C: three real pushState entries from the dropdown
-  await openRun(/run-1/);
+  await openRun("run-1");
   await expectPath("/runs/run-1");
   await waitFor(
     () => {
       if (reportPanel() === null) throw new Error("run-1 report should default open");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
-  await openRun(/run-0/);
+  await openRun("run-0");
   await expectPath("/runs/run-0");
   await waitFor(
     () => {
       if (reportPanel() !== null) throw new Error("run-0 has no report");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // back x2: C -> B -> A, panel state restored from the URL at each step
@@ -262,7 +279,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() === null) throw new Error("B panel state not restored");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   window.history.back();
   await expectPath("/runs/run-a?report=0");
@@ -270,7 +287,7 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() !== null) throw new Error("A panel state not restored");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // forward x1: A -> B again
@@ -280,17 +297,17 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
     () => {
       if (reportPanel() === null) throw new Error("forward lost B panel state");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // state-drift edge: the picker's selected value re-syncs with the URL (run-1)
-  const trigger = page.getByRole("combobox", { name: "run" });
+  const trigger = page.getByTestId("run-picker");
   await waitFor(
     () => {
       const text = (trigger.element() as HTMLElement).textContent ?? "";
       if (!text.includes("run-1")) throw new Error("picker stale: " + text);
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect((trigger.element() as HTMLElement).textContent ?? "").toContain("run-1");
 });
@@ -306,19 +323,15 @@ function modeButton(mode: string): HTMLElement {
   return b;
 }
 
-function rowByText(text: string): HTMLElement {
-  const row = [
-    ...document.querySelectorAll<HTMLElement>("section tr[role=button], section button"),
-  ].find((b) => (b.textContent ?? []).includes(text));
-  if (row === undefined) throw new Error("row not found: " + text);
+function requestRow(file: string): HTMLElement {
+  const row = document.querySelector<HTMLElement>('[data-testid="request-' + file + '"]');
+  if (row === null) throw new Error("request row missing: " + file);
   return row;
 }
 
 function detailClose(): HTMLElement {
-  const b = [...document.querySelectorAll<HTMLElement>(".detail-pane button")].find((x) =>
-    (x.textContent ?? "").includes("✕"),
-  );
-  if (b === undefined) throw new Error("detail close button missing");
+  const b = document.querySelector<HTMLElement>(".detail-pane button[aria-label='close']");
+  if (b === null) throw new Error("detail close button missing");
   return b;
 }
 
@@ -334,11 +347,8 @@ async function toggleReport(target: "0" | "1") {
       detailPane() !== ""
     )
       return;
-    const label = want ? "show report" : "hide report";
-    const b = [...document.querySelectorAll("button")].find((x) =>
-      (x.textContent ?? "").includes(label),
-    );
-    if (b !== undefined) (b as HTMLElement).click();
+    const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
+    if (b !== null && b.getAttribute("aria-disabled") !== "true") b.click();
     await new Promise((r) => setTimeout(r, 150));
   }
   throw new Error("toggle to report=" + target + " never settled: " + window.location.search);
@@ -359,7 +369,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (reportPanel() === null) throw new Error("report not open");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(detailPane()).toBe("");
 
@@ -367,16 +377,17 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
   modeButton("request").click();
   await waitFor(
     () => {
-      if (rowByText("src/low.ts") === undefined) throw new Error("rows not ready");
+      if (document.querySelector('[data-testid="request-src/low.ts"]') === null)
+        throw new Error("rows not ready");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
-  rowByText("src/low.ts").click();
+  requestRow("src/low.ts").click();
   await waitFor(
     () => {
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pair not open");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   await waitFor(() => {
     const q = decodeURIComponent(window.location.search);
@@ -399,7 +410,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null) throw new Error("report not hidden");
       if (!detailPane().includes("@ src/low.ts")) throw new Error("pair lost on hide");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // T4: show report again - clean round trip
@@ -409,7 +420,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (reportPanel() === null) throw new Error("report not reopened");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // T5: back x1 -> T3 state; back x2 -> T2 state
@@ -420,7 +431,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("back-1 state wrong");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   window.history.back();
   await expectUrl("/runs/run-a" + urlAt("1"), "T4/T5b");
@@ -429,7 +440,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() === null || !detailPane().includes("@ src/low.ts"))
         throw new Error("back-2 state wrong");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // T6: forward x1 -> T3 state again (distinct entry, nothing collapsed)
@@ -440,7 +451,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("forward state wrong");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // T7: reload - the full interleaved state survives
@@ -451,7 +462,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
       if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
         throw new Error("reload lost interleaved state");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
 
   // T8: close the pair -> back to exactly ?report=0, nothing dropped
@@ -461,7 +472,7 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
     () => {
       if (detailPane() !== "") throw new Error("pair not closed");
     },
-    { timeout: 10_000 },
+    { timeout: 5_000 },
   );
   expect(reportPanel()).toBeNull();
 });
@@ -484,41 +495,45 @@ test("report-less run: grouped modes render the empty state, request mode the ro
     boot("/runs/run-0");
     await waitFor(
       () => {
-        if (!document.body.innerText.includes("no report — run captured without --json"))
-          throw new Error("empty state missing");
+        const empty = document.querySelector('[data-testid="empty-state"]')?.textContent ?? "";
+        if (!empty.includes("no report — run captured without --json"))
+          throw new Error("empty state missing, got: " + empty);
       },
-      { timeout: 10_000 },
+      { timeout: 5_000 },
     );
-    expect(document.body.textContent).toContain("0 rules match your filters");
+    expect(document.querySelector('[data-testid="empty-state"]')?.textContent).toContain(
+      "0 rules match your filters",
+    );
     expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
 
     // file mode: same empty idiom, files noun
     modeButton("file").click();
     await waitFor(
       () => {
-        if (!document.body.textContent.includes("0 files match your filters"))
-          throw new Error("file empty state missing");
+        const empty = document.querySelector('[data-testid="empty-state"]')?.textContent ?? "";
+        if (!empty.includes("0 files match your filters"))
+          throw new Error("file empty state missing, got: " + empty);
       },
-      { timeout: 10_000 },
+      { timeout: 5_000 },
     );
-    expect(document.body.textContent).toContain("no report — run captured without --json");
+    expect(document.querySelector('[data-testid="empty-state"]')?.textContent).toContain(
+      "no report — run captured without --json",
+    );
     expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
 
     // request mode: the run's real request rows, from the raw captures
     modeButton("request").click();
     await waitFor(
       () => {
-        const m = document.body.innerText.match(/(\d+) \/ (\d+) requests/);
+        const m = (document.querySelector('[data-testid="group-count"]')?.textContent ?? "").match(
+          /(\d+) \/ (\d+) requests/,
+        );
         if (m === null) throw new Error("counter not rendered");
         if (m[1] !== "1" || m[2] !== "1") throw new Error("counter is " + m[0] + ", want 1/1");
       },
-      { timeout: 10_000 },
+      { timeout: 5_000 },
     );
-    expect(
-      [...document.querySelectorAll("section tr[role=button]")].some((r) =>
-        (r.textContent ?? "").includes("src/borderline.ts"),
-      ),
-    ).toBe(true);
+    expect(document.querySelector('[data-testid="request-src/borderline.ts"]')).toBeTruthy();
 
     expect(errors).toEqual([]);
   } finally {

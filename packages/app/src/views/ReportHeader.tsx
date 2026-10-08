@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { fetchReport, fetchRun } from "../api/client";
 import { ruleStats } from "./ruleStats";
 import type { Report } from "../types";
@@ -31,7 +32,38 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
   const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y font-mono text-body">
+    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border bg-muted px-rail py-bar-y text-body">
+      <Button
+        variant="secondary"
+        size="icon-xs"
+        data-testid="report-toggle"
+        disabled={reportQuery.isLoading || !hasReport}
+        aria-expanded={reportOpen}
+        aria-controls="report-panel"
+        aria-disabled={reportQuery.isLoading || !hasReport}
+        aria-label={
+          reportQuery.isLoading
+            ? "report loading"
+            : hasReport
+              ? reportOpen
+                ? "hide report"
+                : "show report"
+              : "no report"
+        }
+        title={
+          reportQuery.isLoading
+            ? "report…"
+            : hasReport
+              ? reportOpen
+                ? "hide report"
+                : "show report"
+              : "no report"
+        }
+        onClick={onToggleReport}
+        className="disabled:cursor-not-allowed"
+      >
+        {reportOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+      </Button>
       {/* stat strip (F3): all four numbers on the SAME emphasis step - only the count changes */}
       <div className="flex flex-wrap items-center gap-x-meta gap-y-related">
         <span className="text-foreground">
@@ -46,31 +78,7 @@ export function ReportHeader({ runId, reportOpen, onToggleReport }: Props) {
         <span className="text-muted-foreground">
           <span className="text-emphasis">{totalNotes}</span> notes
         </span>
-        <span
-          className="text-muted-foreground"
-          title="healthy-max / defective-min gap: needs a probe corpus - a single run gives one distribution, not the gap"
-        >
-          calibration note
-        </span>
       </div>
-      <Button
-        variant="default"
-        size="sm"
-        disabled={reportQuery.isLoading || !hasReport}
-        aria-expanded={reportOpen}
-        aria-controls="report-panel"
-        aria-disabled={reportQuery.isLoading || !hasReport}
-        onClick={onToggleReport}
-        className="ml-auto font-mono disabled:cursor-not-allowed"
-      >
-        {reportQuery.isLoading
-          ? "report…"
-          : hasReport
-            ? reportOpen
-              ? "hide report"
-              : "show report"
-            : "no report"}
-      </Button>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ROW_CURSOR, ROW_HOVER } from "../lib/row";
 import { SEVERITY } from "./color";
@@ -45,27 +46,29 @@ const OVERSCAN = 12;
 const HEADER_HEIGHT = 27;
 const TABLE_MIN_WIDTH = 660;
 
-// grouped-mode shared grid: name | input | severity | value | counts | chevron
+// grouped mode: TWO grids. The OUTER table is group-level only (name | sev | verdicts |
+// counts); each expanded parent opens a NESTED table with its own header (input | sev | value),
+// so child columns never leak into the group header and the name column says rule OR file
+// (the group-by mode already knows which).
 const NAME_WIDTH = "w-52";
-const INPUT_MIN_WIDTH = "min-w-0 flex-1";
+const FINDINGS_MIN_WIDTH = "min-w-0 flex-1";
 const SEVERITY_WIDTH = "w-16";
-const VALUE_WIDTH = "w-16";
-const COUNTS_WIDTH = "w-24";
 const CHEVRON_WIDTH = "w-6";
+// nested (child) grid
+const NESTED_VALUE_WIDTH = "w-16";
 
-type GroupedKey = "name" | "input" | "severity" | "value";
 const GROUPED_COLS: {
-  key: GroupedKey | "counts" | "chevron";
-  label: string;
+  key: "name" | "findings" | "chevron";
+  label: string | ((mode: Mode) => string);
   className: string;
-  sortable: boolean;
 }[] = [
-  { key: "name", label: "rule / file", className: NAME_WIDTH, sortable: true },
-  { key: "input", label: "input", className: INPUT_MIN_WIDTH, sortable: true },
-  { key: "severity", label: "sev", className: SEVERITY_WIDTH, sortable: true },
-  { key: "value", label: "value", className: VALUE_WIDTH, sortable: true },
-  { key: "counts", label: "", className: COUNTS_WIDTH, sortable: false },
-  { key: "chevron", label: "", className: CHEVRON_WIDTH, sortable: false },
+  {
+    key: "name",
+    label: (mode) => (mode === "rule" ? "rule" : "file"),
+    className: NAME_WIDTH,
+  },
+  { key: "findings", label: "findings", className: FINDINGS_MIN_WIDTH },
+  { key: "chevron", label: "", className: CHEVRON_WIDTH },
 ];
 
 const compareText = (left: string, right: string) => left.localeCompare(right);
@@ -89,61 +92,19 @@ interface ChildRow {
 }
 type GroupedRow = ParentRow | ChildRow;
 
-function parentComparator(
-  sortDirection: number,
-  sortColumn: GroupedKey,
-): (left: ParentRow, right: ParentRow) => number {
-  // a parent exposes no single value; unexposed columns keep group order
-  return (left, right) => {
-    switch (sortColumn) {
-      case "name":
-        return sortDirection * compareText(left.name, right.name);
-      case "input":
-        return sortDirection * compareText(left.cells[0]?.input ?? "", right.cells[0]?.input ?? "");
-      case "severity":
-        return (
-          sortDirection * (sevRank(left.worstSeverity) - sevRank(right.worstSeverity)) ||
-          compareText(left.name, right.name)
-        );
-      default:
-        return 0;
-    }
-  };
-}
-
-function cellComparator(
-  sortDirection: number,
-  sortColumn: GroupedKey,
-): (left: Cell, right: Cell) => number {
-  return (left, right) => {
-    switch (sortColumn) {
-      case "name":
-        return sortDirection * compareText(left.rule, right.rule);
-      case "input":
-        return sortDirection * compareText(left.input, right.input);
-      case "severity":
-        return (
-          sortDirection * (sevRank(left.severity) - sevRank(right.severity)) ||
-          compareText(left.input, right.input)
-        );
-      case "value":
-        return sortDirection * (left.value - right.value || compareText(left.rule, right.rule));
-      default:
-        return 0;
-    }
-  };
-}
+// parents order by FINDINGS, heaviest first: the weighted score (err=2, warn=1) keeps 1 error
+// above 1 warning while 4 warnings outweigh 1 error; ties fall back to the name
+const findingsScore = (cells: Cell[]): number =>
+  cells.reduce((sum, c) => sum + (c.severity === "error" ? 2 : c.severity === "warn" ? 1 : 0), 0);
 
 /**
- * Grouped render model: flat [parent, ...children] rows, one sort key for both levels. Parents sort
- * by column, children sort within their group by the same column. A child key is the parent key
- * NUL-joined with rule and input; NUL never occurs in a rule or input name, so the join can never
- * collide with a guest half.
+ * Grouped render model: flat [parent, ...children] rows. Parents order by findings weight; children
+ * keep cell order under their parent's nested table. A child key is the parent key NUL-joined with
+ * rule and input; NUL never occurs in a rule or input name, so the join can never collide with a
+ * guest half.
  */
 function buildGroupedRows(
   groupSpecs: { key: string; name: string; cells: Cell[] }[],
-  sortDirection: number,
-  sortColumn: GroupedKey,
   expandedKeys: Set<string>,
 ): { flatRows: GroupedRow[]; parentRows: ParentRow[] } {
   const parentRows: ParentRow[] = groupSpecs.map((groupSpec) => {
@@ -160,13 +121,15 @@ function buildGroupedRows(
       counts: "",
     };
   });
-  const sortedParentRows = [...parentRows].sort(parentComparator(sortDirection, sortColumn));
-  const compareChildren = cellComparator(sortDirection, sortColumn);
+  const sortedParentRows = [...parentRows].sort(
+    (left, right) =>
+      findingsScore(right.cells) - findingsScore(left.cells) || compareText(left.name, right.name),
+  );
   const flatRows: GroupedRow[] = [];
   for (const parentRow of sortedParentRows) {
     flatRows.push(parentRow);
     if (expandedKeys.has(parentRow.key)) {
-      for (const cell of [...parentRow.cells].sort(compareChildren)) {
+      for (const cell of parentRow.cells) {
         flatRows.push({
           kind: "child",
           key: parentRow.key + "\u0000" + cell.rule + "\u0000" + cell.input,
@@ -240,19 +203,19 @@ function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
 function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const button = (buttonMode: Mode, label: string) => (
     <Button
-      variant={mode === buttonMode ? "secondary" : "outline"}
+      variant="secondary"
       size="sm"
       onClick={() => onMode(buttonMode)}
       aria-pressed={mode === buttonMode}
       data-testid={`mode-${buttonMode}`}
-      className="font-mono text-body"
+      className={mode === buttonMode ? "text-body" : "border border-input text-body"}
     >
       {label}
     </Button>
   );
   return (
     <div role="group" aria-label="group by" className="flex items-center gap-related">
-      <span className="font-mono text-caption text-muted-foreground">group by</span>
+      <span className="text-caption text-muted-foreground">group by</span>
       {button("rule", "rule")}
       {button("file", "file")}
       {button("request", "request")}
@@ -280,37 +243,29 @@ function Toolbar({
         value={filterText}
         onChange={(e) => onFilterText(e.target.value)}
         placeholder="filter: path, rule, element id…"
-        className="h-7 w-64 rounded-lg border border-input bg-background px-control-x font-mono text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="h-7 w-64 rounded-lg border border-input bg-background px-control-x text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
-      <span className="ml-auto font-mono text-body text-muted-foreground">{countText}</span>
+      <span data-testid="group-count" className="ml-auto text-body text-muted-foreground">
+        {countText}
+      </span>
     </div>
   );
 }
 
-function GroupedHeader({
-  sortKey,
-  sortDir,
-  onToggleSort,
-}: {
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onToggleSort: (key: SortKey) => void;
-}) {
+function GroupedHeader({ mode }: { mode: Mode }) {
   return (
     <div
-      className="sticky top-0 z-10 flex border-b border-border bg-muted font-mono text-body text-foreground"
+      className="sticky top-0 z-10 flex border-b border-border bg-muted text-body text-foreground"
       style={{ minWidth: TABLE_MIN_WIDTH }}
     >
       {GROUPED_COLS.map((col) => (
-        <button
+        <span
           key={col.key}
-          disabled={!col.sortable}
-          onClick={() => col.sortable && onToggleSort(col.key as GroupedKey)}
-          className={`${col.className} shrink-0 cursor-pointer px-rail py-cell-y text-left ${col.sortable ? "hover:text-foreground" : "disabled:cursor-default"}`}
+          data-testid={`head-${col.key}`}
+          className={`${col.className} shrink-0 px-rail py-bar-y text-left`}
         >
-          {col.label}
-          {col.sortable && sortKey === col.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-        </button>
+          {typeof col.label === "function" ? col.label(mode) : col.label}
+        </span>
       ))}
     </div>
   );
@@ -326,7 +281,7 @@ function RequestHeader({
   onToggleSort: (key: SortKey) => void;
 }) {
   return (
-    <thead className="sticky top-0 z-10 border-b border-border bg-muted font-mono text-body text-foreground">
+    <thead className="sticky top-0 z-10 border-b border-border bg-muted text-body text-foreground">
       <tr>
         {REQUEST_COLUMNS.map((col) => (
           <th
@@ -334,6 +289,7 @@ function RequestHeader({
             className={`${col.width} whitespace-nowrap px-rail py-cell-y text-left font-normal`}
           >
             <button
+              data-testid={`sort-${col.key}`}
               onClick={() => onToggleSort(col.key)}
               className="w-full cursor-pointer text-left hover:text-foreground"
             >
@@ -359,36 +315,72 @@ function GroupedParentRow({
   isExpanded: boolean;
   onToggleExpand: (key: string) => void;
 }) {
-  const countText =
-    "targets" in stats ? stats.targets + " targets" : stats.rules + " rules · " + stats.cells;
   return (
     <button
       key={row.key}
+      data-testid={`group-${row.key}`}
       onClick={() => onToggleExpand(row.key)}
       aria-expanded={isExpanded}
-      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left font-mono text-body text-foreground hover:bg-accent"
+      className="flex w-full cursor-pointer items-center border-b border-border bg-muted text-left text-body text-foreground hover:bg-accent"
       style={{ height: ROW_HEIGHT }}
     >
       {/* parents share the column grid of header + children; hierarchy comes from the caret,
           never from shifting a column off the grid */}
       <span className={`${NAME_WIDTH} shrink-0 truncate px-rail`} title={row.name}>
-        {isExpanded ? "▾" : "▸"} {row.name}
-      </span>
-      <span className={`${INPUT_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
-        <span className="text-muted-foreground">
-          {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
-          {stats.err > 0 && stats.warn > 0 && " · "}
-          {stats.warn > 0 && <span className="text-sev-warn">{stats.warn} warn</span>}
-          {stats.err === 0 && stats.warn === 0 && `${stats.passOk} no verdict`}
+        <span className="inline-flex items-center gap-chip-x">
+          {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+          {row.name}
         </span>
       </span>
-      <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
-        <SeverityDot severity={row.worstSeverity} />
+      <span className={`${FINDINGS_MIN_WIDTH} flex shrink-0 items-center gap-siblings px-rail`}>
+        {stats.err > 0 || stats.warn > 0 ? (
+          <span className="text-muted-foreground">
+            {stats.err > 0 && <span className="text-sev-error">{stats.err} err</span>}
+            {stats.err > 0 && stats.warn > 0 && " · "}
+            {stats.warn > 0 && <span className="text-sev-warn">{stats.warn} warn</span>}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
       </span>
-      <span className={`${VALUE_WIDTH} shrink-0 px-rail text-muted-foreground`}></span>
-      <span className={`${COUNTS_WIDTH} shrink-0 px-rail text-muted-foreground`}>{countText}</span>
       <span className={`${CHEVRON_WIDTH} shrink-0 px-rail`}></span>
     </button>
+  );
+}
+
+type NestedSort = { key: "sev" | "value"; dir: "asc" | "desc" };
+
+function GroupedNestedHeader({
+  mode,
+  parentKey,
+  onToggle,
+}: {
+  mode: Mode;
+  parentKey: string;
+  onToggle: (parentKey: string, key: "sev" | "value") => void;
+}) {
+  const sortCol = (key: "sev" | "value", label: string, width: string) => (
+    <button
+      key={key}
+      data-testid={`nested-sort-${key}`}
+      onClick={() => onToggle(parentKey, key)}
+      className={`${width} shrink-0 cursor-pointer px-rail text-left hover:text-foreground`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div
+      className="flex w-full items-center border-b border-border bg-background text-caption text-muted-foreground"
+      style={{ height: ROW_HEIGHT }}
+    >
+      <span className={`${NAME_WIDTH} shrink-0 truncate pl-indent pr-rail`}>
+        {mode === "rule" ? "input" : "rule"}
+      </span>
+      {sortCol("sev", "sev", SEVERITY_WIDTH)}
+      {sortCol("value", "value", NESTED_VALUE_WIDTH)}
+      <span className="min-w-0 flex-1" />
+    </div>
   );
 }
 
@@ -414,30 +406,30 @@ function GroupedChildRow({
   return (
     <button
       key={row.key}
+      data-testid={`cell-${cell.rule}@${cell.input}`}
       onClick={() =>
         onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile })
       }
       style={{ height: ROW_HEIGHT }}
-      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left font-mono text-body ${
+      className={`flex w-full ${ROW_CURSOR} items-center border-b border-border text-left text-body ${
         selectedFile === cell.file ? "bg-accent text-accent-foreground" : ROW_HOVER
       } text-foreground`}
     >
-      {/* pl-indent = rail 12 + 24px indent: children read as nested without leaving the grid */}
-      <span className={`${NAME_WIDTH} shrink-0 truncate px-rail pl-indent`} title={childName}>
-        {childName}
-      </span>
+      {/* nested-table grid: input | sev | value (own header row above, pl-indent nesting) */}
       <span
-        className={`${INPUT_MIN_WIDTH} shrink-0 truncate px-rail`}
+        className={`${NAME_WIDTH} flex shrink-0 items-center gap-siblings truncate pl-indent pr-rail`}
         title={childLocation !== null ? `${cell.file}:${childLocation}` : cell.file}
       >
-        {childLocation !== null ? childLocation : "(file)"}
+        <span className="truncate">{childName}</span>
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {childLocation !== null ? childLocation : "(file)"}
+        </span>
       </span>
       <span className={`${SEVERITY_WIDTH} shrink-0 px-rail`}>
         <SeverityDot severity={cell.severity} />
       </span>
-      <span className={`${VALUE_WIDTH} shrink-0 px-rail`}>{cell.value.toFixed(2)}</span>
-      <span className={`${COUNTS_WIDTH} shrink-0 px-rail`}></span>
-      <span className={`${CHEVRON_WIDTH} shrink-0 px-rail`}></span>
+      <span className={`${NESTED_VALUE_WIDTH} shrink-0 px-rail`}>{cell.value.toFixed(2)}</span>
+      <span className="min-w-0 flex-1" />
     </button>
   );
 }
@@ -463,7 +455,7 @@ function RequestLog({
   onToggleSort: (key: SortKey) => void;
 }) {
   return (
-    <table className="w-full table-fixed font-mono text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
+    <table className="w-full table-fixed text-body" style={{ minWidth: TABLE_MIN_WIDTH }}>
       <RequestHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
       <tbody>
         {rows.map((requestRow) => (
@@ -491,9 +483,8 @@ function GroupedTreeView({
   onToggleExpand,
   selectedFile,
   onSelectPair,
-  sortKey,
-  sortDir,
-  onToggleSort,
+  nestedSorts,
+  onToggleNestedSort,
 }: {
   list: GroupedRow[];
   range: { first: number; last: number };
@@ -504,13 +495,12 @@ function GroupedTreeView({
   onToggleExpand: (key: string) => void;
   selectedFile: string | null;
   onSelectPair: (pair: Pair) => void;
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onToggleSort: (key: SortKey) => void;
+  nestedSorts: Record<string, NestedSort>;
+  onToggleNestedSort: (parentKey: string, key: "sev" | "value") => void;
 }) {
   return (
     <>
-      <GroupedHeader sortKey={sortKey} sortDir={sortDir} onToggleSort={onToggleSort} />
+      <GroupedHeader mode={mode} />
       <div
         style={{
           height: list.length * ROW_HEIGHT,
@@ -519,27 +509,82 @@ function GroupedTreeView({
         }}
       >
         <div style={{ transform: `translateY(${range.first * ROW_HEIGHT}px)` }}>
-          {list
-            .slice(range.first, range.last)
-            .map((row) =>
-              row.kind === "parent" ? (
-                <GroupedParentRow
-                  key={row.key}
-                  row={row}
-                  stats={groupStatsFor(mode, ruleGroups, fileGroups, row)}
-                  isExpanded={expanded.has(row.key)}
-                  onToggleExpand={onToggleExpand}
-                />
-              ) : (
-                <GroupedChildRow
-                  key={row.key}
-                  row={row}
-                  mode={mode}
-                  selectedFile={selectedFile}
-                  onSelectPair={onSelectPair}
-                />
-              ),
-            )}
+          {(() => {
+            const windowed = list.slice(range.first, range.last);
+            const els: React.ReactNode[] = [];
+            let openParent: string | null = null;
+            let nestedHeaderShown = false;
+            // children of an expanded parent are buffered so the nested table can sort them
+            let childBuffer: ChildRow[] = [];
+            const flushChildren = () => {
+              if (!openParent) return;
+              const s = nestedSorts[openParent];
+              const rows = s
+                ? [...childBuffer].sort((a, b) => {
+                    const d =
+                      s.key === "sev"
+                        ? sevRank(b.cell.severity) - sevRank(a.cell.severity)
+                        : b.cell.value - a.cell.value;
+                    return s.dir === "desc" ? d : -d;
+                  })
+                : childBuffer;
+              for (const r of rows)
+                els.push(
+                  <GroupedChildRow
+                    key={r.key}
+                    row={r}
+                    mode={mode}
+                    selectedFile={selectedFile}
+                    onSelectPair={onSelectPair}
+                  />,
+                );
+              childBuffer = [];
+            };
+            for (const row of windowed) {
+              if (row.kind === "parent") {
+                flushChildren();
+                openParent = expanded.has(row.key) ? row.key : null;
+                nestedHeaderShown = false;
+                els.push(
+                  <GroupedParentRow
+                    key={row.key}
+                    row={row}
+                    stats={groupStatsFor(mode, ruleGroups, fileGroups, row)}
+                    isExpanded={expanded.has(row.key)}
+                    onToggleExpand={onToggleExpand}
+                  />,
+                );
+              } else if (openParent === row.parentKey) {
+                // each expanded parent opens its own nested table: inject its header once,
+                // before the first child row of that parent
+                if (!nestedHeaderShown) {
+                  els.push(
+                    <GroupedNestedHeader
+                      key={openParent + ":nested-header"}
+                      mode={mode}
+                      parentKey={openParent}
+                      onToggle={onToggleNestedSort}
+                    />,
+                  );
+                  nestedHeaderShown = true;
+                }
+                childBuffer.push(row);
+              } else {
+                flushChildren();
+                els.push(
+                  <GroupedChildRow
+                    key={row.key}
+                    row={row}
+                    mode={mode}
+                    selectedFile={selectedFile}
+                    onSelectPair={onSelectPair}
+                  />,
+                );
+              }
+            }
+            flushChildren();
+            return els;
+          })()}
         </div>
       </div>
     </>
@@ -558,11 +603,14 @@ function EmptyNotice({
   onClearFilters: () => void;
 }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center gap-siblings font-mono text-body text-muted-foreground">
+    <div
+      data-testid="empty-state"
+      className="flex h-32 flex-col items-center justify-center gap-siblings text-body text-muted-foreground"
+    >
       <p>0 {countNoun} match your filters</p>
       {emptyDetail !== null && <p className="text-muted-foreground">{emptyDetail}</p>}
       {activeText !== null && <p className="text-muted-foreground">{activeText}</p>}
-      <Button variant="default" size="sm" className="font-mono" onClick={onClearFilters}>
+      <Button variant="secondary" size="sm" onClick={onClearFilters}>
         clear filters
       </Button>
     </div>
@@ -578,19 +626,18 @@ export function RequestTable({
   selectedFile,
   onSelectPair,
 }: Props) {
-  const {
-    query,
-    rows,
-    ruleGroups,
-    fileGroups,
-    filter,
-    setFilter,
-    sortKey,
-    sortDir,
-    toggleSort,
-    setSort,
-  } = useRun(runId);
+  const { query, rows, ruleGroups, fileGroups, filter, setFilter, sortKey, sortDir, toggleSort } =
+    useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // per-expansion nested-table sort: parentKey -> active column; first click heaviest-first
+  const [nestedSorts, setNestedSorts] = useState<Record<string, NestedSort>>({});
+  const toggleNestedSort = (parentKey: string, key: "sev" | "value") =>
+    setNestedSorts((prev) => {
+      const cur = prev[parentKey];
+      const next: NestedSort =
+        cur?.key === key ? { key, dir: cur.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" };
+      return { ...prev, [parentKey]: next };
+    });
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -606,10 +653,7 @@ export function RequestTable({
   useEffect(syncViewportHeight, []);
 
   // grouped modes default to error-first: sev desc is the initial toggle state, not a fixed order
-  const ensureGroupedSort = () => {
-    const groupedIsSortable = GROUPED_COLS.some((col) => col.key === sortKey);
-    if (mode !== "request" && !groupedIsSortable) setSort("severity", "desc");
-  };
+  const ensureGroupedSort = () => {};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(ensureGroupedSort, [mode]);
 
@@ -628,8 +672,6 @@ export function RequestTable({
   };
 
   const buildGroupedModel = () => {
-    const sortDirection = sortDir === "desc" ? -1 : 1;
-    const sortColumn = sortKey as GroupedKey;
     if (mode === "rule") {
       return buildGroupedRows(
         ruleGroups.map((group) => ({
@@ -637,8 +679,6 @@ export function RequestTable({
           name: group.rule,
           cells: group.cells,
         })),
-        sortDirection,
-        sortColumn,
         expanded,
       );
     }
@@ -649,21 +689,12 @@ export function RequestTable({
           name: group.file,
           cells: group.cells,
         })),
-        sortDirection,
-        sortColumn,
         expanded,
       );
     }
     return { flatRows: [], parentRows: [] };
   };
-  const grouped = useMemo(buildGroupedModel, [
-    mode,
-    ruleGroups,
-    fileGroups,
-    expanded,
-    sortKey,
-    sortDir,
-  ]);
+  const grouped = useMemo(buildGroupedModel, [mode, ruleGroups, fileGroups, expanded]);
 
   // a report-panel click is a fresh focus: close every group, expand only the chosen rule
   const focusReportedRule = () => {
@@ -741,9 +772,8 @@ export function RequestTable({
         onToggleExpand={toggleExpand}
         selectedFile={selectedFile}
         onSelectPair={onSelectPair}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onToggleSort={(key) => toggleSort(key)}
+        nestedSorts={nestedSorts}
+        onToggleNestedSort={toggleNestedSort}
       />
     );
 

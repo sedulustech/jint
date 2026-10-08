@@ -65,13 +65,19 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   return (
     <section className="detail-pane flex h-1/2 w-full shrink-0 flex-col border-t border-border bg-background lg:h-full lg:w-full lg:min-h-0 lg:min-w-[320px] lg:border-l lg:border-t-0">
       <header className="flex shrink-0 items-center gap-siblings border-b border-border px-rail py-bar-y">
-        <h2 className="min-w-0 flex-1 truncate font-mono text-body text-foreground">
+        <h2 className="min-w-0 flex-1 truncate text-body text-foreground">
           {rule} <span className="text-muted-foreground">@ {input}</span>
         </h2>
         {request !== undefined && (
           <CopyButton text={JSON.stringify(request, null, 2)} label="copy result" />
         )}
-        <Button variant="ghost" size="icon-xs" aria-label="close" onClick={onClose}>
+        <Button
+          variant="secondary"
+          size="icon-xs"
+          data-testid="close-pair"
+          aria-label="close"
+          onClick={onClose}
+        >
           ✕
         </Button>
       </header>
@@ -86,7 +92,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
       )}
       {request !== undefined && pair !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-related font-mono text-caption text-muted-foreground">
+          <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-related text-caption text-muted-foreground">
             <span>
               model:{" "}
               <span className="text-foreground">{meta.model ?? request.request?.model ?? "?"}</span>
@@ -104,7 +110,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           {code !== null && (
             <div className="border-b border-border">
               <div className="flex items-center justify-between px-rail py-bar-y">
-                <span className="font-mono text-caption text-muted-foreground">
+                <span className="text-caption text-muted-foreground">
                   {result?.path ?? file} {span ? "· " + span : ""}
                 </span>
                 <CopyButton text={code} label="copy code" />

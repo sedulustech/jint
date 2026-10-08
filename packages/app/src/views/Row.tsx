@@ -25,6 +25,8 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
   return (
     <tr
       onClick={onSelect}
+      data-testid={`request-${row.path ?? row.file}`}
+      data-element={row.elementId ?? undefined}
       style={{ height }}
       tabIndex={0}
       role="button"
@@ -34,7 +36,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
           onSelect();
         }
       }}
-      className={`${ROW_CURSOR} border-b border-border font-mono text-body ${tint} ${
+      className={`${ROW_CURSOR} border-b border-border text-body ${tint} ${
         selected ? "" : ROW_HOVER
       }`}
     >

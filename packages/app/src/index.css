@@ -4,6 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* IBM Plex Mono - the app's only font, self-hosted (public/fonts/, OFL.txt alongside).
+   One @font-face set + one token source below; nothing else declares a font. */
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* Type scale: three functional steps, the only text sizes the UI may use.
    text-caption (10px) - micro labels, legends, chip annotations.
    text-body (12px) - the workhorse: cells, headers, buttons, values, meta.
@@ -49,8 +76,11 @@ body {
    Deliberate non-rhythm exceptions: gap-px (1px dividers), m-auto / ml-auto (flex placement). */
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* One font source: the sans/heading aliases point at the mono stack, so the whole UI
+     is one family by default (Tailwind guideline: families live in @theme, utilities consume). */
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans: var(--font-mono);
+  --font-heading: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -147,8 +177,14 @@ body {
   --card-foreground: #d4d4d4;
   --popover: #171717;
   --popover-foreground: #d4d4d4;
-  --primary: #e5e5e5;
-  --primary-foreground: #0a0a0a;
+  /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
+     silhouette on the zinc-950/900 surfaces and hover has nowhere to go. zinc-500 keeps
+     primary-foreground >= 4.5:1, stays clearly off muted #262626, and dark:hover:bg-primary/80
+     gives a visible darken. Known latent cost: text-primary (the unused link variant) reads
+     ~4.1:1 on #0a0a0a - below AA for body-size text; lighten the link variant separately (not
+     via this token) if it ever ships, since the fill needs this exact value for 4.5:1 text. */
+  --primary: #71717a;
+  --primary-foreground: #fafafa;
   --secondary: #262626;
   --secondary-foreground: #d4d4d4;
   --muted: #262626;
@@ -158,7 +194,10 @@ body {
   --destructive: #ef4444; /* red-500 */
   --border: #404040; /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
   --input: #404040;
-  --ring: #737373;
+  /* ring must out-shine the primary fill (#71717a, 1.02:1 vs the old #737373): a focus ring on a
+     focused dark primary button was invisible. neutral-300 sits 3.3:1 over the fill and stays
+     clearly visible on background/muted. */
+  --ring: #d4d4d4;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

@@ -8,7 +8,7 @@
  */
 export const REQUEST_COLUMNS = [
   { key: "seq" as const, label: "seq", width: "w-14" },
-  { key: "severity" as const, label: "severity", width: "w-24" },
+  { key: "findings" as const, label: "findings", width: "w-24" },
   { key: "maxProb" as const, label: "max-p", width: "w-20" },
   // question count = rules judged in this request; sorts with rule (data, not signal)
   { key: "rule" as const, label: "rule count", width: "w-24" },

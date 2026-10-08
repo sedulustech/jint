@@ -27,7 +27,7 @@ test("a pre-set /runs/<id> deep link selects that run", async () => {
   mount();
 
   // radix only clears data-placeholder once the state value is set
-  const trigger = await screen.findByLabelText("run", undefined, { timeout: 5000 });
+  const trigger = await screen.findByTestId("run-picker", undefined, { timeout: 5000 });
   await new Promise((r) => setTimeout(r, 300));
   expect(trigger.getAttribute("data-placeholder")).toBeNull();
   // the slimmed trigger shows the run's LABEL; the full identity moved to RunHeader
@@ -41,10 +41,10 @@ test("picking a run writes the path", async () => {
   mount();
 
   // radix select opens on keydown; keyboard is also the path that avoids pointer quirks
-  const trigger = await screen.findByLabelText("run", undefined, { timeout: 5000 });
+  const trigger = await screen.findByTestId("run-picker", undefined, { timeout: 5000 });
   fireEvent.keyDown(trigger, { key: "Enter" });
   fireEvent.click(
-    await screen.findByRole("option", { name: new RegExp(runs[0].id) }, { timeout: 3000 }),
+    await screen.findByTestId("run-option-" + runs[0].id, undefined, { timeout: 3000 }),
   );
   expect(window.location.pathname).toBe(`/runs/${runs[0].id}`);
 });

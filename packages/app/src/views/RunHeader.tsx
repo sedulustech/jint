@@ -17,16 +17,18 @@ export const relTime = (mtime: string) =>
  * The run's identity as a strip above the report section - the data the picker trigger used to cram
  * into one line. The trigger slims to label + chevron; the full identity lives here.
  */
-export function RunHeader({ run }: { run: RunSummary }) {
+export function RunHeader({ run, picker }: { run: RunSummary | null; picker: React.ReactNode }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border px-rail py-bar-y font-mono text-body">
-      <span className="text-emphasis text-foreground">{runLabel(run)}</span>
-      <span className="text-muted-foreground">
-        {run.configPath !== null && "config " + baseName(run.configPath)}
-        {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
-        {" · "}
-        {relTime(run.mtime)} · {run.requests} req · {run.id.slice(-6)}
-      </span>
+    <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border px-rail py-bar-y text-body">
+      {picker}
+      {run !== null && (
+        <span data-testid="run-marker" className="text-muted-foreground">
+          {run.configPath !== null && "config " + baseName(run.configPath)}
+          {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
+          {" · "}
+          {relTime(run.mtime)} · {run.requests} req · {run.id.slice(-6)}
+        </span>
+      )}
     </div>
   );
 }
