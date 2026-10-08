@@ -71,7 +71,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
                 <li
                   key={k}
                   className={`text-body leading-snug ${
-                    Number(k) === index ? "text-foreground" : "text-muted-foreground"
+                    Number(k) === index ? "text-foreground" : "text-muted-foreground/70"
                   }`}
                 >
                   {k}: {legend[k]}
@@ -90,14 +90,14 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {!isScore && (
-        <div className="mt-related grid grid-cols-2 gap-px bg-border text-body leading-snug">
+        <div className="mt-related grid grid-cols-2 text-body leading-snug">
           <div className="bg-background px-rail py-related">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="bg-background px-rail py-related">
+          <div className="border-l border-border bg-background px-rail py-related">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
