@@ -493,7 +493,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
     origError(...args);
   };
   try {
-    // rule mode is the default: grouped empty state inside the intact shell
+    // file mode is the default: grouped empty state inside the intact shell
     boot("/runs/run-0");
     await waitFor(
       () => {
@@ -504,7 +504,7 @@ test("report-less run: grouped modes render the empty state, request mode the ro
       { timeout: 2_000 },
     );
     expect(document.querySelector('[data-testid="empty-state"]')?.textContent).toContain(
-      "0 rules match your filters",
+      "0 files match your filters",
     );
     expect(document.querySelector("h1 svg")?.getAttribute("aria-label")).toBe("jint");
 

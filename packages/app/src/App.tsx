@@ -123,6 +123,8 @@ const reportSearchEditFailure = (cause: unknown): void => {
   console.error("run search edit failed", { cause });
 };
 
+const DEFAULT_MODE: Mode = "file";
+
 export function App({ runId }: { runId: string | null }) {
   const { theme, choose } = useTheme();
   const navigate = useNavigate();
@@ -133,7 +135,7 @@ export function App({ runId }: { runId: string | null }) {
     search.rule !== undefined
       ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
       : null;
-  const [viewMode, setViewMode] = useState<Mode>("file");
+  const [viewMode, setViewMode] = useState<Mode>(DEFAULT_MODE);
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusedRule, setFocusedRule] = useState<string | null>(null);
   const reportOverride = search.report === undefined ? null : search.report === 1;
@@ -154,7 +156,7 @@ export function App({ runId }: { runId: string | null }) {
 
   // a new run resets the user's overrides so the default-open rule applies fresh
   const resetPanelState = () => {
-    setViewMode("rule");
+    setViewMode(DEFAULT_MODE);
     setFocusedRule(null);
   };
   useEffect(resetPanelState, [runId]);
