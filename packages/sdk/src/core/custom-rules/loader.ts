@@ -117,8 +117,9 @@ export type LoadedRules = {
 /**
  * The rules a loaded module contributes, validated per shape: an entry carrying a classify function
  * is a callback rule (custom engine); one without is DECLARATIVE data and compiles through the same
- * seam a config-file rule entry takes (compileRule). Scoping is part of the rule - a fragment
- * declares rules, not targets.
+ * seam a config-file rule entry takes (compileRule). Scoping has two levels: the fragment's
+ * include/exclude is the default for its rules, and a rule declaring its own scope replaces it
+ * wholesale (rule-level wins - design defaults-nursery/02).
  */
 function customRules(mod: unknown, path: string): LoadedRules {
   const exported = (mod as { default?: unknown }).default;
@@ -135,19 +136,27 @@ function customRules(mod: unknown, path: string): LoadedRules {
     if (typeof f !== "object" || f === null || !Array.isArray(f.rules)) {
       fail("default export is not a defineConfig fragment (missing rules array)");
     }
-    // scoping is part of the rule (rule-level) or the config (run-level) - a rule file declares
-    // neither: its fragments contribute rules to a run defined elsewhere
-    if (f.include !== undefined || f.exclude !== undefined) {
-      fail(
-        "fragment include/exclude belongs to the config (run scope) - scope each rule, or move this fragment to jint.config",
-      );
-    }
     for (const rule of f.rules) {
-      const entry = rule as { classify?: unknown };
+      const entry = rule as {
+        classify?: unknown;
+        include?: readonly string[];
+        exclude?: readonly string[];
+      };
+      // two scoping levels: the fragment's include/exclude is the DEFAULT scope for its rules;
+      // a rule declaring ANY scope of its own replaces it WHOLESALE - fragment fields never merge
+      // into a scoped rule (design defaults-nursery/02: rule-level wins)
+      let scoped = entry;
+      if (entry.include === undefined && entry.exclude === undefined) {
+        scoped = {
+          ...entry,
+          ...(f.include !== undefined ? { include: f.include } : {}),
+          ...(f.exclude !== undefined ? { exclude: f.exclude } : {}),
+        };
+      }
       if (typeof entry.classify === "function") {
-        out.custom.push(validateCustomRule(rule, path));
+        out.custom.push(validateCustomRule(scoped, path));
       } else {
-        out.declarative.push({ entry: rule, source: path });
+        out.declarative.push({ entry: scoped, source: path });
       }
     }
   }

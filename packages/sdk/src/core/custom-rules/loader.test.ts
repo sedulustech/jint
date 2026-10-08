@@ -110,14 +110,26 @@ describe("loadCustomRules", () => {
     expect(entry.exclude).toEqual(["**/*.test.ts"]);
   });
 
-  test("fragment scoping in a rule file is rejected - scoping is part of the rule or the config", async () => {
+  test("fragment scoping is the default; a rule declaring its own replaces it wholesale", async () => {
     const path = write(
       "scoped-fragment.ts",
-      'import { defineConfig } from "jint:sdk";\n' +
-        'import { is_greppable } from "jint:defaults";\n' +
-        'export default defineConfig({ rules: [is_greppable], exclude: ["x"] });',
+      [
+        'import { defineConfig } from "jint:sdk";',
+        'import { is_greppable } from "jint:defaults";',
+        "export default defineConfig({",
+        '  exclude: ["**/*.test.ts"],',
+        '  rules: [is_greppable, { ...is_greppable, name: "is_greppable_src", include: ["src/**"] }],',
+        "});",
+      ].join("\n"),
     );
-    expect(async () => await loadCustomRules([path])).toThrow(/run scope/);
+    const loaded = await loadCustomRules([path]);
+    expect(loaded.declarative).toHaveLength(2);
+    const inherited = loaded.declarative[0]?.entry as { exclude?: string[] };
+    const own = loaded.declarative[1]?.entry as { include?: string[]; exclude?: string[] };
+    expect(inherited.exclude).toEqual(["**/*.test.ts"]);
+    // rule-level replaces wholesale: no fragment field leaks into a rule that declares its own
+    expect(own.include).toEqual(["src/**"]);
+    expect(own.exclude).toBeUndefined();
   });
 
   test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
