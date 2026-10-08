@@ -71,6 +71,7 @@ function RunPicker({
         onOpenChange={setOpen}
         title="run picker"
         description="filter runs by path"
+        className="sm:max-w-[80%]"
       >
         <Command>
           <CommandInput placeholder="filter runs by path…" />
@@ -81,15 +82,15 @@ function RunPicker({
                 key={run.id}
                 value={`${runLabel(run)} ${run.configPath ?? ""} ${run.id}`}
                 data-testid={`run-option-${run.id}`}
-                className="text-body"
+                className="min-w-0 text-body"
                 title={`${runLabel(run)}\nrun id: ${run.id}`}
                 onSelect={() => {
                   onPick(run.id);
                   setOpen(false);
                 }}
               >
-                <span className="text-foreground">{runLabel(run)}</span>
-                <span className="text-muted-foreground">
+                <span className="truncate text-foreground">{runLabel(run)}</span>
+                <span className="truncate text-muted-foreground">
                   {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                   {run.configPath === null &&
                     (run.legacy ? " · migrated run" : " · default rules")}{" "}
