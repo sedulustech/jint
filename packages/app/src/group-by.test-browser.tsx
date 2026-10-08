@@ -119,7 +119,7 @@ test("the group-by toggle renders all three modes", async () => {
   modeButton("rule").click();
   await ruleGroupsReady(RULES);
   modeButton("file").click();
-  await expectCounter(FILES + "/" + FILES + " files");
+  await ruleGroupsReady(FILES);
   modeButton("request").click();
   await expectCounter("15/15 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
@@ -166,7 +166,7 @@ test("file mode parents expand; file-level cells render as explicit (file) rows"
   mount();
   await openRun();
   modeButton("file").click();
-  await expectCounter(FILES + "/" + FILES + " files");
+  await ruleGroupsReady(FILES);
   groupRow("file:src/multi.tsx").click();
   await waitFor(
     () => {

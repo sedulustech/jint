@@ -31,6 +31,11 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
   });
   const report = reportQuery.data;
   const runErrors = report !== undefined && !("absent" in report) ? (report as Report).errors : [];
+  // distinct measured files - the element identity is path#span, the file tier is the bare path
+  const fileCount =
+    report !== undefined && !("absent" in report)
+      ? new Set((report as Report).measurements.map((m) => m.input.split("#")[0])).size
+      : 0;
 
   return (
     <>
@@ -42,7 +47,10 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
             {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
             {" · "}
             {relTime(run.mtime)}
-            {run.ruleCount > 0 && ` · ${run.ruleCount} rules`} · id: {run.id.slice(-6)}
+            {run.ruleCount > 0 &&
+              fileCount > 0 &&
+              ` · ${run.ruleCount} rules · ${fileCount} files`}{" "}
+            · id: {run.id.slice(-6)}
           </span>
         )}
         {runErrors.length > 0 && (

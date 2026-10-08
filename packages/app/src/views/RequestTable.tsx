@@ -636,12 +636,13 @@ export function RequestTable({
         ? ruleGroups.length
         : fileGroups.length;
   const countNoun = mode === "request" ? "requests" : mode === "rule" ? "rules" : "files";
-  // rule mode drops the X/Y count: the total lives in the run header
-  const countText = query.isLoading
-    ? "loading…"
-    : mode === "rule"
-      ? null
-      : `${mode === "request" ? rows.length : grouped.length} / ${totalCount} ${countNoun}`;
+  // rule/file modes drop the X/Y count: the totals live in the run header
+  const countText =
+    mode === "request"
+      ? query.isLoading
+        ? "loading…"
+        : `${rows.length} / ${totalCount} ${countNoun}`
+      : null;
   const isEmpty =
     !query.isLoading && !query.isError && (mode === "request" ? rows.length : grouped.length) === 0;
   const emptyDetail = emptyStateNote(isEmpty, mode, query.data);
