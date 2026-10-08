@@ -41,7 +41,8 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
             {run.configPath !== null && "config " + baseName(run.configPath)}
             {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
             {" · "}
-            {relTime(run.mtime)} · id: {run.id.slice(-6)}
+            {relTime(run.mtime)}
+            {run.ruleCount > 0 && ` · ${run.ruleCount} rules`} · id: {run.id.slice(-6)}
           </span>
         )}
         {runErrors.length > 0 && (

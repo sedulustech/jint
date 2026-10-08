@@ -29,6 +29,8 @@ interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
+  /** Distinct rules the run measured (manifest handle snapshot). */
+  ruleCount: number;
   /** Absolute config path from manifest.json; null = default rules, or unknown for legacy. */
   configPath: string | null;
   /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */
@@ -258,6 +260,7 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     configPath?: string;
     cwd?: string;
     legacy?: boolean;
+    handles?: Record<string, HandlerData>;
   };
   return {
     id: runId,
@@ -265,6 +268,7 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     requests: dirFiles.filter(
       (name) => name.endsWith(".json") && name !== "report.json" && name !== "manifest.json",
     ).length,
+    ruleCount: Object.keys(manifest.handles ?? {}).length,
     configPath: manifest?.configPath ?? null,
     cwd: manifest?.cwd !== undefined ? collapseHome(manifest.cwd) : undefined,
     legacy: manifest?.legacy === true,

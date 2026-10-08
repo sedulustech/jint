@@ -4,6 +4,8 @@ export interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
+  /** Distinct rules the run measured (manifest handle snapshot). */
+  ruleCount: number;
   /** Absolute config path from manifest.json; null = default rules, or unknown for legacy. */
   configPath: string | null;
   /** The run's source tree (manifest cwd), homedir collapsed to '~'. Absent when unknown. */

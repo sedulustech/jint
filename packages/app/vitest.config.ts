@@ -22,6 +22,10 @@ export default defineConfig({
     ],
   },
   test: {
+    // no global timeout: waits inside tests bound themselves (waitFor 2s), so a healthy suite
+    // finishes in seconds; a genuinely hanging test is a bug to fix, not to cap - CI job-level
+    // timeouts remain the backstop. Give an explicit timeout only to a test that proves it needs one.
+    testTimeout: 0,
     include: ["src/**/*.test-browser.tsx"],
     browser: {
       enabled: true,

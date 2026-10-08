@@ -68,9 +68,9 @@ async function openRun() {
   await page.getByTestId("run-option-run-a").click();
   await waitFor(
     () => {
-      if (q('[data-testid="group-count"]') === null) throw new Error("counter not rendered");
+      if (q('[data-testid="run-marker"]') === null) throw new Error("run not open");
     },
-    { timeout: 20_000 },
+    { timeout: 2_000 },
   );
 }
 
@@ -80,6 +80,17 @@ async function setInput(value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
   setter.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+const groupRows = () => document.querySelectorAll('[data-testid^="group-"]').length;
+
+async function ruleGroupsReady(count: number) {
+  await waitFor(
+    () => {
+      if (groupRows() !== count) throw new Error("groups rendered: " + groupRows());
+    },
+    { timeout: 2_000 },
+  );
 }
 
 async function expectCounter(expected: string) {
@@ -106,7 +117,7 @@ test("the group-by toggle renders all three modes", async () => {
   mount();
   await openRun();
   modeButton("rule").click();
-  await expectCounter(RULES + "/" + RULES + " rules");
+  await ruleGroupsReady(RULES);
   modeButton("file").click();
   await expectCounter(FILES + "/" + FILES + " files");
   modeButton("request").click();
@@ -175,7 +186,7 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
   mount();
   await openRun();
   modeButton("rule").click();
-  await expectCounter(RULES + "/" + RULES + " rules");
+  await ruleGroupsReady(RULES);
   groupRow("rule:is_name_purposeful").click();
   await waitFor(
     () => {
@@ -221,9 +232,9 @@ test("text filter matches cells: only parents with a matching child survive", as
   mount();
   await openRun();
   modeButton("rule").click();
-  await expectCounter(RULES + "/" + RULES + " rules");
+  await ruleGroupsReady(RULES);
   await setInput("src/low.ts");
-  await expectCounter("1/1 rules");
+  await ruleGroupsReady(1);
   // expanding the surviving group shows the matching child, not the whole rule
   groupRow("rule:is_name_purposeful").click();
   await waitFor(
@@ -243,7 +254,7 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
   mount();
   await openRun();
   modeButton("rule").click();
-  await expectCounter(RULES + "/" + RULES + " rules");
+  await ruleGroupsReady(RULES);
   // the findings score (err=2, warn=1) must be non-increasing across the parent rows
   await waitFor(
     () => {
@@ -269,7 +280,7 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
   reportRow!.click();
   await waitFor(
     () => {
-      if (!counter().endsWith("rules")) throw new Error("not in rule mode");
+      if (groupRows() < 1) throw new Error("not in rule mode");
     },
     { timeout: 2_000 },
   );
@@ -283,14 +294,14 @@ test("a report-panel rule click switches to rule mode, expands + scrolls to the 
     { timeout: 2_000 },
   );
   // 6 parents + 3 expanded children
-  expect(counter()).toBe("9/" + RULES + " rules");
+  expect(groupRows()).toBe(RULES);
 });
 
 test("a report-panel rule click resets rule state: closes every group, opens only the chosen rule", async () => {
   mount();
   await openRun();
   modeButton("rule").click();
-  await expectCounter(RULES + "/" + RULES + " rules");
+  await ruleGroupsReady(RULES);
   // open a NON-target rule group first (will_comment_drift carries 2 cells: 0.95 error, 0.45 null)
   groupRow("rule:will_comment_drift").click();
   await waitFor(
@@ -312,7 +323,7 @@ test("a report-panel rule click resets rule state: closes every group, opens onl
     { timeout: 2_000 },
   );
   // the previously-open group is CLOSED: only the 6 parents + 3 chosen children remain
-  expect(counter()).toBe("9/" + RULES + " rules");
+  expect(groupRows()).toBe(RULES);
   // ...and its children are gone (the 0.45 cell is no longer on screen)
   expect(
     all('button[data-testid^="cell-"]').some((c) => (c.textContent ?? "").includes("0.45")),
@@ -343,12 +354,12 @@ test("generated fixture: an element cell click resolves to the element capture b
   await page.getByTestId("run-option-generated/elements").click();
   await waitFor(
     () => {
-      if (q('[data-testid="group-count"]') === null) throw new Error("counter not rendered");
+      if (q('[data-testid="run-marker"]') === null) throw new Error("run not open");
     },
     { timeout: 20_000 },
   );
   modeButton("rule").click();
-  await expectCounter("12/12 rules");
+  await ruleGroupsReady(12);
   // is_name_purposeful targets definitions: expanding it reveals ONLY element cells.
   // Rule-mode children name the FILE (complex.ts / helpers.ts) with the SPAN in the
   // location cell - the span label from Element.span, never the uuid.

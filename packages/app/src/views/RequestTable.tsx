@@ -233,7 +233,7 @@ function Toolbar({
   onMode: (m: Mode) => void;
   filterText: string;
   onFilterText: (text: string) => void;
-  countText: string;
+  countText: string | null;
 }) {
   return (
     <div className="flex items-center gap-siblings border-b border-border bg-muted px-rail py-bar-y">
@@ -244,9 +244,11 @@ function Toolbar({
         placeholder="filter: path, rule, element id…"
         className="h-7 w-64 rounded-lg border border-input bg-background px-control-x text-body text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
-      <span data-testid="group-count" className="ml-auto text-body text-muted-foreground">
-        {countText}
-      </span>
+      {countText !== null && (
+        <span data-testid="group-count" className="ml-auto text-body text-muted-foreground">
+          {countText}
+        </span>
+      )}
     </div>
   );
 }
@@ -728,9 +730,12 @@ export function RequestTable({
         ? ruleGroups.length
         : fileGroups.length;
   const countNoun = mode === "request" ? "requests" : mode === "rule" ? "rules" : "files";
+  // rule mode drops the X/Y count: the total lives in the run header
   const countText = query.isLoading
     ? "loading…"
-    : `${mode === "request" ? rows.length : grouped.flatRows.length} / ${totalCount} ${countNoun}`;
+    : mode === "rule"
+      ? null
+      : `${mode === "request" ? rows.length : grouped.flatRows.length} / ${totalCount} ${countNoun}`;
   const isEmpty =
     !query.isLoading &&
     !query.isError &&
