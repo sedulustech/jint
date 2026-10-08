@@ -41,7 +41,7 @@ export function CodeBlock({ code, path }: { code: string; path: string }) {
     }
   }, [code, path]);
   return (
-    <pre className="hljs overflow-auto bg-transparent px-rail pb-inner text-body leading-snug">
+    <pre className="hljs overflow-auto bg-transparent p-inner text-body leading-snug">
       <code dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   );
