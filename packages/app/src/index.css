@@ -134,7 +134,7 @@ body {
   --secondary: #f0f0f1;
   --secondary-foreground: #1c1c1e;
   --muted: #f4f4f5;
-  --muted-foreground: #6b6b72;
+  --muted-foreground: #5a5a61;
   --accent: #ececee;
   --accent-foreground: #1c1c1e;
   --destructive: #dc2626;
@@ -292,18 +292,18 @@ body {
 }
 :root:not(.dark) .hljs-comment,
 :root:not(.dark) .hljs-quote {
-  color: #6a737d;
+  color: #57606a;
 }
 :root:not(.dark) .hljs-keyword,
 :root:not(.dark) .hljs-selector-tag,
 :root:not(.dark) .hljs-literal,
 :root:not(.dark) .hljs-doctag {
-  color: #d73a49;
+  color: #cf222e;
 }
 :root:not(.dark) .hljs-string,
 :root:not(.dark) .hljs-regexp,
 :root:not(.dark) .hljs-addition {
-  color: #22863a;
+  color: #047857;
 }
 :root:not(.dark) .hljs-title,
 :root:not(.dark) .hljs-section,
@@ -325,4 +325,10 @@ body {
 /* hljs-subst interpolation measured 4.38 on its own dark bg - below 4.5 */
 .dark .hljs-subst {
   color: #e2e8f0;
+}
+/* atom-one-dark comments measure 2.32 on the #282c34 surface - below 4.5; lifted in the
+   same blue-gray family to ~5.4 (contrast audit 2026-10-07) */
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #9096a2;
 }

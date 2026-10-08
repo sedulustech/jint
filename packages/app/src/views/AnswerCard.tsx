@@ -60,7 +60,9 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
       </div>
       {isScore && index !== null && (
         <div className="border-b border-border pb-related">
-          <span className="text-caption text-muted-foreground">criteria</span>
+          {Object.keys(legend).length > 0 && (
+            <span className="text-caption text-muted-foreground">criteria</span>
+          )}
           {/* the probability strip is omitted for score answers: the legend is the information */}
           <ul className="mt-chip-y space-y-chip-y">
             {Object.keys(legend)
