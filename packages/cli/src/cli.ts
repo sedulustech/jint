@@ -54,8 +54,7 @@ export const FLAGS = {
   "--language": {
     type: "string",
     arg: "<id>",
-    blurb:
-      "tree-sitter grammar for piped-stdin/extensionless sources; valid ids: typescript, python, go. Without a resolvable language, inventory-scoped rules fail WALK_FAILED in-band and unit-scoped rules still classify",
+    blurb: `tree-sitter grammar for piped-stdin/extensionless sources; valid ids: ${knownLanguages().join(", ")} (derived from the grammar map). Without a resolvable language, inventory-scoped rules fail WALK_FAILED in-band and unit-scoped rules still classify`,
   },
   "--config": {
     type: "string",
