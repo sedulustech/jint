@@ -68,10 +68,6 @@ measurement its handle judged actionable and is the only output that demands act
   ...); roles are the exposed selection vocabulary.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
-- **fragment** — the partial config one module contributes through defineConfig: rules plus,
-  on the config lane only, run-level scoping. A full config is one or more fragments resolved by
-  the config boundary; a rule file fragment contributes rules only — scoping is part of the
-  rule, or belongs to the config.
 - **request** — the recorded classifier call: the exact bytes sent to the model and the
   response, plus metadata (ts, status). Software terminology, deliberately broad. Distinct from question: a request is the recorded CALL
   (what the model saw and answered); a question is one judgment inside it.
