@@ -59,7 +59,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         )}
       </div>
       {isScore && index !== null && (
-        <div className="mt-siblings border-b border-border px-rail pb-siblings">
+        <div className="border-b border-border px-rail pb-siblings">
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
@@ -82,7 +82,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {qa.question.instructions && (
-        <div className="mt-siblings border-b border-border px-rail pb-siblings">
+        <div className="border-b border-border px-rail pb-siblings">
           <span className="text-caption text-muted-foreground">instruction</span>
           <p className="mt-related text-body leading-snug text-foreground">
             {qa.question.instructions}
@@ -90,7 +90,7 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
         </div>
       )}
       {!isScore && (
-        <div className="mt-siblings grid grid-cols-2 text-body leading-snug">
+        <div className="grid grid-cols-2 text-body leading-snug">
           <div className="bg-background px-rail py-related">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">

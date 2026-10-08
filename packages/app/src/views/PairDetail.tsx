@@ -115,7 +115,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
                 </span>
               ))}
           </div>
-          <div className="flex flex-col py-inner">
+          <div className="flex flex-col">
             <AnswerCard qa={pair} sev={severity} />
           </div>
           {code !== null && (
