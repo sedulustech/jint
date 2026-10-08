@@ -111,41 +111,20 @@ describe("loadCustomRules", () => {
   });
 
   test("fragment scoping is the default; a rule declaring its own replaces it wholesale", async () => {
-    const path = write(
-      "scoped-fragment.ts",
-      [
-        'import { defineConfig } from "jint:sdk";',
-        'import { is_greppable } from "jint:defaults";',
-        "export default defineConfig({",
-        '  exclude: ["**/*.test.ts"],',
-        "  rules: [",
-        "    is_greppable,",
-        '    { ...is_greppable, name: "is_greppable_src", include: ["src/**"] },',
-        "    {",
-        '      name: "callback_inherits",',
-        '      target: "comments",',
-        "      classify: (self) => ({",
-        '        instructions: "i",',
-        '        criteria: { true: "t", false: "f" },',
-        "        state: { source: self.source },",
-        "      }),",
-        "      handle: { warn: { greater_than: 0.9 } },",
-        "    },",
-        "  ],",
-        "});",
-      ].join("\n"),
-    );
-    const loaded = await loadCustomRules([path]);
-    expect(loaded.declarative).toHaveLength(2);
+    // a real checked-in rule file, exactly what a user would pass to --customRules
+    const loaded = await loadCustomRules(["tests/fixtures/custom-rules/scoped-fragment.ts"]);
+    const names = loaded.declarative.map((d) => (d.entry as { name: string }).name);
+    expect(names).toEqual(["is_greppable", "is_greppable_src"]);
+    // the fragment scope is the default for the unscoped rule
     const inherited = loaded.declarative[0]?.entry as { exclude?: string[] };
-    const own = loaded.declarative[1]?.entry as { include?: string[]; exclude?: string[] };
     expect(inherited.exclude).toEqual(["**/*.test.ts"]);
-    // rule-level replaces wholesale: no fragment field leaks into a rule that declares its own
+    // a rule declaring its own scope replaces it wholesale: no fragment field leaks in
+    const own = loaded.declarative[1]?.entry as { include?: string[]; exclude?: string[] };
     expect(own.include).toEqual(["src/**"]);
     expect(own.exclude).toBeUndefined();
-    // the callback lane inherits the same default (no own scope declared)
+    // the callback lane inherits the same default
     const callback = loaded.custom[0] as unknown as { name: string; exclude?: string[] };
-    expect(callback.name).toBe("callback_inherits");
+    expect(callback.name).toBe("will_comment_explain_domain");
     expect(callback.exclude).toEqual(["**/*.test.ts"]);
   });
 
