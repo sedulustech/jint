@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { fetchReport } from "../api/client";
 import type { Report, RunSummary } from "../types";
+export const baseName = (path: string) => path.split("/").pop() ?? path;
+
 /**
  * Dropdown label: the run's source tree (cwd, already ~-collapsed by the handler). A migrated
  * pre-store run has no cwd/config - label it honestly instead of faking "default rules".
@@ -47,7 +49,7 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
             aria-expanded={errorsOpen}
             aria-controls="run-errors"
             onClick={() => setErrorsOpen((o) => !o)}
-            className="flex items-center gap-related text-sev-error disabled:cursor-not-allowed"
+            className="flex items-center gap-related text-sev-error"
             title={runErrors[0]!.message}
           >
             {errorsOpen ? (
