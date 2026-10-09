@@ -140,7 +140,7 @@ A live config example, serialized from real default specs (always the current wi
   parse. A rule about functions needs the code to parse - snippets without a
   language will not reach it.
 
-## Creating criterias (measured lessons - every rule here was probed against a corpus)
+## Creating criterias
 
 Guidelines, in the order you will need them:
 
@@ -189,12 +189,11 @@ Guidelines, in the order you will need them:
 11. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
     unverified on other languages; re-probe before trusting findings there.
 
-### Example: a noul rule with an absence clause and exemptions
+## Examples
 
-From `will_error_lose_cause` (promoted to defaults after probing). The
-interesting parts are the second sentence of `true` (the exemption that keeps
-fake wiring and forwarding handlers out of the findings) and the handle order
-(fires LOW because `true` describes the DEFECT):
+### will_error_lose_cause - the absence clause and exemptions
+
+The second sentence of `true` keeps fake wiring and forwarding handlers out of the findings; the handle fires LOW because `true` describes the DEFECT:
 
 ```json
 {
@@ -212,11 +211,9 @@ fake wiring and forwarding handlers out of the findings) and the handle order
 }
 ```
 
-### Example: a choice (scored-rubric) rule
+### is_readable - the choice rubric
 
-`is_readable` - use a rubric when the property is graded, not yes/no. Note the
-scoping sentence in instructions ("do not score X here") and that levels are
-ordered descriptions, not true/false:
+Use a rubric when the property is graded, not yes/no. The instructions carry a scoping sentence ("do not score X here"); levels are ordered descriptions, not true/false:
 
 ```json
 {
@@ -235,10 +232,9 @@ ordered descriptions, not true/false:
 }
 ```
 
-### What NOT to do
+### will_naming_drift - the criteria shape that fails
 
-This rule looks reasonable and was a total failure - 43 findings on a healthy
-corpus, 43/43 false positives, suspended:
+This shape reads reasonable and fails on a healthy corpus:
 
 ```json
 {
@@ -253,11 +249,7 @@ corpus, 43/43 false positives, suspended:
 }
 ```
 
-Why it failed: `false` is generic (violates guideline 1), the claim spans
-multiple elements (violates one-attribute scope - the model compares against
-names it cannot see), and "drift" invites the model to narrate quality instead
-of checking a condition (guideline 2). The fix was never thresholds; the rule
-was suspended until its criteria could name an observable condition.
+It fails three ways: `false` is generic (guideline 1), the claim spans multiple elements - the model compares against names it cannot see - and "drift" invites narrating quality instead of checking a condition (guideline 2). The fix is never thresholds; rewrite the criteria until they name an observable condition.
 
 ## SDK (programmatic)
 
