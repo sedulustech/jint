@@ -12,9 +12,8 @@ import { defineConfig } from "jint:sdk";
 
 // is_literal_shared: calibrated in packages/app, promoted repo-wide - NOT into the defaults (the
 // two-language promotion bar in AGENTS.md has not been met). Markdown and lockfiles stay out:
-// prose and lock data are not code with values flowing between sites. Scope fields are the
-// config tier's per-rule additions (issue 008) - RuleSpec itself stays scope-free.
-const is_literal_shared = {
+// prose and lock data are not code with values flowing between sites.
+const is_literal_shared: RuleSpec = {
   name: "is_literal_shared",
   kind: "choice",
   target: "files",
@@ -29,9 +28,9 @@ const is_literal_shared = {
   handle: { map: ["pass", "pass", "warn", "error"] },
   include: ["**/*.{ts,tsx,css}"],
   exclude: ["**/*.md", "**/*.lock"],
-} as const satisfies RuleSpec & { include?: string[]; exclude?: string[] };
+} as const;
 
 export default defineConfig({
   rules: [...defaultRules, is_literal_shared],
-  exclude: ["**/*.test.ts", "**/*.test-browser.tsx", "tests/**"],
+  exclude: ["**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**"],
 });

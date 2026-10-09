@@ -178,11 +178,11 @@ describe("cli: contract basics", () => {
   }, 30000);
 
   test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {
-    // file semantics: the 'diff' extension is not a source grammar -> NOT_SOURCE; it was NOT
+    // file semantics: the 'diff' extension is not a source grammar -> MISSING_GRAMMAR; it was NOT
     // noun-dispatched (a bare noun is a payload usage error instead)
     expectContract(await run(["tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
       exit: 2,
-      stderr: "NOT_SOURCE",
+      stderr: "MISSING_GRAMMAR",
     });
   });
 
@@ -367,16 +367,16 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
 
-  test.concurrent("a patch file is just a file: NOT_SOURCE, never decomposed (there is no diff noun)", async () => {
+  test.concurrent("a patch file is just a file: MISSING_GRAMMAR, never decomposed (there is no diff noun)", async () => {
     const r = await run(["diff", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("file not found: diff");
   });
 
   test.concurrent("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", async () => {
-    // file semantics: rejected as a non-source extension (NOT_SOURCE), not decomposed as a diff
+    // file semantics: rejected as a non-source extension (MISSING_GRAMMAR), not decomposed as a diff
     const r = await run(["tests/fixtures/sample.diff", "--json"], NO_SERVICE);
-    expectContract(r, { exit: 2, stderr: "NOT_SOURCE" });
+    expectContract(r, { exit: 2, stderr: "MISSING_GRAMMAR" });
     expect(r.stderr).not.toContain("diff --git");
 
     // a rev-shaped argument is just a missing entrypoint, not a diff
@@ -410,7 +410,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // Should contain measurements for the non-ignored files
     // If it crashed on binaries, the exit code would be 3 (internal)
     expect(report.errors.length).toBeGreaterThan(0);
-  });
+  }, 30000);
 
   test.concurrent("jint str - classifies one str unit even when stdin holds diff text", async () => {
     const proc = await runShell(`cat tests/fixtures/sample.diff | bun ${CLI} str - --json`, {

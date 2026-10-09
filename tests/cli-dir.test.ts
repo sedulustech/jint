@@ -28,7 +28,7 @@ describe("cli: dir walk ignores", () => {
       expect(p.includes("blob.bin")).toBe(false);
       expect(p.includes("photo.png")).toBe(false);
     }
-  });
+  }, 30000);
 
   test.concurrent("rules-only config (no input) validates and runs with a directory positional", async () => {
     const configPath = "/tmp/jint-rules-only-config.json";

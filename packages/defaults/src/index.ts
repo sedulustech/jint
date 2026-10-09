@@ -20,6 +20,9 @@ export interface NoulRuleSpec {
   readonly criteria: { readonly true: string; readonly false: string };
   readonly target: RuleTarget;
   readonly handle: NoulHandlerData;
+  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
 }
 
 /** A graded rule: the ordered rubric is indexed by score 0..N; the handle is a score map. */
@@ -30,6 +33,9 @@ export interface ChoiceRuleSpec {
   readonly criteria: readonly string[];
   readonly target: RuleTarget;
   readonly handle: ScoreHandlerData;
+  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
 }
 
 /** A declarative rule: exactly one of the two kinds. */
