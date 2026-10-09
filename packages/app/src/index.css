@@ -4,8 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* IBM Plex Mono - the app's only font, self-hosted (public/fonts/, OFL.txt alongside).
-   One @font-face set (font-family must be a literal inside @font-face - CSS forbids var() there) + one token source below; nothing else declares a font. */
+/* IBM Plex Mono, self-hosted (public/fonts/, OFL.txt alongside) */
 @font-face {
   font-family: "IBM Plex Mono";
   src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
@@ -31,58 +30,42 @@
   font-display: swap;
 }
 
-/* Type scale: three functional steps, the only text sizes the UI may use.
-   text-caption (10px) - micro labels, legends, chip annotations.
-   text-body (12px) - the workhorse: cells, headers, buttons, values, meta.
-   text-emphasis (14px) - stat numbers and section headings that must out-rank body.
-   Display one-offs (the AnswerCard answer at text-3xl) stay explicit. caption+body pair on the
-   same 16px line box so mixed-size lines share baselines; emphasis pairs 20px like the old text-sm. */
+/* type scale */
 @theme {
   --text-caption: 0.625rem;
-  --text-caption--line-height: 1rem; /* 16px line box */
+  --text-caption--line-height: 1rem;
   --text-body: 0.75rem;
-  --text-body--line-height: 1rem; /* 16px line box, shared with caption */
+  --text-body--line-height: 1rem;
   --text-emphasis: 0.875rem;
   --text-emphasis--line-height: 1.25rem;
 
-  /* Spacing rhythm - the contract as tokens. Utilities: px-rail, py-cell-y, py-bar-y, p-inner,
-     px-chip-x, gap-related / gap-siblings / gap-sections / gap-meta, px-control-x, pl-indent. */
-  --spacing-rail: 0.75rem; /* 12 - page-edge sections (topbar, toolbar, report) */
-  --spacing-cell-x: 0.75rem; /* 12 - table cell horizontal */
-  --spacing-cell-y: 0.25rem; /* 4  - table cell vertical */
-  --spacing-bar-y: 0.375rem; /* 6  - bar rhythm rows (sub-headers, strips) */
-  --spacing-inner: 0.5rem; /* 8  - inner blocks (cards, panes) */
-  --spacing-chip-x: 0.375rem; /* 6  - micro chip horizontal */
-  --spacing-chip-y: 0.125rem; /* 2  - micro chip vertical */
-  --spacing-related: 0.25rem; /* 4  - gap between related controls */
-  --spacing-siblings: 0.5rem; /* 8  - gap between siblings */
-  --spacing-sections: 0.75rem; /* 12 - gap between sections */
-  --spacing-meta: 1rem; /* 16 - stat meta columns */
-  --spacing-control-x: 0.5rem; /* 8  - control horizontal padding (button, select, input) */
-  --spacing-control-y: 0.375rem; /* 6  - control vertical padding (select trigger = bar rhythm) */
-  --spacing-indent: 2.25rem; /* 36 - grouped-table child indent (rail + 24) */
-  --spacing-menu-check: 2rem; /* 32 - dropdown item clearance for the check indicator */
+  /* spacing rhythm */
+  --spacing-rail: 0.75rem;
+  --spacing-cell-x: 0.75rem;
+  --spacing-cell-y: 0.25rem;
+  --spacing-bar-y: 0.375rem;
+  --spacing-inner: 0.5rem;
+  --spacing-chip-x: 0.375rem;
+  --spacing-chip-y: 0.125rem;
+  --spacing-related: 0.25rem;
+  --spacing-siblings: 0.5rem;
+  --spacing-sections: 0.75rem;
+  --spacing-meta: 1rem;
+  --spacing-control-x: 0.5rem;
+  --spacing-control-y: 0.375rem;
+  --spacing-indent: 2.25rem;
+  --spacing-menu-check: 2rem;
 }
 
 body {
-  /* ONE theme source: the CSS vars below (html.dark). No body overrides fighting tokens.
-     The root size is the scale's body step: unannotated text lands on the scale, never beside it. */
   font-size: var(--text-body);
 }
 
-/* Spacing rhythm lives in the spacing tokens below (same edit surface as the palette: one place
-   to change, components consume the named utilities px-rail / py-cell-y / gap-siblings / ...).
-   Same-kind elements share one token; arbitrary sizes (text-[Npx]) and off-rail paddings are banned.
-   Deliberate non-rhythm exceptions: gap-px (1px dividers), m-auto / ml-auto (flex placement). */
-
 @theme inline {
-  /* One font source: the sans/heading aliases point at the mono stack, so the whole UI
-     is one family by default (Tailwind guideline: families live in @theme, utilities consume). */
+  /* font roles - one family for the whole UI */
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
-  --font-sans:
-    "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; /* same family by design: one-family UI */
-  --font-heading:
-    "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; /* heading role, same single family */
+  --font-sans: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-heading: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -108,96 +91,64 @@ body {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* light palette */
 :root {
-  /* jint light palette: complement of .dark; one token source for both themes */
-  /* Raw palette constants: every literal that repeats is defined exactly once here and
-     referenced below (authoring form only - resolved values are unchanged). Names follow
-     the Tailwind shades they match; --ink, --emerald-700 and --hljs-default are measured
-     values that span themes or rule groups and so cannot anchor on a theme token. */
-  --white: #ffffff;
-  --neutral-50: #fafafa;
-  --neutral-300: #d4d4d4;
-  --neutral-700: #404040;
-  --neutral-800: #262626;
-  --neutral-950: #0a0a0a;
-  --zinc-400: #a1a1aa;
-  --ink: #1c1c1e; /* light foreground gray (iOS label), not a Tailwind shade */
-  --emerald-700: #047857; /* sev-clean (light) */
-  --hljs-green: #047857; /* hljs-string */
-  --hljs-default: #24292e;
-  /* github-light default text, two hljs rule groups */
-  --scrollbar-size: 8px; /* width, height and thumb radius */
-  --clear: transparent; /* shared clear surface (scrollbar track, hljs pane) */
+  --background: #fafafa;
+  --foreground: #1c1c1e;
+  --popover: #ffffff;
+  --popover-foreground: #1c1c1e;
   --primary: #18181b;
+  --primary-foreground: #fafafa;
   --secondary: #f0f0f1;
+  --secondary-foreground: #1c1c1e;
   --muted: #f4f4f5;
   --muted-foreground: #5a5a61;
   --accent: #ececee;
+  --accent-foreground: #1c1c1e;
   --destructive: #dc2626;
   --border: #e4e4e7;
   --input: #d4d4d8;
+  --ring: #a1a1aa;
   --radius: 0.25rem;
-  --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
-  --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
-  --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
-  --chart-ref: #52525b; /* ~7:1   */
+  --sev-warn: #b45309;
+  --sev-error: #b91c1c;
+  --sev-clean: #047857;
+  --chart-bar: #8b8b93;
+  --chart-ref: #52525b;
+  --clear: transparent;
+  --scrollbar-track: transparent;
   --scrollbar-thumb: #a1a1aa;
-  --scrollbar-thumb-hover: #525252; /* neutral-600 hover, both themes */
-  /* Derived tokens: references into the constants and theme tokens above. */
-  --scrollbar-track: var(--clear); /* shared by both scrollbar implementations */
-  --background: var(--neutral-50);
-  --foreground: var(--ink);
-  --popover: var(--white);
-  --popover-foreground: var(--ink);
-  --primary-foreground: var(--neutral-50);
-  --secondary-foreground: var(--ink);
-  --accent-foreground: var(--ink);
-  --ring: var(--zinc-400);
-  --sev-clean: var(--emerald-700); /* emerald-700 ~4.9:1 */
+  --scrollbar-thumb-hover: #525252;
+  --hljs-default: #24292e;
+  --hljs-green: #047857;
   color-scheme: light;
 }
 
+/* dark palette */
 .dark {
-  color-scheme: dark;
-}
-
-.dark {
-  /* jint palette: bg neutral-950/900, borders neutral-800, secondary text >= #a3a3a3 */
+  --background: #0a0a0a;
+  --foreground: #d4d4d4;
   --popover: #171717;
-  /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
-     silhouette on the zinc-950/900 surfaces and hover has nowhere to go. zinc-500 keeps
-     primary-foreground >= 4.5:1, stays clearly off muted #262626, and dark:hover:bg-primary/80
-     gives a visible darken. Known latent cost: text-primary (the unused link variant) reads
-     ~4.1:1 on #0a0a0a - below AA for body-size text; lighten the link variant separately (not
-     via this token) if it ever ships, since the fill needs this exact value for 4.5:1 text. */
+  --popover-foreground: #d4d4d4;
   --primary: #71717a;
+  --primary-foreground: #fafafa;
+  --secondary: #262626;
+  --secondary-foreground: #d4d4d4;
+  --muted: #262626;
   --muted-foreground: #a3a3a3;
-  --destructive: #ef4444; /* red-500 */
-  /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
-  --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
-  --sev-error: #f87171; /* red-400    ~7:1  */
-  --sev-clean: #34d399; /* emerald-400 ~9:1 */
-  --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
+  --accent: #262626;
+  --accent-foreground: #d4d4d4;
+  --destructive: #ef4444;
+  --border: #404040;
+  --input: #404040;
+  --ring: #d4d4d4;
+  --sev-warn: #fcd34d;
+  --sev-error: #f87171;
+  --sev-clean: #34d399;
+  --chart-bar: #9ca3af;
+  --chart-ref: #d4d4d4;
   --scrollbar-thumb: #404040;
-  /* Derived tokens: references into the light palette's constants above. */
-  --background: var(--neutral-950);
-  --foreground: var(--neutral-300);
-  --popover-foreground: var(--neutral-300);
-  --primary-foreground: var(--neutral-50);
-  --secondary: var(--neutral-800);
-  --secondary-foreground: var(--neutral-300);
-  --muted: var(--neutral-800);
-  --accent: var(--neutral-800);
-  --accent-foreground: var(--neutral-300);
-  --border: var(
-    --neutral-700
-  ); /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
-  --input: var(--neutral-700);
-  /* ring must out-shine the primary fill (#71717a, 1.02:1 vs the old #737373): a focus ring on a
-     focused dark primary button was invisible. neutral-300 sits 3.3:1 over the fill and stays
-     clearly visible on background/muted. */
-  --ring: var(--neutral-300);
-  --chart-ref: var(--neutral-300); /* neutral-300 ~13:1 */
+  color-scheme: dark;
 }
 
 @layer base {
@@ -211,13 +162,11 @@ body {
     @apply font-sans;
   }
 }
-/* Thin dark scrollbars (dual syntax: Firefox scrollbar-color + WebKit pseudo-elements declare
-   the same treatment twice by necessity, both from tokens). CSS-only, CSS-only (no shadcn scroll-area): thumb neutral-700 -> neutral-600 on
-   hover, transparent track. Applies app-wide, which covers the table's horizontal-scroll
-   container, the detail pane, the runs pickers and any inner scroll box. */
+
+/* scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); /* theme thumb, transparent track (Firefox) */
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 *::-webkit-scrollbar {
   width: var(--scrollbar-size);
@@ -226,7 +175,10 @@ body {
 *::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
 }
-
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-size);
+}
 *::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
@@ -234,7 +186,7 @@ body {
   background: var(--scrollbar-track);
 }
 
-/* severity TEXT utilities (theme-token driven; hues clear 4.5:1 on their own theme's surfaces) */
+/* severity utilities */
 .text-sev-error {
   color: var(--sev-error);
 }
@@ -248,13 +200,7 @@ body {
   background-color: var(--sev-error);
 }
 
-/* scrollbar thumb follows the theme (was hardcoded #404040) */
-
-*::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--scrollbar-size);
-}
-/* github-light vendor-class theme assignment (single-use shades per selector group) */
+/* github-light highlight theme */
 :root:not(.dark) .hljs {
   color: var(--hljs-default);
   background: var(--clear);
@@ -291,13 +237,11 @@ body {
 :root:not(.dark) .hljs-subst {
   color: var(--hljs-default);
 }
-/* hljs color assignments are vendor-class theme assignments (single-use shades per selector group).
-   hljs-subst interpolation measured 4.38 on its own dark bg - below 4.5 */
+
+/* dark highlight theme */
 .dark .hljs-subst {
   color: #e2e8f0;
 }
-/* atom-one-dark comments measure 2.32 on the #282c34 surface - below 4.5; lifted in the
-   same blue-gray family to ~5.4 (contrast audit 2026-10-07) */
 .dark .hljs-comment,
 .dark .hljs-quote {
   color: #9096a2;

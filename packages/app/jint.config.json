@@ -41,10 +41,10 @@
     {
       "name": "is_value_tokenized",
       "target": "files",
-      "instructions": "In this stylesheet, a value (color, size, spacing, radius, duration, font stack) used at two or more places should be written once as a custom property or an @theme token in this file and referenced at each use. Judge what is observable: the identical raw value at distinct declarations. A repetition across DIFFERENT roles wants one constant per role: coincidental value equality is not sharing - do not merge roles into one token to satisfy this rule. Vendor-class theme assignments and single-use values are not defects. @font-face descriptors are exempt: CSS forbids var() inside them, so their values cannot be tokenized.",
+      "instructions": "In this stylesheet, sharing wants a token: a value that serves the same purpose at two or more places should be written once as a custom property or @theme token and referenced at each use. Coincidental equality is not sharing: distinct roles each declaring their value inline, even when the literals match, are separate declarations - do not count them and do not merge roles into one token to satisfy this rule. Judge what is observable: raw literals at USE sites (selectors, utilities, rules) that repeat a value instead of referencing the token that already carries it. @font-face descriptors are exempt: CSS forbids var() inside them.",
       "criteria": {
-        "true": "At least one value appears as the same raw literal in two or more declarations, and no custom property or @theme token in this file carries it to all of them.",
-        "false": "Every value used more than once is defined once in this file as a custom property or @theme token and referenced at its uses, or no value repeats."
+        "true": "At least one raw literal appears at two or more use sites serving the same purpose - a selector, utility class, or rule repeating a value that a custom property or @theme token in this file already carries or should carry - instead of referencing that token.",
+        "false": "Every value serving the same purpose at multiple places is declared once as a token and referenced at its uses; declarations of distinct roles may hold equal literals - that is coincidental, not sharing."
       },
       "handle": {
         "warn": {
