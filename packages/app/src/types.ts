@@ -77,6 +77,8 @@ export interface RequestItem {
 export interface RequestFile {
   ts?: string;
   url?: string;
+  /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
+  durationMs?: number;
   status?: number;
   request?: {
     state?: Record<string, unknown>;

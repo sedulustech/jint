@@ -12,6 +12,8 @@ export const REQUEST_COLUMNS = [
   { key: "maxProb" as const, label: "max-p", width: "w-20" },
   // question count = rules judged in this request; sorts with rule (data, not signal)
   { key: "rule" as const, label: "rule count", width: "w-24" },
+  // wire duration of the classifier call (recorded durationMs; mtime heuristic on old runs)
+  { key: "duration" as const, label: "dur", width: "w-16" },
 ];
 
 export type RequestColumnKey = (typeof REQUEST_COLUMNS)[number]["key"];

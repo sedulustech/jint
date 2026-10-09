@@ -5,6 +5,16 @@ import type { RequestItem } from "../types";
 
 const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
+/** One request wire duration: 985ms / 2.1s; em dash when unknown. */
+export const requestDuration = (ms: number | null): string =>
+  ms === null
+    ? "—"
+    : ms < 1000
+      ? `${ms}ms`
+      : ms < 60_000
+        ? `${Math.round(ms / 100) / 10}s`
+        : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+
 interface Props {
   row: RequestItem;
   height: number;
@@ -71,6 +81,7 @@ export const Row = memo(function Row({ row, height, selected, severity, onSelect
       <td className="px-rail text-muted-foreground">
         {row.questionCount > 0 ? row.questionCount : "—"}
       </td>
+      <td className="px-rail text-muted-foreground">{requestDuration(row.durationMs)}</td>
       <td className="min-w-0 truncate px-rail text-foreground" title={row.path ?? undefined}>
         {row.path ?? <span className="text-muted-foreground">no path</span>}
       </td>

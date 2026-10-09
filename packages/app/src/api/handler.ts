@@ -504,16 +504,18 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           rules: canonical ?? [...new Set(rules)],
           questionCount: Object.keys(questions).length,
           durationMs:
-            Number.isFinite(st.mtimeMs) &&
-            requestFile.ts !== undefined &&
-            !Number.isNaN(Date.parse(requestFile.ts))
-              ? (() => {
-                  const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
-                  // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
-                  // >60s for one call is never real - report unknown rather than a 21-minute lie
-                  return ms > 60_000 ? null : ms;
-                })()
-              : null,
+            typeof requestFile.durationMs === "number"
+              ? requestFile.durationMs
+              : Number.isFinite(st.mtimeMs) &&
+                  requestFile.ts !== undefined &&
+                  !Number.isNaN(Date.parse(requestFile.ts))
+                ? (() => {
+                    const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
+                    // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
+                    // >60s for one call is never real - report unknown rather than a 21-minute lie
+                    return ms > 60_000 ? null : ms;
+                  })()
+                : null,
           maxProb: probs.length ? Math.max(...probs) : null,
           minProb: probs.length ? Math.min(...probs) : null,
           answers: probs.sort((a, b) => a - b),

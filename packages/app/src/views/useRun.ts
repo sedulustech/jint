@@ -4,7 +4,7 @@ import { fetchRun, fetchReport } from "../api/client";
 import type { Cell, Report, RequestItem } from "../types";
 
 export type Mode = "request" | "rule" | "file";
-export type SortKey = "seq" | "rule" | "findings" | "maxProb";
+export type SortKey = "seq" | "rule" | "findings" | "maxProb" | "duration";
 type SortDir = "asc" | "desc";
 
 export interface Filter {
@@ -79,6 +79,8 @@ export function useRun(runId: string) {
           return dir * (a.seq - b.seq);
         case "maxProb":
           return dir * cmp(a.maxProb, b.maxProb);
+        case "duration":
+          return dir * ((a.durationMs ?? -1) - (b.durationMs ?? -1));
         case "rule":
           return dir * (a.rules[0] ?? "").localeCompare(b.rules[0] ?? "");
         default:
