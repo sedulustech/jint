@@ -77,10 +77,10 @@
     {
       "name": "is_palette_tiered",
       "target": "files",
-      "instructions": "A stylesheet's custom properties have two tiers: constants (defined as raw literals - colors, sizes, font stacks) are the palette inputs; role tokens (defined as var() references) are the derived vocabulary. The tiers belong in separate contiguous groups, constants first: a reader scanning top to bottom meets every input before any derived token, so each reference resolves to something already seen. Judge the FILE on declaration order alone: a comment claiming a grouping is not structure - labeled comments above or between declarations do not separate the tiers, and their absence does not break an otherwise separated ordering. Not part of the ordering: non-custom-property declarations (color-scheme, @font-face font-family), theme-variant re-declarations (.dark overriding role tokens), and calc() expressions that combine literals without referencing other tokens.",
+      "instructions": "A tidy stylesheet declares its custom properties in sorted tiers: first every palette constant (a raw literal - a color, size, or font stack), then every derived token (a var() reference to another token). Interleaved tokens are the defect: a var()-reference token sitting between constant definitions, or a constant appearing after the derived tokens have begun, means the reader meets a reference before the inputs are done - the palette reads like an unsorted drawer. Judge the FILE on declaration order alone; comments are not structure - a labeled comment neither sorts nor separates. Not part of the ordering: non-custom-property declarations (color-scheme, @font-face font-family), theme-variant re-declarations (.dark overriding derived tokens), and calc() over literals (references no token).",
       "criteria": {
-        "true": "At least one var()-reference custom property is declared between raw-literal custom property definitions, or a raw-literal definition appears after var()-reference definitions have begun: the two tiers are interleaved.",
-        "false": "The tiers are separated: all raw-literal constants are declared contiguously before the var()-reference tokens, or the file declares only one tier."
+        "true": "Tokens are interleaved: at least one var()-reference custom property is declared between raw-literal custom properties, or at least one raw-literal custom property is declared after var()-reference tokens have begun.",
+        "false": "Tokens are sorted into tiers: all raw-literal constants contiguous and first, all var() references after them - or the file declares only one tier."
       },
       "handle": {
         "warn": {
