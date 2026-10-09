@@ -148,7 +148,14 @@ export function App({ runId }: { runId: string | null }) {
   // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
   const [focusedRule, setFocusedRule] = useState<string | null>(null);
   const reportOverride = search.report === undefined ? null : search.report === 1;
-  const runs = useQuery({ queryKey: ["runs"], queryFn: fetchRuns });
+  // Poll while a run is in flight: new runs appear mid-run without reopening the picker. The
+  // summary fetch is compressed ~10x on the wire, so a short interval is cheap; it stops when the
+  // tab is hidden (react-query default) and errors keep the last good list.
+  const runs = useQuery({
+    queryKey: ["runs"],
+    queryFn: fetchRuns,
+    refetchInterval: 5_000,
+  });
   const reportQuery = useQuery({
     queryKey: ["report", runId],
     queryFn: () => fetchReport(runId ?? ""),
