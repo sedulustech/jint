@@ -276,6 +276,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     cwd?: string;
     legacy?: boolean;
     handles?: Record<string, HandlerData>;
+    durationMs?: number;
+    usage?: { input: number; output: number };
   };
   return {
     id: runId,
@@ -287,6 +289,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     configPath: manifest?.configPath ?? null,
     cwd: manifest?.cwd !== undefined ? collapseHome(manifest.cwd) : undefined,
     legacy: manifest?.legacy === true,
+    durationMs: manifest?.durationMs,
+    usage: manifest?.usage,
   };
 }
 

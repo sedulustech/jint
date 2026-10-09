@@ -12,6 +12,10 @@ export interface RunSummary {
   cwd?: string;
   /** Migrated pre-store run: manifest marks it legacy; no cwd/config/report guaranteed. */
   legacy?: boolean;
+  /** Wall duration of the run in ms (manifest durationMs); absent on pre-stats runs. */
+  durationMs?: number;
+  /** Token usage summed across the run's classifier responses; absent on pre-stats runs. */
+  usage?: { input: number; output: number };
 }
 
 export interface RunDetail {

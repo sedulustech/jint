@@ -18,6 +18,16 @@ export const runLabel = (r: RunSummary): string =>
 export const relTime = (mtime: string) =>
   `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
 
+/** Duration as e.g. "41s" or "1m 12s"; null when the run predates duration recording. */
+export const runDuration = (ms: number | undefined): string | null =>
+  ms === undefined
+    ? null
+    : ms < 1000
+      ? `${ms}ms`
+      : ms < 60_000
+        ? `${Math.round(ms / 100) / 10}s`
+        : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+
 /**
  * The run's identity as a strip above the report section - the data the picker trigger used to cram
  * into one line. The trigger slims to label + chevron; the full identity lives here.
@@ -51,6 +61,9 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
               fileCount > 0 &&
               ` · ${run.ruleCount} rules · ${fileCount} files`}{" "}
             · id: {run.id.slice(-6)}
+            {runDuration(run.durationMs) !== null &&
+              run.usage !== undefined &&
+              ` · ${runDuration(run.durationMs)} · ${run.usage.input.toLocaleString()} in / ${run.usage.output.toLocaleString()} out tokens`}
           </span>
         )}
         {runErrors.length > 0 && (

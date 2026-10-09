@@ -25,6 +25,8 @@ export interface RequestRecordSummary {
 }
 
 let runSummary: RequestRecordSummary | null = null;
+let runStartedAt = 0;
+let usageTotals = { input: 0, output: 0 };
 
 /** This run's recording summary (null when recording is disabled). */
 export function recordSummary(): RequestRecordSummary | null {
@@ -47,10 +49,19 @@ export function recordRunManifest(manifest: {
    * consumer can recompute severity exactly. custom-tier rules are absent (code policy, not data).
    */
   handles?: Record<string, unknown>;
+  /** Wall duration of the run in ms, from recorder start to manifest write. */
+  durationMs?: number;
+  /** Token usage summed across the run's classifier responses. */
+  usage?: { input: number; output: number };
 }): void {
   if (runSummary === null) return;
   try {
-    writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
+    const withRunStats = {
+      ...manifest,
+      durationMs: Date.now() - runStartedAt,
+      usage: { ...usageTotals },
+    };
+    writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
   } catch {
     // recording never breaks the run it observes
   }
@@ -77,6 +88,8 @@ export function recordRunReport(json: string): void {
  */
 export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
   const runid = Date.now();
+  runStartedAt = runid;
+  usageTotals = { input: 0, output: 0 };
   const base = config?.runsDir ?? process.env.JEV_DIR ?? `${homedir()}/.jint/runs`;
   const dir = `${base}/${runid}`;
   runSummary = {
@@ -111,6 +124,13 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
         status: response.status,
         response: asJson(responseText),
       };
+      const usage = (
+        record.response as { usage?: { input_tokens?: number; output_tokens?: number } }
+      ).usage;
+      if (usage) {
+        usageTotals.input += usage.input_tokens ?? 0;
+        usageTotals.output += usage.output_tokens ?? 0;
+      }
       mkdirSync(dir, { recursive: true });
       const state = (record.request as { state?: Record<string, unknown> }).state ?? {};
       const kind = "source" in state ? "elements" : "files";
