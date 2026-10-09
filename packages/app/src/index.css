@@ -128,31 +128,32 @@ body {
   /* github-light default text, two hljs rule groups */
   --scrollbar-size: 8px; /* width, height and thumb radius */
   --clear: transparent; /* shared clear surface (scrollbar track, hljs pane) */
+  --primary: #18181b;
+  --secondary: #f0f0f1;
+  --muted: #f4f4f5;
+  --muted-foreground: #5a5a61;
+  --accent: #ececee;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --radius: 0.25rem;
+  --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
+  --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
+  --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
+  --chart-ref: #52525b; /* ~7:1   */
+  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-thumb-hover: #525252; /* neutral-600 hover, both themes */
+  /* Derived tokens: references into the constants and theme tokens above. */
   --scrollbar-track: var(--clear); /* shared by both scrollbar implementations */
   --background: var(--neutral-50);
   --foreground: var(--ink);
   --popover: var(--white);
   --popover-foreground: var(--ink);
-  --primary: #18181b;
   --primary-foreground: var(--neutral-50);
-  --secondary: #f0f0f1;
   --secondary-foreground: var(--ink);
-  --muted: #f4f4f5;
-  --muted-foreground: #5a5a61;
-  --accent: #ececee;
   --accent-foreground: var(--ink);
-  --destructive: #dc2626;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
   --ring: var(--zinc-400);
-  --radius: 0.25rem;
-  --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
-  --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
   --sev-clean: var(--emerald-700); /* emerald-700 ~4.9:1 */
-  --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
-  --chart-ref: #52525b; /* ~7:1   */
-  --scrollbar-thumb: #a1a1aa;
-  --scrollbar-thumb-hover: #525252; /* neutral-600 hover, both themes */
   color-scheme: light;
 }
 
@@ -162,10 +163,7 @@ body {
 
 .dark {
   /* jint palette: bg neutral-950/900, borders neutral-800, secondary text >= #a3a3a3 */
-  --background: var(--neutral-950);
-  --foreground: var(--neutral-300);
   --popover: #171717;
-  --popover-foreground: var(--neutral-300);
   /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
      silhouette on the zinc-950/900 surfaces and hover has nowhere to go. zinc-500 keeps
      primary-foreground >= 4.5:1, stays clearly off muted #262626, and dark:hover:bg-primary/80
@@ -173,14 +171,24 @@ body {
      ~4.1:1 on #0a0a0a - below AA for body-size text; lighten the link variant separately (not
      via this token) if it ever ships, since the fill needs this exact value for 4.5:1 text. */
   --primary: #71717a;
+  --muted-foreground: #a3a3a3;
+  --destructive: #ef4444; /* red-500 */
+  /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
+  --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
+  --sev-error: #f87171; /* red-400    ~7:1  */
+  --sev-clean: #34d399; /* emerald-400 ~9:1 */
+  --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
+  --scrollbar-thumb: #404040;
+  /* Derived tokens: references into the light palette's constants above. */
+  --background: var(--neutral-950);
+  --foreground: var(--neutral-300);
+  --popover-foreground: var(--neutral-300);
   --primary-foreground: var(--neutral-50);
   --secondary: var(--neutral-800);
   --secondary-foreground: var(--neutral-300);
   --muted: var(--neutral-800);
-  --muted-foreground: #a3a3a3;
   --accent: var(--neutral-800);
   --accent-foreground: var(--neutral-300);
-  --destructive: #ef4444; /* red-500 */
   --border: var(
     --neutral-700
   ); /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
@@ -189,13 +197,7 @@ body {
      focused dark primary button was invisible. neutral-300 sits 3.3:1 over the fill and stays
      clearly visible on background/muted. */
   --ring: var(--neutral-300);
-  /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
-  --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
-  --sev-error: #f87171; /* red-400    ~7:1  */
-  --sev-clean: #34d399; /* emerald-400 ~9:1 */
-  --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
   --chart-ref: var(--neutral-300); /* neutral-300 ~13:1 */
-  --scrollbar-thumb: #404040;
 }
 
 @layer base {
