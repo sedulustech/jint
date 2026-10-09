@@ -69,7 +69,12 @@ interface IgnoreScope {
   rules: IgnoreRule[];
 }
 
-export async function* walkDir(root: string, exclude?: readonly string[]): AsyncGenerator<Unit> {
+export async function* walkDir(
+  root: string,
+  exclude?: readonly string[],
+  pathPrefix?: string,
+  include?: readonly string[],
+): AsyncGenerator<Unit> {
   const rootStat = await stat(root).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT")
       throw new SetupError("ENTRYPOINT_NOT_FOUND", `directory not found: ${root}`);
@@ -85,7 +90,9 @@ export async function* walkDir(root: string, exclude?: readonly string[]): Async
   const normalizedRoot = root.replace(/\/+$/, "");
   const excludeRules = (exclude ?? []).map(compilePattern);
   const ancestorScopes = await ancestorGitignoreScopes(normalizedRoot);
-  yield* walkDirectory(normalizedRoot, "", ancestorScopes, excludeRules);
+  const prefix = pathPrefix === undefined ? "" : pathPrefix.replace(/\/+$/, "");
+  const includeRules = (include ?? []).map(compilePattern);
+  yield* walkDirectory(normalizedRoot, "", ancestorScopes, excludeRules, prefix, includeRules);
 }
 
 /** Walk one directory level: scope its gitignore rules, then classify and handle each entry. */
@@ -94,6 +101,8 @@ async function* walkDirectory(
   relDir: string,
   inheritedScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  pathPrefix: string,
+  includeRules: IgnoreRule[],
 ): AsyncGenerator<Unit> {
   const currentScopes = await withGitignore(absDir, relDir, inheritedScopes);
   const entries = (
@@ -117,6 +126,8 @@ async function* walkDirectory(
         inheritedScopes,
         currentScopes,
         excludeRules,
+        pathPrefix,
+        includeRules,
       );
     } else if (entry.isFile()) {
       const unit = await readFileUnit(
@@ -125,6 +136,8 @@ async function* walkDirectory(
         relativePath,
         currentScopes,
         excludeRules,
+        pathPrefix,
+        includeRules,
       );
       if (unit !== null) yield unit;
     }
@@ -139,11 +152,22 @@ async function* descendIntoDirectory(
   inheritedScopes: IgnoreScope[],
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  pathPrefix: string,
+
+  includeRules: IgnoreRule[],
 ): AsyncGenerator<Unit> {
+  const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
   if (DEFAULT_SKIP_DIRS.has(entry.name)) return;
-  if (matchesAnyExcludeRule(excludeRules, relativePath, true)) return;
+  if (matchesAnyExcludeRule(excludeRules, scopePath, true)) return;
   if (isGitignored(relativePath, true, inheritedScopes)) return;
-  yield* walkDirectory(absolutePath, relativePath, currentScopes, excludeRules);
+  yield* walkDirectory(
+    absolutePath,
+    relativePath,
+    currentScopes,
+    excludeRules,
+    pathPrefix,
+    includeRules,
+  );
 }
 
 /** One classified file unit, or null when a walker exclusion skips it. */
@@ -153,10 +177,14 @@ async function readFileUnit(
   relativePath: string,
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  pathPrefix: string,
+  includeRules: IgnoreRule[],
 ): Promise<Unit | null> {
   // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
-  if (matchesAnyExcludeRule(excludeRules, relativePath, false)) return null;
+  const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
+  if (matchesAnyExcludeRule(excludeRules, scopePath, false)) return null;
+  if (includeRules.length > 0 && !matchesAnyIncludeRule(includeRules, scopePath)) return null;
   if (isGitignored(relativePath, false, currentScopes)) return null;
   if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
   if (await looksBinary(absolutePath)) return null;
@@ -164,7 +192,7 @@ async function readFileUnit(
   return {
     kind: "file",
     state: {
-      path: relativePath,
+      path: pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`,
       content,
       id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
     },
@@ -275,6 +303,11 @@ function isGitignored(relativePath: string, isDirectory: boolean, scopes: Ignore
     }
   }
   return false;
+}
+
+/** True when any include rule matches; an empty list matches everything. */
+function matchesAnyIncludeRule(rules: IgnoreRule[], scopePath: string): boolean {
+  return rules.some((rule) => !rule.dirOnly && rule.re.test(scopePath));
 }
 
 /** True when any non-negated exclude rule matches (config/CLI patterns, not gitignore scopes). */

@@ -1,4 +1,7 @@
 import { describe, test, expect } from "bun:test";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runCli, runCliSync } from "./helpers/cli.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
@@ -30,6 +33,32 @@ describe("cli: dir walk ignores", () => {
     }
   }, 30000);
 
+  test.concurrent("config exclude anchors at the config dir: walking the excluded dir itself measures nothing", async () => {
+    // git parity for scope patterns: a config exclude naming the tests subtree excludes the
+    // whole walk even when the walk ROOT is that subtree (paths carry their config-relative prefix)
+    const tmpRoot = await mkdtemp(join(tmpdir(), "jint-scope-base-"));
+    try {
+      await mkdir(join(tmpRoot, "tests", "sub"), { recursive: true });
+      await Bun.write(join(tmpRoot, "tests", "sub", "x.ts"), "export const x = 1;\n");
+      await Bun.write(
+        join(tmpRoot, "jint.config.json"),
+        JSON.stringify({ rules: ["is_greppable"], exclude: ["**/tests/**"] }),
+      );
+      const r = await runCli(
+        [join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
+        { env: NO_SERVICE },
+      );
+      expect(r.code).toBe(4);
+      const report = JSON.parse(r.stdout);
+      const attempted = [
+        ...(report.measurements ?? []).map((m: any) => m.input),
+        ...(report.errors ?? []).map((d: any) => d.input),
+      ].filter(Boolean);
+      expect(attempted).toEqual([]);
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
   test.concurrent("rules-only config (no input) validates and runs with a directory positional", async () => {
     const configPath = "/tmp/jint-rules-only-config.json";
     require("node:fs").writeFileSync(
@@ -52,7 +81,11 @@ describe("cli: dir walk ignores", () => {
     try {
       // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block
       // its event loop and the child would hang waiting for answers.
-      const proc = await runCli(["tests/fixtures/sample-dir", "--json"], {
+      // own config: the repo root config excludes the tests subtree on the config-relative
+      // basis, which would (correctly) empty this walk - this test owns the walker contract
+      const ownConfig = "/tmp/jint-walker-contract.json";
+      require("node:fs").writeFileSync(ownConfig, JSON.stringify({ rules: ["is_greppable"] }));
+      const proc = await runCli(["tests/fixtures/sample-dir", "--json", "--config", ownConfig], {
         env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
       });
       const report = JSON.parse(proc.stdout);

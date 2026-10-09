@@ -26,11 +26,12 @@ const is_literal_shared: RuleSpec = {
     "Pervasive: multiple distinct values repeat as raw literals across their sites with no constants, so several renames would miss sites.",
   ],
   handle: { map: ["pass", "pass", "warn", "error"] },
-  include: ["**/*.{ts,tsx,css}"],
-  exclude: ["**/*.md", "**/*.lock"],
-} as const;
+};
 
 export default defineConfig({
   rules: [...defaultRules, is_literal_shared],
-  exclude: ["**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**"],
+  // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
+  // values flowing between sites - the whole walk stops at the config level, not per rule.
+  include: ["**/*.{ts,tsx,css}"],
+  exclude: ["**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.md", "**/*.lock"],
 });

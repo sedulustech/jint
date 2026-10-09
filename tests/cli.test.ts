@@ -404,7 +404,14 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 
   test.concurrent("dir positional respects .gitignore, errors in-band, exit 4", async () => {
     // tests/fixtures/ignore-test contains a .gitignore that ignores 'binary'
-    const r = await run(["tests/fixtures/sample-dir", "--json", "--debug"], NO_SERVICE);
+    // own config: the root config excludes tests subtree on the config-relative basis (which
+    // would correctly empty this walk) - this test asserts walker/gitignore behavior, not that
+    const ownConfig = "/tmp/jint-gitignore-contract.json";
+    require("node:fs").writeFileSync(ownConfig, JSON.stringify({ rules: ["is_greppable"] }));
+    const r = await run(
+      ["tests/fixtures/sample-dir", "--json", "--debug", "--config", ownConfig],
+      NO_SERVICE,
+    );
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     // Should contain measurements for the non-ignored files

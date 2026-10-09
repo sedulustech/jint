@@ -16,6 +16,7 @@ import { defaultConfig, defaultRules } from "../test-baseline.ts";
 const baseConfig = {
   ...defaultConfig(),
   input: "",
+  include: [] as string[],
   exclude: [] as string[],
 };
 
@@ -417,7 +418,7 @@ describe("lint", () => {
       let n = 0;
       await collectReport(
         lint({
-          config: { rules: [], exclude: [], ...(config as object) } as never,
+          config: { rules: [], include: [], exclude: [], ...(config as object) } as never,
           only,
           input: dir,
           classifier: async (state, questions) => {
@@ -442,6 +443,7 @@ describe("lint", () => {
       lint({
         config: {
           input: "",
+          include: [],
           exclude: [],
           rules: [mk({ include: ["**/*.ts"], exclude: ["**/*.ts"] })],
         },
@@ -731,6 +733,7 @@ describe("lint", () => {
       lint({
         config: {
           ...defaultConfig(),
+          include: [],
           input: "tests/fixtures/sample-dir/data.json",
           inputType: "file",
           rules: [defaultRules.is_filename_fitting!],
@@ -767,6 +770,7 @@ describe("lint", () => {
       lint({
         config: {
           ...defaultConfig(),
+          include: [],
           input: "tests/fixtures/sample-dir",
           inputType: "dir",
           rules: [],
@@ -787,7 +791,7 @@ describe("lint", () => {
 
   test("custom rule set (selection = the rule list itself)", async () => {
     const only: Rule[] = [defaultRules.is_name_purposeful!];
-    const config = { ...defaultConfig(), input: "", rules: only };
+    const config = { ...defaultConfig(), include: [] as string[], input: "", rules: only };
     const events = await drain(
       lint({
         config,

@@ -22,6 +22,10 @@ export interface ResolveOptions {
   inputType?: InputKind;
   /** Extra input exclusions (config exclude + CLI --exclude union). */
   exclude?: readonly string[];
+  /** Config-level include: only matching paths yield (empty = everything not excluded). */
+  include?: readonly string[];
+  /** Config-scope basis: the input's path relative to the config dir (walkDir pathPrefix). */
+  scopeBase?: string;
   /**
    * Whether a file needs a grammar to be measured (an element-target rule is in scope for it).
    * Absent = every file requires a grammar. A grammar-less file with requireGrammar false measures
@@ -39,7 +43,7 @@ export async function inferKind(input: string): Promise<InputKind> {
 }
 
 export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
-  const { input, inputType, exclude } = options;
+  const { input, inputType, exclude, include } = options;
   return (async function* () {
     // explicit file paths bypass exclude
     if (Array.isArray(input)) {
@@ -56,7 +60,7 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       return;
     }
     if (kind === "dir") {
-      yield* walkDir(input, exclude);
+      yield* walkDir(input, exclude, options.scopeBase, include);
       return;
     }
     // Unreachable by the type; a guard against a future kind, not a branch.

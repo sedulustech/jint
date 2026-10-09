@@ -19,6 +19,7 @@ export function defaultConfig() {
     input: "",
     rules: Object.freeze(Object.values(defaultRules)),
     customRules: Object.freeze([]),
+    include: Object.freeze([]),
     exclude: Object.freeze(["**/fixtures/**"]),
   });
 }

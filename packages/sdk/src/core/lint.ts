@@ -98,6 +98,14 @@ export interface LintOptions {
    */
   timeout?: number;
   /**
+   * Config-scope basis for dir inputs: the walk root's path relative to the config's directory.
+   * Walked paths and scope patterns (config exclude + per-rule include/exclude) share this basis,
+   * so a config pattern naming the tests subtree excludes the walk even when the walk root is the
+   * tests dir itself. Empty or undefined = walk-root basis. The CLI derives it from the config
+   * location; SDK callers walking arbitrary trees leave it unset.
+   */
+  scopeBase?: string;
+  /**
    * A path LIST (the CLI's `paths` noun): the ALREADY-READ text, one path per line, relative to the
    * input dir or absolute — the caller's own VCS pipeline, jint never shells out. Same boundary as
    * `str`'s content: the SDK takes values, the caller does I/O (no spec, no magic "-" — a consumer
@@ -145,6 +153,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
+  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
   // custom-tier rules load at setup: any load failure (gate, thrown module, invalid defineConfig,
@@ -267,6 +276,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
                 | string[],
               inputType: options.inputType ?? options.config.inputType,
               exclude,
+              include,
+              scopeBase: options.scopeBase,
               // explicit file selection measures raw when only files-target rules are in scope
               requireGrammarFor: (p) =>
                 customRules.some((rule) => ruleInScope(rule, p)) ||

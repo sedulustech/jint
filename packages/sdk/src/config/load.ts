@@ -108,6 +108,9 @@ export const CONFIG_SCHEMA = Type.Object({
   // custom-tier rules: paths to TypeScript rule files (default-exporting defineRule from "jint:api"),
   // resolved relative to the config file. The JSON tier above is untouched by this key.
   customRules: Type.Optional(Type.Array(Type.String())),
+  // Config-level include: when set, ONLY matching paths are measured (the walk-wide file
+  // filter; per-rule include narrows further). Symmetrical with exclude, same glob semantics.
+  include: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
@@ -140,6 +143,7 @@ export interface ResolvedConfig {
   readonly rules: readonly Rule[];
   /** Custom-tier rule files, resolved absolute; empty when the config declares none. */
   readonly customRules?: readonly string[];
+  readonly include: readonly string[];
   readonly exclude: readonly string[];
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
@@ -319,6 +323,7 @@ export function validateConfig(
     inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
     customRules: string[];
+    include: string[];
     exclude: string[];
     apiKey?: string;
     concurrency?: number;
@@ -330,6 +335,7 @@ export function validateConfig(
     rules: [...byName.values()],
     // Relative custom rule paths resolve against the config file's directory, like the config itself.
     customRules: (parsed.customRules ?? []).map((p) => resolve(dirname(resolve(source)), p)),
+    include: parsed.include ?? [],
     exclude: parsed.exclude ?? [],
   };
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;

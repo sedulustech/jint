@@ -12,7 +12,7 @@
  */
 
 import { existsSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   ClassifyError,
@@ -534,6 +534,18 @@ export async function runCli(cliArgv: string[]): Promise<number> {
           ? { str: stdinStr, language: cliArgs.language }
           : (lintInput ?? {})),
         exclude: cliArgs.exclude,
+        // Config-scope basis (scopeBase): dir inputs walk with paths prefixed by their location
+        // relative to the CONFIG's directory, so the config's scope patterns apply no matter
+        // where the walk starts (git parity). Walks outside the config dir keep no prefix.
+        ...(configPath !== null &&
+        lintInput?.input !== undefined &&
+        typeof lintInput.input === "string" &&
+        !lintInput.input.startsWith("/")
+          ? (() => {
+              const base = relative(dirname(configPath), resolve(lintInput.input as string));
+              return base.startsWith("..") ? {} : { scopeBase: base };
+            })()
+          : {}),
         disable: cliArgs.disable,
         only: cliArgs.rule,
         concurrency,
