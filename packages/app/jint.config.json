@@ -22,21 +22,20 @@
     },
     {
       "name": "is_literal_shared",
+      "kind": "choice",
       "target": "files",
-      "instructions": "The same literal value (string, number, regex) carrying the same meaning at two or more separate places in this TypeScript file should be written once as a named constant in this file and referenced at each place: the identical raw literal at distinct sites is drift waiting to happen. Judge what is observable: identical raw literals at distinct sites where one constant could carry that value to all of them. Brevity of a literal alone is not a defect; imports and identifiers are not literals; recurring words from a shared vocabulary - a styling class string, a prop or option value, an event, sort-key, or mode name, a typeof guard comparison string, an error-code name - are per-site uses of a convention, not one value flowing between sites.",
-      "criteria": {
-        "true": "At least one literal value appears as the same raw literal in two or more distinct places where the sites share that value, and no single named constant in this file carries it to all of them.",
-        "false": "Every literal that appears in more than one place flows through one named constant defined in this file, or no literal repeats."
-      },
+      "instructions": "This unit is a source file. This file might contain literal values (string, number, etc) carrying the same value at two or more separate places. A shared value should be written once as a named constant in this file and referenced at each place: an identical raw literal at distinct sites is drift waiting to happen.",
+      "criteria": [
+        "No raw literal flows between sites: every repeated literal is either a named constant carried to all its sites, or a per-site use of a shared vocabulary - a styling class string, a prop or option value, an event, sort-key or mode name, a typeof guard comparison string, an error-code name - where each site names the convention. Brevity of a literal alone is not a defect; imports and identifiers are not literals.",
+        "One or two repeated literals are ambiguous: plausibly a convention, plausibly one value flowing between sites that wants a constant.",
+        "At least one literal value appears as the same raw literal in two or more distinct places where the sites share that value, and no single named constant in this file carries it to all of them.",
+        "Pervasive: multiple distinct values repeat as raw literals across their sites with no constants, so several renames would miss sites."
+      ],
       "handle": {
-        "warn": {
-          "greater_than": 0.85
-        },
-        "error": {
-          "greater_than": 0.9
-        }
+        "map": ["pass", "pass", "warn", "error"]
       },
-      "include": ["**/*.ts", "**/*.tsx"]
+      "include": ["**/*.ts", "**/*.tsx"],
+      "exclude": null
     },
     {
       "name": "is_value_tokenized",
