@@ -14,7 +14,8 @@
       "handle": {
         "map": ["pass", "pass", "warn", "error"]
       },
-      "include": ["**/*.{ts,tsx,css}"]
+      "include": ["**/*.{ts,tsx,css}"],
+      "exclude": ["**/*.md"]
     }
   ]
 }
