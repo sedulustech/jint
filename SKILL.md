@@ -212,7 +212,7 @@ The second sentence of `true` keeps fake wiring and forwarding handlers out of t
     "false": "Error handling preserves information: causes are chained, messages
       include the original failure detail, and nothing is swallowed silently."
   },
-  "handle": { "warn_at": 0.4, "error_at": 0.7 }
+  "handle": { "warn": { "greater_than": 0.4 }, "error": { "greater_than": 0.7 } }
 }
 ```
 
@@ -233,7 +233,7 @@ Use a rubric when the property is graded, not yes/no. The instructions carry a s
     "Reader must reconstruct intent from implementation details.",
     "Dense, misleading names, or structure that fights the problem."
   ],
-  "handle": { "warn_at": 1, "error_at": 2 }
+  "handle": { "map": ["pass", "pass", "warn", "error"] }
 }
 ```
 
@@ -250,7 +250,7 @@ This shape reads reasonable and fails on a healthy corpus:
       different names across the change.",
     "false": "Naming is consistent."
   },
-  "handle": { "warn_at": 0.5, "error_at": 0.7 }
+  "handle": { "warn": { "greater_than": 0.5 }, "error": { "greater_than": 0.7 } }
 }
 ```
 
