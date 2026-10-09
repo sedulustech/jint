@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* IBM Plex Mono - the app's only font, self-hosted (public/fonts/, OFL.txt alongside).
-   One @font-face set + one token source below; nothing else declares a font. */
+   One @font-face set (font-family must be a literal inside @font-face - CSS forbids var() there) + one token source below; nothing else declares a font. */
 @font-face {
   font-family: "IBM Plex Mono";
   src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
@@ -39,27 +39,31 @@
    same 16px line box so mixed-size lines share baselines; emphasis pairs 20px like the old text-sm. */
 @theme {
   --text-caption: 0.625rem;
-  --text-caption--line-height: 1rem;
-  --text-body: 0.75rem;
-  --text-body--line-height: 1rem;
+  --text-caption--line-height: var(--spacing-meta); /* 16px line box, shared with body */
+  --text-body: var(--spacing-rail); /* 12 - body step on the rail rhythm */
+  --text-body--line-height: var(--spacing-meta); /* caption+body share a baseline */
   --text-emphasis: 0.875rem;
   --text-emphasis--line-height: 1.25rem;
 
   /* Spacing rhythm - the contract as tokens. Utilities: px-rail, py-cell-y, py-bar-y, p-inner,
      px-chip-x, gap-related / gap-siblings / gap-sections / gap-meta, px-control-x, pl-indent. */
   --spacing-rail: 0.75rem; /* 12 - page-edge sections (topbar, toolbar, report) */
-  --spacing-cell-x: 0.75rem; /* 12 - table cell horizontal */
+  --spacing-cell-x: var(--spacing-rail); /* 12 - table cell horizontal (same rail rhythm) */
   --spacing-cell-y: 0.25rem; /* 4  - table cell vertical */
   --spacing-bar-y: 0.375rem; /* 6  - bar rhythm rows (sub-headers, strips) */
   --spacing-inner: 0.5rem; /* 8  - inner blocks (cards, panes) */
-  --spacing-chip-x: 0.375rem; /* 6  - micro chip horizontal */
+  --spacing-chip-x: var(--spacing-bar-y); /* 6  - micro chip horizontal */
   --spacing-chip-y: 0.125rem; /* 2  - micro chip vertical */
-  --spacing-related: 0.25rem; /* 4  - gap between related controls */
-  --spacing-siblings: 0.5rem; /* 8  - gap between siblings */
-  --spacing-sections: 0.75rem; /* 12 - gap between sections */
+  --spacing-related: var(--spacing-cell-y); /* 4  - gap between related controls */
+  --spacing-siblings: var(--spacing-inner); /* 8  - gap between siblings */
+  --spacing-sections: var(--spacing-rail); /* 12 - gap between sections */
   --spacing-meta: 1rem; /* 16 - stat meta columns */
-  --spacing-control-x: 0.5rem; /* 8  - control horizontal padding (button, select, input) */
-  --spacing-control-y: 0.375rem; /* 6  - control vertical padding (select trigger = bar rhythm) */
+  --spacing-control-x: var(
+    --spacing-inner
+  ); /* 8  - control horizontal padding (button, select, input) */
+  --spacing-control-y: var(
+    --spacing-bar-y
+  ); /* 6  - control vertical padding (select trigger = bar rhythm) */
   --spacing-indent: 2.25rem; /* 36 - grouped-table child indent (rail + 24) */
   --spacing-menu-check: 2rem; /* 32 - dropdown item clearance for the check indicator */
 }
@@ -123,45 +127,63 @@ body {
 
 :root {
   /* jint light palette: complement of .dark; one token source for both themes */
-  --background: #fafafa;
-  --foreground: #1c1c1e;
-  --card: #ffffff;
-  --card-foreground: #1c1c1e;
-  --popover: #ffffff;
-  --popover-foreground: #1c1c1e;
+  /* Raw palette constants: every literal that repeats is defined exactly once here and
+     referenced below (authoring form only - resolved values are unchanged). Names follow
+     the Tailwind shades they match; --ink, --emerald-700 and --hljs-default are measured
+     values that span themes or rule groups and so cannot anchor on a theme token. */
+  --white: #ffffff;
+  --neutral-50: #fafafa;
+  --neutral-300: #d4d4d4;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-950: #0a0a0a;
+  --zinc-400: #a1a1aa;
+  --ink: #1c1c1e; /* light foreground gray (iOS label), not a Tailwind shade */
+  --emerald-700: #047857; /* sev-clean (light) and hljs-string, theme-independent */
+  --hljs-default: #24292e; /* github-light default text, two hljs rule groups */
+  --scrollbar-size: 8px; /* width, height and thumb radius */
+  --clear: transparent; /* shared clear surface (scrollbar track, hljs pane) */
+  --scrollbar-track: var(--clear); /* shared by both scrollbar implementations */
+  --background: var(--neutral-50);
+  --foreground: var(--ink);
+  --card: var(--white);
+  --card-foreground: var(--ink);
+  --popover: var(--white);
+  --popover-foreground: var(--ink);
   --primary: #18181b;
-  --primary-foreground: #fafafa;
+  --primary-foreground: var(--neutral-50);
   --secondary: #f0f0f1;
-  --secondary-foreground: #1c1c1e;
+  --secondary-foreground: var(--ink);
   --muted: #f4f4f5;
   --muted-foreground: #5a5a61;
   --accent: #ececee;
-  --accent-foreground: #1c1c1e;
+  --accent-foreground: var(--ink);
   --destructive: #dc2626;
   --border: #e4e4e7;
   --input: #d4d4d8;
-  --ring: #a1a1aa;
+  --ring: var(--zinc-400);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.25rem;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #1c1c1e;
-  --sidebar-primary: #18181b;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #ececee;
-  --sidebar-accent-foreground: #1c1c1e;
-  --sidebar-border: #e4e4e7;
-  --sidebar-ring: #a1a1aa;
+  --radius: var(--spacing-cell-y); /* 4 - radius on the cell-y rhythm */
+  --sidebar: var(--neutral-50);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--neutral-50);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--zinc-400);
   --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
   --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
-  --sev-clean: #047857; /* emerald-700 ~4.9:1 */
+  --sev-clean: var(--emerald-700); /* emerald-700 ~4.9:1 */
   --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
   --chart-ref: #52525b; /* ~7:1   */
   --chart-mark: #9e9ea8; /* ~3.1:1 */
-  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-thumb: var(--zinc-400);
+  --scrollbar-thumb-hover: #525252; /* neutral-600 hover, both themes */
   color-scheme: light;
 }
 
@@ -171,12 +193,12 @@ body {
 
 .dark {
   /* jint palette: bg neutral-950/900, borders neutral-800, secondary text >= #a3a3a3 */
-  --background: #0a0a0a;
-  --foreground: #d4d4d4;
-  --card: #0a0a0a;
-  --card-foreground: #d4d4d4;
+  --background: var(--neutral-950);
+  --foreground: var(--neutral-300);
+  --card: var(--neutral-950);
+  --card-foreground: var(--neutral-300);
   --popover: #171717;
-  --popover-foreground: #d4d4d4;
+  --popover-foreground: var(--neutral-300);
   /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
      silhouette on the zinc-950/900 surfaces and hover has nowhere to go. zinc-500 keeps
      primary-foreground >= 4.5:1, stays clearly off muted #262626, and dark:hover:bg-primary/80
@@ -184,20 +206,22 @@ body {
      ~4.1:1 on #0a0a0a - below AA for body-size text; lighten the link variant separately (not
      via this token) if it ever ships, since the fill needs this exact value for 4.5:1 text. */
   --primary: #71717a;
-  --primary-foreground: #fafafa;
-  --secondary: #262626;
-  --secondary-foreground: #d4d4d4;
-  --muted: #262626;
+  --primary-foreground: var(--neutral-50);
+  --secondary: var(--neutral-800);
+  --secondary-foreground: var(--neutral-300);
+  --muted: var(--neutral-800);
   --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #d4d4d4;
+  --accent: var(--neutral-800);
+  --accent-foreground: var(--neutral-300);
   --destructive: #ef4444; /* red-500 */
-  --border: #404040; /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
-  --input: #404040;
+  --border: var(
+    --neutral-700
+  ); /* neutral-700: dividers must not equal the surface tokens (all #262626) or borders on muted panels run at 1.00:1 - N700 lifts them to ~1.5-1.9:1 on both bg and muted */
+  --input: var(--neutral-700);
   /* ring must out-shine the primary fill (#71717a, 1.02:1 vs the old #737373): a focus ring on a
      focused dark primary button was invisible. neutral-300 sits 3.3:1 over the fill and stays
      clearly visible on background/muted. */
-  --ring: #d4d4d4;
+  --ring: var(--neutral-300);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -206,19 +230,19 @@ body {
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-primary-foreground: var(--sidebar-foreground);
+  --sidebar-accent: var(--chart-5);
+  --sidebar-accent-foreground: var(--sidebar-foreground);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: var(--chart-2);
   /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
   --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
   --sev-error: #f87171; /* red-400    ~7:1  */
   --sev-clean: #34d399; /* emerald-400 ~9:1 */
   --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
-  --chart-ref: #d4d4d4; /* neutral-300 ~13:1 */
+  --chart-ref: var(--neutral-300); /* neutral-300 ~13:1 */
   --chart-mark: #737373; /* neutral-500 */
-  --scrollbar-thumb: #404040;
+  --scrollbar-thumb: var(--neutral-700);
 }
 
 @layer base {
@@ -232,43 +256,30 @@ body {
     @apply font-sans;
   }
 }
-/* Thin dark scrollbars, CSS-only (no shadcn scroll-area): thumb neutral-700 -> neutral-600 on
+/* Thin dark scrollbars (dual syntax: Firefox scrollbar-color + WebKit pseudo-elements declare
+   the same treatment twice by necessity, both from tokens). CSS-only, CSS-only (no shadcn scroll-area): thumb neutral-700 -> neutral-600 on
    hover, transparent track. Applies app-wide, which covers the table's horizontal-scroll
    container, the detail pane, the runs pickers and any inner scroll box. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #404040 transparent; /* neutral-700 thumb, transparent track (Firefox) */
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); /* theme thumb, transparent track (Firefox) */
 }
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 *::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
-*::-webkit-scrollbar-thumb {
-  background: #404040; /* neutral-700 */
-  border-radius: 8px;
-}
+
 *::-webkit-scrollbar-thumb:hover {
-  background: #525252; /* neutral-600 */
+  background: var(--scrollbar-thumb-hover);
 }
 *::-webkit-scrollbar-corner {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
-/* severity TEXT tokens: hue-saturated shades that clear 4.5:1 on their own theme's surfaces */
-.text-sev-error {
-  color: var(--sev-error);
-}
-.text-sev-warn {
-  color: var(--sev-warn);
-}
-.bg-sev-error {
-  background-color: var(--sev-error);
-}
-
-/* severity TEXT utilities (theme-token driven; flavors per block above) */
+/* severity TEXT utilities (theme-token driven; hues clear 4.5:1 on their own theme's surfaces) */
 .text-sev-error {
   color: var(--sev-error);
 }
@@ -278,17 +289,20 @@ body {
 .text-sev-clean {
   color: var(--sev-clean);
 }
+.bg-sev-error {
+  background-color: var(--sev-error);
+}
 
 /* scrollbar thumb follows the theme (was hardcoded #404040) */
-* {
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
+
 *::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-size);
 }
+/* github-light vendor-class theme assignment (single-use shades per selector group) */
 :root:not(.dark) .hljs {
-  color: #24292e;
-  background: transparent;
+  color: var(--hljs-default);
+  background: var(--clear);
 }
 :root:not(.dark) .hljs-comment,
 :root:not(.dark) .hljs-quote {
@@ -303,7 +317,7 @@ body {
 :root:not(.dark) .hljs-string,
 :root:not(.dark) .hljs-regexp,
 :root:not(.dark) .hljs-addition {
-  color: #047857;
+  color: var(--emerald-700);
 }
 :root:not(.dark) .hljs-title,
 :root:not(.dark) .hljs-section,
@@ -320,9 +334,10 @@ body {
 :root:not(.dark) .hljs-variable,
 :root:not(.dark) .hljs-template-variable,
 :root:not(.dark) .hljs-subst {
-  color: #24292e;
+  color: var(--hljs-default);
 }
-/* hljs-subst interpolation measured 4.38 on its own dark bg - below 4.5 */
+/* hljs color assignments are vendor-class theme assignments (single-use shades per selector group).
+   hljs-subst interpolation measured 4.38 on its own dark bg - below 4.5 */
 .dark .hljs-subst {
   color: #e2e8f0;
 }
