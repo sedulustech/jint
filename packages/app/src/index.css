@@ -83,19 +83,6 @@ body {
     "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; /* same family by design: one-family UI */
   --font-heading:
     "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; /* heading role, same single family */
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -110,8 +97,6 @@ body {
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -140,15 +125,12 @@ body {
   --emerald-700: #047857; /* sev-clean (light) */
   --hljs-green: #047857; /* hljs-string */
   --hljs-default: #24292e;
-  --oklch-neutral-50: oklch(0.985 0 0); /* sidebar ink (dark) */
   /* github-light default text, two hljs rule groups */
   --scrollbar-size: 8px; /* width, height and thumb radius */
   --clear: transparent; /* shared clear surface (scrollbar track, hljs pane) */
   --scrollbar-track: var(--clear); /* shared by both scrollbar implementations */
   --background: var(--neutral-50);
   --foreground: var(--ink);
-  --card: var(--white);
-  --card-foreground: var(--ink);
   --popover: var(--white);
   --popover-foreground: var(--ink);
   --primary: #18181b;
@@ -163,26 +145,12 @@ body {
   --border: #e4e4e7;
   --input: #d4d4d8;
   --ring: var(--zinc-400);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.25rem;
-  --sidebar: var(--neutral-50);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--neutral-50);
-  --sidebar-accent: var(--accent);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--zinc-400);
   --sev-warn: #b45309; /* amber-700  ~4.6:1 on #fafafa */
   --sev-error: #b91c1c; /* red-700    ~4.9:1 on #fafafa */
   --sev-clean: var(--emerald-700); /* emerald-700 ~4.9:1 */
   --chart-bar: #8b8b93; /* ~3.9:1 on #fafafa */
   --chart-ref: #52525b; /* ~7:1   */
-  --chart-mark: #9e9ea8; /* ~3.1:1 */
   --scrollbar-thumb: #a1a1aa;
   --scrollbar-thumb-hover: #525252; /* neutral-600 hover, both themes */
   color-scheme: light;
@@ -196,8 +164,6 @@ body {
   /* jint palette: bg neutral-950/900, borders neutral-800, secondary text >= #a3a3a3 */
   --background: var(--neutral-950);
   --foreground: var(--neutral-300);
-  --card: var(--neutral-950);
-  --card-foreground: var(--neutral-300);
   --popover: #171717;
   --popover-foreground: var(--neutral-300);
   /* dark primary is a mid neutral, not the light inverse: a near-white fill erases the button
@@ -223,26 +189,12 @@ body {
      focused dark primary button was invisible. neutral-300 sits 3.3:1 over the fill and stays
      clearly visible on background/muted. */
   --ring: var(--neutral-300);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: var(--oklch-neutral-50);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: var(--oklch-neutral-50);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: var(--oklch-neutral-50);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
   /* light complements for the severity/chart tokens (hue-saturated 300/400 shades read on #0a0a0a) */
   --sev-warn: #fcd34d; /* amber-300  ~10:1 on #0a0a0a */
   --sev-error: #f87171; /* red-400    ~7:1  */
   --sev-clean: #34d399; /* emerald-400 ~9:1 */
   --chart-bar: #9ca3af; /* neutral-400 ~10:1 on #0a0a0a */
   --chart-ref: var(--neutral-300); /* neutral-300 ~13:1 */
-  --chart-mark: #737373; /* neutral-500 */
   --scrollbar-thumb: #404040;
 }
 
