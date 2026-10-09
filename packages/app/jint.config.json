@@ -75,38 +75,18 @@
       "include": ["**/*.css"]
     },
     {
-      "name": "is_palette_tiered",
+      "name": "is_token_role_declared",
+      "kind": "choice",
       "target": "files",
-      "instructions": "A tidy stylesheet is organized by responsibility: the custom properties of each declaration block are sorted so that every palette constant (a raw literal - a color, size, or font stack) comes first, then every derived token (a var() reference to another token), in two contiguous runs. Interleaved tokens are the defect: a var()-reference token sitting between constants, or a constant appearing after the derived tokens have begun, means the reader meets a reference before the inputs are done - the palette reads like an unsorted drawer. Organization is declaration ORDER; comments are not structure - a labeled comment neither organizes nor separates, and blank lines are not required. Not part of the ordering: non-custom-property declarations (color-scheme, @font-face font-family), theme-variant re-declarations (.dark overriding derived tokens), and calc() over literals (references no token).",
-      "criteria": {
-        "true": "Tokens are interleaved: at least one var()-reference custom property is declared between raw-literal custom properties, or at least one raw-literal custom property is declared after var()-reference tokens have begun.",
-        "false": "Tokens are organized by responsibility: all raw-literal constants in one contiguous run first, all var() references in one contiguous run after them - or the block declares only one tier."
-      },
+      "instructions": "A design token declares a role: the name states what it is for, the value inline states what it carries (--background: #fafafa). Judge this stylesheet's token declarations and their comments. Comments that only separate or label groups are fine. A comment that explains a token's meaning or visualizes its value is a patch: the declaration could carry that meaning itself.",
+      "criteria": [
+        "Every token declares a role with its value inline; comments only separate or label groups - or there are no comments.",
+        "One or two comments explain a token's meaning or visualize its value; the declarations could carry it themselves.",
+        "A palette of scale-named constants (shade or color names) sits behind role tokens through var() chains, and comments routinely bridge the gap the indirection opens.",
+        "Comments are load-bearing documentation of the token system: meaning and values live in prose - histories, ratios, provenance - not in the declarations."
+      ],
       "handle": {
-        "warn": {
-          "greater_than": 0.7
-        },
-        "error": {
-          "greater_than": 0.85
-        }
-      },
-      "include": ["**/*.css"]
-    },
-    {
-      "name": "is_comment_token_note",
-      "target": "files",
-      "instructions": "In a stylesheet, a comment's only job is to clarify token meaning: what a custom property is for, or why a value is measured rather than scale-named. Judge the FILE: does any comment do more than that?",
-      "criteria": {
-        "true": "At least one comment is not a token note: it narrates history, rationale, or process; restates what declaration order already shows; or annotates values with derived numbers (contrast ratios, shade arithmetic) instead of one clause of meaning.",
-        "false": "Every comment is one clause of token meaning, or there are no comments."
-      },
-      "handle": {
-        "warn": {
-          "greater_than": 0.5
-        },
-        "error": {
-          "greater_than": 0.7
-        }
+        "map": ["pass", "pass", "warn", "error"]
       },
       "include": ["**/*.css"]
     }
