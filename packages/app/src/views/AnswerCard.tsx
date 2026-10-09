@@ -20,7 +20,25 @@ export interface QA {
  * not verdict); verdict color comes only from the card's own span-aware severity, never from a
  * sibling element's.
  */
-export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }) {
+type Threshold = { greater_than?: number; less_than?: number };
+
+/** The noul gates from the run manifest, so a reading reads against its own thresholds. */
+function thresholdText(threshold: Threshold | undefined): string | null {
+  if (threshold === undefined) return null;
+  if (threshold.greater_than !== undefined) return `> ${threshold.greater_than}`;
+  if (threshold.less_than !== undefined) return `< ${threshold.less_than}`;
+  return null;
+}
+
+export function AnswerCard({
+  qa,
+  sev,
+  handle,
+}: {
+  qa: QA;
+  sev: "error" | "warn" | null;
+  handle?: { warn?: Threshold; error?: Threshold };
+}) {
   const noul = qa.answer?.noul;
   const score = qa.answer?.score;
   const isScore = qa.answer?.type === "score" || (noul === undefined && score !== undefined);
@@ -33,12 +51,25 @@ export function AnswerCard({ qa, sev }: { qa: QA; sev: "error" | "warn" | null }
     <div className="pt-siblings">
       <div className="flex items-center gap-sections border-b border-border px-rail pb-siblings">
         {noul !== undefined && (
-          <span
-            data-answer={noul.toFixed(2)}
-            className={`text-3xl font-bold leading-none ${color}`}
-            title={sev !== null ? `severity: ${sev}` : undefined}
-          >
-            {noul.toFixed(2)}
+          <span className="flex items-baseline gap-siblings">
+            <span
+              data-answer={noul.toFixed(2)}
+              className={`text-3xl font-bold leading-none ${color}`}
+              title={sev !== null ? `severity: ${sev}` : undefined}
+            >
+              {noul.toFixed(2)}
+            </span>
+            {handle !== undefined && (
+              <span data-testid="noul-thresholds" className="text-caption text-muted-foreground">
+                {["warn", "error"]
+                  .map((level) => {
+                    const text = thresholdText(handle[level as "warn" | "error"]);
+                    return text === null ? null : `${level} ${text}`;
+                  })
+                  .filter((part) => part !== null)
+                  .join(" \u00b7 ")}
+              </span>
+            )}
           </span>
         )}
         {isScore && index !== null && (

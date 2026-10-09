@@ -116,7 +116,14 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
               ))}
           </div>
           <div className="flex flex-col">
-            <AnswerCard qa={pair} sev={severity} />
+            <AnswerCard
+              qa={pair}
+              sev={severity}
+              handle={(() => {
+                const h = run.data?.handles?.[rule];
+                return h !== undefined && !("map" in h) ? h : undefined;
+              })()}
+            />
           </div>
           {code !== null && (
             <div className="relative">
