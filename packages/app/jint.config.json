@@ -77,17 +77,17 @@
     {
       "name": "is_palette_tiered",
       "target": "files",
-      "instructions": "A tidy stylesheet declares its custom properties in sorted tiers: first every palette constant (a raw literal - a color, size, or font stack), then every derived token (a var() reference to another token). Interleaved tokens are the defect: a var()-reference token sitting between constant definitions, or a constant appearing after the derived tokens have begun, means the reader meets a reference before the inputs are done - the palette reads like an unsorted drawer. Judge the FILE on declaration order alone; comments are not structure - a labeled comment neither sorts nor separates. Not part of the ordering: non-custom-property declarations (color-scheme, @font-face font-family), theme-variant re-declarations (.dark overriding derived tokens), and calc() over literals (references no token).",
+      "instructions": "A tidy stylesheet is organized by responsibility: the custom properties of each declaration block are sorted so that every palette constant (a raw literal - a color, size, or font stack) comes first, then every derived token (a var() reference to another token), in two contiguous runs. Interleaved tokens are the defect: a var()-reference token sitting between constants, or a constant appearing after the derived tokens have begun, means the reader meets a reference before the inputs are done - the palette reads like an unsorted drawer. Organization is declaration ORDER; comments are not structure - a labeled comment neither organizes nor separates, and blank lines are not required. Not part of the ordering: non-custom-property declarations (color-scheme, @font-face font-family), theme-variant re-declarations (.dark overriding derived tokens), and calc() over literals (references no token).",
       "criteria": {
         "true": "Tokens are interleaved: at least one var()-reference custom property is declared between raw-literal custom properties, or at least one raw-literal custom property is declared after var()-reference tokens have begun.",
-        "false": "Tokens are sorted into tiers: all raw-literal constants contiguous and first, all var() references after them - or the file declares only one tier."
+        "false": "Tokens are organized by responsibility: all raw-literal constants in one contiguous run first, all var() references in one contiguous run after them - or the block declares only one tier."
       },
       "handle": {
         "warn": {
-          "greater_than": 0.5
+          "greater_than": 0.7
         },
         "error": {
-          "greater_than": 0.7
+          "greater_than": 0.85
         }
       },
       "include": ["**/*.css"]
