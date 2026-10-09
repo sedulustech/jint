@@ -160,8 +160,8 @@ Guidelines, in the order you will need them:
    The criteria must state the generalizable axis the target exemplifies, not
    quote it. "Identifiers of the same role mix word-order patterns"
    is a rule; "fetchUsers beside usersRetriever" is a fixture. A criteria
-   that recites the seed validates the observation, not the rule: the probe
-   fires on the seed files and reads healthy code as hot, because healthy
+   that recites the target validates the observation, not the rule: the probe
+   fires on the target files and reads healthy code as hot, because healthy
    code has _other_ instances of the same axis the criteria never names.
    Examples are encouraged - use abstracted placeholders (john_doe-style
    roles: a fetch pattern, a builder pattern), never the real file's names.
@@ -180,7 +180,7 @@ Guidelines, in the order you will need them:
 8. **Exclude conventions explicitly.** Banner comments, Sphinx-style `#:`
    blocks, and docblocks naming flags/env vars/wire keys are load-bearing
    convention, not defects; rules rotting them must say so.
-9. **Calibrate with a seeded positive control.** Healthy corpus quiet is
+9. **Calibrate with a targeted positive control.** Healthy corpus quiet is
    necessary but not evidence: write the actual defect (a swallowed catch, a
    lying name) into a scratch file and confirm the rule still fires.
 10. **Anchor thresholds to distributions.** Run the probe first (real handle; read
