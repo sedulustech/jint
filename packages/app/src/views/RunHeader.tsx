@@ -52,18 +52,35 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
       <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border px-rail py-bar-y text-body">
         {picker}
         {run !== null && (
-          <span data-testid="run-marker" className="text-muted-foreground">
-            {run.configPath !== null && "config " + baseName(run.configPath)}
-            {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
-            {" · "}
-            {relTime(run.mtime)}
-            {run.ruleCount > 0 &&
-              fileCount > 0 &&
-              ` · ${run.ruleCount} rules · ${fileCount} files`}{" "}
-            · id: {run.id.slice(-6)}
-            {runDuration(run.durationMs) !== null &&
-              run.usage !== undefined &&
-              ` · ${runDuration(run.durationMs)} · ${run.usage.input.toLocaleString()} in / ${run.usage.output.toLocaleString()} out tokens`}
+          <span
+            data-testid="run-marker"
+            className="flex flex-wrap items-center gap-related text-muted-foreground"
+          >
+            <span>
+              {run.configPath !== null && "config " + baseName(run.configPath)}
+              {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{relTime(run.mtime)}</span>
+            {run.ruleCount > 0 && fileCount > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {run.ruleCount} rules · {fileCount} files
+                </span>
+              </>
+            )}
+            <span aria-hidden="true">·</span>
+            <span>id: {run.id.slice(-6)}</span>
+            {runDuration(run.durationMs) !== null && run.usage !== undefined && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {runDuration(run.durationMs)} · {run.usage.input.toLocaleString()} in /{" "}
+                  {run.usage.output.toLocaleString()} out tokens
+                </span>
+              </>
+            )}
           </span>
         )}
         {runErrors.length > 0 && (
