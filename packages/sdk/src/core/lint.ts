@@ -24,12 +24,9 @@ import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
-  createRpsPacer,
   DEFAULT_CONCURRENCY,
-  DEFAULT_RPS_BUDGET,
   DEFAULT_TIMEOUT,
   withLimit,
-  withPacer,
   withTimeout,
 } from "./jev/pacer.ts";
 import {
@@ -87,11 +84,6 @@ export interface LintOptions {
    * default 16, max 64). Overrides the config when set.
    */
   concurrency?: number;
-  /**
-   * Client-side request-start budget, requests/second (CLI --rps-budget; config key rps_budget;
-   * default 15, ~75% of the published 20 rps quota). Overrides the config.
-   */
-  rps_budget?: number;
   /**
    * Per-call timeout in seconds (CLI --timeout; config key of the same name; default 30). A hung
    * call becomes a per-element JEV_TIMEOUT failure instead of pinning a run-wide slot.
@@ -217,22 +209,15 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The run knobs: CLI flag > config key > default. Validated here (the SDK boundary) even when
   // the config already validated them - lint() takes options that never passed the loader.
   const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
-  const rpsBudget = options.rps_budget ?? options.config.rps_budget ?? DEFAULT_RPS_BUDGET;
   const timeout = options.timeout ?? options.config.timeout ?? DEFAULT_TIMEOUT;
-  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
+  const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   // The classifier seam carries all three knobs - composition order is load-bearing (pacer.ts):
   // the limit caps in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a
   // paced caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is
   // the ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
   const classifier = withLimit(
-    withPacer(
-      withTimeout(
-        options.classifier ?? createClassifier({ apiKey: options.config.apiKey }),
-        timeout,
-      ),
-      createRpsPacer(rpsBudget, concurrency),
-    ),
+    withTimeout(options.classifier ?? createClassifier({ apiKey: options.config.apiKey }), timeout),
     concurrency,
   );
   // The changeset selection: every listed path is the file's identity verbatim. Entries that

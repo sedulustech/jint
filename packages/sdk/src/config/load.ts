@@ -114,18 +114,12 @@ export const CONFIG_SCHEMA = Type.Object({
   exclude: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
-  // Run knobs (see jev/pacer.ts): concurrency = in-flight ceiling, rps_budget = request-start
-  // budget. Floors are enforced in validateConfig so the error names the field.
+  // Run knobs (see jev/pacer.ts): concurrency = in-flight ceiling. Floors are enforced in
+  // validateConfig so the error names the field.
   concurrency: Type.Optional(
     Type.Number({
       description:
         "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16 (measured: 53.9 rps at 16, zero 429s), max 64.",
-    }),
-  ),
-  rps_budget: Type.Optional(
-    Type.Number({
-      description:
-        "Client-side request-start budget, requests/second (the compliance knob; published quota is 1200 rpm = 20 rps). Default 15 (~75% of quota).",
     }),
   ),
   timeout: Type.Optional(
@@ -148,8 +142,6 @@ export interface ResolvedConfig {
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
-  /** Client-side request-start budget, requests/second (the compliance knob; default 15). */
-  readonly rps_budget?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes JEV_TIMEOUT. */
   readonly timeout?: number;
   /** Load-time scope warnings (a rule whose exclude cancels its include): surfaced as notes. */
@@ -327,7 +319,6 @@ export function validateConfig(
     exclude: string[];
     apiKey?: string;
     concurrency?: number;
-    rps_budget?: number;
     timeout?: number;
     warnings?: string[];
   } = {
@@ -344,14 +335,12 @@ export function validateConfig(
   // (>= 1, > 0) are validated here too so the message names the field, not a union branch.
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,
-    rps_budget: parsed.rps_budget,
     timeout: parsed.timeout,
   });
   if (knobProblem !== null) {
     throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${knobProblem}`);
   }
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
-  if (parsed.rps_budget !== undefined) resolved.rps_budget = parsed.rps_budget;
   if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
   if (warnings.length > 0) resolved.warnings = warnings;
   return Object.freeze(resolved);

@@ -83,12 +83,6 @@ export const FLAGS = {
     blurb:
       "max in-flight classifier calls, run-wide (default 16, max 64; overrides the config key of the same name)",
   },
-  "--rps-budget": {
-    type: "string",
-    arg: "<n>",
-    blurb:
-      "client-side request-start budget, requests/second (default 15, ~75% of the published 1200 rpm quota; overrides config rps_budget)",
-  },
   "--timeout": {
     type: "string",
     arg: "<secs>",
@@ -499,9 +493,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
   // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
   const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
-  const rpsBudget = numericFlag(cliArgs["rps-budget"], "--rps-budget");
   const timeout = numericFlag(cliArgs.timeout, "--timeout");
-  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
+  const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) {
     usageError(knobProblem + " — see jint --help");
     return 2;
@@ -549,7 +542,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         disable: cliArgs.disable,
         only: cliArgs.rule,
         concurrency,
-        rps_budget: rpsBudget,
         timeout,
         paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
         ...(elementScope !== undefined && {

@@ -53,17 +53,9 @@ describe("cli: contract basics", () => {
       exit: 2,
       stderr: ["--concurrency must be a number", "--help"],
     });
-    expectContract(await run(["--rps-budget", "0"]), {
-      exit: 2,
-      stderr: ["rps_budget: must be a number > 0", "--help"],
-    });
     expectContract(await run(["--timeout", "0"]), {
       exit: 2,
       stderr: ["timeout: must be a number > 0", "--help"],
-    });
-    expectContract(await run(["--rps-budget", ""]), {
-      exit: 2,
-      stderr: ["--rps-budget requires a number", "--help"],
     });
   });
 

@@ -286,7 +286,6 @@ describe("classifyFile — element fan-out", () => {
       path: "src/gen.ts", // extension names the grammar; "input" (default) would WALK_FAILED
       classifier,
       concurrency: 4,
-      rps_budget: 1000, // no pacing delays in this test; the ceiling is what binds
     });
     expect(measurements).toHaveLength(12);
     expect(errors).toHaveLength(0);

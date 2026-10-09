@@ -19,12 +19,9 @@ import { languageOf } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
-  createRpsPacer,
   DEFAULT_CONCURRENCY,
-  DEFAULT_RPS_BUDGET,
   DEFAULT_TIMEOUT,
   withLimit,
-  withPacer,
   withTimeout,
 } from "./jev/pacer.ts";
 import { classifyFile, elementWireId, type OversizedElement } from "./rules/classify.ts";
@@ -48,8 +45,6 @@ export interface ClassifyOptions {
   readonly classifier?: Classifier;
   /** Cap on in-flight per-element classifier calls (default DEFAULT_CONCURRENCY). */
   readonly concurrency?: number;
-  /** Client-side request-start budget, requests/second (default DEFAULT_RPS_BUDGET). */
-  readonly rps_budget?: number;
   /** Per-call timeout in seconds (default DEFAULT_TIMEOUT): a hung call becomes JEV_TIMEOUT. */
   readonly timeout?: number;
 }
@@ -81,9 +76,8 @@ export async function classify(
     throw new SetupError("CONFIG_INVALID", "classify: str must be a non-empty string");
   }
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
-  const rpsBudget = options.rps_budget ?? DEFAULT_RPS_BUDGET;
   const timeout = options.timeout ?? DEFAULT_TIMEOUT;
-  const knobProblem = checkRunKnobs({ concurrency, rps_budget: rpsBudget, timeout });
+  const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
   // an element-target rule needs a parsed inventory; when neither the path nor the language
@@ -109,13 +103,7 @@ export async function classify(
   const result = await classifyFile(
     unit,
     rules,
-    withLimit(
-      withPacer(
-        withTimeout(options.classifier ?? createClassifier(), timeout),
-        createRpsPacer(rpsBudget, concurrency),
-      ),
-      concurrency,
-    ),
+    withLimit(withTimeout(options.classifier ?? createClassifier(), timeout), concurrency),
     () => false,
     { language: options.language },
   );
