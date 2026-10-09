@@ -253,26 +253,6 @@ names it cannot see), and "drift" invites the model to narrate quality instead
 of checking a condition (guideline 2). The fix was never thresholds; the rule
 was suspended until its criteria could name an observable condition.
 
-## Give the user the link (run visualization)
-
-Every run records (`~/.jint/runs/`, or `JEV_DIR`) and is an inspectable artifact: the run dir holds report.json (all measurements
-
-- findings) and one request file per classifier call. The measurement UI turns a run dir
-  into a browsable view - rules grouped by rule/file/request, findings rendered with their
-  code context, per-pair answer detail.
-
-When a session involves a run the user will want to look at, give them a link:
-
-1. Run (recording is on; point it somewhere with `JEV_DIR=/path/to/runs jint ... --json`).
-2. Take the run id from the stderr line: `jint: requests -> /path/to/requests/<RUNID> (N calls)`.
-3. Link: `http://localhost:5173/#runs/<RUNID>` (the UI must be running with its
-   `JINT_REQUESTS_DIR` pointing at that same requests dir - see packages/app).
-
-Checks before you promise the link: the UI is up (curl localhost:5173), the requests dir
-matches (`JINT_REQUESTS_DIR` == the location you wrote), and the run is in the picker
-list. The link is the run id, not the dir path. A fresh run whose requests the UI never
-sees (wrong env) is a dead link.
-
 ## SDK (programmatic)
 
 ```ts
@@ -285,12 +265,3 @@ const { measurements, errors, inventory } = await classify("export const x = 1;"
 Raw measurements, no handles applied. `Measurement = { rule, element, value,
 stage }` - value is a noul probability or a rubric score. Programmatic rules
 may use function handles; config files use data handles only.
-
-## Calibration loop
-
-1. `jint --dir <corpus> --json` -> collect value distributions per rule.
-2. Pick warn_at/error_at so the healthy corpus is quiet.
-3. Paste thresholds into config (they are data) and re-run.
-   Seed defective variants (rename everything, mangle structure) to confirm the
-   rule still fires on real problems - precision on healthy code alone is not
-   evidence.
