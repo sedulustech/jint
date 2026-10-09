@@ -93,6 +93,22 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
       ...(config?.apiKey !== undefined && { apiKey: config.apiKey }),
       ...(config?.baseURL !== undefined && { baseURL: config.baseURL }),
       ...(config?.fetch !== undefined && { fetch: config.fetch }),
+      // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
+      // at info, invisible under its warn default. Route those lines to stderr so a 429 backoff
+      // is visible in the CLI (one line per retry; nothing when the API is healthy).
+      logLevel: "info",
+      logger: {
+        debug: () => {},
+        info: (message, ...args) => {
+          if (message.includes("retrying in")) {
+            process.stderr.write(`jint: jev backoff: ${message} ${args.join(" ")}\n`);
+          }
+        },
+        warn: (message, ...args) =>
+          process.stderr.write(`jint: jev warn: ${message} ${args.join(" ")}\n`),
+        error: (message, ...args) =>
+          process.stderr.write(`jint: jev error: ${message} ${args.join(" ")}\n`),
+      },
     });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
