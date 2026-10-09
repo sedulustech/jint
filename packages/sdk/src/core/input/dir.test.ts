@@ -1,4 +1,7 @@
 import { describe, test, expect } from "bun:test";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { walkDir, parseGitignore, compilePattern } from "./dir.ts";
 
 async function collect(root: string, exclude?: readonly string[]): Promise<string[]> {
@@ -8,6 +11,23 @@ async function collect(root: string, exclude?: readonly string[]): Promise<strin
 }
 
 describe("walkDir", () => {
+  test("ancestor .gitignore files apply to a walk rooted deeper inside the tree", async () => {
+    const tmpRoot = await mkdtemp(join(tmpdir(), "jint-walk-"));
+    try {
+      await mkdir(join(tmpRoot, ".git"), { recursive: true });
+      await Bun.write(join(tmpRoot, ".gitignore"), "dist\ntmp/\n");
+      const app = join(tmpRoot, "packages", "app");
+      await mkdir(join(app, "dist"), { recursive: true });
+      await mkdir(join(app, "tmp"), { recursive: true });
+      await Bun.write(join(app, "dist", "bundle.js"), "export {};\n");
+      await Bun.write(join(app, "tmp", "report.json"), "{}\n");
+      await Bun.write(join(app, "keep.ts"), "export const keep = 1;\n");
+      const paths = await collect(app);
+      expect(paths).toEqual(["keep.ts"]);
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
   test("excludes node_modules, .git, gitignored paths, and binaries by default", async () => {
     const paths = await collect("tests/fixtures/sample-dir");
     expect(paths).toContain("good.ts");

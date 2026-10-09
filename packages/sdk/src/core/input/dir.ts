@@ -6,8 +6,9 @@
  * top.
  */
 
+import { existsSync } from "node:fs";
 import { readdir, open, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
@@ -63,6 +64,8 @@ export interface IgnoreRule {
 interface IgnoreScope {
   /** Directory the rules are relative to, "" for the walk root. */
   base: string;
+  /** Ancestor scopes only: the walk root path relative to this scope directory; "" at/below root. */
+  prefix: string;
   rules: IgnoreRule[];
 }
 
@@ -81,7 +84,8 @@ export async function* walkDir(root: string, exclude?: readonly string[]): Async
   }
   const normalizedRoot = root.replace(/\/+$/, "");
   const excludeRules = (exclude ?? []).map(compilePattern);
-  yield* walkDirectory(normalizedRoot, "", [{ base: "", rules: [] }], excludeRules);
+  const ancestorScopes = await ancestorGitignoreScopes(normalizedRoot);
+  yield* walkDirectory(normalizedRoot, "", ancestorScopes, excludeRules);
 }
 
 /** Walk one directory level: scope its gitignore rules, then classify and handle each entry. */
@@ -167,6 +171,38 @@ async function readFileUnit(
   };
 }
 
+/**
+ * Collect .gitignore scopes from the walk root ANCESTORS, up to and including the repo top (nearest
+ * directory containing .git). Git applies those files to everything below; a walk rooted deeper
+ * must inherit them, or the root .gitignore's dist/ and tmp/ leak into a packages-rooted walk.
+ * Ordered shallow-to-deep: deeper scopes still win, like git.
+ */
+async function ancestorGitignoreScopes(normalizedRoot: string): Promise<IgnoreScope[]> {
+  const ancestors: { dir: string; prefixFromRoot: string }[] = [];
+  let dir = dirname(normalizedRoot);
+  let prefix = basename(normalizedRoot);
+  for (;;) {
+    ancestors.push({ dir, prefixFromRoot: prefix });
+    if (existsSync(join(dir, ".git"))) break;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    prefix = `${basename(dir)}/${prefix}`;
+    dir = parent;
+  }
+  const scopes: IgnoreScope[] = [];
+  // no repo above the walk root: git applies nothing there, neither do we
+  if (!ancestors.some((level) => existsSync(join(level.dir, ".git")))) return scopes;
+  for (const level of ancestors.reverse()) {
+    try {
+      const text = await Bun.file(join(level.dir, GITIGNORE_FILENAME)).text();
+      const rules = parseGitignore(text);
+      if (rules.length > 0) scopes.push({ base: "", prefix: level.prefixFromRoot, rules });
+    } catch {
+      // no .gitignore at this level
+    }
+  }
+  return scopes;
+}
 /** Push this directory's .gitignore rules (if any) as the deepest scope. */
 async function withGitignore(
   absDir: string,
@@ -183,7 +219,7 @@ async function withGitignore(
   }
   const rules = parseGitignore(text);
   if (rules.length === 0) return inheritedScopes;
-  return [...inheritedScopes, { base: relDir, rules }];
+  return [...inheritedScopes, { base: relDir, prefix: "", rules }];
 }
 
 function compareByName(a: Dirent, b: Dirent): number {
@@ -224,11 +260,13 @@ function isGitignored(relativePath: string, isDirectory: boolean, scopes: Ignore
   for (let scopeIndex = scopes.length - 1; scopeIndex >= 0; scopeIndex--) {
     const scope = scopes[scopeIndex]!;
     const pathFromScopeBase =
-      scope.base === ""
-        ? relativePath
-        : relativePath.startsWith(`${scope.base}/`)
-          ? relativePath.slice(scope.base.length + 1)
-          : "";
+      scope.prefix !== ""
+        ? `${scope.prefix}/${relativePath}`
+        : scope.base === ""
+          ? relativePath
+          : relativePath.startsWith(`${scope.base}/`)
+            ? relativePath.slice(scope.base.length + 1)
+            : "";
     if (pathFromScopeBase === "") continue;
     for (let ruleIndex = scope.rules.length - 1; ruleIndex >= 0; ruleIndex--) {
       const rule = scope.rules[ruleIndex]!;
