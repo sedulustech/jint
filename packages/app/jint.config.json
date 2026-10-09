@@ -91,6 +91,24 @@
         }
       },
       "include": ["**/*.css"]
+    },
+    {
+      "name": "is_comment_token_note",
+      "target": "files",
+      "instructions": "In a stylesheet, a comment's only job is to clarify token meaning: what a custom property is for, or why a value is measured rather than scale-named. Judge the FILE: does any comment do more than that?",
+      "criteria": {
+        "true": "At least one comment is not a token note: it narrates history, rationale, or process; restates what declaration order already shows; or annotates values with derived numbers (contrast ratios, shade arithmetic) instead of one clause of meaning.",
+        "false": "Every comment is one clause of token meaning, or there are no comments."
+      },
+      "handle": {
+        "warn": {
+          "greater_than": 0.5
+        },
+        "error": {
+          "greater_than": 0.7
+        }
+      },
+      "include": ["**/*.css"]
     }
   ]
 }
