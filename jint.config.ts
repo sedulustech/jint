@@ -32,6 +32,6 @@ export default defineConfig({
   rules: [...defaultRules, is_literal_shared],
   // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
   // values flowing between sites - the whole walk stops at the config level, not per rule.
-  include: ["**/*.{ts,tsx,css}"],
+  include: ["**/*.ts", "**/*.tsx", "**/*.css"],
   exclude: ["**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.md", "**/*.lock"],
 });
