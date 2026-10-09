@@ -16,6 +16,7 @@ const READ_ENCODING = "utf8";
 const INVALID_RUN_ID = "invalid run id";
 const JSON_SUFFIX = ".json";
 const MISSING_ERRNO = "ENOENT";
+const HTTP_NOT_FOUND = 404;
 
 export interface ApiOptions {
   /** Absolute requests root. Defaults to the homedir store (~/.jint/runs). */
@@ -139,7 +140,7 @@ export async function serveApiRequest(
     if (isMissingFileError(err))
       return jsonResponse(
         { error: "not found", detail: err instanceof Error ? err.message : String(err) },
-        404,
+        HTTP_NOT_FOUND,
       );
     const message = err instanceof Error ? err.message : String(err);
     const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
@@ -165,10 +166,14 @@ async function serveRunRequest(
   }
 }
 
+/** The error's own code property, when it carries one. */
+function errorCode(err: unknown): string {
+  return err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
+}
+
 /** True when the error is a missing file — the one case absence is the answer, not a failure. */
 function isMissingFileError(err: unknown): boolean {
-  const code = err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
-  return code === MISSING_ERRNO;
+  return errorCode(err) === MISSING_ERRNO;
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -179,7 +184,7 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 const badRequest = (message: string) => jsonResponse({ error: message }, 400);
-const notFound = (message: string) => jsonResponse({ error: message }, 404);
+const notFound = (message: string) => jsonResponse({ error: message }, HTTP_NOT_FOUND);
 
 /**
  * Resolve name against base, allowing ONLY a single direct child (no traversal, no subdirectory
@@ -297,8 +302,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is
     // ALWAYS an array; an empty one renders as the friendly hint client-side. No path leak.
-    const code =
-      err instanceof Error && "code" in err ? String((err as { code: unknown }).code) : "";
+    const code = errorCode(err);
     if (code === MISSING_ERRNO || code === "ENOTDIR") return { runs: [] };
     throw err;
   }
