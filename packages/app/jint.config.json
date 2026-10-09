@@ -41,7 +41,7 @@
     {
       "name": "is_value_tokenized",
       "target": "files",
-      "instructions": "In this stylesheet, a value (color, size, spacing, radius, duration, font stack) used at two or more places should be written once as a custom property or an @theme token in this file and referenced at each use. Judge what is observable: the identical raw value at distinct declarations. Vendor-class theme assignments and single-use values are not defects. @font-face descriptors are exempt: CSS forbids var() inside them, so their values cannot be tokenized.",
+      "instructions": "In this stylesheet, a value (color, size, spacing, radius, duration, font stack) used at two or more places should be written once as a custom property or an @theme token in this file and referenced at each use. Judge what is observable: the identical raw value at distinct declarations. A repetition across DIFFERENT roles wants one constant per role: coincidental value equality is not sharing - do not merge roles into one token to satisfy this rule. Vendor-class theme assignments and single-use values are not defects. @font-face descriptors are exempt: CSS forbids var() inside them, so their values cannot be tokenized.",
       "criteria": {
         "true": "At least one value appears as the same raw literal in two or more declarations, and no custom property or @theme token in this file carries it to all of them.",
         "false": "Every value used more than once is defined once in this file as a custom property or @theme token and referenced at its uses, or no value repeats."
@@ -52,6 +52,24 @@
         },
         "error": {
           "greater_than": 0.85
+        }
+      },
+      "include": ["**/*.css"]
+    },
+    {
+      "name": "is_token_role_separated",
+      "target": "files",
+      "instructions": "In a stylesheet, a custom property names a semantic role - gutter, cell padding, caption line-height, page background - not a value. Two roles whose values coincide today must still own separate custom properties: aliasing one to another by coincidental value couples them, so changing one role silently moves the other. Equal values are not equal semantics. Judge the FILE: does any custom property alias a different role's token, or does one token serve clearly different roles at its use sites? Same-role aliases are by design, not defects: theme variants (.dark re-declaring the same token) and fallback chains var(--a, --b) re-using the same role.",
+      "criteria": {
+        "true": "At least one token couples distinct semantic roles: a custom property defined as a reference to another token whose name denotes a different role, or one token consumed by use sites of clearly different roles.",
+        "false": "Every custom property names exactly one role: aliases exist only between same-role names (theme-variant re-declarations), and value equality between different roles stays as separate literal definitions."
+      },
+      "handle": {
+        "warn": {
+          "greater_than": 0.5
+        },
+        "error": {
+          "greater_than": 0.7
         }
       },
       "include": ["**/*.css"]
