@@ -247,7 +247,12 @@ Guidelines, in the order you will need them:
    lying name) into a scratch file and confirm the rule still fires.
 10. **Anchor thresholds to distributions.** Run the probe first (real handle; read
     measurements, discard findings), read the value spread, place warn/error inside the
-    healthy/defective gap. Then paste the numbers into the config as data.
+    healthy/defective gap. Then paste the numbers into the config as data. Thresholds sit on
+    0.05 steps (0.4, 0.5, 0.7, 0.9): a threshold like 0.82 is fitted around one
+    reading you are dodging, and the dodge usually protects a real defect from being
+    fixed. A healthy file reading above 0.75 is not a threshold problem - it is a
+    criteria problem (the rule narrates quality instead of checking a condition) or
+    the property is graded and wants a `kind: "choice"` rubric, not a noul.
 11. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
     unverified on other languages; re-probe before trusting findings there.
 
