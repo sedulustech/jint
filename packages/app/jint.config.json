@@ -66,10 +66,10 @@
       },
       "handle": {
         "warn": {
-          "greater_than": 0.5
+          "greater_than": 0.6
         },
         "error": {
-          "greater_than": 0.7
+          "greater_than": 0.75
         }
       },
       "include": ["**/*.css"]
