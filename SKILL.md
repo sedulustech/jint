@@ -187,10 +187,10 @@ Guidelines, in the order you will need them:
 10. **Anchor thresholds to distributions.** Run the probe first (real handle; read
     measurements, discard findings), read the value spread, place warn/error inside the
     healthy/defective gap. Then paste the numbers into the config as data. Thresholds sit on
-    0.05 steps (0.4, 0.5, 0.7, 0.9) - identical measurements vary by around 0.05
+    0.05 steps (0.4, 0.6, 0.7, 0.9) - identical measurements vary by around 0.05
     between runs, so a threshold finer than that fits noise: a threshold like 0.82
     is fitted around one reading you are dodging, and the dodge usually protects a
-    real defect from being fixed. A healthy file reading above 0.75 is not a threshold problem - it is a
+    real defect from being fixed. A threshold at 0.5 reads undecidedness as a verdict: whether undecided is a pass, a warn, or an error is the rule author's explicit choice. A healthy file reading above 0.75 is not a threshold problem - it is a
     criteria problem (the rule narrates quality instead of checking a condition) or
     the property is graded and wants a `kind: "choice"` rubric, not a noul.
 11. **Criteria are corpus-calibrated.** Criteria tuned on TypeScript start
@@ -252,7 +252,7 @@ This shape reads reasonable and fails on a healthy corpus:
       different names across the change.",
     "false": "Naming is consistent."
   },
-  "handle": { "warn": { "greater_than": 0.5 }, "error": { "greater_than": 0.7 } }
+  "handle": { "warn": { "greater_than": 0.6 }, "error": { "greater_than": 0.7 } }
 }
 ```
 
