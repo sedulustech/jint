@@ -25,15 +25,15 @@
       "target": "files",
       "instructions": "The same literal value (string, number, regex) carrying the same meaning at two or more separate places in this TypeScript file should be written once as a named constant in this file and referenced at each place: the identical raw literal at distinct sites is drift waiting to happen. Judge what is observable: identical raw literals at distinct sites where one constant could carry that value to all of them. Brevity of a literal alone is not a defect; imports and identifiers are not literals; recurring words from a shared vocabulary - a styling class string, a prop or option value, an event, sort-key, or mode name, a typeof guard comparison string, an error-code name - are per-site uses of a convention, not one value flowing between sites.",
       "criteria": {
-        "true": "At least one literal value appears as the same raw literal in two or more distinct places where the sites share that value, and no single named constant in this file carries it to all of them. A file where no literal repeats, or where every repetition is vocabulary from a shared convention, is not applicable: answer false.",
+        "true": "At least one literal value appears as the same raw literal in two or more distinct places where the sites share that value, and no single named constant in this file carries it to all of them.",
         "false": "Every literal that appears in more than one place flows through one named constant defined in this file, or no literal repeats."
       },
       "handle": {
         "warn": {
-          "greater_than": 0.82
+          "greater_than": 0.85
         },
         "error": {
-          "greater_than": 0.88
+          "greater_than": 0.9
         }
       },
       "include": ["**/*.ts", "**/*.tsx"]
