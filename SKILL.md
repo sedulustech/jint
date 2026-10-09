@@ -142,6 +142,12 @@ A live config example, serialized from real default specs (always the current wi
 
 ## Creating criterias
 
+Think of jev as the features you would like to activate to trigger a result in
+your favor: when you see something in a file that is off, the rule is how you
+convey that idea. Each noul side (`true`/`false`) and each score level is a
+way to disambiguate - one side or level per meaning, so the reading cannot
+stand for two things.
+
 Guidelines, in the order you will need them:
 
 1. **Write the exact condition, both sides.** State what must be observably
