@@ -99,6 +99,7 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
   };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
+    const startedAt = Date.now();
     const response = await inner(input, init);
     try {
       const requestInit = init ?? {};
@@ -116,6 +117,7 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
       const record = {
         ts: new Date().toISOString(),
         url: input,
+        durationMs: Date.now() - startedAt,
         request: asJson(
           requestInit.body !== undefined && typeof requestInit.body === "string"
             ? requestInit.body
