@@ -145,8 +145,7 @@ A live config example, serialized from real default specs (always the current wi
 Think of jev as the features you would like to activate to trigger a result in
 your favor: when you see something in a file that is off, the rule is how you
 convey that idea. Each noul side (`true`/`false`) and each score level is a
-way to disambiguate - one side or level per meaning, so the reading cannot
-stand for two things.
+way to disambiguate.
 
 Guidelines, in the order you will need them:
 
@@ -157,9 +156,9 @@ Guidelines, in the order you will need them:
    boundaries" does not. If a criterion cannot be checked by reading the
    element, the rule cannot measure it (a reachability rule was tried and
    dropped: mean 0.58, no separation - the model cannot see call sites).
-3. **Abstract the defect from the observation - do not overfit the seed.**
-   The criteria must state the generalizable axis the seed exemplifies, not
-   quote the seed. "Identifiers of the same role mix word-order patterns"
+3. **Abstract the rule from the target - do not overfit.**
+   The criteria must state the generalizable axis the target exemplifies, not
+   quote it. "Identifiers of the same role mix word-order patterns"
    is a rule; "fetchUsers beside usersRetriever" is a fixture. A criteria
    that recites the seed validates the observation, not the rule: the probe
    fires on the seed files and reads healthy code as hot, because healthy
