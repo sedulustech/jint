@@ -13,7 +13,7 @@ export const REQUEST_COLUMNS = [
   // question count = rules judged in this request; sorts with rule (data, not signal)
   { key: "rule" as const, label: "rule count", width: "w-24" },
   // wire duration of the classifier call (recorded durationMs; mtime heuristic on old runs)
-  { key: "duration" as const, label: "dur", width: "w-16" },
+  { key: "duration" as const, label: "duration", width: "w-20" },
 ];
 
 export type RequestColumnKey = (typeof REQUEST_COLUMNS)[number]["key"];
