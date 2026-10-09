@@ -85,7 +85,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **sdk** — the in-process library a consumer calls: the engine layer (config, walk, classify,
   lint, output) plus its public barrel. Same process as its caller — "SDK" says call-into-me;
   the retired synonym "engine" implied a separate runtime, which this layer never is.
-- **target** — what a rule asks the sdk to resolve into its environment (rule perspective;
+- **target** — what a rule asks the sdk to resolve into state (rule perspective;
   the input kind is the CLI perspective). Declarative or a selection function.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
 - **walker / walk** — the pass that turns parsed sources into inventory elements (and the
