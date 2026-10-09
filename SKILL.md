@@ -26,44 +26,26 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 - **State shape changes readings.** One state x many questions is valid; the
   matrix form (many states + many questions in one call) averages everything.
   jint handles this for you - never stack elements into one state yourself.
-- Live docs: https://docs.typesafe.ai/llms.txt (System One, state, primitives,
-  confidence). The installed SDK: node_modules/@typesafe-ai/sdk.
 
 ## Setup
 
 - Requires bun. `TYPESAFE_API_KEY` in the environment (used as-is).
 - Recording is always on: the exact wire bytes per question land under
-  `~/.jint/runs/` (or wherever `JEV_DIR` points — note it wins even if
-  relative, e.g. a stale `tmp/requests` in env redirects requests into the
-  repo); recording is always on. At end of run jint prints one
-  stderr line naming the run dir:
-  `jint: requests -> <dir> (N calls)` — trust that line, not the docs.
+  `~/.jint/runs/` (or wherever `JEV_DIR` points).
   Read the recorded request files when you need to see precisely what the model saw. Every run
   also persists `report.json` (the canonical output — the same bytes `--json` prints) and is
   browsable in the measurement UI - see "Give the user the link" below.
 
 ## Output
 
-- Default stdout: one raw line per finding —
-  `path@L<line>  rule  level  score  [note]  run=<id>` — findings only, no table, no color.
-  The element id never prints (it is run-scoped, an internal of the report's `input` key, not a
-  query surface).
-- Element-scoped runs echo to stderr (never stdout): a resolution map per query item
-  (`jint: @L36-L60 -> 3 elements: L38, L40, L58-L59`), then per element an edge-only section
-  carrying its verdicts —
-  `--- path@L38 (1 line) - is_greppable: error 0.23 ---` + the first/last source lines
-  (a `... N more lines ...` marker between when the span exceeds two lines).
-  `run=<id>` appears only when recording is active. Totals print on stderr:
-  `jint: N problems (E errors, W warnings)`.
-- `--json`: the canonical report bytes on stdout, byte-identical to the run's `report.json`
-  (measurements, findings with note + location, errors, notes). It is a stdout FORMAT choice,
-  never an artifact gate — report.json is written for every recording run.
 - Env summary: recording is always on (there is no off switch); `JEV_DIR` moves where
   run dirs land (default `~/.jint/runs`).
 
+## CLI
+
 CLI usage lives in `jint --help` - the tool's own contract, not duplicated here.
 
-## Rules are data (jint.config.json or --config probe.json)
+## Rules are data 
 
 Every rule (noul included) may carry `instructions`: the yes/no question the
 model answers, one sentence, stating the claim. The compiler always prepends a
