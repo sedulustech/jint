@@ -34,8 +34,7 @@
       "handle": {
         "map": ["pass", "pass", "warn", "error"]
       },
-      "include": ["**/*.ts", "**/*.tsx"],
-      "exclude": null
+      "include": ["**/*.ts", "**/*.tsx"]
     },
     {
       "name": "is_value_tokenized",
