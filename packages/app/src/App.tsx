@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +34,8 @@ function RunPicker({
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // opening the palette always shows fresh runs: invalidate so the runs query refetches
+  const queryClient = useQueryClient();
 
   // ctrl/cmd+K toggles the palette, the way every editor does it
   useEffect(() => {
@@ -68,7 +70,10 @@ function RunPicker({
       </Button>
       <CommandDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (next) void queryClient.invalidateQueries({ queryKey: ["runs"] });
+        }}
         title="run picker"
         description="filter runs by path"
         className="sm:max-w-[80%]"
@@ -77,7 +82,7 @@ function RunPicker({
           <CommandInput placeholder="filter runs by path…" />
           <CommandList>
             <CommandEmpty>no runs match</CommandEmpty>
-            {runList.slice(0, 50).map((run) => (
+            {runList.slice(0, MAX_RUNS).map((run) => (
               <CommandItem
                 key={run.id}
                 value={`${runLabel(run)} ${run.configPath ?? ""} ${run.id}`}
@@ -100,9 +105,9 @@ function RunPicker({
                 </span>
               </CommandItem>
             ))}
-            {runList.length > 50 && (
+            {runList.length > MAX_RUNS && (
               <div className="px-inner py-related text-caption text-muted-foreground">
-                showing the 50 newest of {runList.length} runs
+                showing the {MAX_RUNS} newest of {runList.length} runs
               </div>
             )}
           </CommandList>
@@ -126,6 +131,8 @@ const reportSearchEditFailure = (cause: unknown): void => {
 const DEFAULT_MODE: Mode = "file";
 // the run route id, shared by navigate and link so the two cannot drift
 const RUN_ROUTE = "/runs/$runId";
+// the picker caps its list client-side; the server returns every run
+const MAX_RUNS = 100;
 
 export function App({ runId }: { runId: string | null }) {
   const { theme, choose } = useTheme();
