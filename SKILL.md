@@ -157,12 +157,12 @@ Guidelines, in the order you will need them:
    element, the rule cannot measure it (a reachability rule was tried and
    dropped: mean 0.58, no separation - the model cannot see call sites).
 3. **Abstract the rule from the target - do not overfit.**
-   The criteria must state the generalizable axis the target exemplifies, not
+   The criteria must state the generalizable dimension the target exemplifies, not
    quote it. "Identifiers of the same role mix word-order patterns"
    is a rule; "fetchUsers beside usersRetriever" is a fixture. A criteria
    that recites the target validates the observation, not the rule: the probe
    fires on the target files and reads healthy code as hot, because healthy
-   code has _other_ instances of the same axis the criteria never names.
+   code has _other_ instances of the same dimension the criteria never names.
    Examples are encouraged - use abstracted placeholders (john_doe-style
    roles: a fetch pattern, a builder pattern), never the real file's names.
 4. **One attribute per rule.** Two ideas in one criteria halves its precision.

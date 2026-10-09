@@ -20,7 +20,7 @@ measurement its handle judged actionable and is the only output that demands act
   Composites exist only during the walk.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
-- **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
+- **dimension** — one semantic property of the measured subject (intent vs instruction; arity vs parameter naming). Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.\n\n- **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
   union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
   the walk-time form additionally carries the element's source. Targets stay rule-side: a rule
