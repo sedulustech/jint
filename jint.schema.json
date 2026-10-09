@@ -34,6 +34,7 @@
                 "required": ["name", "instructions", "criteria", "target", "handle"],
                 "properties": {
                   "name": {
+                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
                     "type": "string"
                   },
                   "kind": {
@@ -45,6 +46,7 @@
                     "type": "string"
                   },
                   "criteria": {
+                    "description": "The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.",
                     "type": "object",
                     "required": ["true", "false"],
                     "properties": {
@@ -201,6 +203,7 @@
                 "required": ["name", "kind", "criteria", "instructions", "target", "handle"],
                 "properties": {
                   "name": {
+                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
                     "type": "string"
                   },
                   "kind": {

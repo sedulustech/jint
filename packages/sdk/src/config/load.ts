@@ -55,13 +55,22 @@ const SCOPE_SCHEMA = Type.Array(Type.String());
 // probes ship real questions and real handles) - a rule without its question would classify
 // under an invented prompt and silently recalibrate every reading.
 const NOUL_RULE_SCHEMA = Type.Object({
-  name: Type.String(),
+  name: Type.String({
+    description:
+      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+  }),
   kind: Type.Optional(Type.Literal("noul")),
   instructions: Type.String({
     description:
       "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.",
   }),
-  criteria: Type.Object({ true: Type.String(), false: Type.String() }),
+  criteria: Type.Object(
+    { true: Type.String(), false: Type.String() },
+    {
+      description:
+        "The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.",
+    },
+  ),
   target: TARGET_SCHEMA,
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
@@ -69,7 +78,10 @@ const NOUL_RULE_SCHEMA = Type.Object({
 });
 
 const CHOICE_RULE_SCHEMA = Type.Object({
-  name: Type.String(),
+  name: Type.String({
+    description:
+      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+  }),
   kind: Type.Literal("choice"),
   criteria: Type.Array(Type.String(), { minItems: 2 }),
   instructions: Type.String(),

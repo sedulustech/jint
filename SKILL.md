@@ -45,7 +45,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 CLI usage lives in `jint --help` - the tool's own contract, not duplicated here.
 
-## Rules are data 
+## Rules are data
 
 Every rule (noul included) may carry `instructions`: the yes/no question the
 model answers, one sentence, stating the claim. The compiler always prepends a
@@ -54,43 +54,67 @@ never state the element kind yourself. When `instructions` is absent on a noul
 rule, the generic task sentence is used — prefer writing the real question.
 Changing instructions is a recalibration event.
 
+<!-- rule-schema:begin (generated - do not edit; bun run schema) -->
+
+| key            | meaning                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | The rule id: findings join back to it; config rules later in the array override same-named earlier ones.                                              |
+| `kind`         | noul                                                                                                                                                  |
+| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading. |
+| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                |
+| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                               |
+| `handle`       | When readings surface as findings; the shape depends on kind (the two descriptions below).                                                            |
+| `include`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                |
+| `exclude`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                |
+
+Handles, both kinds - direction lives in the handle, never in prose:
+
+- **noul** (yes/no): `Noul handle (noul rules only): per-threshold comparison operators declare the direction - warn is the wider region, error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain a threshold value); absent = everything surfaces.`
+- **choice** (scored rubric): `Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.`
+
+A live config example, serialized from real default specs (always the current wire shape):
+
 ```json
 {
   "$schema": "./jint.schema.json",
   "rules": [
     {
-      "name": "is_seam_isolated",
-      "target": "functions",
+      "name": "is_greppable",
+      "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
       "criteria": {
-        "true": "Vendor SDK details stay inside the adapter boundary; nothing vendor-specific escapes to callers.",
-        "false": "Vendor SDK details leak: vendor types in exported signatures, vendor error classes escaping, or callers must know the vendor."
+        "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+        "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
       },
-      "handle": { "warn_at": 0.5, "error_at": 0.3 }
+      "target": "functions",
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.6
+        }
+      }
     },
     {
-      "name": "is_readable",
+      "name": "is_cognitively_complex",
       "kind": "choice",
-      "target": "definitions",
-      "instructions": "How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness.",
+      "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
       "criteria": [
-        "Names, structure, and types make the story obvious.",
-        "Mostly clear; a few opaque names or a slightly awkward shape.",
-        "Reader must reconstruct intent from implementation details.",
-        "Dense, misleading names, or structure that fights the problem."
+        "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+        "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+        "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
       ],
-      "handle": { "warn_at": 1, "error_at": 2 }
+      "target": "definitions",
+      "handle": {
+        "map": ["pass", "warn", "error"]
+      }
     }
   ]
 }
 ```
 
-- **Polarity is inferred from threshold ORDER**: warn_at < error_at = high-bad
-  (fires above); error_at < warn_at = high-good (fires below). The order MUST
-  match the criteria direction: if criteria.true describes the GOOD case,
-  findings fire LOW (error_at < warn_at). Getting this backwards fires on
-  healthy code - the most common authoring bug.
-- Every rule ships a real handle; probing = read the `--json` measurements, findings are
-  noise while calibrating (a probe handle is a real handle, never null).
+<!-- rule-schema:end -->
+
 - `kind: "choice"` = scored rubric; criteria is an ordered list of level
   descriptions, answer is a 0..N score (can be fractional). Use for graded
   properties (readability); use noul for yes/no claims.
@@ -238,12 +262,21 @@ was suspended until its criteria could name an observable condition.
 ## SDK (programmatic)
 
 ```ts
-import { classify, defaultRules } from "jint";
-const { measurements, errors, inventory } = await classify("export const x = 1;", defaultRules, {
-  language: "typescript",
-});
+import { classify } from "jint";
+import { defaultRules } from "@jint/defaults";
+
+const { measurements, errors, inventory, oversized } = await classify(
+  "export const x = 1;",
+  defaultRules,
+  { language: "typescript" },
+);
 ```
 
-Raw measurements, no handles applied. `Measurement = { rule, element, value,
-stage }` - value is a noul probability or a rubric score. Programmatic rules
-may use function handles; config files use data handles only.
+The sdk knows no rules of its own - the baseline is injected by the caller
+(the CLI wires its bundled defaults; tests wire @jint/defaults). Raw
+measurements, no handles applied: `Measurement = { rule, input, value,
+probabilities?, confidence?, element? }` - input is the file path (or
+path#span for elements), value is a noul probability or a rubric score.
+Decompose failures surface in `errors` (WALK_FAILED), never thrown; unit-scoped
+rules still classify. Programmatic rules may use function handles; config
+files use data handles only.
