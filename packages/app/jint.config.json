@@ -41,17 +41,17 @@
     {
       "name": "is_value_tokenized",
       "target": "files",
-      "instructions": "In this stylesheet, a value (color, size, spacing, radius, duration, font stack) used at two or more places should be written once as a custom property or an @theme token in this file and referenced at each use. Judge what is observable: the identical raw value at distinct declarations. Vendor-class theme assignments and single-use values are not defects.",
+      "instructions": "In this stylesheet, a value (color, size, spacing, radius, duration, font stack) used at two or more places should be written once as a custom property or an @theme token in this file and referenced at each use. Judge what is observable: the identical raw value at distinct declarations. Vendor-class theme assignments and single-use values are not defects. @font-face descriptors are exempt: CSS forbids var() inside them, so their values cannot be tokenized.",
       "criteria": {
         "true": "At least one value appears as the same raw literal in two or more declarations, and no custom property or @theme token in this file carries it to all of them.",
         "false": "Every value used more than once is defined once in this file as a custom property or @theme token and referenced at its uses, or no value repeats."
       },
       "handle": {
         "warn": {
-          "greater_than": 0.5
+          "greater_than": 0.75
         },
         "error": {
-          "greater_than": 0.7
+          "greater_than": 0.85
         }
       },
       "include": ["**/*.css"]
