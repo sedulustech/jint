@@ -64,21 +64,21 @@ noted future guard for installer-delivered binaries — deliberately skipped whi
 The repo has no early tags, so the FIRST generated notes body covers the entire history. Either
 accept that for `v0.1.0` or pass `--notes-start-tag` once an earlier tag exists.
 
-## Testing the release flow without releasing
+## The release flow
 
-1. `workflow_dispatch` the release workflow with `draft` enabled (or push a disposable tag like
-   `v0.0.0-test.1`).
-2. Inspect the draft release and its generated notes — drafts are visible only to maintainers.
-3. Delete the draft and the tag. Zero public trace.
+1. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
+2. `release.yml` builds all three binaries, seeds the notes from `git log <prev-tag>..TAG`
+   (commits grouped by scope prefix, EDIT-ME slots for intro and Highlights), and creates a
+   DRAFT release with the binaries attached.
+3. You open the draft, edit the prose in the browser, and press Publish — the tag is created at
+   publish time and nothing is public before the click.
+4. Disposable dry run: dispatch the workflow (or push a `v0.0.0-test.1` tag), inspect the
+   draft, delete it with `gh release delete <tag> --cleanup-tag`.
 
-Notes can also be generated locally without pushing anything:
-
-```
-gh api -X POST repos/sedulustech/jint/releases/generate-notes \
-  -f tag_name=v0.1.0 -f target_commitish=main
-```
-
-The endpoint computes the body for a hypothetical tag; nothing is created.
+Notes can be previewed locally without creating anything:
+`gh api -X POST repos/sedulustech/jint/releases/generate-notes -f tag_name=v0.1.0 -f target_commitish=<sha>`.
+For a push-only history that endpoint yields only a Full Changelog link (it lists PRs, not
+commits), which is why the seed is a local `git log` parse instead.
 
 ## Notes on the darwin leg
 
