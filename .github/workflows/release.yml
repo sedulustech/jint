@@ -1,0 +1,146 @@
+name: Release
+
+# Draft-then-publish: a tag push builds every target and attaches them to a DRAFT release
+# with seeded notes; a human edits the prose and presses Publish. Nothing is public before
+# the click, and merges can never trigger this (tags are the only release trigger).
+# The runbook is RELEASING.md.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to draft a release for (dry runs; defaults to the branch ref, which will fail --verify-tag)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build (linux-x64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.x
+      - run: bun ci
+      # host build: the runner's platform IS the target
+      - run: bun scripts/build.ts
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: jint-linux-x64
+          path: jint
+          if-no-files-found: error
+
+  build-darwin:
+    name: Build (darwin, sign + notarize)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.x
+      - run: bun ci
+      # one runner emits both darwin targets (scripts/build.ts cross-compiles)
+      - run: |
+          bun scripts/build.ts darwin-arm64
+          bun scripts/build.ts darwin-x64
+      - name: Import signing identity
+        env:
+          P12_BASE64: ${{ secrets.APPLE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
+        run: |
+          KEYCHAIN=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          # -A before -T: without it, codesign cannot read the key and stalls on a GUI prompt
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+      - name: Sign
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          IDENTITY="Developer ID Application: Julian Cruciani ($TEAM_ID)"
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            codesign --force --timestamp --options runtime --sign "$IDENTITY" "$f"
+            codesign --verify --strict --verbose=2 "$f"
+          done
+      - name: Notarize
+        env:
+          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+        run: |
+          KEY="$RUNNER_TEMP/AuthKey_$API_KEY_ID.p8"
+          echo "$API_KEY_BASE64" | base64 --decode > "$KEY"
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            ditto -c -k --keepParent "$f" "$f.zip"
+            xcrun notarytool submit "$f.zip" --key "$KEY" --key-id "$API_KEY_ID" --issuer "$ISSUER_ID" --wait
+          done
+      - name: Verify Gatekeeper acceptance
+        run: |
+          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
+            codesign --verify --strict --verbose=2 "$f"
+            spctl -a -vv -t open --context context:primary-signature "$f"
+          done
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: jint-darwin-notarized
+          path: |
+            out/jint-darwin-arm64
+            out/jint-darwin-x64
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    needs: [build-linux, build-darwin]
+    runs-on: ubuntu-24.04
+    steps:
+      # full history + tags: the notes seed walks <prev-tag>..<tag>
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          path: dist
+      - name: Smoke-test every binary
+        run: |
+          chmod +x dist/jint-linux-x64/jint
+          dist/jint-linux-x64/jint --version
+      - name: Seed notes (one line per commit since the previous tag)
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          PREV=$(git tag -l --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
+          {
+            echo '<!-- EDIT ME: one or two sentences on what this release is -->'
+            echo
+            if [ -n "$PREV" ]; then
+              git log "$PREV..$TAG" --oneline --no-merges
+            else
+              git log -n 300 --oneline --no-merges
+            fi
+            echo
+            echo "**Full Changelog**: https://github.com/sedulustech/jint/commits/$TAG"
+          } > /tmp/release-body.md
+          cat /tmp/release-body.md
+      # draft only: a human edits the prose and publishes; the tag must match the checkout
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --draft --verify-tag \
+            --title "$TAG" \
+            --notes-file /tmp/release-body.md \
+            dist/jint-linux-x64/jint#jint-linux-x64 \
+            dist/jint-darwin-notarized/jint-darwin-arm64 \
+            dist/jint-darwin-notarized/jint-darwin-x64
