@@ -7,6 +7,11 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
 
+// tmp/ is the shared scratch dir for CLI-process tests; it does not exist on a fresh checkout
+// (gitignored) and sibling files create it only as a side effect of their own setup - relying
+// on their run order was the CI flake. Own the directory this file writes into.
+require("node:fs").mkdirSync("tmp", { recursive: true });
+
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.
 // Generous ceiling: every run here boots a whole bun process, and on a loaded CI runner a
