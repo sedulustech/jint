@@ -37,14 +37,13 @@ pinning freezes what already runs). Applies to `checkout`, `setup-bun`, `upload-
 
 ### Runner images are pinned, not `-latest`
 
-`ubuntu-24.04` not `ubuntu-latest` (migrates to 26.04 on 2026-10-19; builds must stay
-reproducible across the switch). `macos-26` resolves to the macOS 26 arm64 image the first
-green matrix ran on; `macos-15-arm64` sat in a contended queue, `macos-14` is deprecated.
+The pinned values live in the workflow files; the rationale for each is recorded beside them
+(image-migration dates, queue contention, deprecations at pin time).
 
-### Bun is pinned to `1.4.x`
+### Bun is pinned to a major line
 
-A second Bun leg added concurrency and flake surface, not signal — setup-bun's `latest`
-resolved to the same line anyway.
+A second Bun leg added concurrency and flake surface, not signal — the pin lives in the workflow
+files beside that rationale.
 
 ### Tests run serially in CI
 
@@ -59,26 +58,34 @@ eliminates long-lived _cloud_ credentials and we have none (the Apple p8 key is 
 replaceable by OIDC). A GitHub Environment with a required reviewer on the release job is the
 noted future guard for installer-delivered binaries — deliberately skipped while solo.
 
-### Release tags should be seeded with `--notes-start-tag`
+### Release notes range is bounded by the previous tag
 
-The repo has no early tags, so the FIRST generated notes body covers the entire history. Either
-accept that for `v0.1.0` or pass `--notes-start-tag` once an earlier tag exists.
+The FIRST generated notes body (no earlier tag) covers the entire history — accept that for the
+first release or pass `--notes-start-tag` once an earlier tag exists.
 
 ## The release flow
 
-1. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
+1. Tag and push: `git tag <version> && git push origin <version>` (tag shape `v*`).
 2. `release.yml` builds all three binaries, seeds the notes from `git log <prev-tag>..TAG`
    (commits grouped by scope prefix, EDIT-ME slots for intro and Highlights), and creates a
    DRAFT release with the binaries attached.
 3. You open the draft, edit the prose in the browser, and press Publish — the tag is created at
    publish time and nothing is public before the click.
-4. Disposable dry run: dispatch the workflow (or push a `v0.0.0-test.1` tag), inspect the
+4. Disposable dry run: dispatch the workflow (or push a throwaway `v*` tag), inspect the
    draft, delete it with `gh release delete <tag> --cleanup-tag`.
 
 Notes can be previewed locally without creating anything:
-`gh api -X POST repos/sedulustech/jint/releases/generate-notes -f tag_name=v0.1.0 -f target_commitish=<sha>`.
+`gh api -X POST repos/sedulustech/jint/releases/generate-notes -f tag_name=<version> -f target_commitish=<sha>`.
 For a push-only history that endpoint yields only a Full Changelog link (it lists PRs, not
 commits), which is why the seed is a local `git log` parse instead.
+
+### No versions in prose
+
+Versioned identifiers (tags, runner images, toolchains, action majors) live ONLY in the workflow
+files; this README says `<version>`, `<prev-tag>`, "the pinned runner image". When a pin ages
+(outdated runner, deprecated runtime, new major), the bump is a calculated change: move the pin
+in the workflow and update its rationale here in the same commit — never let this file state a
+concrete version that can drift from what actually runs.
 
 ## Notes on the darwin leg
 
