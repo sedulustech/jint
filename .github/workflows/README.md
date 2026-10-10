@@ -1,7 +1,8 @@
 # CI & Release decisions
 
-The workflows in this directory and the decisions behind them. Written 2026-10-10, after the
-release-path design conversation; update it when a decision changes, not when code does.
+The workflows in this directory and the decisions behind them. Update this file when a
+decision changes, not when code does. This file is stateless: no dates, no run history, no
+concrete versions, no inventory of what currently exists — only decisions and their reasons.
 
 ## The three workflows
 
@@ -18,12 +19,11 @@ release-path design conversation; update it when a decision changes, not when co
 The release step is a plain run step calling the preinstalled `gh` CLI with `--generate-notes`.
 Reasons:
 
-- **Automated notes are an API feature, not the action's.** `--generate-notes` and
-  `softprops/action-gh-release`'s `generate_release_notes: true` hit the same endpoint and
-  produce the identical body. Nothing is lost by dropping the action.
+- **Automated notes are an API feature, not the action's.** `--generate-notes` and a release
+  action's `generate_release_notes: true` hit the same endpoint and produce the identical
+  body. Nothing is lost by dropping the action.
 - **One less third-party action** with `contents: write` over the repo: no SHA to pin, no
-  Node-runtime deprecation to track (softprops `@v2` is the deprecated Node 20 branch; `@v3`
-  exists — that was the alternative), failures are ordinary CLI exit codes.
+  action-runtime deprecation to track, failures are ordinary CLI exit codes.
 - Extra knobs the action doesn't surface: `--notes-start-tag` (bound the changelog range),
   `--verify-tag` (fail if the tag doesn't match the checkout), `--prerelease`.
 
@@ -31,9 +31,9 @@ Drafts are invisible to the public; the disposable-tag protocol below relies on 
 
 ### Actions are pinned by full commit SHA
 
-Mutable tags (`@v5`) can be repointed by a compromised upstream. Every `uses:` carries the
+Mutable version tags can be repointed by a compromised upstream. Every `uses:` carries the
 immutable SHA with the readable tag in a comment (the CI logs print the resolved SHA anyway —
-pinning freezes what already runs). Applies to `checkout`, `setup-bun`, `upload-artifact`.
+pinning freezes what already runs), for every action this repo uses.
 
 ### Runner images are pinned, not `-latest`
 
@@ -53,15 +53,16 @@ under `--parallel` (surfaced as 5000ms timeouts). The suite is process-bound, no
 ### Tags are the only release trigger
 
 CI (main pushes) and CD (tag pushes) are decoupled: a merge can never publish. This is the part
-of the "environments/OIDC" best-practice bundle that applies here. The rest does not: OIDC
-eliminates long-lived _cloud_ credentials and we have none (the Apple p8 key is not
-replaceable by OIDC). A GitHub Environment with a required reviewer on the release job is the
-noted future guard for installer-delivered binaries — deliberately skipped while solo.
+of the "environments/OIDC" best-practice bundle that applies here; the rest does not — OIDC
+eliminates long-lived _cloud_ credentials, and the Apple p8 key is not replaceable by OIDC. A
+GitHub Environment with a required reviewer on the release job is the future guard for
+installer-delivered binaries; add it when the maintainer count makes unattended publishes
+risky.
 
 ### Release notes range is bounded by the previous tag
 
-The FIRST generated notes body (no earlier tag) covers the entire history — accept that for the
-first release or pass `--notes-start-tag` once an earlier tag exists.
+When no previous tag exists, the generated notes body covers the entire history; pass
+`--notes-start-tag` to bound the range once an earlier tag exists.
 
 ## The release flow
 
@@ -89,12 +90,11 @@ concrete version that can drift from what actually runs.
 
 ## Notes on the darwin leg
 
+`release.yml`'s darwin job reuses the steps proven in `sign-notarize.yml`.
+
 `scripts/build.ts` cross-compiles both darwin targets on one arm64 runner. Signing uses the
 Developer ID identity from `APPLE_P12_BASE64`/`APPLE_P12_PASSWORD`; notarization uses an App
 Store Connect API key (`APPLE_API_KEY_*`, `APPLE_ISSUER_ID`) rather than Apple ID + app
 password — revocable, org-scoped, no 2FA in CI. No stapling: the artifact is a bare Mach-O in
 the release, and Gatekeeper fetches the ticket online on first run (`spctl -a -t open` is the
 assessment that applies to a plain executable).
-
-The workflow lives at `sign-notarize.yml` and its steps are the proven-green source for
-`release.yml`'s darwin job (two green runs 2026-10-05).
