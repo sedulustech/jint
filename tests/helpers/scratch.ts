@@ -21,6 +21,13 @@ export function scratchFile(name: string): string {
   return join(scratchRoot(), `${name}-${process.pid}-${Date.now()}`);
 }
 
+/** A unique, freshly created directory inside the scratch dir. */
+export function scratchDir(name: string): string {
+  const dir = join(scratchRoot(), `${name}-${process.pid}-${Date.now()}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 /** Remove a scratch file when present; failures are ignored (best-effort cleanup). */
 export function rmScratchFile(path: string): void {
   try {

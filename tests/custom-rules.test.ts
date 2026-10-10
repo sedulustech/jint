@@ -1,14 +1,15 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
+import { rmScratchTree, scratchDir } from "./helpers/scratch.ts";
 
 // custom-tier end-to-end: a config-declared customRules fragment, loaded through the jint:sdk virtual
 // module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
 // fatal-vs-streamed error boundaries) — see src/core/custom-rules/*.test.ts for the unit level.
 
-const DIR = "/tmp/jint-custom-rules-e2e";
+const DIR = scratchDir("jint-custom-rules-e2e");
 
 const FIXTURE = [
   "export function alpha() {",
@@ -72,7 +73,7 @@ export default defineConfig({
 
 function setup(name: string, rule: string, config?: Record<string, unknown>): string {
   const dir = DIR + "/" + name;
-  rmSync(dir, { recursive: true, force: true });
+  rmScratchTree(dir);
   mkdirSync(dir, { recursive: true });
   writeFileSync(dir + "/fixture.ts", FIXTURE);
   writeFileSync(dir + "/rule.ts", rule);
@@ -94,7 +95,7 @@ const jev = startMockJev();
 const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
 afterAll(() => {
   jev.stop();
-  rmSync(DIR, { recursive: true, force: true });
+  rmScratchTree(DIR);
 });
 
 async function runIn(dir: string, env: Record<string, string | undefined> = {}) {

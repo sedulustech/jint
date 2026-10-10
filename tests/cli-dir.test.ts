@@ -1,9 +1,9 @@
 import { describe, test, expect } from "bun:test";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runCli, runCliSync } from "./helpers/cli.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
+import { rmScratchTree, scratchDir } from "./helpers/scratch.ts";
 
 // a key with no reachable jev: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
@@ -36,7 +36,7 @@ describe("cli: dir walk ignores", () => {
   test.concurrent("config exclude anchors at the config dir: walking the excluded dir itself measures nothing", async () => {
     // git parity for scope patterns: a config exclude naming the tests subtree excludes the
     // whole walk even when the walk ROOT is that subtree (paths carry their config-relative prefix)
-    const tmpRoot = await mkdtemp(join(tmpdir(), "jint-scope-base-"));
+    const tmpRoot = scratchDir("jint-scope-base");
     try {
       await mkdir(join(tmpRoot, "tests", "sub"), { recursive: true });
       await Bun.write(join(tmpRoot, "tests", "sub", "x.ts"), "export const x = 1;\n");
@@ -56,7 +56,7 @@ describe("cli: dir walk ignores", () => {
       ].filter(Boolean);
       expect(attempted).toEqual([]);
     } finally {
-      await rm(tmpRoot, { recursive: true, force: true });
+      rmScratchTree(tmpRoot);
     }
   });
   test.concurrent("rules-only config (no input) validates and runs with a directory positional", async () => {
