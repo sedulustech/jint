@@ -1,100 +1,33 @@
-# CI & Release decisions
+# CI & Release
 
-The workflows in this directory and the decisions behind them. Update this file when a
-decision changes, not when code does. This file is stateless: no dates, no run history, no
-concrete versions, no inventory of what currently exists — only decisions and their reasons.
+How code ships from this repository. Stateless: no dates, no versions, no history — the
+workflow files are the source of truth for pins and triggers; this file describes the flow.
 
-## The three workflows
+## CI
 
-| file                | trigger                          | job                                                                                |
-| ------------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| `ci.yml`            | push/PR to main, manual dispatch | matrix build + full test suite                                                     |
-| `sign-notarize.yml` | manual dispatch only             | darwin cross-compile, sign, notarize, Gatekeeper-verify — the credential-proof leg |
-| `release.yml`       | tag push (`v*`), manual dispatch | build all three targets, attach to a GitHub Release                                |
+Every push to main and every PR runs the matrix build and the full test suite (serial on
+purpose — the suite spawns processes, and a parallel run starves the tail on small runners).
+Failures on main block nothing else; there is no auto-rollup.
 
-## Decisions
+## Release
 
-### Releases use `gh release create`, not a release action
+1. Tag a `v*` version and push the tag.
+2. The release workflow builds all binaries (linux on the ubuntu runner; both darwin targets
+   cross-compiled, signed, and notarized on the macos runner), seeds the release notes from
+   `git log <prev-tag>..<tag>` (commits grouped by scope prefix, EDIT-ME slots for the intro
+   and Highlights), and creates a DRAFT release with the binaries attached.
+3. Open the draft, edit the prose, press Publish. The tag is created at publish time; nothing
+   is public before the click.
 
-The release step is a plain run step calling the preinstalled `gh` CLI with `--generate-notes`.
-Reasons:
+To dry-run: dispatch the release workflow (or push a throwaway `v*` tag), inspect the draft,
+delete it with `gh release delete <tag> --cleanup-tag`.
 
-- **Automated notes are an API feature, not the action's.** `--generate-notes` and a release
-  action's `generate_release_notes: true` hit the same endpoint and produce the identical
-  body. Nothing is lost by dropping the action.
-- **One less third-party action** with `contents: write` over the repo: no SHA to pin, no
-  action-runtime deprecation to track, failures are ordinary CLI exit codes.
-- Extra knobs the action doesn't surface: `--notes-start-tag` (bound the changelog range),
-  `--verify-tag` (fail if the tag doesn't match the checkout), `--prerelease`.
-
-Drafts are invisible to the public; the disposable-tag protocol below relies on that.
-
-### Actions are pinned by full commit SHA
-
-Mutable version tags can be repointed by a compromised upstream. Every `uses:` carries the
-immutable SHA with the readable tag in a comment (the CI logs print the resolved SHA anyway —
-pinning freezes what already runs), for every action this repo uses.
-
-### Runner images are pinned, not `-latest`
-
-The pinned values live in the workflow files; the rationale for each is recorded beside them
-(image-migration dates, queue contention, deprecations at pin time).
-
-### Bun is pinned to a major line
-
-A second Bun leg added concurrency and flake surface, not signal — the pin lives in the workflow
-files beside that rationale.
-
-### Tests run serially in CI
-
-Nearly every case spawns its own CLI process; the 2-vCPU runner starves the tail-most spawn
-under `--parallel` (surfaced as 5000ms timeouts). The suite is process-bound, not CPU-bound.
-
-### Tags are the only release trigger
-
-CI (main pushes) and CD (tag pushes) are decoupled: a merge can never publish. This is the part
-of the "environments/OIDC" best-practice bundle that applies here; the rest does not — OIDC
-eliminates long-lived _cloud_ credentials, and the Apple p8 key is not replaceable by OIDC. A
-GitHub Environment with a required reviewer on the release job is the future guard for
-installer-delivered binaries; add it when the maintainer count makes unattended publishes
-risky.
-
-### Release notes range is bounded by the previous tag
-
-When no previous tag exists, the generated notes body covers the entire history; pass
-`--notes-start-tag` to bound the range once an earlier tag exists.
-
-## The release flow
-
-1. Tag and push: `git tag <version> && git push origin <version>` (tag shape `v*`).
-2. `release.yml` builds all three binaries, seeds the notes from `git log <prev-tag>..TAG`
-   (commits grouped by scope prefix, EDIT-ME slots for intro and Highlights), and creates a
-   DRAFT release with the binaries attached.
-3. You open the draft, edit the prose in the browser, and press Publish — the tag is created at
-   publish time and nothing is public before the click.
-4. Disposable dry run: dispatch the workflow (or push a throwaway `v*` tag), inspect the
-   draft, delete it with `gh release delete <tag> --cleanup-tag`.
-
-Notes can be previewed locally without creating anything:
+To preview notes without creating anything:
 `gh api -X POST repos/sedulustech/jint/releases/generate-notes -f tag_name=<version> -f target_commitish=<sha>`.
-For a push-only history that endpoint yields only a Full Changelog link (it lists PRs, not
-commits), which is why the seed is a local `git log` parse instead.
 
-### No versions in prose
+## Conventions
 
-Versioned identifiers (tags, runner images, toolchains, action majors) live ONLY in the workflow
-files; this README says `<version>`, `<prev-tag>`, "the pinned runner image". When a pin ages
-(outdated runner, deprecated runtime, new major), the bump is a calculated change: move the pin
-in the workflow and update its rationale here in the same commit — never let this file state a
-concrete version that can drift from what actually runs.
-
-## Notes on the darwin leg
-
-`release.yml`'s darwin job reuses the steps proven in `sign-notarize.yml`.
-
-`scripts/build.ts` cross-compiles both darwin targets on one arm64 runner. Signing uses the
-Developer ID identity from `APPLE_P12_BASE64`/`APPLE_P12_PASSWORD`; notarization uses an App
-Store Connect API key (`APPLE_API_KEY_*`, `APPLE_ISSUER_ID`) rather than Apple ID + app
-password — revocable, org-scoped, no 2FA in CI. No stapling: the artifact is a bare Mach-O in
-the release, and Gatekeeper fetches the ticket online on first run (`spctl -a -t open` is the
-assessment that applies to a plain executable).
+- Actions are pinned by full commit SHA; bumps move the pin and nothing else.
+- Runner images and toolchains are pinned, never `-latest`.
+- Merges never publish: only a tag push can start a release.
+- Releases use the `gh` CLI (`--draft`, `--notes-file`, `--verify-tag`), not a release action.
