@@ -7,10 +7,9 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 // runs exercise the worktree's own rules and calibration
 const ROOT = import.meta.dir + "/..";
 
-// tmp/ is the shared scratch dir for CLI-process tests; it does not exist on a fresh checkout
-// (gitignored) and sibling files create it only as a side effect of their own setup - relying
-// on their run order was the CI flake. Own the directory this file writes into.
-require("node:fs").mkdirSync("tmp", { recursive: true });
+// the shared scratch dir: every file that writes into tmp/ creates it through the helper -
+// relying on a sibling file's mkdir was the CI flake (file-order dependency on a fresh checkout)
+import { rmScratchFile, scratchFile } from "./helpers/scratch.ts";
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.
@@ -239,6 +238,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // the listed file was judged: the transport failure names it (subject came from the list)
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
+    rmScratchFile(list);
   });
 
   test.concurrent("a path-list entry that is not in the walk is a NOTE, never silence", async () => {
@@ -256,7 +256,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("jint paths - < file: the piped list IS the judged subject", async () => {
-    const list = `tmp/cli-paths-list-${Date.now()}.txt`;
+    const list = scratchFile("cli-paths-list") + ".txt";
     require("node:fs").writeFileSync(list, "tests/fixtures/sample-file.ts\n");
     const proc = await runShell(`bun ${CLI} paths - < ${list} --json --rule is_greppable`, {
       env: NO_SERVICE,
@@ -266,6 +266,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // the transport failure names the listed file: the piped list, not a file argument, selected it
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
+    rmScratchFile(list);
   });
 
   test.concurrent("a noun that is not FIRST -> usage error, exit 2 (no mid-list noun)", async () => {
