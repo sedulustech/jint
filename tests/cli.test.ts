@@ -1,6 +1,7 @@
 import { describe, test, jest, expect, afterEach, afterAll } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { runCli, runShell, CLI_SRC as CLI } from "./helpers/cli.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runCli, runShell, CLI_SRC as CLI, RUNS_DIR } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
@@ -539,12 +540,63 @@ describe("cli: --ui (measure-then-look)", () => {
     const r = await run([src, "--ui"], UI_ENV);
     expect(r.code).toBe(4); // the usual report exit code (ran, measured nothing) — --ui changes none of it
     expect(r.stderr).toContain("jint: ui ->");
-    expect(r.stderr).toContain("#runs/");
-    // the link names the same run the requests notice already does
+    expect(r.stderr).toContain("/runs/");
+    // the link names the same run the requests notice already does (NO_HOLD closed the server,
+    // so the served-run assertion lives in the held-path test below)
     const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(r.stderr)?.[1];
     expect(runId).toBeDefined();
-    expect(r.stderr).toContain("#runs/" + runId);
+    expect(r.stderr).toContain("/runs/" + runId);
     rmScratchFile(src);
+  });
+
+  // The held path, for real: no NO_HOLD gate — spawn, wait for the url line, prove the printed
+  // URL actually serves THIS run, then SIGINT and require the RUN's exit code (the hold is just
+  // the viewer leaving; it must not swallow the report). Import-side spawn because runCli
+  // drains both pipes to EOF, which never comes while the server holds.
+  test.concurrent("held --ui: the printed url serves the run; SIGINT exits with the run's code", async () => {
+    const src = scratchFile("ui-held") + ".ts";
+    writeFileSync(src, "export const one = 1;\n");
+    const proc = Bun.spawn(["bun", CLI, src, "--ui"], {
+      cwd: ROOT,
+      stdout: "ignore",
+      stderr: "pipe",
+      stdin: "ignore",
+      env: { ...process.env, ...NO_SERVICE, JEV_DIR: RUNS_DIR, JINT_UI_DIST: dist },
+    });
+    try {
+      const decoder = new TextDecoder();
+      const reader = proc.stderr.getReader();
+      let stderrText = "";
+      let link: string | undefined;
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        stderrText += decoder.decode(value);
+        link = /jint: ui -> (\S+)/.exec(stderrText)?.[1];
+        if (link !== undefined) break;
+      }
+      expect(link).toBeDefined();
+      const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(stderrText)?.[1];
+      expect(runId).toBeDefined();
+      expect(link).toContain("/runs/" + runId);
+      // the printed URL is live: the page renders, and the store behind it lists a seeded run
+      // (the NO_SERVICE run itself records 0 calls, and the store lists request-bearing runs)
+      mkdirSync(join(RUNS_DIR, "1700000000001-held-seed"), { recursive: true });
+      writeFileSync(join(RUNS_DIR, "1700000000001-held-seed", "1700000000001-files.json"), "{}");
+      const page = await fetch(link!);
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain("jint ui");
+      const api = (await (await fetch(new URL("/api/runs", link))).json()) as {
+        runs: { id: string }[];
+      };
+      expect(api.runs.map((run) => run.id)).toContain("1700000000001-held-seed");
+      proc.kill("SIGINT");
+      expect(await proc.exited).toBe(4); // the RUN's code, not the hold's 0
+    } finally {
+      proc.kill();
+      rmScratchFile(src);
+    }
   });
 
   test.concurrent("exit codes are unchanged with --ui (2 usage, 2 missing entrypoint, 0 help)", async () => {
@@ -565,7 +617,7 @@ describe("cli: --ui (measure-then-look)", () => {
     const r = await run(["--ui"], UI_ENV);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain("jint: ui -> http://localhost:");
-    expect(r.stderr).not.toContain("#runs/");
+    expect(r.stderr).not.toContain("/runs/");
   });
 });
 

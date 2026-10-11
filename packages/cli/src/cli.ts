@@ -101,7 +101,8 @@ export const FLAGS = {
   },
   "--ui": {
     type: "boolean",
-    blurb: "after the run, serve the run UI and hold (Ctrl+C to exit); honors PORT",
+    blurb:
+      "after the run, serve the run UI and hold (Ctrl+C to exit); honors JINT_UI_PORT (or PORT for portless)",
   },
   "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
   "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
@@ -517,15 +518,21 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 0;
   }
 
-  // --ui with no input: viewer-only over the run store, newest first — no run, no deep link,
-  // no classifier calls. An input (positional, stdin noun) composes the run instead.
+  // --ui with no explicit input: viewer-only over the run store, newest first — no run, no
+  // deep link, no classifier calls (config.input does NOT compose the run: the design has
+  // input resolution as usual only when an input is actually given). An input (positional,
+  // stdin noun) measures first, then serves.
   if (
     cliArgs.ui === true &&
     stdinStr === undefined &&
     lintInput === undefined &&
     pathsContent === undefined
   ) {
-    return serveUiHold(undefined);
+    return serveUiHold(undefined, 0, (thrown) => {
+      // viewer-only: no run happened, so a broken UI setup IS the invocation failing (usage/config)
+      usageError(thrown instanceof Error ? thrown.message : String(thrown));
+      return 2;
+    });
   }
 
   try {
@@ -610,26 +617,33 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
 /**
  * The --ui tail: serve the run UI in-process, print the deep link to stderr, and hold until SIGINT
- * (close server, exit clean). A missing run id (viewer-only over the store) prints the plain url.
- * JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations exercise the flag without
- * pinning a process; the run's own exit code still applies.
+ * (close server, exit with the RUN's code — the work already happened; Ctrl+C is just the viewer
+ * leaving). The deep link is the router's PATH route /runs/<id>; the SPA fallback serves it from
+ * the index entry. Viewer-only (no run id) prints the plain url, and its UI failure maps to 2
+ * (usage/config: the invocation itself is broken); the run path maps its UI failure through
+ * exitForThrown instead. JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
+ * exercise the flag without pinning a process.
  */
-async function serveUiHold(runId: string | undefined, exitCode = 0): Promise<number> {
+async function serveUiHold(
+  runId: string | undefined,
+  exitCode = 0,
+  onUiFailure: (thrown: unknown) => number = (thrown) => exitForThrown(thrown),
+): Promise<number> {
   let ui;
   try {
     ui = await startUi();
   } catch (thrown) {
-    usageError(thrown instanceof Error ? thrown.message : String(thrown));
-    return 2;
+    return onUiFailure(thrown);
   }
   const base = ui.url.endsWith("/") ? ui.url.slice(0, -1) : ui.url;
-  process.stderr.write(`jint: ui -> ${runId !== undefined ? `${base}/#runs/${runId}` : base}\n`);
+  process.stderr.write(`jint: ui -> ${runId !== undefined ? `${base}/runs/${runId}` : base}\n`);
   if (process.env.JINT_UI_NO_HOLD === "1") {
     ui.close();
     return exitCode;
   }
-  // The hold owns SIGINT: the import.meta.main handler exits 130 promptly DURING a run, but
-  // once the UI is up Ctrl+C means "close the server, leave cleanly".
+  // The hold OWNS SIGINT — ownership-transferring: the import.meta.main handler exits 130
+  // promptly DURING a run, but once the UI is up Ctrl+C means "close the server, leave
+  // cleanly" with the run's exit code, so the earlier handler must not fire.
   process.removeAllListeners("SIGINT");
   await new Promise<void>((resolveHold) => {
     process.once("SIGINT", () => {
@@ -637,7 +651,7 @@ async function serveUiHold(runId: string | undefined, exitCode = 0): Promise<num
       resolveHold();
     });
   });
-  return 0;
+  return exitCode;
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
