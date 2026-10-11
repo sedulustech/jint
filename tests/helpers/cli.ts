@@ -8,7 +8,6 @@
  * - The runner also runs the vendored retry chain on purpose in the NO_SERVICE tests (~2s per
  *   request), so a tight ceiling kills healthy runs.
  */
-import { describe, test } from "bun:test";
 import { join } from "node:path";
 
 export const CLI_SRC = "packages/cli/src/cli.ts";
@@ -86,16 +85,3 @@ export async function runShell(command: string, opts: RunCliOptions = {}): Promi
   ]);
   return { code: await proc.exited, stdout, stderr };
 }
-
-/**
- * A test in a describe that spawns CLI processes: the same 60s ceiling as the spawn itself.
- * bun:test's default per-test timeout (5s) is an independent, invisible clock that kills healthy
- * runs on slow CI runners while the spawn ceiling thinks all is well - use this inside every
- * describe whose tests spawn, so the two clocks agree.
- */
-export const slowTest = (name: string, fn: () => Promise<void> | Promise<void>) =>
-  test(name, fn, 60_000);
-slowTest.concurrent = (name: string, fn: () => Promise<void> | Promise<void>) =>
-  test.concurrent(name, fn, 60_000);
-
-export { describe };

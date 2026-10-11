@@ -1,11 +1,15 @@
-import { describe, expect } from "bun:test";
-import { runCli, slowTest } from "./helpers/cli.ts";
+import { describe, test, jest, expect } from "bun:test";
+import { runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
+
+// every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
+// (60s), so the framework clock cannot undercut a healthy run on a slow runner
+jest.setTimeout(60_000);
 
 // CONFIG_INVALID exits 2 through the real CLI (moved here from the sdk's load.test.ts when
 // @jint/sdk was split out: sdk unit tests must not spawn the cli).
 describe("cli: config load errors exit 2", () => {
-  slowTest("loads jint.config.json from the current dir", async () => {
+  test("loads jint.config.json from the current dir", async () => {
     const tmpDir = scratchDir("jint-config-test");
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ input: ".", exclude: [] }));
 
@@ -19,7 +23,7 @@ describe("cli: config load errors exit 2", () => {
     rmScratchTree(tmpDir);
   });
 
-  slowTest("broken JSON -> CONFIG_INVALID, exit 2", async () => {
+  test("broken JSON -> CONFIG_INVALID, exit 2", async () => {
     const tmpDir = scratchDir("jint-config-broken");
     Bun.write(tmpDir + "/jint.config.json", "{ broken: true }");
 
@@ -30,7 +34,7 @@ describe("cli: config load errors exit 2", () => {
 });
 
 describe("cli: --dry-run prints the rules that would run, without classifying", () => {
-  slowTest("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
+  test("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
     const tmpDir = scratchDir("jint-dryrun");
     Bun.write(
       tmpDir + "/jint.config.json",
@@ -54,7 +58,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     rmScratchTree(tmpDir);
   });
 
-  slowTest("--disable narrows the printed set to the effective rules", async () => {
+  test("--disable narrows the printed set to the effective rules", async () => {
     const tmpDir = scratchDir("jint-dryrun-disable");
     Bun.write(
       tmpDir + "/jint.config.json",
@@ -73,7 +77,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     rmScratchTree(tmpDir);
   });
 
-  slowTest("config resolving to zero rules: CONFIG_NO_RULES, exit 2", async () => {
+  test("config resolving to zero rules: CONFIG_NO_RULES, exit 2", async () => {
     const tmpDir = scratchDir("jint-dryrun-empty");
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));
 
