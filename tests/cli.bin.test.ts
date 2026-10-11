@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { runCliSync } from "./helpers/cli.ts";
+import { runCli } from "./helpers/cli.ts";
 
 // W5 — the bin is wired and LIVE. The import walls are static (oxlint rules); this one is
 // behavior: the BUILT entry the root package.json "bin" promises must actually run and emit
@@ -16,9 +16,9 @@ describe("W5 - the bin is wired and live", () => {
     expect(pkg.bin?.jint).toBe("./" + BIN);
   });
 
-  test.skipIf(!existsSync(BIN))("the built entry runs a real file and emits findings", () => {
+  test.skipIf(!existsSync(BIN))("the built entry runs a real file and emits findings", async () => {
     // the helper keeps the child's always-on recording out of the real ~/.jint/runs store
-    const proc = runCliSync([TARGET, "--rule", "is_greppable", "--json"], { bin: BIN });
+    const proc = await runCli([TARGET, "--rule", "is_greppable", "--json"], { bin: BIN });
     // 0 (clean) or 1 (error findings) mean the bin worked; 2/3 are usage/internal failures
     expect([0, 1]).toContain(proc.code);
     const report = JSON.parse(proc.stdout);

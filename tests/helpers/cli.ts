@@ -1,13 +1,14 @@
 /**
- * Shared CLI-run plumbing for the e2e suite. Every spawn funnels through here so the env policy
- * lives in exactly one place: recording is always on, so the helper points JEV_DIR at a scratch
- * store — tests must never write to the real ~/.jint/runs. A spawned CLI must get JEV_DIR
- * explicitly because bun captures the environment at process startup — the preload's JEV_DIR
- * mutation does NOT cross spawns; this helper is what keeps child jint runs out of the real store.
+ * The one CLI spawn helper: async Bun.spawn with argv arrays (never a shell - quoting is a test bug
+ * class), both output pipes drained concurrently (no pipe-buffer deadlock), and opt-in stdin as a
+ * string, raw bytes, or a file path. Kill ceiling defaults to 60s: every run boots a whole bun
+ * process and on a loaded CI runner a spawn alone can burn seconds before the CLI's own work
+ * starts
  *
- * Relative bin paths resolve against the repo root, so a per-test cwd (a tmp config dir, say)
- * cannot silently retarget the CLI.
+ * - The runner also runs the vendored retry chain on purpose in the NO_SERVICE tests (~2s per
+ *   request), so a tight ceiling kills healthy runs.
  */
+import { describe, test } from "bun:test";
 import { join } from "node:path";
 
 export const CLI_SRC = "packages/cli/src/cli.ts";
@@ -27,12 +28,23 @@ export interface RunCliResult {
   stderr: string;
 }
 
+export type StdinPayload = string | Uint8Array | { file: string };
+
 export interface RunCliOptions {
   /** Extra env on top of the inherited process env; wins over the JEV_DIR scratch default. */
   env?: Record<string, string | undefined>;
   cwd?: string;
   bin?: string;
   timeout?: number;
+  /** Piped stdin: a string, raw bytes (null separators, invalid UTF-8), or a file to stream. */
+  stdin?: StdinPayload;
+}
+
+function stdinValue(payload: StdinPayload | undefined) {
+  if (payload === undefined) return "ignore";
+  if (typeof payload === "object" && "file" in payload) return Bun.file(payload.file);
+  if (payload instanceof Uint8Array) return new Blob([payload]).stream();
+  return new Blob([payload]).stream();
 }
 
 function childEnv(extra?: Record<string, string | undefined>): Record<string, string | undefined> {
@@ -44,6 +56,7 @@ export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<
     cwd: opts.cwd ?? ROOT,
     stdout: "pipe",
     stderr: "pipe",
+    stdin: stdinValue(opts.stdin),
     env: childEnv(opts.env),
     timeout: opts.timeout,
   });
@@ -54,22 +67,11 @@ export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<
   return { code: await proc.exited, stdout, stderr };
 }
 
-export function runCliSync(args: string[], opts: RunCliOptions = {}): RunCliResult {
-  const proc = Bun.spawnSync(["bun", join(ROOT, opts.bin ?? CLI_SRC), ...args], {
-    cwd: opts.cwd ?? ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: childEnv(opts.env),
-    timeout: opts.timeout,
-  });
-  return {
-    code: proc.exitCode,
-    stdout: new TextDecoder().decode(proc.stdout),
-    stderr: new TextDecoder().decode(proc.stderr),
-  };
-}
-
-/** Shell pipeline variant for stdin plumbing the CLI cannot receive through argv. */
+/**
+ * The pty escape hatch - the ONE shell spawn left. Needed only where the test requires a pseudo-TTY
+ * on stdin (the CLI must refuse to read a terminal); no argv spawn can provide one. Never use this
+ * for ordinary stdin: pipe the payload through runCli({ stdin }) instead.
+ */
 export async function runShell(command: string, opts: RunCliOptions = {}): Promise<RunCliResult> {
   const proc = Bun.spawn(["/bin/bash", "-c", command], {
     cwd: opts.cwd ?? ROOT,
@@ -84,3 +86,16 @@ export async function runShell(command: string, opts: RunCliOptions = {}): Promi
   ]);
   return { code: await proc.exited, stdout, stderr };
 }
+
+/**
+ * A test in a describe that spawns CLI processes: the same 60s ceiling as the spawn itself.
+ * bun:test's default per-test timeout (5s) is an independent, invisible clock that kills healthy
+ * runs on slow CI runners while the spawn ceiling thinks all is well - use this inside every
+ * describe whose tests spawn, so the two clocks agree.
+ */
+export const slowTest = (name: string, fn: () => Promise<void> | Promise<void>) =>
+  test(name, fn, 60_000);
+slowTest.concurrent = (name: string, fn: () => Promise<void> | Promise<void>) =>
+  test.concurrent(name, fn, 60_000);
+
+export { describe };

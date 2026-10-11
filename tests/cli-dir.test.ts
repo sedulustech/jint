@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { runCli, runCliSync } from "./helpers/cli.ts";
+import { runCli, slowTest } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
@@ -76,7 +76,7 @@ describe("cli: dir walk ignores", () => {
 
   // structural twin of the live calibration test: exclusions are CONTRACT (the walker owns
   // them, pre-jev), so the mock proves them keylessly; the live twin only adds real readings
-  test("mocked jev: ignored files are absent from measurements", async () => {
+  slowTest("mocked jev: ignored files are absent from measurements", async () => {
     const jev = startMockJev();
     try {
       // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block
@@ -101,20 +101,24 @@ describe("cli: dir walk ignores", () => {
   });
 
   // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
-  test("with a real key: ignored files are absent from measurements", () => {
-    if (process.env.RUN_LIVE_TESTS !== "1") return;
-    if (!process.env.TYPESAFE_API_KEY) {
-      throw new Error(
-        "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
-      );
-    }
-    const proc = runCliSync(["tests/fixtures/sample-dir", "--json"]);
-    const report = JSON.parse(proc.stdout);
-    const paths = (report.measurements ?? []).map((m: any) => m.input);
-    expect(paths.length).toBeGreaterThan(0);
-    expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
-    expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
-    expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
-    expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
-  }, 30000); // live jev round trip: real network latency, above bun's 5s default
+  slowTest(
+    "with a real key: ignored files are absent from measurements",
+    async () => {
+      if (process.env.RUN_LIVE_TESTS !== "1") return;
+      if (!process.env.TYPESAFE_API_KEY) {
+        throw new Error(
+          "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
+        );
+      }
+      const proc = await runCli(["tests/fixtures/sample-dir", "--json"]);
+      const report = JSON.parse(proc.stdout);
+      const paths = (report.measurements ?? []).map((m: any) => m.input);
+      expect(paths.length).toBeGreaterThan(0);
+      expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
+      expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
+    },
+    30000,
+  ); // live jev round trip: real network latency, above bun's 5s default
 });
