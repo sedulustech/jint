@@ -9,7 +9,7 @@ const ROOT = import.meta.dir + "/..";
 
 // the shared scratch dir: every file that writes into tmp/ creates it through the helper -
 // relying on a sibling file's mkdir was the CI flake (file-order dependency on a fresh checkout)
-import { rmScratchFile, scratchFile } from "./helpers/scratch.ts";
+import { rmScratchFile, scratchFile } from "./helpers/dir.ts";
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE run pays.

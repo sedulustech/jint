@@ -2,8 +2,8 @@ import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
+import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
-import { rmScratchTree, scratchDir } from "./helpers/scratch.ts";
 
 // custom-tier end-to-end: a config-declared customRules fragment, loaded through the jint:sdk virtual
 // module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,

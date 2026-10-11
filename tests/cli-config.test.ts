@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { runCliSync } from "./helpers/cli.ts";
-import { rmScratchTree, scratchDir } from "./helpers/scratch.ts";
+import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 
 // CONFIG_INVALID exits 2 through the real CLI (moved here from the sdk's load.test.ts when
 // @jint/sdk was split out: sdk unit tests must not spawn the cli).

@@ -2,8 +2,8 @@ import { describe, test, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runCli, runCliSync } from "./helpers/cli.ts";
+import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
-import { rmScratchTree, scratchDir } from "./helpers/scratch.ts";
 
 // a key with no reachable jev: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
