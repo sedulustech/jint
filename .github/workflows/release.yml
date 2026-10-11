@@ -29,7 +29,7 @@ jobs:
       - run: bun ci
       # host build: the runner's platform IS the target
       - run: bun scripts/build.ts
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: jint-linux-x64
           path: jint
@@ -90,7 +90,7 @@ jobs:
             codesign --verify --strict --verbose=2 "$f"
             spctl -a -vv -t open --context context:primary-signature "$f"
           done
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: jint-darwin-notarized
           path: |
@@ -107,13 +107,18 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: dist
-      - name: Smoke-test every binary
+      - name: Tar the binaries + smoke-test the linux one
         run: |
-          chmod +x dist/jint-linux-x64/jint
-          dist/jint-linux-x64/jint --version
+          # one tar.gz per target - a single wrapped file per platform downloads (and curls)
+          # cleanly; the smoke test runs the binary FROM the tarball, so what ships is what ran
+          cd dist/jint-linux-x64 && tar -czf ../../jint-linux-x64.tar.gz jint && cd ../..
+          cd dist/jint-darwin-notarized && tar -czf ../../jint-darwin-arm64.tar.gz jint-darwin-arm64 && tar -czf ../../jint-darwin-x64.tar.gz jint-darwin-x64 && cd ../..
+          rm -rf /tmp/smoke && mkdir -p /tmp/smoke
+          tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
+          chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
       - name: Seed notes (one line per commit since the previous tag)
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
@@ -141,6 +146,6 @@ jobs:
             --draft --verify-tag \
             --title "$TAG" \
             --notes-file /tmp/release-body.md \
-            dist/jint-linux-x64/jint#jint-linux-x64 \
-            dist/jint-darwin-notarized/jint-darwin-arm64 \
-            dist/jint-darwin-notarized/jint-darwin-x64
+            jint-linux-x64.tar.gz \
+            jint-darwin-arm64.tar.gz \
+            jint-darwin-x64.tar.gz
