@@ -22,12 +22,16 @@ if (process.argv[2] && !cross) throw new Error(`unknown build target: ${process.
 const buildVersion = (await $`git rev-parse --short HEAD`.text()).trim();
 console.log(`building jint (${buildVersion})${cross ? ` for ${cross.target}` : ""}`);
 
-// Embed the built UI when it exists (compile assets: served from $bunfs at runtime via
-// startUi's resolveDistDir). A missing dist stays a working binary - the UI names the remedy.
+// Every compile path embeds a fresh UI dist (compile assets: served from $bunfs at runtime via
+// startUi's resolveDistDir) - build it here, never rely on a leftover. The warning is only for
+// genuinely weird states (the app package itself is missing).
 const appDist = resolve(root, "packages/app/dist");
+if (existsSync(resolve(root, "packages/app"))) {
+  await $`bun run --cwd packages/app build`.quiet();
+} else {
+  console.warn("note: packages/app missing - binary ships without the embedded UI");
+}
 const assets = existsSync(appDist) ? [appDist] : [];
-if (assets.length === 0)
-  console.warn("note: packages/app/dist missing - binary ships without the embedded UI");
 
 const result = await Bun.build({
   entrypoints: ["./packages/cli/src/cli.ts"],
