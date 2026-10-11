@@ -39,6 +39,13 @@ terminology leads to entropy - two names for one concept, or one name for two, i
 future contributor and agent pays for. When a new term is truly needed, define it in the glossary
 at the moment it is coined, not after.
 
+## Releasing
+
+Releases follow RELEASING.md: a tag push builds and attaches binaries to a DRAFT release; a
+human edits the notes and presses Publish. Never publish on a merge, never create a release
+that skips the draft. The workflow files are the only home for pins and triggers - RELEASING.md
+stays stateless.
+
 ## Testing
 
 Unit tests are colocated next to the source they test (src/**/*.test.ts). The root tests/ directory holds only end-to-end/integration tests (process-spawning, e.g. the CLI binary) and shared helpers. Shared fixtures live in tests/fixtures/; single-consumer fixtures live next to their test. Run: bun test --parallel.
