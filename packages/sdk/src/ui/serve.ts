@@ -33,13 +33,19 @@ export async function compress(res: Response, req: Request): Promise<Response> {
 }
 
 /**
- * The built UI's static dir: JINT_UI_DIST names it explicitly, else the dev checkout's
- * packages/app/dist when it exists, else the error names the remedy (build the app or point
- * JINT_UI_DIST at a dist dir).
+ * The built UI's static dir, in precedence order: an explicit option, the binary's embedded assets,
+ * the JINT_UI_DIST env, then the dev checkout's packages/app/dist when it exists. Absent
+ * everything, the error names the remedy (build the app or point JINT_UI_DIST).
  */
 export function resolveDistDir(distDir?: string): string {
   const candidates = [
     distDir,
+    // the binary's embedded UI (scripts/build.ts compile assets; readable under $bunfs root)
+    (Bun.embeddedFiles ?? []).some(
+      (file) => (file as Blob & { name: string }).name === "dist/index.html",
+    )
+      ? join(import.meta.dir, "dist")
+      : undefined,
     process.env.JINT_UI_DIST,
     join(import.meta.dir, "../../../app/dist"),
   ];

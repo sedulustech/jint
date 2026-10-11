@@ -1,4 +1,4 @@
-import { serveApiRequest } from "./handler.ts";
+import { serveApiRequest } from "@jint/sdk/ui/api";
 import type { Plugin } from "vite";
 
 /**

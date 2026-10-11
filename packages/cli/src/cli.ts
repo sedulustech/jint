@@ -628,6 +628,9 @@ async function serveUiHold(runId: string | undefined, exitCode = 0): Promise<num
     ui.close();
     return exitCode;
   }
+  // The hold owns SIGINT: the import.meta.main handler exits 130 promptly DURING a run, but
+  // once the UI is up Ctrl+C means "close the server, leave cleanly".
+  process.removeAllListeners("SIGINT");
   await new Promise<void>((resolveHold) => {
     process.once("SIGINT", () => {
       ui.close();
