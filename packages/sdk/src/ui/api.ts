@@ -6,8 +6,40 @@ import { join, resolve, sep } from "node:path";
  * ONLY inside the requests root; anything traversal-shaped is rejected with 400.
  */
 import { handleSeverity, type Element, type HandlerData, type Severity } from "@jint/contract";
-import type { RequestFile } from "../types";
+import { runsBase } from "../core/jev/debug.ts";
 import type { Dirent } from "node:fs";
+
+/** The wire shape of one recorded classifier request file, as served by this module. */
+export interface RequestFile {
+  ts?: string;
+  url?: string;
+  /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
+  durationMs?: number;
+  status?: number;
+  request?: {
+    state?: Record<string, unknown>;
+    questions?: Record<
+      string,
+      { type?: string; instructions?: string; criteria?: { true?: string; false?: string } }
+    >;
+    model?: string;
+  };
+  response?: {
+    model?: string;
+    answers?: Record<
+      string,
+      {
+        type?: string;
+        noul?: number;
+        score?: number;
+        confidence?: number;
+        legend?: Record<string, string>;
+        probabilities?: Record<string, number>;
+      }
+    >;
+    usage?: Record<string, number>;
+  };
+}
 
 // filenames and encodings shared across read sites: one name, no drift
 const REPORT_FILE = "report.json";
@@ -24,8 +56,9 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(options: ApiOptions = {}): string {
-  // the homedir store works with zero env; options.root overrides (tests, embedded servers)
-  return resolve(options.root ?? join(homedir(), ".jint/runs"));
+  // the SDK's runsDir logic (config.runsDir / JEV_DIR / homedir store) is the one default;
+  // options.root overrides (tests, embedded servers)
+  return resolve(options.root ?? runsBase());
 }
 
 /** Collapse the homedir prefix to '~' so run labels stay short (the store lives under ~/.jint). */
@@ -46,6 +79,10 @@ interface RunSummary {
   cwd?: string;
   /** Migrated pre-store run: manifest marks it legacy; no cwd/config/report guaranteed. */
   legacy?: boolean;
+  /** Wall duration of the run in ms (manifest durationMs); absent on pre-stats runs. */
+  durationMs?: number;
+  /** Token usage summed across the run's classifier responses; absent on pre-stats runs. */
+  usage?: { input: number; output: number };
 }
 
 interface RequestItem {
@@ -390,7 +427,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         reportMeasurementCount += 1;
         // pathRules keys on the bare path (requests look up by state.path); pathValues keys on
         // the FULL input (path#span) so projection matches the element identity.
-        const path = m.input.split("#")[0];
+        const path = m.input.split("#")[0]!;
         const arr = pathRules.get(path);
         if (arr) {
           if (!arr.includes(m.rule)) arr.push(m.rule);
@@ -445,8 +482,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         for (const key of Object.keys(questions)) {
           const m = key.match(/^(.+?) in (.+)$/);
           if (m) {
-            rules.push(m[1]);
-            if (elementId === null) elementId = m[2];
+            rules.push(m[1]!);
+            if (elementId === null) elementId = m[2]!;
           } else {
             rules.push(key);
           }

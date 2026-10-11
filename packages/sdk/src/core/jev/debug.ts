@@ -34,6 +34,15 @@ export function recordSummary(): RequestRecordSummary | null {
 }
 
 /**
+ * The run-store base directory: config.runsDir / JEV_DIR / <homedir>/.jint/runs — the same
+ * resolution recordRequests applies, exported so the UI server serves the SAME store the recorder
+ * writes (no second homedir constant in the SDK).
+ */
+export function runsBase(configRunsDir?: string): string {
+  return configRunsDir ?? process.env.JEV_DIR ?? `${homedir()}/.jint/runs`;
+}
+
+/**
  * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
  * Written for every recorded run, so the measurement UI's picker can show every new run as
  * first-class (pre-migration runs without a manifest carry a legacy flag and only a timestamp — the
@@ -90,7 +99,7 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
   const runid = Date.now();
   runStartedAt = runid;
   usageTotals = { input: 0, output: 0 };
-  const base = config?.runsDir ?? process.env.JEV_DIR ?? `${homedir()}/.jint/runs`;
+  const base = runsBase(config?.runsDir);
   const dir = `${base}/${runid}`;
   runSummary = {
     dir,

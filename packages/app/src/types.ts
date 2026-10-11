@@ -74,36 +74,8 @@ export interface RequestItem {
   severities: Record<string, "error" | "warn" | null>;
 }
 
-export interface RequestFile {
-  ts?: string;
-  url?: string;
-  /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
-  durationMs?: number;
-  status?: number;
-  request?: {
-    state?: Record<string, unknown>;
-    questions?: Record<
-      string,
-      { type?: string; instructions?: string; criteria?: { true?: string; false?: string } }
-    >;
-    model?: string;
-  };
-  response?: {
-    model?: string;
-    answers?: Record<
-      string,
-      {
-        type?: string;
-        noul?: number;
-        score?: number;
-        confidence?: number;
-        legend?: Record<string, string>;
-        probabilities?: Record<string, number>;
-      }
-    >;
-    usage?: Record<string, number>;
-  };
-}
+// The request-file wire shape is SDK-owned (the run-store API lives in @jint/sdk); one name, no drift.
+export type { RequestFile } from "@jint/sdk";
 
 // jint report shapes come from the contract package - one definition, shared with the engine.
 export type { ClassifyErrorInfo, Element, Finding, Measurement, Report } from "@jint/contract";

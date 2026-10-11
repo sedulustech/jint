@@ -2,20 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { serveApiRequest, requestsRoot } from "./handler.ts";
+import { serveApiRequest, requestsRoot } from "./api.ts";
 
 const get = async (path: string, root: string): Promise<Response> =>
   (await serveApiRequest(new Request("http://x" + path), { root })) as Response;
 
 describe("requestsRoot default", () => {
-  test("defaults to the homedir store ~/.jint/runs; opts override (no env fallback)", () => {
-    delete process.env.JINT_REQUESTS_DIR;
-    expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
-    // env is IGNORED now: the override is opts.root only
-    process.env.JINT_REQUESTS_DIR = "/tmp/env-root";
-    expect(requestsRoot().endsWith(join(".jint", "runs"))).toBe(true);
+  test("defaults to the SDK's runsDir (JEV_DIR scratch, else the homedir store); opts override", () => {
+    const withoutEnv = requestsRoot();
+    if (process.env.JEV_DIR !== undefined) {
+      expect(withoutEnv).toBe(resolve(process.env.JEV_DIR));
+    } else {
+      expect(withoutEnv.endsWith(join(".jint", "runs"))).toBe(true);
+    }
+    // options.root wins over the env default (tests, embedded servers)
     expect(requestsRoot({ root: "/tmp/opt-root" })).toBe(resolve("/tmp/opt-root"));
-    delete process.env.JINT_REQUESTS_DIR;
   });
 });
 

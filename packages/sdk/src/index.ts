@@ -24,6 +24,21 @@ export {
   type RequestRecordSummary,
 } from "./core/jev/debug.ts";
 export { checkRunKnobs } from "./core/jev/pacer.ts";
+export { runsBase } from "./core/jev/debug.ts";
+export {
+  serveApiRequest,
+  requestsRoot,
+  type ApiOptions,
+  type ApiCell,
+  type RequestFile,
+} from "./ui/api.ts";
+export {
+  startUi,
+  compress,
+  resolveDistDir,
+  type UiServer,
+  type StartUiOptions,
+} from "./ui/serve.ts";
 export { renderJson } from "./core/output/json.ts";
 export { renderLines } from "./core/output/lines.ts";
 export { selectionEcho } from "./core/output/echo.ts";
