@@ -33,20 +33,20 @@ export async function compress(res: Response, req: Request): Promise<Response> {
 }
 
 /**
- * The built UI's static dir, in precedence order: an explicit option, the binary's embedded assets,
- * the JINT_UI_DIST env, then the dev checkout's packages/app/dist when it exists. Absent
- * everything, the error names the remedy (build the app or point JINT_UI_DIST).
+ * The built UI's static dir, in precedence order: an explicit option, the JINT_UI_DIST env (the
+ * documented remedy must beat a possibly stale embed), the binary's embedded assets, then the dev
+ * checkout's packages/app/dist when it exists. Absent everything, the error names the remedy.
  */
 export function resolveDistDir(distDir?: string): string {
   const candidates = [
     distDir,
+    process.env.JINT_UI_DIST,
     // the binary's embedded UI (scripts/build.ts compile assets; readable under $bunfs root)
     (Bun.embeddedFiles ?? []).some(
       (file) => (file as Blob & { name: string }).name === "dist/index.html",
     )
       ? join(import.meta.dir, "dist")
       : undefined,
-    process.env.JINT_UI_DIST,
     join(import.meta.dir, "../../../app/dist"),
   ];
   for (const candidate of candidates) {
@@ -67,23 +67,28 @@ export interface UiServer {
 }
 
 export interface StartUiOptions {
-  /** TCP port; default PORT env, else an ephemeral one (portless-friendly). */
+  /** TCP port; default JINT_UI_PORT, else PORT (portless), else an ephemeral one. */
   port?: number;
   /** Built static dir to serve; default JINT_UI_DIST, else the dev checkout's app dist. */
   distDir?: string;
+  /** Absolute runs root to serve; default the SDK's runsDir resolution (runsBase). */
+  root?: string;
 }
 
 /**
  * Serve the run UI in-process: /api/* answers from the shared run-store handler, everything else
  * from the built static dir (SPA fallback to index.html), both under the same compression
- * treatment. PORT is honored so portless wraps it with zero portless-specific code.
+ * treatment. The port precedence is JINT_UI_PORT over PORT (portless injects PORT; that is the
+ * zero-code integration and keeps working), else an ephemeral port.
  */
 export async function startUi(options: StartUiOptions = {}): Promise<UiServer> {
   const distDir = resolveDistDir(options.distDir);
+  // precedence: explicit option > JINT_UI_PORT > PORT (portless injects PORT) > ephemeral
+  const envPort = process.env.JINT_UI_PORT ?? process.env.PORT;
   const server = Bun.serve({
-    port: options.port ?? (process.env.PORT !== undefined ? Number(process.env.PORT) : 0),
+    port: options.port ?? (envPort !== undefined ? Number(envPort) : 0),
     async fetch(req) {
-      const api = await serveApiRequest(req);
+      const api = await serveApiRequest(req, { root: options.root });
       if (api !== null) return compress(api, req);
       const url = new URL(req.url);
       const candidates = [

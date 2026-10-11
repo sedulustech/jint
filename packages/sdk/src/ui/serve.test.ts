@@ -29,6 +29,35 @@ describe("startUi", () => {
     }
   });
 
+  test("port precedence: JINT_UI_PORT over PORT (portless), option over both", async () => {
+    process.env.PORT = "4111";
+    process.env.JINT_UI_PORT = "4222";
+    try {
+      const viaEnv = await startUi({ distDir: tempDir("jint-ui-dist-") });
+      try {
+        expect(viaEnv.port).toBe(4222);
+      } finally {
+        viaEnv.close();
+      }
+      const viaOption = await startUi({ distDir: tempDir("jint-ui-dist-"), port: 4333 });
+      try {
+        expect(viaOption.port).toBe(4333);
+      } finally {
+        viaOption.close();
+      }
+      delete process.env.JINT_UI_PORT;
+      const viaPortless = await startUi({ distDir: tempDir("jint-ui-dist-") });
+      try {
+        expect(viaPortless.port).toBe(4111); // PORT is the documented portless integration
+      } finally {
+        viaPortless.close();
+      }
+    } finally {
+      delete process.env.PORT;
+      delete process.env.JINT_UI_PORT;
+    }
+  });
+
   test("GET /api/runs answers 200 JSON from the runs store (JEV_DIR scratch)", async () => {
     // the bun preload points JEV_DIR at a pid-scoped scratch store: write a run into it
     const store = process.env.JEV_DIR;
@@ -41,6 +70,21 @@ describe("startUi", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { runs: { id: string }[] };
       expect(body.runs.map((r) => r.id)).toContain("1700000000001-files-run");
+    } finally {
+      ui.close();
+    }
+  });
+
+  test("root option serves THAT store (a runsDir-configured store is visible)", async () => {
+    const store = tempDir("jint-ui-store-");
+    mkdirSync(join(store, "1700000000002-root-run"));
+    writeFileSync(join(store, "1700000000002-root-run", "1700000000002-files.json"), "{}");
+    const ui = await startUi({ distDir: tempDir("jint-ui-dist-"), root: store });
+    try {
+      const body = (await (await fetch(new URL("/api/runs", ui.url))).json()) as {
+        runs: { id: string }[];
+      };
+      expect(body.runs.map((r) => r.id)).toEqual(["1700000000002-root-run"]);
     } finally {
       ui.close();
     }
@@ -59,9 +103,10 @@ describe("startUi", () => {
     }
   });
 
-  test("close() stops the server", async () => {
+  test("close() stops the server; a second close() is a no-op, never a throw", async () => {
     const ui = await startUi({ distDir: tempDir("jint-ui-dist-") });
     ui.close();
+    expect(() => ui.close()).not.toThrow();
     const res = await fetch(new URL("/", ui.url)).catch((err: unknown) => err);
     expect(res).toBeInstanceOf(Error);
   });
