@@ -30,6 +30,7 @@ import {
   recordRunManifest,
   recordRunReport,
   findConfigFile,
+  startUi,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
@@ -97,6 +98,10 @@ export const FLAGS = {
     type: "boolean",
     blurb:
       "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
+  },
+  "--ui": {
+    type: "boolean",
+    blurb: "after the run, serve the run UI and hold (Ctrl+C to exit); honors PORT",
   },
   "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
   "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
@@ -512,6 +517,17 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 0;
   }
 
+  // --ui with no input: viewer-only over the run store, newest first — no run, no deep link,
+  // no classifier calls. An input (positional, stdin noun) composes the run instead.
+  if (
+    cliArgs.ui === true &&
+    stdinStr === undefined &&
+    lintInput === undefined &&
+    pathsContent === undefined
+  ) {
+    return serveUiHold(undefined);
+  }
+
   try {
     // The rubric lands in the consumer's context BEFORE the findings it interprets:
     // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
@@ -583,10 +599,42 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     }
     const exit = computeExit(lintReport);
     process.stderr.write(recordNotice());
+    // --ui lifecycle (design: measure-then-look): the run IS the work; the UI deep-links to THIS
+    // run (the id the requests notice already names) and holds.
+    if (cliArgs.ui === true) return serveUiHold(runId, exit);
     return exit;
   } catch (thrown) {
     return exitForThrown(thrown);
   }
+}
+
+/**
+ * The --ui tail: serve the run UI in-process, print the deep link to stderr, and hold until SIGINT
+ * (close server, exit clean). A missing run id (viewer-only over the store) prints the plain url.
+ * JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations exercise the flag without
+ * pinning a process; the run's own exit code still applies.
+ */
+async function serveUiHold(runId: string | undefined, exitCode = 0): Promise<number> {
+  let ui;
+  try {
+    ui = await startUi();
+  } catch (thrown) {
+    usageError(thrown instanceof Error ? thrown.message : String(thrown));
+    return 2;
+  }
+  const base = ui.url.endsWith("/") ? ui.url.slice(0, -1) : ui.url;
+  process.stderr.write(`jint: ui -> ${runId !== undefined ? `${base}/#runs/${runId}` : base}\n`);
+  if (process.env.JINT_UI_NO_HOLD === "1") {
+    ui.close();
+    return exitCode;
+  }
+  await new Promise<void>((resolveHold) => {
+    process.once("SIGINT", () => {
+      ui.close();
+      resolveHold();
+    });
+  });
+  return 0;
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */

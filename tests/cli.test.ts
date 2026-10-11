@@ -1,4 +1,5 @@
 import { describe, test, jest, expect, afterEach, afterAll } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { runCli, runShell, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
@@ -9,7 +10,7 @@ const ROOT = import.meta.dir + "/..";
 
 // the shared scratch dir: every file that writes into tmp/ creates it through the helper -
 // relying on a sibling file's mkdir was the CI flake (file-order dependency on a fresh checkout)
-import { rmScratchFile, scratchFile } from "./helpers/dir.ts";
+import { rmScratchFile, scratchDir, scratchFile } from "./helpers/dir.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
@@ -526,6 +527,48 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
 // Live round trips assert MODEL BEHAVIOR (calibration), not contract — the mocked twins above own
 // every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND TYPESAFE_API_KEY. A run that asks
 // for live tests without a key fails loud; the old silent skip hid a regression once already.
+describe("cli: --ui (measure-then-look)", () => {
+  // startUi needs a built UI dir; a scratch dist with one page is enough for the contract
+  const dist = scratchDir("jint-ui-dist");
+  writeFileSync(dist + "/index.html", "<html><body>jint ui</body></html>");
+  const UI_ENV = { ...NO_SERVICE, JINT_UI_NO_HOLD: "1", JINT_UI_DIST: dist };
+
+  test.concurrent("a NO_SERVICE run with --ui prints the deep link to stderr, exits with the report code", async () => {
+    const src = scratchFile("ui-run") + ".ts";
+    writeFileSync(src, "export const one = 1;\n");
+    const r = await run([src, "--ui"], UI_ENV);
+    expect(r.code).toBe(4); // the usual report exit code (ran, measured nothing) — --ui changes none of it
+    expect(r.stderr).toContain("jint: ui ->");
+    expect(r.stderr).toContain("#runs/");
+    // the link names the same run the requests notice already does
+    const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(r.stderr)?.[1];
+    expect(runId).toBeDefined();
+    expect(r.stderr).toContain("#runs/" + runId);
+    rmScratchFile(src);
+  });
+
+  test.concurrent("exit codes are unchanged with --ui (2 usage, 2 missing entrypoint, 0 help)", async () => {
+    expectContract(await run(["--frobnicate", "--ui"], UI_ENV), {
+      exit: 2,
+      stderr: ["--frobnicate"],
+    });
+    expectContract(await run(["nope/missing.ts", "--ui"], UI_ENV), {
+      exit: 2,
+      stderr: "ENTRYPOINT_NOT_FOUND",
+    });
+    const help = await run(["--ui", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain("serve the run UI");
+  });
+
+  test.concurrent("--ui with no input: viewer-only over the store, plain url, no deep link", async () => {
+    const r = await run(["--ui"], UI_ENV);
+    expect(r.code).toBe(0);
+    expect(r.stderr).toContain("jint: ui -> http://localhost:");
+    expect(r.stderr).not.toContain("#runs/");
+  });
+});
+
 describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)", () => {
   const liveRequested = process.env.RUN_LIVE_TESTS === "1";
   function requireLive(): boolean {
