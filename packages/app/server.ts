@@ -5,7 +5,8 @@ import { join } from "node:path";
  * build && bun run serve. The API serves the runs store (default ~/.jint/runs); the runs root is
  * overridable via server opts.
  */
-import { compress, serveApiRequest } from "@jint/sdk/ui/api";
+import { serveApiRequest } from "@jint/sdk/ui/api";
+import { compress } from "@jint/sdk/ui/serve";
 
 const dist = join(import.meta.dir, "dist");
 

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./ui/api": "./src/ui/api.ts"
+    "./ui/api": "./src/ui/api.ts",
+    "./ui/serve": "./src/ui/serve.ts"
   },
   "dependencies": {
     "@jint/contract": "workspace:*",
