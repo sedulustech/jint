@@ -6,6 +6,9 @@
   "bin": {
     "jint": "./bin/jint.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "optionalDependencies": {
     "@sedulus/jint-darwin-arm64": "0.0.0",
     "@sedulus/jint-darwin-x64": "0.0.0",
