@@ -119,6 +119,9 @@ jobs:
           rm -rf /tmp/smoke && mkdir -p /tmp/smoke
           tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
           chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
+      # install.sh verifies against this - GNU sha256sum format, one line per asset
+      - name: Checksums
+        run: sha256sum jint-*.tar.gz > checksums.txt && cat checksums.txt
       - name: Seed notes (one line per commit since the previous tag)
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
@@ -134,6 +137,10 @@ jobs:
             fi
             echo
             echo "**Full Changelog**: https://github.com/sedulustech/jint/commits/$TAG"
+            echo
+            echo "npm tarballs (@sedulus/jint + four platform packages) are NOT attached here -"
+            echo "they are workflow artifacts of this run:"
+            echo "https://github.com/sedulustech/jint/actions/runs/$GITHUB_RUN_ID"
           } > /tmp/release-body.md
           cat /tmp/release-body.md
       # draft only: a human edits the prose and publishes; the tag must match the checkout
@@ -148,4 +155,62 @@ jobs:
             --notes-file /tmp/release-body.md \
             jint-linux-x64.tar.gz \
             jint-darwin-arm64.tar.gz \
-            jint-darwin-x64.tar.gz
+            jint-darwin-x64.tar.gz \
+            checksums.txt
+
+  pack-npm:
+    name: Pack npm tarballs
+    needs: [build-linux, build-darwin]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.x
+      - run: bun ci
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: dist
+      - run: mkdir -p out && cp dist/jint-linux-x64/jint out/jint-linux-x64 && cp dist/jint-darwin-notarized/jint-darwin-arm64 out/jint-darwin-arm64 && cp dist/jint-darwin-notarized/jint-darwin-x64 out/jint-darwin-x64
+      # PACK-ONLY: the tarballs are workflow artifacts, attached nowhere - they
+      # publish (from the tag) in the commented job below once the gate opens
+      - run: bun scripts/pack-npm.ts "${{ inputs.tag || github.ref_name }}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: npm-tarballs
+          path: dist-npm/*.tgz
+          if-no-files-found: error
+
+  # npm publish: NOT wired - gated on a secret (NPM_TOKEN) that does not exist yet.
+  # Idempotency guard written in advance: a re-run over an already-published version
+  # is a no-op, so the fan-in can retry without version-bump bookkeeping.
+  # publish-npm:
+  #   name: Publish npm packages
+  #   needs: [release, pack-npm]
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         registry-url: https://registry.npmjs.org
+  #     - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+  #       with:
+  #         name: npm-tarballs
+  #         path: dist-npm
+  #     - run: npm whoami && npm org ls sedulus   # org must exist before this job is uncommented
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  #     - run: |
+  #         for tgz in dist-npm/*.tgz; do
+  #           name=$(tar -xzOf "$tgz" package/package.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0)).name)")
+  #           version=$(tar -xzOf "$tgz" package/package.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0)).version)")
+  #           if npm view "$name@$version" version >/dev/null 2>&1; then
+  #             echo "$name@$version already published - skipping"
+  #           else
+  #             npm publish "$tgz"
+  #           fi
+  #         done
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

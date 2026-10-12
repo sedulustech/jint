@@ -9,7 +9,11 @@ workflow files are the source of truth for pins and triggers; this file describe
 2. The release workflow builds all binaries (linux on the ubuntu runner; both darwin targets
    cross-compiled, signed, and notarized on the macos runner), seeds the release notes from
    `git log <prev-tag>..<tag> --oneline --no-merges` (one line per commit, EDIT-ME slot for
-   the intro), and creates a DRAFT release with the binaries attached.
+   the intro), and creates a DRAFT release with the binaries and their `checksums.txt`
+   attached (what `install.sh` verifies against). A parallel job packs the npm tarballs
+   (`@sedulus/jint` + platform packages) as workflow artifacts of the same run - packed,
+   never attached; publishing is a separate, secret-gated job that stays off until the
+   org and token exist.
 3. Open the draft, keep the lines that matter (move them under Highlights or rewrite them
    as prose), delete the rest, press Publish. The tag is created at publish time; nothing
    is public before the click.
