@@ -32,8 +32,10 @@ To build from source, see [Development](#development).
 
 ## How to use
 
+Jev is the only supported classifier for now.
+
 ```bash
-export TYPESAFE_API_KEY=...   # required; jev requests fail loud (JEV_AUTH) without it
+export TYPESAFE_API_KEY=...   # required
 ```
 
 ```bash
@@ -42,16 +44,16 @@ jint src/a.ts src/b.ts                   # explicit files
 cat snippet.ts | jint str -              # piped stdin, one str unit (the only str form)
 jint paths - < list.txt                  # a path LIST from a file, piped
 git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipeline
-jint                                     # no positional: input comes from jint.config.json
+jint                                     # no positional: input comes from the discovered config
 ```
 
-`jint` uses the default configuration unless a specific config is passed to it through the `--config` flag.
+`jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory (TS preferred); without one it runs the default configuration. `--config <path>` overrides discovery.
 
 ```json
 {
-  "$schema": "./node_modules/jint/jint.schema.json",
+  "$schema": "./node_modules/@sedulus/jint/jint.schema.json",
   "input": "src/",
-  "rules":, [],
+  "rules": [],
   "exclude": []
 }
 ```

@@ -61,7 +61,7 @@ export const FLAGS = {
     type: "string",
     arg: "<path>",
     blurb:
-      'config file, plain JSON (default: jint.config.json; autocomplete via the checked-in jint.schema.json "$schema" key)',
+      'config file (auto-discovered: jint.config.ts or jint.config.json; JSON autocomplete via the "$schema" key)',
   },
   "--exclude": {
     type: "string[]",
@@ -235,7 +235,7 @@ ${helpRows([
   { left: "jint src/", right: "classify a directory tree" },
   { left: "jint a.ts b.ts", right: "classify files" },
   ...NOUN_ROWS,
-  { left: "jint", right: "no positional: input comes from jint.config.json" },
+  { left: "jint", right: "no positional: input comes from the discovered config" },
 ])}
 
 Element-scoped runs: address one element directly —
