@@ -140,6 +140,15 @@ A live config example, serialized from real default specs (always the current wi
   parse. A rule about functions needs the code to parse - snippets without a
   language will not reach it.
 
+## Virtual modules - no install, no runtime
+
+Rule authoring needs nothing but this binary: no JS runtime, no npm install, no
+node_modules. Configs (and the rules inline in them) import the compiled-in virtual modules
+
+- `jint:defaults` (the default rules: `defaultRules` + named exports) and
+  `jint:sdk` (`defineConfig`) - and jint loads and executes them on its own
+  runtime. Their version IS the binary's: same tree, same CLI, same readings.
+
 ## Creating criterias
 
 Think of jev as the features you would like to activate to trigger a result in
@@ -257,25 +266,3 @@ This shape reads reasonable and fails on a healthy corpus:
 ```
 
 It fails three ways: `false` is generic (guideline 1), the claim spans multiple elements - the model compares against names it cannot see - and "drift" invites narrating quality instead of checking a condition (guideline 2). The fix is never thresholds; rewrite the criteria until they name an observable condition.
-
-## SDK (programmatic)
-
-```ts
-import { classify } from "jint";
-import { defaultRules } from "@jint/defaults";
-
-const { measurements, errors, inventory, oversized } = await classify(
-  "export const x = 1;",
-  defaultRules,
-  { language: "typescript" },
-);
-```
-
-The sdk knows no rules of its own - the baseline is injected by the caller
-(the CLI wires its bundled defaults; tests wire @jint/defaults). Raw
-measurements, no handles applied: `Measurement = { rule, input, value,
-probabilities?, confidence?, element? }` - input is the file path (or
-path#span for elements), value is a noul probability or a rubric score.
-Decompose failures surface in `errors` (WALK_FAILED), never thrown; unit-scoped
-rules still classify. Programmatic rules may use function handles; config
-files use data handles only.

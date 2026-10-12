@@ -37,8 +37,7 @@ jint                                     # no positional: input comes from jint.
 ```
 
 Every run records its requests to `~/.jint/runs/` (`JEV_DIR` moves it; recording is
-always on), and `bun run ui` opens the measurement ui on the same store — the last lint run is immediately browsable. SDK callers point the recorder at
-a scratch dir with the classifier's `runsDir` option instead of the env.
+always on), and `bun run ui` opens the measurement ui on the same store — the last lint run is immediately browsable.
 
 Re-declare a default rule by name and give it new criteria, thresholds, or both:
 
@@ -73,6 +72,17 @@ Omitting `target` on an override keeps the default rule's own target.
 
 **Exit codes:** `0` clean · `1` error-severity findings · `2` usage/config error · `3` internal · `4` ran but classified nothing
 
+### No runtime needed
+
+The binary ships with virtual modules and the Bun runtime: writing rules does not require a JS runtime. an npm
+install, or `node_modules`.
+
+```ts
+import { defaultRules } from "jint:defaults";
+
+export default { rules: [...defaultRules] };
+```
+
 ## Default rules
 
 The rules shipped as default were calibrated and dogfooded against jint's own `src/` and other repositories.
@@ -92,21 +102,6 @@ Treat them as a starting point and tune once you know what your code looks like.
 | `will_error_lose_cause`           | error handling that drops the original failure                |
 | `is_cognitively_complex`          | structural difficulty that re-reading cannot remove           |
 | `is_function_srp`                 | one function, one cohesive responsibility                     |
-
-## SDK
-
-The CLI is only one type of client. `jint` ships an SDK where the entrypoint is `lint()`.
-
-`classify()` is the measurement entrypoint for any string, any rules, no files and no config.
-
-```ts
-import { classify } from "jint";
-const { measurements, errors, inventory } = await classify(str, rules, { path: "snippet.ts" });
-```
-
-Handlers are never applied here by the library.
-
-Interpretation of raw values through configured thresholds is `lint()`'s responsibility.
 
 ## Development
 
