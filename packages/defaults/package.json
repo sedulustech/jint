@@ -8,8 +8,5 @@
   },
   "dependencies": {
     "@jint/contract": "workspace:*"
-  },
-  "devDependencies": {
-    "@jint/sdk": "workspace:*"
   }
 }

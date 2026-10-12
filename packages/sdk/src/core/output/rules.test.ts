@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { defaultRules } from "../../test-baseline.ts";
+import { defaultRules } from "../../../tests/test-baseline.ts";
 import { describeRule, describeRules } from "./rules.ts";
 import type { Rule } from "../types.ts";
 

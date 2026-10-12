@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
+import { defaultRules } from "../../../tests/test-baseline.ts";
 import { validateConfig } from "../../config/load.ts";
-import { defaultRules } from "../../test-baseline.ts";
 import {
   ClassifyError,
   type ClassifiedAnswer,

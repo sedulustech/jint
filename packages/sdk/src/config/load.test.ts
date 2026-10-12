@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
+import { defaultConfig, defaultRules } from "../../tests/test-baseline.ts";
 import { SetupError } from "../core/types.ts";
-import { defaultConfig, defaultRules } from "../test-baseline.ts";
 import { loadConfig, validateConfig } from "./load.ts";
 
 describe("loadConfig", () => {
