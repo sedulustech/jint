@@ -122,8 +122,11 @@ jobs:
         run: |
           # one tar.gz per target - a single wrapped file per platform downloads (and curls)
           # cleanly; the smoke test runs the binary FROM the tarball, so what ships is what ran
+          # every tarball carries its member as `jint` - install.sh extracts $tmp/jint
           cd dist/jint-linux-x64 && tar -czf ../../jint-linux-x64.tar.gz jint && cd ../..
-          cd dist/jint-darwin-notarized && tar -czf ../../jint-darwin-arm64.tar.gz jint-darwin-arm64 && tar -czf ../../jint-darwin-x64.tar.gz jint-darwin-x64 && cd ../..
+          cd dist/jint-linux-arm64 && mv jint-linux-arm64 jint && tar -czf ../../jint-linux-arm64.tar.gz jint && cd ../..
+          cd dist/jint-darwin-notarized \
+            && for b in jint-darwin-arm64 jint-darwin-x64; do mv "$b" jint && tar -czf "../../${b}.tar.gz" jint && mv jint "$b"; done && cd ../..
           rm -rf /tmp/smoke && mkdir -p /tmp/smoke
           tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
           chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
@@ -162,6 +165,7 @@ jobs:
             --title "$TAG" \
             --notes-file /tmp/release-body.md \
             jint-linux-x64.tar.gz \
+            jint-linux-arm64.tar.gz \
             jint-darwin-arm64.tar.gz \
             jint-darwin-x64.tar.gz \
             checksums.txt
