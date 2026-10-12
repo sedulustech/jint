@@ -1,0 +1,18 @@
+{
+  "name": "@sedulus/jint",
+  "version": "0.0.0",
+  "description": "jint - measure code with AI-classifier judgments (installer meta-package)",
+  "license": "MIT",
+  "bin": {
+    "jint": "./bin/jint.js"
+  },
+  "optionalDependencies": {
+    "@sedulus/jint-darwin-arm64": "0.0.0",
+    "@sedulus/jint-darwin-x64": "0.0.0",
+    "@sedulus/jint-linux-arm64": "0.0.0",
+    "@sedulus/jint-linux-x64": "0.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -37,7 +37,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 tmp/
 out/
-jint
+/jint
 
 # vitest browser attachments
 .vitest
