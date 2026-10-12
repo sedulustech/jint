@@ -7,9 +7,9 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 
 // custom-rule end-to-end: an INLINE callback rule in a TS config (jint.config.ts), loaded through
 // the jint:sdk virtual module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
-// fatal-vs-streamed error boundaries) — see src/core/custom-rules/*.test.ts for the unit level.
+// fatal-vs-streamed error boundaries) — see src/core/rules/custom/*.test.ts for the unit level.
 
-const DIR = scratchDir("jint-custom-rules-e2e");
+const DIR = scratchDir("jint-custom-e2e");
 
 const FIXTURE = [
   "export function alpha() {",

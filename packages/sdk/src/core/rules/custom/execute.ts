@@ -10,11 +10,8 @@
  * the rule (observability is the guarantee — wire dumps capture the exact bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS } from "../input/walk.ts";
-import { matchesTarget } from "../rules/classify.ts";
-import { toClassifyError } from "../rules/classify.ts";
-import { compileNoulHandler } from "../rules/handle.ts";
-import { ruleInScope } from "../scope.ts";
+import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../input/walk.ts";
+import { ruleInScope } from "../../scope.ts";
 import {
   ClassifyError,
   type AnyState,
@@ -23,9 +20,12 @@ import {
   type LintEvent,
   type RuleResult,
   type Span,
-} from "../types.ts";
+} from "../../types.ts";
+import { matchesTarget } from "../classify.ts";
+import { toClassifyError } from "../classify.ts";
+import { compileNoulHandler } from "../handle.ts";
 import { validateDecision, validateStateSpec, type CustomElement, type CustomRule } from "./sdk.ts";
-import type { WalkElement } from "../input/walk.ts";
+import type { WalkElement } from "../../input/walk.ts";
 
 /**
  * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are

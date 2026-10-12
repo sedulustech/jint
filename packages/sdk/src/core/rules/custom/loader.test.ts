@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultRules } from "@jint/defaults";
-import { loadTsConfig } from "../../config/load.ts";
+import { loadTsConfig } from "../../../config/load.ts";
 import { registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./sdk.ts";
 

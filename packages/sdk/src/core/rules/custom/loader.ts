@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { SetupError } from "../types.ts";
+import { SetupError } from "../../types.ts";
 import { defineConfig } from "./sdk.ts";
 
 let registered = false;

@@ -9,9 +9,9 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { checkNoulHandler } from "../rules/handle.ts";
-import { checkRuleScope } from "../scope.ts";
-import { SetupError, type RuleResult, type RuleTarget } from "../types.ts";
+import { checkRuleScope } from "../../scope.ts";
+import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
+import { checkNoulHandler } from "../handle.ts";
 
 /**
  * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the

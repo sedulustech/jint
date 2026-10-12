@@ -11,11 +11,6 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import {
-  resolveAllCustomTargets,
-  runCustomRules,
-  type ResolvedCustomTargets,
-} from "./custom-rules/execute.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
@@ -38,6 +33,11 @@ import {
   type OversizedElement,
   type WalkedUnit,
 } from "./rules/classify.ts";
+import {
+  resolveAllCustomTargets,
+  runCustomRules,
+  type ResolvedCustomTargets,
+} from "./rules/custom/execute.ts";
 import { judgesWholeUnit, ruleInScope } from "./scope.ts";
 import {
   ClassifyError,
@@ -51,7 +51,7 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
-import type { CustomRule } from "./custom-rules/sdk.ts";
+import type { CustomRule } from "./rules/custom/sdk.ts";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;

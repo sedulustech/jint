@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { decompose, type WalkElement } from "../input/walk.ts";
-import { rulesForElement } from "../rules/classify.ts";
+import { decompose, type WalkElement } from "../../input/walk.ts";
+import { rulesForElement } from "../classify.ts";
 import {
   resolveAllCustomTargets,
   runCustomRules,
@@ -8,7 +8,7 @@ import {
   type ResolvedCustomTarget,
   type ResolvedCustomTargets,
 } from "./execute.ts";
-import type { AnyState, ClassifiedAnswer, Classifier, QuestionSchema } from "../types.ts";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSchema } from "../../types.ts";
 import type { CustomElement, CustomRule } from "./sdk.ts";
 
 /** Splits a unit inventory by path the way lint hands it over (one file here). */

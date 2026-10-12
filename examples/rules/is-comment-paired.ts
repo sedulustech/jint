@@ -8,7 +8,7 @@
  * examples/rules/is-comment-paired.ts`.
  */
 
-/// <reference path="../../packages/sdk/src/core/custom-rules/sdk.d.ts" />
+/// <reference path="../../packages/sdk/src/core/rules/custom/sdk.d.ts" />
 
 import { defineConfig } from "jint:sdk";
 
