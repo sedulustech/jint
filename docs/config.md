@@ -72,8 +72,10 @@ export default defineConfig({
 });
 ```
 
-See [`examples/rules/is-comment-paired.ts`](../examples/rules/is-comment-paired.ts) for a complete
-config with one inline callback rule.
+The pattern above is the complete shape: a callback rule is a config `rules` entry whose
+`classify(self, ctx)` returns the question for that element (instructions, criteria, and a
+free-form `state` object the rule composes - the pairing IS the state); the repo root's own
+`jint.config.ts` mixes defaults with an inline declarative rule the same way.
 
 ### Composition rules
 
