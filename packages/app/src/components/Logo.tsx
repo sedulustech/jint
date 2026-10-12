@@ -9,20 +9,28 @@ export function Logo({ className }: { className?: string }): JSX.Element {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="16 22 168 116"
+      viewBox="62 43.75 116 72.5"
       role="img"
       aria-label="jint"
       className={className}
     >
       <g fill="none" stroke="currentColor" strokeLinecap="butt" strokeLinejoin="miter">
-        <path strokeWidth={7} d="M34 30H24V130H34" />
-        <path strokeWidth={5.5} d="M52 42H44V118H52" />
-        <path strokeWidth={4} d="M70 54H64V106H70" />
-        <path strokeWidth={7} d="M166 30H176V130H166" />
-        <path strokeWidth={5.5} d="M148 42H156V118H148" />
-        <path strokeWidth={4} d="M130 54H136V106H130" />
+        <path strokeWidth={2.5} d="M71 45H62V115H71" />
+        <path strokeWidth={2} d="M81.125 55H73.125V105H81.125" />
+        <path strokeWidth={1.5} d="M91 65H84V95H91" />
       </g>
-      <rect x={91} y={62} width={18} height={36} fill="currentColor" />
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="butt"
+        strokeLinejoin="miter"
+        transform="translate(240 0) scale(-1 1)"
+      >
+        <path strokeWidth={2.5} d="M71 45H62V115H71" />
+        <path strokeWidth={2} d="M81.125 55H73.125V105H81.125" />
+        <path strokeWidth={1.5} d="M91 65H84V95H91" />
+      </g>
+      <rect x={101.875} y={43.75} width={36.25} height={72.5} fill="currentColor" />
     </svg>
   );
 }
