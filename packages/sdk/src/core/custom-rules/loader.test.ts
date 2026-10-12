@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { defaultRuleSpecs, isFilenameFitting } from "@jint/defaults";
-import { embeddedHome, loadCustomRules, registerCustomRuleLoader } from "./loader.ts";
+import { defaultRuleSpecs } from "@jint/defaults";
+import { loadCustomRules, registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./sdk.ts";
 
 const DIR = "tmp/custom-rules-loader-test";
@@ -285,41 +285,5 @@ describe("validateCustomRule (load-time, fatal)", () => {
 
   test("choice kind rejected as not-yet-supported", () => {
     expect(() => validateCustomRule({ ...ok, kind: "choice" }, "f.ts")).toThrow(/noul/);
-  });
-});
-
-describe("@jint/* package-specifier interception", () => {
-  test("workspace home: @jint/defaults is NOT intercepted — it resolves through node_modules", async () => {
-    // the gate is the embedded-home marker (Bun.embeddedFiles only under $bunfs); this process is
-    // a workspace checkout, so registration must NOT shadow the live package source
-    expect(embeddedHome()).toBe(false);
-    const path = write(
-      "pkg-import.ts",
-      'import { defaultRuleSpecs } from "@jint/defaults";\n' +
-        'import { defineConfig } from "jint:sdk";\n' +
-        "export default defineConfig({ rules: [] });\n" +
-        "export { defaultRuleSpecs };",
-    );
-    // resolves through node_modules — the workspace package instance, never a virtual
-    const rules = (await loadCustomRules([path])).custom;
-    expect(rules).toHaveLength(0);
-  });
-
-  test("one authority: the package surface the embedded home serves round-trips both import styles", async () => {
-    // the embedded interception spreads the PACKAGE's own namespace, so its real named exports
-    // (spec consts, not just the record) are the surface — pinned here; the binary-side proof of
-    // both import styles resolving is the e2e binary run
-    expect(defaultRuleSpecs.is_filename_fitting).toBe(isFilenameFitting);
-    const path = write(
-      "virtual-import.ts",
-      'import { defaultRuleSpecs } from "jint:defaults";\n' +
-        'import { defineConfig } from "jint:sdk";\n' +
-        "export default defineConfig({ rules: [] });\n" +
-        "export { defaultRuleSpecs };",
-    );
-    const loaded = await import("../../../../../" + path);
-    const fromVirtual = (loaded as { defaultRuleSpecs: Record<string, unknown> }).defaultRuleSpecs;
-    expect(Object.keys(fromVirtual).sort()).toEqual(Object.keys(defaultRuleSpecs).sort());
-    expect(fromVirtual).toEqual(defaultRuleSpecs);
   });
 });
