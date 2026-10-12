@@ -45,12 +45,14 @@ main() {
   curl -fsSL "${base}/${tarball}" -o "${tmp}/${tarball}"
   curl -fsSL "${base}/checksums.txt" -o "${tmp}/checksums.txt"
 
-  # sha256sum (GNU) or shasum (macOS); only the downloaded tarball's line, since
-  # checksums.txt covers every platform asset
+  # sha256sum (GNU) or shasum (macOS); pick the checker BEFORE piping - a failed
+  # check consumes stdin, so an || fallback would always see an empty stream.
+  # Only the downloaded tarball's line, since checksums.txt covers every platform asset.
+  local check
+  if command -v sha256sum >/dev/null 2>&1; then check="sha256sum -c -"; else check="shasum -a 256 -c -"; fi
   (
     cd "$tmp"
-    grep "  ${tarball}$" checksums.txt \
-      | { sha256sum -c - 2>/dev/null || shasum -a 256 -c -; }
+    grep "  ${tarball}$" checksums.txt | $check
   )
 
   tar -xzf "${tmp}/${tarball}" -C "$tmp"
