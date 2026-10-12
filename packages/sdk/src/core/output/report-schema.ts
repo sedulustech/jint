@@ -58,11 +58,15 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   element: Type.Optional(ELEMENT_SCHEMA),
 });
 
+// The severity vocabulary has one home: contract's Severity (handlers.ts). The schema spells the
+// same union for the wire; the identity pin below makes any drift a typecheck failure.
+const SEVERITY_SCHEMA = Type.Union([Type.Literal("error"), Type.Literal("warn")]);
+
 export const FINDING_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
-  severity: Type.Union([Type.Literal("error"), Type.Literal("warn")]),
+  severity: SEVERITY_SCHEMA,
   // Additive (v1.3, score rules): the chosen rubric level's legend text — the report displays
   // self-contained, no criteria or request reach-ins.
   note: Type.Optional(Type.String()),
@@ -100,9 +104,26 @@ export const REPORT_SCHEMA = Type.Object({
 
 export type Report = Static<typeof REPORT_SCHEMA>;
 
-// Type-level pin: the contract's plain interfaces and the wire schemas cannot drift.
+// Type-level pin: the contract's plain interfaces and the wire schemas cannot drift — in EITHER
+// direction. Assignability both ways, so a field added on one side alone (e.g. wire-only
+// location, or a contract-only note) fails `bun run typecheck` here, where the schemas live —
+// not at the consumer boundary. (Assignability, not the Same<T> identity trick: the contract
+// interfaces are readonly, TypeBox Static is not, and identity treats that as drift.)
 const _pinMeasurement: readonly Measurement[] = [] as Static<typeof MEASUREMENT_SCHEMA>[];
+const _pinMeasurementWire: readonly Static<typeof MEASUREMENT_SCHEMA>[] = [] as Measurement[];
 const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];
+const _pinFindingWire: readonly Static<typeof FINDING_SCHEMA>[] = [] as Finding[];
 const _pinError: readonly ClassifyErrorInfo[] = [] as Static<typeof CLASSIFY_ERROR_SCHEMA>[];
+const _pinErrorWire: readonly Static<typeof CLASSIFY_ERROR_SCHEMA>[] = [] as ClassifyErrorInfo[];
 const _pinReport: ContractReport = {} as Static<typeof REPORT_SCHEMA>;
-void [_pinMeasurement, _pinFinding, _pinError, _pinReport];
+// Report itself pins one direction only — its contract arrays are readonly while Type.Array is
+// mutable — but every element type above is pinned both ways, which is where the fields live.
+void [
+  _pinMeasurement,
+  _pinMeasurementWire,
+  _pinFinding,
+  _pinFindingWire,
+  _pinError,
+  _pinErrorWire,
+  _pinReport,
+];
