@@ -1,18 +1,18 @@
 /**
- * Tree-sitter-based mapping of a source file into a unit inventory (tmp/design.md §7.2):
- * definitions, comments, and imports — top-level nodes, plus composite descent (composites are
- * judged AND descended into, so nested definitions become elements of their own).
+ * Tree-sitter-based mapping of a source file into a unit inventory: definitions, comments, and
+ * imports — top-level nodes, plus composite descent (composites are judged AND descended into, so
+ * nested definitions become elements of their own).
  *
  * Extraction is flag-independent: which files are acquired is decided elsewhere; the parse and the
- * inventory are identical always. The inventory is pure data — no linting, no jev calls — so
+ * inventory are identical always. The inventory is pure data — no linting, no classifier calls — so
  * classification consumes it unchanged.
  *
- * Graceful degradation: a file whose parse sets rootNode.hasError still yields whatever top-level
+ * Graceful degradation: a file whose parse is flagged as partial still yields whatever top-level
  * elements parsed (tree-sitter recovers per-node, so partial structure survives). Unparseable
- * stretches surface as ERROR nodes, which the walker skips; everything that did parse is accounted
+ * stretches surface as error nodes, which the walker skips; everything that did parse is accounted
  * for. This matters for any source that parses only partially.
  *
- * Adding a language = adding its prebuilt grammar wasm + one LANGUAGES entry; the walker is written
+ * Adding a language = adding its prebuilt grammar wasm + one mapping entry; the walker is written
  * against roles, not node names.
  */
 
@@ -20,7 +20,12 @@ import goWasm from "tree-sitter-go/tree-sitter-go.wasm" with { type: "file" };
 import pythonWasm from "tree-sitter-python/tree-sitter-python.wasm" with { type: "file" };
 import tsxWasm from "tree-sitter-typescript/tree-sitter-tsx.wasm" with { type: "file" };
 import typescriptWasm from "tree-sitter-typescript/tree-sitter-typescript.wasm" with { type: "file" };
-import { Language, Parser, type Language as LanguageType } from "web-tree-sitter";
+import {
+  Language,
+  Parser,
+  type Language as LanguageType,
+  type Node as SyntaxNode,
+} from "web-tree-sitter";
 // Grammar wasms as bundled assets: file paths when running from source, embedded ($bunfs) paths
 // inside the compiled binary — Bun.file reads both, so one loader serves both run modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
@@ -33,25 +38,21 @@ export interface UnitPoint {
   readonly column: number;
 }
 
-/** A element of the inventory; src.slice(span.startByte, span.endByte) === content. */
+/** An inventory element; slicing the source by its span bytes yields its content exactly. */
 export interface WalkElement {
   /** Stable positional label: "d0", "d1", "c0", "i0". */
   readonly label: string;
   readonly span: Span;
   readonly content: string;
   readonly nodeType: string;
-  /** The abstracted noun this element is ("function" | "type" for definitions; "comment"). */
+  /** The abstracted noun this element is; rules and the classifier route on it. */
   readonly role: NodeRole;
   /** The declared name, when the walker could extract one (render-only; never an id). */
   readonly name?: string;
   /** The comment node(s) consumed into this definition's leading run (outside its content span). */
   readonly attachedComment?: readonly string[];
-  /**
-   * For a docstring element: the module/class/function it documents — an orphan docstring never
-   * exists.
-   */
+  /** For a docstring element: what it documents; an orphan docstring never exists. */
   readonly docstringOf?: DocstringOwner;
-  /** Comment nodes nested inside this definition's body; consumed into the element by construction. */
   readonly internalCommentCount: number;
   /**
    * The enclosing element's label ("d3"), when this element sits inside one (a docstring inside its
@@ -59,71 +60,54 @@ export interface WalkElement {
    * travels with the element (design rules-context/02) — pairing reads it.
    */
   readonly parent?: string;
-  /**
-   * The element's source exceeds the size backstop (MAX_ELEMENT_TOKENS): never judged; named
-   * in-band.
-   */
+  /** The element's source exceeds the size backstop: never judged; named in-band. */
   readonly oversized?: boolean;
 }
 
-/** Comment nodes anywhere inside a node's subtree (member docs, function-body comments). */
-function countInternalComments(node: { type: string; namedChildren: any[] }): number {
-  let count = 0;
-  const walk = (n: { type: string; namedChildren: any[] }): void => {
-    for (const child of n.namedChildren) {
-      if (child.type === "comment" && !isEmptyComment(child.text)) count++;
-      walk(child);
-    }
-  };
-  walk(node);
-  return count;
+function countInternalComments(node: { type: string; namedChildren: SyntaxNode[] }): number {
+  let internalTotal = 0;
+  for (const child of node.namedChildren) {
+    if (child.type === "comment" && !isEmptyComment(child.text)) internalTotal++;
+    internalTotal += countInternalComments(child);
+  }
+  return internalTotal;
 }
 
 /**
- * The single node -> final role pass: (a) the per-language role table lookup, then (b) value-aware
- * refinement — a binding is a NAME BOUND TO A NON-CALLABLE, NON-TYPE VALUE (const/let/var with a
- * non-callable initializer, e.g. `const report = buildReport()`); a callable initializer
- * (arrow_function / function_expression) keeps the function role — it has a body and reads like a
- * function. Functions-target rules never judge bindings; definitions-target rules do (they must —
- * is_name_purposeful judges const names).
+ * The node -> role pass with one refinement: a variable declaration whose initializer carries a
+ * callable body keeps the function role; any other initializer is a binding. Function-target rules
+ * never judge bindings; definition-target rules still do, so binding names stay measured.
  */
 export function resolveRole(
   type: string,
-  node: any,
+  node: SyntaxNode,
   roleTable: Readonly<Record<string, NodeRole>>,
 ): NodeRole | undefined {
   const role = roleTable[type];
-  if (role === undefined || role !== "function") return role;
-  if (type !== "lexical_declaration" && type !== "variable_declaration") return role;
-  const declarator = node.namedChildren.find((c: any) => c.type === "variable_declarator");
-  const value = declarator?.namedChildren.at(-1);
-  return value !== undefined &&
-    (value.type === "arrow_function" || value.type === "function_expression")
-    ? "function"
-    : "binding";
+  const variableShaped = type === "lexical_declaration" || type === "variable_declaration";
+  if (role !== "function" || !variableShaped) return role;
+  const declarator = node.namedChildren.find((c) => c.type === "variable_declarator");
+  const initializer = declarator?.namedChildren.at(-1);
+  const initializerIsCallable =
+    initializer?.type === "arrow_function" || initializer?.type === "function_expression";
+  return initializerIsCallable ? "function" : "binding";
 }
 
 /**
- * Unwrap wrapper nodes (export_statement -> inner declaration, decorated_definition -> its
- * definition); type becomes the role. Decoration and comments are not the wrapper's payload, so
- * they are skipped when picking the inner declaration.
+ * Wrapper nodes (an export, a decorator) stand between the tree and the declaration they carry;
+ * walk through to the payload, skipping decoration and comments on the way.
  */
-function unwrap(
-  node: { type: string; namedChildren: any[] },
-  wrappers: readonly string[],
-): { node: any; type: string } {
+function unwrap(node: SyntaxNode, wrappers: readonly string[]): { node: SyntaxNode; type: string } {
   let current = node;
   while (wrappers.includes(current.type)) {
-    const inner = current.namedChildren.find(
-      (c: any) => c.type !== "decorator" && c.type !== "comment",
-    );
+    const inner = current.namedChildren.find((c) => c.type !== "decorator" && c.type !== "comment");
     if (!inner) break;
     current = inner;
   }
   return { node: current, type: current.type };
 }
 
-/** The structured unit inventory for one file (design.md §7.2). */
+/** The structured unit inventory for one file. */
 export interface Inventory {
   /** True when tree-sitter flagged the parse (partial syntax); the yielded elements are still exact. */
   readonly hasError: boolean;
@@ -160,13 +144,12 @@ export function charsToTokens(chars: number): number {
  */
 export const MAX_ELEMENT_TOKENS = 30_000;
 
-/** Per-language role mapping: what counts as a definition, comment, import, wrapper. */
 /**
  * The language-independent noun a grammar node abstracts into. Rules and the classifier route on
- * roles, never on grammar node names — adding a language is adding one roleTable entry, never
- * touching the walker (design: language adapter, classified in tmp/langsurvey).
+ * roles, never on grammar node names — adding a language is adding table entries, never touching
+ * the walker.
  */
-// Derived from contract's element kinds minus the whole-unit "file" kind — one vocabulary, no
+// Derived from the wire contract's element kinds minus the whole-unit kind — one vocabulary, no
 // hand-copied mirror (the compiler rejects a kind the contract drops).
 export type NodeRole = import("../types.ts").ElementRole;
 
@@ -239,56 +222,52 @@ const GO: LanguageMapping = {
 };
 
 /**
- * The docstring of a python construct: the FIRST statement of its body wrapping a string. Returns
- * the string node's text and span, or null when there is no docstring. The "block" body node type
- * is python-specific, so this is null for every other language's definitions.
+ * The docstring of a python construct: the first statement of its body wrapping a string, or null
+ * when there is none — other languages' definitions have no such statement, so the helper answers
+ * null for them.
  */
-function docstringOf(node: { namedChildren: any[] }): { text: string; span: Span } | null {
-  const body = node.namedChildren.find((c: any) => c.type === "block");
+function docstringOf(node: { namedChildren: SyntaxNode[] }): { text: string; span: Span } | null {
+  const body = node.namedChildren.find((c) => c.type === "block");
   const first = body?.namedChildren[0];
   if (!first) return null;
-  const inner = first.type === "expression_statement" ? first.namedChildren[0] : first;
-  if (!inner || inner.type !== "string") return null;
-  return { text: inner.text, span: spanOf(inner) };
+  const wrapped = first.type === "expression_statement" ? first.namedChildren[0] : first;
+  if (!wrapped || wrapped.type !== "string") return null;
+  return { text: wrapped.text, span: spanOf(wrapped) };
 }
 
-/** The declared name of a python function/class definition (empty when anonymous/odd parse). */
-function defName(node: { namedChildren: any[] }): string {
-  return node.namedChildren.find((c: any) => c.type === "identifier")?.text ?? "";
+function pythonOwnerName(node: { namedChildren: SyntaxNode[] }): string {
+  return node.namedChildren.find((c) => c.type === "identifier")?.text ?? "";
 }
 
 /**
- * The declared name of a definition element, best-effort (render-only, never an id): the first
- * identifier child for the common declaration shapes, the wrapped declarator/spec identifier for
- * variable-shaped bindings. Undefined when the shape is composite (multi-spec const blocks,
- * call-expression composites) or the parse is odd — a missing name is honest, a wrong one is not.
+ * The declared name of a definition element, best-effort and render-only. Undefined when no single
+ * name exists (multi-spec blocks, call composites, odd parses) — a missing name is honest, a wrong
+ * one is not.
  */
-function declaredName(type: string, node: { namedChildren: any[] }): string | undefined {
-  const firstIdentifier = (n: { namedChildren: any[] }): string | undefined =>
-    n.namedChildren.find((c: any) => c.type === "identifier")?.text;
-  const inner = (n: { namedChildren: any[] }, wrapper: string) =>
-    n.namedChildren.find((c: any) => c.type === wrapper);
+function declaredName(type: string, node: { namedChildren: SyntaxNode[] }): string | undefined {
+  const firstIdentifier = (n: { namedChildren: SyntaxNode[] }): string | undefined =>
+    n.namedChildren.find((c) => c.type === "identifier")?.text;
+  const childOfType = (n: { namedChildren: SyntaxNode[] }, nodeType: string) =>
+    n.namedChildren.find((c) => c.type === nodeType);
   switch (type) {
-    // variable-shaped declarations refine to a declarator/spec carrying the bound name
     case "lexical_declaration":
     case "variable_declaration":
-      return firstIdentifier(inner(node, "variable_declarator") ?? node);
+      return firstIdentifier(childOfType(node, "variable_declarator") ?? node);
     case "const_declaration":
     case "var_declaration": {
       const spec =
-        inner(node, "const_spec") ?? inner(node, "var_spec") ?? inner(node, "var_spec_list");
-      // multiple specs in one block share no single name
+        childOfType(node, "const_spec") ??
+        childOfType(node, "var_spec") ??
+        childOfType(node, "var_spec_list");
       return spec !== undefined &&
         node.namedChildren.filter((c) => /_spec/.test(c.type)).length === 1
         ? firstIdentifier(spec)
         : undefined;
     }
-    // go type_declaration wraps one or more type_spec; single-spec declarations have a name
     case "type_declaration": {
-      const specs = node.namedChildren.filter((c: any) => c.type === "type_spec");
+      const specs = node.namedChildren.filter((c) => c.type === "type_spec");
       return specs.length === 1 ? firstIdentifier(specs[0]!) : undefined;
     }
-    // a composite's first identifier is its callee, not a declared name — no name is honest
     case "call_expression":
       return undefined;
     default:
@@ -308,14 +287,13 @@ const LANGUAGES: Record<string, LanguageMapping> = {
   go: GO,
 };
 
-/** The grammar ids --language accepts, in mapping order (design §7.2). */
 export function knownLanguages(): string[] {
   return Object.keys(LANGUAGES);
 }
 
 /**
- * Canonical extension per mapped grammar - the "parsing" side of the coverage note. Keyed by
- * language id, adjacent to LANGUAGES: a new grammar adds its extension here in the same edit.
+ * Canonical extension per mapped grammar — the "parsing" side of the coverage note. A new grammar
+ * adds its extension here in the same edit as its mapping entry.
  */
 const GRAMMAR_EXTENSIONS: Record<string, string> = {
   typescript: "ts",
@@ -339,24 +317,30 @@ const WASM_PATHS: Record<string, string> = {
 let initPromise: Promise<unknown> | null = null;
 const parsers = new Map<string, Promise<Parser>>();
 
+// The wasm engine initializes once for every grammar; parsers are cached per language.
+function engineReady(): Promise<unknown> {
+  initPromise ??= Parser.init({
+    // Bun quirk: Emscripten resolves the .wasm relative to the JS shim unless redirected.
+    locateFile: () => treeSitterWasm,
+  });
+  return initPromise;
+}
+
+async function createParser(language: string): Promise<Parser> {
+  await engineReady();
+  const grammar: LanguageType = await Language.load(
+    new Uint8Array(await Bun.file(WASM_PATHS[language]!).arrayBuffer()),
+  );
+  return new Parser().setLanguage(grammar);
+}
+
 async function parserFor(language: string): Promise<Parser> {
   const cached = parsers.get(language);
   if (cached) return cached;
-  const wasm = WASM_PATHS[language];
-  if (!LANGUAGES[language] || !wasm) {
+  if (!LANGUAGES[language] || !WASM_PATHS[language]) {
     throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
   }
-  const created = (async () => {
-    initPromise ??= Parser.init({
-      // Bun quirk: Emscripten resolves the .wasm relative to the JS shim unless redirected.
-      locateFile: () => treeSitterWasm,
-    });
-    await initPromise;
-    const lang: LanguageType = await Language.load(
-      new Uint8Array(await Bun.file(wasm).arrayBuffer()),
-    );
-    return new Parser().setLanguage(lang);
-  })();
+  const created = createParser(language);
   parsers.set(language, created);
   return created;
 }
@@ -392,31 +376,25 @@ function spanOf(node: {
   };
 }
 
-// A comment is empty when it carries no letter or digit: bare markers (//, ///, #, --) and pure
-// decoration (// ----) hold no proposition to classify. Language-agnostic: the role tables
-// already normalize every grammar's comment markers to role "comment".
 export function isEmptyComment(text: string): boolean {
   return !/[\p{L}\p{N}]/u.test(text);
 }
 
-/** End point len chars after start (content === src.slice(startByte, endByte) invariant). */
-function pointAfter(start: UnitPoint, content: string): UnitPoint {
-  const lines = content.split("\n");
-  const last = lines[lines.length - 1]!;
+function endPointOfContent(start: UnitPoint, content: string): UnitPoint {
+  const contentLines = content.split("\n");
+  const lastLine = contentLines[contentLines.length - 1]!;
   return {
-    line: start.line + lines.length - 1,
-    column: lines.length === 1 ? start.column + last.length : last.length,
+    line: start.line + contentLines.length - 1,
+    column: contentLines.length === 1 ? start.column + lastLine.length : lastLine.length,
   };
 }
 
 /**
- * Composite header state: the byte offset bounding a composite's source to its declaration — the
- * first '{' at the top level of the node text (name, signature, decorator, docstring line); when
- * the grammar has no braces (python's "class Greeter:"), the first top-level ':' ends the header
- * (inclusive). A single-line declaration with neither keeps its full text. Depth-tracked, so a '{'
- * inside a decorator call or a signature's object type never ends the header early.
+ * The offset bounding a composite's source to its declaration: the first top-level '{'; when the
+ * grammar has no braces, the first top-level ':' (inclusive). Neither: the full text. Depth is
+ * tracked so a '{' inside a decorator call never ends the header early.
  */
-function headerEnd(text: string, nestedBraceEndsHeader: boolean): number {
+function compositeHeaderEnd(text: string, nestedBraceEndsHeader: boolean): number {
   let depth = 0;
   let colon = -1;
   for (let i = 0; i < text.length; i++) {
@@ -425,7 +403,7 @@ function headerEnd(text: string, nestedBraceEndsHeader: boolean): number {
     else if (c === ")" || c === "]") depth--;
     else if (c === "{") {
       // A class body's brace sits at top level; a call composite's callback brace sits one
-      // paren deep (describe("x", () => {) — either ends the header.
+      // paren deep — either ends the header.
       if (depth === 0 || (nestedBraceEndsHeader && depth === 1)) return i;
       depth++;
     } else if (c === "}") {
@@ -436,9 +414,290 @@ function headerEnd(text: string, nestedBraceEndsHeader: boolean): number {
 }
 
 /**
- * Decompose one source string into its unit inventory. Never throws for parse errors — see the
- * module doc on graceful degradation.
+ * Mutable element collection shared by the descent and the top-level walk: definitions and comments
+ * accumulate in document order; pending comments wait for the declaration they precede.
  */
+interface ElementCollection {
+  readonly mapping: LanguageMapping;
+  /** The parse was flagged partial: recovered inner statements are fiction, never descended. */
+  readonly degraded: boolean;
+  readonly definitions: RawElement[];
+  readonly comments: RawElement[];
+  readonly importNodes: Array<{ nodeType: string; text: string; span: Span }>;
+  /** Comments awaiting a definition to attach to, in document order. */
+  pendingComments: Array<{ text: string; span: Span }>;
+}
+
+/** Node types recursed into but never emitted: descent glue between an element and its children. */
+const DESCENT_CONTAINERS = new Set([
+  "arguments",
+  "statement_block",
+  "class_body",
+  "block",
+  "arrow_function",
+  "function_expression",
+  "pair",
+]);
+
+/** Composites are judged AND descended into: emitted as a header, their body walked recursively. */
+const COMPOSITES = new Set([
+  "class_declaration",
+  "abstract_class_declaration",
+  "class_definition",
+  "call_expression",
+]);
+
+// Syntax trees cannot cycle, but pathologically deep nesting should not walk unbounded;
+// composites deeper than this stay header-only.
+const MAX_DESCENT_DEPTH = 8;
+
+function appendStandaloneComments(collection: ElementCollection, parent?: string): void {
+  for (const pendingComment of collection.pendingComments)
+    collection.comments.push({
+      label: "c" + String(collection.comments.length),
+      content: pendingComment.text,
+      nodeType: "comment",
+      role: "comment",
+      span: pendingComment.span,
+      internalCommentCount: 0,
+      ...(parent !== undefined && { parent }),
+    });
+  collection.pendingComments = [];
+}
+
+/**
+ * Emit one element for a definition node (composite or not). Content stays the complete node text,
+ * except a composite, whose source is bounded to its declaration through the opening brace: real
+ * corpora overflow the classifier's token budget on huge class bodies, and the body's facts travel
+ * via the children the descent already yields — the parent's questions are about the declaration.
+ * The attached doc comment travels outside the span, so it survives the bound.
+ */
+function appendDefinition(
+  collection: ElementCollection,
+  wrapperNode: SyntaxNode,
+  declarationNode: SyntaxNode,
+  type: string,
+  role: NodeRole,
+  parent: string | undefined,
+  commentRun?: readonly string[],
+): void {
+  const label = "d" + String(collection.definitions.length);
+  let { content, span } = definitionSource(wrapperNode, type);
+  const declared = declaredName(type, declarationNode);
+  collection.definitions.push({
+    label,
+    span,
+    content,
+    nodeType: type,
+    role,
+    ...(declared !== undefined && { name: declared }),
+    ...(parent !== undefined && { parent }),
+    ...(commentRun ? { attachedComment: commentRun } : {}),
+    internalCommentCount: countInternalComments(declarationNode),
+  });
+  const docstring = docstringOf(declarationNode);
+  if (docstring) appendDocstringElement(collection, docstring, label, type, declarationNode);
+}
+
+/**
+ * A composite's element source is bounded to its declaration through the opening brace; any other
+ * definition keeps its complete node text and span.
+ */
+function definitionSource(wrapperNode: SyntaxNode, type: string): { content: string; span: Span } {
+  const full = spanOf(wrapperNode);
+  if (!COMPOSITES.has(type)) return { content: wrapperNode.text, span: full };
+  const headerBound = compositeHeaderEnd(wrapperNode.text, type === "call_expression");
+  if (headerBound >= wrapperNode.text.length) return { content: wrapperNode.text, span: full };
+  const content = wrapperNode.text.slice(0, headerBound).trimEnd();
+  return {
+    content,
+    span: {
+      ...full,
+      end: endPointOfContent(full.start, content),
+      endByte: full.startByte + content.length,
+    },
+  };
+}
+
+/** The construct's docstring becomes its own classifiable comment element, owned by it. */
+function appendDocstringElement(
+  collection: ElementCollection,
+  docstring: { text: string; span: Span },
+  ownerLabel: string,
+  type: string,
+  declarationNode: SyntaxNode,
+): void {
+  collection.comments.push({
+    label: "c" + String(collection.comments.length),
+    content: docstring.text,
+    nodeType: "string",
+    role: "comment",
+    span: docstring.span,
+    internalCommentCount: 0,
+    parent: ownerLabel,
+    docstringOf: {
+      kind: type === "class_definition" ? "class" : "function",
+      name: pythonOwnerName(declarationNode),
+    },
+  });
+}
+
+/**
+ * The pending comment run when it directly precedes the declaration (no blank line between);
+ * otherwise undefined, leaving the run pending.
+ */
+function attachedCommentRun(
+  collection: ElementCollection,
+  wrapperNode: SyntaxNode,
+): readonly string[] | undefined {
+  const latestPending = collection.pendingComments.at(-1);
+  const blankLineGap = latestPending
+    ? wrapperNode.startPosition.row - (latestPending.span.end.line - 1)
+    : Infinity;
+  const attaches = collection.pendingComments.length > 0 && blankLineGap <= 1;
+  if (!attaches) return undefined;
+  const commentRun = collection.pendingComments.map((pendingComment) => pendingComment.text);
+  collection.pendingComments = [];
+  return commentRun;
+}
+
+function appendTopLevelElement(
+  collection: ElementCollection,
+  wrapperNode: SyntaxNode,
+  declarationNode: SyntaxNode,
+  type: string,
+  role: NodeRole,
+): void {
+  const commentRun = attachedCommentRun(collection, wrapperNode);
+  if (commentRun === undefined) appendStandaloneComments(collection);
+  appendDefinition(collection, wrapperNode, declarationNode, type, role, undefined, commentRun);
+  if (!COMPOSITES.has(type)) return;
+  const label = "d" + String(collection.definitions.length - 1);
+  if (collection.degraded) {
+    // Recovered body: the element stays whole at its real node extent, never descended into.
+    const lastDefinition = collection.definitions[collection.definitions.length - 1]!;
+    if (lastDefinition.label === label) {
+      collection.definitions[collection.definitions.length - 1] = {
+        ...lastDefinition,
+        content: declarationNode.text,
+        span: spanOf(declarationNode),
+      };
+    }
+    return;
+  }
+  walkNestedDefinitions(collection, declarationNode, label, 1);
+}
+
+function walkNestedDefinitions(
+  collection: ElementCollection,
+  branch: SyntaxNode,
+  parent: string,
+  depth: number,
+): void {
+  if (depth > MAX_DESCENT_DEPTH) return;
+  for (const childNode of branch.namedChildren) {
+    const { node: declarationNode, type } = unwrap(childNode, collection.mapping.wrapperTypes);
+    const role = resolveRole(type, declarationNode, collection.mapping.roleTable);
+    if (role !== undefined && role !== "comment" && role !== "import") {
+      const label = "d" + String(collection.definitions.length);
+      appendDefinition(collection, childNode, declarationNode, type, role, parent);
+      if (COMPOSITES.has(type))
+        walkNestedDefinitions(collection, declarationNode, label, depth + 1);
+      continue;
+    }
+    if (DESCENT_CONTAINERS.has(type)) {
+      walkNestedDefinitions(collection, declarationNode, parent, depth + 1);
+    }
+  }
+}
+
+/** The document walk: module docstring, standalone comments, imports, definitions, containers. */
+function collectElements(
+  collection: ElementCollection,
+  branch: SyntaxNode,
+  topLevel: boolean,
+): void {
+  const childNodes = branch.namedChildren;
+  for (let i = 0; i < childNodes.length; i++) {
+    const childNode = childNodes[i]!;
+    // Unwrap wrappers but keep the node's span and text: content must stay complete ("export"
+    // and all), spans must stay exact.
+    const { node: declarationNode, type } = unwrap(childNode, collection.mapping.wrapperTypes);
+    // Module docstring: the file's first statement wrapping a string, owned by the module.
+    if (topLevel && i === 0 && type === "string") {
+      collection.comments.push({
+        label: "c" + String(collection.comments.length),
+        content: declarationNode.text,
+        nodeType: "string",
+        role: "comment",
+        span: spanOf(declarationNode),
+        internalCommentCount: 0,
+        docstringOf: { kind: "module", name: "" },
+      });
+      continue;
+    }
+    if (topLevel && collection.mapping.roleTable[type] === "comment") {
+      if (!isEmptyComment(declarationNode.text))
+        collection.pendingComments.push({
+          text: declarationNode.text,
+          span: spanOf(declarationNode),
+        });
+      continue;
+    }
+    if (collection.mapping.roleTable[type] === "import") {
+      appendStandaloneComments(collection);
+      collection.importNodes.push({
+        nodeType: type,
+        text: declarationNode.text,
+        span: spanOf(declarationNode),
+      });
+      continue;
+    }
+    const role = resolveRole(type, declarationNode, collection.mapping.roleTable);
+    if (role !== undefined && role !== "comment" && role !== "import") {
+      appendTopLevelElement(collection, childNode, declarationNode, type, role);
+      continue;
+    }
+    if (!topLevel && DESCENT_CONTAINERS.has(type)) {
+      collectElements(collection, declarationNode, false);
+      continue;
+    }
+    appendStandaloneComments(collection);
+  }
+}
+
+function importGroupElement(
+  importNodes: ReadonlyArray<{ nodeType: string; text: string; span: Span }>,
+): WalkElement | undefined {
+  if (importNodes.length === 0) return undefined;
+  const first = importNodes[0]!;
+  const last = importNodes.at(-1)!;
+  return {
+    label: "i0",
+    span: {
+      start: first.span.start,
+      end: last.span.end,
+      startByte: first.span.startByte,
+      endByte: last.span.endByte,
+    },
+    content: importNodes.map((n) => n.text).join("\n"),
+    nodeType: first.nodeType,
+    role: "import",
+    internalCommentCount: 0,
+  };
+}
+
+// Flagging, not truncating: the classifier refuses oversized requests, and a skipped judgment is
+// honest where a truncated element would be judged on half its source.
+function applySizeBackstop(elements: readonly RawElement[]): RawElement[] {
+  return elements.map((element) =>
+    charsToTokens(element.content.length) > MAX_ELEMENT_TOKENS
+      ? { ...element, oversized: true }
+      : element,
+  );
+}
+
+/** Decompose one source string into its unit inventory; never throws for parse errors. */
 export async function decompose(source: string, language: string): Promise<Inventory> {
   const mapping = LANGUAGES[language];
   if (!mapping) {
@@ -448,263 +707,27 @@ export async function decompose(source: string, language: string): Promise<Inven
   const tree = parser.parse(source);
   if (!tree) return { hasError: true, definitions: [], comments: [], imports: [] };
 
-  const definitions: RawElement[] = [];
-  const comments: RawElement[] = [];
-  const importNodes: Array<{ nodeType: string; text: string; span: Span }> = [];
-  // Comments awaiting a definition to attach to, in document order.
-  let pending: Array<{ text: string; span: Span }> = [];
-  const flushStandalone = (parent?: string) => {
-    for (const p of pending)
-      comments.push({
-        label: "c" + String(comments.length),
-        content: p.text,
-        nodeType: "comment",
-        role: "comment",
-        span: p.span,
-        internalCommentCount: 0,
-        ...(parent !== undefined && { parent }),
-      });
-    pending = [];
+  const collection: ElementCollection = {
+    mapping,
+    degraded: tree.rootNode.hasError,
+    definitions: [],
+    comments: [],
+    importNodes: [],
+    pendingComments: [],
   };
+  collectElements(collection, tree.rootNode, true);
+  appendStandaloneComments(collection);
 
-  // Emit one element for a definition node (composite or not). Content stays the complete
-  // node text; inner elements yielded by descent have sub-spans — containment stays implicit.
-  const emit = (
-    outer: any,
-    node: any,
-    type: string,
-    role: NodeRole,
-    parent: string | undefined,
-    attached?: readonly string[],
-  ) => {
-    const label = "d" + String(definitions.length);
-    let content = outer.text;
-    let span = spanOf(outer);
-    // Composite header state (design: composite body-size fix): composites carry their declaration
-    // through the opening brace, not their body (real corpora hit jev's max_tokens on 25k-char
-    // impl/class bodies). Body facts travel via the children descent already yields; the parent's
-    // questions are about the declaration. The attached doc comment travels outside the span, so
-    // it survives the bound.
-    if (COMPOSITES.has(type)) {
-      const end = headerEnd(content, type === "call_expression");
-      if (end < content.length) {
-        content = content.slice(0, end).trimEnd();
-        span = {
-          ...span,
-          end: pointAfter(span.start, content),
-          endByte: span.startByte + content.length,
-        };
-      }
-    }
-    const name = declaredName(type, node);
-    definitions.push({
-      label,
-      span,
-      content,
-      nodeType: type,
-      role,
-      ...(name !== undefined && { name }),
-      ...(parent !== undefined && { parent }),
-      ...(attached ? { attachedComment: attached } : {}),
-      internalCommentCount: countInternalComments(node),
-    });
-    // The construct's docstring becomes its own classifiable comment element, owned by it.
-    const docstring = docstringOf(node);
-    if (docstring) {
-      comments.push({
-        label: "c" + String(comments.length),
-        content: docstring.text,
-        nodeType: "string",
-        role: "comment",
-        span: docstring.span,
-        internalCommentCount: 0,
-        parent: label,
-        docstringOf: {
-          kind: type === "class_definition" ? "class" : "function",
-          name: defName(node),
-        },
-      });
-    }
-  };
-
-  // Composite descent: a composite (class declaration, call expression like describe(...)/it(...),
-  // and nested composites recursively) is BOTH judged and descended into — its header is emitted
-  // as a regular element (role per node type) AND its body is walked so inner nodes become
-  // elements too. Spans stay LOC intervals; identity is span-derived; containment is implicit.
-  // Anonymous callbacks (arrow_function/function_expression) and block/argument containers are
-  // descent glue: recursed, never emitted.
-  //
-  // Depth cap: syntax trees cannot cycle, but pathologically deep nesting (describe inside
-  // describe inside ...) should not walk unbounded; composites deeper than this stay header-only.
-  const MAX_DESCENT_DEPTH = 8;
-  // Degraded-parse gate (issue 021): when error recovery flattens a body (hasError), the
-  // recovered statements surface at the top level and the composite descent then emits
-  // call-argument-arrow fragments (useEffect(() =>, setMode(...)) as sibling function-kind
-  // elements. In a degraded parse those inner statements are recovery fiction, not intentional
-  // test-style composites: the recovered composite is emitted WHOLE (rescoped to its real node
-  // extent — the header truncation would cut it to its opener line) and NOT descended into.
-  // Healthy parses keep the describe(...)/it(...) descent untouched.
-  const degraded = tree.rootNode.hasError;
-  const DESCENT_CONTAINERS = new Set([
-    "arguments",
-    "statement_block",
-    "class_body",
-    "block",
-    "arrow_function",
-    "function_expression",
-    "pair",
-  ]);
-  const COMPOSITES = new Set([
-    "class_declaration",
-    "abstract_class_declaration",
-    "class_definition",
-    "call_expression",
-  ]);
-  const descend = (node: any, depth: number, parent: string | undefined): void => {
-    if (depth > MAX_DESCENT_DEPTH) return;
-    for (const child of node.namedChildren) {
-      const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
-      const role = resolveRole(type, inner, mapping.roleTable);
-      if (role !== undefined && role !== "comment" && role !== "import") {
-        const label = "d" + String(definitions.length);
-        emit(child, inner, type, role, parent);
-        // Nested composite: emitted as a header AND descended into, recursively; the parent link
-        // threads here — inner elements know the enclosing element's label.
-        if (COMPOSITES.has(type)) {
-          descend(inner, depth + 1, label);
-        }
-        continue;
-      }
-      if (DESCENT_CONTAINERS.has(type)) {
-        descend(inner, depth + 1, parent);
-      }
-    }
-  };
-
-  const walk = (node: any, topLevel: boolean): void => {
-    const children = node.namedChildren;
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i]!;
-      // Unwrap wrappers, but keep the node's span and text: content must stay
-      // complete ("export" and all), spans must stay exact.
-      const { node: inner, type } = unwrap(child, mapping.wrapperTypes);
-      // Module docstring: the file's FIRST statement wrapping a string, owned by the module.
-      if (topLevel && i === 0 && type === "string") {
-        comments.push({
-          label: "c" + String(comments.length),
-          content: inner.text,
-          nodeType: "string",
-          role: "comment",
-          span: spanOf(inner),
-          internalCommentCount: 0,
-          docstringOf: { kind: "module", name: "" },
-        });
-        continue;
-      }
-      if (topLevel && mapping.roleTable[type] === "comment") {
-        if (!isEmptyComment(inner.text)) pending.push({ text: inner.text, span: spanOf(inner) });
-        continue;
-      }
-      if (mapping.roleTable[type] === "import") {
-        flushStandalone();
-        importNodes.push({ nodeType: type, text: inner.text, span: spanOf(inner) });
-        continue;
-      }
-      const role = resolveRole(type, inner, mapping.roleTable);
-      if (role !== undefined && role !== "comment" && role !== "import") {
-        // A comment run attaches only when it directly precedes the declaration
-        // with no blank line in between; otherwise it stays standalone.
-        const last = pending.at(-1);
-        const gap = last ? child.startPosition.row - (last.span.end.line - 1) : Infinity;
-        const attach = topLevel && pending.length > 0 && gap <= 1;
-        if (attach) {
-          emit(
-            child,
-            inner,
-            type,
-            role,
-            undefined,
-            pending.map((p) => p.text),
-          );
-          pending = [];
-        } else {
-          flushStandalone();
-          emit(child, inner, type, role, undefined);
-        }
-        // Composite: judged AND descended into (class -> type role; call -> function role).
-        if (COMPOSITES.has(type)) {
-          const label = "d" + String(definitions.length - 1);
-          if (degraded) {
-            // Degraded parse (issue 021): recovered body. The statements inside this composite
-            // are recovery fiction — never descended (no sibling fragments). The header itself
-            // is RESCOPED to its real node extent (the truncation above cut a recovered
-            // multi-line call to its opener line): anchors over the enclosed lines resolve HERE,
-            // to the unit that actually contains them, judged whole.
-            const lastDef = definitions[definitions.length - 1]!;
-            if (lastDef.label === label) {
-              definitions[definitions.length - 1] = {
-                ...lastDef,
-                content: inner.text,
-                span: spanOf(inner),
-              };
-            }
-            continue;
-          }
-          descend(inner, 1, label);
-        }
-        continue;
-      }
-      if (!topLevel && DESCENT_CONTAINERS.has(type)) {
-        walk(inner, false);
-        continue;
-      }
-      flushStandalone();
-    }
-  };
-  walk(tree.rootNode, true);
-  flushStandalone();
-
-  let importElement: WalkElement | undefined;
-  if (importNodes.length > 0) {
-    const first = importNodes[0]!;
-    const last = importNodes.at(-1)!;
-    importElement = {
-      label: "i0",
-      // Span covers the first through last import node.
-      span: {
-        start: first.span.start,
-        end: last.span.end,
-        startByte: first.span.startByte,
-        endByte: last.span.endByte,
-      },
-      content: importNodes.map((n) => n.text).join("\n"),
-      nodeType: first.nodeType,
-      role: "import",
-      internalCommentCount: 0,
-    };
-  }
-
-  // Hard size backstop (language-agnostic, design: composite body-size fix): any element over
-  // MAX_ELEMENT_TOKENS is flagged oversized — the classifier returns no rules for it and the run
-  // names each skip in-band. Ordinary code can never crash the run with an oversized request.
-  const sized = (elements: readonly RawElement[]): RawElement[] =>
-    elements.map((e) =>
-      charsToTokens(e.content.length) > MAX_ELEMENT_TOKENS ? { ...e, oversized: true } : e,
-    );
-  const importElements = importElement ? [importElement] : [];
-  const sizedDefs = sized(definitions);
-  const sizedComments = sized(comments);
-  const sizedImports = sized(importElements);
+  const importElement = importGroupElement(collection.importNodes);
   // Labels are assigned at emit time (parent links reference them); sizing is order-preserving.
   return {
     hasError: tree.rootNode.hasError,
-    definitions: sizedDefs,
-    comments: sizedComments,
-    imports: sizedImports,
+    definitions: applySizeBackstop(collection.definitions),
+    comments: applySizeBackstop(collection.comments),
+    imports: importElement ? applySizeBackstop([importElement]) : [],
   };
 }
 
-/** The inventory's languages: grammars first, then the file tier (design §7.2). */
 export function languageOf(path: string): string | null {
   if (/\.tsx$/.test(path)) return "tsx";
   if (/\.(m|c)?ts$/.test(path)) return "typescript";
@@ -714,9 +737,9 @@ export function languageOf(path: string): string | null {
 }
 
 /**
- * The Element projection of one walked element (tmp/designs/element.md): kind, span, label, parent,
- * kind-specific name — never the walk form's content. One noun, two forms: the walk-time
- * WalkElement carries the source; the wire Element is what a measurement references.
+ * The wire projection of one walked element: kind, span, label, parent, kind-specific name — never
+ * the walked form's source content. One noun, two forms: the walk-time form carries the source; the
+ * wire form is what a measurement references.
  */
 export function projectElement(element: WalkElement): Element {
   const base = {
@@ -750,7 +773,6 @@ export function projectElement(element: WalkElement): Element {
   }
 }
 
-/** The FileElement projection of a whole unit judged as one: the unit's full span. */
 export function fileElement(id: string, content: string): Element {
   const lines = content.split("\n").length;
   return {
