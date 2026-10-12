@@ -23,7 +23,6 @@ const baseConfig = {
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
 
 afterAll(() => {
-  rmSync("tmp/lint-retention-test", { recursive: true, force: true });
   rmSync("tmp/lint-walk-order-test", { recursive: true, force: true });
 });
 
@@ -282,8 +281,18 @@ describe("lint — classification shape", () => {
   });
 });
 
-const COVERAGE_TS_DIR = "tmp/lint-coverage-test";
-const CUSTOM_RULE_PATH = COVERAGE_TS_DIR + "/elements-rule.ts";
+// The inline callback rule used across the custom-rule tests: an elements-target rule that takes
+// every element (the walk-coverage proof).
+const ELEMENTS_RULE = {
+  name: "custom_elements",
+  target: (elements: readonly unknown[]) => elements,
+  classify: (self: { source: string }) => ({
+    instructions: "i",
+    criteria: { true: "t", false: "f" },
+    state: { source: self.source },
+  }),
+  handle: { warn: { greater_than: 0.1 } },
+};
 
 describe("lint", () => {
   afterAll(() => rmSync("tests/fixtures/order-test", { recursive: true, force: true }));
@@ -745,27 +754,7 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 
-  test("a custom element rule forces the walk: non-source files become sweep coverage", async () => {
-    const fs = await import("node:fs");
-    fs.mkdirSync(COVERAGE_TS_DIR, { recursive: true });
-    fs.writeFileSync(
-      CUSTOM_RULE_PATH,
-      [
-        'import { defineConfig } from "jint:sdk";',
-        "export default defineConfig({",
-        "  rules: [{",
-        '    name: "custom_elements",',
-        "    target: (elements) => elements,",
-        "    classify: (self) => ({",
-        '      instructions: "i",',
-        '      criteria: { true: "t", false: "f" },',
-        "      state: { source: self.source },",
-        "    }),",
-        "    handle: { warn: { greater_than: 0.1 } },",
-        "  }],",
-        "});",
-      ].join("\n"),
-    );
+  test("an inline callback element rule forces the walk: non-source files become sweep coverage", async () => {
     const events = await drain(
       lint({
         config: {
@@ -774,7 +763,7 @@ describe("lint", () => {
           input: "tests/fixtures/sample-dir",
           inputType: "dir",
           rules: [],
-          customRules: [CUSTOM_RULE_PATH],
+          customRules: [ELEMENTS_RULE as never],
         },
         classifier: classifierWith({}),
       }),
@@ -864,25 +853,19 @@ describe("lint — unknown rule names", () => {
   });
 });
 
-describe("lint — customRules content retention (the logical content-drop)", () => {
-  const TS_DIR = "tmp/lint-retention-test";
-  const RULE_PATH = TS_DIR + "/comment-rule.ts";
+describe("lint — inline callback rules (content retention, the logical content-drop)", () => {
   // Targets ONLY good.ts's elements: sample-file.ts has zero selected targets.
-  const RULE_SOURCE = [
-    'import { defineConfig } from "jint:sdk";',
-    "export default defineConfig({",
-    "  rules: [{",
-    '    name: "ts_retention_probe",',
-    "    target: (elements) => elements.filter((e) => e.path.endsWith('good.ts')),",
-    "    classify: (self) => ({",
-    '      instructions: "i",',
-    '      criteria: { true: "t", false: "f" },',
-    "      state: { source: self.source },",
-    "    }),",
-    "    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.2 } },",
-    "  }],",
-    "});",
-  ].join("\n");
+  const GOOD_TS_PROBE = {
+    name: "ts_retention_probe",
+    target: (elements: readonly { path: string }[]) =>
+      elements.filter((e) => e.path.endsWith("good.ts")),
+    classify: (self: { source: string }) => ({
+      instructions: "i",
+      criteria: { true: "t", false: "f" },
+      state: { source: self.source },
+    }),
+    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.2 } },
+  };
   const FILES_RULE = {
     name: "is_files_retention_probe",
     kind: "noul" as const,
@@ -894,17 +877,15 @@ describe("lint — customRules content retention (the logical content-drop)", ()
   const isWholeFileCall = (state: AnyState): boolean =>
     "content" in state && typeof state.content === "string";
 
-  const writeRule = (): void => {
-    mkdirSync(TS_DIR, { recursive: true });
-    writeFileSync(RULE_PATH, RULE_SOURCE);
-  };
-
-  test("a files-target JSON rule retains EVERY file's content even when custom rules target only one file", async () => {
-    writeRule();
+  test("a files-target JSON rule retains EVERY file's content even when callback rules target only one file", async () => {
     const log: CallLog = { calls: [] };
     await drain(
       lint({
-        config: { ...baseConfig, rules: [FILES_RULE as never], customRules: [RULE_PATH] },
+        config: {
+          ...baseConfig,
+          rules: [FILES_RULE as never],
+          customRules: [GOOD_TS_PROBE as never],
+        },
         input: [FILE, GOOD],
         classifier: loggingClassifier(
           { is_files_retention_probe: 0.9, ts_retention_probe: 0.9 },
@@ -921,51 +902,32 @@ describe("lint — customRules content retention (the logical content-drop)", ()
     expect((sample.state as { content: string }).content.length).toBeGreaterThan(0);
   });
 
-  test("a custom rule file's fragment scoping filters at run time; a rule's own scope replaces it", async () => {
-    // fragment: include good.ts, exclude sample-file.ts. rule_a inherits (measures good.ts);
-    // rule_b declares include sample-file.ts - WHOLESALE replacement, so the fragment's exclude
-    // does not silence it (per-field merge would measure nothing for rule_b).
-    mkdirSync(TS_DIR, { recursive: true });
-    writeFileSync(
-      TS_DIR + "/scoped-rule.ts",
-      [
-        'import { defineConfig } from "jint:sdk";',
-        "export default defineConfig({",
-        '  include: ["**/good.ts"],',
-        '  exclude: ["**/sample-file.ts"],',
-        "  rules: [",
-        "    {",
-        '      name: "fragment_scope_inherited",',
-        "      target: (elements) => elements,",
-        "      classify: (self) => ({",
-        '        instructions: "i",',
-        '        criteria: { true: "t", false: "f" },',
-        "        state: { source: self.source },",
-        "      }),",
-        "      handle: { warn: { greater_than: 0.9 } },",
-        "    },",
-        "    {",
-        '      name: "fragment_scope_own_include",',
-        '      include: ["**/sample-file.ts"],',
-        "      target: (elements) => elements,",
-        "      classify: (self) => ({",
-        '        instructions: "i",',
-        '        criteria: { true: "t", false: "f" },',
-        "        state: { source: self.source },",
-        "      }),",
-        "      handle: { warn: { greater_than: 0.9 } },",
-        "    },",
-        "  ],",
-        "});",
-      ].join("\n"),
-    );
-    const GOOD = "tests/fixtures/sample-dir/good.ts";
+  test("an inline callback rule's own scope filters at run time", async () => {
+    // rule_a includes good.ts only; rule_b includes sample-file.ts only. Each rule's scope is
+    // its own - no fragment defaults exist anymore, so each measures exactly its include.
+    const scoped = (name: string, include: string[]): unknown => ({
+      name,
+      include,
+      target: (elements: readonly unknown[]) => elements,
+      classify: (self: { source: string }) => ({
+        instructions: "i",
+        criteria: { true: "t", false: "f" },
+        state: { source: self.source },
+      }),
+      handle: { warn: { greater_than: 0.9 } },
+    });
     const events = await drain(
       lint({
-        config: { ...baseConfig, customRules: [TS_DIR + "/scoped-rule.ts"] },
+        config: {
+          ...baseConfig,
+          customRules: [
+            scoped("rule_scope_good", ["**/good.ts"]),
+            scoped("rule_scope_sample", ["**/sample-file.ts"]),
+          ] as never,
+        },
         input: [FILE, GOOD],
         classifier: loggingClassifier(
-          { fragment_scope_inherited: 0.5, fragment_scope_own_include: 0.5 },
+          { rule_scope_good: 0.5, rule_scope_sample: 0.5 },
           { calls: [] },
         ),
       }),
@@ -975,16 +937,12 @@ describe("lint — customRules content retention (the logical content-drop)", ()
       const m = (e as { measurement: { rule: string; input: string } }).measurement;
       byRule.set(m.rule, [...(byRule.get(m.rule) ?? []), m.input.split("#")[0]!]);
     }
-    // the inherited scope filtered sample-file.ts out of rule_a entirely
-    expect(byRule.get("fragment_scope_inherited")!.every((p) => p === GOOD)).toBe(true);
-    expect(byRule.get("fragment_scope_inherited")!.length).toBeGreaterThan(0);
-    // the own-scope rule replaced wholesale: it measures sample-file.ts despite the fragment exclude
-    expect(byRule.get("fragment_scope_own_include")!.every((p) => p === FILE)).toBe(true);
-    expect(byRule.get("fragment_scope_own_include")!.length).toBeGreaterThan(0);
+    expect(byRule.get("rule_scope_good")!.every((p) => p === GOOD)).toBe(true);
+    expect(byRule.get("rule_scope_good")!.length).toBeGreaterThan(0);
+    expect(byRule.get("rule_scope_sample")!.every((p) => p === FILE)).toBe(true);
+    expect(byRule.get("rule_scope_sample")!.length).toBeGreaterThan(0);
   });
-
   test("zero-target files are logically dropped: no whole-file call, but element classification still runs", async () => {
-    writeRule();
     const log: CallLog = { calls: [] };
     const events = await drain(
       lint({
@@ -1001,7 +959,7 @@ describe("lint — customRules content retention (the logical content-drop)", ()
               handle: () => null, // never fires: the rule classifies, nothing is actionable
             } as never,
           ],
-          customRules: [RULE_PATH],
+          customRules: [GOOD_TS_PROBE as never],
         },
         input: [FILE, GOOD],
         classifier: loggingClassifier({ ts_retention_probe: 0.9 }, log),

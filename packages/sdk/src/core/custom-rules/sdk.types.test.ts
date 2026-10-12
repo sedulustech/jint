@@ -14,7 +14,7 @@ import { describe, expect, test } from "bun:test";
 import type {
   RuleContext,
   StateSpec,
-  CustomConfigFragment,
+  TsConfig,
   CustomDecision,
   CustomElement,
   CustomHandleData,
@@ -23,7 +23,7 @@ import type {
 import type {
   RuleContext as DxRuleContext,
   StateSpec as DxStateSpec,
-  CustomConfigFragment as DxCustomConfigFragment,
+  TsConfig as DxTsConfig,
   CustomDecision as DxCustomDecision,
   CustomElement as DxCustomElement,
   CustomHandleData as DxCustomHandleData,
@@ -42,7 +42,7 @@ type Contract = [
   Expect<Same<CustomHandleData, DxCustomHandleData>>,
   Expect<Same<CustomDecision, DxCustomDecision>>,
   Expect<Same<CustomRule, DxCustomRule>>,
-  Expect<Same<CustomConfigFragment, DxCustomConfigFragment>>,
+  Expect<Same<TsConfig, DxTsConfig>>,
 ];
 const _contract: Contract = [true, true, true, true, true, true, true];
 

@@ -365,12 +365,6 @@
         ]
       }
     },
-    "customRules": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "include": {
       "type": "array",
       "items": {

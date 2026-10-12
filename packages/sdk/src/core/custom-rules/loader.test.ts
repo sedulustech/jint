@@ -1,10 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { defaultRuleSpecs } from "@jint/defaults";
-import { loadCustomRules, registerCustomRuleLoader } from "./loader.ts";
+import { defaultRules } from "@jint/defaults";
+import { loadTsConfig } from "../../config/load.ts";
+import { registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./sdk.ts";
 
-const DIR = "tmp/custom-rules-loader-test";
+const DIR = "tmp/ts-config-loader-test";
 
 function write(name: string, code: string): string {
   mkdirSync(DIR, { recursive: true });
@@ -15,58 +16,68 @@ function write(name: string, code: string): string {
 
 afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
-const VALID_RULE = `
-import { defineConfig } from "jint:sdk";
-export default defineConfig({
-  rules: [{
-    name: "will_test_fire",
-    target: "comments",
-    classify: (self, ctx) => ({
-      instructions: "i",
-      criteria: { true: "t", false: "f" },
-      state: { source: self.source, targets: ctx.targets.length },
-    }),
-    handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
-  }],
-});
-`;
+const INLINE_RULE_CONFIG = [
+  'import { defaultRules, is_greppable } from "jint:defaults";\n' +
+    'import { defineConfig } from "jint:sdk";\n' +
+    "export default defineConfig({\n" +
+    "  rules: [\n" +
+    '    { ...is_greppable, exclude: ["**/*.test.ts"] },\n' +
+    "    {\n" +
+    '      name: "will_test_fire",\n' +
+    '      target: "comments",\n' +
+    "      classify: (self, ctx) => ({\n" +
+    '        instructions: "i",\n' +
+    '        criteria: { true: "t", false: "f" },\n' +
+    "        state: { source: self.source, targets: ctx.targets.length },\n" +
+    "      }),\n" +
+    "      handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },\n" +
+    "    },\n" +
+    "  ],\n" +
+    "});\n",
+].join("");
 
-describe("loadCustomRules", () => {
+describe("loadTsConfig (the TS config tier)", () => {
   // the provider is the entry point's decision; registered before any jint:defaults import runs
-  registerCustomRuleLoader({ defaults: defaultRuleSpecs });
-  test("loads a valid fragment through the jint:sdk virtual module", async () => {
-    const path = write("valid.ts", VALID_RULE);
-    const rules = (await loadCustomRules([path])).custom;
-    expect(rules).toHaveLength(1);
-    expect(rules[0]?.name).toBe("will_test_fire");
+  registerCustomRuleLoader({ defaults: defaultRules });
+
+  test("a TS config with an INLINE callback rule loads end to end: declarative compiles, callback validates", async () => {
+    const path = write("inline-rule.config.ts", INLINE_RULE_CONFIG);
+    const config = await loadTsConfig(path, { baseline: undefined as never });
+    // the declarative entry (jint:defaults spread-override) compiled through the config seam
+    const greppable = config.rules.find((r) => r.name === "is_greppable");
+    expect(greppable).toBeDefined();
+    expect(greppable?.exclude).toEqual(["**/*.test.ts"]);
+    // the inline callback rule validated and carried for the custom engine
+    expect(config.customRules).toHaveLength(1);
+    expect(config.customRules![0]!.name).toBe("will_test_fire");
+    expect(typeof config.customRules![0]!.classify).toBe("function");
   });
 
-  test("rejects bare specifiers BEFORE import runs (the gate)", async () => {
-    const path = write("bare.ts", `import kleur from "kleur";\nexport default 1;`);
-    expect(async () => await loadCustomRules([path])).toThrow(/kleur/);
+  test("the gate rejects bare specifiers BEFORE import runs", async () => {
+    const path = write("bare.config.ts", `import kleur from "kleur";\nexport default {};`);
+    expect(async () => await loadTsConfig(path)).toThrow(/kleur/);
   });
 
-  test("rejects node:* builtins at the gate", async () => {
-    const path = write("builtin.ts", `import { readFileSync } from "node:fs";\nexport default 1;`);
-    expect(async () => await loadCustomRules([path])).toThrow(/node:fs/);
+  test("the gate rejects node:* builtins", async () => {
+    const path = write(
+      "builtin.config.ts",
+      `import { readFileSync } from "node:fs";\nexport default {};`,
+    );
+    expect(async () => await loadTsConfig(path)).toThrow(/node:fs/);
   });
 
-  test("multi-file composition: rules from every file load, order and identity preserved", async () => {
-    // the composition story (design config-composition/03): a file may import another file's
-    // fragment and extend it - jint only sees the final rules array, last-wins per name.
+  test("cross-file composition: relative imports compose, last-wins per name", async () => {
     write(
       "shared.ts",
-      'import { defineConfig } from "jint:sdk";\n' +
-        "export const sharedRule = {\n" +
+      "export const sharedRule = {\n" +
         '  name: "shared_rule",\n' +
         '  target: "comments" as const,\n' +
         '  classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),\n' +
         "  handle: { warn: { greater_than: 0.5 } },\n" +
-        "};\n" +
-        "export const base = defineConfig({ rules: [sharedRule] });\n",
+        "};\n",
     );
-    const a = write(
-      "a.ts",
+    const path = write(
+      "composed.config.ts",
       'import { defineConfig } from "jint:sdk";\n' +
         'import { sharedRule } from "./shared.ts";\n' +
         "export default defineConfig({\n" +
@@ -76,126 +87,30 @@ describe("loadCustomRules", () => {
         "  ],\n" +
         "});\n",
     );
-    const b = write(
-      "b.ts",
-      'import { sharedRule } from "./shared.ts";\n' +
-        'import { defineConfig } from "jint:sdk";\n' +
-        "export default defineConfig({\n" +
-        "  rules: [\n" +
-        "    // same helper, distinct name - a distinct rule built from shared parts\n" +
-        '    { name: "b_rule", target: "comments", classify: sharedRule.classify, handle: { warn: { greater_than: 0.4 } } },\n' +
-        "  ],\n" +
-        "});\n",
-    );
-    const rules = (await loadCustomRules([a, b])).custom;
-    // order follows the declared file order, then in-file order; identity is the name
-    expect(rules.map((r) => r.name)).toEqual(["shared_rule", "a_rule", "b_rule"]);
-    // the cross-file import actually composed: every loaded rule carries a working classify
-    expect(rules.every((r) => typeof r.classify === "function")).toBe(true);
+    const config = await loadTsConfig(path);
+    // order follows the array, identity is the name; the cross-file import actually composed
+    expect(config.customRules!.map((r) => r.name)).toEqual(["shared_rule", "a_rule"]);
+    expect(config.customRules!.every((r) => typeof r.classify === "function")).toBe(true);
   });
 
-  test("a declarative spec import loads through the declarative lane (no classify needed)", async () => {
+  test("jint:defaults serves defaultRules plus each rule under its own name", async () => {
     const path = write(
-      "declarative.ts",
-      'import { defaultRuleSpecs } from "jint:defaults";\n' +
+      "virtual.config.ts",
+      'import { defaultRules, is_greppable } from "jint:defaults";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        'import { is_greppable } from "jint:defaults";\n' +
-        'export default defineConfig({ rules: [{ ...is_greppable, exclude: ["**/*.test.ts"] }] });',
+        'export default defineConfig({ rules: [...defaultRules, { ...is_greppable, include: ["src/**"] }] });\n',
     );
-    const loaded = await loadCustomRules([path]);
-    expect(loaded.custom).toHaveLength(0);
-    expect(loaded.declarative).toHaveLength(1);
-    const entry = loaded.declarative[0]?.entry as { name: string; exclude: string[] };
-    expect(entry.name).toBe("is_greppable");
-    expect(entry.exclude).toEqual(["**/*.test.ts"]);
+    const config = await loadTsConfig(path);
+    // the whole baseline composed, and the named override replaced it (last wins per name)
+    const greppable = config.rules.find((r) => r.name === "is_greppable");
+    expect(greppable?.include).toEqual(["src/**"]);
+    expect(config.rules.map((r) => r.name).filter((n) => n === "is_greppable")).toHaveLength(1);
   });
 
-  test("fragment scoping is the default; a rule declaring its own replaces it wholesale", async () => {
-    // a real checked-in rule file, exactly what a user would pass to --customRules
-    const loaded = await loadCustomRules(["tests/fixtures/custom-rules/scoped-fragment.ts"]);
-    const names = loaded.declarative.map((d) => (d.entry as { name: string }).name);
-    expect(names).toEqual(["is_greppable", "is_greppable_src"]);
-    // the fragment scope is the default for the unscoped rule
-    const inherited = loaded.declarative[0]?.entry as { exclude?: string[] };
-    expect(inherited.exclude).toEqual(["**/*.test.ts"]);
-    // a rule declaring its own scope replaces it wholesale: no fragment field leaks in
-    const own = loaded.declarative[1]?.entry as { include?: string[]; exclude?: string[] };
-    expect(own.include).toEqual(["src/**"]);
-    expect(own.exclude).toBeUndefined();
-    // the callback lane inherits the same default
-    const callback = loaded.custom[0] as unknown as { name: string; exclude?: string[] };
-    expect(callback.name).toBe("will_comment_explain_domain");
-    expect(callback.exclude).toEqual(["**/*.test.ts"]);
-  });
-
-  test("the gate ALLOWS the first-party defaults package (install-time versioned)", async () => {
-    // the import must resolve and execute; whether a declarative spec may sit in a fragment's
-    // rules is a separate question (config-composition/03 follow-up) - this pins the gate only
-    const path = write(
-      "defaults-import.ts",
-      'import { defaultRuleSpecs } from "@jint/defaults";\n' +
-        'import { defineConfig } from "jint:sdk";\n' +
-        "const count = Object.keys(defaultRuleSpecs).length;\n" +
-        "export default defineConfig({ rules: [], include: count > 0 ? undefined : [] });",
-    );
-    const rules = (await loadCustomRules([path])).custom;
-    expect(rules).toHaveLength(0);
-  });
-
-  test("the gate ALLOWS relative imports, re-exports, absolute paths, and jint:*", async () => {
-    // The allow matrix is contract too: legitimate rule composition must keep working, and the
-    // scan must see re-export forms (export ... from) as imports.
-    write("helper.ts", "export const threshold = 0.5;\nexport default 7;");
-    const rules = await loadCustomRules([
-      write(
-        "composed.ts",
-        [
-          'import { defineConfig } from "jint:sdk";',
-          'import { threshold } from "./helper.ts";',
-          'import abs from "' + process.cwd() + "/" + DIR + "/helper.ts" + '";',
-          'import { default as reexported } from "./helper.ts";',
-          'export { threshold as passthrough } from "./helper.ts";',
-          "export default defineConfig({",
-          "  rules: [{",
-          '    name: "composed_rule",',
-          '    target: "comments",',
-          "    classify: (self) => ({",
-          '      instructions: "i",',
-          '      criteria: { true: "t", false: "f" },',
-          "      state: { source: self.source, from: threshold + abs + reexported },",
-          "    }),",
-          "    handle: { warn: { greater_than: 0.1 }, error: { greater_than: 0.9 } },",
-          "  }],",
-          "});",
-        ].join("\n"),
-      ),
-    ]).then((r) => r.custom);
-    expect(rules).toHaveLength(1);
-    expect(rules[0]?.name).toBe("composed_rule");
-    // The imported values actually crossed the gate: run classify and read the composed state.
-    const spec = rules[0]!.classify(
-      {
-        id: "c0",
-        path: "f.ts",
-        role: "comment",
-        source: "// x",
-        span: {
-          start: { line: 1, column: 0 },
-          end: { line: 1, column: 4 },
-          startByte: 0,
-          endByte: 4,
-        },
-        parent: null,
-      },
-      { targets: [rules[0] as never] },
-    );
-    expect((spec.state as Record<string, unknown>).from).toBe(0.5 + 7 + 7);
-  });
-
-  test("a thrown module fails fatal, naming the file", async () => {
-    const path = write("throwing.ts", 'throw new Error("boom");');
+  test("a thrown module fails fatal (CONFIG_INVALID), naming the file", async () => {
+    const path = write("throwing.config.ts", 'throw new Error("boom");');
     try {
-      await loadCustomRules([path]);
+      await loadTsConfig(path);
       expect.unreachable();
     } catch (e) {
       expect((e as Error).message).toContain(path);
@@ -203,35 +118,51 @@ describe("loadCustomRules", () => {
     }
   });
 
-  test("a non-defineConfig default export fails fatal, naming the file", async () => {
-    const path = write("garbage.ts", "export default { nope: true };");
-    expect(async () => await loadCustomRules([path])).toThrow(/defineConfig/);
+  test("a garbage default export fails the config boundary, not the gate", async () => {
+    const path = write("garbage.config.ts", "export default { nope: true };");
+    expect(async () => await loadTsConfig(path)).toThrow(/invalid config/);
   });
 
-  test("duplicate rule names across files are fatal, naming both files", async () => {
-    const a = write("dup-a.ts", VALID_RULE);
-    const b = write("dup-b.ts", VALID_RULE);
-    expect(async () => await loadCustomRules([a, b])).toThrow(
-      /dup-a\.ts.*dup-b\.ts|dup-b\.ts.*dup-a\.ts/,
+  test("duplicate names: a callback rule shadowing a declarative one is fatal", async () => {
+    const path = write(
+      "dup.config.ts",
+      'import { is_greppable } from "jint:defaults";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        "export default defineConfig({ rules: [is_greppable, {\n" +
+        '  name: "is_greppable", target: "comments",\n' +
+        '  classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),\n' +
+        "  handle: { warn: { greater_than: 0.5 } },\n" +
+        "}] });\n",
     );
+    expect(async () => await loadTsConfig(path)).toThrow(/duplicate rule name/);
   });
 });
 
-describe("defineConfig validation (load-time, fatal)", () => {
-  test("accepts an array of fragments", () => {
-    const fragment = defineConfig([{ rules: [] }, { rules: [] }]);
-    expect(fragment).toHaveLength(2);
+describe("defineConfig validation (author-time, fatal)", () => {
+  test("accepts the full config surface (minus customRules)", () => {
+    const config = defineConfig({
+      input: "src/",
+      inputType: "dir",
+      rules: [],
+      include: ["**/*.ts"],
+      exclude: ["**/*.test.ts"],
+      disable: ["is_greppable"],
+      apiKey: "k",
+      concurrency: 8,
+      timeout: 30,
+    });
+    expect(config.input).toBe("src/");
   });
 
-  test("rejects run-level keys other than the fragment's own scoping (design 02)", () => {
+  test("rejects keys outside the config surface", () => {
     expect(() => {
-      defineConfig({ rules: [], input: "src/" } as never);
-    }).toThrow(/input/);
-    // include/exclude are fragment-level scoping, allowed since config-composition/02
-    expect(defineConfig({ rules: [], exclude: ["x"] })).toEqual({
-      rules: [],
-      exclude: ["x"],
-    });
+      defineConfig({ rules: [], customRules: ["x"] } as never);
+    }).toThrow(/customRules/);
+  });
+
+  test("rejects non-objects and a non-array rules key", () => {
+    expect(() => defineConfig([1, 2] as never)).toThrow(/config object/);
+    expect(() => defineConfig({ rules: "x" } as never)).toThrow(/rules/);
   });
 });
 

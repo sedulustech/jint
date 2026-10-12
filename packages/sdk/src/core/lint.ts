@@ -11,13 +11,11 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { compileRule } from "../config/load.ts";
 import {
   resolveAllCustomTargets,
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./custom-rules/execute.ts";
-import { loadCustomRules } from "./custom-rules/loader.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
@@ -148,35 +146,23 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
-  // custom-tier rules load at setup: any load failure (gate, thrown module, invalid defineConfig,
-  // duplicate names across both tiers) is fatal and names the file (design rules-context/01).
-  const loadedCustomRules = await loadCustomRules(options.config.customRules ?? []);
-  assertNoCrossTierDuplicates(options.config.rules, loadedCustomRules.custom);
-  // A str unit has no element inventory: every TS target would resolve to zero elements and the
-  // run would complete silently empty. That combination is rejected at setup, not silently
-  // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
-  if (
-    loadedCustomRules.custom.length + loadedCustomRules.declarative.length > 0 &&
-    options.str !== undefined
-  ) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "custom rules run on file inputs only - a str unit has no element inventory, so every custom rule would resolve zero targets (drop customRules or use a file input)",
-    );
-  }
-  // declarative entries from custom files compile through the config seam and join the rule set
-  // last-wins-by-name (the override idiom): a custom file re-declaring a config rule overrides it
-  const declarativeByName = new Map(options.config.rules.map((rule) => [rule.name, rule]));
-  for (const { entry, source } of loadedCustomRules.declarative) {
-    const rule = compileRule(entry as Parameters<typeof compileRule>[0], source);
-    declarativeByName.set(rule.name, rule);
-  }
+  // Inline callback rules come from the config boundary, already validated (load-time duplicates
+  // and scopes are fatal there); lint only selects across both rule forms.
   const { json: rules, custom: customRules } = partitionRules(
-    [...declarativeByName.values()],
-    loadedCustomRules.custom,
+    [...options.config.rules],
+    options.config.customRules ?? [],
     options.disable,
     options.only,
   );
+  // A str unit has no element inventory: every callback target would resolve to zero elements and
+  // the run would complete silently empty. That combination is rejected at setup, not silently
+  // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
+  if (customRules.length > 0 && options.str !== undefined) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "callback rules run on file inputs only - a str unit has no element inventory, so every callback rule would resolve zero targets (drop them or use a file input)",
+    );
+  }
   // Element scope: files-target rules are claims about the FILE, never one element — they cannot
   // run scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are
   // silently out of the scoped set, like any rule whose target misses the subject.
@@ -604,27 +590,6 @@ function unknownRuleMessage(name: string, known: ReadonlySet<string>): string {
   return best !== null && bestDistance <= Math.max(2, Math.floor(name.length / 3))
     ? `unknown rule "${name}" — did you mean: ${best}?`
     : `unknown rule "${name}"`;
-}
-
-/**
- * Load-time fatality: a custom rule shadowing a JSON rule (or vice versa) is a config
- * contradiction.
- */
-function assertNoCrossTierDuplicates(
-  jsonRules: readonly Rule[],
-  customRules: readonly CustomRule[],
-): void {
-  const json = new Set(jsonRules.map((rule) => rule.name));
-  for (const rule of customRules) {
-    if (json.has(rule.name)) {
-      throw new SetupError(
-        "RULE_INVALID",
-        'duplicate rule name "' +
-          rule.name +
-          '" in customRules and the JSON rules tier — names are global across tiers',
-      );
-    }
-  }
 }
 
 /**

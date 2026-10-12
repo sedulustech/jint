@@ -243,7 +243,7 @@ Element-scoped runs: address one element directly —
 ANCHOR @L<n>: the element whose span contains line n (one call). RANGE @L<s>-<e>: every element
 FULLY ENCLOSED in [s,e] — partial overlaps never selected; a range enclosing none is an error
 naming the file's element spans. Comma list @L<s>-<e>,@L<s>-<e>: each item independent. Each
-selected element is one classifier call (icustom rules batched); --rule narrows every selection to ONE.
+selected element is one classifier call (inline custom rules batched); --rule narrows every selection to ONE.
 Finding line nouns paste back as file@L<line> — element ids are run-scoped and never selectable.
 Verifying one fix: the finding's @L is pre-edit (edits shift lines) - re-check at the
   element's CURRENT line: jint src/a.ts@L<current-line> --rule <rule>   one call;
@@ -289,7 +289,7 @@ export function recordNotice(): string {
 export function printRules(effective: readonly Rule[], customCount: number): void {
   const tsNote =
     customCount > 0
-      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (loaded at run time)`
+      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (declared inline)`
       : "";
   process.stderr.write(
     `jint: measuring with ${effective.length} rules${tsNote}\n\n` + describeRules(effective),

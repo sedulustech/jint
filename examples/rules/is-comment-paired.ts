@@ -1,13 +1,11 @@
 /**
- * Example custom rule: header-comment pairing (tmp/designs/rules-context/01) — a comment is judged
- * TOGETHER WITH the code it annotates, via the element's parent link. Not in the default set:
- * custom rules are opted into per project via the config's customRules key.
+ * Example inline custom rule: header-comment pairing (tmp/designs/rules-context/01) — a comment is
+ * judged TOGETHER WITH the code it annotates, via the element's parent link. Not in the default
+ * set: custom rules are authored INLINE in a TS config's rules array, next to the defaults they
+ * compose with.
  *
- * Use it with a config:
- *
- * { "input": "src/", "rules": [], "customRules": ["examples/rules/is-comment-paired.ts"] }
- *
- * Run: jint --config <that-config> --json
+ * This file is a full jint.config.ts: load it with `jint --config
+ * examples/rules/is-comment-paired.ts`.
  */
 
 /// <reference path="../../packages/sdk/src/core/custom-rules/sdk.d.ts" />
@@ -15,6 +13,8 @@
 import { defineConfig } from "jint:sdk";
 
 export default defineConfig({
+  input: "examples/rules/fixtures/paired.py",
+  apiKey: "unused",
   rules: [
     {
       name: "is_comment_paired_with_code",

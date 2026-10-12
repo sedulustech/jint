@@ -81,20 +81,23 @@ declare module "jint:sdk" {
   }
 
   /**
-   * A TS config fragment: declarative entries (jint:defaults specs, design 03) or callback rules;
-   * include/exclude are fragment-level scoping (design 02).
+   * A TS config: the same keys a top-level config takes, minus customRules. Entries in rules
+   * compose last-wins by name: declarative specs (jint:defaults exports and their
+   * spread-and-overrides) or inline callback CustomRules.
    */
-  export interface CustomConfigFragment {
-    readonly rules: ReadonlyArray<
-      CustomRule | ({ readonly name: string } & Record<string, unknown>)
-    >;
+  export interface TsConfig {
+    readonly $schema?: string;
+    readonly input?: string;
+    readonly inputType?: "file" | "dir";
+    readonly rules?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
     readonly include?: readonly string[];
     readonly exclude?: readonly string[];
+    readonly disable?: readonly string[];
+    readonly apiKey?: string;
+    readonly concurrency?: number;
+    readonly timeout?: number;
   }
 
-  /** Declares a fragment; takes one fragment or an array of them. */
-  export function defineConfig<F extends { rules: readonly unknown[] }>(fragment: F): F;
-  export function defineConfig<F extends { rules: readonly unknown[] }>(
-    fragments: readonly F[],
-  ): readonly F[];
+  /** The typed TS-config entry. */
+  export function defineConfig(config: TsConfig): TsConfig;
 }

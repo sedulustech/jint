@@ -5,8 +5,8 @@ import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockJev } from "./helpers/mock-jev.ts";
 
-// custom-tier end-to-end: a config-declared customRules fragment, loaded through the jint:sdk virtual
-// module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
+// custom-rule end-to-end: an INLINE callback rule in a TS config (jint.config.ts), loaded through
+// the jint:sdk virtual module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
 // fatal-vs-streamed error boundaries) — see src/core/custom-rules/*.test.ts for the unit level.
 
 const DIR = scratchDir("jint-custom-rules-e2e");
@@ -22,9 +22,10 @@ const FIXTURE = [
   "// a standalone comment",
 ].join("\n");
 
-const GOOD_RULE = `
+const GOOD_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
+  input: "fixture.ts",
   rules: [{
     name: "will_ts_rule_fire",
     target: "comments",
@@ -38,9 +39,10 @@ export default defineConfig({
 });
 `;
 
-const POLICY_RULE = `
+const POLICY_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
+  input: "fixture.ts",
   rules: [{
     name: "will_policy_decide",
     target: "comments",
@@ -59,9 +61,10 @@ export default defineConfig({
 });
 `;
 
-const BAD_SPEC_RULE = `
+const BAD_SPEC_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
+  input: "fixture.ts",
   rules: [{
     name: "will_break_contract",
     target: "comments",
@@ -71,23 +74,12 @@ export default defineConfig({
 });
 `;
 
-function setup(name: string, rule: string, config?: Record<string, unknown>): string {
+function setup(name: string, configSource: string): string {
   const dir = DIR + "/" + name;
   rmScratchTree(dir);
   mkdirSync(dir, { recursive: true });
   writeFileSync(dir + "/fixture.ts", FIXTURE);
-  writeFileSync(dir + "/rule.ts", rule);
-  writeFileSync(
-    dir + "/jint.config.json",
-    JSON.stringify(
-      config ?? {
-        $schema: "../../../jint.schema.json",
-        input: "fixture.ts",
-        rules: [],
-        customRules: ["rule.ts"],
-      },
-    ),
-  );
+  writeFileSync(dir + "/jint.config.ts", configSource);
   return dir;
 }
 
@@ -99,7 +91,7 @@ afterAll(() => {
 });
 
 async function runIn(dir: string, env: Record<string, string | undefined> = {}) {
-  return runCli(["--config", "jint.config.json", "--json"], {
+  return runCli(["--config", "jint.config.ts", "--json"], {
     cwd: dir,
     env: { ...MOCK_ENV, ...env },
   });
@@ -107,7 +99,7 @@ async function runIn(dir: string, env: Record<string, string | undefined> = {}) 
 
 describe("cli: custom rules end-to-end", () => {
   test("a config-declared custom rule classifies, fires, and binds the finding to the target span", async () => {
-    const dir = setup("happy", GOOD_RULE);
+    const dir = setup("happy", GOOD_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 0, stdout: "json" }); // 0.8 warns (warn_at 0.5), never errors
     const measurement = report.measurements.find(
@@ -124,7 +116,7 @@ describe("cli: custom rules end-to-end", () => {
   });
 
   test("handleClassification decisions ride data on the finding (message dropped, v1)", async () => {
-    const dir = setup("policy", POLICY_RULE);
+    const dir = setup("policy", POLICY_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 1, stdout: "json" });
     const finding = report.findings.find(
@@ -137,7 +129,7 @@ describe("cli: custom rules end-to-end", () => {
   });
 
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
-    const dir = setup("dumps", GOOD_RULE);
+    const dir = setup("dumps", GOOD_CONFIG);
     const dumps = DIR + "/dump-captures";
     const r = await runIn(dir, { JEV_DIR: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
@@ -163,20 +155,20 @@ describe("cli: custom rules end-to-end", () => {
     );
   });
 
-  test("a rule file that fails at load is fatal: exit 2, the file is named", async () => {
+  test("a TS config that fails at load is fatal: exit 2, the file is named", async () => {
     const dir = setup("loadfail", 'throw new Error("boom");');
     const r = await runIn(dir);
-    expectContract(r, { exit: 2, stderr: [/rule\.ts/, "boom"] });
+    expectContract(r, { exit: 2, stderr: [/jint\.config\.ts/, "boom"] });
   });
 
   test("an import-gate rejection is fatal at e2e too: exit 2, the specifier is named", async () => {
-    const dir = setup("gatefail", 'import kleur from "kleur";\nexport default 1;');
+    const dir = setup("gatefail", 'import kleur from "kleur";\nexport default {};');
     const r = await runIn(dir);
     expectContract(r, { exit: 2, stderr: [/kleur/, /only "jint:\*"/] });
   });
 
   test("a mid-run contract violation streams as RULE_FAILED: per-unit, run continues", async () => {
-    const dir = setup("badspec", BAD_SPEC_RULE);
+    const dir = setup("badspec", BAD_SPEC_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 4, stdout: "json" });
     expect(report.errors).toHaveLength(1);
@@ -185,15 +177,27 @@ describe("cli: custom rules end-to-end", () => {
     expect(report.errors[0]?.message).toContain("fixture.ts#");
   });
 
-  test("a duplicate name across the JSON and custom tiers is fatal", async () => {
-    const dir = setup("duptier", GOOD_RULE, {
-      input: "fixture.ts",
-      customRules: ["rule.ts"],
-      rules: ["is_name_purposeful"],
-    });
-    // the custom rule's name differs here; force a real cross-tier clash
-    writeFileSync(dir + "/rule.ts", GOOD_RULE.replace("will_ts_rule_fire", "is_name_purposeful"));
+  test("a duplicate name across rule forms is fatal", async () => {
+    const dir = setup(
+      "duptier",
+      [
+        'import { is_name_purposeful } from "jint:defaults";',
+        'import { defineConfig } from "jint:sdk";',
+        "export default defineConfig({",
+        '  input: "fixture.ts",',
+        "  rules: [",
+        "    is_name_purposeful,",
+        "    {",
+        '      name: "is_name_purposeful",',
+        '      target: "comments",',
+        '      classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),',
+        "      handle: { warn: { greater_than: 0.5 } },",
+        "    },",
+        "  ],",
+        "});",
+      ].join("\n"),
+    );
     const r = await runIn(dir);
-    expectContract(r, { exit: 2, stderr: [/is_name_purposeful/, /both tiers|across/] });
+    expectContract(r, { exit: 2, stderr: [/is_name_purposeful/, /duplicate rule name/] });
   });
 });

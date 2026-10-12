@@ -1,14 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { validateConfig } from "@jint/sdk";
-import { collectReport, lint } from "@jint/sdk";
+import { loadConfig, lint, collectReport } from "@jint/sdk";
 import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "@jint/sdk";
 
-// The proof rule runs the real pipeline end to end: config customRules -> jint:sdk load -> walk ->
+// The proof rule runs the real pipeline end to end: TS config -> inline callback rule -> walk ->
 // pairing via element.parent -> classifier. The classifier is a stub that records the composed
 // state (the pairing is asserted ON THE WIRE SHAPE, not on model behavior).
 
-const RULE = new URL("./is-comment-paired.ts", import.meta.url).pathname;
-const FIXTURE = new URL("./fixtures/paired.py", import.meta.url).pathname;
+const CONFIG = new URL("./is-comment-paired.ts", import.meta.url).pathname;
 
 describe("is_comment_paired_with_code (example)", () => {
   test("judges the docstring TOGETHER WITH the code it annotates, and the finding binds", async () => {
@@ -20,10 +18,7 @@ describe("is_comment_paired_with_code (example)", () => {
       for (const name of Object.keys(questions)) answers[name] = { value: 0.1 };
       return answers;
     };
-    const config = validateConfig(
-      { input: FIXTURE, rules: [], customRules: [RULE], apiKey: "unused" },
-      "example.config.json",
-    );
+    const config = await loadConfig(CONFIG);
     const report = await collectReport(lint({ config, classifier }));
     // The docstring element, judged with its annotated code as composed state: the pairing.
     expect(states).toHaveLength(1);

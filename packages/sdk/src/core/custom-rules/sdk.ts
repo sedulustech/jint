@@ -1,9 +1,10 @@
 /**
  * The TS-rule contract (tmp/designs/rules-context/01..04): rules authored in TypeScript, executed
- * by jint on the embedded runtime. A rule file exports defineConfig({ rules: [...] }) — a partial
- * config contributing rules ONLY — and every handler (target fn, classify, handleClassification)
- * returns data; jint, never the rule, calls the classifier. The runtime validation here is the
- * contract enforcement (sdk.d.ts is editor DX only — the runtime does NOT typecheck).
+ * by jint on the embedded runtime. A TS config default-exports defineConfig({ ... }) — a partial
+ * config whose rules may be declarative specs or inline callback CustomRules — and every handler
+ * (target fn, classify, handleClassification) returns data; jint, never the rule, calls the
+ * classifier. The runtime validation here is the contract enforcement (sdk.d.ts is editor DX only —
+ * the runtime does NOT typecheck).
  */
 
 import { Type, type Static } from "@sinclair/typebox";
@@ -99,15 +100,22 @@ export interface CustomRule {
 }
 
 /**
- * A TS config fragment: contributes rules — declarative entries (the jint:defaults specs and their
- * spread-and-overrides, validated by the config boundary) or callback CustomRules. design
- * config-composition/02: a fragment may carry include/exclude, inherited by its rules; a rule's own
- * scoping replaces the fragment default (rule-level wins, issue-008 precedence).
+ * A TS config's shape: the same keys a top-level config takes (the config boundary validates it —
+ * CONFIG_SCHEMA), minus `customRules`. Entries in `rules` compose last-wins by name: declarative
+ * specs (the jint:defaults exports and their spread-and-overrides) and inline callback
+ * CustomRules.
  */
-export interface CustomConfigFragment {
-  readonly rules: ReadonlyArray<CustomRule | ({ readonly name: string } & Record<string, unknown>)>;
+export interface TsConfig {
+  readonly $schema?: string;
+  readonly input?: string;
+  readonly inputType?: "file" | "dir";
+  readonly rules?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
+  readonly disable?: readonly string[];
+  readonly apiKey?: string;
+  readonly concurrency?: number;
+  readonly timeout?: number;
 }
 
 /** The element roles a custom rule may target in v1 (unit-level targets stay JSON-tier). */
@@ -268,37 +276,42 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
 }
 
 /**
- * The virtual module's sole export. A fragment contributes rules ONLY: run-level keys (input,
- * exclude, ...) are rejected — they are entry-config, and a fragment has no single run to mean.
- * Takes one fragment or an array of them.
+ * The virtual module's sole export: the typed TS-config entry. Accepts the same keys a top-level
+ * config takes, minus customRules; passes the object through unchanged (the author's literal type
+ * survives, so declarative entries and callback rules compose alike — design
+ * config-composition/03).
  */
-export function defineConfig<F extends { rules: readonly unknown[] }>(fragment: F): F;
-export function defineConfig<F extends { rules: readonly unknown[] }>(
-  fragments: readonly F[],
-): readonly F[];
-export function defineConfig(
-  fragment: { rules: readonly unknown[] } | readonly { rules: readonly unknown[] }[],
-): unknown {
+export function defineConfig(config: TsConfig): TsConfig {
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "defineConfig: " + message);
   };
-  // generic passthrough: the author's literal type survives, so declarative entries and
-  // callback rules compose alike (design config-composition/03)
-  const fragments = Array.isArray(fragment) ? fragment : [fragment];
-  if (fragments.length === 0) fail("empty fragment array");
-  for (const f of fragments) {
-    if (typeof f !== "object" || f === null) fail("fragment is not an object");
-    for (const key of Object.keys(f)) {
-      if (key !== "rules" && key !== "include" && key !== "exclude") {
-        fail(
-          '"' +
-            key +
-            '" is not allowed in a TS config fragment — fragments carry rules, include, exclude (design config-composition/02)',
-        );
-      }
-    }
-    const rules = (f as CustomConfigFragment).rules;
-    if (!Array.isArray(rules)) fail('"rules" must be an array');
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    fail("takes one config object");
   }
-  return fragment;
+  for (const key of Object.keys(config)) {
+    if (!CONFIG_KEYS.has(key)) {
+      fail(
+        '"' +
+          key +
+          '" is not allowed in a TS config — a TS config takes the same keys a config file takes, minus customRules',
+      );
+    }
+  }
+  const rules = config.rules;
+  if (rules !== undefined && !Array.isArray(rules)) fail('"rules" must be an array');
+  return config;
 }
+
+/** The keys a TS config may carry: the config surface, minus customRules (by design). */
+const CONFIG_KEYS: ReadonlySet<string> = new Set([
+  "$schema",
+  "input",
+  "inputType",
+  "rules",
+  "include",
+  "exclude",
+  "disable",
+  "apiKey",
+  "concurrency",
+  "timeout",
+]);

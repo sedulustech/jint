@@ -13,10 +13,11 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { importConfigModule } from "../core/custom-rules/loader.ts";
+import { validateCustomRule, type CustomRule } from "../core/custom-rules/sdk.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
@@ -105,9 +106,6 @@ export const CONFIG_SCHEMA = Type.Object({
   input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
   rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
-  // custom-tier rules: paths to TypeScript rule files (default-exporting defineRule from "jint:api"),
-  // resolved relative to the config file. The JSON tier above is untouched by this key.
-  customRules: Type.Optional(Type.Array(Type.String())),
   // Config-level include: when set, ONLY matching paths are measured (the walk-wide file
   // filter; per-rule include narrows further). Symmetrical with exclude, same glob semantics.
   include: Type.Optional(Type.Array(Type.String())),
@@ -135,8 +133,8 @@ export interface ResolvedConfig {
   readonly input?: string;
   readonly inputType?: "file" | "dir";
   readonly rules: readonly Rule[];
-  /** Custom-tier rule files, resolved absolute; empty when the config declares none. */
-  readonly customRules?: readonly string[];
+  /** Inline callback rules from a TS config's rules array (validated); empty for the JSON tier. */
+  readonly customRules?: readonly CustomRule[];
   readonly include: readonly string[];
   readonly exclude: readonly string[];
   readonly apiKey?: string;
@@ -199,28 +197,73 @@ export async function loadDeclarativeConfig(
 
 /**
  * The imperative tier: a TS module (jint.config.ts) default-exporting defineConfig({...}). Loads
- * through the custom-rule loader - the gate allows jint:* virtual modules, the first-party
+ * through the config-module loader - the gate allows jint:* virtual modules, the first-party
  *
  * @jint/defaults package (install-time versioned), and relative/absolute files - then validates
- * through the same boundary as JSON.
+ * through the same boundary as JSON. Inline callback rules (a rules entry carrying a classify /
+ * handleClassification / function target) are extracted BEFORE the boundary check: they are
+ * CustomRules, not data, and run through the custom engine at lint time.
  */
 export async function loadTsConfig(path: string, options?: LoadOptions): Promise<ResolvedConfig> {
   const abs = resolve(path);
-  const raw = await importConfigModule(abs);
-  if (raw === undefined || typeof raw !== "object") {
+  const raw = (await importConfigModule(abs)) as { rules?: unknown[] };
+  if (raw === undefined || typeof raw !== "object" || Array.isArray(raw)) {
     throw new SetupError(
       "CONFIG_INVALID",
       `ts config must default-export defineConfig({...}): ${path}`,
     );
   }
-  return validateConfig(raw, path, options?.baseline);
+  const customRules: CustomRule[] = [];
+  const declarative = { ...(raw as Record<string, unknown>) };
+  if (Array.isArray(declarative.rules)) {
+    declarative.rules = declarative.rules.filter((entry) => {
+      if (!isCallbackRule(entry)) return true;
+      customRules.push(validateCustomRule(entry, path));
+      return false;
+    });
+  }
+  const resolved = validateConfig(declarative, path, options?.baseline, customRules);
+  // names are global across the two rule forms: a callback rule shadowing a declarative one (or
+  // vice versa) in the same array is a config contradiction, fatal and named
+  const declarativeNames = new Set(resolved.rules.map((rule) => rule.name));
+  for (const rule of resolved.customRules ?? []) {
+    if (declarativeNames.has(rule.name)) {
+      throw new SetupError(
+        "RULE_INVALID",
+        'duplicate rule name "' +
+          rule.name +
+          '" in the rules tier (declarative and callback forms collide) — names are global',
+      );
+    }
+  }
+  return resolved;
 }
 
-/** Validates the boundary shape, compiles data handles; static types derive from the same schema. */
+/** True when a rules entry is a callback CustomRule (a function anywhere in its shape). */
+function isCallbackRule(entry: unknown): boolean {
+  if (typeof entry !== "object" || entry === null) return false;
+  const r = entry as {
+    classify?: unknown;
+    handleClassification?: unknown;
+    target?: unknown;
+  };
+  return (
+    typeof r.classify === "function" ||
+    typeof r.handleClassification === "function" ||
+    typeof r.target === "function"
+  );
+}
+
+/**
+ * Validates the boundary shape, compiles data handles; static types derive from the same schema.
+ * `customRules` are the TS tier's already-validated inline callback rules — attached to the
+ * resolved config and counted in the measures-something backstop, never re-validated here.
+ */
 export function validateConfig(
   raw: unknown,
   source: string,
   baseline?: Record<string, Rule>,
+  customRules: readonly CustomRule[] = [],
 ): ResolvedConfig {
   if (!Value.Check(CONFIG_SCHEMA, raw)) {
     // A bad rule entry collapses into the schema union's generic "Expected union value"; dive
@@ -285,17 +328,16 @@ export function validateConfig(
   }
   for (const name of parsed.disable ?? []) byName.delete(name);
   // A run that would measure NOTHING is a config error, not a "0 rules" headline: the resolved
-  // set must be non-empty across both tiers (rules: [] alone is legal ONLY when customRules supply
-  // the set — the lint.test.ts pattern). Setup failure, named, like every config problem.
-  if (byName.size === 0 && (parsed.customRules ?? []).length === 0) {
+  // set must be non-empty across both rule forms. Setup failure, named, like every config problem.
+  if (byName.size === 0 && customRules.length === 0) {
     throw new SetupError(
       "CONFIG_NO_RULES",
-      `invalid config ${source}: no rules to run - declare at least one rule (rules or customRules), or drop the disable list`,
+      `invalid config ${source}: no rules to run - declare at least one rule, or drop the disable list`,
     );
   }
   // Per-rule scope validation + legal-cancellation warnings (never errors, per issue 008).
   const warnings: string[] = [];
-  for (const rule of byName.values()) {
+  for (const rule of [...byName.values(), ...customRules]) {
     if (rule.include === undefined && rule.exclude === undefined) continue;
     const scopeProblem = checkRuleScope(rule);
     if (scopeProblem !== null) {
@@ -314,7 +356,7 @@ export function validateConfig(
     input: string;
     inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
-    customRules: string[];
+    customRules: readonly CustomRule[];
     include: string[];
     exclude: string[];
     apiKey?: string;
@@ -324,8 +366,7 @@ export function validateConfig(
   } = {
     input: parsed.input ?? "",
     rules: [...byName.values()],
-    // Relative custom rule paths resolve against the config file's directory, like the config itself.
-    customRules: (parsed.customRules ?? []).map((p) => resolve(dirname(resolve(source)), p)),
+    customRules,
     include: parsed.include ?? [],
     exclude: parsed.exclude ?? [],
   };
