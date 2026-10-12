@@ -1,6 +1,6 @@
 ---
 title: Rules
-description: The default rule set, rendered from the specs. Generated - do not edit.
+description: The default rule set, rendered from the default rules. Generated - do not edit.
 ---
 
 # Default rules

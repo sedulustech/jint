@@ -48,7 +48,7 @@ export interface RuleContext {
  * jev — the rule NEVER sees the classifier. Composition is free; observability (the wire dumps) is
  * the guarantee.
  */
-export interface StateSpec {
+export interface StateSchema {
   readonly instructions: string;
   readonly criteria: { readonly true: string; readonly false: string };
   readonly state: Record<string, unknown>;
@@ -82,7 +82,7 @@ export interface CustomRule {
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
   /** Per resolved target: the state spec for self. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: RuleContext) => StateSpec;
+  readonly classify: (self: CustomElement, ctx: RuleContext) => StateSchema;
   /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
@@ -157,7 +157,7 @@ const DECISION_SCHEMA = Type.Object({
 });
 
 /**
- * Validates one classify-returned StateSpec; throws a plain contract-violation Error — the engine
+ * Validates one classify-returned StateSchema; throws a plain contract-violation Error — the engine
  * catches it per call and streams it as RULE_FAILED naming rule + element (run-time, non-fatal).
  */
 export function validateStateSpec(

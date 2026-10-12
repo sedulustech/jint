@@ -13,7 +13,7 @@
 import { describe, expect, test } from "bun:test";
 import type {
   RuleContext,
-  StateSpec,
+  StateSchema,
   TsConfig,
   CustomDecision,
   CustomElement,
@@ -22,7 +22,7 @@ import type {
 } from "./sdk.ts";
 import type {
   RuleContext as DxRuleContext,
-  StateSpec as DxStateSpec,
+  StateSchema as DxStateSpec,
   TsConfig as DxTsConfig,
   CustomDecision as DxCustomDecision,
   CustomElement as DxCustomElement,
@@ -38,7 +38,7 @@ type Expect<T extends true> = T;
 type Contract = [
   Expect<Same<CustomElement, DxCustomElement>>,
   Expect<Same<RuleContext, DxRuleContext>>,
-  Expect<Same<StateSpec, DxStateSpec>>,
+  Expect<Same<StateSchema, DxStateSpec>>,
   Expect<Same<CustomHandleData, DxCustomHandleData>>,
   Expect<Same<CustomDecision, DxCustomDecision>>,
   Expect<Same<CustomRule, DxCustomRule>>,

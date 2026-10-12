@@ -264,20 +264,20 @@ export interface Unit {
  * describes what true and false mean. Question ids (the record keys) are never sent to the model —
  * they only correlate answers.
  */
-export interface NoulQuestionSpec {
+export interface NoulQuestionSchema {
   readonly type: "noul";
   readonly instructions: string;
   readonly criteria?: { readonly true: string; readonly false: string };
 }
 
 /** A scored question; structurally compatible with the SDK's ScoreQuestion. */
-export interface ScoreQuestionSpec {
+export interface ScoreQuestionSchema {
   readonly type: "score";
   readonly instructions: string;
   readonly criteria: ChoiceRubric;
 }
 
-export type QuestionSpec = NoulQuestionSpec | ScoreQuestionSpec;
+export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema;
 
 /**
  * Jint's reexport of the jev answer type for a rule (design rules-context/04): the raw classifier
@@ -294,7 +294,7 @@ export type RuleResult = NoulResult | ScoreResult;
  */
 export type Classifier = (
   state: AnyState,
-  questions: Record<string, QuestionSpec>,
+  questions: Record<string, QuestionSchema>,
 ) => Promise<Record<string, import("@jint/contract").ClassifiedAnswer>>;
 
 export type { ClassifiedAnswer } from "@jint/contract";

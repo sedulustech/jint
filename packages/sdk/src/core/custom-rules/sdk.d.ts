@@ -37,7 +37,7 @@ declare module "jint:sdk" {
   }
 
   /** One compiled judgment: question, criteria, and the freely composed state jev judges. */
-  export interface StateSpec {
+  export interface StateSchema {
     readonly instructions: string;
     readonly criteria: { readonly true: string; readonly false: string };
     readonly state: Record<string, unknown>;
@@ -68,7 +68,7 @@ declare module "jint:sdk" {
       | "imports"
       | readonly string[]
       | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-    readonly classify: (self: CustomElement, ctx: RuleContext) => StateSpec;
+    readonly classify: (self: CustomElement, ctx: RuleContext) => StateSchema;
     /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { loadConfig, lint, collectReport } from "@jint/sdk";
-import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "@jint/sdk";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSchema } from "@jint/sdk";
 
 // The proof rule runs the real pipeline end to end: TS config -> inline callback rule -> walk ->
 // pairing via element.parent -> classifier. The classifier is a stub that records the composed
@@ -11,7 +11,7 @@ const CONFIG = new URL("./is-comment-paired.ts", import.meta.url).pathname;
 describe("is_comment_paired_with_code (example)", () => {
   test("judges the docstring TOGETHER WITH the code it annotates, and the finding binds", async () => {
     const states: AnyState[] = [];
-    const classifier: Classifier = async (state, questions: Record<string, QuestionSpec>) => {
+    const classifier: Classifier = async (state, questions: Record<string, QuestionSchema>) => {
       states.push(state);
       const answers: Record<string, ClassifiedAnswer> = {};
       // defect pole 0.9 > error_at 0.85

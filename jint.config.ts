@@ -1,4 +1,4 @@
-import { defaultRules, type RuleSpec } from "@jint/defaults";
+import { defaultRules, type RuleSchema } from "@jint/defaults";
 import { defineConfig } from "jint:sdk";
 
 // the default package's rules, imported directly - the workspace-consumer path (design
@@ -13,7 +13,7 @@ import { defineConfig } from "jint:sdk";
 // is_literal_shared: calibrated in packages/app, promoted repo-wide - NOT into the defaults (the
 // two-language promotion bar in AGENTS.md has not been met). Markdown and lockfiles stay out:
 // prose and lock data are not code with values flowing between sites.
-const is_literal_shared: RuleSpec = {
+const is_literal_shared: RuleSchema = {
   name: "is_literal_shared",
   kind: "choice",
   target: "files",

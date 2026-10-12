@@ -8,7 +8,7 @@ import {
   type ResolvedCustomTarget,
   type ResolvedCustomTargets,
 } from "./execute.ts";
-import type { AnyState, ClassifiedAnswer, Classifier, QuestionSpec } from "../types.ts";
+import type { AnyState, ClassifiedAnswer, Classifier, QuestionSchema } from "../types.ts";
 import type { CustomElement, CustomRule } from "./sdk.ts";
 
 /** Splits a unit inventory by path the way lint hands it over (one file here). */
@@ -33,7 +33,7 @@ const SOURCE = [
 
 interface Call {
   state: AnyState;
-  questions: Record<string, QuestionSpec>;
+  questions: Record<string, QuestionSchema>;
 }
 
 /** A classifier that records calls and answers a fixed probability per rule. */

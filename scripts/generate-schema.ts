@@ -2,9 +2,9 @@
  * Regenerates two checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Docs/rules.md from the default rule specs (packages/defaults/src/index.ts)
+ * - Docs/rules.md from the default rules (packages/defaults/src/index.ts)
  *
- * Run after any config-schema or default-spec change: bun run schema (wired into bun run validate).
+ * Run after any config-schema or default-rule change: bun run schema (wired into bun run validate).
  * Both emitted files are checked in so editors resolve "$schema" without running jint and docs stay
  * browsable, and CI diffs them against this output to catch drift — generated means never stale.
  */
@@ -27,7 +27,7 @@ const mdxOut = new URL("../docs/rules.md", import.meta.url).pathname;
 const frontmatter =
   "---\n" +
   "title: Rules\n" +
-  "description: The default rule set, rendered from the specs. Generated - do not edit.\n" +
+  "description: The default rule set, rendered from the default rules. Generated - do not edit.\n" +
   "---\n\n";
 const body = [
   frontmatter,

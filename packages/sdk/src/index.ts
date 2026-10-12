@@ -75,7 +75,7 @@ export {
   type RuleKind,
   type RuleTarget,
   type HandleResult,
-  type QuestionSpec,
+  type QuestionSchema,
   type Measurement,
   type Finding,
   type Severity,

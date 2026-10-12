@@ -11,7 +11,7 @@ How the workspace packages relate to releases and versions, now and when publish
 ## What exists today
 
 Five workspace packages, all `private: true`: `contract` (pure types, zero deps), `defaults`
-(declarative rule specs; source of the engine baseline), `sdk` (the engine - measurement
+(declarative rules; source of the engine baseline), `sdk` (the engine - measurement
 semantics), `cli` (thin composition of sdk + defaults + contract), `app` (the UI - embedded into
 the cli binary at compile time, never a package). Internal dependencies are `workspace:*`. The
 release process (tag push -> draft GitHub release with compiled binaries -> human edits notes ->

@@ -58,7 +58,7 @@ The finding's `@L` is pre-edit; re-check at the element's CURRENT line, or re-ru
 ## Custom rules
 
 Custom rules are authored INLINE in a TS config's `rules` array (the config takes the same keys a
-cconfig file takes): a declarative spec composed next to the defaults, or a callback rule for the
+cconfig file takes): a declarative rule composed next to the defaults, or a callback rule for the
 cases data can't express.
 
 ```bash

@@ -13,7 +13,7 @@ import type { NoulHandlerData, ScoreHandlerData } from "@jint/contract";
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
 
 /** A binary-claim rule: the {true, false} criteria compile straight into the noul question. */
-export interface NoulRuleSpec {
+export interface NoulRuleSchema {
   readonly name: string;
   readonly kind?: "noul";
   readonly instructions: string;
@@ -26,7 +26,7 @@ export interface NoulRuleSpec {
 }
 
 /** A graded rule: the ordered rubric is indexed by score 0..N; the handle is a score map. */
-export interface ChoiceRuleSpec {
+export interface ChoiceRuleSchema {
   readonly name: string;
   readonly kind: "choice";
   readonly instructions: string;
@@ -39,7 +39,7 @@ export interface ChoiceRuleSpec {
 }
 
 /** A declarative rule: exactly one of the two kinds. */
-export type RuleSpec = NoulRuleSpec | ChoiceRuleSpec;
+export type RuleSchema = NoulRuleSchema | ChoiceRuleSchema;
 
 /**
  * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (each threshold names its own
@@ -50,7 +50,7 @@ export type RuleSpec = NoulRuleSpec | ChoiceRuleSpec;
  * (the handle only decides when readings surface), never a null handle.
  */
 
-export const isNamePurposeful: NoulRuleSpec = {
+export const isNamePurposeful: NoulRuleSchema = {
   name: "is_name_purposeful",
   instructions:
     "Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
@@ -68,7 +68,7 @@ export const isNamePurposeful: NoulRuleSpec = {
   handle: { warn: { less_than: 0.4 }, error: { less_than: 0.3 } },
 };
 
-export const isFunctionSrp: NoulRuleSpec = {
+export const isFunctionSrp: NoulRuleSchema = {
   name: "is_function_srp",
   instructions:
     "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
@@ -91,7 +91,7 @@ export const isFunctionSrp: NoulRuleSpec = {
  * densest signal (13 findings on the vendor-adapter corpus); exercised on every self-lint run
  * since, and held up in use.
  */
-export const willErrorLoseCause: NoulRuleSpec = {
+export const willErrorLoseCause: NoulRuleSchema = {
   name: "will_error_lose_cause",
   instructions: "Does this function's error handling lose information about the original failure?",
   criteria: {
@@ -102,7 +102,7 @@ export const willErrorLoseCause: NoulRuleSpec = {
   target: "functions",
   handle: { warn: { greater_than: 0.4 }, error: { greater_than: 0.7 } },
 };
-export const isVocabularyConsistent: NoulRuleSpec = {
+export const isVocabularyConsistent: NoulRuleSchema = {
   name: "is_vocabulary_consistent",
   instructions:
     "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
@@ -115,7 +115,7 @@ export const isVocabularyConsistent: NoulRuleSpec = {
   handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
 };
 
-export const isNamingConventionConsistent: NoulRuleSpec = {
+export const isNamingConventionConsistent: NoulRuleSchema = {
   name: "is_naming_convention_consistent",
   instructions: "Do identifiers of the same kind in this unit follow a single casing convention?",
   // (threshold note: re-anchored below for the per-rule question, issue 001)
@@ -138,7 +138,7 @@ export const isNamingConventionConsistent: NoulRuleSpec = {
  * min 0.60 / 0.88 - thresholds sit mid-gap on both. Element rules cannot see the path, so this is
  * the only rule that can catch "json.ts whose body renders HTML reports".
  */
-export const isFilenameFitting: NoulRuleSpec = {
+export const isFilenameFitting: NoulRuleSchema = {
   name: "is_filename_fitting",
   instructions:
     "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
@@ -151,7 +151,7 @@ export const isFilenameFitting: NoulRuleSpec = {
   handle: { warn: { greater_than: 0.55 }, error: { greater_than: 0.75 } },
 };
 
-export const isGreppable: NoulRuleSpec = {
+export const isGreppable: NoulRuleSchema = {
   name: "is_greppable",
   instructions:
     "Are the identifiers in this function searchable with terms a developer would use to find this code?",
@@ -164,7 +164,7 @@ export const isGreppable: NoulRuleSpec = {
   handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
 };
 
-export const is_comment_narration: NoulRuleSpec = {
+export const is_comment_narration: NoulRuleSchema = {
   name: "is_comment_narration",
   instructions:
     "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
@@ -177,7 +177,7 @@ export const is_comment_narration: NoulRuleSpec = {
   handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
 };
 
-export const is_comment_patching_readability: NoulRuleSpec = {
+export const is_comment_patching_readability: NoulRuleSchema = {
   name: "is_comment_patching_readability",
   instructions:
     "Does any comment here patch code that should read itself, instead of the code being made readable?",
@@ -190,7 +190,7 @@ export const is_comment_patching_readability: NoulRuleSpec = {
   handle: { warn: { greater_than: 0.4 }, error: { greater_than: 0.55 } },
 };
 
-export const will_comment_drift: NoulRuleSpec = {
+export const will_comment_drift: NoulRuleSchema = {
   name: "will_comment_drift",
   instructions:
     "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
@@ -208,7 +208,7 @@ export const will_comment_drift: NoulRuleSpec = {
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
 // the self-lint corpus has score readings
-export const isCognitivelyComplex: ChoiceRuleSpec = {
+export const isCognitivelyComplex: ChoiceRuleSchema = {
   name: "is_cognitively_complex",
   kind: "choice",
   instructions:
@@ -229,7 +229,7 @@ export const isCognitivelyComplex: ChoiceRuleSpec = {
  * The default set assembled in baseline order from the rule consts above. Whole-baseline
  * consumption: `rules: defaultRules`; spread to compose (`...defaultRules, myRule`), never mutate.
  */
-export const defaultRules: readonly RuleSpec[] = Object.freeze([
+export const defaultRules: readonly RuleSchema[] = Object.freeze([
   isNamePurposeful,
   isVocabularyConsistent,
   isNamingConventionConsistent,

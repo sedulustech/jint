@@ -4,7 +4,7 @@ import {
   ClassifyError,
   type ClassifiedAnswer,
   type ClassifyErrorCode,
-  type QuestionSpec,
+  type QuestionSchema,
   type UnitState,
 } from "../types.ts";
 import { createClassifier } from "./client.ts";
@@ -23,7 +23,7 @@ const state: UnitState = {
   content: "export const x = 1;\n",
   id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
 };
-const questions: Record<string, QuestionSpec> = {
+const questions: Record<string, QuestionSchema> = {
   is_name_purposeful: {
     type: "noul",
     instructions: "Judge the syntax unit against the criteria.",
@@ -43,7 +43,7 @@ const happyBody = {
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
-const scoreQuestions: Record<string, QuestionSpec> = {
+const scoreQuestions: Record<string, QuestionSchema> = {
   is_readable: {
     type: "score",
     instructions: "How easy is source to read?",

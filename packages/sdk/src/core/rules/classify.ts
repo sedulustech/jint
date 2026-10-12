@@ -20,7 +20,7 @@ import {
   type Element,
   type Classifier,
   type Measurement,
-  type QuestionSpec,
+  type QuestionSchema,
   type Rule,
   type Span,
   type Unit,
@@ -38,7 +38,7 @@ export interface QuestionAttribution {
  * map. Question ids never reach the model — this map is the only attribution channel.
  */
 export interface QuestionBatch {
-  readonly questions: Record<string, QuestionSpec>;
+  readonly questions: Record<string, QuestionSchema>;
   readonly attribution: Map<string, QuestionAttribution>;
 }
 
@@ -69,7 +69,7 @@ export function elementKindNoun(role: string): string {
   return role;
 }
 
-function questionSpec(rule: Rule, instructions: string): QuestionSpec {
+function questionSpec(rule: Rule, instructions: string): QuestionSchema {
   return rule.kind === "choice"
     ? { type: "score", instructions, criteria: rule.criteria }
     : { type: "noul", instructions, criteria: rule.criteria };
@@ -85,7 +85,7 @@ export function compileRuleQuestions(
   unitId: string,
   unitKind: UnitKind = "file",
 ): QuestionBatch {
-  const questions: Record<string, QuestionSpec> = {};
+  const questions: Record<string, QuestionSchema> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const rule of rules) {
     const questionId = questionKey(rule.name, unitId);
@@ -105,9 +105,9 @@ export function compileRuleQuestions(
 export function compileElementQuestions(
   rules: readonly Rule[],
   role: string,
-): Record<string, QuestionSpec> {
+): Record<string, QuestionSchema> {
   const kindPrefix = `${kindSentence(elementKindNoun(role))} `;
-  const questions: Record<string, QuestionSpec> = {};
+  const questions: Record<string, QuestionSchema> = {};
   for (const rule of rules) {
     questions[rule.name] = questionSpec(rule, kindPrefix + rule.instructions);
   }
@@ -354,7 +354,7 @@ interface ClassifierReply {
 /** One classifier call; failures convert to a streamed ClassifyError (the seam's code survives). */
 async function askClassifier(
   state: AnyState,
-  questions: Record<string, QuestionSpec>,
+  questions: Record<string, QuestionSchema>,
   classifier: Classifier,
   input: string,
 ): Promise<ClassifierReply> {

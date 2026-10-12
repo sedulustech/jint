@@ -32,7 +32,7 @@ import {
   type SystemOneResult,
   type Questions,
 } from "@typesafe-ai/sdk";
-import { ClassifyError, type Classifier, type QuestionSpec } from "../types.ts";
+import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { recordRequests } from "./debug.ts";
 import type { ClassifiedAnswer } from "@jint/contract";
 
@@ -121,7 +121,7 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
   }
 }
 
-function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
+function compileQuestions(questions: Record<string, QuestionSchema>): Questions {
   const out: Record<string, NoulQuestion | ScoreQuestion> = {};
   for (const [name, spec] of Object.entries(questions)) {
     // instructions is the {unitId: task} map; the SDK's EntryType accepts JSON objects.
@@ -135,7 +135,7 @@ function compileQuestions(questions: Record<string, QuestionSpec>): Questions {
 
 function extractAnswers(
   result: SystemOneResult<Questions>,
-  questions: Record<string, QuestionSpec>,
+  questions: Record<string, QuestionSchema>,
   input: string,
 ): Record<string, ClassifiedAnswer> {
   const out: Record<string, ClassifiedAnswer> = {};

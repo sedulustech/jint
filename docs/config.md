@@ -52,10 +52,10 @@ inventories, free state composition) while declarative entries around it compile
 seam as the JSON tier. This is the repo-root pattern:
 
 ```ts
-import { defaultRules, type RuleSpec } from "@jint/defaults";
+import { defaultRules, type RuleSchema } from "@jint/defaults";
 import { defineConfig } from "jint:sdk";
 
-const is_literal_shared: RuleSpec = {/* a full declarative spec, authored in-file */};
+const is_literal_shared: RuleSchema = {/* a full declarative spec, authored in-file */};
 
 export default defineConfig({
   rules: [
