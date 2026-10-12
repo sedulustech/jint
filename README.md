@@ -4,33 +4,37 @@
 
 # jint, a semantic linter
 
-`jint` classifies code with and turns the readings into actionable output via per-rule callbacks. Rules in, findings out.
+`jint` constructs state with Treesitter, and classifies the state against a set of user defined rules using Typesafe's Jev.
+It then turns the classification values into actionable output via per-rule callbacks.
 
 ## Install
 
-npm (the `rc` dist-tag tracks prereleases; plain `@sedulus/jint` resolves `latest`, empty until the first stable release):
+Install through NPM:
 
 ```bash
 npm install -g @sedulus/jint@rc   # or a devDependency
 npx @sedulus/jint@rc --version
 ```
 
-The package is a meta-package: it pulls the matching platform binary (`@sedulus/jint-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`) via optionalDependencies and exposes the `jint` bin. Works with npm and bun (`bunx`).
+Or through an install script:
 
-Shell installer (installs to `~/.local/bin`, verifies sha256 against the release `checksums.txt`, warns if `~/.local/bin` is not on `PATH`):
-
-```bash
+```sh
 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
+```
+
+You can also set a specific version:
+
+```sh
 VERSION=v1.2.3 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash   # pin a version
 ```
 
 To build from source, see [Development](#development).
 
+## How to use
+
 ```bash
 export TYPESAFE_API_KEY=...   # required; jev requests fail loud (JEV_AUTH) without it
 ```
-
-## How to use
 
 ```bash
 jint src/                                # a directory tree
