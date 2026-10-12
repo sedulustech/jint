@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" width="220" alt="jint">
+  <img src="logo.svg" width="160" alt="jint">
 </p>
 
 # jint, a semantic linter
