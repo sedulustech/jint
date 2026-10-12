@@ -103,7 +103,11 @@ Three, all serving the same tag (2026-10-12):
 
 The build job emits `checksums.txt` (sha256 of every asset) alongside the tarballs. npm publish
 and the script's URLs all resolve against the same tag's assets; no channel carries its own
-version string.
+version string. Pinned script installs: `VERSION=vX.Y.Z curl -fsSL .../install.sh | bash` - the
+override swaps the `latest/download` redirect for `releases/download/${VERSION}/`, so pinning is
+the caller's choice and the repo still contains zero version literals. `latest` is mutable by
+design (two users, two times, possibly two binaries); reproducible installs pin - VERSION, the
+npm exact pin, or the plain releases URL.
 
 #### Which package could drift first?
 
