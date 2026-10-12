@@ -22,6 +22,7 @@ for tgz in "$dist_dir"/*.tgz; do
     *-*) tag=rc ;;
     *) tag=latest ;;
   esac
-  echo "npm publish $tgz --tag $tag$dry_run"
+  echo "npm publish $tgz --tag $tag $dry_run"
+  # shellcheck disable=SC2086 - $dry_run is a single flag or empty, word-split on purpose
   npm publish "$tgz" --tag "$tag" $dry_run
 done

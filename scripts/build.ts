@@ -10,10 +10,13 @@ process.chdir(root);
 
 const CROSS_TARGETS: Record<
   string,
-  { target: "bun-darwin-arm64" | "bun-darwin-x64"; outfile: string }
+  { target: "bun-darwin-arm64" | "bun-darwin-x64" | "bun-linux-arm64"; outfile: string }
 > = {
   "darwin-arm64": { target: "bun-darwin-arm64", outfile: resolve(root, "out/jint-darwin-arm64") },
   "darwin-x64": { target: "bun-darwin-x64", outfile: resolve(root, "out/jint-darwin-x64") },
+  // the @sedulus/jint-linux-arm64 npm package needs this binary; built on the
+  // linux runner next to the host build
+  "linux-arm64": { target: "bun-linux-arm64", outfile: resolve(root, "out/jint-linux-arm64") },
 };
 
 const cross = process.argv[2] ? CROSS_TARGETS[process.argv[2]] : undefined;

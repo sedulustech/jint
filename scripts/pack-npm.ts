@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 // binaries are copied into the platform slots and each dir is packed as-is.
 //
 //   bun scripts/pack-npm.ts <version>   # tag form vX.Y.Z
-import { cp, chmod, readdir, readFile, rm } from "node:fs/promises";
+import { cp, chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { $ } from "bun";
 
@@ -34,7 +34,9 @@ const BINARIES: Record<string, string> = {
   "jint-darwin-arm64": "out/jint-darwin-arm64",
 };
 
-await rm(resolve(root, "dist-npm"), { recursive: true, force: true });
+const outDir = resolve(root, "dist-npm");
+await rm(outDir, { recursive: true, force: true });
+await mkdir(outDir, { recursive: true });
 
 // one regex over all five package.jsons: the placeholder version is the only
 // thing that needs stamping, because the meta's dependency pins carry it too
@@ -53,9 +55,9 @@ for (const [dir, binary] of Object.entries(BINARIES)) {
 }
 
 for (const dir of (await readdir(NPM_DIR)).sort()) {
-  await $`npm pack --pack-destination ${resolve(root, "dist-npm")} --silent ${resolve(NPM_DIR, dir)}`;
+  await $`npm pack --pack-destination ${outDir} --silent ${resolve(NPM_DIR, dir)}`;
   const name = JSON.parse(await readFile(resolve(NPM_DIR, dir, "package.json"), "utf8")).name;
   console.log(`packed ${name}`);
 }
 
-console.log((await $`ls -1 ${resolve(root, "dist-npm")}/*.tgz`.text()).trim());
+console.log((await $`ls -1 ${outDir}/*.tgz`.text()).trim());
