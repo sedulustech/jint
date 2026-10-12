@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 22 168 116" role="img" aria-label="jint">
-<g fill="none" stroke="currentColor" stroke-linecap="butt" stroke-linejoin="miter">
-<path stroke-width="7" d="M34 30H24V130H34"/><path stroke-width="5.5" d="M52 42H44V118H52"/><path stroke-width="4" d="M70 54H64V106H70"/>
-<path stroke-width="7" d="M166 30H176V130H166"/><path stroke-width="5.5" d="M148 42H156V118H148"/><path stroke-width="4" d="M130 54H136V106H130"/></g>
-<rect x="91" y="62" width="18" height="36" fill="currentColor"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 184" role="img" aria-label="jint">
+<rect width="240" height="184" fill="#000"/>
+<g fill="none" stroke="#fff" stroke-linecap="butt" stroke-linejoin="miter">
+<path d="M71 45H62V115H71" stroke-width="2.5"/><path d="M81.125 55H73.125V105H81.125" stroke-width="2"/><path d="M91 65H84V95H91" stroke-width="1.5"/></g>
+<g fill="none" stroke="#fff" stroke-linecap="butt" stroke-linejoin="miter" transform="translate(240 0) scale(-1 1)">
+<path d="M71 45H62V115H71" stroke-width="2.5"/><path d="M81.125 55H73.125V105H81.125" stroke-width="2"/><path d="M91 65H84V95H91" stroke-width="1.5"/></g>
+<rect x="101.875" y="43.75" width="36.25" height="72.5" fill="#fff"/>
 </svg>
