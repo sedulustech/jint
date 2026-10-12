@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import * as contract from "@jint/contract";
+import * as defaultsSurface from "@jint/defaults";
+import * as sdkSurface from "@jint/sdk";
 import { SetupError } from "../types.ts";
 import {
   defineConfig,
@@ -9,41 +12,80 @@ import {
 } from "./sdk.ts";
 
 let registered = false;
-let defaultsProvider: Record<string, unknown> | undefined;
+let defaultRules: Record<string, unknown> | undefined;
+
+/** The rule-author API: the "jint:sdk" virtual's surface is its own contract (sdk.d.ts). */
+const sdk = { defineConfig };
+
+/**
+ * True inside a compiled binary: Bun.embeddedFiles is only populated under $bunfs. This is the
+ * embedded-home marker — the ONLY condition under which bare "@jint/*" specifiers are intercepted.
+ * Resolution rule by home: inside a compiled binary there is no node_modules, so "@jint/sdk",
+ * "@jint/defaults", and "@jint/contract" must resolve to the binary's bundled packages — the same
+ * export surface the packages present in any home, so one import line resolves identically
+ * everywhere. Everywhere else (workspace dev, user installs) they are real packages resolved
+ * through node_modules, and intercepting them would shadow live source, so the entries are not
+ * registered.
+ */
+export function embeddedHome(): boolean {
+  return (Bun.embeddedFiles ?? []).length > 0;
+}
 
 /**
  * Registers the virtual modules exactly once per process: "jint:sdk" (the rule-author API) and
  * "jint:defaults" (the DECLARATIVE default specs — never compiled Rule objects; design
  * config-composition/03). build.module intercepts both before any disk lookup, so they resolve
  * inside compiled binaries too, and external users need no install.
+ *
+ * Inside a compiled binary, "@jint/defaults" and "jint:defaults" resolve to the same embedded
+ * defaults — the bare package serves the package's own export surface (named spec consts and the
+ * defaultRuleSpecs record), the virtual keeps its record surface (defaults.d.ts), and both come
+ * from the binary, the version authority, so a config importing either can never skew against the
+ * engine's baseline. In a non-embedded home a user's own "@jint/defaults" install is THEIR
+ * dependency — two copies in one process (the engine baseline plus the config-composed set) is
+ * intended node semantics; specs flow from config to engine.
  */
 export function registerCustomRuleLoader(
   virtuals: { defaults?: Record<string, unknown> } = {},
 ): void {
-  if (virtuals.defaults !== undefined) defaultsProvider = virtuals.defaults;
+  if (virtuals.defaults !== undefined) defaultRules = virtuals.defaults;
   if (registered) return;
   registered = true;
   Bun.plugin({
     name: "jint-sdk",
     setup(build) {
       build.module("jint:sdk", () => ({
-        exports: { defineConfig },
+        exports: sdk,
         loader: "object",
       }));
       // The provider is read at import time, not captured here: an entry point may register bare
       // first and supply the defaults later (any time before the first import resolves).
-      build.module("jint:defaults", () => {
-        if (defaultsProvider === undefined) {
+      const defaultsEntry = () => {
+        if (defaultRules === undefined) {
           throw new SetupError(
             "RULE_INVALID",
             "jint:defaults is not provided - the entry point must register the defaults provider (registerCustomRuleLoader({ defaults: defaultRuleSpecs }))",
           );
         }
         return {
-          exports: { defaultRuleSpecs: defaultsProvider, ...defaultsProvider },
-          loader: "object",
+          exports: { defaultRuleSpecs: defaultRules, ...defaultRules },
+          loader: "object" as const,
         };
-      });
+      };
+      build.module("jint:defaults", defaultsEntry);
+      // Package-specifier interception ONLY in the embedded home (see embeddedHome): in the
+      // workspace these specifiers must keep resolving through node_modules live source.
+      if (embeddedHome()) {
+        // the PACKAGES' real export surfaces (bundled into the binary exactly like any other
+        // import), never hand-built subsets — one import line must resolve identically in every
+        // home. Spread copies the namespaces into plain records: loader "object" wants those.
+        build.module("@jint/sdk", () => ({ exports: { ...sdkSurface }, loader: "object" }));
+        build.module("@jint/contract", () => ({ exports: { ...contract }, loader: "object" }));
+        build.module("@jint/defaults", () => ({
+          exports: { ...defaultsSurface },
+          loader: "object",
+        }));
+      }
     },
   });
 }
