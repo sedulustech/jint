@@ -1,7 +1,7 @@
 ---
 title: Release packaging - one version until a consumer forces one split
 status: draft
-modified: 2026-10-11
+modified: 2026-10-12
 ---
 
 # Release packaging
@@ -73,6 +73,17 @@ boundary that opens.
 
 No (2026-10-11). One more job in the fan-in publishes the non-private set at the tag's version;
 the draft gate and human publish step are unchanged.
+
+#### What npm scope, and how does `bunx` work against it?
+
+Published packages go under the org scope: `@sedulus/jint` (+ `@sedulus/jint-<platform>` for the
+binary packages). The bin name is separate from the package name:
+the package registers `bin: { jint }`, so inside any project that depends on us `jint` and
+`bunx jint` run OUR binary (local bin wins); only the one-off global spelling pays the scope
+(`bunx @sedulus/jint`). Binary distribution on npm uses the optionalDependencies platform-package
+pattern (meta-package + per-os/cpu binary packages; npm installs exactly the matching one) - no
+postinstall downloads, no all-platforms bloat. npm publishes join the release fan-in AFTER the
+human publishes the GitHub draft, at the tag's version, idempotently guarded.
 
 #### Which package could drift first?
 
