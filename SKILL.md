@@ -29,7 +29,13 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 ## Setup
 
-- Requires bun. `TYPESAFE_API_KEY` in the environment (used as-is).
+Install (either):
+
+- npm: `npm install -g @sedulus/jint@rc` or as a devDependency. The package is a meta-package that pulls the matching platform binary (`@sedulus/jint-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`) via optionalDependencies and exposes the `jint` bin. Works with npm and bun (`bunx`). The `rc` dist-tag tracks prereleases; plain `@sedulus/jint` resolves `latest`, empty until the first stable release. `npx @sedulus/jint@rc --version` runs without installing.
+- Shell: `curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash` - installs to `~/.local/bin`, verifies sha256 against the release `checksums.txt`, warns if `~/.local/bin` is not on `PATH`, prints `--version`. Pin with `VERSION=v1.2.3`.
+
+Then `TYPESAFE_API_KEY` in the environment (used as-is).
+
 - Recording is always on: the exact wire bytes per question land under
   `~/.jint/runs/` (or wherever `JEV_DIR` points).
   Read the recorded request files when you need to see precisely what the model saw. Every run

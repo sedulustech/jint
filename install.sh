@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the jint binary from GitHub releases.
 #
-#   curl -fsSL https://github.com/sedulus/jint/install.sh | bash
+#   curl -fsSL https://github.com/sedulustech/jint/install.sh | bash
 #   VERSION=v1.2.3 curl -fsSL .../install.sh | bash   # pin to a release
 #
 # VERSIONLESS by design: the script carries no version literal - it resolves
@@ -9,7 +9,7 @@
 # release; drafts never resolve), verifies the sha256 against checksums.txt, and
 # installs the binary into ~/.local/bin.
 #
-# RELEASE_BASE is the test hook (defaults to https://github.com/sedulus/jint/releases):
+# RELEASE_BASE is the test hook (defaults to https://github.com/sedulustech/jint/releases):
 # point it at a local file:// or http directory to stand in for GitHub releases.
 # URLs are built as ${RELEASE_BASE}/latest/download/... or, with VERSION pinned,
 # ${RELEASE_BASE}/download/${VERSION}/...
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 main() {
-  local base="${RELEASE_BASE:-https://github.com/sedulus/jint/releases}"
+  local base="${RELEASE_BASE:-https://github.com/sedulustech/jint/releases}"
   if [ -n "${VERSION:-}" ]; then
     base="${base}/download/${VERSION}"
   else

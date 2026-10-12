@@ -8,10 +8,26 @@
 
 ## Install
 
+npm (the `rc` dist-tag tracks prereleases; plain `@sedulus/jint` resolves `latest`, empty until the first stable release):
+
 ```bash
-curl -LO <release-url>/jint-darwin-arm64.tar.gz   # or -x64
-tar -xzf jint-darwin-arm64.tar.gz && ./jint --help
-export TYPESAFE_API_KEY=...                       # required; jev requests fail loud (JEV_AUTH) without it
+npm install -g @sedulus/jint@rc   # or a devDependency
+npx @sedulus/jint@rc --version
+```
+
+The package is a meta-package: it pulls the matching platform binary (`@sedulus/jint-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`) via optionalDependencies and exposes the `jint` bin. Works with npm and bun (`bunx`).
+
+Shell installer (installs to `~/.local/bin`, verifies sha256 against the release `checksums.txt`, warns if `~/.local/bin` is not on `PATH`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
+VERSION=v1.2.3 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash   # pin a version
+```
+
+To build from source, see [Development](#development).
+
+```bash
+export TYPESAFE_API_KEY=...   # required; jev requests fail loud (JEV_AUTH) without it
 ```
 
 ## How to use
