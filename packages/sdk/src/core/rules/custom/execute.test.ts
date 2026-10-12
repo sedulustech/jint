@@ -9,7 +9,7 @@ import {
   type ResolvedCustomTargets,
 } from "./execute.ts";
 import type { AnyState, ClassifiedAnswer, Classifier, QuestionSchema } from "../../types.ts";
-import type { CustomElement, CustomRule } from "./sdk.ts";
+import type { CustomElement, CustomRule } from "./schema.ts";
 
 /** Splits a unit inventory by path the way lint hands it over (one file here). */
 async function oneFile(

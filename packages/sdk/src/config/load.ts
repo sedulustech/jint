@@ -18,7 +18,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
-import { validateCustomRule, type CustomRule } from "../core/rules/custom/sdk.ts";
+import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";

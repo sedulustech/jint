@@ -24,7 +24,12 @@ import {
 import { matchesTarget } from "../classify.ts";
 import { toClassifyError } from "../classify.ts";
 import { compileNoulHandler } from "../handle.ts";
-import { validateDecision, validateStateSpec, type CustomElement, type CustomRule } from "./sdk.ts";
+import {
+  validateDecision,
+  validateStateSpec,
+  type CustomElement,
+  type CustomRule,
+} from "./schema.ts";
 import type { WalkElement } from "../../input/walk.ts";
 
 /**

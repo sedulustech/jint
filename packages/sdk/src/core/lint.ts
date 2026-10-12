@@ -51,7 +51,7 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
-import type { CustomRule } from "./rules/custom/sdk.ts";
+import type { CustomRule } from "./rules/custom/schema.ts";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;

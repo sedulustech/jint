@@ -6,8 +6,8 @@
  *
  * (jint ships src/; see the README.s inline-rules section.)
  *
- * MIRROR GUARD: this declaration must stay type-identical to sdk.ts — sdk.types.test.ts enforces
- * that at typecheck time. Edit them together.
+ * MIRROR GUARD: this declaration must stay type-identical to custom/schema.ts —
+ * schema.types.test.ts enforces that at typecheck time. Edit them together.
  */
 
 declare module "jint:sdk" {

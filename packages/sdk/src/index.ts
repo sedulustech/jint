@@ -47,7 +47,7 @@ export { describeRule, describeRules } from "./core/output/rules.ts";
 export { compileRule } from "./config/load.ts";
 export { registerCustomRuleLoader } from "./core/rules/custom/loader.ts";
 export { selectRules } from "./core/lint.ts";
-export { validateCustomRule } from "./core/rules/custom/sdk.ts";
+export { validateCustomRule } from "./core/rules/custom/schema.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
 export type { Inventory, WalkElement, NodeRole } from "./core/input/walk.ts";

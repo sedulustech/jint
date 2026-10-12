@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { defaultRules } from "@jint/defaults";
 import { loadTsConfig } from "../../../config/load.ts";
 import { registerCustomRuleLoader } from "./loader.ts";
-import { defineConfig, validateCustomRule } from "./sdk.ts";
+import { defineConfig, validateCustomRule } from "./schema.ts";
 
 const DIR = "tmp/ts-config-loader-test";
 

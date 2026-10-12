@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { SetupError } from "../../types.ts";
-import { defineConfig } from "./sdk.ts";
+import { defineConfig } from "./schema.ts";
 
 let registered = false;
 let defaultsProvider: readonly unknown[] | undefined;
