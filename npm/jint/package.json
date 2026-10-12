@@ -1,7 +1,7 @@
 {
   "name": "@sedulus/jint",
   "version": "0.0.0",
-  "description": "jint - measure code with AI-classifier judgments (installer meta-package)",
+  "description": "jint - a semantic linter (installer meta-package)",
   "license": "MIT",
   "bin": {
     "jint": "./bin/jint.js"
