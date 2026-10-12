@@ -1,79 +1,61 @@
 #!/usr/bin/env bun
 import { existsSync } from "node:fs";
 // Pack the five npm distribution tarballs (@sedulus/jint meta + four platform
-// binary packages) from built platform binaries. PACK-ONLY: nothing is published
-// here - the tarballs land in dist-npm/ for npm publish --dry-run checks on
-// release day (publish is the commented, secret-gated job in release.yml).
-// The version comes from the caller (the tag, vX.Y.Z) - never from package.json:
-// the tag version is the canon version. Templates live in scripts/templates/npm/;
-// they are NOT workspace packages, only rendered and packed at release time.
-import { chmod, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+// binary packages) from the built platform binaries. PACK-ONLY: nothing is
+// published here - the tarballs land in dist-npm/ and publish is the release
+// fan-in job in release.yml (scripts/publish-npm.sh).
+//
+// packages/npm/* hold the real, reviewable publishable shapes; they are NOT
+// workspace members and nothing in the repo depends on them. The version is
+// the tag's - the one canon version - stamped over the checked-in placeholder
+// (one regex across all five package.jsons: own version and every internal
+// dependency pin move together, in lockstep, from one string), then the built
+// binaries are copied into the platform slots and each dir is packed as-is.
+//
+//   bun scripts/pack-npm.ts <version>   # tag form vX.Y.Z
+import { cp, chmod, readdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { $ } from "bun";
 
 const root = resolve(import.meta.dirname, "..");
 process.chdir(root);
-
-const PLATFORMS = [
-  { platform: "linux-x64", os: "linux", cpu: "x64", binary: "out/jint-linux-x64" },
-  { platform: "linux-arm64", os: "linux", cpu: "arm64", binary: "out/jint-linux-arm64" },
-  { platform: "darwin-x64", os: "darwin", cpu: "x64", binary: "out/jint-darwin-x64" },
-  { platform: "darwin-arm64", os: "darwin", cpu: "arm64", binary: "out/jint-darwin-arm64" },
-];
+const NPM_DIR = resolve(root, "packages/npm");
 
 const version = process.argv[2];
 if (!version || !/^v\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
-  throw new Error("usage: pack-npm.ts <version>   # tag form vX.Y.Z");
+  throw new Error("usage: pack-npm.ts <version>   # tag form vX.Y.Z[-suffix]");
 }
 const versionNumber = version.slice(1);
 
-const outDir = resolve(root, "dist-npm");
-await rm(outDir, { recursive: true, force: true });
-await mkdir(outDir, { recursive: true });
-
-// render a template: fill every placeholder, then prove it stayed valid JSON
-const render = async (template: string, extra: Record<string, string> = {}) => {
-  const pkg = (await readFile(resolve(root, "scripts/templates/npm", template), "utf8"))
-    .replaceAll("__VERSION__", versionNumber)
-    .replace(/__PLATFORM__|__OS__|__CPU__/g, (m) => extra[m] ?? m);
-  JSON.parse(pkg);
-  return pkg;
+const BINARIES: Record<string, string> = {
+  "jint-linux-x64": "out/jint-linux-x64",
+  "jint-linux-arm64": "out/jint-linux-arm64",
+  "jint-darwin-x64": "out/jint-darwin-x64",
+  "jint-darwin-arm64": "out/jint-darwin-arm64",
 };
 
-const pack = async (dirName: string) => {
-  await $`npm pack --pack-destination ${outDir} --silent ${resolve(outDir, dirName)}`;
-  console.log(
-    `packed ${JSON.parse(await readFile(resolve(outDir, dirName, "package.json"), "utf8")).name}`,
-  );
-};
+await rm(resolve(root, "dist-npm"), { recursive: true, force: true });
 
-// meta package: the five-line bin shim + optionalDependencies on the platforms
-{
-  const pkg = await render("meta/package.json");
-  const dir = resolve(outDir, "jint");
-  await mkdir(resolve(dir, "bin"), { recursive: true });
-  await cp(resolve(root, "scripts/templates/npm/meta/bin/jint.js"), resolve(dir, "bin/jint.js"));
-  await writeFile(resolve(dir, "package.json"), pkg);
-  await pack("jint");
+// one regex over all five package.jsons: the placeholder version is the only
+// thing that needs stamping, because the meta's dependency pins carry it too
+for (const dir of await readdir(NPM_DIR)) {
+  const pkgPath = resolve(NPM_DIR, dir, "package.json");
+  const pkg = await readFile(pkgPath, "utf8");
+  if (!pkg.includes('"version": "0.0.0"'))
+    throw new Error(`${dir}: placeholder version already stamped or drifted`);
+  await Bun.write(pkgPath, pkg.replaceAll('"version": "0.0.0"', `"version": "${versionNumber}"`));
 }
 
-// platform packages: just the binary
-for (const p of PLATFORMS) {
-  if (!existsSync(p.binary)) {
-    console.warn(`skip @sedulus/jint-${p.platform}: ${p.binary} not built`);
-    continue;
-  }
-  const pkg = await render("platform/package.json", {
-    __PLATFORM__: p.platform,
-    __OS__: p.os,
-    __CPU__: p.cpu,
-  });
-  const dir = resolve(outDir, `jint-${p.platform}`);
-  await mkdir(dir, { recursive: true });
-  await cp(p.binary, resolve(dir, "jint"));
-  await chmod(resolve(dir, "jint"), 0o755);
-  await writeFile(resolve(dir, "package.json"), pkg);
-  await pack(`jint-${p.platform}`);
+for (const [dir, binary] of Object.entries(BINARIES)) {
+  if (!existsSync(resolve(root, binary))) throw new Error(`${binary} not built`);
+  await cp(resolve(root, binary), resolve(NPM_DIR, dir, "jint"));
+  await chmod(resolve(NPM_DIR, dir, "jint"), 0o755);
 }
 
-console.log((await $`ls -1 ${outDir}/*.tgz`.text()).trim());
+for (const dir of (await readdir(NPM_DIR)).sort()) {
+  await $`npm pack --pack-destination ${resolve(root, "dist-npm")} --silent ${resolve(NPM_DIR, dir)}`;
+  const name = JSON.parse(await readFile(resolve(NPM_DIR, dir, "package.json"), "utf8")).name;
+  console.log(`packed ${name}`);
+}
+
+console.log((await $`ls -1 ${resolve(root, "dist-npm")}/*.tgz`.text()).trim());

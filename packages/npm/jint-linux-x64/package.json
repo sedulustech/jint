@@ -1,0 +1,15 @@
+{
+  "name": "@sedulus/jint-linux-x64",
+  "version": "0.0.0",
+  "description": "jint binary for linux-x64",
+  "license": "MIT",
+  "bin": {
+    "jint": "./jint"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

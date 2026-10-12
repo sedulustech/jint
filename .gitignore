@@ -5,6 +5,7 @@ node_modules
 out
 dist
 dist-npm
+packages/npm/jint-*/jint
 *.tgz
 
 # code coverage

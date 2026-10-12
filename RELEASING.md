@@ -12,8 +12,8 @@ workflow files are the source of truth for pins and triggers; this file describe
    the intro), and creates a DRAFT release with the binaries and their `checksums.txt`
    attached (what `install.sh` verifies against). A parallel job packs the npm tarballs
    (`@sedulus/jint` + platform packages) as workflow artifacts of the same run - packed,
-   never attached; publishing is a separate, secret-gated job that stays off until the
-   org and token exist.
+   never attached; the publish job joins the fan-in only on tag builds, after the draft
+   exists, idempotently guarded, with prereleases under the `rc` dist-tag.
 3. Open the draft, keep the lines that matter (move them under Highlights or rewrite them
    as prose), delete the rest, press Publish. The tag is created at publish time; nothing
    is public before the click.

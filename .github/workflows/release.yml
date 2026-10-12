@@ -181,36 +181,25 @@ jobs:
           path: dist-npm/*.tgz
           if-no-files-found: error
 
-  # npm publish: NOT wired - gated on a secret (NPM_TOKEN) that does not exist yet.
-  # Idempotency guard written in advance: a re-run over an already-published version
-  # is a no-op, so the fan-in can retry without version-bump bookkeeping.
-  # publish-npm:
-  #   name: Publish npm packages
-  #   needs: [release, pack-npm]
-  #   if: startsWith(github.ref, 'refs/tags/v')
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         registry-url: https://registry.npmjs.org
-  #     - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-  #       with:
-  #         name: npm-tarballs
-  #         path: dist-npm
-  #     - run: npm whoami && npm org ls sedulus   # org must exist before this job is uncommented
-  #       env:
-  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-  #     - run: |
-  #         for tgz in dist-npm/*.tgz; do
-  #           name=$(tar -xzOf "$tgz" package/package.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0)).name)")
-  #           version=$(tar -xzOf "$tgz" package/package.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0)).version)")
-  #           if npm view "$name@$version" version >/dev/null 2>&1; then
-  #             echo "$name@$version already published - skipping"
-  #           else
-  #             npm publish "$tgz"
-  #           fi
-  #         done
-  #       env:
-  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  # Publish joins the fan-in AFTER the draft exists (needs: release) and only on
+  # tag builds - merges can draft nothing and publish less. The guard in
+  # publish-npm.sh makes a retried run a no-op; prereleases land under the rc
+  # dist-tag so latest never points at a rehearsal.
+  publish-npm:
+    name: Publish npm packages
+    needs: [release, pack-npm]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: npm-tarballs
+          path: dist-npm
+      - run: scripts/publish-npm.sh dist-npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.npm_sedulus_scope }}
