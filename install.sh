@@ -75,11 +75,25 @@ main() {
   fi
 
   # the linux builds link glibc; a musl (alpine) system would download fine and
-  # then fail to exec - fail here with an honest message instead
+  # then fail to exec. Strict: every path must yield a verdict - a broken or
+  # missing ldd refuses the install rather than assuming glibc.
   if [ "$os" = linux ]; then
-    if [ -f /etc/alpine-release ] \
-      || { command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl; }; then
+    local libc=""
+    if [ -f /etc/alpine-release ]; then
+      libc=musl
+    elif command -v ldd >/dev/null 2>&1; then
+      local ldd_out
+      ldd_out="$(ldd --version 2>&1)" || true
+      case "$ldd_out" in
+        *musl*|*MUSL*) libc=musl ;;
+        *glibc*|*GLIBC*|*Glibc*|*"GNU libc"*) libc=glibc ;;
+      esac
+    fi
+    if [ "$libc" = musl ]; then
       echo "jint install: musl libc (alpine) is not supported yet - no musl build is published" >&2
+      return 1
+    elif [ -z "$libc" ]; then
+      echo "jint install: cannot determine the libc (ldd missing, failed, or unfamiliar) - refusing to guess; report this at https://github.com/sedulustech/jint/issues" >&2
       return 1
     fi
   fi
