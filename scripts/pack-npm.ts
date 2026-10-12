@@ -22,7 +22,7 @@ const PLATFORMS = [
 ];
 
 const version = process.argv[2];
-if (!version || !/^v\d+\.\d+\.\d+$/.test(version)) {
+if (!version || !/^v\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
   throw new Error("usage: pack-npm.ts <version>   # tag form vX.Y.Z");
 }
 const versionNumber = version.slice(1);
