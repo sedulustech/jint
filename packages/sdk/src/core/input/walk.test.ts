@@ -57,13 +57,13 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     // Top-level definitions + method elements from composite descent into the class declarations,
     // 1 import (the contract re-export import; golden tracks packages/sdk/src/core/types.ts —
     // update when it grows).
-    expect(inv.definitions).toHaveLength(40);
+    expect(inv.definitions).toHaveLength(41);
     expect(inv.imports).toHaveLength(1);
     // Comment nodes all accounted for: leading docs attached, 2 standalone (the file header and
     // the re-export vocabulary note, each separated from the next declaration by a blank line),
     // and member-doc comments inside declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(46);
-    expect(attachedCount(inv)).toBe(27);
+    expect(accountedComments(inv)).toBe(47);
+    expect(attachedCount(inv)).toBe(28);
     expect(inv.comments).toHaveLength(2);
     expect(internalCount(inv)).toBe(17);
     // Labels are stable and positional.
@@ -100,7 +100,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     expectSpansRoundTrip(source, inv);
     // Line numbers are one-based and point at the element's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(21);
+    expect(inv.definitions[0]?.span.start.line).toBe(22);
   });
 });
 

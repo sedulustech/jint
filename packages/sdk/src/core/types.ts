@@ -219,6 +219,8 @@ export interface Finding {
 export type Span = import("@jint/contract").Span;
 /** The typed subject of a measurement: the closed element union (tmp/designs/element.md). */
 export type Element = import("@jint/contract").Element;
+/** The element-kind vocabulary minus the whole-unit "file" kind: what a grammar node abstracts to. */
+export type ElementRole = Exclude<Element["kind"], "file">;
 export type FileElement = import("@jint/contract").FileElement;
 export type FunctionElement = import("@jint/contract").FunctionElement;
 export type TypeElement = import("@jint/contract").TypeElement;

@@ -22,7 +22,8 @@ export interface CustomElement {
   readonly id: string;
   /** The file this element belongs to (identity + wire naming). */
   readonly path: string;
-  readonly role: "function" | "type" | "binding" | "import" | "comment";
+  // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
+  readonly role: import("../../types.ts").ElementRole;
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };
