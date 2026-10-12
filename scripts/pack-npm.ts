@@ -49,7 +49,9 @@ for (const dir of await readdir(NPM_DIR, { withFileTypes: true })) {
   const pkg = await readFile(pkgPath, "utf8");
   if (!pkg.includes('"version": "0.0.0"'))
     throw new Error(`${dir.name}: placeholder version already stamped or drifted`);
-  await Bun.write(pkgPath, pkg.replaceAll('"version": "0.0.0"', `"version": "${versionNumber}"`));
+  // every 0.0.0 carries the release: the version field AND the meta's dependency pins
+  // (npm skips unresolvable optionals SILENTLY - a stale pin ships a broken meta)
+  await Bun.write(pkgPath, pkg.replaceAll('"0.0.0"', `"${versionNumber}"`));
 }
 
 for (const [dir, binary] of Object.entries(BINARIES)) {
