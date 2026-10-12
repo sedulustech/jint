@@ -15,7 +15,9 @@ let defaultsProvider: Record<string, unknown> | undefined;
  * Registers the virtual modules exactly once per process: "jint:sdk" (the rule-author API) and
  * "jint:defaults" (the DECLARATIVE default specs — never compiled Rule objects; design
  * config-composition/03). build.module intercepts both before any disk lookup, so they resolve
- * inside compiled binaries too, and external users need no install.
+ * inside compiled binaries too, and external users need no install. The scheme specifier is the
+ * PORTABLE config-facing spelling; bare @jint/* stays a workspace package form and is NOT
+ * intercepted — see docs/designs/default-rule-specifiers.md.
  */
 export function registerCustomRuleLoader(
   virtuals: { defaults?: Record<string, unknown> } = {},
