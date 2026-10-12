@@ -1,4 +1,4 @@
-import { defaultRules, type RuleSchema } from "@jint/defaults";
+import { defaultRules, type RuleSchema } from "jint:defaults";
 import { defineConfig } from "jint:sdk";
 
 // the default package's rules, imported directly - the workspace-consumer path (design
