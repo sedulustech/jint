@@ -539,13 +539,13 @@ describe("cli: --ui (measure-then-look)", () => {
     writeFileSync(src, "export const one = 1;\n");
     const r = await run([src, "--ui"], UI_ENV);
     expect(r.code).toBe(4); // the usual report exit code (ran, measured nothing) — --ui changes none of it
-    expect(r.stderr).toContain("jint: ui ->");
-    expect(r.stderr).toContain("/runs/");
+    expect(r.stderr).toContain("jint: ui -> http://localhost:");
+    // base url only, no deep link - the app opens newest-run-first, which is this run
+    expect(r.stderr).not.toContain("/runs/");
     // the link names the same run the requests notice already does (NO_HOLD closed the server,
     // so the served-run assertion lives in the held-path test below)
     const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(r.stderr)?.[1];
     expect(runId).toBeDefined();
-    expect(r.stderr).toContain("/runs/" + runId);
     rmScratchFile(src);
   });
 
@@ -579,7 +579,8 @@ describe("cli: --ui (measure-then-look)", () => {
       expect(link).toBeDefined();
       const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(stderrText)?.[1];
       expect(runId).toBeDefined();
-      expect(link).toContain("/runs/" + runId);
+      // base url only; the app newest-first list carries the run to the top
+      expect(link).not.toContain("/runs/");
       // the printed URL is live: the page renders, and the store behind it lists a seeded run
       // (the NO_SERVICE run itself records 0 calls, and the store lists request-bearing runs)
       mkdirSync(join(RUNS_DIR, "1700000000001-held-seed"), { recursive: true });

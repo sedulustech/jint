@@ -528,7 +528,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     lintInput === undefined &&
     pathsContent === undefined
   ) {
-    return serveUiHold(undefined, 0, (thrown) => {
+    return serveUiHold(0, (thrown) => {
       // viewer-only: no run happened, so a broken UI setup IS the invocation failing (usage/config)
       usageError(thrown instanceof Error ? thrown.message : String(thrown));
       return 2;
@@ -608,7 +608,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stderr.write(recordNotice());
     // --ui lifecycle (design: measure-then-look): the run IS the work; the UI deep-links to THIS
     // run (the id the requests notice already names) and holds.
-    if (cliArgs.ui === true) return serveUiHold(runId, exit);
+    if (cliArgs.ui === true) return serveUiHold(exit);
     return exit;
   } catch (thrown) {
     return exitForThrown(thrown);
@@ -616,16 +616,15 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 }
 
 /**
- * The --ui tail: serve the run UI in-process, print the deep link to stderr, and hold until SIGINT
- * (close server, exit with the RUN's code — the work already happened; Ctrl+C is just the viewer
- * leaving). The deep link is the router's PATH route /runs/<id>; the SPA fallback serves it from
- * the index entry. Viewer-only (no run id) prints the plain url, and its UI failure maps to 2
- * (usage/config: the invocation itself is broken); the run path maps its UI failure through
- * exitForThrown instead. JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
+ * The --ui tail: serve the run UI in-process, print the base url, hold until SIGINT (close server,
+ * exit with the RUN's code — the work already happened; Ctrl+C is just the viewer leaving). No deep
+ * link: the app opens newest-run-first, which after a measurement IS the run just made, and no
+ * route string couples the CLI to the UI router. Viewer-only is the same shape, and its UI failure
+ * maps to 2 (usage/config: the invocation itself is broken); the run path maps its UI failure
+ * through exitForThrown instead. JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
  * exercise the flag without pinning a process.
  */
 async function serveUiHold(
-  runId: string | undefined,
   exitCode = 0,
   onUiFailure: (thrown: unknown) => number = (thrown) => exitForThrown(thrown),
 ): Promise<number> {
@@ -635,8 +634,7 @@ async function serveUiHold(
   } catch (thrown) {
     return onUiFailure(thrown);
   }
-  const base = ui.url.endsWith("/") ? ui.url.slice(0, -1) : ui.url;
-  process.stderr.write(`jint: ui -> ${runId !== undefined ? `${base}/runs/${runId}` : base}\n`);
+  process.stderr.write(`jint: ui -> ${ui.url}\n`);
   if (process.env.JINT_UI_NO_HOLD === "1") {
     ui.close();
     return exitCode;
