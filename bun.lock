@@ -78,6 +78,9 @@
       "dependencies": {
         "@jint/contract": "workspace:*",
       },
+      "devDependencies": {
+        "@jint/sdk": "workspace:*",
+      },
     },
     "packages/sdk": {
       "name": "@jint/sdk",

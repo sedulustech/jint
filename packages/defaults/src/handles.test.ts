@@ -1,13 +1,21 @@
 import { describe, test, expect } from "bun:test";
-import { defaultRules } from "../../test-baseline.ts";
-import type { Rule } from "../types.ts";
+import { compileRule, type Rule } from "@jint/sdk";
+import { defaultRules as defaultSchemas } from "./index.ts";
+
+/** The compiled baseline: the schemas compiled through the sdk's public seam, as the CLI does. */
+const defaultRules: Record<string, Rule> = Object.fromEntries(
+  defaultSchemas.map((schema) => {
+    const rule = compileRule(schema as never, "@jint/defaults");
+    return [rule.name, rule];
+  }),
+);
 
 /** The severity a rule's handler returns for a value (null = silent). */
 const sev = (rule: Rule | undefined, v: number): string | null =>
   rule?.handle({ value: v })?.severity ?? null;
 
-const CALIBRATION = "tests/data/calibration/healthy-baselines.json";
-const SENSITIVITY = "tests/data/calibration/mutant-readings.json";
+const CALIBRATION = "../../../tests/data/calibration/healthy-baselines.json";
+const SENSITIVITY = "../../../tests/data/calibration/mutant-readings.json";
 
 function severities(rule: Rule, values: number[]): (string | null)[] {
   return values.map((v) => sev(rule, v));
