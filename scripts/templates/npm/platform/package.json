@@ -1,0 +1,15 @@
+{
+  "name": "@sedulus/jint-__PLATFORM__",
+  "version": "__VERSION__",
+  "description": "jint binary for __PLATFORM__",
+  "license": "MIT",
+  "bin": {
+    "jint": "./jint"
+  },
+  "os": [
+    "__OS__"
+  ],
+  "cpu": [
+    "__CPU__"
+  ]
+}
