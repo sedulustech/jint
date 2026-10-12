@@ -14,7 +14,8 @@ specifier form means in each home.
 - `jint:defaults` / `jint:sdk` - virtual modules the config loader registers via `Bun.plugin`
   (`build.module`) in EVERY home: workspace checkout, npm install, compiled binary. Editor types
   via ambient declarations (`defaults.d.ts`, `sdk.d.ts`, pinned by test). The `jint:defaults`
-  surface is a record: `{ defaultRuleSpecs, ...specs keyed by rule name }`.
+  surface is `defaultRules` (the ordered spec record) plus the named rule exports
+  (`is_name_purposeful` and friends), renamed in 4d2f1f7.
 - `@jint/defaults` / `@jint/sdk` / `@jint/contract` - real workspace packages (private, not
   published). Resolvable through `node_modules` wherever one exists; the defaults package is the
   declarative source the engine baseline compiles from.
