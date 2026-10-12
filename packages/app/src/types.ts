@@ -78,4 +78,4 @@ export interface RequestItem {
 export type { RequestFile } from "@jint/sdk/ui/api";
 
 // jint report shapes come from the contract package - one definition, shared with the engine.
-export type { ClassifyErrorInfo, Element, Finding, Measurement, Report } from "@jint/contract";
+export type { ClassifyErrorInfo, Element, Report } from "@jint/contract";

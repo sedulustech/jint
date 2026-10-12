@@ -10,7 +10,6 @@
     ".": "./src/cli.ts"
   },
   "dependencies": {
-    "@jint/contract": "workspace:*",
     "@jint/defaults": "workspace:*",
     "@jint/sdk": "workspace:*",
     "@sinclair/typebox": "^0.34.52"

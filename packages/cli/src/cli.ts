@@ -30,13 +30,13 @@ import {
   recordRunManifest,
   recordRunReport,
   findConfigFile,
+  selectionEcho,
   startUi,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
   type Rule,
 } from "@jint/sdk";
-import { selectionEcho } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
