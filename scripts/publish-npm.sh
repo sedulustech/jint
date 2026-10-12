@@ -11,7 +11,7 @@ if [ "${NPM_PUBLISH_DRY_RUN:-}" = 1 ]; then dry_run="--dry-run"; fi
 
 dist_dir="${1:?usage: publish-npm.sh <dist-dir>}"
 
-for tgz in "$dist_dir"/*.tgz; do
+for tgz in "./$dist_dir"/*.tgz; do  # ./ prefix: npm parses bare relative paths as git specs
   name=$(tar -xzOf "$tgz" package/package.json | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0)).name)')
   version=$(tar -xzOf "$tgz" package/package.json | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0)).version)')
   if npm view "$name@$version" version >/dev/null 2>&1; then
