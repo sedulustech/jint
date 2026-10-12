@@ -85,6 +85,26 @@ pattern (meta-package + per-os/cpu binary packages; npm installs exactly the mat
 postinstall downloads, no all-platforms bloat. npm publishes join the release fan-in AFTER the
 human publishes the GitHub draft, at the tag's version, idempotently guarded.
 
+#### What are the distribution channels, in what order?
+
+Three, all serving the same tag (2026-10-12):
+
+1. npm - `@sedulus/jint` meta-package + `@sedulus/jint-<platform>` binary packages via
+   optionalDependencies (the package manager downloads exactly the matching os/cpu). The launcher
+   shim is OURS, five lines - no binary-install-style wrapper dependency in the install path.
+   `bunx @sedulus/jint` / `npm i -D @sedulus/jint` (project-local bin: `jint`).
+2. install.sh - for machines with no JS runtime: `curl -fsSL <repo>/install.sh | bash`. The script
+   is committed at the repo root, VERSIONLESS: it downloads from
+   `releases/latest/download/jint-<os>-<arch>.tar.gz` (GitHub's permanent redirect to the newest
+   published release - composes with the draft gate; latest never points at a draft). Verifies
+   sha256 against `checksums.txt`, installs to `~/.local/bin`, whole script wrapped in `main() { }`
+   with `set -euo pipefail` so a truncated download is a syntax error, not a half-run install.
+3. GitHub Releases page - manual fallback, the signed/notarized tarballs themselves.
+
+The build job emits `checksums.txt` (sha256 of every asset) alongside the tarballs. npm publish
+and the script's URLs all resolve against the same tag's assets; no channel carries its own
+version string.
+
 #### Which package could drift first?
 
 Unknown until a consumer exists (2026-10-11). `sdk` is the likelier (embedding is the broader
