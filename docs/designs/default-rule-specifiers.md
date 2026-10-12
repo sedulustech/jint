@@ -1,6 +1,6 @@
 ---
 title: Config import specifiers - jint:* virtuals, not bare interception
-status: ready
+status: implemented
 modified: 2026-10-11
 ---
 
