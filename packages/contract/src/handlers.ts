@@ -33,6 +33,14 @@ export interface NoulHandlerData {
   readonly silent_band?: readonly [number, number];
 }
 
+/**
+ * Which unit instances a rule judges (design.md §7.1): mapping an acquired file to units yields
+ * target instances — one whole-file slice, N definition elements, M standalone comment elements, 1
+ * merged import element — and the target selects which of them the rule's question runs over. The
+ * vocabulary lives here (contract owns it); the engine and the defaults package import it.
+ */
+export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
+
 /** A declarative handler: exactly one of the two typed forms. */
 export type HandlerData = ScoreHandlerData | NoulHandlerData;
 

@@ -54,33 +54,38 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     const source = await Bun.file(GOLDEN).text();
     const inv = await decompose(source, "typescript");
     expect(inv.hasError).toBe(false);
-    // Top-level definitions + method elements from composite descent into the class declaration,
-    // no imports in this file (golden tracks packages/sdk/src/core/types.ts — update when it grows).
-    expect(inv.definitions).toHaveLength(42);
-    expect(inv.imports).toHaveLength(0);
-    // Comment nodes all accounted for: leading docs attached, 1 standalone (the file header,
-    // separated from the first declaration by a blank line), and member-doc comments inside
-    // declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(45);
-    expect(attachedCount(inv)).toBe(27);
-    expect(inv.comments).toHaveLength(1);
+    // Top-level definitions + method elements from composite descent into the class declarations,
+    // 1 import (the contract re-export import; golden tracks packages/sdk/src/core/types.ts —
+    // update when it grows).
+    expect(inv.definitions).toHaveLength(41);
+    expect(inv.imports).toHaveLength(1);
+    // Comment nodes all accounted for: leading docs attached, 2 standalone (the file header and
+    // the re-export vocabulary note, each separated from the next declaration by a blank line),
+    // and member-doc comments inside declaration bodies, consumed into their definition elements.
+    expect(accountedComments(inv)).toBe(47);
+    expect(attachedCount(inv)).toBe(28);
+    expect(inv.comments).toHaveLength(2);
     expect(internalCount(inv)).toBe(17);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
     );
-    expect(inv.comments.map((c) => c.label)).toEqual(["c0"]);
+    expect(inv.comments.map((c) => c.label)).toEqual(["c0", "c1"]);
     // The leading declarations, in order; the export wrapper's full text is the content.
-    expect(inv.definitions[0]?.nodeType).toBe("type_alias_declaration");
-    expect(inv.definitions[0]?.content).toBe('export type Severity = "error" | "warn";');
-    const setupErrorDoc = [
+    expect(inv.definitions[0]?.nodeType).toBe("interface_declaration");
+    expect(inv.definitions[0]?.content).toBe(
+      "export interface HandleOutcome {\n  readonly severity: Severity;\n}",
+    );
+    const classifyErrorDoc = [
       "/**",
-      " * A thrown setup/infrastructure failure: invalid config, missing/unreadable entrypoints, invariant",
-      " * violations. A real thrown Error — it escapes the pipeline boundary, and the CLI maps its code to",
-      " * exit codes exactly once (cli.ts).",
+      " * A per-unit failure to produce a measurement: the request to the classifier failed (JEV_*), or the",
+      " * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.",
+      " * One bad unit never kills the run and never fails it by itself — the error streams as a value and",
+      " * the run is failed only by findings. The seam throws it and the pipeline catches it into the",
+      " * stream; it never escapes the pipeline boundary (design §7).",
       " */",
     ].join("\n");
-    expect(inv.definitions[7]?.attachedComment).toEqual([setupErrorDoc]);
+    expect(inv.definitions[8]?.attachedComment).toEqual([classifyErrorDoc]);
   });
 
   test("comment-accounting invariant: AST comment count === comments accounted in elements", async () => {
@@ -95,7 +100,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     expectSpansRoundTrip(source, inv);
     // Line numbers are one-based and point at the element's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(14);
+    expect(inv.definitions[0]?.span.start.line).toBe(22);
   });
 });
 

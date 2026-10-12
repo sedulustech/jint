@@ -1,5 +1,6 @@
 import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { defaultConfig, defaultRules } from "../../tests/test-baseline.ts";
 import { lint, collectReport } from "../core/lint.ts";
 import { renderJson } from "../core/output/json.ts";
 import {
@@ -11,7 +12,6 @@ import {
   type LintEvent,
   type Rule,
 } from "../core/types.ts";
-import { defaultConfig, defaultRules } from "../test-baseline.ts";
 
 const baseConfig = {
   ...defaultConfig(),

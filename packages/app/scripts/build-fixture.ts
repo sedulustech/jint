@@ -19,16 +19,18 @@
  */
 import { mkdirSync, readdirSync, rmSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { defaultRules as defaultSpecs } from "@jint/defaults";
 import {
   collectReport,
+  compileRule,
   createClassifier,
-  defaultConfig,
   lint,
   renderJson,
   recordSummary,
   recordRunManifest,
   recordRunReport,
   type ClassifierConfig,
+  type Rule,
 } from "@jint/sdk";
 
 const appRoot = resolve(import.meta.dir, "..");
@@ -101,13 +103,31 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
   };
 }
 
+/**
+ * The baseline compiled from the defaults package through the sdk's public seam — the same compile
+ * packages/cli/src/baseline.ts performs. defaultConfig is NOT on the sdk surface (it is a
+ * cli/baseline concept), so the script builds the configless config itself.
+ */
+const baseline: Record<string, Rule> = Object.fromEntries(
+  defaultSpecs.map((spec) => {
+    const rule = compileRule(spec as never, "@jint/defaults");
+    return [rule.name, rule];
+  }),
+);
+
 async function main(): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
   process.env.JEV_DIR = stagingDir;
   process.env.TYPESAFE_API_KEY = "fixture-key";
 
-  const config = { ...defaultConfig(), exclude: [] };
+  const config = {
+    input: "",
+    rules: Object.values(baseline),
+    customRules: [],
+    include: [],
+    exclude: [],
+  };
   const report = await collectReport(
     lint({
       config,

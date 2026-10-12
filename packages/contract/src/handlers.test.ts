@@ -5,7 +5,7 @@ import {
   type HandlerData,
   type NoulHandlerData,
   type ScoreHandlerData,
-} from "./src/index.ts";
+} from "./index.ts";
 
 // fires when P(true) rises above the ceilings
 const gt: NoulHandlerData = { warn: { greater_than: 0.6 }, error: { greater_than: 0.8 } };

@@ -7,5 +7,5 @@
  */
 
 declare module "jint:defaults" {
-  export * from "@jint/defaults";
+  export * from "./index.ts";
 }

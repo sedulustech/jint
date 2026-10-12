@@ -1,6 +1,6 @@
 import { defaultRules as defaultSpecs } from "@jint/defaults";
-import { compileRule } from "./config/load.ts";
-import type { Rule } from "./core/types.ts";
+import { compileRule } from "../src/config/load.ts";
+import type { Rule } from "../src/core/types.ts";
 
 /**
  * The compiled default baseline for tests: the specs compiled through the public seam, exactly as

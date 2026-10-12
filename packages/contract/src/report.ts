@@ -4,6 +4,8 @@
  * together, so this file cannot drift from the wire format).
  */
 
+import type { Severity } from "./handlers.ts";
+
 /** Exact location of an element: line+col points and byte offsets into the source. */
 export interface Span {
   readonly start: { readonly line: number; readonly column: number };
@@ -107,8 +109,16 @@ export interface Finding {
   readonly rule: string;
   readonly input: string;
   readonly value: number;
-  readonly severity: "error" | "warn";
-  /** The chosen rubric level's legend text, score rules only (v1.3, additive). */
+  readonly severity: Severity;
+  /**
+   * Exact element location for element-scoped findings: the element's input plus its byte/line span
+   * into the source (v1.1, additive). Absent for files-target findings (relational, file-shaped).
+   */
+  readonly location?: { readonly input: string; readonly span: Span };
+  /**
+   * The chosen rubric level's legend text, score rules only (v1.3, additive): the report is
+   * self-contained. Absent for noul findings and policy findings.
+   */
   readonly note?: string;
   /** Optional extra structured data, attached by a policy callback (schema-validated). */
   readonly data?: Record<string, unknown>;

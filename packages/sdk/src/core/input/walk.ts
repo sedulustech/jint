@@ -166,7 +166,9 @@ export const MAX_ELEMENT_TOKENS = 30_000;
  * roles, never on grammar node names — adding a language is adding one roleTable entry, never
  * touching the walker (design: language adapter, classified in tmp/langsurvey).
  */
-export type NodeRole = "function" | "type" | "binding" | "import" | "comment";
+// Derived from contract's element kinds minus the whole-unit "file" kind — one vocabulary, no
+// hand-copied mirror (the compiler rejects a kind the contract drops).
+export type NodeRole = import("../types.ts").ElementRole;
 
 interface LanguageMapping {
   /** Grammar node type -> abstract role. Unlisted top-level node types are skipped. */

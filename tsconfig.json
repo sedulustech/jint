@@ -33,7 +33,7 @@
     // virtual-module ambient declarations + the config they type (jint.config.ts imports
     // jint:sdk / @jint/defaults - the config is part of the repo's checked surface)
     "packages/sdk/src/sdk.d.ts",
-    "packages/sdk/src/defaults.d.ts",
+    "packages/defaults/src/defaults.d.ts",
     "jint.config.ts"
   ],
   "exclude": ["tmp", "probes", "node_modules", "dist", "packages"]

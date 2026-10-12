@@ -11,7 +11,13 @@
  * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants)
  */
 
-export type Severity = "error" | "warn";
+/**
+ * Severity is the only verdict vocabulary, and it has one home: @jint/contract (handlers.ts) — the
+ * contract package owns the vocabulary, the engine re-exports it.
+ */
+export type { Severity } from "@jint/contract";
+import type { RuleTarget, Severity } from "@jint/contract";
+export type { RuleTarget };
 /** A fired reading: severity. Values stay RAW P(true) — fires_when lives in the rule config. */
 export interface HandleOutcome {
   readonly severity: Severity;
@@ -98,12 +104,7 @@ export class ClassifyError extends Error {
   }
 }
 
-/**
- * Which unit instance a rule judges (design.md §7.1): mapping an acquired file to units yields
- * target instances - one whole-file slice, N definition elements, M standalone comment elements, 1
- * merged import element - and the target selects which of them the rule's question runs over.
- */
-export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
+/** RuleTarget has one home: @jint/contract (handlers.ts); the engine re-exports it. */
 
 /** The judgment primitive a rule runs on. */
 export type RuleKind = "noul" | "choice";
@@ -218,6 +219,8 @@ export interface Finding {
 export type Span = import("@jint/contract").Span;
 /** The typed subject of a measurement: the closed element union (tmp/designs/element.md). */
 export type Element = import("@jint/contract").Element;
+/** The element-kind vocabulary minus the whole-unit "file" kind: what a grammar node abstracts to. */
+export type ElementRole = Exclude<Element["kind"], "file">;
 export type FileElement = import("@jint/contract").FileElement;
 export type FunctionElement = import("@jint/contract").FunctionElement;
 export type TypeElement = import("@jint/contract").TypeElement;
