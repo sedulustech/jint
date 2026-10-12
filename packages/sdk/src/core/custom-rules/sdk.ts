@@ -1,7 +1,7 @@
 /**
  * The TS-rule contract (tmp/designs/rules-context/01..04): rules authored in TypeScript, executed
  * by jint on the embedded runtime. A TS config default-exports defineConfig({ ... }) — a partial
- * config whose rules may be declarative specs or inline callback CustomRules — and every handler
+ * config whose rules may be declarative rules or inline callback CustomRules — and every handler
  * (target fn, classify, handleClassification) returns data; jint, never the rule, calls the
  * classifier. The runtime validation here is the contract enforcement (sdk.d.ts is editor DX only —
  * the runtime does NOT typecheck).
@@ -67,7 +67,7 @@ export interface CustomDecision {
 }
 
 /**
- * A custom rule: name, target (the REQUEST), the per-element state-spec compiler, and exactly one
+ * A custom rule: name, target (the REQUEST), the per-element state-schema compiler, and exactly one
  * policy (declarative handle or the callback form). classify returns ONE spec for self; jint fans
  * it out across ctx.targets. noul-only in v1 — choice/score kinds are rejected at load.
  */
