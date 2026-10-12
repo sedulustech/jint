@@ -7,10 +7,9 @@
  * editing a criteria line is a recalibration event.
  */
 
-import type { NoulHandlerData, ScoreHandlerData } from "@jint/contract";
+import type { NoulHandlerData, RuleTarget, ScoreHandlerData } from "@jint/contract";
 
-/** The measured subject a rule's question runs over. */
-export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
+export type { RuleTarget };
 
 /** A binary-claim rule: the {true, false} criteria compile straight into the noul question. */
 export interface NoulRuleSchema {
