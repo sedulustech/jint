@@ -42,11 +42,13 @@ await mkdir(outDir, { recursive: true });
 
 // one regex over all five package.jsons: the placeholder version is the only
 // thing that needs stamping, because the meta's dependency pins carry it too
-for (const dir of await readdir(NPM_DIR)) {
-  const pkgPath = resolve(NPM_DIR, dir, "package.json");
+for (const dir of await readdir(NPM_DIR, { withFileTypes: true })) {
+  // npm/README.md documents the shape; it is not a package
+  if (!dir.isDirectory()) continue;
+  const pkgPath = resolve(NPM_DIR, dir.name, "package.json");
   const pkg = await readFile(pkgPath, "utf8");
   if (!pkg.includes('"version": "0.0.0"'))
-    throw new Error(`${dir}: placeholder version already stamped or drifted`);
+    throw new Error(`${dir.name}: placeholder version already stamped or drifted`);
   await Bun.write(pkgPath, pkg.replaceAll('"version": "0.0.0"', `"version": "${versionNumber}"`));
 }
 
@@ -56,7 +58,11 @@ for (const [dir, binary] of Object.entries(BINARIES)) {
   await chmod(resolve(NPM_DIR, dir, "jint"), 0o755);
 }
 
-for (const dir of (await readdir(NPM_DIR)).sort()) {
+const entries = await readdir(NPM_DIR, { withFileTypes: true });
+for (const dir of entries
+  .filter((e) => e.isDirectory())
+  .map((e) => e.name)
+  .sort()) {
   await $`npm pack --pack-destination ${outDir} --silent ${resolve(NPM_DIR, dir)}`;
   const name = JSON.parse(await readFile(resolve(NPM_DIR, dir, "package.json"), "utf8")).name;
   console.log(`packed ${name}`);
