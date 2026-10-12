@@ -32,8 +32,8 @@
     "packages/sdk/src/wasm-assets.d.ts",
     // virtual-module ambient declarations + the config they type (jint.config.ts imports
     // jint:sdk / @jint/defaults - the config is part of the repo's checked surface)
-    "packages/sdk/src/core/rules/custom/sdk.d.ts",
-    "packages/sdk/src/core/rules/custom/defaults.d.ts",
+    "packages/sdk/src/sdk.d.ts",
+    "packages/sdk/src/defaults.d.ts",
     "jint.config.ts"
   ],
   "exclude": ["tmp", "probes", "node_modules", "dist", "packages"]

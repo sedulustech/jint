@@ -8,7 +8,7 @@
  * file is green at runtime and loud in `bun run typecheck`.
  */
 
-/// <reference path="./sdk.d.ts" />
+/// <reference path="../../../sdk.d.ts" />
 
 import { describe, expect, test } from "bun:test";
 import type {
