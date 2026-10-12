@@ -5,8 +5,10 @@ import { existsSync } from "node:fs";
 // published here - the tarballs land in dist-npm/ and publish is the release
 // fan-in job in release.yml (scripts/publish-npm.sh).
 //
-// packages/npm/* hold the real, reviewable publishable shapes; they are NOT
-// workspace members and nothing in the repo depends on them. The version is
+// npm/* at the repo root hold the real, reviewable publishable shapes - a
+// dedicated top-level npm/ because packages/ means workspace members, and
+// these are publish units that live outside the workspace; nothing in the
+// repo depends on them. The version is
 // the tag's - the one canon version - stamped over the checked-in placeholder
 // (one regex across all five package.jsons: own version and every internal
 // dependency pin move together, in lockstep, from one string), then the built
@@ -19,7 +21,7 @@ import { $ } from "bun";
 
 const root = resolve(import.meta.dirname, "..");
 process.chdir(root);
-const NPM_DIR = resolve(root, "packages/npm");
+const NPM_DIR = resolve(root, "npm");
 
 const version = process.argv[2];
 if (!version || !/^v\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
