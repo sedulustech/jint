@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { brotliCompressSync, gzipSync } from "node:zlib";
+import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { serveApiRequest } from "./api.ts";
 
 /**
@@ -15,10 +15,15 @@ export async function compress(res: Response, req: Request): Promise<Response> {
   const accept = req.headers.get("accept-encoding") ?? "";
   const buf = new Uint8Array(await res.arrayBuffer());
   if (accept.includes("br")) {
-    return new Response(brotliCompressSync(buf), {
-      status: res.status,
-      headers: { "content-type": type, "content-encoding": "br", vary: "Accept-Encoding" },
-    });
+    // zlib's default quality is 11: ~7.5s of CPU on a big run payload. q5 is ~190x faster
+    // at +22% size (and still smaller than gzip) - localhost UI latency is all that matters here.
+    return new Response(
+      brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }),
+      {
+        status: res.status,
+        headers: { "content-type": type, "content-encoding": "br", vary: "Accept-Encoding" },
+      },
+    );
   }
   if (accept.includes("gzip")) {
     return new Response(gzipSync(buf), {
