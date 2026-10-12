@@ -1,4 +1,4 @@
-import { defaultRuleSpecs } from "@jint/defaults";
+import { defaultRules as defaultSpecs } from "@jint/defaults";
 import { compileRule, registerCustomRuleLoader, type Rule } from "@jint/sdk";
 
 /**
@@ -7,7 +7,7 @@ import { compileRule, registerCustomRuleLoader, type Rule } from "@jint/sdk";
  * names the rules. A new defaults version bumps this package, never the sdk.
  */
 export const defaultRules: Record<string, Rule> = Object.fromEntries(
-  Object.values(defaultRuleSpecs).map((spec) => {
+  defaultSpecs.map((spec) => {
     const rule = compileRule(spec as never, "@jint/defaults");
     return [rule.name, rule];
   }),
@@ -26,5 +26,5 @@ export function defaultConfig() {
 
 /** Registers the virtual modules with the bundled defaults as the jint:defaults provider. */
 export function provideVirtualModules(): void {
-  registerCustomRuleLoader({ defaults: defaultRuleSpecs });
+  registerCustomRuleLoader({ defaults: defaultSpecs });
 }

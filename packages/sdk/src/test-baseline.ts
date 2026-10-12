@@ -1,4 +1,4 @@
-import { defaultRuleSpecs } from "@jint/defaults";
+import { defaultRules as defaultSpecs } from "@jint/defaults";
 import { compileRule } from "./config/load.ts";
 import type { Rule } from "./core/types.ts";
 
@@ -7,7 +7,7 @@ import type { Rule } from "./core/types.ts";
  * the CLI's baseline compiles them. Test-time only — the sdk source itself knows no rules.
  */
 export const defaultRules: Record<string, Rule> = Object.fromEntries(
-  Object.values(defaultRuleSpecs).map((spec) => {
+  defaultSpecs.map((spec) => {
     const rule = compileRule(spec as never, "@jint/defaults");
     return [rule.name, rule];
   }),

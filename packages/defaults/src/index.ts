@@ -225,8 +225,12 @@ export const isCognitivelyComplex: ChoiceRuleSpec = {
   handle: { map: ["pass", "warn", "error"] },
 };
 
-/** All default rules by name - the `rules.defaults` record of the config surface. */
-export const defaultRuleSpecs: Record<string, RuleSpec> = Object.freeze({
+/**
+ * All default rules by name — the INTERNAL name-keyed view. Not exported: the user-facing surface
+ * is `defaultRules` plus the named rule consts below; nothing outside this module needs key lookup
+ * (the jint:defaults virtual derives its named exports from the `defaultRules` array).
+ */
+const defaultRuleSpecs: Record<string, RuleSpec> = Object.freeze({
   is_name_purposeful: isNamePurposeful,
   is_vocabulary_consistent: isVocabularyConsistent,
   is_naming_convention_consistent: isNamingConventionConsistent,
@@ -241,8 +245,8 @@ export const defaultRuleSpecs: Record<string, RuleSpec> = Object.freeze({
 });
 
 /**
- * The set as an array - the whole-baseline consumption: `rules: defaultRules`. Spread it to compose
- * (`...defaultRules, myRule`), never mutate; the record above stays the name-keyed view.
+ * The set as an array — the whole-baseline consumption: `rules: defaultRules`. Spread it to compose
+ * (`...defaultRules, myRule`), never mutate.
  */
 export const defaultRules: readonly RuleSpec[] = Object.values(defaultRuleSpecs);
 

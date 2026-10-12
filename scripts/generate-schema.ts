@@ -10,7 +10,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { defaultRuleSpecs } from "@jint/defaults";
+import { defaultRules as defaultSpecs } from "@jint/defaults";
 import { CONFIG_SCHEMA } from "@jint/sdk";
 
 const GENERATION_NOTE =
@@ -37,7 +37,7 @@ const body = [
     "element role the rule judges; the handle turns readings into findings. Editing any of these in " +
     "the specs is a recalibration event. Regenerate: `bun run schema`.\n\n",
 ];
-for (const spec of Object.values(defaultRuleSpecs)) {
+for (const spec of defaultSpecs) {
   const isChoice = spec.kind === "choice";
   body.push(`## \`${spec.name}\`\n\n`);
   const handle = isChoice
@@ -114,7 +114,10 @@ const scoreHandle =
   "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.";
 const example = {
   $schema: "./jint.schema.json",
-  rules: [defaultRuleSpecs.is_greppable!, defaultRuleSpecs.is_cognitively_complex!],
+  rules: [
+    defaultSpecs.find((spec) => spec.name === "is_greppable"),
+    defaultSpecs.find((spec) => spec.name === "is_cognitively_complex"),
+  ],
 };
 const block = [
   "| key | meaning |",
