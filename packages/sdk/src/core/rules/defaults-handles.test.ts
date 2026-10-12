@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
-import { compileRule, type Rule } from "@jint/sdk";
-import { defaultRules as defaultSchemas } from "./index.ts";
+import { defaultRules as defaultSchemas } from "@jint/defaults";
+import { compileRule } from "../../config/load.ts";
+import type { Rule } from "../types.ts";
 
 /** The compiled baseline: the schemas compiled through the sdk's public seam, as the CLI does. */
 const defaultRules: Record<string, Rule> = Object.fromEntries(
@@ -17,11 +18,11 @@ const sev = (rule: Rule | undefined, v: number): string | null =>
 // File-relative (Bun.file is cwd-relative, and bun test runs from the repo root): the
 // calibration corpus is shared root-level fixture data (tests/ = e2e + shared fixtures).
 const CALIBRATION = new URL(
-  "../../../tests/data/calibration/healthy-baselines.json",
+  "../../../../../tests/data/calibration/healthy-baselines.json",
   import.meta.url,
 );
 const SENSITIVITY = new URL(
-  "../../../tests/data/calibration/mutant-readings.json",
+  "../../../../../tests/data/calibration/mutant-readings.json",
   import.meta.url,
 );
 
