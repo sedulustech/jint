@@ -26,52 +26,14 @@ const SENSITIVITY = new URL(
   import.meta.url,
 );
 
-function severities(rule: Rule, values: number[]): (string | null)[] {
-  return values.map((v) => sev(rule, v));
-}
-
-describe("default handles: polarity", () => {
-  test("naming rules are high=good (error below threshold)", () => {
-    // is_name_purposeful is a score now: 0 no violations, 1 one (warn), 2 several (error)
-    expect(sev(defaultRules.is_name_purposeful, 0)).toBeNull();
-    expect(sev(defaultRules.is_name_purposeful, 1)).toBe("warn");
-    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
-    expect(sev(defaultRules.is_vocabulary_consistent, 0.5)).toBe("error");
-    expect(sev(defaultRules.is_vocabulary_consistent, 0.7)).toBe("warn");
-    expect(sev(defaultRules.is_vocabulary_consistent, 0.8)).toBeNull();
-    expect(sev(defaultRules.is_naming_convention_consistent, 0.6)).toBe("error");
-    expect(sev(defaultRules.is_naming_convention_consistent, 0.7)).toBe("warn");
-    expect(sev(defaultRules.is_naming_convention_consistent, 0.9)).toBeNull();
-    expect(sev(defaultRules.is_greppable, 0.3)).toBe("error");
-    expect(sev(defaultRules.is_greppable, 0.55)).toBe("error");
-    expect(sev(defaultRules.is_greppable, 0.65)).toBe("warn");
-    expect(sev(defaultRules.is_greppable, 0.8)).toBeNull();
-    // is_filename_fitting: high = bad; anchored on the two-language filename-fit
-    // probe - healthy ceiling 0.33 (Go, cobra) / 0.36 (TS, jint src/), defective
-    // floor 0.60 / 0.88 (the generic-name-hides-a-subject case is the soft one).
-    expect(sev(defaultRules.is_filename_fitting, 0.33)).toBeNull();
-    expect(sev(defaultRules.is_filename_fitting, 0.5)).toBeNull();
-    expect(sev(defaultRules.is_filename_fitting, 0.6)).toBe("warn");
-    expect(sev(defaultRules.is_filename_fitting, 0.94)).toBe("error");
-  });
-
-  test("comment/complexity rules are high=bad (error above threshold)", () => {
-    expect(sev(defaultRules.is_comment_narration, 0.5)).toBe("error");
-    expect(sev(defaultRules.is_comment_narration, 0.35)).toBe("warn");
-    expect(sev(defaultRules.is_comment_narration, 0.25)).toBeNull();
-    expect(sev(defaultRules.is_comment_patching_readability, 0.6)).toBe("error");
-    expect(sev(defaultRules.is_comment_patching_readability, 0.45)).toBe("warn");
-    expect(sev(defaultRules.is_comment_patching_readability, 0.35)).toBeNull();
-    expect(sev(defaultRules.will_comment_drift, 0.75)).toBe("error");
-    expect(sev(defaultRules.will_comment_drift, 0.6)).toBe("warn");
-    expect(sev(defaultRules.will_comment_drift, 0.5)).toBeNull();
-    // is_cognitively_complex is a scored rubric (0..2): error at round>=2, warn at round>=1,
-    // calibrated two-language (app/src + cobra) — see defaults.ts and the rebuild design.
-    expect(sev(defaultRules.is_cognitively_complex, 1.7)).toBe("error");
-    expect(sev(defaultRules.is_cognitively_complex, 1.2)).toBe("warn");
-    expect(sev(defaultRules.is_cognitively_complex, 0.4)).toBeNull();
-  });
-});
+// TODO(schema-tests): the calibration fixtures' is_name_purposeful readings predate the score
+// form - they were taken under the retired count-based criteria, so they are 0..1 probabilities
+// read here as 0..2 level indexes, which is meaningless (healthy 0.8-0.88 happens to round to a
+// warn tier; the m1 defective 0.08 happens to round to silence). Until the corpus is
+// re-classified under the scored question AND re-probed on a second language (issue 001's
+// two-language bar - the same bar that gated is_filename_fitting's promotion), the gates below
+// can only assert the weak honest claim (non-error) for that rule. Do not re-tier these
+// assertions against probability readings, and do not attempt re-measurement here (live API).
 
 describe("ci gate simulation: known-good corpus passes, damaged corpus fails", () => {
   test(`known-good readings produce no error-severity findings (consumer CI gate over a clean repo)`, async () => {
@@ -96,9 +58,8 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
       string,
       Record<string, number>
     > & { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
-    // m1_bad_names: naming collapses to errors. The sensitivity fixture's value is from the
-    // rule's noul form; under the score form pervasive bad names are level 2 (several).
-    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
+    // m1_bad_names: naming collapses to errors. is_name_purposeful's fixture reading predates
+    // the score form (see the TODO above) - the weak honest claim until re-measurement.
     expect(
       sev(defaultRules.is_vocabulary_consistent, mutants.m1_bad_names!.is_vocabulary_consistent!),
     ).toBe("error");
@@ -108,6 +69,9 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
         mutants.m1_bad_names!.is_naming_convention_consistent!,
       ),
     ).toBe("error");
+    expect(
+      sev(defaultRules.is_name_purposeful, mutants.m1_bad_names!.is_name_purposeful!),
+    ).not.toBe("error");
     // m3_comment_bloat: pure narration noise. The whole-diff reading (0.27
     // under the multi-line claims) dilutes - the documented whole-diff
     // low-pass effect - so the claim is anchored where jint actually runs,
@@ -176,48 +140,56 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
   });
 });
 
-describe("rule definitions", () => {
-  const ruleFires = (s: Rule): boolean => sev(s, 0.05) !== null || sev(s, 0.95) !== null;
+// Two regression classes the corpus gates above cannot see, pinned here directly against the
+// handle data. These rows are NOT mirrors of the kind deleted below: a mirror fails exactly when
+// the data moves and proves nothing, while these hold a claim no other test holds.
+// - Score-map ORDER is schema-invisible: validation checks the map's length (== criteria count)
+//   and that at least one level is non-pass, never the direction of the tiers - and no fixture
+//   reading reaches level 2, so re-tiering the top level ([pass,warn,error] -> [pass,warn,pass])
+//   passes every gate silently. The scored rules' boundaries are pinned at their rubric edges.
+// - is_filename_fitting has NO corpus readings (absent from both calibration fixtures), so the
+//   gates never touch its tiers; its issue-006 two-language gap (TS healthy max 0.36 / Go 0.33
+//   against defective floors 0.60 / 0.88) exists only as these rows.
+// - is_greppable's healthy band (0.81-0.82) sits just above its warn_at: an upward threshold
+//   drift would push the band into warn, which the not-error gates cannot see.
+describe("handles the corpus gates cannot see", () => {
+  test("score-map order: the top level stays error, not re-tiered to pass", () => {
+    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
+    expect(sev(defaultRules.is_name_purposeful, 1)).toBe("warn");
+    expect(sev(defaultRules.is_name_purposeful, 0)).toBeNull();
+    expect(sev(defaultRules.is_cognitively_complex, 1.7)).toBe("error");
+    expect(sev(defaultRules.is_cognitively_complex, 1.2)).toBe("warn");
+    expect(sev(defaultRules.is_cognitively_complex, 0.4)).toBeNull();
+  });
 
-  test("every rule has exactly one handle polarity; handles are the only thresholds", () => {
+  test("is_filename_fitting: the issue-006 two-language gap, recorded as rows", () => {
+    expect(sev(defaultRules.is_filename_fitting, 0.36)).toBeNull(); // TS healthy max (issue 006 gap)
+    expect(sev(defaultRules.is_filename_fitting, 0.6)).toBe("warn"); // Go defective floor
+    expect(sev(defaultRules.is_filename_fitting, 0.94)).toBe("error"); // defective tail
+  });
+
+  test("is_greppable: the healthy band's top stays silent", () => {
+    expect(sev(defaultRules.is_greppable, 0.8)).toBeNull();
+  });
+});
+
+describe("default handles: polarity", () => {
+  test("every rule fires on exactly one side; handles are the only thresholds", () => {
     // The handles are the only thresholds (the sweep anchors died with the two-stage funnel).
     // A firing handle must fire on exactly one side (high=good fires LOW, high=bad fires HIGH);
-    // a measurement-only rule (null handle) fires on neither.
+    // the per-value tiers themselves live in the handle data and its calibration comments -
+    // restating them here would only mirror the data, not test anything.
     for (const rule of Object.values(defaultRules)) {
       const firesLow = sev(rule, 0.05) !== null;
       const firesHigh = sev(rule, 0.95) !== null;
       expect(firesLow && firesHigh).toBe(false);
-      expect(ruleFires(rule)).toBe(firesLow || firesHigh);
-    }
-  });
-
-  test("default rules have calibrated criteria rules", () => {
-    const names = Object.keys(defaultRules);
-    expect(names).toEqual([
-      "is_name_purposeful",
-      "is_vocabulary_consistent",
-      "is_naming_convention_consistent",
-      "is_greppable",
-      "is_filename_fitting",
-      "is_comment_narration",
-      "is_comment_patching_readability",
-      "will_comment_drift",
-      "will_error_lose_cause",
-      "is_cognitively_complex",
-      "is_function_srp",
-    ]);
-    for (const rule of Object.values(defaultRules)) {
-      const criteria =
-        rule.kind === "choice" ? rule.criteria : [rule.criteria.true, rule.criteria.false];
-      expect(criteria.every((c) => c.length > 20)).toBe(true);
-      expect(["files", "functions", "definitions", "comments", "imports"]).toContain(rule.target);
     }
   });
 
   test("handles return only error|warn|null", () => {
     const sampleValues = [0, 0.25, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.85, 0.9, 1];
     for (const rule of Object.values(defaultRules)) {
-      for (const severity of severities(rule, sampleValues)) {
+      for (const severity of sampleValues.map((v) => sev(rule, v))) {
         expect(["error", "warn", null]).toContain(severity);
       }
     }

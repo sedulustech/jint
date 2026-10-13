@@ -1018,18 +1018,21 @@ describe("lint — inline callback rules (content retention, the logical content
     );
     // Nothing judged whole (no files rule, so nothing to retain content FOR).
     expect(log.calls.some((c) => isWholeFileCall(c.state))).toBe(false);
-    // The drop is LOGICAL: element classification still runs for both files.
-    const elementPaths = new Set(
-      log.calls
-        .filter((c) => isElementCall(c.state))
-        .map((c) => (c.state as { path: string }).path),
+    // The drop is LOGICAL: sample-file.ts's inventory is retained, so its elements still classify.
+    const sampleElementCalls = log.calls.filter(
+      (c) => isElementCall(c.state) && (c.state as { path: string }).path === FILE,
     );
-    expect([...elementPaths].sort()).toEqual([FILE, GOOD].sort());
-    // and the callback rule still sees only its own target
-    const measured = events
-      .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-      .map((e) => e.measurement.rule);
-    expect(measured.filter((r) => r === "ts_retention_probe").length).toBeGreaterThan(0);
+    expect(sampleElementCalls.length).toBeGreaterThan(0);
+    // The custom rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
+    const tsMeasurements = events.filter(
+      (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
+    );
+    expect(tsMeasurements).toHaveLength(2);
+    expect(
+      tsMeasurements.every(
+        (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),
+      ),
+    ).toBe(true);
   });
 });
 
