@@ -191,7 +191,7 @@ describe("resolveAllCustomTargets", () => {
       target: () => {
         throw new Error("bad selection");
       },
-      handleClassification: () => [],
+      handle: () => [],
     });
     const phase = await run(rule, inventory, fakeClassifier(0.9));
     expect(phase.events).toHaveLength(1);
@@ -400,7 +400,7 @@ describe("runCustomRules — classification", () => {
     const phase = await run(
       ruleOf({
         classify: (() => Promise.resolve(spec({}))) as unknown as CustomRule["classify"],
-        handleClassification: () => [],
+        handle: () => [],
       }),
       inventory,
       fakeClassifier(0.8),
@@ -415,7 +415,7 @@ describe("runCustomRules — classification", () => {
     const phase = await run(
       ruleOf({
         classify: () => ({ instructions: "i", criteria: { true: "t" }, state: {} }) as never,
-        handleClassification: () => [],
+        handle: () => [],
       }),
       inventory,
       fakeClassifier(0.8),
@@ -470,19 +470,17 @@ describe("runCustomRules — policy", () => {
     expect(phase.events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 
-  test("handleClassification runs ONCE, results aligned with targets, message/data ride the finding", async () => {
+  test("callback handle runs ONCE, results aligned with targets, message rides the finding", async () => {
     const inventory = await oneFile(SOURCE);
     const calls: Array<{ results: readonly unknown[] }> = [];
     const phase = await run(
       ruleOf({
         target: ["functions", "comments"],
-        handle: undefined,
-        handleClassification: (results) => {
+        handle: (results) => {
           calls.push({ results });
           return results.map((r, i) => ({
             severity: r.type === "noul" && r.noul > 0.7 ? ("error" as const) : null,
-            message: "why #" + String(i),
-            data: { index: i },
+            message: "fix why #" + String(i) + " first",
           }));
         },
       }),
@@ -495,16 +493,12 @@ describe("runCustomRules — policy", () => {
     expect(findings).toHaveLength(3);
     const first = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(first?.severity).toBe("error");
-    expect(first?.data).toEqual({ index: 0 });
+    expect(first?.message).toBe("fix why #0 first");
   });
 
   test("a wrong-length decisions array is RULE_FAILED", async () => {
     const inventory = await oneFile(SOURCE);
-    const phase = await run(
-      ruleOf({ handle: undefined, handleClassification: () => [] }),
-      inventory,
-      fakeClassifier(0.8),
-    );
+    const phase = await run(ruleOf({ handle: () => [] }), inventory, fakeClassifier(0.8));
     const error = phase.events.find((e) => e.type === "error");
     expect(error?.type === "error" && error.error.code).toBe("RULE_FAILED");
     expect(error?.type === "error" && error.error.message).toContain("one decision per result");

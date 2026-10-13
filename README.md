@@ -105,6 +105,10 @@ export default {
 | `comments`    | each comment, including one attached to a declaration |
 | `imports`     | the file's imports as one merged unit                 |
 
+A TS config rule may also carry a callback `handle: (results, ctx) => decisions`, called once after
+classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
+`null` severity is silent (measurement only). The optional `message` is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as `finding.message`.
+
 #### Default rules
 
 The rules shipped as default were calibrated and dogfooded against jint's own `src/` and other repositories.

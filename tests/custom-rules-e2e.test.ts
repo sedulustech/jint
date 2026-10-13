@@ -51,12 +51,25 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { comment: self.source },
     }),
-    handleClassification: (results) =>
-      results.map((r) => ({
-        severity: r.type === "noul" && r.noul > 0.7 ? "error" : null,
-        message: "the comment drifts from the code",
-        data: { rule_local: true },
-      })),
+    // Tiered remediation instructions: the handle branches on the raw reading (deep miss vs
+    // marginal) into different instructions, and embeds the reading + resolved-ctx size in the
+    // message so the rendered output itself proves the results/ctx argument wiring.
+    handle: (results, ctx) =>
+      results.map((r) => {
+        const v = r.type === "noul" ? r.noul : 0;
+        return {
+          severity: v > 0.7 ? ("error" as const) : null,
+          message:
+            (v > 0.9
+              ? "delete the comment; it pins artifacts that drift"
+              : "keep the sentence, drop the file-name cross-reference") +
+            " (reading " +
+            v +
+            " of " +
+            ctx.targets.length +
+            " target)",
+        };
+      }),
   }],
 });
 `;
@@ -115,17 +128,36 @@ describe("cli: custom rules end-to-end", () => {
     expect(finding?.location?.span.start.line).toBe(8);
   });
 
-  test("handleClassification decisions ride data on the finding (message dropped, v1)", async () => {
+  test("callback handle decisions ride their message on the finding and the rendered line", async () => {
     const dir = setup("policy", POLICY_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 1, stdout: "json" });
     const finding = report.findings.find(
       (f: Record<string, unknown>) => f.rule === "will_policy_decide",
     );
-    // findings carry NO message (report contract 2026-09-28): consumers join by rule id
-    expect(finding?.message).toBeUndefined();
-    expect(finding?.data).toEqual({ rule_local: true });
+    // The mock answers noul 0.8: severity "error" (0.8 > 0.7), and the MARGINAL band's message —
+    // whose content embeds the reading (results) and the resolved target count (ctx.targets), so
+    // the rendered message itself proves the callback's argument wiring.
+    expect(finding?.severity).toBe("error");
+    expect(finding?.message).toBe(
+      "keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
+    );
     expect(finding?.location?.span.start.line).toBe(8);
+    // the rendered message is the report's message, byte-identical under --json (one truth)
+    expect(r.stdout).toContain(
+      "keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
+    );
+    // default stdout: the message renders as an indented continuation line beneath the finding
+    const raw = await runCli(["--config", "jint.config.ts"], {
+      cwd: dir,
+      env: { ...MOCK_ENV },
+    });
+    expect(raw.code).toBe(1);
+    const lines = raw.stdout.trimEnd().split("\n");
+    expect(lines[0]).toContain("will_policy_decide");
+    expect(lines[1]).toBe(
+      "    keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
+    );
   });
 
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {

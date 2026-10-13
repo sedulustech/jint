@@ -57,6 +57,26 @@ describe("renderLines", () => {
     expect(stdout).not.toContain("[");
   });
 
+  test("a finding's message renders as an indented continuation line beneath it", () => {
+    const { stdout } = renderLines({
+      ...report,
+      findings: [
+        {
+          rule: "is_comment_paired",
+          input: "src/a.ts",
+          value: 0.8,
+          severity: "error",
+          message: "keep the sentence, drop the file-name cross-reference",
+        },
+      ],
+    });
+    const lines = stdout.trimEnd().split("\n");
+    expect(lines[0]).toContain("is_comment_paired");
+    expect(lines[1]).toBe("    keep the sentence, drop the file-name cross-reference");
+    // the continuation line never parses as a finding row (LINE_SCHEMA)
+    expect(Value.Check(LINE_SCHEMA, lines[1]!)).toBe(false);
+  });
+
   test("the chosen-level note never reaches the rendered line", () => {
     const { stdout } = renderLines(report);
     expect(stdout).not.toContain("[Moderate");

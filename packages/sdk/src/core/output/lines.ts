@@ -42,6 +42,10 @@ export function renderLines(report: LintReport): LinesRender {
         f.value.toFixed(2),
       ),
     );
+    // A callback decision's message is an instruction to the caller (how to remediate — severity
+    // says whether, message says how). Rendered as a continuation line beneath its finding line,
+    // indented so it never parses as a finding row (LINE_SCHEMA).
+    if (f.message !== undefined) out.push("    " + f.message);
   }
 
   const err: string[] = [];

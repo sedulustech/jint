@@ -47,7 +47,7 @@ compiled binaries use `jint:defaults` (no install needed); workspace consumers m
 ### Inline custom rules
 
 A `rules` entry that carries a callback — a `classify` function, a function `target`, or a
-`handleClassification` — is an inline custom rule: it runs on the callback engine (element
+function `handle` — is an inline custom rule: it runs on the callback engine (element
 inventories, free state composition) while declarative entries around it compile through the same
 seam as the JSON tier. This is the repo-root pattern:
 
@@ -76,6 +76,10 @@ The pattern above is the complete shape: a callback rule is a config `rules` ent
 `classify(self, ctx)` returns the question for that element (instructions, criteria, and a
 free-form `state` object the rule composes - the pairing IS the state); the repo root's own
 `jint.config.ts` mixes defaults with an inline declarative rule the same way.
+
+The `handle` may instead be a `(results, ctx) => decisions` function, called once after
+classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
+`null` severity is silent (measurement only). `message` is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as `finding.message`. Tiered decisions are natural: the handle sees the raw readings, so it can branch on them (e.g. a deep miss vs a marginal one) into different remediation instructions.
 
 ### Composition rules
 

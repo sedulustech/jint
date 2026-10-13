@@ -1,13 +1,10 @@
 /**
- * Editor DX for the virtual module "jint:sdk" — the runtime does NOT typecheck; this file exists so
- * rule files get completions and checking in the editor. Reference it from the rule project:
+ * Editor DX for the jint:sdk virtual module: the runtime does NOT typecheck; this file exists so
+ * rule files get completions and checking in the editor. Rule projects reference it with a
+ * triple-slash path into the installed package's sources.
  *
- * /// <reference path="./node_modules/@jint/sdk/src/sdk.d.ts" />
- *
- * (jint ships src/; see the README's SDK section.)
- *
- * MIRROR GUARD: this declaration must stay type-identical to custom/schema.ts —
- * schema.types.test.ts enforces that at typecheck time. Edit them together.
+ * MIRROR GUARD: this declaration must stay type-identical to the runtime schema — a typecheck-time
+ * mirror test enforces that. Edit them together.
  */
 
 declare module "jint:sdk" {
@@ -54,7 +51,11 @@ declare module "jint:sdk" {
   /** One policy decision, aligned by index with ctx.targets; null severity = silent. */
   export interface CustomDecision {
     readonly severity: "error" | "warn" | null;
-    readonly data?: Record<string, unknown>;
+    /**
+     * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity
+     * says whether, message says how. Rendered beneath the finding line.
+     */
+    readonly message?: string;
   }
 
   /** A custom rule: request (target), per-element compiler (classify), and exactly one policy. */
@@ -73,11 +74,16 @@ declare module "jint:sdk" {
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */
     readonly exclude?: readonly string[];
-    readonly handle?: CustomHandleData;
-    readonly handleClassification?: (
-      results: readonly RuleResult[],
-      ctx: RuleContext,
-    ) => readonly CustomDecision[];
+    /**
+     * The rule's policy — REQUIRED, exactly one per rule, in one of two encodings: data is the
+     * declarative form (JSON-expressible noul handler); a function is the TS-only escape hatch,
+     * called ONCE after all classifications (results[i] <-> ctx.targets[i]) and returns one
+     * decision per result, aligned by index. The field either is data or is a function, never both;
+     * a measurement-only rule returns [] (or all-null severities) from the function form.
+     */
+    readonly handle:
+      | CustomHandleData
+      | ((results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]);
   }
 
   /**
