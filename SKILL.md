@@ -47,6 +47,15 @@ Then `TYPESAFE_API_KEY` in the environment (used as-is).
 - Env summary: recording is always on (there is no off switch); `JEV_DIR` moves where
   run dirs land (default `~/.jint/runs`).
 
+## Span anchors are pre-edit
+
+Element-scoped queries (`path@L58`) address elements by line. Edits shift lines, so an
+anchor from an earlier run can silently select a DIFFERENT element after the file changed -
+the run looks valid, the line is simply someone else now. After any edit, re-locate the
+element (grep the name, re-run) instead of reusing the old `@L`. Do not try to attribute
+stale findings to current code automatically: matching by name or content heuristics is a
+rabbit hole; re-anchor and re-measure.
+
 ## CLI
 
 CLI usage lives in `jint --help` - the tool's own contract, not duplicated here.
