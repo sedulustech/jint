@@ -91,19 +91,22 @@ export interface Measurement {
   readonly input: string;
   readonly value: number;
   /**
-   * The score distribution when the rule is score-kind (v1.2, additive — pre-v1.2 reports lack it):
-   * the per-level probabilities and confidence the value summarizes.
+   * The score distribution, score rules only: the per-level probabilities and confidence the value
+   * summarizes. Noul has no separate distribution — its probability IS the value.
    */
   readonly probabilities?: Record<string, number>;
   readonly confidence?: number;
-  /** The measured subject: what was classified, fully typed. Absent only in pre-v1.1 reports. */
+  /**
+   * The measured subject: what was classified, fully typed. Absent only from the bare classifyUnit
+   * generator, which sees no source and so cannot span a FileElement — every report path (lint,
+   * one-shot classify) attaches it.
+   */
   readonly element?: Element;
 }
 
 /**
- * A reading that crossed its handle's threshold: the actionable output. Findings carry no free-form
- * message — consumers join by rule id to the config (v1 contract); score findings carry the chosen
- * rubric level's legend text as note (v1.3, additive) so the report is self-contained.
+ * A reading that crossed its handle's threshold: the actionable output. Score findings carry the
+ * chosen rubric level's legend text as note (score rules only) so the report is self-contained.
  */
 export interface Finding {
   readonly rule: string;
@@ -111,17 +114,20 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
+   * The custom-tier callback's remediation instruction to the caller fixing the finding: severity
+   * says whether, message says how. Absent for noul and score (threshold-derived) findings.
+   */
+  readonly message?: string;
+  /**
    * Exact element location for element-scoped findings: the element's input plus its byte/line span
-   * into the source (v1.1, additive). Absent for files-target findings (relational, file-shaped).
+   * into the source. Absent for files-target findings (relational, file-shaped).
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only (v1.3, additive): the report is
-   * self-contained. Absent for noul findings and policy findings.
+   * The chosen rubric level's legend text, score rules only: the report is self-contained. Absent
+   * for noul findings and policy findings.
    */
   readonly note?: string;
-  /** Optional extra structured data, attached by a policy callback (schema-validated). */
-  readonly data?: Record<string, unknown>;
 }
 
 /** A reading that could not happen: acquisition or classification failed for one input. */

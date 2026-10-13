@@ -87,4 +87,13 @@ describe("renderJson", () => {
   test("output contains no ANSI escape codes", () => {
     expect(renderJson(report)).not.toContain("\x1b");
   });
+
+  // The run pointer: top-level run {id, dir}, present only on reports from recorded runs.
+  test("run pointer serializes when set; capture-less reports omit it", () => {
+    const withRun = { ...report, run: { id: "1791916340873", dir: "/tmp/x/runs/1791916340873" } };
+    const parsed = JSON.parse(renderJson(withRun));
+    expect(parsed.run).toEqual({ id: "1791916340873", dir: "/tmp/x/runs/1791916340873" });
+    expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
+    expect(JSON.parse(renderJson(report))).not.toHaveProperty("run");
+  });
 });
