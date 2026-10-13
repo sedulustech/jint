@@ -49,7 +49,11 @@ export interface WalkElement {
   readonly role: NodeRole;
   /** The declared name, when the walker could extract one (render-only; never an id). */
   readonly name?: string;
-  /** The comment node(s) consumed into this definition's leading run (outside its content span). */
+  /**
+   * The comment node(s) consumed into this definition: the leading run (outside its content span)
+   * plus every comment inside its body. Both are comments OF the definition - comment-target rules
+   * judge the full run, so a function whose only comment is internal is still a comment unit.
+   */
   readonly attachedComment?: readonly string[];
   /** For a docstring element: what it documents; an orphan docstring never exists. */
   readonly docstringOf?: DocstringOwner;
@@ -64,13 +68,14 @@ export interface WalkElement {
   readonly oversized?: boolean;
 }
 
-function countInternalComments(node: { type: string; namedChildren: SyntaxNode[] }): number {
-  let internalTotal = 0;
+/** Every non-empty comment text inside the node's body, document order (recursively). */
+function collectInternalComments(node: { type: string; namedChildren: SyntaxNode[] }): string[] {
+  const texts: string[] = [];
   for (const child of node.namedChildren) {
-    if (child.type === "comment" && !isEmptyComment(child.text)) internalTotal++;
-    internalTotal += countInternalComments(child);
+    if (child.type === "comment" && !isEmptyComment(child.text)) texts.push(child.text);
+    texts.push(...collectInternalComments(child));
   }
-  return internalTotal;
+  return texts;
 }
 
 /**
@@ -484,6 +489,7 @@ function appendDefinition(
   const label = "d" + String(collection.definitions.length);
   let { content, span } = definitionSource(wrapperNode, type);
   const declared = declaredName(type, declarationNode);
+  const internalComments = collectInternalComments(declarationNode);
   collection.definitions.push({
     label,
     span,
@@ -492,8 +498,11 @@ function appendDefinition(
     role,
     ...(declared !== undefined && { name: declared }),
     ...(parent !== undefined && { parent }),
-    ...(commentRun ? { attachedComment: commentRun } : {}),
-    internalCommentCount: countInternalComments(declarationNode),
+    // Internal comments stay IN PLACE (the body slice already carries them); the count is what
+    // makes comment-target rules see (and cost a call for) a definition whose only comment is
+    // internal - matchesTarget reads it, so the payload never duplicates a comment.
+    ...(commentRun !== undefined && { attachedComment: commentRun }),
+    internalCommentCount: internalComments.length,
   });
   const docstring = docstringOf(declarationNode);
   if (docstring) appendDocstringElement(collection, docstring, label, type, declarationNode);

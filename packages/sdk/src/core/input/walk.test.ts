@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Language, Parser } from "web-tree-sitter";
+import { matchesTarget } from "../rules/classify.ts";
 import {
   charsToTokens,
   decompose,
@@ -36,6 +37,9 @@ function internalCount(inv: Inventory): number {
   return inv.definitions.reduce((sum, d) => sum + d.internalCommentCount, 0);
 }
 
+// Internal comments stay IN PLACE (inside the definition's body slice): they are counted
+// (internalCommentCount) but never travel in attachedComment, so no payload duplicates a comment.
+// Accounting: every AST comment is exactly one of attached-leading, standalone, or in-place.
 function accountedComments(inv: Inventory): number {
   return attachedCount(inv) + inv.comments.length + internalCount(inv);
 }
@@ -59,11 +63,12 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     // update when it grows).
     expect(inv.definitions).toHaveLength(41);
     expect(inv.imports).toHaveLength(1);
-    // Comment nodes all accounted for: leading docs attached, 2 standalone (the file header and
-    // the re-export vocabulary note, each separated from the next declaration by a blank line),
-    // and member-doc comments inside declaration bodies, consumed into their definition elements.
-    expect(accountedComments(inv)).toBe(47);
+    // Comment nodes all accounted for: leading docs ride attachedComment; member-doc comments
+    // inside declaration bodies stay in place (counted, not attached); 2 standalone (the file
+    // header and the re-export vocabulary note, each separated from the next declaration by a
+    // blank line).
     expect(attachedCount(inv)).toBe(28);
+    expect(accountedComments(inv)).toBe(47);
     expect(inv.comments).toHaveLength(2);
     expect(internalCount(inv)).toBe(17);
     // Labels are stable and positional.
@@ -429,7 +434,8 @@ describe("decompose — go", () => {
       ["type_declaration", "type"],
       ["function_declaration", "function"],
     ]);
-    // Doc comment attaches to the func that follows it; internal comment stays inside.
+    // Doc comment attaches to the func that follows it; the internal comment stays in place
+    // (inside the body slice, counted only) - the comment unit's run is the leading doc alone.
     expect(inv.definitions[0]!.attachedComment).toEqual(["// greet says hi."]);
     expect(inv.definitions[0]!.internalCommentCount).toBe(1);
     expect(inv.comments).toHaveLength(0);
@@ -606,6 +612,18 @@ describe("decompose — go", () => {
     );
     expect(inv.definitions[0]!.attachedComment).toEqual(["// real", "// real2"]);
     expect(inv.comments).toHaveLength(0);
+  });
+
+  test("a definition whose only comment is internal stays comment-target eligible (count, not run)", async () => {
+    const inv = await decompose(
+      ["package p", "", "func f() {", "// inner note", "}"].join("\n"),
+      "go",
+    );
+    // the comment stays in place - in the body slice, counted - and never joins the run
+    expect(inv.definitions[0]!.attachedComment).toBeUndefined();
+    expect(inv.definitions[0]!.internalCommentCount).toBe(1);
+    expect(inv.definitions[0]!.content).toContain("// inner note");
+    expect(matchesTarget("comments", inv.definitions[0]!)).toBe(true);
   });
 
   test("internalCommentCount drops empty body comments, keeps real ones", async () => {

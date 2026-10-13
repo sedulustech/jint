@@ -243,6 +243,8 @@ export interface TargetableElement {
   readonly role: string;
   readonly oversized?: boolean;
   readonly attachedComment?: readonly string[];
+  /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
+  readonly internalCommentCount?: number;
 }
 
 /**
@@ -253,7 +255,10 @@ export interface TargetableElement {
  */
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
-  const carriesComment = element.role === "comment" || (element.attachedComment?.length ?? 0) > 0;
+  const carriesComment =
+    element.role === "comment" ||
+    (element.attachedComment?.length ?? 0) > 0 ||
+    (element.internalCommentCount ?? 0) > 0;
   switch (target) {
     case "comments":
       return carriesComment;
