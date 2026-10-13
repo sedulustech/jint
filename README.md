@@ -122,8 +122,9 @@ It polls the run directory for new runs and displays useful information to verif
 
 ```bash
 bun install
-bun test            # incl. calibration checks
-bun run validate    # schema -> typecheck -> lint -> build
+bun run validate        # schema -> typecheck -> lint
+bun test                # full suite
+bun run build:compile   # builds the binary
 ```
 
 ## Glossary
