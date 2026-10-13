@@ -30,6 +30,16 @@ VERSION=v1.2.3 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/mai
 
 To build from source, see [Development](#development).
 
+### No runtime needed
+
+The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules.
+
+```ts
+import { defaultRules } from "jint:defaults";
+
+export default { rules: [...defaultRules] };
+```
+
 ## How to use
 
 Jev is the only supported classifier for now.
@@ -44,43 +54,39 @@ jint src/a.ts src/b.ts                   # explicit files
 cat snippet.ts | jint str -              # piped stdin, one str unit (the only str form)
 jint paths - < list.txt                  # a path LIST from a file, piped
 git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipeline
-jint                                     # no positional: input comes from the discovered config
+jint                                     # no positional: input comes from auto-discovered config
 ```
 
-`jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory (TS preferred); without one it runs the default configuration. `--config <path>` overrides discovery.
+`jint` auto-discovers `jint.config.ts` in the working directory.
+`--config <path>` overrides discovery.
 
-```json
-{
-  "$schema": "./node_modules/@sedulus/jint/jint.schema.json",
-  "input": "src/",
-  "rules": [],
-  "exclude": []
-}
-```
+Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_DIR`).
 
-Every run records its requests to `~/.jint/runs/` (`JEV_DIR` moves it; recording is
-always on), and `bun run ui` opens the measurement ui on the same store — the last lint run is immediately browsable.
+### Rules
 
-Re-declare a default rule by name and give it new criteria, thresholds, or both:
-
-```json
-{
-  "input": "src/",
-  "rules": [
+```ts
+// jint.config.ts
+export default {
+  input: "src/",
+  rules: [
     {
-      "name": "is_name_purposeful",
-      "criteria": {
-        "true": "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
-        "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
-      },
-      "target": "definitions",
-      "handle": { "warn": { "less_than": 0.4 }, "error": { "less_than": 0.3 } }
-    }
-  ]
-}
+      name: "is_cognitively_complex",
+      kind: "choice",
+      instructions:
+        "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+      criteria: [
+        "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+        "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+        "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
+      ],
+      target: "definitions",
+      handle: { map: ["pass", "warn", "error"] },
+    },
+  ],
+};
 ```
 
-Add a full rule object to write a new one. `target` names what the rule judges, as one value or a list:
+`target` names what the rule judges, as one value or a list:
 
 | target        | what it judges                                        |
 | ------------- | ----------------------------------------------------- |
@@ -90,40 +96,27 @@ Add a full rule object to write a new one. `target` names what the rule judges, 
 | `comments`    | each comment, including one attached to a declaration |
 | `imports`     | the file's imports as one merged unit                 |
 
-Omitting `target` on an override keeps the default rule's own target.
-
-**Exit codes:** `0` clean · `1` error-severity findings · `2` usage/config error · `3` internal · `4` ran but classified nothing
-
-### No runtime needed
-
-The binary ships with virtual modules and the Bun runtime: writing rules does not require a JS runtime. an npm
-install, or `node_modules`.
-
-```ts
-import { defaultRules } from "jint:defaults";
-
-export default { rules: [...defaultRules] };
-```
-
-## Default rules
+#### Default rules
 
 The rules shipped as default were calibrated and dogfooded against jint's own `src/` and other repositories.
 
-Treat them as a starting point and tune once you know what your code looks like.
+You can re-declare a default rule by name to override it.
+Omitting `target` on an override keeps the default rule's own target.
 
-| rule                              | what it judges                                                |
-| --------------------------------- | ------------------------------------------------------------- |
-| `is_name_purposeful`              | names that state purpose, not implementation or bare generics |
-| `is_vocabulary_consistent`        | one concept keeping one name                                  |
-| `is_naming_convention_consistent` | one casing convention per kind                                |
-| `is_greppable`                    | names that grep to one concept                                |
-| `is_filename_fitting`             | a file name matching the responsibility its body carries      |
-| `is_comment_narration`            | comments restating what the code says                         |
-| `is_comment_patching_readability` | comments compensating for code that should read itself        |
-| `will_comment_drift`              | comments pinning artifacts by name                            |
-| `will_error_lose_cause`           | error handling that drops the original failure                |
-| `is_cognitively_complex`          | structural difficulty that re-reading cannot remove           |
-| `is_function_srp`                 | one function, one cohesive responsibility                     |
+Treat default rules as a starting point and tune once you understand how `jint` works and have your own rules to enforce.
+
+The authoritative list of default rules lives in [`packages/defaults/src/index.ts`](packages/defaults/src/index.ts).
+
+## UI
+
+`jint --ui` opens a local dashboard useful for rule calibrations.
+It polls the run directory for new runs and displays useful information to verify the applicability of a rule to a lexical unit. It shows, among other things:
+
+- tokens used
+- duration
+- requests made
+- summary of the run
+- warning and errors grouped by rule and files
 
 ## Development
 
@@ -132,22 +125,6 @@ bun install
 bun test            # incl. calibration checks
 bun run validate    # schema -> typecheck -> lint -> build
 ```
-
-### Testing
-
-Recording is always on — every jint run is an inspectable artifact, and there is no off switch.
-Tests live in the same store world, so they redirect instead of disable:
-
-- `bunfig.toml` preloads `test-preload.ts`, which sets `JEV_DIR` to a pid-scoped scratch store
-  (`tests/helpers/cli.ts` exports it as `RUNS_DIR`). In-process classifiers record there, never
-  into `~/.jint/runs`.
-- **Caveat:** bun captures the environment at process startup, so the preload's `JEV_DIR` does
-  NOT reach spawned processes. Any test that runs the CLI must go through
-  `tests/helpers/cli.ts` (`runCli` / `runCliSync` / `runShell`), which passes `JEV_DIR`
-  explicitly. Spawning the CLI bare bypasses the redirect — one test did exactly that and the
-  real store filled with fixture runs.
-- One store per test process: `RUNS_DIR` is pid-scoped, so parallel workers never write into the
-  same run directory.
 
 ## Glossary
 

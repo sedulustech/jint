@@ -604,7 +604,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // run errors stay on stderr. Persistence is NEVER gated on --json — the flag is a stdout
     // format choice (output-architecture design).
     const reportJson = renderJson(lintReport);
-    const runId = recordSummary()?.dir.split("/").pop();
     const rendered =
       cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport);
     recordRunReport(reportJson);
