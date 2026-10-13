@@ -85,6 +85,16 @@ describe("renderLines", () => {
       notes: [],
     });
     expect(stdout).toBe("");
-    expect(stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
+    expect(stderr).toContain("jint: 0 problems (0 errors, 0 warnings) - nothing was measured");
+  });
+
+  test("measured clean run: zero totals stay unqualified (a real pass reads as one)", () => {
+    const { stderr } = renderLines({
+      measurements: [{ input: "src/x.ts#d0", rule: "r", value: 0.1 }],
+      findings: [],
+      errors: [],
+      notes: [],
+    });
+    expect(stderr).toContain("jint: 0 problems (0 errors, 0 warnings)\n");
   });
 });

@@ -120,6 +120,28 @@ export interface LintOptions {
   };
 }
 
+/**
+ * Why one target does not apply to one element. The reason is per (target, element) pair, so the
+ * skip note can say precisely why no requested rule matched - never a generic parenthetical.
+ */
+function scopeSkipReason(target: string, element: WalkElement): string {
+  if (element.oversized === true) return "exceeds the size backstop";
+  if (target === "comments") return "carries none";
+  return `is a ${element.role}`;
+}
+
+/** The honest skip line: element identity, per-requested-rule mismatch, zero calls spent. */
+function scopeSkipNote(path: string, element: WalkElement, rules: readonly Rule[]): string {
+  const span = `L${element.span.start.line}-L${element.span.end.line}`;
+  const mismatches = rules
+    .map(
+      (rule) =>
+        `${rule.name} measures ${rule.target} (${element.label} ${scopeSkipReason(rule.target, element)})`,
+    )
+    .join(", ");
+  return `${path}: ${element.label} (${span}) not measured - no requested rule applies: ${mismatches}; zero classifier calls were made for this selection`;
+}
+
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
@@ -350,15 +372,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       }
     }
     const elementOpt = options.element;
-    // Payload-less units (comment/import no scoped rule targets) are skipped + counted, never failed.
-    const skipped = selected.filter(
-      (e) => rulesForElement(scopedRules, e, elementOpt.path).length === 0,
-    ).length;
-    if (skipped > 0)
-      yield {
-        type: "note",
-        note: `${options.element.path}: ${skipped} payload-less element(s) in selection skipped (comment/import units)`,
-      };
+    // Elements no scoped rule targets are skipped + named, never failed: the note says WHICH
+    // element, WHICH rules were requested, WHY nothing applies, and that no classifier call was
+    // spent - a scoped run that measured nothing must never read as a clean pass.
+    for (const element of selected) {
+      if (rulesForElement(scopedRules, element, elementOpt.path).length > 0) continue;
+      yield { type: "note", note: scopeSkipNote(elementOpt.path, element, scopedRules) };
+    }
     walked.set(0, {
       inventory: selected,
       derived: w.derived,

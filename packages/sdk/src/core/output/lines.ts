@@ -39,8 +39,12 @@ export function renderLines(report: LintReport, runId?: string): LinesRender {
   // Degradation notes (oversized skips, scope exclusions): in-band, never silent.
   for (const note of report.notes) err.push(note);
   const errors = report.findings.filter((f) => f.severity === "error").length;
+  // Zero findings on zero measurements is NOT a pass - qualify it so a scoped run that measured
+  // nothing never reads as clean (the exit code already says 4; the line must agree).
+  const nothingMeasured =
+    report.measurements.length === 0 && report.errors.length === 0 ? " - nothing was measured" : "";
   err.push(
-    `jint: ${report.findings.length} problems (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})`,
+    `jint: ${report.findings.length} problems (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
   );
 
   return {

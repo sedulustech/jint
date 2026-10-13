@@ -169,6 +169,68 @@ async function drain(events: AsyncIterable<LintEvent>): Promise<LintEvent[]> {
   return out;
 }
 
+test("element-scoped run: a function whose only comment is INTERNAL is measured (one classifier call)", async () => {
+  mkdirSync("tmp", { recursive: true });
+  const file = "tmp/lint-internal-comment.ts";
+  await Bun.write(
+    file,
+    [
+      "export function thing(x: number): number {",
+      "  const y = x * 2;",
+      "  // double the input",
+      "  return y + 1;",
+      "}",
+    ].join("\n"),
+  );
+  const log: CallLog = { calls: [] };
+  const events = await drain(
+    lint({
+      config: baseConfig,
+      input: file,
+      only: ["is_comment_narration"],
+      element: { path: file, anchor: 1 },
+      classifier: loggingClassifier({ is_comment_narration: 0.8 }, log),
+    }),
+  );
+  // the internal comment makes the definition a comment unit: the rule fires on it
+  const elementCalls = log.calls.filter((c) => isElementCall(c.state));
+  expect(elementCalls).toHaveLength(1);
+  expect(elementCalls[0]!.questions).toContain("is_comment_narration");
+  const findings = events.filter(
+    (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
+  );
+  expect(findings).toHaveLength(1);
+  // no skip note: the element was measured, not skipped
+  expect(events.some((e) => e.type === "note")).toBe(false);
+});
+
+test("element-scoped run: a truly comment-less element explains the skip - which element, which rules, zero calls", async () => {
+  mkdirSync("tmp", { recursive: true });
+  const file = "tmp/lint-comment-less.ts";
+  await Bun.write(file, "export function bare(x: number): number {\n  return x + 1;\n}\n");
+  const log: CallLog = { calls: [] };
+  const events = await drain(
+    lint({
+      config: baseConfig,
+      input: file,
+      only: ["is_comment_narration"],
+      element: { path: file, anchor: 1 },
+      classifier: loggingClassifier({}, log),
+    }),
+  );
+  // zero classifier calls for the skipped element
+  expect(log.calls.filter((c) => isElementCall(c.state))).toHaveLength(0);
+  const notes = events.filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note");
+  expect(notes).toHaveLength(1);
+  // the note names element + span, the requested rule + its target, the mismatch, and that
+  // nothing was measured - it must never read as a generic payload-less count
+  expect(notes[0]!.note).toMatch(
+    new RegExp(
+      `${file}: d0 \\(L1-L3\\) not measured - no requested rule applies: is_comment_narration measures comments \\(d0 carries none\\); zero classifier calls were made for this selection`,
+    ),
+  );
+});
+
 describe("lint — classification shape", () => {
   test("one element-classification call per element (bare rule-name keys); files-target call separate", async () => {
     const log: CallLog = { calls: [] };
