@@ -55,7 +55,7 @@ describe("compileRuleQuestions", () => {
     const rule = defaultRules.is_name_purposeful!;
     const { questions, attribution } = compileRuleQuestions([rule], FILE_ID);
     const spec = questions[`is_name_purposeful in ${FILE_ID}`]!;
-    expect(spec.type).toBe("noul");
+    expect(spec.type).toBe("score");
     expect(spec.instructions).toBe("This unit is a source file. " + rule.instructions!);
     expect(spec.criteria).toBe(rule.criteria);
     expect(attribution.get(`is_name_purposeful in ${FILE_ID}`)).toEqual({

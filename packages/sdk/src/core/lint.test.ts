@@ -31,7 +31,7 @@ afterAll(() => {
  * asserts about. Every unspecified rule answers silent in both regimes.
  */
 const SILENT = {
-  is_name_purposeful: 0.9,
+  is_name_purposeful: 0,
   is_vocabulary_consistent: 0.9,
   is_naming_convention_consistent: 0.9,
   is_greppable: 0.9,
@@ -40,6 +40,9 @@ const SILENT = {
   will_comment_drift: 0.1,
   is_cognitively_complex: 0.3,
   is_function_srp: 0.9,
+  is_filename_fitting: 0.1,
+  will_error_lose_cause: 0.1,
+  is_literal_shared: 0,
 };
 
 /**
@@ -545,7 +548,7 @@ describe("lint", () => {
         config: baseConfig,
         input: FILE,
         classifier: classifierWith({
-          is_name_purposeful: 0.3,
+          is_name_purposeful: 1,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
           is_cognitively_complex: 0.3,
@@ -568,8 +571,9 @@ describe("lint", () => {
       expect(s.finding).toEqual({
         rule: "is_name_purposeful",
         input: s.finding.input,
-        value: 0.3,
+        value: 1,
         severity: "warn",
+        note: "One violation: exactly one identifier's name hides its purpose - it names how the code works rather than what it is for, is a bare generic word, or misleads.",
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }
@@ -581,7 +585,7 @@ describe("lint", () => {
         config: baseConfig,
         input: FILE,
         classifier: classifierWith({
-          is_name_purposeful: 0.2,
+          is_name_purposeful: 2,
           is_vocabulary_consistent: 0.2,
           is_greppable: 0.2,
           is_cognitively_complex: 1.8,
@@ -615,7 +619,7 @@ describe("lint", () => {
           "is_function_srp",
           "is_filename_fitting",
         ],
-        classifier: loggingClassifier({ is_name_purposeful: 0.7 }, log),
+        classifier: loggingClassifier({ is_name_purposeful: 0 }, log),
       }),
     );
     // purposeful targets definitions: one classification call per element, no whole-content call
@@ -634,7 +638,7 @@ describe("lint", () => {
         // the SDK takes the already-read text (the caller did the I/O)
         paths: { content: FILE + "\nno/such/file.ts\n" + FILE + "\n" }, // duplicate dedupes; missing noted
         classifier: classifierWith({
-          is_name_purposeful: 0.7,
+          is_name_purposeful: 0,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
           is_cognitively_complex: 0.3,
@@ -663,7 +667,7 @@ describe("lint", () => {
         input: FILE,
         paths: { content: "tests/fixtures/sample-dir/good.ts\nno/such/file.ts\n" },
         classifier: classifierWith({
-          is_name_purposeful: 0.7,
+          is_name_purposeful: 0,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
           is_cognitively_complex: 0.3,
@@ -698,7 +702,7 @@ describe("lint", () => {
       if (state.path === FILE)
         throw new ClassifyError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
       return classifierWith({
-        is_name_purposeful: 0.7,
+        is_name_purposeful: 0,
         is_vocabulary_consistent: 0.9,
         is_greppable: 0.8,
         is_cognitively_complex: 0.3,
@@ -766,7 +770,7 @@ describe("lint", () => {
         inputType: "dir",
         exclude: ["**/more.ts"],
         classifier: classifierWith({
-          is_name_purposeful: 0.7,
+          is_name_purposeful: 0,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
           is_cognitively_complex: 0.3,
@@ -847,7 +851,7 @@ describe("lint", () => {
       lint({
         config,
         input: FILE,
-        classifier: classifierWith({ is_name_purposeful: 0.7 }),
+        classifier: classifierWith({ is_name_purposeful: 0 }),
       }),
     );
     // definitions target: 2 sweep questions, no candidates at 0.7
@@ -862,7 +866,7 @@ describe("collectReport", () => {
         config: baseConfig,
         input: FILE,
         classifier: classifierWith({
-          is_name_purposeful: 0.3,
+          is_name_purposeful: 1,
           is_vocabulary_consistent: 0.9,
           is_greppable: 0.8,
           is_cognitively_complex: 0.3,

@@ -32,9 +32,10 @@ function severities(rule: Rule, values: number[]): (string | null)[] {
 
 describe("default handles: polarity", () => {
   test("naming rules are high=good (error below threshold)", () => {
-    expect(sev(defaultRules.is_name_purposeful, 0.1)).toBe("error");
-    expect(sev(defaultRules.is_name_purposeful, 0.35)).toBe("warn");
-    expect(sev(defaultRules.is_name_purposeful, 0.45)).toBeNull();
+    // is_name_purposeful is a score now: 0 no violations, 1 one (warn), 2 several (error)
+    expect(sev(defaultRules.is_name_purposeful, 0)).toBeNull();
+    expect(sev(defaultRules.is_name_purposeful, 1)).toBe("warn");
+    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
     expect(sev(defaultRules.is_vocabulary_consistent, 0.5)).toBe("error");
     expect(sev(defaultRules.is_vocabulary_consistent, 0.7)).toBe("warn");
     expect(sev(defaultRules.is_vocabulary_consistent, 0.8)).toBeNull();
@@ -95,10 +96,9 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
       string,
       Record<string, number>
     > & { m3_comment_bloat_perfile: Record<string, Record<string, number>> };
-    // m1_bad_names: naming collapses to errors
-    expect(sev(defaultRules.is_name_purposeful, mutants.m1_bad_names!.is_name_purposeful!)).toBe(
-      "error",
-    );
+    // m1_bad_names: naming collapses to errors. The sensitivity fixture's value is from the
+    // rule's noul form; under the score form pervasive bad names are level 2 (several).
+    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
     expect(
       sev(defaultRules.is_vocabulary_consistent, mutants.m1_bad_names!.is_vocabulary_consistent!),
     ).toBe("error");
@@ -163,6 +163,11 @@ describe("ci gate simulation: known-good corpus passes, damaged corpus fails", (
       if (value === undefined) continue; // fixture predates the rule
       const severity = sev(rule, value);
       if (rule.name === "is_greppable") {
+        expect(severity).not.toBe("error");
+      } else if (rule.name === "is_name_purposeful") {
+        // the fixture's reading is from the noul form (a probability, not a level index);
+        // under the score form it resolves to level 1 - assert non-error until the mutant
+        // corpus is re-classified under the score question
         expect(severity).not.toBe("error");
       } else {
         expect(severity).toBeNull();

@@ -49,24 +49,23 @@ export type RuleSchema = NoulRuleSchema | ChoiceRuleSchema;
  * (the handle only decides when readings surface), never a null handle.
  */
 
-export const isNamePurposeful: NoulRuleSchema = {
+export const isNamePurposeful: ChoiceRuleSchema = {
   name: "is_name_purposeful",
+  kind: "choice",
   instructions:
-    "Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
-  criteria: {
-    true: "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
-    false:
-      "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have.",
-  },
+    "Count this unit's identifiers whose names fail to state what the thing does or holds. A failing name names the implementation instead of the purpose, is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have. Casing and convention style are not part of this judgment.",
+  criteria: [
+    "No violations: every identifier's name states what it does or holds - a reader can infer each thing's purpose from the name alone, without reading the surrounding code.",
+    "One violation: exactly one identifier's name hides its purpose - it names how the code works rather than what it is for, is a bare generic word, or misleads.",
+    "Several violations: more than one identifier's name hides its purpose in any of these ways.",
+  ],
   target: "definitions",
-  // Defect pole "false" (a name that hides purpose). Calibrated under the per-rule question
-  // (issue 001): the defective control cluster sits at P(good) <= 0.26 - the error line at 0.25
-  // catches its floor; the healthy median is P(good) 0.56, comfortably under warn_at 0.6.
-  // m4_obfuscate (P(good) 0.48) lands in warn. 0.30 was too high: healthy names measure
-  // 0.25-0.43 with +/-0.07 run-to-run variance (walker dogfood, 2026-10-12), so the old line
-  // flagged good names as errors on a coin flip; ~0.5 is the judge being undecisive, not a
-  // defect. Test-code noise stays open as issue 008.
-  handle: { warn: { less_than: 0.4 }, error: { less_than: 0.25 } },
+  // Score, not probability: the old noul form asked for P(no bad name) and hedged near 0.5 on
+  // healthy code (walker dogfood, 2026-10-12: identical names scored 0.23-0.43 run to run),
+  // while the criteria itself counts violations. Levels are bounded 0..2; the map makes one
+  // bad name a warn and pervasive bad naming an error - a single offender no longer fails a
+  // whole unit. Re-probe on a second language before v1.0.0 (issue 001's two-language bar).
+  handle: { map: ["pass", "warn", "error"] },
 };
 
 export const isFunctionSrp: NoulRuleSchema = {
