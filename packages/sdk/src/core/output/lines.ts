@@ -15,6 +15,7 @@
  * already prints once); the run id is named once per run in the stderr requests notice.
  */
 
+import { headCell, row, SEVERITY_WIDTH, tailCell, PATH_WIDTH, RULE_WIDTH } from "./format.ts";
 import type { LintReport } from "../lint.ts";
 
 export interface LinesRender {
@@ -31,7 +32,14 @@ export function renderLines(report: LintReport): LinesRender {
     // public line carries the LOC anchor only.
     const stem = f.input.split("#")[0]!;
     const anchor = f.location !== undefined ? `@L${f.location.span.start.line}` : "";
-    out.push(`${stem}${anchor}  ${f.rule}  ${f.severity}  ${f.value.toFixed(2)}`);
+    out.push(
+      row(
+        tailCell(stem + anchor, PATH_WIDTH),
+        headCell(f.rule, RULE_WIDTH),
+        headCell(f.severity, SEVERITY_WIDTH),
+        f.value.toFixed(2),
+      ),
+    );
   }
 
   const err: string[] = [];

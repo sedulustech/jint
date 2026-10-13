@@ -32,7 +32,7 @@ const report: LintReport = {
 
 describe("renderLines", () => {
   test("one line per finding; every line parses per LINE_SCHEMA", () => {
-    const { stdout } = renderLines(report, "1790865385203");
+    const { stdout } = renderLines(report);
     const lines = stdout.trimEnd().split("\n");
     expect(lines).toHaveLength(3);
     for (const line of lines) {
@@ -40,12 +40,18 @@ describe("renderLines", () => {
     }
   });
 
-  test("columns: path@L<line>  rule  level  score (note and run id stay json-side)", () => {
+  test("columns: fixed widths, aligned across every line (format.ts grammar)", () => {
     const { stdout } = renderLines(report);
     const lines = stdout.trimEnd().split("\n");
-    expect(lines[0]).toBe("src/a.ts  is_name_purposeful  warn  0.53");
-    expect(lines[1]).toBe("src/b.ts@L8  is_cognitively_complex  warn  2.00");
-    expect(lines[2]).toBe("src/c.ts  is_function_srp  error  1.00");
+    expect(lines[0]).toBe(
+      "                            src/a.ts  is_name_purposeful               warn   0.53",
+    );
+    expect(lines[1]).toBe(
+      "                         src/b.ts@L8  is_cognitively_complex           warn   2.00",
+    );
+    expect(lines[2]).toBe(
+      "                            src/c.ts  is_function_srp                  error  1.00",
+    );
     expect(stdout).not.toContain("#");
     expect(stdout).not.toContain("run=");
     expect(stdout).not.toContain("[");

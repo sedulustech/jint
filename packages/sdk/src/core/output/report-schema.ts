@@ -85,7 +85,7 @@ export const LINE_SCHEMA = Type.String({
   // path(@L<line>)  rule  level  score — two-space separators, parseable. The element id
   // never prints (run-scoped internal); files-target findings have no anchor. The chosen-level
   // note and run id stay json-side: the note quotes the rule's own rubric, the run id prints once on stderr.
-  pattern: "^(\\S+)(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}$",
+  pattern: "^\\s*\\S+(@L\\d+)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({
