@@ -2,7 +2,7 @@
 # Install the jint binary from GitHub releases.
 #
 #   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
-#   VERSION=v1.2.3 curl -fsSL .../install.sh | bash   # pin to a release
+#   curl -fsSL .../install.sh | VERSION=v1.2.3 bash   # pin to a release
 #
 # VERSIONLESS by design: the script carries no version literal - it resolves
 # releases/latest/download/ (GitHub's permanent redirect to the newest published
@@ -22,7 +22,7 @@ jint installer
 
 Usage:
   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
-  VERSION=v1.2.3 curl -fsSL .../install.sh | bash    # pin to a release
+  curl -fsSL .../install.sh | VERSION=v1.2.3 bash    # pin to a release (env on the bash side of the pipe)
 
 Environment:
   VERSION    release tag to install (default: latest)

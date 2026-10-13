@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | 
 You can also set a specific version:
 
 ```sh
-VERSION=v1.2.3 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash   # pin a version
+curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | VERSION=v1.2.3 bash
 ```
 
 To build from source, see [Development](#development).
