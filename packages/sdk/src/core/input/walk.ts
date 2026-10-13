@@ -186,7 +186,7 @@ const TYPESCRIPT: LanguageMapping = {
     import_statement: "import",
     ts_import_equals_declaration: "import",
   },
-  // expression_statement unwraps to the call it wraps (top-level describe(...); etc.).
+  // unwrapped before role mapping: top-level calls arrive wrapped (describe(...); etc.)
   wrapperTypes: ["export_statement", "expression_statement"],
 };
 
@@ -198,11 +198,10 @@ const PYTHON: LanguageMapping = {
     import_statement: "import",
     import_from_statement: "import",
     future_import_statement: "import",
-    // Docstrings are NOT in the role table: they are extracted structurally (first body statement
-    // of a module/class/function, see docstringOf) so every docstring element carries its owner —
-    // a detached docstring always reads like narration to the classifier.
+    // Docstrings are extracted structurally (first body statement), never via the table:
+    // each docstring element must carry its owner, or it reads like narration to the classifier.
   },
-  // expression_statement unwraps to the bare expression it wraps (docstring strings, etc.).
+  // unwrapped before role mapping: bare expressions (docstring strings, etc.)
   wrapperTypes: ["decorated_definition", "expression_statement"],
 };
 
@@ -360,10 +359,7 @@ interface RawElement {
   readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
   readonly parent?: string;
-  /**
-   * The element's source exceeds the size backstop (MAX_ELEMENT_TOKENS): never judged; named
-   * in-band.
-   */
+  /** Set by the size backstop: the element is skipped, never judged. */
   readonly oversized?: boolean;
 }
 
@@ -675,27 +671,6 @@ function collectElements(
   }
 }
 
-function importGroupElement(
-  importNodes: ReadonlyArray<{ nodeType: string; text: string; span: Span }>,
-): WalkElement | undefined {
-  if (importNodes.length === 0) return undefined;
-  const first = importNodes[0]!;
-  const last = importNodes.at(-1)!;
-  return {
-    label: "i0",
-    span: {
-      start: first.span.start,
-      end: last.span.end,
-      startByte: first.span.startByte,
-      endByte: last.span.endByte,
-    },
-    content: importNodes.map((n) => n.text).join("\n"),
-    nodeType: first.nodeType,
-    role: "import",
-    internalCommentCount: 0,
-  };
-}
-
 // Flagging, not truncating: the classifier refuses oversized requests, and a skipped judgment is
 // honest where a truncated element would be judged on half its source.
 function applySizeBackstop(elements: readonly RawElement[]): RawElement[] {
@@ -710,11 +685,16 @@ function applySizeBackstop(elements: readonly RawElement[]): RawElement[] {
 export async function decompose(source: string, language: string): Promise<Inventory> {
   const mapping = LANGUAGES[language];
   if (!mapping) {
-    throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
+    throw new SetupError(
+      "INTERNAL",
+      `unknown language: ${language} (valid: ${Object.keys(LANGUAGES).join(", ")})`,
+    );
   }
   const parser = await parserFor(language);
   const tree = parser.parse(source);
-  if (!tree) return { hasError: true, definitions: [], comments: [], imports: [] };
+  // a null tree is an engine failure, not a parse error (those surface via hasError):
+  // an empty inventory would report success on an unmeasured file
+  if (!tree) throw new SetupError("INTERNAL", `parser returned no tree for ${language}`);
 
   const collection: ElementCollection = {
     mapping,
@@ -727,13 +707,31 @@ export async function decompose(source: string, language: string): Promise<Inven
   collectElements(collection, tree.rootNode, true);
   appendStandaloneComments(collection);
 
-  const importElement = importGroupElement(collection.importNodes);
-  // Labels are assigned at emit time (parent links reference them); sizing is order-preserving.
+  // The imports element spans the whole run (first to last import node); labels are assigned at
+  // emit time (parent links reference them), sizing is order-preserving.
+  const imports =
+    collection.importNodes.length > 0
+      ? applySizeBackstop([
+          {
+            label: "i0",
+            span: {
+              start: collection.importNodes[0]!.span.start,
+              end: collection.importNodes.at(-1)!.span.end,
+              startByte: collection.importNodes[0]!.span.startByte,
+              endByte: collection.importNodes.at(-1)!.span.endByte,
+            },
+            content: collection.importNodes.map((n) => n.text).join("\n"),
+            nodeType: collection.importNodes[0]!.nodeType,
+            role: "import" as const,
+            internalCommentCount: 0,
+          },
+        ])
+      : [];
   return {
     hasError: tree.rootNode.hasError,
     definitions: applySizeBackstop(collection.definitions),
     comments: applySizeBackstop(collection.comments),
-    imports: importElement ? applySizeBackstop([importElement]) : [],
+    imports,
   };
 }
 

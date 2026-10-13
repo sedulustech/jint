@@ -779,7 +779,7 @@ describe("decompose — tsx", () => {
   test("css has no grammar: languageOf is null and decompose refuses (sweep coverage, not a tier)", async () => {
     expect(languageOf("src/index.css")).toBe(null);
     await expect(decompose(".row:hover { background: var(--muted); }", "css")).rejects.toThrow(
-      /no tree-sitter grammar mapped/,
+      /unknown language: css/,
     );
   });
 
