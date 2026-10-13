@@ -8,10 +8,10 @@ const get = async (path: string, root: string): Promise<Response> =>
   (await serveApiRequest(new Request("http://x" + path), { root })) as Response;
 
 describe("requestsRoot default", () => {
-  test("defaults to the SDK's runsDir (JEV_DIR scratch, else the homedir store); opts override", () => {
+  test("defaults to the SDK's runsDir (JINT_DIR scratch, else the homedir store); opts override", () => {
     const withoutEnv = requestsRoot();
-    if (process.env.JEV_DIR !== undefined) {
-      expect(withoutEnv).toBe(resolve(process.env.JEV_DIR));
+    if (process.env.JINT_DIR !== undefined) {
+      expect(withoutEnv).toBe(resolve(process.env.JINT_DIR, "runs"));
     } else {
       expect(withoutEnv.endsWith(join(".jint", "runs"))).toBe(true);
     }

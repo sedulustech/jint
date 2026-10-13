@@ -455,7 +455,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(["tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"], {
-      JEV_DIR: dir,
+      JINT_DIR: dir,
     });
     expect(r.code).toBe(0);
     // the stderr notice names THIS run's dir; report.json sits next to the requests
@@ -500,16 +500,16 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     }
   });
 
-  test.concurrent("JEV_DIR moves the run dir: captures land under the override, stdout untouched", async () => {
+  test.concurrent("JINT_DIR moves the run dir: captures land under the override, stdout untouched", async () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     // DEFAULT stdout (no --json): raw lines are the projection; report.json persists anyway
     const r = await runMock(["tests/fixtures/sample-file.ts", "--rule", "is_greppable"], {
-      JEV_DIR: dir,
+      JINT_DIR: dir,
     });
     expectContract(r, { exit: 0, stdout: "lines" });
-    expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\(\d+ calls\) \(override: JEV_DIR\)/);
+    expect(r.stderr).toContain(`jint: requests -> ${dir}/runs/`);
+    expect(r.stderr).toMatch(/\(\d+ calls\) \(override: JINT_DIR\)/);
     // the canonical artifact lands in the run dir even on raw-line runs
     const reportPath = [...new Bun.Glob("**/report.json").scanSync({ cwd: dir })][0]!;
     const reportJson = await (
@@ -541,7 +541,10 @@ describe("cli: --ui (measure-then-look)", () => {
     expect(r.code).toBe(4); // the usual report exit code (ran, measured nothing) — --ui changes none of it
     expect(r.stderr).toContain("jint: ui -> http://localhost:");
     // base url only, no deep link - the app opens newest-run-first, which is this run
-    expect(r.stderr).not.toContain("/runs/");
+    // (the requests notice legitimately names .../runs/<id>, so the base-url claim is scoped to the ui line)
+    const uiLine = /jint: ui -> (\S+)/.exec(r.stderr)?.[1];
+    expect(uiLine).toBeDefined();
+    expect(uiLine).not.toContain("/runs/");
     // the link names the same run the requests notice already does (NO_HOLD closed the server,
     // so the served-run assertion lives in the held-path test below)
     const runId = /requests -> \S+\/(\d+) \(0 calls\)/.exec(r.stderr)?.[1];
@@ -561,7 +564,7 @@ describe("cli: --ui (measure-then-look)", () => {
       stdout: "ignore",
       stderr: "pipe",
       stdin: "ignore",
-      env: { ...process.env, ...NO_SERVICE, JEV_DIR: RUNS_DIR, JINT_UI_DIST: dist },
+      env: { ...process.env, ...NO_SERVICE, JINT_DIR: RUNS_DIR, JINT_UI_DIST: dist },
     });
     try {
       const decoder = new TextDecoder();
@@ -583,8 +586,11 @@ describe("cli: --ui (measure-then-look)", () => {
       expect(link).not.toContain("/runs/");
       // the printed URL is live: the page renders, and the store behind it lists a seeded run
       // (the NO_SERVICE run itself records 0 calls, and the store lists request-bearing runs)
-      mkdirSync(join(RUNS_DIR, "1700000000001-held-seed"), { recursive: true });
-      writeFileSync(join(RUNS_DIR, "1700000000001-held-seed", "1700000000001-files.json"), "{}");
+      mkdirSync(join(RUNS_DIR, "runs", "1700000000001-held-seed"), { recursive: true });
+      writeFileSync(
+        join(RUNS_DIR, "runs", "1700000000001-held-seed", "1700000000001-files.json"),
+        "{}",
+      );
       const page = await fetch(link!);
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("jint ui");
@@ -652,11 +658,11 @@ describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)
     if (!requireLive()) return;
     const dir = ROOT + "/tmp/cli-tap-e2e";
     const r = await run(["tests/fixtures/sample-file.ts", "--json"], {
-      JEV_DIR: dir,
+      JINT_DIR: dir,
     });
     expect(r.code).toBe(0);
     expect(() => JSON.parse(r.stdout)).not.toThrow(); // the notice never touches stdout
-    expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
-    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JEV_DIR\)/);
+    expect(r.stderr).toContain(`jint: requests -> ${dir}/runs/`);
+    expect(r.stderr).toMatch(/\/\d+ \(\d+ calls\) \(override: JINT_DIR\)/);
   }, 20_000);
 });

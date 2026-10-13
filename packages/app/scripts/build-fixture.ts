@@ -118,7 +118,7 @@ const baseline: Record<string, Rule> = Object.fromEntries(
 async function main(): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
-  process.env.JEV_DIR = stagingDir;
+  process.env.JINT_DIR = stagingDir;
   process.env.TYPESAFE_API_KEY = "fixture-key";
 
   const config = {
@@ -153,15 +153,15 @@ async function main(): Promise<void> {
   const summary = recordSummary();
   if (summary === null || summary.count === 0)
     throw new Error("recording wrote no captures; generator is broken");
-  const runDirs = readdirSync(stagingDir).filter((n) => /^\d+$/.test(n));
+  const runDirs = readdirSync(join(stagingDir, "runs")).filter((n) => /^\d+$/.test(n));
   if (runDirs.length === 0) throw new Error(`no record run dir under ${stagingDir}`);
   const newest = runDirs.map((n) => Number(n)).sort((a, b) => b - a)[0]!;
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  for (const f of readdirSync(join(stagingDir, String(newest)))) {
-    renameSync(join(stagingDir, String(newest), f), join(outDir, f));
+  for (const f of readdirSync(join(stagingDir, "runs", String(newest)))) {
+    renameSync(join(stagingDir, "runs", String(newest), f), join(outDir, f));
   }
-  rmSync(join(stagingDir, String(newest)), { recursive: true, force: true });
+  rmSync(join(stagingDir, "runs", String(newest)), { recursive: true, force: true });
 
   // --- verification ---------------------------------------------------------
   // element captures carry a uuid state.id; every element measurement's input suffix is one of

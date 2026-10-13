@@ -37,22 +37,22 @@ async function recordOnce(
   });
 }
 
-// Recording is ALWAYS-ON, so every test pins JEV_DIR at the tmp store; the one default-location
+// Recording is ALWAYS-ON, so every test pins JINT_DIR at the tmp store; the one default-location
 // test repoints HOME instead, so nothing ever lands in the real ~/.jint/runs.
 beforeEach(() => {
-  process.env.JEV_DIR = DIR;
+  process.env.JINT_DIR = DIR;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 afterEach(() => {
-  delete process.env.JEV_DIR;
+  delete process.env.JINT_DIR;
   delete process.env.HOME;
   rmSync(DIR, { recursive: true, force: true });
 });
 
 describe("recordRequests", () => {
   test("records by default, no env required: the run dir sits under the homedir store", () => {
-    delete process.env.JEV_DIR;
+    delete process.env.JINT_DIR;
     recordRequests({ fetch: passthrough() });
     // dir is computed lazily; nothing is written until the first call, so this asserts the
     // default LOCATION without touching the real ~/.jint/runs
@@ -60,7 +60,7 @@ describe("recordRequests", () => {
     expect(recordSummary()!.override).toBe(false);
   });
 
-  test("a JEV_DIR override moves the run dir; recording is always on", async () => {
+  test("a JINT_DIR override moves the run dir; recording is always on", async () => {
     const config = recordRequests({ fetch: passthrough() });
     expect(recordSummary()).not.toBeNull();
     await recordOnce(config, { path: "a.ts", content: "x" });
@@ -68,7 +68,7 @@ describe("recordRequests", () => {
   });
 
   test("runsDir config wins without env: the SDK injects the path directly", async () => {
-    delete process.env.JEV_DIR;
+    delete process.env.JINT_DIR;
     const config = recordRequests({ fetch: passthrough(), runsDir: DIR });
     expect(recordSummary()!.dir.startsWith(DIR)).toBe(true);
     expect(recordSummary()!.override).toBe(true);
@@ -82,7 +82,7 @@ describe("recordRequests", () => {
 
     const list = listRequests(DIR);
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatch(/^\d+\/\d+-files-a\.ts\.json$/);
+    expect(list[0]).toMatch(/^runs\/\d+\/\d+-files-a\.ts\.json$/);
 
     const request = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
     expect(request.url).toBe("https://api.typesafe.ai/v1/systemone");
@@ -122,7 +122,7 @@ describe("recordRequests", () => {
   });
 
   test("a failing store never breaks the observed call", async () => {
-    process.env.JEV_DIR = "/proc/definitely-not-writable";
+    process.env.JINT_DIR = "/proc/definitely-not-writable";
     const config = recordRequests({ fetch: passthrough() });
     const response = await config.fetch!("https://api.typesafe.ai/v1/systemone", {
       method: "POST",
@@ -140,7 +140,7 @@ describe("recordRequests", () => {
 
     const summary = recordSummary()!;
     expect(summary.dir).toMatch(
-      new RegExp(`^${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\\\$&")}/\\d+$`),
+      new RegExp(`(.*?)${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\$&")}/runs/\\d+$`),
     );
     expect(summary.count).toBe(2);
     expect(summary.override).toBe(true);

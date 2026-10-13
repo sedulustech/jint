@@ -1,7 +1,7 @@
 import { describe, test, expect, jest, afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { startUi } from "./serve.ts";
 
 jest.setTimeout(60_000);
@@ -29,7 +29,7 @@ describe("startUi", () => {
     }
   });
 
-  test("port precedence: JINT_UI_PORT over PORT (portless), option over both", async () => {
+  test("port precedence: option over JINT_UI_PORT; bare PORT is not read", async () => {
     process.env.PORT = "4111";
     process.env.JINT_UI_PORT = "4222";
     try {
@@ -48,7 +48,7 @@ describe("startUi", () => {
       delete process.env.JINT_UI_PORT;
       const viaPortless = await startUi({ distDir: tempDir("jint-ui-dist-") });
       try {
-        expect(viaPortless.port).toBe(4111); // PORT is the documented portless integration
+        expect(viaPortless.port).not.toBe(4111); // bare PORT is no longer an integration
       } finally {
         viaPortless.close();
       }
@@ -58,9 +58,9 @@ describe("startUi", () => {
     }
   });
 
-  test("GET /api/runs answers 200 JSON from the runs store (JEV_DIR scratch)", async () => {
-    // the bun preload points JEV_DIR at a pid-scoped scratch store: write a run into it
-    const store = process.env.JEV_DIR;
+  test("GET /api/runs answers 200 JSON from the runs store (JINT_DIR scratch)", async () => {
+    // the bun preload points JINT_DIR at a pid-scoped scratch store: write a run into it
+    const store = resolve(process.env.JINT_DIR!, "runs");
     expect(store).toBeDefined();
     mkdirSync(join(store!, "1700000000001-files-run"), { recursive: true });
     writeFileSync(join(store!, "1700000000001-files-run", "1700000000001-files.json"), "{}");

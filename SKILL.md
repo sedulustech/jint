@@ -37,14 +37,14 @@ Install (either):
 Then `TYPESAFE_API_KEY` in the environment (used as-is).
 
 - Recording is always on: the exact wire bytes per question land under
-  `~/.jint/runs/` (or wherever `JEV_DIR` points).
+  `~/.jint/runs/` (or wherever `JINT_DIR` points).
   Read the recorded request files when you need to see precisely what the model saw. Every run
   also persists `report.json` (the canonical output — the same bytes `--json` prints) and is
   browsable in the measurement UI - see "Give the user the link" below.
 
 ## Output
 
-- Env summary: recording is always on (there is no off switch); `JEV_DIR` moves where
+- Env summary: recording is always on (there is no off switch); `JINT_DIR` moves where
   run dirs land (default `~/.jint/runs`).
 
 ## Span anchors are pre-edit
