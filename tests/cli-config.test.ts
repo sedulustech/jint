@@ -34,7 +34,7 @@ describe("cli: config load errors exit 2", () => {
 });
 
 describe("cli: --dry-run prints the rules that would run, without classifying", () => {
-  test("two-rule config: block on stderr, empty stdout, exit 0, no requests dir", async () => {
+  test("two-rule config: block on stdout, empty stderr, exit 0, no requests dir", async () => {
     const tmpDir = scratchDir("jint-dryrun");
     Bun.write(
       tmpDir + "/jint.config.json",
@@ -43,8 +43,8 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = await runCli(["--dry-run"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
     expect(proc.code).toBe(0);
-    expect(proc.stdout).toBe("");
-    const err = proc.stderr;
+    expect(proc.stderr).toBe("");
+    const err = proc.stdout;
     expect(err).toContain("jint: measuring with 2 rules");
     expect(err).toContain("is_name_purposeful  [definitions]");
     expect(err).toContain("will_comment_drift  [comments]");
@@ -70,8 +70,8 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
       env: { TYPESAFE_API_KEY: "" },
     });
     expect(proc.code).toBe(0);
-    const err = proc.stderr;
-    expect(err).toContain("jint: measuring with 1 rules");
+    const err = proc.stdout;
+    expect(err).toContain("jint: measuring with 1 rule");
     expect(err).toContain("will_comment_drift");
     expect(err).not.toContain("is_name_purposeful");
     rmScratchTree(tmpDir);

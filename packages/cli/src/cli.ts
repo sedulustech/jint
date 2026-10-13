@@ -293,7 +293,20 @@ export function printRules(effective: readonly Rule[], customCount: number): voi
       ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (declared inline)`
       : "";
   process.stderr.write(
-    `jint: measuring with ${effective.length} rules${tsNote}\n\n` + describeRules(effective),
+    `jint: measuring with ${effective.length} rule${effective.length === 1 ? "" : "s"}${tsNote}\n\n` +
+      describeRules(effective),
+  );
+}
+
+/** --dry-run's payload: the same block, but stdout — the flag's whole product, pipe-able. */
+export function printRulesStdout(effective: readonly Rule[], customCount: number): void {
+  const tsNote =
+    customCount > 0
+      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (declared inline)`
+      : "";
+  process.stdout.write(
+    `jint: measuring with ${effective.length} rule${effective.length === 1 ? "" : "s"}${tsNote}\n\n` +
+      describeRules(effective),
   );
 }
 
@@ -526,10 +539,10 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   }
 
   // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
-  // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice,
-  // empty stdout — the block is the whole payload (rubric before reading, for free).
+  // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice —
+  // the block on STDOUT is the whole payload (the flag's product, pipe-able).
   if (cliArgs["dry-run"] === true) {
-    printRules(effective, resolvedConfig.customRules?.length ?? 0);
+    printRulesStdout(effective, resolvedConfig.customRules?.length ?? 0);
     return 0;
   }
 

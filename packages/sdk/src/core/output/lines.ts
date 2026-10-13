@@ -45,7 +45,7 @@ export function renderLines(report: LintReport): LinesRender {
   const nothingMeasured =
     report.measurements.length === 0 && report.errors.length === 0 ? " - nothing was measured" : "";
   err.push(
-    `jint: ${report.findings.length} problems (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
+    `jint: ${report.findings.length} ${report.findings.length === 1 ? "problem" : "problems"} (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
   );
 
   return {
