@@ -16,6 +16,7 @@ import { stat } from "node:fs/promises";
 import { SetupError, type InputKind, type Unit } from "../types.ts";
 import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
+import { knownLanguages } from "./walk.ts";
 
 export interface ResolveOptions {
   input: string | string[];
@@ -64,6 +65,8 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       return;
     }
     // Unreachable by the type; a guard against a future kind, not a branch.
-    throw new SetupError("MISSING_GRAMMAR", `not a source-language file: ${input}`);
+    throw new SetupError("MISSING_GRAMMAR", `not a source-language file: ${input}`, {
+      detail: { kind: "unknown-language", valid: knownLanguages() },
+    });
   })();
 }

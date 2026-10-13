@@ -37,19 +37,32 @@ function edges(content: string, startLine: number): string {
   ].join(NL);
 }
 
+/** The rendered echo: the emitter lines (selection summaries) plus the unprefixed source block. */
+export interface EchoRender {
+  /**
+   * One line per selected item, UNPREFIXED: "@L2-L4 -> 1 element: L2-L4". The consumer's emitter
+   * owns the tool prefix - render these through it.
+   */
+  readonly headers: readonly string[];
+  /**
+   * Blank separator, verdict header and numbered source edges per picked element, UNPREFIXED. Empty
+   * when the selection resolved nothing (that case already failed ELEMENT_NOT_FOUND).
+   */
+  readonly body: string;
+}
+
 /**
- * The full echo block, or an empty string when the selection resolves nothing (that case already
- * failed setup with ELEMENT_NOT_FOUND - never both). One walk of the selected file; spans render as
- * wire ids (L38, L58-L59), the notation findings and selectors use.
+ * The full echo block. One walk of the selected file; spans render as wire ids (L38, L58-L59), the
+ * notation findings and selectors use.
  */
 export async function selectionEcho(
   selection: EchoSelection,
   findings: readonly Finding[],
-): Promise<string> {
+): Promise<EchoRender> {
   const unit: Unit = await fileUnit(selection.path);
   const { walkUnit } = await import("../rules/classify.ts");
   const inventory: WalkElement[] = (await walkUnit(unit)).inventory;
-  if (inventory.length === 0) return "";
+  if (inventory.length === 0) return { headers: [], body: "" };
   const items: { label: string; spans: string[] }[] = [];
   const picked = new Map<string, WalkElement>();
   if (selection.anchor !== undefined) {
@@ -66,28 +79,30 @@ export async function selectionEcho(
     });
     for (const element of enclosed) picked.set(elementWireId(element.span), element);
   }
-  const out: string[] = [];
-  for (const item of items) {
+  const headers = items.map((item) => {
     const noun = item.spans.length === 1 ? "element" : "elements";
-    out.push(
-      "jint: " +
-        item.label +
-        " -> " +
-        item.spans.length +
-        " " +
-        noun +
-        ": " +
-        item.spans.join(", "),
-    );
-  }
+    return item.label + " -> " + item.spans.length + " " + noun + ": " + item.spans.join(", ");
+  });
+  const blocks: string[] = [];
   for (const [id, element] of picked) {
     const v = verdicts(findings, element.span);
     const verdict = v.length > 0 ? " - " + v.join(", ") : "";
     const lineCount = element.span.end.line - element.span.start.line + 1;
-    out.push("");
-    const unit = lineCount === 1 ? "1 line" : lineCount + " lines";
-    out.push("--- " + selection.path + "@" + id + " (" + unit + ")" + verdict + " ---");
-    out.push(edges(element.content, element.span.start.line));
+    const unitLine = lineCount === 1 ? "1 line" : lineCount + " lines";
+    blocks.push(
+      NL +
+        "--- " +
+        selection.path +
+        "@" +
+        id +
+        " (" +
+        unitLine +
+        ")" +
+        verdict +
+        " ---" +
+        NL +
+        edges(element.content, element.span.start.line),
+    );
   }
-  return out.join(NL) + NL;
+  return { headers, body: blocks.length > 0 ? blocks.join(NL) + NL : "" };
 }

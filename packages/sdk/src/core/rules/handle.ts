@@ -16,7 +16,7 @@
 
 import { checkNoulHandler, type HandlerData } from "@jint/contract";
 import { Type } from "@sinclair/typebox";
-import { SetupError, type HandleOutcome } from "../types.ts";
+import { InternalError, SetupError, type HandleOutcome } from "../types.ts";
 // The taxonomy and the pure evaluation live in the contract package (one definition, shared with
 // the measurement UI); the engine owns only the compiled seams (handle data -> function).
 export {
@@ -65,12 +65,11 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
   return (answer) => {
     // jev bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
-    // state, not a silent null - fail loud (SetupError INTERNAL), per repo convention (the
-    // contract evaluator alone would degrade to silent).
+    // state, not a silent null - fail loud (InternalError: the wire contract broke, not the
+    // invocation), per repo convention (the contract evaluator alone would degrade to silent).
     const index = Math.round(answer.value);
     if (!Number.isInteger(index) || index < 0 || index >= data.map.length) {
-      throw new SetupError(
-        "INTERNAL",
+      throw new InternalError(
         `score ${answer.value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
       );
     }

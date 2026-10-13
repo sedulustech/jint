@@ -2,7 +2,9 @@
  * The raw-line reporter — the CLI's default stdout. Findings only, one line per finding (the
  * canonical report's raw projection; measurements stay json-side). Stream discipline (clig): stdout
  * is pure finding data, stderr carries the run's own errors, degradation notes, and the totals
- * line. Line shape (LINE_SCHEMA):
+ * line. Every stderr string here is UNPREFIXED — the tool prefix is the client's voice, added at
+ * its write site; note lines carry the SDK's `note: ` marker for the client's note treatment. Line
+ * shape (LINE_SCHEMA):
  *
  * Path#id@L<line> rule level score
  *
@@ -45,15 +47,16 @@ export function renderLines(report: LintReport): LinesRender {
   const err: string[] = [];
   // Run errors — a ClassifyError is a unit the linter could not classify, not a lint finding.
   for (const e of report.errors) err.push(`error ${e.code} ${e.input}: ${e.message}`);
-  // Degradation notes (oversized skips, scope exclusions): in-band, never silent.
-  for (const note of report.notes) err.push(note);
+  // Degradation notes (oversized skips, scope exclusions): in-band, never silent. The note marker
+  // is the SDK's voice for the client's note treatment (jint: note: ...).
+  for (const note of report.notes) err.push(`note: ${note}`);
   const errors = report.findings.filter((f) => f.severity === "error").length;
   // Zero findings on zero measurements is NOT a pass - qualify it so a scoped run that measured
   // nothing never reads as clean (the exit code already says 4; the line must agree).
   const nothingMeasured =
     report.measurements.length === 0 && report.errors.length === 0 ? " - nothing was measured" : "";
   err.push(
-    `jint: ${report.findings.length} ${report.findings.length === 1 ? "problem" : "problems"} (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
+    `${report.findings.length} ${report.findings.length === 1 ? "problem" : "problems"} (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
   );
 
   return {

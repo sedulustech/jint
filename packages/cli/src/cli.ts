@@ -2,13 +2,16 @@
 /**
  * Jint CLI — the terminal as SDK client (design §4).
  *
- * Exit codes (computed once, here): 0 clean 1 error-severity findings 2 usage/config error (bad
- * flags, CONFIG_INVALID, ENTRYPOINT__, LIST__) 3 internal error 4 ran but classified nothing or any
- * unit failed to classify — CI never passes an unclassified or half-classified run)
+ * Exit codes (computed once, here, TYPE-driven): 0 clean 1 error-severity findings 2 SetupError
+ * (usage/config: bad flags, CONFIG_INVALID, ENTRYPOINT__, LIST__) 3 InternalError 4 an escaped
+ * ClassifyError (the run happened but classified nothing — CI never passes an unclassified or
+ * half-classified run)
  *
  * Stream discipline (clig): stdout carries findings — the report and its summary; stderr carries
  * the run's own errors and diagnostics — setup failures, failed units — plus structured logs
- * (default silent; --debug). Either stream stays usable with the other discarded.
+ * (default silent; --debug). Every stderr line routes through emit(), the one writer of the `jint:
+ * ` prefix; the SDK's strings arrive unprefixed. Either stream stays usable with the other
+ * discarded.
  */
 
 import { existsSync, statSync } from "node:fs";
@@ -16,10 +19,10 @@ import { dirname, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   ClassifyError,
+  InternalError,
   SetupError,
   checkRunKnobs,
   collectReport,
-  describeRules,
   selectRules,
   validateRuleSelection,
   knownLanguages,
@@ -36,13 +39,13 @@ import {
   type InputKind,
   type LintReport,
   type ResolvedConfig,
-  type Rule,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { defaultConfig, defaultRules, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
+import { emit, emitLines, jevLog, printRules, printRulesStdout, usageError } from "./output.ts";
 
 /**
  * The flag table — the ONE source for the flag vocabulary. Every projection is a mechanical map
@@ -259,8 +262,51 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 
 `;
 
+/** The `valid:` list cap: at most six names, then ` ...` ONLY when names were cut. */
+const VALID_LIST_CAP = 6;
+
 /**
- * End-of-run stderr notice for run recording: where the requests went and how many. Recording is
+ * The rendered line for a thrown error: the message leads, structured segments follow on " - "
+ * separators (the flag-origin label, the capped valid list, a did-you-mean), no em-dashes. The
+ * invalid-rule detail replaces the schema prose with the one line that names the rule and field;
+ * the full joined TypeBox message stays in the debug log.
+ */
+function thrownLine(error: SetupError | InternalError | ClassifyError, origin?: string): string {
+  if (error instanceof InternalError)
+    return `internal: ${error.message} - rerun with --debug; if it persists, report it`;
+  const detail = error instanceof SetupError ? error.detail : undefined;
+  if (detail === undefined) return error.message;
+  if (detail.kind === "invalid-rule")
+    return `invalid rule #${detail.ruleIndex}: missing "${detail.field}" - see the config example in README`;
+  // The origin label rides ON the message (parenthesized, space-joined), never on a hyphen: the
+  // example shape is `unknown rule "x" (--rule) - valid: ...`.
+  const segments = [origin !== undefined ? `${error.message} ${origin}` : error.message];
+  if (detail.valid.length > 0) {
+    const capped = detail.valid.slice(0, VALID_LIST_CAP).join(", ");
+    segments.push(`valid: ${capped}${detail.valid.length > VALID_LIST_CAP ? " ..." : ""}`);
+  }
+  if (detail.kind === "unknown-rule" && detail.suggest !== undefined)
+    segments.push(`did you mean: ${detail.suggest}`);
+  return segments.join(" - ");
+}
+
+/**
+ * The CLI-side origin label for an unknown-rule detail: which flag filled the unknown name. The SDK
+ * detail carries no flags; the CLI derives the label from its own flag state, mirroring
+ * validateRuleSelection's disable-then-only order. Config-origin errors get no label.
+ */
+function ruleOriginLabel(args: CliArgs, config: ResolvedConfig): string | undefined {
+  const known = new Set([...config.rules, ...(config.customRules ?? [])].map((r) => r.name));
+  const firstUnknown = (names: readonly string[] | undefined) =>
+    names?.find((name) => !known.has(name));
+  if (firstUnknown(args.disable) !== undefined) return "(--disable)";
+  if (firstUnknown(args.rule) !== undefined) return "(--rule)";
+  return undefined;
+}
+
+/**
+ * The end-of-run stderr notice for run recording: where the requests went and how many — the
+ * UNPREFIXED emitter message (the prefix is emit's). Empty when nothing was recorded. Recording is
  * always on — JINT_DIR only moves where run dirs land; the notice always reports, even zero
  * requests (the run may have failed before any classifier call).
  */
@@ -268,37 +314,7 @@ export function recordNotice(): string {
   const record = recordSummary();
   if (record === null) return "";
   const override = record.override ? " (override: JINT_DIR)" : "";
-  return `jint: requests -> ${record.dir} (${record.count} calls)${override}\n`;
-}
-
-/**
- * The stderr rules pre-print: header + full-prose rule descriptions (SDK describeRules) + a ts-rule
- * count note when the config declares custom-tier rules (their names load at run time, so only the
- * count prints here — never claim fewer rules than the run uses). The block is the rubric in the
- * consumer's context BEFORE the findings; stdout stays untouched. The CLI owns this function's
- * voice; the SDK owns describeRules (same block, neutral).
- */
-export function printRules(effective: readonly Rule[], customCount: number): void {
-  const tsNote =
-    customCount > 0
-      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (declared inline)`
-      : "";
-  process.stderr.write(
-    `jint: measuring with ${effective.length} rule${effective.length === 1 ? "" : "s"}${tsNote}\n\n` +
-      describeRules(effective),
-  );
-}
-
-/** --dry-run's payload: the same block, but stdout - the flag's whole product, pipe-able. */
-export function printRulesStdout(effective: readonly Rule[], customCount: number): void {
-  const tsNote =
-    customCount > 0
-      ? ` + ${customCount} custom rule${customCount === 1 ? "" : "s"} (declared inline)`
-      : "";
-  process.stdout.write(
-    `jint: measuring with ${effective.length} rule${effective.length === 1 ? "" : "s"}${tsNote}\n\n` +
-      describeRules(effective),
-  );
+  return `requests -> ${record.dir} (${record.count} calls)${override}`;
 }
 
 export async function runCli(cliArgv: string[]): Promise<number> {
@@ -319,10 +335,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 0;
   }
   // An unknown grammar is a usage error before any input is touched: the run would stream
-  // WALK_FAILED for the unit and still exit clean. Name the language, name the remedy.
+  // WALK_FAILED for the unit and still exit clean. Same code and detail as the SDK's
+  // unknown-language throws, so a flag-named language and an SDK-resolved one render alike.
   if (cliArgs.language !== undefined && !knownLanguages().includes(cliArgs.language)) {
-    usageError(`unknown language '${cliArgs.language}' - see --help for valid grammar ids`);
-    return 2;
+    return exitForThrown(
+      new SetupError("MISSING_GRAMMAR", `unknown language '${cliArgs.language}'`, {
+        detail: { kind: "unknown-language", valid: knownLanguages() },
+      }),
+    );
   }
   if (cliArgs.debug === true) setLogLevel("debug");
 
@@ -338,6 +358,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
           ? await loadConfig(foundConfig, { baseline: defaultRules })
           : defaultConfig();
   } catch (thrown) {
+    // Config-load errors are config-origin: no flag label applies.
     return exitForThrown(thrown);
   }
   // The config file that ran (absolute); null when no config file exists (built-in defaults).
@@ -526,7 +547,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       cliArgs.rule,
     );
   } catch (thrown) {
-    return exitForThrown(thrown);
+    // The pre-flight knows which flag filled the names: the emitter labels the origin.
+    return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
   }
 
   // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
@@ -587,6 +609,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
           : {}),
         disable: cliArgs.disable,
         only: cliArgs.rule,
+        log: jevLog,
         concurrency,
         timeout,
         paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
@@ -619,21 +642,23 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       ),
     });
     process.stdout.write(rendered.stdout);
-    process.stderr.write(rendered.stderr);
+    if (rendered.stderr !== "") emitLines(rendered.stderr);
     // The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays
     // pure finding data). Failure of the run itself already reported — never double-report.
     if (elementScope !== undefined) {
       const echo = await selectionEcho(elementScope, lintReport.findings);
-      if (echo !== "") process.stderr.write(echo);
+      for (const header of echo.headers) emit({ message: header });
+      if (echo.body !== "") process.stderr.write(echo.body);
     }
     const exit = computeExit(lintReport);
-    process.stderr.write(recordNotice());
+    const notice = recordNotice();
+    if (notice !== "") emit({ message: notice });
     // --ui lifecycle (design: measure-then-look): the run IS the work; the UI deep-links to THIS
     // run (the id the requests notice already names) and holds.
     if (cliArgs.ui === true) return serveUiHold(exit);
     return exit;
   } catch (thrown) {
-    return exitForThrown(thrown);
+    return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
   }
 }
 
@@ -656,7 +681,7 @@ async function serveUiHold(
   } catch (thrown) {
     return onUiFailure(thrown);
   }
-  process.stderr.write(`jint: ui -> ${ui.url}\n`);
+  emit({ message: `ui -> ${ui.url}` });
   if (process.env.JINT_UI_NO_HOLD === "1") {
     ui.close();
     return exitCode;
@@ -896,37 +921,26 @@ async function readStdinList(): Promise<string> {
   }
 }
 
-/** Boundary mapping, exactly once: setup -> 2, internal -> 3, an escaped classify error -> 4. */
-function exitForThrown(thrown: unknown): number {
+/**
+ * Boundary mapping, exactly once and TYPE-driven: SetupError -> 2, InternalError -> 3, an escaped
+ * ClassifyError -> 4 (the run happened but produced nothing usable). An unknown-shaped throw wraps
+ * into InternalError - the bug bucket. Detail renders through the emitter (message leads, code
+ * trails); the structured debug log keeps the raw message. Exported for the emitter-shape tests.
+ */
+export function exitForThrown(thrown: unknown, origin?: string): number {
   const error =
-    thrown instanceof SetupError || thrown instanceof ClassifyError
+    thrown instanceof SetupError ||
+    thrown instanceof InternalError ||
+    thrown instanceof ClassifyError
       ? thrown
-      : new SetupError("INTERNAL", thrown instanceof Error ? thrown.message : String(thrown), {
+      : new InternalError(thrown instanceof Error ? thrown.message : String(thrown), {
           cause: thrown,
         });
   log("error", error.message, { errorCode: error.code });
-  process.stderr.write(`jint: ${error.code}: ${error.message}\n`);
-  if (
-    error.code === "CONFIG_INVALID" ||
-    error.code === "CONFIG_NO_RULES" ||
-    error.code === "ENTRYPOINT_NOT_FOUND" ||
-    error.code === "ENTRYPOINT_UNREADABLE" ||
-    error.code === "LIST_UNREADABLE" ||
-    error.code === "LIST_ENTRY_INVALID" ||
-    error.code === "LIST_EMPTY" ||
-    error.code === "MISSING_GRAMMAR" ||
-    error.code === "RULE_INVALID" ||
-    error.code === "ELEMENT_NOT_FOUND"
-  )
-    return 2;
-  // A ClassifyError that escaped the stream: the run happened but produced nothing
-  if (error instanceof ClassifyError) return 4;
-  if (error.code === "INTERNAL") return 3;
+  emit({ message: thrownLine(error, origin), code: error.code, kind: "error" });
+  if (error instanceof SetupError) return 2;
+  if (error instanceof InternalError) return 3;
   return 4;
-}
-
-function usageError(usageMessage: string): void {
-  process.stderr.write(`jint: ${usageMessage}\n`);
 }
 
 if (import.meta.main) {

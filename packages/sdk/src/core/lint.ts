@@ -70,6 +70,12 @@ export interface LintOptions {
   /** Swappable classifier; defaults to the TypeSafe System One adapter. */
   classifier?: Classifier;
   /**
+   * The transport log sink (vendor backoff/warn/error visibility), called with one UNPREFIXED line
+   * per event: the tool prefix is the client's voice, never the SDK's. Only reaches the default
+   * classifier (an explicit classifier carries its own logging).
+   */
+  log?: (line: string) => void;
+  /**
    * One in-memory str unit (the CLI's piped-stdin form): judged whole under `path` (default
    * "str:stdin"); bypasses input resolution entirely. Its own inventory — every rule judges the
    * whole input, no grammar is ever inferred, and it never WALK_FAILEDs.
@@ -225,7 +231,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // paced caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is
   // the ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
   const classifier = withLimit(
-    withTimeout(options.classifier ?? createClassifier({ apiKey: options.config.apiKey }), timeout),
+    withTimeout(
+      options.classifier ??
+        createClassifier({
+          apiKey: options.config.apiKey,
+          ...(options.log !== undefined && { log: options.log }),
+        }),
+      timeout,
+    ),
     concurrency,
   );
   // The changeset selection: every listed path is the file's identity verbatim. Entries that
@@ -596,9 +609,13 @@ function editDistance(a: string, b: string): number {
   return dp[a.length]![b.length]!;
 }
 
-/** "unknown rule "x" — did you mean: y?" when a known name is within a typo's distance. */
-function unknownRuleMessage(name: string, known: ReadonlySet<string>): string {
-  let best: string | null = null;
+/**
+ * The nearest known name within a typo's distance (<= max(2, a third of the guess)); undefined when
+ * no candidate is close — a legitimate no-suggestion. Distance computation ONLY: the detail carries
+ * the data, the consumer's emitter renders the prose.
+ */
+export function closestName(name: string, known: ReadonlySet<string>): string | undefined {
+  let best: string | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const candidate of known) {
     const distance = editDistance(name, candidate);
@@ -607,9 +624,21 @@ function unknownRuleMessage(name: string, known: ReadonlySet<string>): string {
       bestDistance = distance;
     }
   }
-  return best !== null && bestDistance <= Math.max(2, Math.floor(name.length / 3))
-    ? `unknown rule "${name}" — did you mean: ${best}?`
-    : `unknown rule "${name}"`;
+  return best !== undefined && bestDistance <= Math.max(2, Math.floor(name.length / 3))
+    ? best
+    : undefined;
+}
+
+/** The unknown-name SetupError with its structured detail: the valid vocabulary + closest match. */
+function unknownRuleError(name: string, known: ReadonlySet<string>): SetupError {
+  const suggest = closestName(name, known);
+  return new SetupError("CONFIG_INVALID", `unknown rule "${name}"`, {
+    detail: {
+      kind: "unknown-rule",
+      valid: [...known],
+      ...(suggest !== undefined && { suggest }),
+    },
+  });
 }
 
 /**
@@ -659,10 +688,8 @@ export function validateRuleSelection(
   only: readonly string[] | undefined,
 ): void {
   const known = new Set([...jsonRules, ...customRules].map((rule) => rule.name));
-  for (const name of disable ?? [])
-    if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
-  for (const name of only ?? [])
-    if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
+  for (const name of disable ?? []) if (!known.has(name)) throw unknownRuleError(name, known);
+  for (const name of only ?? []) if (!known.has(name)) throw unknownRuleError(name, known);
 }
 
 export interface LintReport {

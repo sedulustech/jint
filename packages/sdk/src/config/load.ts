@@ -17,6 +17,7 @@ import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
+import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
 import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
@@ -291,9 +292,24 @@ export function validateConfig(
           })
           .flat()
       : [];
+    // The FIRST rule-path error maps to the invalid-rule detail (/rules/<i>/<field>); a path
+    // outside a rule index (top-level schema problems) throws without detail.
+    // String#match, not the RegExp method - the no-git guard forbids that token under src/.
+    const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
+    const field = rulePath?.[2];
     throw new SetupError(
       "CONFIG_INVALID",
       `invalid config ${source}: ${[...ruleErrors, ...messages].join("; ")}`,
+      {
+        ...(rulePath !== null &&
+          field !== undefined && {
+            detail: {
+              kind: "invalid-rule",
+              ruleIndex: Number(rulePath?.[1]),
+              field,
+            },
+          }),
+      },
     );
   }
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
@@ -313,11 +329,20 @@ export function validateConfig(
       if (typeof entry === "string") {
         const rule = baseline?.[entry];
         if (rule === undefined) {
+          const valid = Object.keys(baseline ?? {});
+          const suggest = closestName(entry, new Set(valid));
           throw new SetupError(
             "CONFIG_INVALID",
             `invalid config ${source}: unknown rule name '${entry}'${
               baseline === undefined ? " - no defaults baseline was provided" : ""
             }`,
+            {
+              detail: {
+                kind: "unknown-rule",
+                valid,
+                ...(suggest !== undefined && { suggest }),
+              },
+            },
           );
         }
         byName.set(entry, rule);

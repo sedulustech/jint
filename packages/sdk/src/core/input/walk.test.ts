@@ -61,16 +61,16 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     // Top-level definitions + method elements from composite descent into the class declarations,
     // 1 import (the contract re-export import; golden tracks packages/sdk/src/core/types.ts —
     // update when it grows).
-    expect(inv.definitions).toHaveLength(41);
+    expect(inv.definitions).toHaveLength(44);
     expect(inv.imports).toHaveLength(1);
     // Comment nodes all accounted for: leading docs ride attachedComment; member-doc comments
     // inside declaration bodies stay in place (counted, not attached); 2 standalone (the file
     // header and the re-export vocabulary note, each separated from the next declaration by a
     // blank line).
-    expect(attachedCount(inv)).toBe(28);
-    expect(accountedComments(inv)).toBe(47);
+    expect(attachedCount(inv)).toBe(30);
+    expect(accountedComments(inv)).toBe(51);
     expect(inv.comments).toHaveLength(2);
-    expect(internalCount(inv)).toBe(17);
+    expect(internalCount(inv)).toBe(19);
     // Labels are stable and positional.
     expect(inv.definitions.map((d) => d.label)).toEqual(
       inv.definitions.map((_, i) => "d" + String(i)),
@@ -90,7 +90,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
       " * stream; it never escapes the pipeline boundary (design §7).",
       " */",
     ].join("\n");
-    expect(inv.definitions[8]?.attachedComment).toEqual([classifyErrorDoc]);
+    expect(inv.definitions[11]?.attachedComment).toEqual([classifyErrorDoc]);
   });
 
   test("comment-accounting invariant: AST comment count === comments accounted in elements", async () => {
@@ -105,7 +105,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     expectSpansRoundTrip(source, inv);
     // Line numbers are one-based and point at the element's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(22);
+    expect(inv.definitions[0]?.span.start.line).toBe(25);
   });
 });
 

@@ -29,7 +29,7 @@ import {
 // Grammar wasms as bundled assets: file paths when running from source, embedded ($bunfs) paths
 // inside the compiled binary — Bun.file reads both, so one loader serves both run modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
-import { SetupError, type DocstringOwner, type Element, type Span } from "../types.ts";
+import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
 export type { DocstringOwner } from "../types.ts";
 
 /** One-based line, zero-based column — raw tree-sitter position semantics. */
@@ -342,7 +342,7 @@ async function parserFor(language: string): Promise<Parser> {
   const cached = parsers.get(language);
   if (cached) return cached;
   if (!LANGUAGES[language] || !WASM_PATHS[language]) {
-    throw new SetupError("INTERNAL", `no tree-sitter grammar mapped for language: ${language}`);
+    throw new InternalError(`no tree-sitter grammar mapped for language: ${language}`);
   }
   const created = createParser(language);
   parsers.set(language, created);
@@ -685,8 +685,7 @@ function applySizeBackstop(elements: readonly RawElement[]): RawElement[] {
 export async function decompose(source: string, language: string): Promise<Inventory> {
   const mapping = LANGUAGES[language];
   if (!mapping) {
-    throw new SetupError(
-      "INTERNAL",
+    throw new InternalError(
       `unknown language: ${language} (valid: ${Object.keys(LANGUAGES).join(", ")})`,
     );
   }
@@ -694,7 +693,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   const tree = parser.parse(source);
   // a null tree is an engine failure, not a parse error (those surface via hasError):
   // an empty inventory would report success on an unmeasured file
-  if (!tree) throw new SetupError("INTERNAL", `parser returned no tree for ${language}`);
+  if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   const collection: ElementCollection = {
     mapping,

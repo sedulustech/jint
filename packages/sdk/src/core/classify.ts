@@ -15,7 +15,7 @@
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
  */
 
-import { languageOf } from "./input/walk.ts";
+import { knownLanguages, languageOf } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -90,6 +90,7 @@ export async function classify(
     throw new SetupError(
       "MISSING_GRAMMAR",
       "cannot infer a grammar for the given source - declare it with the language option",
+      { detail: { kind: "unknown-language", valid: knownLanguages() } },
     );
   }
   const unit: Unit = {

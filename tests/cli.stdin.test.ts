@@ -205,7 +205,12 @@ describe("cli: piped stdin str unit", async () => {
     // exit-code contract: unknown language is usage/config, before any input is touched
     expectContract(r, {
       exit: 2,
-      stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
+      // same shape as the SDK's unknown-language throws: message, capped valid list, code
+      stderr: [
+        "unknown language 'klingon'",
+        "valid: typescript, tsx, python, go",
+        "[MISSING_GRAMMAR]",
+      ],
       stdout: "empty",
     });
   });

@@ -62,13 +62,14 @@ describe("renderLines", () => {
     expect(stdout).not.toContain("[Moderate");
   });
 
-  test("totals on stderr, never stdout; stdout stays pure finding data", () => {
+  test("totals on stderr, never stdout; UNPREFIXED (the client's emitter owns jint:)", () => {
     const { stdout, stderr } = renderLines(report);
     expect(stdout).not.toContain("problems");
-    expect(stderr).toContain("jint: 3 problems (1 error, 2 warnings)");
+    expect(stderr).toContain("3 problems (1 error, 2 warnings)");
+    expect(stderr).not.toContain("jint:");
   });
 
-  test("run errors and degradation notes land on stderr", () => {
+  test("run errors and degradation notes land on stderr, unprefixed; notes carry the note marker", () => {
     const { stderr } = renderLines({
       ...report,
       errors: [
@@ -77,7 +78,8 @@ describe("renderLines", () => {
       notes: ["src/big.ts: 1 oversized element(s) skipped"],
     });
     expect(stderr).toContain("error JEV_TIMEOUT src/x.ts: timed out");
-    expect(stderr).toContain("src/big.ts: 1 oversized element(s) skipped");
+    expect(stderr).toContain("note: src/big.ts: 1 oversized element(s) skipped");
+    expect(stderr).not.toContain("jint:");
   });
 
   test("clean run: empty stdout, zero totals on stderr", () => {
@@ -88,7 +90,7 @@ describe("renderLines", () => {
       notes: [],
     });
     expect(stdout).toBe("");
-    expect(stderr).toContain("jint: 0 problems (0 errors, 0 warnings) - nothing was measured");
+    expect(stderr).toContain("0 problems (0 errors, 0 warnings) - nothing was measured");
   });
 
   test("measured clean run: zero totals stay unqualified (a real pass reads as one)", () => {
@@ -98,6 +100,6 @@ describe("renderLines", () => {
       errors: [],
       notes: [],
     });
-    expect(stderr).toContain("jint: 0 problems (0 errors, 0 warnings)\n");
+    expect(stderr).toContain("0 problems (0 errors, 0 warnings)\n");
   });
 });

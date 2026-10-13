@@ -1,9 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { lint } from "@jint/sdk";
+import { ClassifyError, InternalError, SetupError, lint, type ClassifyErrorCode } from "@jint/sdk";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { defaultConfig } from "./baseline.ts";
 import {
   CLI_ARGS_SCHEMA,
+  exitForThrown,
   FLAGS,
   HELP,
   KNOWN_FLAGS,
@@ -11,6 +12,7 @@ import {
   splitArgv,
   VALUED_FLAGS,
 } from "./cli.ts";
+import { emit } from "./output.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
@@ -150,5 +152,162 @@ describe("FLAGS — the one flag table, everything else derived", () => {
       flagArgs: ["--json"],
       positionals: ["str", "-"],
     });
+  });
+});
+
+/**
+ * The emitter: the one writer of the `jint: ` prefix, and exitForThrown's type-driven codes with
+ * detail rendering. Every shape the CLI can print for a thrown error is pinned here.
+ */
+describe("cli: the stderr emitter and thrown-error shapes", () => {
+  /** Capture emit's stderr for one call. */
+  function capture(run: () => void): string {
+    const chunks: string[] = [];
+    const original = process.stderr.write;
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      run();
+    } finally {
+      process.stderr.write = original;
+    }
+    return chunks.join("");
+  }
+
+  test("unknown-rule detail: message leads, origin label rides the message, code trails", () => {
+    const error = new SetupError("CONFIG_INVALID", 'unknown rule "not_a_rule"', {
+      detail: {
+        kind: "unknown-rule",
+        valid: ["alpha", "beta", "gamma"],
+        suggest: "alpha",
+      },
+    });
+    let code = 0;
+    const line = capture(() => {
+      code = exitForThrown(error, "(--rule)");
+    });
+    expect(line).toBe(
+      'jint: unknown rule "not_a_rule" (--rule) - valid: alpha, beta, gamma - did you mean: alpha [CONFIG_INVALID]\n',
+    );
+    expect(code).toBe(2);
+  });
+
+  test("no close match: no did-you-mean segment (a missing suggestion is legitimate)", () => {
+    const line = capture(() =>
+      exitForThrown(
+        new SetupError("CONFIG_INVALID", 'unknown rule "not_a_rule"', {
+          detail: { kind: "unknown-rule", valid: ["alpha", "beta"] },
+        }),
+      ),
+    );
+    expect(line).toBe('jint: unknown rule "not_a_rule" - valid: alpha, beta [CONFIG_INVALID]\n');
+  });
+
+  test("config origin: no flag label", () => {
+    const line = capture(() =>
+      exitForThrown(
+        new SetupError("CONFIG_INVALID", 'unknown rule "x"', {
+          detail: { kind: "unknown-rule", valid: ["alpha"] },
+        }),
+      ),
+    );
+    expect(line).toBe('jint: unknown rule "x" - valid: alpha [CONFIG_INVALID]\n');
+  });
+
+  test("unknown-language detail: the valid list, capped at six with ... only when cut", () => {
+    const eight = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const cut = capture(() =>
+      exitForThrown(
+        new SetupError("MISSING_GRAMMAR", "unknown extension, missing grammar", {
+          detail: { kind: "unknown-language", valid: eight },
+        }),
+      ),
+    );
+    expect(cut).toBe(
+      "jint: unknown extension, missing grammar - valid: a, b, c, d, e, f ... [MISSING_GRAMMAR]\n",
+    );
+    const exact = capture(() =>
+      exitForThrown(
+        new SetupError("MISSING_GRAMMAR", "unknown extension, missing grammar", {
+          detail: { kind: "unknown-language", valid: eight.slice(0, 6) },
+        }),
+      ),
+    );
+    expect(exact).toBe(
+      "jint: unknown extension, missing grammar - valid: a, b, c, d, e, f [MISSING_GRAMMAR]\n",
+    );
+  });
+
+  test("invalid-rule detail replaces the schema prose with the rule-and-field line", () => {
+    let code = 0;
+    const line = capture(() => {
+      code = exitForThrown(
+        new SetupError(
+          "CONFIG_INVALID",
+          "invalid config x.json: /rules/0/instructions Expected string",
+          {
+            detail: { kind: "invalid-rule", ruleIndex: 0, field: "instructions" },
+          },
+        ),
+      );
+    });
+    expect(line).toBe(
+      'jint: invalid rule #0: missing "instructions" - see the config example in README [CONFIG_INVALID]\n',
+    );
+    expect(code).toBe(2);
+  });
+
+  test("internal voice: the bug bucket says so, names the remedy, exits 3", () => {
+    let code = 0;
+    const line = capture(() => {
+      code = exitForThrown(new InternalError("score 9 is outside the criteria scale 0..2"));
+    });
+    expect(line).toBe(
+      "jint: internal: score 9 is outside the criteria scale 0..2 - rerun with --debug; if it persists, report it [INTERNAL]\n",
+    );
+    expect(code).toBe(3);
+  });
+
+  test("an unknown-shaped throw wraps into InternalError (exit 3, internal voice)", () => {
+    let code = 0;
+    const line = capture(() => {
+      code = exitForThrown(new TypeError("cannot read properties of undefined"));
+    });
+    expect(line).toContain(
+      "jint: internal: cannot read properties of undefined - rerun with --debug",
+    );
+    expect(code).toBe(3);
+  });
+
+  test("an escaped ClassifyError exits 4 (the run happened but produced nothing usable)", () => {
+    let code = 0;
+    const line = capture(() => {
+      code = exitForThrown(
+        new ClassifyError("JEV_TIMEOUT" as ClassifyErrorCode, "str:stdin", "timed out"),
+      );
+    });
+    expect(line).toBe("jint: timed out [JEV_TIMEOUT]\n");
+    expect(code).toBe(4);
+  });
+
+  test("a detail-less SetupError renders message + trailing code, exit 2", () => {
+    const line = capture(() =>
+      exitForThrown(new SetupError("ENTRYPOINT_NOT_FOUND", "input not found: src/")),
+    );
+    expect(line).toBe("jint: input not found: src/ [ENTRYPOINT_NOT_FOUND]\n");
+  });
+
+  test("emit kinds: note adds its voice word; plain and info render bare", () => {
+    expect(capture(() => emit({ message: "oversized skipped", kind: "note" }))).toBe(
+      "jint: note: oversized skipped\n",
+    );
+    expect(capture(() => emit({ message: "ui -> http://localhost:1" }))).toBe(
+      "jint: ui -> http://localhost:1\n",
+    );
+    expect(capture(() => emit({ message: "jev backoff: retrying in 5ms", kind: "info" }))).toBe(
+      "jint: jev backoff: retrying in 5ms\n",
+    );
   });
 });

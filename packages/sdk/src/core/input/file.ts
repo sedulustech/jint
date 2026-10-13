@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { grammarExtensions, languageOf } from "./walk.ts";
+import { knownLanguages, languageOf } from "./walk.ts";
 
 export async function fileUnit(
   path: string,
@@ -26,7 +26,8 @@ export async function fileUnit(
   if (languageOf(path) === null && options.requireGrammar !== false) {
     throw new SetupError(
       "MISSING_GRAMMAR",
-      `unknown extension, missing grammar - supported grammars: ${grammarExtensions().join(", ")} (walk sources by passing a directory, or classify raw text with the str noun)`,
+      "unknown extension, missing grammar - walk sources by passing a directory, or classify raw text with the str noun",
+      { detail: { kind: "unknown-language", valid: knownLanguages() } },
     );
   }
   let content: string;
