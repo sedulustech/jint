@@ -97,6 +97,10 @@ export const CLASSIFY_ERROR_SCHEMA = Type.Object({
 export const REPORT_SCHEMA = Type.Object({
   tool: Type.Literal("jint"),
   version: Type.String(),
+  // Additive: the run pointer into the run store (captures live in run.dir; the findings ->
+  // judged-text join is finding.input == capture state.id). Optional: pre-pointer reports and
+  // capture-less runs (no classifier call started) still parse.
+  run: Type.Optional(Type.Object({ id: Type.String(), dir: Type.String() })),
   measurements: Type.Array(MEASUREMENT_SCHEMA),
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),

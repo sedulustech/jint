@@ -15,6 +15,7 @@ import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
+import { recordSummary } from "./jev/debug.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
@@ -692,6 +693,12 @@ export function validateRuleSelection(
   for (const name of only ?? []) if (!known.has(name)) throw unknownRuleError(name, known);
 }
 
+/** The run pointer: the run-store dir this run's captures landed in, and its id (the dir name). */
+export interface RunPointer {
+  id: string;
+  dir: string;
+}
+
 export interface LintReport {
   measurements: Measurement[];
   findings: Finding[];
@@ -699,6 +706,12 @@ export interface LintReport {
   errors: ClassifyError[];
   /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
   notes: string[];
+  /**
+   * The run pointer (recording is always on; absent only when no classifier call started a run — a
+   * report without captures). Consumers join findings to judged text via run.dir's captures
+   * (finding.input == capture state.id); identity itself comes from the URL/dir, never this field.
+   */
+  run?: RunPointer;
 }
 
 /** Drain the stream into the stable report shape both reporters render. */
@@ -749,5 +762,9 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input),
   );
   report.notes.sort((a, b) => a.localeCompare(b));
+  // The run pointer is read AFTER the drain: recording starts at the FIRST classifier call, which
+  // happens inside the drained events — reading it before would see null on every run.
+  const summary = recordSummary();
+  if (summary !== null) report.run = { id: summary.dir.split("/").pop()!, dir: summary.dir };
   return report;
 }

@@ -179,8 +179,13 @@ describe("cli: contract basics", () => {
       NO_SERVICE,
     );
     expect(a.code).toBe(b.code);
-    // element inputs carry run-scoped uuids (element-identity design): strip before comparing
-    const strip = (s: string) => JSON.parse(s.replace(/[0-9a-f-]{36}/g, "UUID"));
+    // element inputs carry run-scoped uuids (element-identity design); the run pointer carries a
+    // per-spawn timestamp id: strip both before comparing
+    const strip = (s: string) => {
+      const parsed = JSON.parse(s.replace(/[0-9a-f-]{36}/g, "UUID"));
+      delete parsed.run; // the run pointer carries a per-spawn timestamp id
+      return parsed;
+    };
     expect(strip(a.stdout)).toEqual(strip(b.stdout));
     // two CLI spawns, each fetching a dead base URL: this is the only case that pays
     // the boot cost twice, so it needs more than bun's 5s default on a loaded runner
@@ -482,6 +487,8 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     ).readFile(`${runDir}/report.json`, "utf8");
     expect(reportBytes).toBe(r.stdout);
     expect(report).toEqual(JSON.parse(r.stdout));
+    // The run pointer rides the same bytes: run.dir names THIS run's store dir, run.id its id.
+    expect(report.run).toEqual({ id: runDir!.split("/").pop(), dir: runDir });
   });
 
   test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {

@@ -13,6 +13,9 @@ export function renderJson(report: LintReport): string {
       {
         tool: "jint",
         version: pkg.version,
+        // The run pointer: the same recordSummary the stderr notice names. Absent only when no
+        // classifier call started a run (a report without captures).
+        ...(report.run !== undefined && { run: report.run }),
         measurements: report.measurements.map((m) => ({
           rule: m.rule,
           input: m.input,
