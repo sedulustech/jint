@@ -4,7 +4,6 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { defaultConfig } from "./baseline.ts";
 import {
   CLI_ARGS_SCHEMA,
-  emit,
   exitForThrown,
   FLAGS,
   HELP,
@@ -13,6 +12,7 @@ import {
   splitArgv,
   VALUED_FLAGS,
 } from "./cli.ts";
+import { emit } from "./output.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
