@@ -123,7 +123,7 @@ describe("cli: piped stdin str unit", async () => {
     expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stdout).toBe(""); // clean run: no findings, no lines
     expect(r.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
-    // recording is always on; JEV_DIR points at the harness scratch store, so the notice is present
+    // recording is always on; JINT_DIR points at the harness scratch store, so the notice is present
     expect(r.stderr).toContain("requests ->");
     expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
@@ -305,10 +305,10 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("JEV_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
+  test("JINT_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
     const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
-      JEV_DIR: dumpDir,
+      JINT_DIR: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })].filter(

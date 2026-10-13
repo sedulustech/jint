@@ -21,7 +21,7 @@ Two override seams, both user-facing, neither requiring a recompile:
 | mapping      | built into the walker    | `languages` key in jint.config merges over defaults |
 
 - `JINT_DIR` defaults to `~/.jint`; the grammars dir is `$JINT_DIR/grammars/`.
-  Follows the JEV_DIR precedent for moving roots off the homedir.
+  Follows the JINT_DIR precedent for moving roots off the homedir.
 - Mapping merge is per node-kind key: a user entry replaces the default entry
   with the same key; keys the user does not name keep their default. There is no
   full-replace escape hatch until a use case arrives.

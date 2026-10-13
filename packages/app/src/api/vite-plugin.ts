@@ -3,8 +3,8 @@ import type { Plugin } from "vite";
 
 /**
  * Dev-server mount of the shared run-store API route module (it lives in @jint/sdk; the run store
- * is SDK-owned). Default root: the SDK's runsDir resolution (config.runsDir / JEV_DIR / the homedir
- * store) — opts.root names the store explicitly for embedded servers.
+ * is SDK-owned). Default root: the SDK's runsDir resolution (config.runsDir / JINT_DIR / the
+ * homedir store) — opts.root names the store explicitly for embedded servers.
  */
 export function apiPlugin(opts: { root?: string } = {}): Plugin {
   return {

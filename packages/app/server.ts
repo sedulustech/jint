@@ -11,7 +11,7 @@ import { compress } from "@jint/sdk/ui/serve";
 const dist = join(import.meta.dir, "dist");
 
 Bun.serve({
-  port: Number(process.env.PORT ?? 5178),
+  port: Number(process.env.JINT_UI_PORT ?? 5178),
   async fetch(req) {
     const api = await serveApiRequest(req);
     if (api !== null) return compress(api, req);
@@ -29,5 +29,5 @@ Bun.serve({
   },
 });
 process.stdout.write(
-  `jint ui on http://localhost:${process.env.PORT ?? 5178} (dist: ${dist})` + "\n",
+  `jint ui on http://localhost:${process.env.JINT_UI_PORT ?? 5178} (dist: ${dist})` + "\n",
 );

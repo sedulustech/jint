@@ -3,7 +3,7 @@
  * file in src/ allowed to touch console.*.
  *
  * Stdout carries the report; stderr carries logs. Default level is silent (design §6); --debug or
- * LOG_LEVEL=debug|info|warn|error turns it on.
+ * JINT_LOG_LEVEL=debug|info|warn|error turns it on.
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "off";
@@ -21,7 +21,7 @@ function isLevel(value: string | undefined): value is LogLevel {
 }
 
 function initialThreshold(): number {
-  const raw = process.env.LOG_LEVEL;
+  const raw = process.env.JINT_LOG_LEVEL;
   return ORDER[isLevel(raw) ? raw : "off"];
 }
 

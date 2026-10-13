@@ -72,7 +72,7 @@ export interface UiServer {
 }
 
 export interface StartUiOptions {
-  /** TCP port; default JINT_UI_PORT, else PORT (portless), else an ephemeral one. */
+  /** TCP port; default JINT_UI_PORT, else an ephemeral one. */
   port?: number;
   /** Built static dir to serve; default JINT_UI_DIST, else the dev checkout's app dist. */
   distDir?: string;
@@ -83,13 +83,13 @@ export interface StartUiOptions {
 /**
  * Serve the run UI in-process: /api/* answers from the shared run-store handler, everything else
  * from the built static dir (SPA fallback to index.html), both under the same compression
- * treatment. The port precedence is JINT_UI_PORT over PORT (portless injects PORT; that is the
- * zero-code integration and keeps working), else an ephemeral port.
+ * treatment. The port precedence is JINT_UI_PORT, then an ephemeral fallback; bare PORT (the former
+ * portless integration) is no longer read.
  */
 export async function startUi(options: StartUiOptions = {}): Promise<UiServer> {
   const distDir = resolveDistDir(options.distDir);
-  // precedence: explicit option > JINT_UI_PORT > PORT (portless injects PORT) > ephemeral
-  const envPort = process.env.JINT_UI_PORT ?? process.env.PORT;
+  // precedence: explicit option > JINT_UI_PORT > ephemeral
+  const envPort = process.env.JINT_UI_PORT;
   const server = Bun.serve({
     port: options.port ?? (envPort !== undefined ? Number(envPort) : 0),
     async fetch(req) {

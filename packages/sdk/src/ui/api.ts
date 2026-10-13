@@ -56,7 +56,7 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(options: ApiOptions = {}): string {
-  // the SDK's runsDir logic (config.runsDir / JEV_DIR / homedir store) is the one default;
+  // the SDK's runsDir logic (config.runsDir / JINT_DIR / homedir store) is the one default;
   // options.root overrides (tests, embedded servers)
   return resolve(options.root ?? runsBase());
 }

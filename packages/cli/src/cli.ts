@@ -269,13 +269,13 @@ Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measur
 
 /**
  * End-of-run stderr notice for run recording: where the requests went and how many. Recording is
- * always on — JEV_DIR only moves where run dirs land; the notice always reports, even zero requests
- * (the run may have failed before any classifier call).
+ * always on — JINT_DIR only moves where run dirs land; the notice always reports, even zero
+ * requests (the run may have failed before any classifier call).
  */
 export function recordNotice(): string {
   const record = recordSummary();
   if (record === null) return "";
-  const override = record.override ? " (override: JEV_DIR)" : "";
+  const override = record.override ? " (override: JINT_DIR)" : "";
   return `jint: requests -> ${record.dir} (${record.count} calls)${override}\n`;
 }
 
