@@ -49,12 +49,12 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
-  // v1.2, additive (score rules): the distribution the value summarizes. Optional — pre-v1.2
-  // dumps without the fields still parse.
+  // Score rules only: the distribution the value summarizes. Noul's probability IS the value —
+  // no separate distribution field.
   probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
   confidence: Type.Optional(Type.Number()),
-  // v1.1: the measured subject, fully typed (tmp/designs/element.md); replaces the v1 stage/span
-  // proxies. Additive: v1 reports without it still parse.
+  // The measured subject, fully typed (tmp/designs/element.md). Absent only from the bare
+  // classifyUnit generator (no source, no span); every report path attaches it.
   element: Type.Optional(ELEMENT_SCHEMA),
 });
 
@@ -67,14 +67,14 @@ export const FINDING_SCHEMA = Type.Object({
   input: Type.String(),
   value: Type.Number(),
   severity: SEVERITY_SCHEMA,
-  // Additive (v1.3, score rules): the chosen rubric level's legend text — the report displays
-  // self-contained, no criteria or request reach-ins.
-  note: Type.Optional(Type.String()),
-  // Additive (element-scoped findings): the element's exact span; files-target findings lack it.
+  // Custom tier only: the callback's remediation instruction to the caller — severity says
+  // whether, message says how. Absent for noul and score (threshold-derived) findings.
+  message: Type.Optional(Type.String()),
+  // Element-scoped findings: the element's exact span; files-target findings lack it.
   location: Type.Optional(Type.Object({ input: Type.String(), span: SPAN_SCHEMA })),
-  // Additive (custom tier): a policy callback's extra structured data. finding.message dropped
-  // (consumers join by rule id).
-  data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+  // Score rules: the chosen rubric level's legend text — the report displays self-contained,
+  // no criteria or request reach-ins.
+  note: Type.Optional(Type.String()),
 });
 
 /**

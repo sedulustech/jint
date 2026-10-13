@@ -488,15 +488,16 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           const note = Array.isArray(criteria) ? criteria[Math.round(event.value)] : undefined;
           yield {
             type: "finding",
+            // Literal ternary branches, NOT conditional spreads: the LintEvent context type puts
+            // this literal under excess-property checking — an undeclared field is a compile error.
             finding: {
               rule: event.rule,
               input: event.input,
               value: event.value,
               severity: outcome.severity,
-              ...(note !== undefined && { note }),
-              ...(element !== undefined && {
-                location: { input: event.input, span: element.span },
-              }),
+              note: note !== undefined ? note : undefined,
+              location:
+                element !== undefined ? { input: event.input, span: element.span } : undefined,
             },
           };
         }

@@ -6,6 +6,7 @@
 
 import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
+import type { Finding } from "@jint/contract";
 
 export function renderJson(report: LintReport): string {
   return (
@@ -26,19 +27,24 @@ export function renderJson(report: LintReport): string {
           ...(m.confidence !== undefined && { confidence: m.confidence }),
           ...(m.element !== undefined && { element: m.element }),
         })),
-        findings: report.findings.map((s) => ({
-          rule: s.rule,
-          input: s.input,
-          value: s.value,
-          severity: s.severity,
-          // additive (v1.3, score rules): the chosen rubric level's legend text
-          ...(s.note !== undefined && { note: s.note }),
-          // additive: element-scoped findings carry the element's exact span.
-          ...(s.location !== undefined && {
-            location: { input: s.location.input, span: s.location.span },
+        // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
+        // return position, so excess-property checking fires — a field the wire shape does not
+        // declare is a COMPILE error here, not a silently dropped key. (undefined properties
+        // drop under JSON.stringify, so the bytes match the old spreads.)
+        findings: report.findings.map(
+          (s): Finding => ({
+            rule: s.rule,
+            input: s.input,
+            value: s.value,
+            severity: s.severity,
+            message: s.message !== undefined ? s.message : undefined,
+            location:
+              s.location !== undefined
+                ? { input: s.location.input, span: s.location.span }
+                : undefined,
+            note: s.note !== undefined ? s.note : undefined,
           }),
-          ...(s.message !== undefined && { message: s.message }),
-        })),
+        ),
         errors: report.errors.map((e) => ({
           input: e.input,
           code: e.code,
