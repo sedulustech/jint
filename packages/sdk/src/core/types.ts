@@ -213,9 +213,9 @@ export interface Measurement {
 /**
  * A measurement that mattered: it cleared the rule's policy and carries the returned severity.
  * value is the JUDGED value on the defect pole (inverted when the rule fires on no), so value and
- * severity always agree under the rule's own thresholds. Findings carry NO message: consumers join
- * by rule id to the config (a report-contract decision — the never-promised criteria line and
- * callback message were dropped with it).
+ * severity always agree under the rule's own thresholds. message is the custom-tier callback's
+ * remediation instruction (revision of the no-message contract: severity says whether, message says
+ * how — rendered beneath the finding line) — absent for threshold-derived findings.
  */
 export interface Finding {
   readonly rule: string;
@@ -223,10 +223,10 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (custom tier): a policy callback's extra structured data, schema-validated at the
-   * callback boundary. Absent for threshold-derived findings.
+   * Additive (custom tier): a policy callback's remediation instruction for the caller
+   * (schema-validated at the callback boundary). Absent for threshold-derived findings.
    */
-  readonly data?: Record<string, unknown>;
+  readonly message?: string;
   /**
    * Exact element location for element-scoped findings: the identified element plus its byte/line
    * span into the source. Absent for whole-file findings.

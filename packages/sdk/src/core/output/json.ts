@@ -34,7 +34,7 @@ export function renderJson(report: LintReport): string {
           ...(s.location !== undefined && {
             location: { input: s.location.input, span: s.location.span },
           }),
-          ...(s.data !== undefined && { data: s.data }),
+          ...(s.message !== undefined && { message: s.message }),
         })),
         errors: report.errors.map((e) => ({
           input: e.input,

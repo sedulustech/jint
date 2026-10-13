@@ -61,8 +61,11 @@ export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 export interface CustomDecision {
   /** Null = silent (measurement only, no finding). */
   readonly severity: "error" | "warn" | null;
-  /** Optional extra structured data, attached to the finding (schema-validated). */
-  readonly data?: Record<string, unknown>;
+  /**
+   * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity says
+   * whether, message says how. Rendered beneath the finding line; schema-validated.
+   */
+  readonly message?: string;
 }
 
 /**
@@ -153,7 +156,7 @@ const SPEC_SCHEMA = Type.Object({
 
 const DECISION_SCHEMA = Type.Object({
   severity: Type.Union([Type.Literal("error"), Type.Literal("warn"), Type.Null()]),
-  data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+  message: Type.Optional(Type.String()),
 });
 
 /**
@@ -194,7 +197,7 @@ export function validateDecision(
         ruleName +
         '" handle returned an invalid decision at index ' +
         String(index) +
-        ' — expected { severity: "error" | "warn" | null, message?, data? }',
+        ' — expected { severity: "error" | "warn" | null, message? }',
     );
   }
   return decision as Static<typeof DECISION_SCHEMA>;

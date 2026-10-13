@@ -51,7 +51,11 @@ declare module "jint:sdk" {
   /** One policy decision, aligned by index with ctx.targets; null severity = silent. */
   export interface CustomDecision {
     readonly severity: "error" | "warn" | null;
-    readonly data?: Record<string, unknown>;
+    /**
+     * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity
+     * says whether, message says how. Rendered beneath the finding line.
+     */
+    readonly message?: string;
   }
 
   /** A custom rule: request (target), per-element compiler (classify), and exactly one policy. */

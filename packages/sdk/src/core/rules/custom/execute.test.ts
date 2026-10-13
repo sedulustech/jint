@@ -470,7 +470,7 @@ describe("runCustomRules — policy", () => {
     expect(phase.events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 
-  test("callback handle runs ONCE, results aligned with targets, message/data ride the finding", async () => {
+  test("callback handle runs ONCE, results aligned with targets, message rides the finding", async () => {
     const inventory = await oneFile(SOURCE);
     const calls: Array<{ results: readonly unknown[] }> = [];
     const phase = await run(
@@ -480,8 +480,7 @@ describe("runCustomRules — policy", () => {
           calls.push({ results });
           return results.map((r, i) => ({
             severity: r.type === "noul" && r.noul > 0.7 ? ("error" as const) : null,
-            message: "why #" + String(i),
-            data: { index: i },
+            message: "fix why #" + String(i) + " first",
           }));
         },
       }),
@@ -494,7 +493,7 @@ describe("runCustomRules — policy", () => {
     expect(findings).toHaveLength(3);
     const first = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(first?.severity).toBe("error");
-    expect(first?.data).toEqual({ index: 0 });
+    expect(first?.message).toBe("fix why #0 first");
   });
 
   test("a wrong-length decisions array is RULE_FAILED", async () => {

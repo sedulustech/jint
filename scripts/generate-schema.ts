@@ -129,6 +129,8 @@ const block = [
   "- **noul** (yes/no): `" + noulHandle + "`",
   "- **choice** (scored rubric): `" + scoreHandle + "`",
   "",
+  'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.',
+  "",
   "A live config example, serialized from real default specs (always the current wire shape):",
   "",
   "```json",

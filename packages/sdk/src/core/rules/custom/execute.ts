@@ -345,7 +345,7 @@ function tsFinding(
   ruleName: string,
   target: CustomElement,
   result: RuleResult,
-  decision: { severity: "error" | "warn" | null; data?: Record<string, unknown> },
+  decision: { severity: "error" | "warn" | null; message?: string },
   inputIds: ElementInputIds,
 ): Finding | null {
   if (decision.severity === null) return null;
@@ -361,7 +361,7 @@ function tsFinding(
     input: inputOf(target, inputIds),
     value,
     severity: decision.severity,
-    ...(decision.data !== undefined && { data: decision.data }),
+    ...(decision.message !== undefined && { message: decision.message }),
     location: { input: inputOf(target, inputIds), span },
   };
 }

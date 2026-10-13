@@ -77,6 +77,10 @@ The pattern above is the complete shape: a callback rule is a config `rules` ent
 free-form `state` object the rule composes - the pairing IS the state); the repo root's own
 `jint.config.ts` mixes defaults with an inline declarative rule the same way.
 
+The `handle` may instead be a `(results, ctx) => decisions` function, called once after
+classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
+`null` severity is silent (measurement only). `message` is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as `finding.message`. Tiered decisions are natural: the handle sees the raw readings, so it can branch on them (e.g. a deep miss vs a marginal one) into different remediation instructions.
+
 ### Composition rules
 
 - Composition is **in-file**: one module, one default export. No `extends`, no cross-file merge —
