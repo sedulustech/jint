@@ -35,12 +35,17 @@ const asString = (v: unknown): string | undefined => {
 // known shapes; anything else degrades to absent, never throws.
 export const validateRunSearch = (raw: Record<string, unknown>): RunSearch => {
   const report = asString(raw.report);
-  return {
-    ...(report === "1" || report === "0" ? { report: report === "1" ? 1 : 0 } : {}),
-    ...(asString(raw.rule) !== undefined && { rule: asString(raw.rule) }),
-    ...(asString(raw.input) !== undefined && { input: asString(raw.input) }),
-    ...(asString(raw.file) !== undefined && { file: asString(raw.file) }),
-  };
+  const rule = asString(raw.rule);
+  const input = asString(raw.input);
+  const file = asString(raw.file);
+  // Statement build, NOT conditional spreads: absent must stay absent here - canonicalizeSearch
+  // walks Object.keys(clean), so a present-undefined key would serialize as rule=undefined.
+  const clean: RunSearch = {};
+  if (report === "1" || report === "0") clean.report = report === "1" ? 1 : 0;
+  if (rule !== undefined) clean.rule = rule;
+  if (input !== undefined) clean.input = input;
+  if (file !== undefined) clean.file = file;
+  return clean;
 };
 
 // Unknown/invalid params must not linger in the address bar: the URL is the

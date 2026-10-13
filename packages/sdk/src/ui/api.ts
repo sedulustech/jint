@@ -181,7 +181,7 @@ export async function serveApiRequest(
       );
     const message = err instanceof Error ? err.message : String(err);
     const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
-    return jsonResponse({ error: message, ...(cause && { cause }) }, 500);
+    return jsonResponse({ error: message, cause }, 500);
   }
 }
 
@@ -434,7 +434,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
         } else pathRules.set(path, [m.rule]);
         if (typeof m.value === "number") {
           const vals = pathValues.get(m.input);
-          const entry = { rule: m.rule, value: m.value, ...(m.element && { element: m.element }) };
+          const entry = { rule: m.rule, value: m.value, element: m.element };
           if (vals) vals.push(entry);
           else pathValues.set(m.input, [entry]);
         }

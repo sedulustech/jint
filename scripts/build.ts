@@ -36,16 +36,18 @@ if (existsSync(resolve(root, "packages/app"))) {
 }
 const assets = existsSync(appDist) ? [appDist] : [];
 
+// Branched whole literal: the Bun compile config distinguishes cross targets; the assets key
+// exists only when there are assets (Bun globs it, so undefined is not semantically identical).
+const compile: { target?: string; outfile: string; assets?: string[] } = cross
+  ? { target: cross.target, outfile: cross.outfile }
+  : { outfile: resolve(root, "jint") };
+if (assets.length > 0) compile.assets = assets;
+
 const result = await Bun.build({
   entrypoints: ["./packages/cli/src/cli.ts"],
   minify: true,
   target: "bun",
-  compile: {
-    ...(cross
-      ? { target: cross.target, outfile: cross.outfile }
-      : { outfile: resolve(root, "jint") }),
-    ...(assets.length > 0 ? { assets } : {}),
-  },
+  compile,
 });
 
 if (!result.success) {

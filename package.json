@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@jint/sdk": "workspace:*",
+    "@oxlint/plugins": "1.78.0",
     "@sinclair/typebox": "^0.34.52",
     "@types/bun": "^1.4.2",
     "bun-types": "^1.4.2",

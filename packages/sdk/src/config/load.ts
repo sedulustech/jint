@@ -284,14 +284,16 @@ function throwConfigInvalid(raw: unknown, source: string): never {
     "CONFIG_INVALID",
     `invalid config ${source}: ${[...ruleErrors, ...messages].join("; ")}`,
     {
-      ...(rulePath !== null &&
-        field !== undefined && {
-          detail: {
-            kind: "invalid-rule",
-            ruleIndex: Number(rulePath?.[1]),
-            field,
-          },
-        }),
+      // Branched whole literal: a SetupError detail is read with !== undefined downstream,
+      // identical for absent and present-undefined, but the shape must be exact.
+      detail:
+        rulePath !== null && field !== undefined
+          ? {
+              kind: "invalid-rule",
+              ruleIndex: Number(rulePath?.[1]),
+              field,
+            }
+          : undefined,
     },
   );
 }
@@ -331,7 +333,7 @@ function resolveRules(
             detail: {
               kind: "unknown-rule",
               valid,
-              ...(suggest !== undefined && { suggest }),
+              suggest,
             },
           },
         );
@@ -430,9 +432,11 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     isChoice,
     isChoice ? (entry.criteria as readonly string[]) : [],
   );
+  // Direct optional properties: scope consumers gate on !== undefined, identical for absent and
+  // present-undefined (ruleInScope), and the manifest snapshot drops undefined under JSON.
   const scope = {
-    ...(entry.include !== undefined && { include: entry.include }),
-    ...(entry.exclude !== undefined && { exclude: entry.exclude }),
+    include: entry.include,
+    exclude: entry.exclude,
   };
   const handleSnapshot = entry.handle;
   if (entry.kind !== "choice") {

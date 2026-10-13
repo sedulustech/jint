@@ -178,12 +178,13 @@ export function App({ runId }: { runId: string | null }) {
   useEffect(resetPanelState, [runId]);
 
   const pickRun = (pickedRunId: string) => {
-    // picking (or clearing) a run resets the panel state with it
-    navigate({
-      to: pickedRunId === "" ? "/" : RUN_ROUTE,
-      ...(pickedRunId === "" ? {} : { params: { runId: pickedRunId } }),
-      search: {} as RunSearch,
-    });
+    // picking (or clearing) a run resets the panel state with it. Branched whole literals: the
+    // router serializes params, so an explicit undefined param is not the same as absent.
+    navigate(
+      pickedRunId === ""
+        ? { to: "/", search: {} as RunSearch }
+        : { to: RUN_ROUTE, params: { runId: pickedRunId }, search: {} as RunSearch },
+    );
   };
 
   // panel toggles are URL edits so back/forward walks run + panel history.
@@ -195,11 +196,18 @@ export function App({ runId }: { runId: string | null }) {
   const editSearch = (searchChange: Partial<RunSearch>): Promise<unknown> => {
     pendingNavigation.current = pendingNavigation.current
       .then(() =>
-        navigate({
-          to: runId === null ? "/" : RUN_ROUTE,
-          ...(runId === null ? {} : { params: { runId } }),
-          search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
-        }),
+        navigate(
+          runId === null
+            ? {
+                to: "/",
+                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
+              }
+            : {
+                to: RUN_ROUTE,
+                params: { runId },
+                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
+              },
+        ),
       )
       .catch(reportSearchEditFailure);
     return pendingNavigation.current;

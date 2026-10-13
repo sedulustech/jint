@@ -2,6 +2,7 @@ import { defineConfig } from "oxlint";
 
 export default defineConfig({
   options: { typeAware: true },
+  jsPlugins: ["./.oxlint/anti-slop/index.ts"],
   plugins: ["jest"],
   rules: {
     "no-empty": "warn",
@@ -23,6 +24,7 @@ export default defineConfig({
     "no-inline-comments": "deny",
     "arrow-body-style": "deny",
     "unicorn/no-nested-ternary": "deny",
+    "anti-slop/no-conditional-empty-object-spread": "deny",
     "default-case": "deny",
 
     "typescript/no-floating-promises": "deny",

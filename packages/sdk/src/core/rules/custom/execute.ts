@@ -64,7 +64,7 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): C
         startByte: e.span.startByte,
         endByte: e.span.endByte,
       },
-      ...(e.attachedComment !== undefined && { attachedComment: e.attachedComment }),
+      attachedComment: e.attachedComment,
       parent: parent ? convert(parent) : null,
     };
     cache.set(e.label, element);
@@ -288,7 +288,7 @@ export async function runCustomRules(
             kind: element.role,
             span: element.span,
             label: element.id,
-            ...(element.parent !== null && { parent: element.parent.id }),
+            parent: element.parent !== null ? element.parent.id : undefined,
           },
         },
       });

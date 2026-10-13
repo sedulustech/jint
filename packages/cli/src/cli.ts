@@ -150,15 +150,24 @@ type CliArgs = {
 const PARSE_ARGS_OPTIONS: {
   [name: string]: { type: "string" | "boolean"; multiple?: boolean; short?: string };
 } = Object.fromEntries(
-  Object.entries(FLAGS).map(([name, flag]) => [
-    name.slice(2),
-    {
-      type: flag.type === "boolean" ? ("boolean" as const) : ("string" as const),
-      ...(flag.type === "string[]" ? { multiple: true } : {}),
-      ...("aliases" in flag ? { short: flag.aliases[0]!.slice(1) } : {}),
-    },
-  ]),
+  Object.entries(FLAGS).map(([name, flag]) => [name.slice(2), parseArgsOptionsSpec(flag)]),
 );
+
+/**
+ * ParseArgs' options spec for one flag, branched whole literals: the declared return type puts each
+ * literal under excess-property checking, and parseArgs keys on multiple/short, so a
+ * present-undefined key must not be produced.
+ */
+function parseArgsOptionsSpec(flag: (typeof FLAGS)[keyof typeof FLAGS]): {
+  type: "string" | "boolean";
+  multiple?: boolean;
+  short?: string;
+} {
+  const type = flag.type === "boolean" ? ("boolean" as const) : ("string" as const);
+  if ("aliases" in flag) return { type, short: (flag.aliases as readonly string[])[0]!.slice(1) };
+  if (flag.type === "string[]") return { type: "string", multiple: true };
+  return { type };
+}
 
 /**
  * One aligned two-column help block: the left column pads to the widest entry, the right column
@@ -599,40 +608,47 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       );
     }
     printRules(effective, resolvedConfig.customRules?.length ?? 0);
+    // The lint input, statement-resolved (no conditional spreads): with no flags and no stdin pass
+    // NO input key so lint()'s ?? config.input fallback applies ("" would shadow the config —
+    // lint() keeps the empty-input backstop).
+    const lintInputOptions: Record<string, unknown> = {};
+    if (stdinStr !== undefined) {
+      lintInputOptions.str = stdinStr;
+      lintInputOptions.language = cliArgs.language;
+    } else if (lintInput !== undefined) {
+      Object.assign(lintInputOptions, lintInput);
+    }
+    // Config-scope basis (scopeBase): dir inputs walk with paths prefixed by their location
+    // relative to the CONFIG's directory, so the config's scope patterns apply no matter
+    // where the walk starts (git parity). Walks outside the config dir keep no prefix.
+    if (
+      configPath !== null &&
+      lintInput?.input !== undefined &&
+      typeof lintInput.input === "string" &&
+      !lintInput.input.startsWith("/")
+    ) {
+      const base = relative(dirname(configPath), resolve(lintInput.input));
+      if (!base.startsWith("..")) lintInputOptions.scopeBase = base;
+    }
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,
-        // No flags and no stdin: pass NO input key so lint()'s ?? config.input fallback
-        // applies ("" would shadow the config — lint() keeps the empty-input backstop).
-        ...(stdinStr !== undefined
-          ? { str: stdinStr, language: cliArgs.language }
-          : (lintInput ?? {})),
+        ...lintInputOptions,
         exclude: cliArgs.exclude,
-        // Config-scope basis (scopeBase): dir inputs walk with paths prefixed by their location
-        // relative to the CONFIG's directory, so the config's scope patterns apply no matter
-        // where the walk starts (git parity). Walks outside the config dir keep no prefix.
-        ...(configPath !== null &&
-        lintInput?.input !== undefined &&
-        typeof lintInput.input === "string" &&
-        !lintInput.input.startsWith("/")
-          ? (() => {
-              const base = relative(dirname(configPath), resolve(lintInput.input as string));
-              return base.startsWith("..") ? {} : { scopeBase: base };
-            })()
-          : {}),
         disable: cliArgs.disable,
         only: cliArgs.rule,
         log: jevLog,
         concurrency,
         timeout,
         paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
-        ...(elementScope !== undefined && {
-          element: {
-            path: elementScope.path,
-            ...(elementScope.anchor !== undefined && { anchor: elementScope.anchor }),
-            ...(elementScope.ranges !== undefined && { ranges: elementScope.ranges }),
-          },
-        }),
+        element:
+          elementScope !== undefined
+            ? {
+                path: elementScope.path,
+                anchor: elementScope.anchor,
+                ranges: elementScope.ranges,
+              }
+            : undefined,
       }),
     );
     // One canonical artifact: renderJson's bytes ARE report.json AND the --json stdout. The
