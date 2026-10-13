@@ -1,31 +1,28 @@
 /**
- * Core model nouns, strictly separated (tmp/design.md §1):
- *
- * - Rule — the classifying mechanism: { name, criteria, target, handle }
- * - Measurement — the raw noul value from jev for (rule, input); always produced, never actionable by
- *   itself
- * - Finding — a measurement that cleared the rule's handle; the only actionable output
- * - ClassifyError — a per-unit failure to produce a measurement: a failed request to the classifier,
- *   or a unit that could not be mapped to elements; carried in the stream as a value, never thrown
- *   past the pipeline, never failing the run by itself
- * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants); may carry a
- *   SetupDetail: the structured data a consumer's emitter renders into prose
- * - InternalError — the bug/escape-hatch bucket: an invariant violation or a thrown failure of
- *   unknown shape; the error that says "this is jint's fault, not the invocation's"
+ * The core nouns, strictly separated — each declaration below carries its own contract: the
+ * classifying mechanism, the raw reading it always produces (never actionable by itself), the
+ * reading that cleared its policy (the only actionable output), the streamed per-unit failure to
+ * produce a reading (carried as a value, never thrown past the pipeline), the thrown
+ * setup/infrastructure failure (optionally carrying structured detail the consumer renders into
+ * prose), and the bug/escape-hatch bucket: the error that says "this is jint's fault, not the
+ * invocation's".
  */
 
 /**
- * Severity is the only verdict vocabulary, and it has one home: @jint/contract (handlers.ts) — the
- * contract package owns the vocabulary, the engine re-exports it.
+ * One verdict word list for the whole toolchain: defined beside the wire vocabulary it annotates,
+ * re-exported here — never redefined locally.
  */
 export type { Severity } from "@jint/contract";
 import type { RuleTarget, Severity } from "@jint/contract";
 export type { RuleTarget };
-/** A fired reading: severity. Values stay RAW P(true) — fires_when lives in the rule config. */
+/**
+ * Readings stay raw probabilities — whether one fires is the policy's decision, never baked into
+ * the value.
+ */
 export interface HandleOutcome {
   readonly severity: Severity;
 }
-/** Handle's return type: an outcome, or null (silent). */
+/** Null is a deliberate silent verdict: the reading happened, nothing surfaces. */
 export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir";
@@ -33,12 +30,11 @@ export type InputKind = "file" | "dir";
 export type UnitKind = "file" | "str";
 
 /**
- * Codes a thrown SetupError carries: setup/infrastructure failures. LIST_* names the declared
- * path-list read (jint paths -): LIST_UNREADABLE — bytes are not a path list — is an I/O judgment,
- * thrown where the bytes are read (the CLI; the SDK takes already-read text); LIST_ENTRY_INVALID
- * (an entry would need path interpretation) and LIST_EMPTY (no entries) are judgments of the parsed
- * data, thrown SDK-side from the text alone. Invariant violations are NOT here — they throw
- * InternalError, whose code is only ever "INTERNAL".
+ * Codes a thrown SetupError carries: setup/infrastructure failures. The declared path-list read
+ * (the paths noun) splits by where the judgment is possible: unreadable bytes are an I/O judgment,
+ * thrown where the bytes are read (the CLI; the SDK takes already-read text); malformed entries and
+ * an empty list are judgments of the parsed data, thrown SDK-side from the text alone. Invariant
+ * violations are NOT here — they belong to the bug bucket instead.
  */
 export type SetupErrorCode =
   | "CONFIG_INVALID"
@@ -63,12 +59,11 @@ export type SetupDetail =
   | { kind: "invalid-rule"; ruleIndex: number; field: string };
 
 /**
- * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
- * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements;
- * RULE_FAILED names a custom rule's mid-run throw (classify / target fn / handle) — per-unit,
- * non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL is this union's escape
- * hatch: a classifier-adjacent failure of unknown shape streams as ClassifyError("INTERNAL"); a
- * thrown invariant violation is InternalError instead.
+ * Codes a streamed per-unit failure carries: request-layer causes (auth, availability, request and
+ * response shape, timeout), a unit that could not be mapped to elements, and a custom rule's
+ * handler throwing mid-run — per-unit, non-fatal, the run continues. INTERNAL is the escape hatch:
+ * a classifier-adjacent failure of unknown shape streams under it; a thrown invariant violation is
+ * the bug bucket instead, never a streamed code.
  */
 export type ClassifyErrorCode =
   | "JEV_AUTH"
@@ -83,7 +78,7 @@ export type ClassifyErrorCode =
 /**
  * A thrown setup/infrastructure failure: invalid config, missing/unreadable entrypoints, invariant
  * violations. A real thrown Error — it escapes the pipeline boundary, and the CLI maps its code to
- * exit codes exactly once (cli.ts).
+ * exit codes exactly once, at the CLI boundary.
  */
 export class SetupError extends Error {
   /** Structured data for consumers that render it; absent when the throw site has none. */
@@ -120,7 +115,7 @@ export class InternalError extends Error {
  * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.
  * One bad unit never kills the run and never fails it by itself — the error streams as a value and
  * the run is failed only by findings. The seam throws it and the pipeline catches it into the
- * stream; it never escapes the pipeline boundary (design §7).
+ * stream; it never escapes the pipeline boundary.
  */
 export class ClassifyError extends Error {
   constructor(
@@ -135,9 +130,9 @@ export class ClassifyError extends Error {
   }
 }
 
-/** RuleTarget has one home: @jint/contract (handlers.ts); the engine re-exports it. */
+/** The rule target vocabulary is defined beside the wire vocabulary it annotates, re-exported here. */
 
-/** The judgment primitive a rule runs on. */
+/** The judgment primitive: a calibrated yes/no reading or an ordered rubric score. */
 export type RuleKind = "noul" | "choice";
 
 interface RuleBase {
@@ -162,26 +157,25 @@ export interface NoulRule extends RuleBase {
   /** Optional: noul is the default kind — an omitted kind means noul. */
   readonly kind?: "noul";
   /**
-   * The yes/no question the model answers, specific to the rule's claim. REQUIRED (config schema
-   * enforces it): a generic fallback question would silently recalibrate every reading. The
-   * compiler prepends a kind sentence ("This unit is a function definition.") — the question never
-   * leaves the judged object implicit. Changing a rule's instructions is a recalibration event:
-   * readings move.
+   * The yes/no question the model answers, specific to the rule's claim. REQUIRED: a generic
+   * fallback question would silently recalibrate every reading. The compiler prepends the
+   * element-kind sentence, so the question never leaves the judged object implicit. Changing a
+   * rule's instructions is a recalibration event: readings move.
    */
   readonly instructions: string;
   /**
-   * The calibrated rule, criteria-as-rule: what makes the unit a 1 and what makes it a 0 — boundary
-   * cases belong in false. Passes straight through to the noul question's criteria; editing either
-   * side is a re-calibration event, since thresholds are anchored to readings taken under the rule
+   * The calibrated question, criteria-as-rule: what makes the unit a yes and what makes it a no —
+   * boundary cases belong on the no side. Passes straight through to the question; editing either
+   * side is a recalibration event, since thresholds are anchored to readings taken under this
    * text.
    */
   readonly criteria: { readonly true: string; readonly false: string };
 }
 
 /**
- * The rubric of a choice rule: at least two descriptions indexed by ordered score 0..N. Mapped onto
- * the SDK's ScoreQuestion — the rubric is ordered, so score is the right primitive (ChoiceQuestion,
- * for named unordered options, stays unused).
+ * The rubric of a choice rule: at least two descriptions indexed by ordered score 0..N. The rubric
+ * is ordered, so the scored question is the right primitive; the named-option question form stays
+ * unused.
  */
 export type ChoiceRubric = readonly [string, string, ...string[]];
 
@@ -208,20 +202,20 @@ export interface Measurement {
   readonly probabilities?: Record<string, number>;
   readonly confidence?: number;
   /**
-   * The measured subject, fully typed (tmp/designs/element.md): the element projection — kind,
-   * span, label, parent, kind-specific name. FileElement = the whole-unit judgment; a file IS an
-   * element (glossary), so there is no parallel stage string. The span is the stable sort key
-   * (report docs) and display source — the uuid input is identity, never presentation.
+   * The measured subject, fully typed: the element projection — kind, span, label, parent,
+   * kind-specific name. A whole-unit judgment is a file element (a file IS an element), so there is
+   * no parallel unit string. The span is the stable sort key and the display source — the uuid
+   * input is identity, never presentation.
    */
   readonly element?: Element;
 }
 
 /**
- * A measurement that mattered: it cleared the rule's handle and carries the returned severity.
- * value is the JUDGED value on the defect pole (1-p when fires_when is "false"), so value and
+ * A measurement that mattered: it cleared the rule's policy and carries the returned severity.
+ * value is the JUDGED value on the defect pole (inverted when the rule fires on no), so value and
  * severity always agree under the rule's own thresholds. Findings carry NO message: consumers join
- * by rule id to the config (report contract v1, 2026-09-28 — the never-promised score-criteria line
- * and callback message were dropped with this change).
+ * by rule id to the config (a report-contract decision — the never-promised criteria line and
+ * callback message were dropped with it).
  */
 export interface Finding {
   readonly rule: string;
@@ -229,26 +223,26 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (custom tier, rules-context/04): a policy callback's extra structured data,
-   * schema-validated at the callback boundary. Absent for threshold-derived findings.
+   * Additive (custom tier): a policy callback's extra structured data, schema-validated at the
+   * callback boundary. Absent for threshold-derived findings.
    */
   readonly data?: Record<string, unknown>;
   /**
    * Exact element location for element-scoped findings: the identified element plus its byte/line
-   * span into the source. Absent for files-target findings (relational, file-shaped).
+   * span into the source. Absent for whole-file findings.
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only (v1.3, additive): the report is
-   * self-contained, so a renderer never reaches into criteria or recorded requests for display.
-   * Absent for noul findings and policy findings.
+   * The chosen rubric level's legend text, score rules only: the report is self-contained, so a
+   * renderer never reaches into criteria or recorded requests for display. Absent for yes/no
+   * readings and policy findings.
    */
   readonly note?: string;
 }
 
 /** Exact location of an element: line+col points and byte offsets into the source. */
 export type Span = import("@jint/contract").Span;
-/** The typed subject of a measurement: the closed element union (tmp/designs/element.md). */
+/** The typed subject of a measurement: the closed element union. */
 export type Element = import("@jint/contract").Element;
 /** The element-kind vocabulary minus the whole-unit "file" kind: what a grammar node abstracts to. */
 export type ElementRole = Exclude<Element["kind"], "file">;
@@ -292,11 +286,11 @@ export interface Unit {
 }
 
 /**
- * The documented noul question (docs: primitives/noul); structurally compatible with the SDK's
- * NoulQuestion — the jev adapter owns the real SDK type. `instructions` maps unit ids to their task
- * sentence ({[unitId]: task}; criteria-as-rule: the rule lives in criteria, not here); `criteria`
- * describes what true and false mean. Question ids (the record keys) are never sent to the model —
- * they only correlate answers.
+ * The documented yes/no question; structurally compatible with the classifier's question shape —
+ * the adapter owns the real vendor type. Instructions map unit ids to their task sentences
+ * (criteria-as-rule: the rule lives in the criteria, not here); criteria describe what true and
+ * false mean. Question ids (the record keys) are never sent to the model — they only correlate
+ * answers.
  */
 export interface NoulQuestionSchema {
   readonly type: "noul";
@@ -314,9 +308,9 @@ export interface ScoreQuestionSchema {
 export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema;
 
 /**
- * Jint's reexport of the jev answer type for a rule (design rules-context/04): the raw classifier
- * answer, structurally the vendor response shape — the TS policy callback's input, aligned with
- * ctx.targets by index. noul-only in v1.
+ * Jint's reexport of the classifier's answer type for a rule: the raw answer, structurally the
+ * vendor response shape — the TS policy callback's input, aligned with the rule's targets by index.
+ * noul-only in v1.
  */
 export type NoulResult = { readonly type: "noul"; readonly noul: number };
 export type ScoreResult = { readonly type: "score"; readonly score: number };

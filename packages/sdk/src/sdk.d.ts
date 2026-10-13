@@ -1,13 +1,10 @@
 /**
- * Editor DX for the virtual module "jint:sdk" — the runtime does NOT typecheck; this file exists so
- * rule files get completions and checking in the editor. Reference it from the rule project:
+ * Editor DX for the jint:sdk virtual module: the runtime does NOT typecheck; this file exists so
+ * rule files get completions and checking in the editor. Rule projects reference it with a
+ * triple-slash path into the installed package's sources.
  *
- * /// <reference path="./node_modules/@jint/sdk/src/sdk.d.ts" />
- *
- * (jint ships src/; see the README's SDK section.)
- *
- * MIRROR GUARD: this declaration must stay type-identical to custom/schema.ts —
- * schema.types.test.ts enforces that at typecheck time. Edit them together.
+ * MIRROR GUARD: this declaration must stay type-identical to the runtime schema — a typecheck-time
+ * mirror test enforces that. Edit them together.
  */
 
 declare module "jint:sdk" {

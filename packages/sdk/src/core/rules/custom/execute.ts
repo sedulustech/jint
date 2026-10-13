@@ -1,12 +1,12 @@
 /**
- * TS-rule execution (design rules-context/01 §target/ctx, 03 execution): target resolution ONCE per
- * run over the completed walk, then ctx = { targets }, classify(self, ctx) per resolved target, jev
- * called by jint, policy (handle: data or callback) once, findings bound to the target's span.
+ * TS-rule execution: the engine resolves every rule's elements ONCE over the completed walk, the
+ * rule compiles a question per element, jint calls the classifier, and the rule's policy decides
+ * once per rule — findings bind to the judged element's span.
  *
- * Mid-run contract: a throwing handler (target fn, classify, handle) is RULE_FAILED — per-unit,
- * non-fatal, streamed, the run continues. A returned Promise from a sync-only handler is the same
- * contract violation. Findings bind to ctx.targets[i]'s span; state is composed freely by the rule
- * (observability is the guarantee — wire dumps capture the exact bytes).
+ * Mid-run contract: a throwing handler fails that unit only — non-fatal, streamed, the run
+ * continues; a returned Promise from a sync-only handler is the same contract violation. State is
+ * composed freely by the rule (observability is the guarantee — wire dumps capture the exact
+ * bytes).
  */
 
 import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../input/walk.ts";
@@ -85,9 +85,9 @@ export type ResolvedCustomTarget =
 export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 
 /**
- * Resolves every rule ONCE per run over the completed walk (design rules-context/01): role strings
- * filter the full inventory; the function form receives the FULL walk inventory — not ctx — and is
- * pure selection. Errors resolve to a RULE_FAILED for that rule.
+ * Resolves every rule ONCE per run over the completed walk: role strings filter the full inventory;
+ * the function form receives the FULL walk inventory — not the rule's context — and is pure
+ * selection. Errors resolve to a per-unit failure for that rule.
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
@@ -120,16 +120,17 @@ export function resolveTargets(
           ),
         };
       }
-      // Per-rule scoping (issue 008) applies to selection-function picks too: a scoped-out
-      // element costs zero jev calls regardless of how it was requested.
+      // Per-rule scoping applies to selection-function picks too: a scoped-out element costs
+      // zero jev calls regardless of how it was requested.
       const filtered = picked.filter((e) => ruleInScope(rule, e.path));
       return { targets: filtered, scopedOut: picked.length - filtered.length };
     } catch (thrown) {
       return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown)) };
     }
   }
-  // THE shared target grammar: matchesTarget is the JSON tier's rulesForElement mapping, so the
-  // two tiers cannot drift (comments matches comment elements AND code carrying an attachedComment).
+  // THE shared target grammar: selection here is the same per-element mapping the declarative
+  // tier uses, so the two tiers cannot drift (a comments target matches comment elements AND code
+  // carrying an attachedComment).
   const requested: readonly string[] = Array.isArray(rule.target) ? rule.target : [rule.target];
   const filtered = allElements.filter(
     (e) => requested.some((t) => matchesTarget(t, e)) && ruleInScope(rule, e.path),
@@ -148,17 +149,17 @@ function thrownMessage(thrown: unknown): string {
 }
 
 /**
- * The input id for a judged element: path#uuidv4, the same scheme as the JSON element tier
- * (classify.ts) — identity is minted once per element per run and shared by the measurement and the
- * finding location. The positional label (element.id, "d0") stays the projection label only;
- * elementWireId's L-spans remain whole-file unit ids.
+ * The input id for a judged element: the file path plus a freshly minted uuid, the same scheme as
+ * the declarative tier — identity is minted once per element per run and shared by the measurement
+ * and the finding location. The positional label stays the projection label only; line-span ids
+ * remain whole-file unit ids.
  */
-type ElementInputs = WeakMap<CustomElement, string>;
-function inputOf(element: CustomElement, inputs: ElementInputs): string {
-  const minted = inputs.get(element);
+type ElementInputIds = WeakMap<CustomElement, string>;
+function inputOf(element: CustomElement, inputIds: ElementInputIds): string {
+  const minted = inputIds.get(element);
   if (minted !== undefined) return minted;
   const input = element.path + "#" + crypto.randomUUID();
-  inputs.set(element, input);
+  inputIds.set(element, input);
   return input;
 }
 
@@ -167,16 +168,15 @@ function ruleFailed(input: string, ruleName: string, message: string): ClassifyE
 }
 
 export interface CustomRulePhase {
-  /** Events in stream order: measurements, findings, errors, degradation notes. */
+  /** Everything the phase produced, in stream order. */
   events: LintEvent[];
-  /** True when a JEV_AUTH came through — the run aborts like the JSON tier. */
+  /** An authorization failure aborts the whole run, not just the unit. */
   fatal: boolean;
 }
 
 /**
- * Runs the loaded custom rules over the completed walk: resolve, fan out classify per target, call
- * the classifier per compiled spec, then policy once per rule. Sized state parts are backstopped
- * per part (over MAX_ELEMENT_TOKENS: noted, skipped — ordinary state can never crash the request).
+ * Sized state parts are backstopped per part (over the element token bound: noted, skipped —
+ * ordinary state can never crash the request).
  */
 export async function runCustomRules(
   customRules: readonly CustomRule[],
@@ -186,7 +186,7 @@ export async function runCustomRules(
 ): Promise<CustomRulePhase> {
   const events: LintEvent[] = [];
   let fatal = false;
-  const inputs: ElementInputs = new WeakMap();
+  const inputIds: ElementInputIds = new WeakMap();
   for (const rule of customRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
@@ -210,25 +210,25 @@ export async function runCustomRules(
     const targets = resolvedRule.targets;
     const ctx = { targets };
     const results: RuleResult[] = [];
-    const values: number[] = [];
-    const aligned: CustomElement[] = [];
-    for (const self of targets) {
+    const readings: number[] = [];
+    const measuredTargets: CustomElement[] = [];
+    for (const element of targets) {
       if (isAborted() || fatal) break;
-      const input = inputOf(self, inputs);
-      let spec;
+      const input = inputOf(element, inputIds);
+      let stateSpec;
       try {
-        spec = rule.classify(self, ctx);
-        if (isPromise(spec)) {
+        stateSpec = rule.classify(element, ctx);
+        if (isPromise(stateSpec)) {
           throw new Error("classify returned a Promise — handlers are sync-only in v1");
         }
-        spec = validateStateSpec(spec, rule.name, input);
+        stateSpec = validateStateSpec(stateSpec, rule.name, input);
       } catch (thrown) {
         events.push({ type: "error", error: ruleFailed(input, rule.name, thrownMessage(thrown)) });
         continue;
       }
       // Per-part size backstop: any string state part over the bound skips the element (noted),
       // mirroring the walk's oversized-element behavior — ordinary state never crashes jev.
-      const oversized = Object.entries(spec.state).find(
+      const oversized = Object.entries(stateSpec.state).find(
         ([, part]) => typeof part === "string" && charsToTokens(part.length) > MAX_ELEMENT_TOKENS,
       );
       if (oversized !== undefined) {
@@ -249,8 +249,12 @@ export async function runCustomRules(
       }
       let value: number;
       try {
-        const answers = await classifier(spec.state as unknown as AnyState, {
-          [rule.name]: { type: "noul", instructions: spec.instructions, criteria: spec.criteria },
+        const answers = await classifier(stateSpec.state as unknown as AnyState, {
+          [rule.name]: {
+            type: "noul",
+            instructions: stateSpec.instructions,
+            criteria: stateSpec.criteria,
+          },
         });
         const noul = answers[rule.name];
         if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
@@ -272,8 +276,8 @@ export async function runCustomRules(
         continue;
       }
       results.push({ type: "noul", noul: value });
-      values.push(value);
-      aligned.push(self);
+      readings.push(value);
+      measuredTargets.push(element);
       events.push({
         type: "measurement",
         measurement: {
@@ -281,10 +285,10 @@ export async function runCustomRules(
           input,
           value,
           element: {
-            kind: self.role,
-            span: self.span,
-            label: self.id,
-            ...(self.parent !== null && { parent: self.parent.id }),
+            kind: element.role,
+            span: element.span,
+            label: element.id,
+            ...(element.parent !== null && { parent: element.parent.id }),
           },
         },
       });
@@ -309,7 +313,13 @@ export async function runCustomRules(
         }
         for (let i = 0; i < decisions.length; i++) {
           const decision = validateDecision(decisions[i], rule.name, i);
-          const finding = tsFinding(rule.name, aligned[i]!, results[i]!, decision, inputs);
+          const finding = tsFinding(
+            rule.name,
+            measuredTargets[i]!,
+            results[i]!,
+            decision,
+            inputIds,
+          );
           if (finding !== null) events.push({ type: "finding", finding });
         }
       } catch (thrown) {
@@ -320,10 +330,10 @@ export async function runCustomRules(
       }
     } else {
       const compiled = compileNoulHandler(handle);
-      for (let i = 0; i < values.length; i++) {
-        const outcome = compiled({ value: values[i]! });
+      for (let i = 0; i < readings.length; i++) {
+        const outcome = compiled({ value: readings[i]! });
         if (outcome === null) continue;
-        const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome, inputs);
+        const finding = tsFinding(rule.name, measuredTargets[i]!, results[i]!, outcome, inputIds);
         if (finding !== null) events.push({ type: "finding", finding });
       }
     }
@@ -331,13 +341,12 @@ export async function runCustomRules(
   return { events, fatal };
 }
 
-/** A policy decision becomes a finding bound to the target's span; null severity stays silent. */
 function tsFinding(
   ruleName: string,
   target: CustomElement,
   result: RuleResult,
   decision: { severity: "error" | "warn" | null; data?: Record<string, unknown> },
-  inputs: ElementInputs,
+  inputIds: ElementInputIds,
 ): Finding | null {
   if (decision.severity === null) return null;
   const value = result.type === "noul" ? result.noul : (result as { score: number }).score;
@@ -349,10 +358,10 @@ function tsFinding(
   };
   return {
     rule: ruleName,
-    input: inputOf(target, inputs),
+    input: inputOf(target, inputIds),
     value,
     severity: decision.severity,
     ...(decision.data !== undefined && { data: decision.data }),
-    location: { input: inputOf(target, inputs), span },
+    location: { input: inputOf(target, inputIds), span },
   };
 }

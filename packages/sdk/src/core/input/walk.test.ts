@@ -87,7 +87,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
       " * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.",
       " * One bad unit never kills the run and never fails it by itself — the error streams as a value and",
       " * the run is failed only by findings. The seam throws it and the pipeline catches it into the",
-      " * stream; it never escapes the pipeline boundary (design §7).",
+      " * stream; it never escapes the pipeline boundary.",
       " */",
     ].join("\n");
     expect(inv.definitions[11]?.attachedComment).toEqual([classifyErrorDoc]);
@@ -105,7 +105,7 @@ describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => 
     expectSpansRoundTrip(source, inv);
     // Line numbers are one-based and point at the element's first line.
     expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(25);
+    expect(inv.definitions[0]?.span.start.line).toBe(22);
   });
 });
 
