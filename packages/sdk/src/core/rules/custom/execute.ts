@@ -1,13 +1,12 @@
 /**
  * TS-rule execution (design rules-context/01 §target/ctx, 03 execution): target resolution ONCE per
  * run over the completed walk, then ctx = { targets }, classify(self, ctx) per resolved target, jev
- * called by jint, policy (handle | handleClassification) once, findings bound to the target's
- * span.
+ * called by jint, policy (handle: data or callback) once, findings bound to the target's span.
  *
- * Mid-run contract: a throwing handler (target fn, classify, handleClassification) is RULE_FAILED —
- * per-unit, non-fatal, streamed, the run continues. A returned Promise from a sync-only handler is
- * the same contract violation. Findings bind to ctx.targets[i]'s span; state is composed freely by
- * the rule (observability is the guarantee — wire dumps capture the exact bytes).
+ * Mid-run contract: a throwing handler (target fn, classify, handle) is RULE_FAILED — per-unit,
+ * non-fatal, streamed, the run continues. A returned Promise from a sync-only handler is the same
+ * contract violation. Findings bind to ctx.targets[i]'s span; state is composed freely by the rule
+ * (observability is the guarantee — wire dumps capture the exact bytes).
  */
 
 import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../input/walk.ts";
@@ -290,16 +289,18 @@ export async function runCustomRules(
         },
       });
     }
-    // POLICY, once: exactly one per rule, enforced at load. Findings bind to the target's span.
-    if (rule.handleClassification !== undefined) {
+    // POLICY, once: handle is every rule's policy — data or a function, one required union field
+    // (enforced at load). Findings bind to the target's span.
+    const handle = rule.handle;
+    if (typeof handle === "function") {
       try {
-        const decisions = rule.handleClassification(results, ctx);
+        const decisions = handle(results, ctx);
         if (isPromise(decisions)) {
-          throw new Error("handleClassification returned a Promise — handlers are sync-only in v1");
+          throw new Error("handle returned a Promise — handlers are sync-only in v1");
         }
         if (!Array.isArray(decisions) || decisions.length !== results.length) {
           throw new Error(
-            "handleClassification must return one decision per result (" +
+            "handle must return one decision per result (" +
               String(results.length) +
               " expected, got " +
               String(decisions?.length) +
@@ -317,10 +318,10 @@ export async function runCustomRules(
           error: ruleFailed("(policy)", rule.name, thrownMessage(thrown)),
         });
       }
-    } else if (rule.handle !== undefined) {
-      const handle = compileNoulHandler(rule.handle);
+    } else {
+      const compiled = compileNoulHandler(handle);
       for (let i = 0; i < values.length; i++) {
-        const outcome = handle({ value: values[i]! });
+        const outcome = compiled({ value: values[i]! });
         if (outcome === null) continue;
         const finding = tsFinding(rule.name, aligned[i]!, results[i]!, outcome, inputs);
         if (finding !== null) events.push({ type: "finding", finding });

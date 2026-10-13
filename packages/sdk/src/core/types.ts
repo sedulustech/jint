@@ -65,10 +65,10 @@ export type SetupDetail =
 /**
  * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
  * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements;
- * RULE_FAILED names a custom rule's mid-run throw (classify / target fn / handleClassification) —
- * per-unit, non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL is this
- * union's escape hatch: a classifier-adjacent failure of unknown shape streams as
- * ClassifyError("INTERNAL"); a thrown invariant violation is InternalError instead.
+ * RULE_FAILED names a custom rule's mid-run throw (classify / target fn / handle) — per-unit,
+ * non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL is this union's escape
+ * hatch: a classifier-adjacent failure of unknown shape streams as ClassifyError("INTERNAL"); a
+ * thrown invariant violation is InternalError instead.
  */
 export type ClassifyErrorCode =
   | "JEV_AUTH"

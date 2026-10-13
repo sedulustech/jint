@@ -202,7 +202,7 @@ export async function loadDeclarativeConfig(
  *
  * @jint/defaults package (install-time versioned), and relative/absolute files - then validates
  * through the same boundary as JSON. Inline callback rules (a rules entry carrying a classify /
- * handleClassification / function target) are extracted BEFORE the boundary check: they are
+ * function handle / function target) are extracted BEFORE the boundary check: they are
  * CustomRules, not data, and run through the custom engine at lint time.
  */
 export async function loadTsConfig(path: string, options?: LoadOptions): Promise<ResolvedConfig> {
@@ -245,12 +245,12 @@ function isCallbackRule(entry: unknown): boolean {
   if (typeof entry !== "object" || entry === null) return false;
   const r = entry as {
     classify?: unknown;
-    handleClassification?: unknown;
+    handle?: unknown;
     target?: unknown;
   };
   return (
     typeof r.classify === "function" ||
-    typeof r.handleClassification === "function" ||
+    typeof r.handle === "function" ||
     typeof r.target === "function"
   );
 }

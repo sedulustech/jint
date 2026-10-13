@@ -187,10 +187,8 @@ describe("validateCustomRule (load-time, fatal)", () => {
     expect(() => validateCustomRule(rest, "f.ts")).toThrow(/classify/);
   });
 
-  test("exactly one policy: both is rejected", () => {
-    expect(() => validateCustomRule({ ...ok, handleClassification: () => [] }, "f.ts")).toThrow(
-      /exactly one/,
-    );
+  test("policy as a callback (a function handle) validates — the union's TS-only arm", () => {
+    expect(typeof validateCustomRule({ ...ok, handle: () => [] }, "f.ts").handle).toBe("function");
   });
 
   test("exactly one policy: none is rejected", () => {

@@ -73,11 +73,16 @@ declare module "jint:sdk" {
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */
     readonly exclude?: readonly string[];
-    readonly handle?: CustomHandleData;
-    readonly handleClassification?: (
-      results: readonly RuleResult[],
-      ctx: RuleContext,
-    ) => readonly CustomDecision[];
+    /**
+     * The rule's policy — REQUIRED, exactly one per rule, in one of two encodings: data is the
+     * declarative form (JSON-expressible noul handler); a function is the TS-only escape hatch,
+     * called ONCE after all classifications (results[i] <-> ctx.targets[i]) and returns one
+     * decision per result, aligned by index. The field either is data or is a function, never both;
+     * a measurement-only rule returns [] (or all-null severities) from the function form.
+     */
+    readonly handle:
+      | CustomHandleData
+      | ((results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]);
   }
 
   /**

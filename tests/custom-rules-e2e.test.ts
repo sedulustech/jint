@@ -51,7 +51,7 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { comment: self.source },
     }),
-    handleClassification: (results) =>
+    handle: (results) =>
       results.map((r) => ({
         severity: r.type === "noul" && r.noul > 0.7 ? "error" : null,
         message: "the comment drifts from the code",
@@ -115,7 +115,7 @@ describe("cli: custom rules end-to-end", () => {
     expect(finding?.location?.span.start.line).toBe(8);
   });
 
-  test("handleClassification decisions ride data on the finding (message dropped, v1)", async () => {
+  test("callback handle decisions ride data on the finding (message dropped, v1)", async () => {
     const dir = setup("policy", POLICY_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 1, stdout: "json" });

@@ -2,9 +2,9 @@
  * The TS-rule contract (tmp/designs/rules-context/01..04): rules authored in TypeScript, executed
  * by jint on the embedded runtime. A TS config default-exports defineConfig({ ... }) — a partial
  * config whose rules may be declarative rules or inline callback CustomRules — and every handler
- * (target fn, classify, handleClassification) returns data; jint, never the rule, calls the
- * classifier. The runtime validation here is the contract enforcement (sdk.d.ts is editor DX only —
- * the runtime does NOT typecheck).
+ * (target fn, classify, handle) returns data; jint, never the rule, calls the classifier. The
+ * runtime validation here is the contract enforcement (sdk.d.ts is editor DX only — the runtime
+ * does NOT typecheck).
  */
 
 import { Type, type Static } from "@sinclair/typebox";
@@ -55,7 +55,7 @@ export interface StateSchema {
   readonly state: Record<string, unknown>;
 }
 
-/** The declarative policy (data tier, same typed shape as JSON noul rules; exactly one per rule). */
+/** The policy's data encoding (data tier, same typed shape as JSON noul rules). */
 // The declarative noul handle for custom rules: the contract's per-threshold operator form.
 export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
@@ -68,9 +68,10 @@ export interface CustomDecision {
 }
 
 /**
- * A custom rule: name, target (the REQUEST), the per-element state-schema compiler, and exactly one
- * policy (declarative handle or the callback form). classify returns ONE spec for self; jint fans
- * it out across ctx.targets. noul-only in v1 — choice/score kinds are rejected at load.
+ * A custom rule: name, target (the REQUEST), the per-element state-schema compiler, and its one
+ * policy, handle (required — data or a function; a measurement-only rule silences itself with () =>
+ * []). classify returns ONE spec for self; jint fans it out across ctx.targets. noul-only in v1 —
+ * choice/score kinds are rejected at load.
  */
 export interface CustomRule {
   readonly name: string;
@@ -88,16 +89,17 @@ export interface CustomRule {
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
   readonly exclude?: readonly string[];
-  /** Policy, data form: the typed noul handler (per-threshold comparison operators). */
-  readonly handle?: CustomHandleData;
   /**
-   * Policy, callback form: called ONCE after all classifications; results[i] <-> ctx.targets[i].
-   * Returns one decision per result, aligned by index.
+   * The rule's policy — REQUIRED, exactly one per rule, in one of two encodings. Data is the
+   * declarative form (JSON-expressible: the typed noul handler, per-threshold comparison
+   * operators); a function is the TS-only escape hatch, called ONCE after all classifications
+   * (results[i] <-> ctx.targets[i]) and returns one decision per result, aligned by index. The
+   * field either is data or is a function, never both; a measurement-only rule returns [] (or
+   * all-null severities) from the function form.
    */
-  readonly handleClassification?: (
-    results: readonly RuleResult[],
-    ctx: RuleContext,
-  ) => readonly CustomDecision[];
+  readonly handle:
+    | CustomHandleData
+    | ((results: readonly RuleResult[], ctx: RuleContext) => readonly CustomDecision[]);
 }
 
 /**
@@ -182,7 +184,7 @@ export function validateStateSpec(
   return spec as Static<typeof SPEC_SCHEMA>;
 }
 
-/** Validates one handleClassification decision; throws a contract-violation Error (see above). */
+/** Validates one callback-handle decision; throws a contract-violation Error (see above). */
 export function validateDecision(
   decision: unknown,
   ruleName: string,
@@ -192,7 +194,7 @@ export function validateDecision(
     throw new Error(
       'custom rule "' +
         ruleName +
-        '" handleClassification returned an invalid decision at index ' +
+        '" handle returned an invalid decision at index ' +
         String(index) +
         ' — expected { severity: "error" | "warn" | null, message?, data? }',
     );
@@ -246,32 +248,31 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
     exclude: r.exclude as readonly string[] | undefined,
   });
   if (scopeProblem !== null) fail('"' + name + '": ' + scopeProblem);
-  const hasHandle = r.handle !== undefined;
-  const hasPolicyFn = r.handleClassification !== undefined;
-  if (hasHandle === hasPolicyFn) {
+  // handle is REQUIRED: every rule carries exactly one policy. One union field, so "both"
+  // encodings cannot be expressed — validation rejects only absence and invalid data arms.
+  const handle = r.handle;
+  if (handle === undefined) {
     fail(
       '"' +
         name +
-        '": exactly one policy is required — handle (data) or handleClassification (callback)',
+        '": handle is required — every custom rule has exactly one policy (data or a (results, ctx) => decisions function)',
     );
   }
-  if (hasHandle) {
-    if (!Value.Check(HANDLE_SCHEMA, r.handle)) {
-      fail(
-        '"' +
-          name +
-          '": handle must be the typed noul handler { warn: { greater_than | less_than }, error?, silent_band? }',
-      );
-    }
-    const h = r.handle as CustomHandleData;
+  if (typeof handle === "function") {
+    // Callback arm: its shape is the engine's runtime contract (RULE_FAILED), nothing to check here.
+  } else if (!Value.Check(HANDLE_SCHEMA, handle)) {
+    fail(
+      '"' +
+        name +
+        '": handle must be the typed noul handler { warn: { greater_than | less_than }, error?, silent_band? } or a (results, ctx) => decisions function',
+    );
+  } else {
+    const h = handle as CustomHandleData;
     // custom rules are noul-only, so the question type is fixed: a score map here is the same
     // tier-mismatch the JSON loader rejects as CONFIG_INVALID.
     if ("map" in h) fail('"' + name + '": handle.map: a score handler on a noul rule');
     const problem = checkNoulHandler(h);
     if (problem !== null) fail('"' + name + '": ' + problem);
-  }
-  if (hasPolicyFn && typeof r.handleClassification !== "function") {
-    fail('"' + name + '": handleClassification must be a function');
   }
   return r as unknown as CustomRule;
 }

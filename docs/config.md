@@ -47,7 +47,7 @@ compiled binaries use `jint:defaults` (no install needed); workspace consumers m
 ### Inline custom rules
 
 A `rules` entry that carries a callback — a `classify` function, a function `target`, or a
-`handleClassification` — is an inline custom rule: it runs on the callback engine (element
+function `handle` — is an inline custom rule: it runs on the callback engine (element
 inventories, free state composition) while declarative entries around it compile through the same
 seam as the JSON tier. This is the repo-root pattern:
 
