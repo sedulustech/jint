@@ -573,7 +573,7 @@ describe("lint", () => {
         input: s.finding.input,
         value: 1,
         severity: "warn",
-        note: "One violation: exactly one identifier's name hides its purpose - it names how the code works rather than what it is for, is a bare generic word, or misleads.",
+        note: "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }

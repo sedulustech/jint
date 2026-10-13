@@ -13,13 +13,13 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 | ------ | ----------- | ------------------------------ |
 | choice | definitions | score map: pass → warn → error |
 
-**Instructions.** Count this unit's identifiers whose names fail to state what the thing does or holds. A failing name names the implementation instead of the purpose, is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have. Casing and convention style are not part of this judgment.
+**Instructions.** Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.
 
-**Score 0.** No violations: every identifier's name states what it does or holds - a reader can infer each thing's purpose from the name alone, without reading the surrounding code.
+**Score 0.** Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.
 
-**Score 1.** One violation: exactly one identifier's name hides its purpose - it names how the code works rather than what it is for, is a bare generic word, or misleads.
+**Score 1.** Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.
 
-**Score 2.** Several violations: more than one identifier's name hides its purpose in any of these ways.
+**Score 2.** Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds.
 
 ## `is_vocabulary_consistent`
 
