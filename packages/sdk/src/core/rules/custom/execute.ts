@@ -356,12 +356,14 @@ function tsFinding(
     startByte: target.span.startByte,
     endByte: target.span.endByte,
   };
+  // Literal ternary branch, NOT a conditional spread: the declared Finding return type puts this
+  // literal under excess-property checking — an undeclared decision field is a compile error.
   return {
     rule: ruleName,
     input: inputOf(target, inputIds),
     value,
     severity: decision.severity,
-    ...(decision.message !== undefined && { message: decision.message }),
+    message: decision.message !== undefined ? decision.message : undefined,
     location: { input: inputOf(target, inputIds), span },
   };
 }

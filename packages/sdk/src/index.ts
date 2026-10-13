@@ -15,7 +15,13 @@ export {
   CONFIG_SCHEMA,
   type ResolvedConfig,
 } from "./config/load.ts";
-export { lint, collectReport, type LintOptions, type LintReport } from "./core/lint.ts";
+export {
+  lint,
+  collectReport,
+  type LintOptions,
+  type LintReport,
+  type RunPointer,
+} from "./core/lint.ts";
 export { knownLanguages } from "./core/input/walk.ts";
 export {
   recordSummary,

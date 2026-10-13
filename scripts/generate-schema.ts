@@ -138,9 +138,60 @@ const block = [
   "```",
   "",
 ].join("\n");
+const afterRuleBlock =
+  skill.slice(0, begin + BEGIN.length) + "\n" + block + "\n" + skill.slice(end);
+
+// SKILL.md's run-dir block: run-store literacy — the fix loop, the capture join, and the
+// quoting rule. Generated so the workflow text cannot drift behind the report's run field.
+const RUN_BEGIN = "<!-- run-dir:begin (generated - do not edit; bun run schema) -->";
+const RUN_END = "<!-- run-dir:end -->";
+const runBegin = afterRuleBlock.indexOf(RUN_BEGIN);
+const runEnd = afterRuleBlock.indexOf(RUN_END);
+if (runBegin === -1 || runEnd === -1) throw new Error("SKILL.md run-dir markers missing");
+const runDirBlock = [
+  "## The run dir",
+  "",
+  "The run dir is the record of what the model saw. Read it before you probe.",
+  "",
+  "### The fix loop",
+  "",
+  "1. Take a finding. Re-query just that unit: `jint <path>@L<line> --rule <rule>`. One query,",
+  "   one unit, one verdict. No full re-run.",
+  "2. Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that exists now.",
+  "3. After any edit, re-anchor at the CURRENT line. Grep the declaration. Then re-query.",
+  "",
+  "### Element inventory without the CLI",
+  "",
+  "Every run records its captures in a run dir. Find it on stderr after a run, or read the",
+  "report's top-level `run` field: `run.dir` is the dir, `run.id` is its name. The dir holds",
+  "`elements-*.json` files. Each entry's `state.id`, `state.span`, and `state.source` show every",
+  "element the walk produced. Read these instead of probing anchors with live queries.",
+  "",
+  "### The join: finding to judged text",
+  "",
+  "A report finding names its element in `findings[].input`. That string equals the capture's",
+  "`state.id`. Match the two to recover the exact text the model judged.",
+  "",
+  "### Quote source from the file, never from the capture",
+  "",
+  "Captures tell you WHAT was judged. The file tells you HOW it is written now. Capture JSON is",
+  "pretty-printed; its indentation is not source. Edit from the file. A pasted capture indent is",
+  "a wasted edit.",
+  "",
+  "### Paths and scoping",
+  "",
+  "An explicit path overrides config scoping. That is by design. A piped list must respect the",
+  "config's `exclude`: filter before the pipe, e.g.",
+  "`git diff --name-only | grep -vE '\\.test\\.ts$|^tests/' | jint paths -`.",
+  "",
+].join("\n");
 writeFileSync(
   skillOut,
-  skill.slice(0, begin + BEGIN.length) + "\n" + block + "\n" + skill.slice(end),
+  afterRuleBlock.slice(0, runBegin + RUN_BEGIN.length) +
+    "\n" +
+    runDirBlock +
+    "\n" +
+    afterRuleBlock.slice(runEnd),
 );
 // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
 Bun.spawnSync(["bunx", "oxfmt", skillOut]);
