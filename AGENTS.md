@@ -52,3 +52,28 @@ Unit tests are colocated next to the source they test (src/**/*.test.ts). The ro
 Browser tests locate controls structurally - role, aria-label, data-testid, aria-controls -
 never by rendered text: copy changes, structure is the contract. Text assertions are for data
 values, and anchor in a structural container.
+
+## Issues
+
+Issues are drafted in the house format and opened with the `draft` label; a maintainer
+promotes by removing the label. The label is the only draft marker - no `Status:` line
+in the body.
+
+Bodies are written in Simplified Technical English: sentences under 20 words, active
+voice, one idea per sentence, the same word for the same thing, exact numbers.
+
+Section order:
+
+- **What** - 2-3 sentences. The contract violation, readable with zero context.
+- **Repro** - required. Command or steps, config, actual output, exact numbers.
+  Evidence, not adjectives. Name the branch or worktree.
+- **Cause** - only if known; otherwise omit, or write "The cause is unknown."
+- **Proposal** - only if one exists. The behavioral change, scope, test impact.
+- **Screenshot** - only for UI-rendering issues. Crop to the defect.
+
+Conditional sections are omitted, never written as "n/a." A diagram may appear in What
+or Cause when relationships matter (node labels are names, edge labels are verbs).
+
+The web form (`.github/ISSUE_TEMPLATE/1-draft.yml`) enforces this structure for humans;
+agents write the body directly per the github-issue skill. An issue without reproduction
+steps is an opinion.
