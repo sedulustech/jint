@@ -219,9 +219,6 @@ export const NOUNS = {
 const NOUN_ROWS = Object.values(NOUNS).map((noun) => ({ left: noun.example, right: noun.blurb }));
 
 /** "jint str - = piped stdin, one str unit; jint paths - = a path LIST from piped stdin" */
-const NOUN_DECLARATIONS = Object.entries(NOUNS)
-  .map(([name, noun]) => `jint ${name} ${noun.payload} = ${noun.blurb}`)
-  .join("; ");
 
 /** "jint str - (piped stdin, one str unit) or jint paths - (a path LIST from piped stdin)" */
 const NOUN_FORMS = Object.entries(NOUNS)
@@ -239,26 +236,21 @@ ${helpRows([
   { left: "jint", right: "no positional: input comes from the discovered config" },
 ])}
 
-Element-scoped runs: address one element directly -
-  jint src/a.ts@L58              the element whose span contains line 58 (one classifier call)
-  jint src/a.ts@L58-L70          every element FULLY ENCLOSED in the range (comma list: each
-                                 item independent; a range enclosing none is an error naming
-                                 the file's element spans)
-Finding lines paste back as file@L<line> - element ids are run-scoped and never selectable.
-Verifying one fix: the finding's @L is pre-edit (edits shift lines) - re-check at the
-  element's CURRENT line: jint src/a.ts@L<current-line> --rule <rule>   one call;
-  a full re-run closes the loop (when it pays: the skill's fix-loop section).
+Nouns - the resource is the first positional; the verb (classify) is implicit:
+  jint str -                     one str unit from piped stdin
+  jint paths -                   a path LIST from piped stdin (jint paths - < list.txt)
+  jint src/a.ts                  a path: dir if a directory, else file - never content-sniffed
+  jint -- --weird.ts             -- ends flag parsing for dash-paths
+Nouns never resolve to paths (a file named str: jint ./str); anything after a
+noun's payload is a usage error naming the correct form.
 
-The resource is the noun; the verb (classify) is implicit. A noun is the FIRST positional and
-its next positional is the payload: '-', and nothing else  - a noun declares how stdin is read;
-there is no inline payload:
-  ${NOUN_DECLARATIONS}
-To judge a list from a file, pipe it: jint paths - < list.txt; to classify a file, pass the path.
-Anything else after a noun is a usage error naming the correct form. Nouns never resolve to
-paths  - a file named str is reached as jint ./str. A path's kind is inferred by shape only
-(exists-as-dir -> dir, else file); content is never sniffed. A bare '-' positional is undeclared  -
-name the noun: ${NOUN_FORMS}.
--- ends flag parsing for dash-paths: jint -- --weird.ts
+Element-scoped runs - address one element directly:
+  jint src/a.ts@L58              the element whose span contains line 58 (one call)
+  jint src/a.ts@L58-L70          every element FULLY ENCLOSED in [s,e] (comma list: each item
+                                 independent; a range enclosing none is an error naming the
+                                 file's element spans)
+Finding lines paste back as file@L<line> - element ids are never selectable; a
+finding's @L is pre-edit (edits shift lines): re-check at the CURRENT line.
 
 Options:
 ${helpRows(OPTION_ROWS)}
@@ -368,7 +360,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
     // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
-    usageError(`bare '-' is undeclared  - name the noun: ${NOUN_FORMS}`);
+    usageError(`bare '-' is undeclared - name the noun: ${NOUN_FORMS}`);
     return 2;
   }
   // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional, its next
