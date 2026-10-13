@@ -62,6 +62,17 @@ export default defineConfig({
 
 ### Open
 
+#### Grammar manifest and provisioning
+
+A user grammar needs a pinned version, extensions, and a fetchable source.
+Local untracked checkouts are not a source: validation must not depend on what
+happens to sit on disk. Open: the manifest format and the provisioning command.
+
+#### Overriding built-in grammars
+
+Replacing an embedded grammar (same language, other wasm) is a separate concern
+from adding one. Possibly its own issue; out of scope here.
+
 #### Grammar-version skew
 
 A user wasm may name node kinds differently than the built-in mapping expects
@@ -69,6 +80,26 @@ A user wasm may name node kinds differently than the built-in mapping expects
 kinds the loaded grammar never produces. Undecided; ship without it and see.
 
 ### Settled
+
+#### Config and grammars are orthogonal
+
+The config never mentions languages. The grammar dir owns everything grammar-
+shaped: wasm (parse), manifest (version, extensions, base mapping = extraction).
+A manifest without a wasm shadows an embedded grammar's mapping. Kind-set
+validation guards the manifest - the only tier a human writes by hand.
+
+A node-kind-to-role mapping is a claim about the language, not the project.
+Per-project mapping disagreement wants to be a rule (judgment, config-owned),
+not a mapping (extraction fact, grammar-dir-owned). If that proves wrong, a
+config languages tier is additive later.
+
+Supersede note: the 2026-10-12 decision "mappings live in config" predates the
+manifest; with version-pinned manifests it is withdrawn. The rejected sidecar
+stays rejected - an unpinned user-editable parallel authority is still wrong.
+
+Out of scope for now: shareability and colocation. A repo cannot today point at
+a colocated grammar dir. The config will probably hold a `grammars.path` option
+for that case; deferred until a sharing use case arrives.
 
 #### Where do mappings live - config or sidecar?
 
