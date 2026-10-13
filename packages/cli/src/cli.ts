@@ -583,7 +583,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const reportJson = renderJson(lintReport);
     const runId = recordSummary()?.dir.split("/").pop();
     const rendered =
-      cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport, runId);
+      cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport);
     recordRunReport(reportJson);
     recordRunManifest({
       configPath,

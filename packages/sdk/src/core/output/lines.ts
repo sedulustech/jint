@@ -4,12 +4,15 @@
  * is pure finding data, stderr carries the run's own errors, degradation notes, and the totals
  * line. Line shape (LINE_SCHEMA):
  *
- * Path#id@L<line> rule level score [note] run=<id>
+ * Path#id@L<line> rule level score
  *
  * Path#id is the finding input (the run-scoped key the app pairs with; it does NOT print). The raw
  * line is the LOC form only:
  *
- * Path@L<line> rule level score [note] run=<id>
+ * Path@L<line> rule level score
+ *
+ * The chosen-level note stays json-side (it quotes the rule's own criterion, which the rubric block
+ * already prints once); the run id is named once per run in the stderr requests notice.
  */
 
 import type { LintReport } from "../lint.ts";
@@ -21,16 +24,14 @@ export interface LinesRender {
   readonly stderr: string;
 }
 
-export function renderLines(report: LintReport, runId?: string): LinesRender {
+export function renderLines(report: LintReport): LinesRender {
   const out: string[] = [];
   for (const f of report.findings) {
     // The element id is run-scoped (the report input stays path#id for the app to pair with); the
     // public line carries the LOC anchor only.
     const stem = f.input.split("#")[0]!;
     const anchor = f.location !== undefined ? `@L${f.location.span.start.line}` : "";
-    const note = f.note !== undefined ? `  [${f.note}]` : "";
-    const run = runId !== undefined ? `  run=${runId}` : "";
-    out.push(`${stem}${anchor}  ${f.rule}  ${f.severity}  ${f.value.toFixed(2)}${note}${run}`);
+    out.push(`${stem}${anchor}  ${f.rule}  ${f.severity}  ${f.value.toFixed(2)}`);
   }
 
   const err: string[] = [];

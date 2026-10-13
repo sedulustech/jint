@@ -40,23 +40,20 @@ describe("renderLines", () => {
     }
   });
 
-  test("columns: path@L<line>  rule  level  score  [note]  run=<id> (id never prints)", () => {
-    const { stdout } = renderLines(report, "1790865385203");
+  test("columns: path@L<line>  rule  level  score (note and run id stay json-side)", () => {
+    const { stdout } = renderLines(report);
     const lines = stdout.trimEnd().split("\n");
-    expect(lines[0]).toBe("src/a.ts  is_name_purposeful  warn  0.53  run=1790865385203");
-    expect(lines[1]).toBe(
-      "src/b.ts@L8  is_cognitively_complex  warn  2.00  [Moderate: the reader must pause once or twice]  run=1790865385203",
-    );
-    expect(lines[2]).toBe("src/c.ts  is_function_srp  error  1.00  run=1790865385203");
+    expect(lines[0]).toBe("src/a.ts  is_name_purposeful  warn  0.53");
+    expect(lines[1]).toBe("src/b.ts@L8  is_cognitively_complex  warn  2.00");
+    expect(lines[2]).toBe("src/c.ts  is_function_srp  error  1.00");
     expect(stdout).not.toContain("#");
+    expect(stdout).not.toContain("run=");
+    expect(stdout).not.toContain("[");
   });
 
-  test("run column omitted when recording is inactive (no runId)", () => {
+  test("the chosen-level note never reaches the rendered line", () => {
     const { stdout } = renderLines(report);
-    expect(stdout).not.toContain("run=");
-    for (const line of stdout.trimEnd().split("\n")) {
-      expect(Value.Check(LINE_SCHEMA, line)).toBe(true);
-    }
+    expect(stdout).not.toContain("[Moderate");
   });
 
   test("totals on stderr, never stdout; stdout stays pure finding data", () => {

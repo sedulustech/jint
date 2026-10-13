@@ -79,12 +79,13 @@ export const FINDING_SCHEMA = Type.Object({
 
 /**
  * The CLI's default stdout projection: one line per finding, whitespace-separated columns,
- * regex-parseable. All columns optional except rule/level/score; note keeps its brackets.
+ * regex-parseable. All columns optional except rule/level/score.
  */
 export const LINE_SCHEMA = Type.String({
-  // path(@L<line>)  rule  level  score  [note]  run=<id> — two-space separators, parseable. The
-  // element id never prints (run-scoped internal); files-target findings have no anchor.
-  pattern: "^(\\S+)(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}(  \\[[^\\]]+\\])?(  run=\\S+)?$",
+  // path(@L<line>)  rule  level  score — two-space separators, parseable. The element id
+  // never prints (run-scoped internal); files-target findings have no anchor. The chosen-level
+  // note and run id stay json-side: the note quotes the rule's own rubric, the run id prints once on stderr.
+  pattern: "^(\\S+)(@L\\d+)?  (\\S+)  (error|warn)  \\d+\\.\\d{2}$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({
