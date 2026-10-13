@@ -7,6 +7,8 @@
 `jint` constructs state with Treesitter, and classifies the state against a set of user defined rules using Typesafe's Jev.
 It then turns the classification values into actionable output via per-rule callbacks.
 
+[Read the blogpost!](https://sedulus.tech/blog/jint/)
+
 ## Install
 
 Install through NPM:
