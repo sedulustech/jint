@@ -388,15 +388,8 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str).
     if (nounName === "str") stdinStr = { content: await Bun.stdin.text() };
     // the path list: read NOW (the SDK takes the text; no lazy spec resolution behind lint()).
-    // A read failure is a setup error through the same exit mapping as an SDK-side one.
-    else {
-      try {
-        pathsContent = await readStdinList();
-      } catch (thrown) {
-        // the exit mapping lives in runCli, which owns the process boundary
-        throw thrown;
-      }
-    }
+    // A read failure propagates: runCli maps it to the exit code at its boundary.
+    else pathsContent = await readStdinList();
   } else if (positionals.length > 0) {
     // File positionals: files may be many; a directory is exactly one path (the walk owns its
     // tree). A noun anywhere but FIRST is a misplaced declaration, and it is checked before
