@@ -1,0 +1,50 @@
+name: Draft unit of work
+description: File a unit of work for consideration. Issues open as drafts; a maintainer promotes them.
+title: ""
+labels: ["draft"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write in Simplified Technical English. Short sentences (max 20 words). Active voice.
+        One idea per sentence. Same word for the same thing. Exact numbers, no qualifiers.
+
+        Every issue opens as a draft (`Status: draft`). A maintainer promotes it.
+        Omit sections that do not apply - never write "n/a".
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: 2-3 sentences. The contract violation, readable with zero context.
+      placeholder: State what is wrong, not what you tried.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro
+      description: Command or steps. Config, actual output, exact numbers. Evidence, not adjectives. Name the branch or worktree.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: cause
+    attributes:
+      label: Cause
+      description: Only if known. The mechanism, with code anchors (file, symbol). If unknown, write "The cause is unknown."
+    validations:
+      required: false
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Only if one exists. The behavioral change. Scope and test impact.
+    validations:
+      required: false
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Only for UI-rendering issues. The image must show the defect, not the whole screen.
+    validations:
+      required: false
