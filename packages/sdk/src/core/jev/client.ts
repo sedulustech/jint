@@ -67,6 +67,12 @@ export interface ClassifierConfig {
   runsDir?: string;
   /** Custom fetch for tests (structurally the vendor client's fetch). */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
+  /**
+   * The transport log sink (vendor backoff/warn/error visibility): one UNPREFIXED line per event.
+   * The SDK never writes a tool prefix — that is the client's voice, added at its write site.
+   * Default writes bare lines to stderr.
+   */
+  log?: (line: string) => void;
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
@@ -88,26 +94,26 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
 }
 
 function makeClient(config: ClassifierConfig | undefined, input: string): TypeSafeClient {
+  const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   try {
     return new TypeSafeClient({
       ...(config?.apiKey !== undefined && { apiKey: config.apiKey }),
       ...(config?.baseURL !== undefined && { baseURL: config.baseURL }),
       ...(config?.fetch !== undefined && { fetch: config.fetch }),
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
-      // at info, invisible under its warn default. Route those lines to stderr so a 429 backoff
-      // is visible in the CLI (one line per retry; nothing when the API is healthy).
+      // at info, invisible under its warn default. Route those lines to the log sink so a 429
+      // backoff is visible in the CLI (one line per retry; nothing when the API is healthy).
+      // Lines are UNPREFIXED - the sink's owner adds the tool prefix.
       logLevel: "info",
       logger: {
         debug: () => {},
         info: (message, ...args) => {
           if (message.includes("retrying in")) {
-            process.stderr.write(`jint: jev backoff: ${message} ${args.join(" ")}\n`);
+            writeLog(`jev backoff: ${message} ${args.join(" ")}`);
           }
         },
-        warn: (message, ...args) =>
-          process.stderr.write(`jint: jev warn: ${message} ${args.join(" ")}\n`),
-        error: (message, ...args) =>
-          process.stderr.write(`jint: jev error: ${message} ${args.join(" ")}\n`),
+        warn: (message, ...args) => writeLog(`jev warn: ${message} ${args.join(" ")}`),
+        error: (message, ...args) => writeLog(`jev error: ${message} ${args.join(" ")}`),
       },
     });
   } catch (e) {

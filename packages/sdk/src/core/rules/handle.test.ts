@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SetupError } from "../types.ts";
+import { InternalError } from "../types.ts";
 import { checkNoulHandler, compileNoulHandler, compileScoreHandler } from "./handle.ts";
 
 const NOUL = { warn: { greater_than: 0.3 }, error: { greater_than: 0.6 } } as const;
@@ -16,7 +16,7 @@ describe("compileScoreHandler", () => {
 
   test("out-of-scale and NaN scores are impossible states - fail loud, never silent null", () => {
     // jev bounds score to the criteria count; a violation means the wire contract broke.
-    expect(() => handle({ value: 3 })).toThrow(SetupError);
+    expect(() => handle({ value: 3 })).toThrow(InternalError);
     expect(() => handle({ value: -1 })).toThrow(/outside the criteria scale/);
     expect(() => handle({ value: Number.NaN })).toThrow(/outside the criteria scale/);
   });

@@ -65,8 +65,10 @@ export type {
 } from "@jint/contract";
 export {
   ClassifyError,
+  InternalError,
   SetupError,
   type ClassifyErrorCode,
+  type SetupDetail,
   type SetupErrorCode,
   type Rule,
   type NoulRule,

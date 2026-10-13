@@ -8,7 +8,10 @@
  * - ClassifyError — a per-unit failure to produce a measurement: a failed request to the classifier,
  *   or a unit that could not be mapped to elements; carried in the stream as a value, never thrown
  *   past the pipeline, never failing the run by itself
- * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants)
+ * - SetupError — a thrown setup/infrastructure failure (config, entrypoints, invariants); may carry a
+ *   SetupDetail: the structured data a consumer's emitter renders into prose
+ * - InternalError — the bug/escape-hatch bucket: an invariant violation or a thrown failure of
+ *   unknown shape; the error that says "this is jint's fault, not the invocation's"
  */
 
 /**
@@ -34,7 +37,8 @@ export type UnitKind = "file" | "str";
  * path-list read (jint paths -): LIST_UNREADABLE — bytes are not a path list — is an I/O judgment,
  * thrown where the bytes are read (the CLI; the SDK takes already-read text); LIST_ENTRY_INVALID
  * (an entry would need path interpretation) and LIST_EMPTY (no entries) are judgments of the parsed
- * data, thrown SDK-side from the text alone.
+ * data, thrown SDK-side from the text alone. Invariant violations are NOT here — they throw
+ * InternalError, whose code is only ever "INTERNAL".
  */
 export type SetupErrorCode =
   | "CONFIG_INVALID"
@@ -46,16 +50,25 @@ export type SetupErrorCode =
   | "LIST_EMPTY"
   | "MISSING_GRAMMAR"
   | "RULE_INVALID"
-  | "ELEMENT_NOT_FOUND"
-  | "INTERNAL";
+  | "ELEMENT_NOT_FOUND";
+
+/**
+ * Structured data a SetupError may carry: WHAT was wrong, as data — never the prose a terminal
+ * prints (the consumer's emitter renders that). Present iff the throw site knows the structure.
+ * `suggest` is the only optional field: a closest match legitimately may not exist.
+ */
+export type SetupDetail =
+  | { kind: "unknown-rule"; valid: readonly string[]; suggest?: string }
+  | { kind: "unknown-language"; valid: readonly string[] }
+  | { kind: "invalid-rule"; ruleIndex: number; field: string };
 
 /**
  * Codes a streamed ClassifyError carries: per-unit failures to produce a measurement. JEV_* codes
  * name request-layer causes; WALK_FAILED names a unit that could not be mapped to elements;
  * RULE_FAILED names a custom rule's mid-run throw (classify / target fn / handleClassification) —
- * per-unit, non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL lives in both
- * unions: invariant violations throw SetupError("INTERNAL"), while a classifier-adjacent failure of
- * unknown shape streams as ClassifyError("INTERNAL").
+ * per-unit, non-fatal, the run continues (design rules-context/01 §Errors). INTERNAL is this
+ * union's escape hatch: a classifier-adjacent failure of unknown shape streams as
+ * ClassifyError("INTERNAL"); a thrown invariant violation is InternalError instead.
  */
 export type ClassifyErrorCode =
   | "JEV_AUTH"
@@ -73,13 +86,31 @@ export type ClassifyErrorCode =
  * exit codes exactly once (cli.ts).
  */
 export class SetupError extends Error {
+  /** Structured data for consumers that render it; absent when the throw site has none. */
+  readonly detail?: SetupDetail;
   constructor(
     readonly code: SetupErrorCode,
     message: string,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; detail?: SetupDetail },
   ) {
     super(message, options);
     this.name = "SetupError";
+    if (options?.detail !== undefined) this.detail = options.detail;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/**
+ * The bug/escape-hatch bucket (HTTP 500's shape): an invariant violation, an impossible state, or
+ * an unknown-shaped thrown failure — the error that says the RUNNER is broken, not the invocation.
+ * Its code is only ever "INTERNAL" and it carries no detail: a bug has no structure to render.
+ */
+export class InternalError extends Error {
+  /** The one code this bucket carries; rendered like any other code downstream. */
+  readonly code = "INTERNAL";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "InternalError";
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

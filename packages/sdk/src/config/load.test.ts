@@ -41,13 +41,18 @@ describe("loadConfig", () => {
     }
   });
 
-  test("incomplete data handle -> CONFIG_INVALID", async () => {
+  test("incomplete data handle -> CONFIG_INVALID, detail names the first rule-path error", async () => {
     try {
       await loadConfig("tests/fixtures/configs/badhandle.config.json");
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
       expect((e as SetupError).message).toContain("/rules/0");
+      expect((e as SetupError).detail).toEqual({
+        kind: "invalid-rule",
+        ruleIndex: 0,
+        field: "instructions",
+      });
     }
   });
 
@@ -58,6 +63,30 @@ describe("loadConfig", () => {
     expect(() => validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline")).toThrow(
       /no defaults baseline was provided/,
     );
+  });
+
+  test("unknown rule name detail: the baseline vocabulary + closest match as data", () => {
+    try {
+      validateConfig({ input: "x", rules: ["is_greppble"] }, "inline", defaultRules);
+      expect.unreachable();
+    } catch (e) {
+      const detail = (e as SetupError).detail;
+      expect(detail?.kind).toBe("unknown-rule");
+      if (detail?.kind === "unknown-rule") {
+        expect(detail.valid.length).toBe(defaultRules ? Object.keys(defaultRules).length : 0);
+        expect(detail.suggest).toBe("is_greppable");
+      }
+    }
+  });
+
+  test("a schema error outside a rule index throws WITHOUT detail", async () => {
+    try {
+      await loadConfig("tests/fixtures/configs/invalid.config.json");
+      expect.unreachable();
+    } catch (e) {
+      // first error is /input (not a rule path): no invalid-rule detail
+      expect((e as SetupError).detail).toBeUndefined();
+    }
   });
 
   test("a rules-less config without a baseline is a named setup error", () => {

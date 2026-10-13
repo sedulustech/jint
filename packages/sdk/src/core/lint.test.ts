@@ -905,7 +905,7 @@ describe("lint — unknown rule names", () => {
     ).rejects.toMatchObject({ name: "SetupError", code: "CONFIG_INVALID" });
   });
 
-  test("a close miss suggests the nearest known rule name", async () => {
+  test("a close miss carries the nearest known rule name in the detail (data, not prose)", async () => {
     await expect(
       drain(
         lint({
@@ -915,7 +915,12 @@ describe("lint — unknown rule names", () => {
           classifier: classifierWith({}),
         }),
       ),
-    ).rejects.toThrow(/unknown rule "is_greppable_x" — did you mean: is_greppable\?/);
+    ).rejects.toMatchObject({
+      name: "SetupError",
+      code: "CONFIG_INVALID",
+      message: 'unknown rule "is_greppable_x"',
+      detail: { kind: "unknown-rule", suggest: "is_greppable" },
+    });
   });
 });
 

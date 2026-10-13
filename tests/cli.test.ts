@@ -318,7 +318,12 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("unknown --language: usage error exit 2 before any input is touched", async () => {
     expectContract(await run(["str", "-", "--language", "klingon"], NO_SERVICE), {
       exit: 2,
-      stderr: ["unknown language 'klingon'", "see --help for valid grammar ids"],
+      // same shape as the SDK's unknown-language throws: message, capped valid list, code
+      stderr: [
+        "unknown language 'klingon'",
+        "valid: typescript, tsx, python, go",
+        "[MISSING_GRAMMAR]",
+      ],
       stdout: "empty",
     });
   });
