@@ -374,75 +374,108 @@ function cellSeverity(
  * (by ts, then filename); duration is approximated as file mtime - request ts (the tap writes the
  * file right after the response lands; not a measured latency).
  */
-export async function getRun(root: string, dir: string, id: string): Promise<object> {
-  const files = (await readdir(dir)).filter((f) => f.endsWith(JSON_SUFFIX));
-  const reportFile = files.includes(REPORT_FILE);
-  const requestFiles = files.filter((f) => f !== REPORT_FILE && f !== MANIFEST_FILE);
-  // Canonical rule names come from the report (the engine's own spelling). The request question
-  // keys are a derived encoding ("<rule> in <element>") and parsing them is lossy when a rule
-  // name or element id itself contains " in " - so the report wins whenever it exists.
-  let pathRules: Map<string, string[]> | null = null;
-  let reportMeasurementCount = 0;
-  // per-path measurements, for handle projection of rows without findings
-  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
-
-  // the manifest's handle snapshot: the exact semantics the engine compiled, shipped as data
-  let handles: Record<string, HandlerData> | null = null;
-  let manifestLegacy = false;
+/**
+ * The manifest's handle snapshot: the exact semantics the engine compiled, shipped as data. A
+ * missing or unreadable manifest means no projection - rows keep report verdicts only.
+ */
+async function readManifestHandles(
+  dir: string,
+): Promise<{ handles: Record<string, HandlerData> | null; legacy: boolean }> {
   try {
     const manifest = JSON.parse(await readFile(join(dir, MANIFEST_FILE), READ_ENCODING)) as {
       handles?: Record<string, HandlerData>;
       legacy?: boolean;
     };
-    if (manifest.handles && Object.keys(manifest.handles).length > 0) handles = manifest.handles;
-    manifestLegacy = manifest.legacy === true;
+    return {
+      handles:
+        manifest.handles && Object.keys(manifest.handles).length > 0 ? manifest.handles : null,
+      legacy: manifest.legacy === true,
+    };
   } catch {
-    handles = null;
+    return { handles: null, legacy: false };
   }
+}
+
+/**
+ * The report's own verdicts and measurements, joined from report.json. Canonical rule names come
+ * from the report (the engine's own spelling); the request question keys are a derived encoding
+ * ("<rule> in <element>") and parsing them is lossy when a rule name or element id itself contains
+ * " in " - so the report wins whenever it exists. Returns null facts when the report is unreadable
+ * (fall back to question-key parsing).
+ */
+async function readReportFacts(dir: string): Promise<{
+  findingSev: Map<string, Map<string, Severity>>;
+  pathRules: Map<string, string[]> | null;
+  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null;
+  measurementCount: number;
+}> {
   // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
   // span joined a file's worst element verdict onto every sibling element - the exact inversion
   // the handle snapshot exists to prevent.
   const findingSev = new Map<string, Map<string, Severity>>();
-  if (reportFile) {
-    try {
-      const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as {
-        measurements?: {
-          input: string;
-          rule: string;
-          value?: number;
-          element?: Element;
-        }[];
-        findings?: { input: string; rule: string; severity: Severity }[];
-      };
-      // the join is (input, rule) - a bare-input key would let one rule's verdict answer
-      // another rule's lookup at the same path
-      for (const f of report.findings ?? []) {
-        const byRule = findingSev.get(f.input) ?? new Map<string, Severity>();
-        byRule.set(f.rule, f.severity);
-        findingSev.set(f.input, byRule);
-      }
-      pathRules = new Map();
-      pathValues = new Map();
-      for (const m of report.measurements ?? []) {
-        reportMeasurementCount += 1;
-        // pathRules keys on the bare path (requests look up by state.path); pathValues keys on
-        // the FULL input (path#span) so projection matches the element identity.
-        const path = m.input.split("#")[0]!;
-        const arr = pathRules.get(path);
-        if (arr) {
-          if (!arr.includes(m.rule)) arr.push(m.rule);
-        } else pathRules.set(path, [m.rule]);
-        if (typeof m.value === "number") {
-          const vals = pathValues.get(m.input);
-          const entry = { rule: m.rule, value: m.value, element: m.element };
-          if (vals) vals.push(entry);
-          else pathValues.set(m.input, [entry]);
-        }
-      }
-    } catch {
-      // unreadable report: fall back to question-key parsing
-      pathRules = null;
+  let pathRules: Map<string, string[]> | null = null;
+  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
+  let measurementCount = 0;
+  try {
+    const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as {
+      measurements?: {
+        input: string;
+        rule: string;
+        value?: number;
+        element?: Element;
+      }[];
+      findings?: { input: string; rule: string; severity: Severity }[];
+    };
+    // the join is (input, rule) - a bare-input key would let one rule's verdict answer
+    // another rule's lookup at the same path
+    for (const f of report.findings ?? []) {
+      const byRule = findingSev.get(f.input) ?? new Map<string, Severity>();
+      byRule.set(f.rule, f.severity);
+      findingSev.set(f.input, byRule);
     }
+    pathRules = new Map();
+    pathValues = new Map();
+    for (const m of report.measurements ?? []) {
+      measurementCount += 1;
+      // pathRules keys on the bare path (requests look up by state.path); pathValues keys on
+      // the FULL input (path#span) so projection matches the element identity.
+      const path = m.input.split("#")[0]!;
+      const arr = pathRules.get(path);
+      if (arr) {
+        if (!arr.includes(m.rule)) arr.push(m.rule);
+      } else pathRules.set(path, [m.rule]);
+      if (typeof m.value === "number") {
+        const vals = pathValues.get(m.input);
+        const entry = { rule: m.rule, value: m.value, element: m.element };
+        if (vals) vals.push(entry);
+        else pathValues.set(m.input, [entry]);
+      }
+    }
+  } catch {
+    // unreadable report: fall back to question-key parsing
+    return { findingSev, pathRules: null, pathValues: null, measurementCount: 0 };
+  }
+  return { findingSev, pathRules, pathValues, measurementCount };
+}
+
+export async function getRun(root: string, dir: string, id: string): Promise<object> {
+  const files = (await readdir(dir)).filter((f) => f.endsWith(JSON_SUFFIX));
+  const reportFile = files.includes(REPORT_FILE);
+  const requestFiles = files.filter((f) => f !== REPORT_FILE && f !== MANIFEST_FILE);
+  let pathRules: Map<string, string[]> | null = null;
+  let reportMeasurementCount = 0;
+  // per-path measurements, for handle projection of rows without findings
+  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
+
+  const { handles, legacy: manifestLegacy } = await readManifestHandles(dir);
+  const findingSev = new Map<string, Map<string, Severity>>();
+  if (reportFile) {
+    const facts = await readReportFacts(dir);
+    findingSev.clear();
+    for (const [input, byRule] of facts.findingSev) findingSev.set(input, byRule);
+    pathRules = facts.pathRules;
+    pathValues = facts.pathValues;
+    reportMeasurementCount = facts.measurementCount;
   }
   // Torn-write guard: the engine now writes report.json atomically, but an old or mid-copy
   // report can still be a fragment. A report with fewer measurements than requests is not

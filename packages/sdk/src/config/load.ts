@@ -258,26 +258,35 @@ function isCallbackRule(entry: unknown): boolean {
  * problems) throws without one. String#match, not the RegExp method - the no-git guard forbids that
  * token under src/.
  */
+/**
+ * Per-entry rule-schema errors, best branch per entry: the two rule schemas are tried and the
+ * branch that failed on fewer fields is the shape the author intended (a rule missing only its
+ * question, not a different shape entirely). Entries that are not objects contribute nothing (the
+ * generic schema errors cover them).
+ */
+function ruleFieldErrors(raw: unknown): string[] {
+  if (!Array.isArray((raw as { rules?: unknown }).rules)) return [];
+  return ((raw as { rules: unknown[] }).rules as unknown[])
+    .map((entry, i) => {
+      if (typeof entry !== "object" || entry === null) return [];
+      const branchErrors = [NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA].map(
+        (branch): [string, string][] =>
+          [...Value.Errors(branch, entry)].map(
+            (e) => [`/rules/${i}${e.path}`, e.message] as [string, string],
+          ),
+      );
+      // The branch that failed on FEWER fields is the shape the author intended.
+      const best = branchErrors.sort((a, b) => a.length - b.length)[0] ?? [];
+      return best.map(([p, msg]) => `${p} ${msg}`);
+    })
+    .flat();
+}
+
 function throwConfigInvalid(raw: unknown, source: string): never {
   const messages = [...Value.Errors(CONFIG_SCHEMA, raw)].map((err) =>
     err.path === "" ? "/ " + err.message : `${err.path} ${err.message}`,
   );
-  const ruleErrors = Array.isArray((raw as { rules?: unknown }).rules)
-    ? ((raw as { rules: unknown[] }).rules as unknown[])
-        .map((entry, i) => {
-          if (typeof entry !== "object" || entry === null) return [];
-          const branchErrors = [NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA].map(
-            (branch): [string, string][] =>
-              [...Value.Errors(branch, entry)].map(
-                (e) => [`/rules/${i}${e.path}`, e.message] as [string, string],
-              ),
-          );
-          // The branch that failed on FEWER fields is the shape the author intended.
-          const best = branchErrors.sort((a, b) => a.length - b.length)[0] ?? [];
-          return best.map(([p, msg]) => `${p} ${msg}`);
-        })
-        .flat()
-    : [];
+  const ruleErrors = ruleFieldErrors(raw);
   const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
   const field = rulePath?.[2];
   throw new SetupError(

@@ -149,6 +149,49 @@ function scopeSkipNote(path: string, element: WalkElement, rules: readonly Rule[
   return `${path}: ${element.label} (${span}) not measured - no requested rule applies: ${mismatches}; zero classifier calls were made for this selection`;
 }
 
+/**
+ * Element-scope narrowing: the single file's inventory collapses to the selected element, so
+ * element jobs fan out to ONE classifier call. A selector that names nothing (a line outside every
+ * span) is a caller error — fail setup, naming what the file does contain. Elements no scoped rule
+ * targets come back as `skipped` for the caller to name, never silence.
+ */
+function selectScopedElements(
+  w: WalkedUnit,
+  element: NonNullable<LintOptions["element"]>,
+  scopedRules: readonly Rule[],
+): { selected: WalkElement[]; skipped: WalkElement[] } {
+  if (w.failed !== null)
+    throw new SetupError("ELEMENT_NOT_FOUND", `cannot resolve element: ${w.failed}`);
+  const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
+  let selected: WalkElement[];
+  if (element.anchor !== undefined) {
+    // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
+    const anchor = selectElement(w.inventory, { line: element.anchor });
+    if (anchor === undefined)
+      throw new SetupError(
+        "ELEMENT_NOT_FOUND",
+        `${element.path}: line ${element.anchor} is inside no element (elements cover: ${coverage})`,
+      );
+    selected = [anchor];
+  } else {
+    // RANGE: fully-enclosed only; each comma item resolves independently.
+    selected = [];
+    for (const range of element.ranges ?? []) {
+      const enclosed = selectElements(w.inventory, range);
+      if (enclosed.length === 0)
+        throw new SetupError(
+          "ELEMENT_NOT_FOUND",
+          `${element.path}: no element fully enclosed in L${range.start}-L${range.end} (elements cover: ${coverage})`,
+        );
+      selected.push(...enclosed);
+    }
+  }
+  const skipped = selected.filter(
+    (candidate) => rulesForElement(scopedRules, candidate, element.path).length === 0,
+  );
+  return { selected, skipped };
+}
+
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
@@ -351,47 +394,17 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     };
   }
   // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
-  // selected element, so element jobs fan out to ONE classifier call. A selector that names
-  // nothing (a line outside every span) is a caller error — fail setup, naming what
-  // the file does contain.
+  // selected element, so element jobs fan out to ONE classifier call.
   if (options.element !== undefined) {
     const w = walked.get(0);
-    if (w === undefined || w.failed !== null)
-      throw new SetupError(
-        "ELEMENT_NOT_FOUND",
-        `cannot resolve element: ${w?.failed ?? "file did not walk"}`,
-      );
-    const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
-    let selected: WalkElement[];
-    if (options.element.anchor !== undefined) {
-      // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
-      const anchor = selectElement(w.inventory, { line: options.element.anchor });
-      if (anchor === undefined)
-        throw new SetupError(
-          "ELEMENT_NOT_FOUND",
-          `${options.element.path}: line ${options.element.anchor} is inside no element (elements cover: ${coverage})`,
-        );
-      selected = [anchor];
-    } else {
-      // RANGE: fully-enclosed only; each comma item resolves independently.
-      selected = [];
-      for (const range of options.element.ranges ?? []) {
-        const enclosed = selectElements(w.inventory, range);
-        if (enclosed.length === 0)
-          throw new SetupError(
-            "ELEMENT_NOT_FOUND",
-            `${options.element.path}: no element fully enclosed in L${range.start}-L${range.end} (elements cover: ${coverage})`,
-          );
-        selected.push(...enclosed);
-      }
-    }
-    const elementOpt = options.element;
+    if (w === undefined)
+      throw new SetupError("ELEMENT_NOT_FOUND", "cannot resolve element: file did not walk");
     // Elements no scoped rule targets are skipped + named, never failed: the note says WHICH
     // element, WHICH rules were requested, WHY nothing applies, and that no classifier call was
     // spent - a scoped run that measured nothing must never read as a clean pass.
-    for (const element of selected) {
-      if (rulesForElement(scopedRules, element, elementOpt.path).length > 0) continue;
-      yield { type: "note", note: scopeSkipNote(elementOpt.path, element, scopedRules) };
+    const { selected, skipped } = selectScopedElements(w, options.element, scopedRules);
+    for (const element of skipped) {
+      yield { type: "note", note: scopeSkipNote(options.element.path, element, scopedRules) };
     }
     walked.set(0, {
       inventory: selected,

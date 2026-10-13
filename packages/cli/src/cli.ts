@@ -326,6 +326,182 @@ export function recordNotice(): string {
   const override = record.override ? " (override: JINT_DIR)" : "";
   return `requests -> ${record.dir} (${record.count} calls)${override}`;
 }
+/**
+ * Input resolution precedence: command noun > stdin > config.input > error. A positional path's
+ * kind is inferred by shape (exists-as-dir -> dir, else file); piped stdin is DECLARED by a noun,
+ * never guessed. Usage errors print and return the usage outcome; the caller maps it to exit 2. See
+ * runCli for the TTY/fall-through contract this preserves.
+ */
+async function resolveCliInput(positionals: readonly string[]): Promise<
+  | { outcome: "usage" }
+  | {
+      outcome: "ok";
+      stdinStr: { content: string } | undefined;
+      lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
+      elementScope: FileSelector | undefined;
+      pathsContent: string | undefined;
+    }
+> {
+  let stdinStr: { content: string } | undefined;
+  let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
+  let elementScope: FileSelector | undefined;
+  // The paths noun's payload: always '-' (stdin). The CLI does the read HERE (I/O at the
+  // boundary that owns it) and hands lint() the already-read text, like str's content.
+  let pathsContent: string | undefined;
+  const firstPositional = positionals[0];
+  if (firstPositional === "-") {
+    // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
+    usageError(`bare '-' is undeclared - name the noun: ${NOUN_FORMS}`);
+    return { outcome: "usage" as const };
+  }
+  // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional, its next
+  // positional is the payload — '-' and nothing else — and nothing follows the payload. The noun
+  // declares how stdin is read; there is no inline payload to protect from flag parsing.
+  const nounName =
+    firstPositional !== undefined && Object.hasOwn(NOUNS, firstPositional)
+      ? (firstPositional as keyof typeof NOUNS)
+      : undefined;
+  if (nounName !== undefined) {
+    const noun = NOUNS[nounName];
+    const payload = positionals[1];
+    if (payload === undefined) {
+      usageError(`jint ${nounName} expects a payload  - use: jint ${nounName} ${noun.payload}`);
+      return { outcome: "usage" as const };
+    }
+    if (payload !== noun.payload) {
+      const hint = "hint" in noun ? ` (${noun.hint})` : "";
+      usageError(
+        `'${payload}' is not a payload  - jint ${nounName} reads piped stdin: jint ${nounName} ${noun.payload}, and nothing follows it${hint}`,
+      );
+      return { outcome: "usage" as const };
+    }
+    if (positionals.length > 2) {
+      usageError(
+        `nothing may follow the payload  - jint ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
+      );
+      return { outcome: "usage" as const };
+    }
+    if (process.stdin.isTTY) {
+      usageError(`jint ${nounName} ${noun.payload}: no piped stdin to read (stdin is a terminal)`);
+      return { outcome: "usage" as const };
+    }
+    // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str).
+    if (nounName === "str") stdinStr = { content: await Bun.stdin.text() };
+    // the path list: read NOW (the SDK takes the text; no lazy spec resolution behind lint()).
+    // A read failure is a setup error through the same exit mapping as an SDK-side one.
+    else {
+      try {
+        pathsContent = await readStdinList();
+      } catch (thrown) {
+        // the exit mapping lives in runCli, which owns the process boundary
+        throw thrown;
+      }
+    }
+  } else if (positionals.length > 0) {
+    // File positionals: files may be many; a directory is exactly one path (the walk owns its
+    // tree). A noun anywhere but FIRST is a misplaced declaration, and it is checked before
+    // anything else. ONE consistent unknown-option rule next: a dash-leading positional that is
+    // no known flag and no existing path is a mistyped flag (or a flag whose `--` separator the
+    // bun runtime consumed) — say so, naming the token. An existing dash-leading file stays a
+    // path, reachable verbatim after `--`.
+    for (const positional of positionals) {
+      if (Object.hasOwn(NOUNS, positional)) {
+        usageError(
+          `a noun is the FIRST positional  - use: jint ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
+        );
+        return { outcome: "usage" as const };
+      }
+    }
+    for (const positional of positionals) {
+      if (positional.startsWith("-") && !existsSync(positional)) {
+        usageError(`unknown option or missing path '${positional}' - see jint --help`);
+        return { outcome: "usage" as const };
+      }
+    }
+    if (positionals.length > 1) {
+      try {
+        if (statSync(positionals[0]!).isDirectory()) {
+          usageError(`a directory is one path  - use: jint ${positionals[0]}`);
+          return { outcome: "usage" as const };
+        }
+      } catch {
+        // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
+      }
+    }
+    // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
+    // element. A selector on multiple positionals or on a directory is a caller contradiction —
+    // say so before any input is touched.
+    const selectors = positionals.map((p) => parseFileSelector(p));
+    const pasted = selectors.find((sel) => sel.pastedId === true);
+    if (pasted !== undefined) {
+      usageError(
+        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+      );
+      return { outcome: "usage" as const };
+    }
+    const bad = selectors.find((sel) => sel.badRange !== undefined);
+    if (bad !== undefined) {
+      usageError(
+        `bad line span "${bad.path}@${bad.badRange}" - use @L<line> or @L<start>-<end>,... with start <= end (see jint --help)`,
+      );
+      return { outcome: "usage" as const };
+    }
+    const selected = selectors.filter(
+      (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
+    );
+    if (selected.length > 1) {
+      usageError("one element selector per run  - select from a single file");
+      return { outcome: "usage" as const };
+    }
+    if (selected.length === 1) {
+      const sel = selected[0]!;
+      if (selectors.length > 1) {
+        usageError(
+          `an element selector selects one file  - classify the others separately: jint ${sel.path}`,
+        );
+        return { outcome: "usage" as const };
+      }
+      if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
+        usageError(`${sel.path} is a directory  - element selectors take files`);
+        return { outcome: "usage" as const };
+      }
+      elementScope = sel;
+      lintInput = { input: sel.path };
+    } else {
+      // shape inference: exists-as-dir -> dir, else file
+      lintInput =
+        positionals.length === 1
+          ? { input: positionals[0]! }
+          : { input: [...positionals], inputType: "file" };
+    }
+  }
+  // Piped stdin is never guessed: with no str unit (stdin already consumed) and no paths noun
+  // declaring the stdin list, a non-empty pipe is a usage error. An EMPTY pipe falls through so
+  // config.input can flow (a closed or /dev/null stdin is the config-only invocation shape); a
+  // TTY is never read.
+  if (
+    stdinStr === undefined &&
+    lintInput === undefined &&
+    pathsContent === undefined &&
+    !process.stdin.isTTY
+  ) {
+    const content = await Bun.stdin.text();
+    if (content !== "") {
+      usageError(
+        "piped stdin needs a kind  - use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
+      );
+      return { outcome: "usage" as const };
+    }
+  }
+
+  return {
+    outcome: "ok",
+    stdinStr,
+    lintInput,
+    elementScope,
+    pathsContent,
+  };
+}
 
 export async function runCli(cliArgv: string[]): Promise<number> {
   provideVirtualModules();
@@ -381,157 +557,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // /dev/null stdin is the config-only invocation shape). A TTY is never read; a TTY with the
   // payload '-' dies here, not blocking on the terminal, and a TTY with no noun and no config
   // input dies in lint()'s empty-input backstop.
-  let stdinStr: { content: string } | undefined;
-  let lintInput: { input: string | string[]; inputType?: InputKind } | undefined;
-  let elementScope: FileSelector | undefined;
-  // The paths noun's payload: always '-' (stdin). The CLI does the read HERE (I/O at the
-  // boundary that owns it) and hands lint() the already-read text, like str's content.
-  let pathsContent: string | undefined;
-  const positionals = parsedCliArgs.positionals;
-  const firstPositional = positionals[0];
-  if (firstPositional === "-") {
-    // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
-    usageError(`bare '-' is undeclared - name the noun: ${NOUN_FORMS}`);
-    return 2;
+  let selection: Awaited<ReturnType<typeof resolveCliInput>>;
+  try {
+    selection = await resolveCliInput(parsedCliArgs.positionals);
+  } catch (thrown) {
+    return exitForThrown(thrown);
   }
-  // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional, its next
-  // positional is the payload — '-' and nothing else — and nothing follows the payload. The noun
-  // declares how stdin is read; there is no inline payload to protect from flag parsing.
-  const nounName =
-    firstPositional !== undefined && Object.hasOwn(NOUNS, firstPositional)
-      ? (firstPositional as keyof typeof NOUNS)
-      : undefined;
-  if (nounName !== undefined) {
-    const noun = NOUNS[nounName];
-    const payload = positionals[1];
-    if (payload === undefined) {
-      usageError(`jint ${nounName} expects a payload  - use: jint ${nounName} ${noun.payload}`);
-      return 2;
-    }
-    if (payload !== noun.payload) {
-      const hint = "hint" in noun ? ` (${noun.hint})` : "";
-      usageError(
-        `'${payload}' is not a payload  - jint ${nounName} reads piped stdin: jint ${nounName} ${noun.payload}, and nothing follows it${hint}`,
-      );
-      return 2;
-    }
-    if (positionals.length > 2) {
-      usageError(
-        `nothing may follow the payload  - jint ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
-      );
-      return 2;
-    }
-    if (process.stdin.isTTY) {
-      usageError(`jint ${nounName} ${noun.payload}: no piped stdin to read (stdin is a terminal)`);
-      return 2;
-    }
-    // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str).
-    if (nounName === "str") stdinStr = { content: await Bun.stdin.text() };
-    // the path list: read NOW (the SDK takes the text; no lazy spec resolution behind lint()).
-    // A read failure is a setup error through the same exit mapping as an SDK-side one.
-    else {
-      try {
-        pathsContent = await readStdinList();
-      } catch (thrown) {
-        return exitForThrown(thrown);
-      }
-    }
-  } else if (positionals.length > 0) {
-    // File positionals: files may be many; a directory is exactly one path (the walk owns its
-    // tree). A noun anywhere but FIRST is a misplaced declaration, and it is checked before
-    // anything else. ONE consistent unknown-option rule next: a dash-leading positional that is
-    // no known flag and no existing path is a mistyped flag (or a flag whose `--` separator the
-    // bun runtime consumed) — say so, naming the token. An existing dash-leading file stays a
-    // path, reachable verbatim after `--`.
-    for (const positional of positionals) {
-      if (Object.hasOwn(NOUNS, positional)) {
-        usageError(
-          `a noun is the FIRST positional  - use: jint ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
-        );
-        return 2;
-      }
-    }
-    for (const positional of positionals) {
-      if (positional.startsWith("-") && !existsSync(positional)) {
-        usageError(`unknown option or missing path '${positional}' - see jint --help`);
-        return 2;
-      }
-    }
-    if (positionals.length > 1) {
-      try {
-        if (statSync(positionals[0]!).isDirectory()) {
-          usageError(`a directory is one path  - use: jint ${positionals[0]}`);
-          return 2;
-        }
-      } catch {
-        // first positional not stat-able: file list — fileUnit reports ENTRYPOINT_NOT_FOUND
-      }
-    }
-    // Element selector on a file noun (path@L<n>): exactly one selected file, judged as one
-    // element. A selector on multiple positionals or on a directory is a caller contradiction —
-    // say so before any input is touched.
-    const selectors = positionals.map((p) => parseFileSelector(p));
-    const pasted = selectors.find((sel) => sel.pastedId === true);
-    if (pasted !== undefined) {
-      usageError(
-        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
-      );
-      return 2;
-    }
-    const bad = selectors.find((sel) => sel.badRange !== undefined);
-    if (bad !== undefined) {
-      usageError(
-        `bad line span "${bad.path}@${bad.badRange}" - use @L<line> or @L<start>-<end>,... with start <= end (see jint --help)`,
-      );
-      return 2;
-    }
-    const selected = selectors.filter(
-      (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
-    );
-    if (selected.length > 1) {
-      usageError("one element selector per run  - select from a single file");
-      return 2;
-    }
-    if (selected.length === 1) {
-      const sel = selected[0]!;
-      if (selectors.length > 1) {
-        usageError(
-          `an element selector selects one file  - classify the others separately: jint ${sel.path}`,
-        );
-        return 2;
-      }
-      if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
-        usageError(`${sel.path} is a directory  - element selectors take files`);
-        return 2;
-      }
-      elementScope = sel;
-      lintInput = { input: sel.path };
-    } else {
-      // shape inference: exists-as-dir -> dir, else file
-      lintInput =
-        positionals.length === 1
-          ? { input: positionals[0]! }
-          : { input: [...positionals], inputType: "file" };
-    }
-  }
-  // Piped stdin is never guessed: with no str unit (stdin already consumed) and no paths noun
-  // declaring the stdin list, a non-empty pipe is a usage error. An EMPTY pipe falls through so
-  // config.input can flow (a closed or /dev/null stdin is the config-only invocation shape); a
-  // TTY is never read.
-  if (
-    stdinStr === undefined &&
-    lintInput === undefined &&
-    pathsContent === undefined &&
-    !process.stdin.isTTY
-  ) {
-    const content = await Bun.stdin.text();
-    if (content !== "") {
-      usageError(
-        "piped stdin needs a kind  - use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
-      );
-      return 2;
-    }
-  }
+  if (selection.outcome === "usage") return 2;
+  const { stdinStr, lintInput, elementScope, pathsContent } = selection;
 
   // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
   const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
@@ -942,10 +975,11 @@ async function readStdinList(): Promise<string> {
   }
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
+  } catch (cause) {
     throw new SetupError(
       "LIST_UNREADABLE",
       `path list is not UTF-8 text (${bytes.byteLength} bytes) - binary input is not a path list (a list is one path per line)`,
+      { cause },
     );
   }
 }

@@ -128,6 +128,117 @@ const reportSearchEditFailure = (cause: unknown): void => {
   console.error("run search edit failed", { cause });
 };
 
+/*
+ * Panel toggles are URL edits so back/forward walks run + panel history.
+ * RAPID navigations get dropped: while one commit is in flight the router
+ * dedupes the next against the stale latestLocation (toggle hide->show
+ * within a commit window loses the second click). Serialize them so every
+ * click lands, in order.
+ */
+function useSequentialSearchEdit(
+  runId: string | null,
+): (searchChange: Partial<RunSearch>) => Promise<unknown> {
+  const navigate = useNavigate();
+  const pendingNavigation = useRef<Promise<unknown>>(Promise.resolve());
+  return (searchChange: Partial<RunSearch>): Promise<unknown> => {
+    pendingNavigation.current = pendingNavigation.current
+      .then(() =>
+        navigate(
+          runId === null
+            ? {
+                to: "/",
+                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
+              }
+            : {
+                to: RUN_ROUTE,
+                params: { runId },
+                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
+              },
+        ),
+      )
+      .catch(reportSearchEditFailure);
+    return pendingNavigation.current;
+  };
+}
+
+function ThemeButtons({
+  theme,
+  choose,
+}: {
+  theme: string;
+  choose: (m: "system" | "light" | "dark") => void;
+}) {
+  return (
+    <div className="ml-auto flex items-center gap-related" role="group" aria-label="theme">
+      {(
+        [
+          ["system", Monitor],
+          ["light", Sun],
+          ["dark", Moon],
+        ] as const
+      ).map(([m, Icon]) => (
+        <Button
+          key={m}
+          variant="secondary"
+          size="icon-xs"
+          data-testid={`theme-${m}`}
+          aria-label={`${m} theme`}
+          aria-pressed={theme === m}
+          title={`${m} theme`}
+          onClick={() => choose(m)}
+          className={theme === m ? undefined : "border border-input"}
+        >
+          <Icon />
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function RunLanding({ runList, onPick }: { runList: RunSummary[]; onPick: (id: string) => void }) {
+  return (
+    <div className="m-auto flex max-w-2xl flex-col items-center gap-sections text-body text-muted-foreground">
+      {runList.length === 0 ? (
+        <p>no runs found - run jint once (store: ~/.jint/runs)</p>
+      ) : (
+        <>
+          {/* heading one scale step above the cards it names (F8) */}
+          <p data-testid="run-picker-heading" className="text-emphasis text-foreground">
+            select a run
+          </p>
+          <div className="flex flex-wrap justify-center gap-siblings">
+            {runList.slice(0, 8).map((run) => (
+              <Button
+                key={run.id}
+                variant="secondary"
+                size="sm"
+                className="w-72 justify-start text-body"
+                onClick={() => onPick(run.id)}
+                title={`run id: ${run.id}`}
+              >
+                {/* fixed-width cards on one wrap grid; meta right-pinned so its columns
+                    line up across every row (F2) */}
+                <span className="min-w-0 truncate">{runLabel(run)}</span>
+                <span className="ml-auto truncate pl-related text-muted-foreground">
+                  {run.configPath !== null && ` · ${baseName(run.configPath)}`}
+                  {run.configPath === null &&
+                    (run.legacy ? " · migrated run" : " · default rules")}{" "}
+                  · {relTime(run.mtime)} · {run.requests} req
+                </span>
+              </Button>
+            ))}
+          </div>
+          {runList.length > 8 && (
+            <p className="text-body text-muted-foreground">
+              …{runList.length - 8} more in the picker
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const DEFAULT_MODE: Mode = "file";
 // the run route id, shared by navigate and link so the two cannot drift
 const RUN_ROUTE = "/runs/$runId";
@@ -192,26 +303,7 @@ export function App({ runId }: { runId: string | null }) {
   // dedupes the next against the stale latestLocation (toggle hide->show
   // within a commit window loses the second click). Serialize them so every
   // click lands, in order.
-  const pendingNavigation = useRef<Promise<unknown>>(Promise.resolve());
-  const editSearch = (searchChange: Partial<RunSearch>): Promise<unknown> => {
-    pendingNavigation.current = pendingNavigation.current
-      .then(() =>
-        navigate(
-          runId === null
-            ? {
-                to: "/",
-                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
-              }
-            : {
-                to: RUN_ROUTE,
-                params: { runId },
-                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
-              },
-        ),
-      )
-      .catch(reportSearchEditFailure);
-    return pendingNavigation.current;
-  };
+  const editSearch = useSequentialSearchEdit(runId);
   const setReportOverride = (reportChoice: boolean | null) => {
     editSearch({ report: reportChoice === null ? undefined : reportChoice ? 1 : 0 });
   };
@@ -248,29 +340,7 @@ export function App({ runId }: { runId: string | null }) {
             {runs.error.message}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-related" role="group" aria-label="theme">
-          {(
-            [
-              ["system", Monitor],
-              ["light", Sun],
-              ["dark", Moon],
-            ] as const
-          ).map(([m, Icon]) => (
-            <Button
-              key={m}
-              variant="secondary"
-              size="icon-xs"
-              data-testid={`theme-${m}`}
-              aria-label={`${m} theme`}
-              aria-pressed={theme === m}
-              title={`${m} theme`}
-              onClick={() => choose(m)}
-              className={theme === m ? undefined : "border border-input"}
-            >
-              <Icon />
-            </Button>
-          ))}
-        </div>
+        <ThemeButtons theme={theme} choose={choose} />
       </header>
       <RunHeader run={selectedRun} picker={picker} />
       {runId !== null && !runs.isLoading && runs.error == null && selectedRun === null ? (
@@ -278,45 +348,7 @@ export function App({ runId }: { runId: string | null }) {
         // route to an absent id renders the shared 404 idiom inside the shell
         <NotFound title={`run ${runId} not found`} detail="gone or never existed" />
       ) : runId === null ? (
-        <div className="m-auto flex max-w-2xl flex-col items-center gap-sections text-body text-muted-foreground">
-          {runList.length === 0 ? (
-            <p>no runs found - run jint once (store: ~/.jint/runs)</p>
-          ) : (
-            <>
-              {/* heading one scale step above the cards it names (F8) */}
-              <p data-testid="run-picker-heading" className="text-emphasis text-foreground">
-                select a run
-              </p>
-              <div className="flex flex-wrap justify-center gap-siblings">
-                {runList.slice(0, 8).map((run) => (
-                  <Button
-                    key={run.id}
-                    variant="secondary"
-                    size="sm"
-                    className="w-72 justify-start text-body"
-                    onClick={() => pickRun(run.id)}
-                    title={`run id: ${run.id}`}
-                  >
-                    {/* fixed-width cards on one wrap grid; meta right-pinned so its columns
-                        line up across every row (F2) */}
-                    <span className="min-w-0 truncate">{runLabel(run)}</span>
-                    <span className="ml-auto truncate pl-related text-muted-foreground">
-                      {run.configPath !== null && ` · ${baseName(run.configPath)}`}
-                      {run.configPath === null &&
-                        (run.legacy ? " · migrated run" : " · default rules")}{" "}
-                      · {relTime(run.mtime)} · {run.requests} req
-                    </span>
-                  </Button>
-                ))}
-              </div>
-              {runList.length > 8 && (
-                <p className="text-body text-muted-foreground">
-                  …{runList.length - 8} more in the picker
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        <RunLanding runList={runList} onPick={pickRun} />
       ) : (
         <>
           {selectedRun !== null && (
