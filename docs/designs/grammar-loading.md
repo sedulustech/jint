@@ -73,6 +73,14 @@ happens to sit on disk. Open: the manifest format and the provisioning command.
 Replacing an embedded grammar (same language, other wasm) is a separate concern
 from adding one. Possibly its own issue; out of scope here.
 
+#### Will official grammars keep shipping while BYOG is open?
+
+Unanswered. Embedded grammars pin versions, pass CI, and need no user setup.
+BYOG shifts nothing for them in principle - but it may change the cadence:
+fewer embedded additions, embedded set frozen at the current four, or
+embedded grammars becoming thin pins on manifests. Decide from the spike's
+difficulty verdict.
+
 #### Grammar-version skew
 
 A user wasm may name node kinds differently than the built-in mapping expects
