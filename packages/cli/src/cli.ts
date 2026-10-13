@@ -110,7 +110,7 @@ export const FLAGS = {
   "--version": { type: "boolean", blurb: "print the version" },
 } as const;
 
-/** CLI args boundary — the schema is DERIVED from FLAGS, never a second hand-written shape. */
+/** CLI args boundary - the schema is DERIVED from FLAGS, never a second hand-written shape. */
 export const CLI_ARGS_SCHEMA = TypeBoxType.Object(
   Object.fromEntries(
     Object.entries(FLAGS).map(([name, flag]) => [
@@ -229,7 +229,7 @@ const NOUN_FORMS = Object.entries(NOUNS)
   .join(" or ");
 
 /** The full help text; the Options section is DERIVED from FLAGS. Exported for the derivation tests. */
-export const HELP = `jint — jev lint: classifies code with AI-classifier judgments; rules in, findings out.
+export const HELP = `jint  - jev lint: classifies code with AI-classifier judgments; rules in, findings out.
 
 Usage:
 ${helpRows([
@@ -239,25 +239,24 @@ ${helpRows([
   { left: "jint", right: "no positional: input comes from the discovered config" },
 ])}
 
-Element-scoped runs: address one element directly —
+Element-scoped runs: address one element directly -
   jint src/a.ts@L58              the element whose span contains line 58 (one classifier call)
-ANCHOR @L<n>: the element whose span contains line n (one call). RANGE @L<s>-<e>: every element
-FULLY ENCLOSED in [s,e] — partial overlaps never selected; a range enclosing none is an error
-naming the file's element spans. Comma list @L<s>-<e>,@L<s>-<e>: each item independent. Each
-selected element is one classifier call (inline custom rules batched); --rule narrows every selection to ONE.
-Finding line nouns paste back as file@L<line> — element ids are run-scoped and never selectable.
+  jint src/a.ts@L58-L70          every element FULLY ENCLOSED in the range (comma list: each
+                                 item independent; a range enclosing none is an error naming
+                                 the file's element spans)
+Finding lines paste back as file@L<line> - element ids are run-scoped and never selectable.
 Verifying one fix: the finding's @L is pre-edit (edits shift lines) - re-check at the
   element's CURRENT line: jint src/a.ts@L<current-line> --rule <rule>   one call;
   a full re-run closes the loop (when it pays: the skill's fix-loop section).
 
 The resource is the noun; the verb (classify) is implicit. A noun is the FIRST positional and
-its next positional is the payload: '-', and nothing else — a noun declares how stdin is read;
+its next positional is the payload: '-', and nothing else  - a noun declares how stdin is read;
 there is no inline payload:
   ${NOUN_DECLARATIONS}
 To judge a list from a file, pipe it: jint paths - < list.txt; to classify a file, pass the path.
 Anything else after a noun is a usage error naming the correct form. Nouns never resolve to
-paths — a file named str is reached as jint ./str. A path's kind is inferred by shape only
-(exists-as-dir -> dir, else file); content is never sniffed. A bare '-' positional is undeclared —
+paths  - a file named str is reached as jint ./str. A path's kind is inferred by shape only
+(exists-as-dir -> dir, else file); content is never sniffed. A bare '-' positional is undeclared  -
 name the noun: ${NOUN_FORMS}.
 -- ends flag parsing for dash-paths: jint -- --weird.ts
 
@@ -298,7 +297,7 @@ export function printRules(effective: readonly Rule[], customCount: number): voi
   );
 }
 
-/** --dry-run's payload: the same block, but stdout — the flag's whole product, pipe-able. */
+/** --dry-run's payload: the same block, but stdout - the flag's whole product, pipe-able. */
 export function printRulesStdout(effective: readonly Rule[], customCount: number): void {
   const tsNote =
     customCount > 0
@@ -369,7 +368,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const firstPositional = positionals[0];
   if (firstPositional === "-") {
     // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
-    usageError(`bare '-' is undeclared — name the noun: ${NOUN_FORMS}`);
+    usageError(`bare '-' is undeclared  - name the noun: ${NOUN_FORMS}`);
     return 2;
   }
   // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional, its next
@@ -383,19 +382,19 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const noun = NOUNS[nounName];
     const payload = positionals[1];
     if (payload === undefined) {
-      usageError(`jint ${nounName} expects a payload — use: jint ${nounName} ${noun.payload}`);
+      usageError(`jint ${nounName} expects a payload  - use: jint ${nounName} ${noun.payload}`);
       return 2;
     }
     if (payload !== noun.payload) {
       const hint = "hint" in noun ? ` (${noun.hint})` : "";
       usageError(
-        `'${payload}' is not a payload — jint ${nounName} reads piped stdin: jint ${nounName} ${noun.payload}, and nothing follows it${hint}`,
+        `'${payload}' is not a payload  - jint ${nounName} reads piped stdin: jint ${nounName} ${noun.payload}, and nothing follows it${hint}`,
       );
       return 2;
     }
     if (positionals.length > 2) {
       usageError(
-        `nothing may follow the payload — jint ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
+        `nothing may follow the payload  - jint ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
       );
       return 2;
     }
@@ -424,21 +423,21 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     for (const positional of positionals) {
       if (Object.hasOwn(NOUNS, positional)) {
         usageError(
-          `a noun is the FIRST positional — use: jint ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
+          `a noun is the FIRST positional  - use: jint ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
         );
         return 2;
       }
     }
     for (const positional of positionals) {
       if (positional.startsWith("-") && !existsSync(positional)) {
-        usageError(`unknown option or missing path '${positional}' — see jint --help`);
+        usageError(`unknown option or missing path '${positional}' - see jint --help`);
         return 2;
       }
     }
     if (positionals.length > 1) {
       try {
         if (statSync(positionals[0]!).isDirectory()) {
-          usageError(`a directory is one path — use: jint ${positionals[0]}`);
+          usageError(`a directory is one path  - use: jint ${positionals[0]}`);
           return 2;
         }
       } catch {
@@ -452,7 +451,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const pasted = selectors.find((sel) => sel.pastedId === true);
     if (pasted !== undefined) {
       usageError(
-        `element ids are run-scoped and cannot select across runs — query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
       );
       return 2;
     }
@@ -467,19 +466,19 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       (sel) => sel.anchor !== undefined || sel.ranges !== undefined,
     );
     if (selected.length > 1) {
-      usageError("one element selector per run — select from a single file");
+      usageError("one element selector per run  - select from a single file");
       return 2;
     }
     if (selected.length === 1) {
       const sel = selected[0]!;
       if (selectors.length > 1) {
         usageError(
-          `an element selector selects one file — classify the others separately: jint ${sel.path}`,
+          `an element selector selects one file  - classify the others separately: jint ${sel.path}`,
         );
         return 2;
       }
       if (existsSync(sel.path) && statSync(sel.path).isDirectory()) {
-        usageError(`${sel.path} is a directory — element selectors take files`);
+        usageError(`${sel.path} is a directory  - element selectors take files`);
         return 2;
       }
       elementScope = sel;
@@ -505,7 +504,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const content = await Bun.stdin.text();
     if (content !== "") {
       usageError(
-        "piped stdin needs a kind — use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
+        "piped stdin needs a kind  - use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
       );
       return 2;
     }
@@ -516,7 +515,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const timeout = numericFlag(cliArgs.timeout, "--timeout");
   const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) {
-    usageError(knobProblem + " — see jint --help");
+    usageError(knobProblem + " - see jint --help");
     return 2;
   }
 
@@ -688,12 +687,12 @@ async function serveUiHold(
 function numericFlag(value: string | undefined, flag: string): number | undefined {
   if (value === undefined) return undefined;
   if (value.trim() === "") {
-    usageError(`${flag} requires a number, got an empty value — see jint --help`);
+    usageError(`${flag} requires a number, got an empty value - see jint --help`);
     return undefined;
   }
   const n = Number(value);
   if (Number.isNaN(n)) {
-    usageError(`${flag} must be a number, got '${value}' — see jint --help`);
+    usageError(`${flag} must be a number, got '${value}' - see jint --help`);
     return undefined;
   }
   return n;
@@ -846,7 +845,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
     values = parseArgs({ args: flagArgs, options: PARSE_ARGS_OPTIONS, strict: true }).values;
   } catch (thrown) {
     const parseFailureDetail = thrown instanceof Error ? thrown.message : String(thrown);
-    return { outcome: "usage-error", usageMessage: `${parseFailureDetail} — see jint --help` };
+    return { outcome: "usage-error", usageMessage: `${parseFailureDetail} - see jint --help` };
   }
   if (!TypeBoxValue.Check(CLI_ARGS_SCHEMA, values)) {
     const validationMessages = [...TypeBoxValue.Errors(CLI_ARGS_SCHEMA, values)]
@@ -854,7 +853,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
       .join("; ");
     return {
       outcome: "usage-error",
-      usageMessage: `invalid arguments: ${validationMessages} — see jint --help`,
+      usageMessage: `invalid arguments: ${validationMessages} - see jint --help`,
     };
   }
   return { outcome: "parsed", cliArgs: values as unknown as CliArgs, positionals };
