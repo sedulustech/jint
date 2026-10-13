@@ -62,6 +62,10 @@ in the body.
 Bodies are written in Simplified Technical English: sentences under 20 words, active
 voice, one idea per sentence, the same word for the same thing, exact numbers.
 
+Titles follow `package(scope): concise description` - package is the surface (`cli`, `sdk`,
+`ui`, `docs`, etc), scope is the kind of work (`dx`, `bug`, `feat`). Examples:
+`cli(dx): add noun to rerun a specific classification`, `sdk(dx): add way to see cost of a run`.
+
 Section order:
 
 - **What** - 2-3 sentences. The contract violation, readable with zero context.
@@ -71,9 +75,6 @@ Section order:
 - **Proposal** - only if one exists. The behavioral change, scope, test impact.
 - **Screenshot** - only for UI-rendering issues. Crop to the defect.
 
-Conditional sections are omitted, never written as "n/a." A diagram may appear in What
-or Cause when relationships matter (node labels are names, edge labels are verbs).
+Conditional sections are omitted, never written as "n/a." A diagram benefits What when it describes the problem better.
 
-The web form (`.github/ISSUE_TEMPLATE/1-draft.yml`) enforces this structure for humans;
-agents write the body directly per the github-issue skill. An issue without reproduction
-steps is an opinion.
+`.github/ISSUE_TEMPLATE/1-draft.yml` enforces this structure for humans.
