@@ -1,8 +1,8 @@
 import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { defaultConfig, defaultRules } from "../../tests/test-baseline.ts";
-import { lint, collectReport } from "../core/lint.ts";
-import { renderJson } from "../core/output/json.ts";
+import { compileRule } from "../config/load.ts";
+import { lint, collectReport } from "./lint.ts";
+import { renderJson } from "./output/json.ts";
 import {
   ClassifyError,
   SetupError,
@@ -11,13 +11,58 @@ import {
   type Classifier,
   type LintEvent,
   type Rule,
-} from "../core/types.ts";
+} from "./types.ts";
+
+/**
+ * Synthetic rule data, one per kind: schema-shaped entries the engine tests compose from. The
+ * engine's behavior (stream order, finding-follows-measurement, aggregation, per-unit failures) is
+ * inert to defaults edits - a rule-data change in @jint/defaults cannot move these assertions,
+ * because every fixture here derives from the data this file declares.
+ */
+const NOUL_DATA = {
+  name: "probe_noul",
+  instructions: "Is this unit what its name promises?",
+  criteria: { true: "It is what the name promises.", false: "It is something else." },
+  target: "files",
+  handle: { warn: { greater_than: 0.9 } }, // fires only on near-1 readings
+};
+
+const CHOICE_DATA = {
+  name: "probe_choice",
+  kind: "choice",
+  instructions: "Grade how clearly the unit reads.",
+  criteria: [
+    "Clear: reads without a pause.",
+    "Mixed: one pause, then recovery.",
+    "Muddled: reconstruction required.",
+  ],
+  target: "functions",
+  handle: { map: ["pass", "warn", "error"] }, // high-bad: the level index grades severity
+};
+
+/** Schema-shaped data -> compiled rule, through the same seam the CLI's baseline compiles. */
+const mkRule = (kind: "noul" | "choice", over: Record<string, unknown>): Rule =>
+  compileRule(
+    { ...(kind === "choice" ? CHOICE_DATA : NOUL_DATA), ...over } as never,
+    "lint.test.ts",
+  );
+
+/** The engine test set: every target the funnel routes, both kinds, silent at rest. */
+const probeFiles = mkRule("noul", { name: "probe_files" });
+const probeFunctions = mkRule("choice", { name: "probe_functions" });
+const probeDefinitions = mkRule("noul", { name: "probe_definitions", target: "definitions" });
+const probeComments = mkRule("noul", {
+  name: "probe_comments",
+  target: "comments",
+  handle: { warn: { greater_than: 0.7 } },
+});
 
 const baseConfig = {
-  ...defaultConfig(),
   input: "",
   include: [] as string[],
   exclude: [] as string[],
+  customRules: [] as never[],
+  rules: [probeFiles, probeFunctions, probeDefinitions, probeComments],
 };
 
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
@@ -27,22 +72,16 @@ afterAll(() => {
 });
 
 /**
- * The full rule set at handle-silent readings; tests spread over it so each case names only what it
- * asserts about. Every unspecified rule answers silent in both regimes.
+ * Readings that never fire the synthetic handles (noul rules fire HIGH, the score map opens pass at
+ * 0), keyed by rule name; the classifier answers these unless the test says otherwise. The 0.1
+ * fallback is silent for every handle shape this file declares, so an unspecified rule never
+ * produces a finding.
  */
-const SILENT = {
-  is_name_purposeful: 0,
-  is_vocabulary_consistent: 0.9,
-  is_naming_convention_consistent: 0.9,
-  is_greppable: 0.9,
-  is_comment_narration: 0.1,
-  is_comment_patching_readability: 0.1,
-  will_comment_drift: 0.1,
-  is_cognitively_complex: 0.3,
-  is_function_srp: 0.9,
-  is_filename_fitting: 0.1,
-  will_error_lose_cause: 0.1,
-  is_literal_shared: 0,
+const SILENCE: Record<string, number> = {
+  probe_files: 0.1,
+  probe_functions: 0,
+  probe_definitions: 0.1,
+  probe_comments: 0.1,
 };
 
 /**
@@ -59,12 +98,7 @@ function classifierWith(values: Record<string, number>): Classifier {
     const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
       const rule = sensorOf(key);
-      const v =
-        values[key] ??
-        (rule !== "" ? values[rule] : undefined) ??
-        (rule !== "" ? SILENT[rule as keyof typeof SILENT] : undefined) ??
-        Object.values(values)[0] ??
-        0.5;
+      const v = values[key] ?? values[rule] ?? SILENCE[rule] ?? 0.1;
       out[key] = { value: v };
     }
     return out;
@@ -95,22 +129,14 @@ function loggingClassifier(values: Record<string, number>, log: CallLog): Classi
 
 const isElementCall = (state: AnyState): boolean => "source" in state;
 
-const COMMENT_SENSORS = [
-  "is_comment_narration",
-  "is_comment_patching_readability",
-  "will_comment_drift",
-];
-const DEFINITION_SENSORS = [
-  "is_name_purposeful",
-  "is_naming_convention_consistent",
-  "is_cognitively_complex",
-];
+const COMMENT_SENSOR = "probe_comments";
+const DEFINITION_SENSOR = "probe_definitions";
 
-test("classification respeccustom rule targets: comment rules never judge bare definitions, definition rules never judge comment elements", async () => {
+test("classification respects custom rule targets: comment rules never judge bare definitions, definition rules never judge comment elements", async () => {
   const log: CallLog = { calls: [] };
   await drain(
     lint({
-      config: baseConfig,
+      config: { ...baseConfig, rules: [probeComments, probeDefinitions] },
       input: "tests/fixtures/targeted-file.ts",
       classifier: loggingClassifier({}, log),
     }),
@@ -122,12 +148,12 @@ test("classification respeccustom rule targets: comment rules never judge bare d
     const source = (c.state as { source: string }).source;
     const isCommentElement = !source.includes("export ");
     for (const rule of c.questions) {
-      if (COMMENT_SENSORS.includes(rule)) {
+      if (rule === COMMENT_SENSOR) {
         // comment-family rules may judge comment elements and definitions WITH attached docblocks,
         // but never a bare definition (nothing to classify)
         expect(isCommentElement || source.includes("//")).toBe(true);
       }
-      if (DEFINITION_SENSORS.includes(rule)) {
+      if (rule === DEFINITION_SENSOR) {
         expect(isCommentElement).toBe(false);
       }
     }
@@ -190,15 +216,15 @@ test("element-scoped run: a function whose only comment is INTERNAL is measured 
     lint({
       config: baseConfig,
       input: file,
-      only: ["is_comment_narration"],
+      only: [COMMENT_SENSOR],
       element: { path: file, anchor: 1 },
-      classifier: loggingClassifier({ is_comment_narration: 0.8 }, log),
+      classifier: loggingClassifier({ [COMMENT_SENSOR]: 0.8 }, log),
     }),
   );
   // the internal comment makes the definition a comment unit: the rule fires on it
   const elementCalls = log.calls.filter((c) => isElementCall(c.state));
   expect(elementCalls).toHaveLength(1);
-  expect(elementCalls[0]!.questions).toContain("is_comment_narration");
+  expect(elementCalls[0]!.questions).toContain(COMMENT_SENSOR);
   const findings = events.filter(
     (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
   );
@@ -216,7 +242,7 @@ test("element-scoped run: a truly comment-less element explains the skip - which
     lint({
       config: baseConfig,
       input: file,
-      only: ["is_comment_narration"],
+      only: [COMMENT_SENSOR],
       element: { path: file, anchor: 1 },
       classifier: loggingClassifier({}, log),
     }),
@@ -229,7 +255,7 @@ test("element-scoped run: a truly comment-less element explains the skip - which
   // nothing was measured - it must never read as a generic payload-less count
   expect(notes[0]!.note).toMatch(
     new RegExp(
-      `${file}: d0 \\(L1-L3\\) not measured - no requested rule applies: is_comment_narration measures comments \\(d0 carries none\\); zero classifier calls were made for this selection`,
+      `${file}: d0 \\(L1-L3\\) not measured - no requested rule applies: probe_comments measures comments \\(d0 carries none\\); zero classifier calls were made for this selection`,
     ),
   );
 });
@@ -245,22 +271,17 @@ describe("lint — classification shape", () => {
     expect(sources[0]).toContain("addSeconds");
     expect(sources[1]).toContain("formatDuration");
     for (const c of elementCalls) {
-      for (const state of [c.state]) {
-        expect((state as { path: string }).path).toBe(FILE);
-      }
+      expect((c.state as { path: string }).path).toBe(FILE);
     }
-    // per (element, target-matched rule): L2-L4 carries the module docblock -> 8 rules,
-    // L6-L11 is a bare definition -> 4 definition-target rules (design 7.7 targeting);
-    // question keys inside a call are bare rule names (one element per call, no ambiguity)
-    // docblock-carrying function definition: 9 rules (4 comment + 4 definition + srp; is_readable is files-target) -
-    // is_greppable judges functions, so it joins the definition-target set;
-    // bare function definition: 6 rules (4 definition-target + srp + will_error_lose_cause; is_readable is files-target)
+    // per (element, target-matched rule): the docblock-carrying d0 (functions + definitions +
+    // comments via its attached comment) draws 3 questions, the bare d1 draws 2; question keys
+    // inside a call are bare rule names (one element per call, no ambiguity)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
-    expect(counts).toEqual([6, 9]);
-    const withPurposeful = elementCalls.find((c) => c.questions.includes("is_name_purposeful"))!;
-    const withComplex = elementCalls.find((c) => c.questions.includes("is_cognitively_complex"))!;
-    expect(withPurposeful).toBeDefined();
-    expect(withComplex).toBeDefined();
+    expect(counts).toEqual([2, 3]);
+    const withFunctions = elementCalls.find((c) => c.questions.includes("probe_functions"));
+    const withComments = elementCalls.find((c) => c.questions.includes("probe_comments"));
+    expect(withFunctions).toBeDefined();
+    expect(withComments).toBeDefined();
     // criteria-as-rule: instructions is the task sentence, criteria is the rule
     // (noul questions carry their rule's question; choice questions carry their own instructions)
     for (const [, spec] of Object.entries(elementCalls[0]!.specs)) {
@@ -273,12 +294,12 @@ describe("lint — classification shape", () => {
       expect(s.instructions).toBeDefined();
       expect(s.criteria).toBeDefined();
     }
-    // the files-target rules keep their own whole-content call
+    // the files-target rule keeps its own whole-content call
     const whole = log.calls.filter((c) => !isElementCall(c.state));
     expect(whole.length).toBeGreaterThanOrEqual(1);
     // whole-content call questions are keyed "<rule> in <file id>" (the content hash)
     for (const key of whole[0]!.questions) {
-      expect(key).toMatch(/^is_(vocabulary_consistent|filename_fitting) in L\d+(-L\d+)?$/);
+      expect(key).toMatch(/^probe_files in L\d+(-L\d+)?$/);
     }
   });
 
@@ -295,7 +316,7 @@ describe("lint — classification shape", () => {
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
       const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(2); // whole-unit rules only: vocabulary_consistent + filename_fitting (greppable is functions-target)
+      expect(measurements).toHaveLength(1); // whole-unit rules only: probe_files
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -328,7 +349,7 @@ describe("lint — classification shape", () => {
       const calls: unknown[] = [];
       const result = await classifyFile(
         { kind: "file", state: { path: empty, content: "", id: "L1" } },
-        Object.values(defaultRules),
+        baseConfig.rules,
         async (state, questions) => {
           calls.push({ state, questions });
           return {};
@@ -383,7 +404,7 @@ describe("lint", () => {
           classifier: async (state, questions) => {
             const element = Number(/f(\d+)/.exec(state.path)?.[1] ?? 0);
             await new Promise((r) => setTimeout(r, (7 - element) * 6 + Math.random() * 6));
-            return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.3 }]));
+            return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 1 }]));
           },
         }),
       );
@@ -547,33 +568,26 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        classifier: classifierWith({
-          is_name_purposeful: 1,
-          is_vocabulary_consistent: 0.9,
-          is_greppable: 0.8,
-          is_cognitively_complex: 0.3,
-        }),
+        classifier: classifierWith({ probe_functions: 1 }),
       }),
     );
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
-    // file call 3 (vocabulary_consistent + filename_fitting + is_readable; greppable is
-    // functions-target now) + element classification 17 (8 docblock + 4 bare definitions +
-    // 3 functions, greppable on the function elements)
-    expect(measurements).toHaveLength(17);
-    // purposeful 0.3 fires (warn under the re-anchored tiers, issue 001) on BOTH elements -
-    // no aggregation, no candidacy
+    // the whole-file call (probe_files) + the docblock-carrying d0 (functions + definitions +
+    // comments) + the bare d1 (functions + definitions)
+    expect(measurements).toHaveLength(6);
+    // functions level 1 (warn) fires on BOTH elements - no aggregation, no candidacy
     expect(findings).toHaveLength(2);
     // element identity is a classify-time uuid, not the positional wire id
     expect(findings.map((s) => s.finding.input.replace(/#.*$/, ""))).toEqual([FILE, FILE]);
     for (const s of findings) expect(s.finding.input).toMatch(/#[0-9a-f-]{36}$/);
     for (const s of findings) {
       expect(s.finding).toEqual({
-        rule: "is_name_purposeful",
+        rule: "probe_functions",
         input: s.finding.input,
         value: 1,
         severity: "warn",
-        note: "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+        note: CHOICE_DATA.criteria[1],
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }
@@ -584,12 +598,7 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        classifier: classifierWith({
-          is_name_purposeful: 2,
-          is_vocabulary_consistent: 0.2,
-          is_greppable: 0.2,
-          is_cognitively_complex: 1.8,
-        }),
+        classifier: classifierWith({ probe_functions: 2, probe_comments: 0.95 }),
       }),
     );
     const kinds = events.map((e) => e.type);
@@ -597,9 +606,20 @@ describe("lint", () => {
       // no aggregation: a finding directly follows its own measurement
       if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
-    // vocabulary 0.2 + greppable 0.2 (function-element readings) + purposeful 0.2 and
-    // complex 1.8 (score rubric, level 2 = error) firing on both elements
-    expect(events.filter((e) => e.type === "finding")).toHaveLength(7);
+    // functions level 2 (error) fires on both elements; comments warn (>0.7) fires on the
+    // docblock-carrying d0 only
+    expect(events.filter((e) => e.type === "finding")).toHaveLength(3);
+    // every classified unit was measured against every in-scope rule (the files rule judged the
+    // whole unit once; both elements drew their target-matched questions)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
+    // findings and measurements name the same rule, adjacent in the stream
+    for (let i = 0; i < events.length; i++) {
+      if (events[i]!.type === "finding") {
+        const measurement = events[i - 1] as Extract<LintEvent, { type: "measurement" }>;
+        const finding = events[i] as Extract<LintEvent, { type: "finding" }>;
+        expect(measurement.measurement.rule).toBe(finding.finding.rule);
+      }
+    }
   });
 
   test("--disable removes rules by name before classifying", async () => {
@@ -608,27 +628,18 @@ describe("lint", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        disable: [
-          "is_comment_narration",
-          "is_comment_patching_readability",
-          "will_comment_drift",
-          "is_cognitively_complex",
-          "is_vocabulary_consistent",
-          "is_naming_convention_consistent",
-          "is_greppable",
-          "is_function_srp",
-          "is_filename_fitting",
-        ],
-        classifier: loggingClassifier({ is_name_purposeful: 0 }, log),
+        disable: ["probe_files", "probe_definitions", "probe_comments"],
+        classifier: loggingClassifier({}, log),
       }),
     );
-    // purposeful targets definitions: one classification call per element, no whole-content call
+    // probe_functions (functions-target) survives: one classification call per element, no
+    // whole-content call
     expect(log.calls).toHaveLength(2);
     for (const c of log.calls) {
-      expect(c.questions).toEqual(["is_name_purposeful", "will_error_lose_cause"]); // bare rule-name keys, one element per call
+      expect(c.questions).toEqual(["probe_functions"]); // bare rule-name keys, one element per call
     }
-    // 2 function elements x 2 remaining rules (is_name_purposeful + will_error_lose_cause)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(4);
+    // 2 function elements x 1 remaining rule
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 
   test("the paths list is the input: selection + the missing-entry note (never silence)", async () => {
@@ -637,12 +648,7 @@ describe("lint", () => {
         config: { ...baseConfig, input: "" },
         // the SDK takes the already-read text (the caller did the I/O)
         paths: { content: FILE + "\nno/such/file.ts\n" + FILE + "\n" }, // duplicate dedupes; missing noted
-        classifier: classifierWith({
-          is_name_purposeful: 0,
-          is_vocabulary_consistent: 0.9,
-          is_greppable: 0.8,
-          is_cognitively_complex: 0.3,
-        }),
+        classifier: classifierWith({}),
       }),
     );
     const notes = events
@@ -655,7 +661,7 @@ describe("lint", () => {
     const inputs = new Set(
       events
         .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-        .map((e) => e.measurement.input.split("#")[0]),
+        .map((e) => e.measurement.input.split("#")[0]!),
     );
     expect([...inputs]).toEqual([FILE]);
   });
@@ -666,19 +672,14 @@ describe("lint", () => {
         config: baseConfig,
         input: FILE,
         paths: { content: "tests/fixtures/sample-dir/good.ts\nno/such/file.ts\n" },
-        classifier: classifierWith({
-          is_name_purposeful: 0,
-          is_vocabulary_consistent: 0.9,
-          is_greppable: 0.8,
-          is_cognitively_complex: 0.3,
-        }),
+        classifier: classifierWith({}),
       }),
     );
     // the subject came from input, never the list: only FILE was judged
     const inputs = new Set(
       events
         .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-        .map((e) => e.measurement.input.split("#")[0]),
+        .map((e) => e.measurement.input.split("#")[0]!),
     );
     expect([...inputs]).toEqual([FILE]);
     // entries the walk never saw — a real file outside the input, and a missing one — are
@@ -701,12 +702,7 @@ describe("lint", () => {
     const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
         throw new ClassifyError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
-      return classifierWith({
-        is_name_purposeful: 0,
-        is_vocabulary_consistent: 0.9,
-        is_greppable: 0.8,
-        is_cognitively_complex: 0.3,
-      })(state, questions);
+      return classifierWith({})(state, questions);
     };
     const events = await drain(
       lint({
@@ -721,9 +717,9 @@ describe("lint", () => {
     // the failed file's calls (whole-content + one call per element) surface an error
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    // second unit: 3 file + 7 (comment element) + 6 (clampToLimit, function element);
-    // SMALL_LIMIT is a binding — no functions-target (or other element) measurements
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(14);
+    // second unit: 1 whole-file + 2 element questions batches (the comment-carrying binding
+    // draws definitions + comments; the bare function draws functions + definitions)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -769,18 +765,13 @@ describe("lint", () => {
         input: "tests/fixtures/sample-dir",
         inputType: "dir",
         exclude: ["**/more.ts"],
-        classifier: classifierWith({
-          is_name_purposeful: 0,
-          is_vocabulary_consistent: 0.9,
-          is_greppable: 0.8,
-          is_cognitively_complex: 0.3,
-        }),
+        classifier: classifierWith({}),
       }),
     );
     const inputs = new Set(
       events.filter((e) => e.type === "measurement").map((e) => e.measurement.input),
     );
-    // non-source files measure at the file tier (is_filename_fitting); their extensions are
+    // non-source files measure at the file tier (probe_files); their extensions are
     // sweep coverage for the element rules. Element identity is a uuid - assert shape.
     expect(inputs).toEqual(
       new Set([
@@ -807,13 +798,12 @@ describe("lint", () => {
     const events = await drain(
       lint({
         config: {
-          ...defaultConfig(),
-          include: [],
+          ...baseConfig,
           input: "tests/fixtures/sample-dir/data.json",
           inputType: "file",
-          rules: [defaultRules.is_filename_fitting!],
+          rules: [probeFiles],
         },
-        classifier: classifierWith({ is_filename_fitting: 0.9 }),
+        classifier: classifierWith({ probe_files: 0.9 }),
       }),
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
@@ -824,8 +814,7 @@ describe("lint", () => {
     const events = await drain(
       lint({
         config: {
-          ...defaultConfig(),
-          include: [],
+          ...baseConfig,
           input: "tests/fixtures/sample-dir",
           inputType: "dir",
           rules: [],
@@ -845,16 +834,16 @@ describe("lint", () => {
   });
 
   test("custom rule set (selection = the rule list itself)", async () => {
-    const only: Rule[] = [defaultRules.is_name_purposeful!];
-    const config = { ...defaultConfig(), include: [] as string[], input: "", rules: only };
+    const only: Rule[] = [probeDefinitions];
+    const config = { ...baseConfig, input: "", rules: only };
     const events = await drain(
       lint({
         config,
         input: FILE,
-        classifier: classifierWith({ is_name_purposeful: 0 }),
+        classifier: classifierWith({ probe_definitions: 0 }),
       }),
     );
-    // definitions target: 2 sweep questions, no candidates at 0.7
+    // definitions target: 2 sweep questions, no candidates at 0
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 });
@@ -865,15 +854,10 @@ describe("collectReport", () => {
       lint({
         config: baseConfig,
         input: FILE,
-        classifier: classifierWith({
-          is_name_purposeful: 1,
-          is_vocabulary_consistent: 0.9,
-          is_greppable: 0.8,
-          is_cognitively_complex: 0.3,
-        }),
+        classifier: classifierWith({ probe_functions: 1 }),
       }),
     );
-    expect(report.measurements).toHaveLength(17);
+    expect(report.measurements).toHaveLength(6);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });
@@ -885,7 +869,7 @@ describe("lint — unknown rule names", () => {
       lint({
         config: baseConfig,
         input: "tests/fixtures/sample-file.ts",
-        only: ["is_greppable"],
+        only: ["probe_files"],
         classifier: classifierWith({}),
       }),
     );
@@ -911,11 +895,11 @@ describe("lint — unknown rule names", () => {
         lint({
           config: baseConfig,
           input: "tests/fixtures/sample-file.ts",
-          only: ["is_greppable_x"],
+          only: ["probe_files_x"],
           classifier: classifierWith({}),
         }),
       ),
-    ).rejects.toThrow(/unknown rule "is_greppable_x" — did you mean: is_greppable\?/);
+    ).rejects.toThrow(/unknown rule "probe_files_x" — did you mean: probe_files\?/);
   });
 });
 
@@ -1008,6 +992,7 @@ describe("lint — inline callback rules (content retention, the logical content
     expect(byRule.get("rule_scope_sample")!.every((p) => p === FILE)).toBe(true);
     expect(byRule.get("rule_scope_sample")!.length).toBeGreaterThan(0);
   });
+
   test("zero-target files are logically dropped: no whole-file call, but element classification still runs", async () => {
     const log: CallLog = { calls: [] };
     const events = await drain(
@@ -1033,21 +1018,18 @@ describe("lint — inline callback rules (content retention, the logical content
     );
     // Nothing judged whole (no files rule, so nothing to retain content FOR).
     expect(log.calls.some((c) => isWholeFileCall(c.state))).toBe(false);
-    // The drop is LOGICAL: sample-file.ts's inventory is retained, so its elements still classify.
-    const sampleElementCalls = log.calls.filter(
-      (c) => isElementCall(c.state) && (c.state as { path: string }).path === FILE,
+    // The drop is LOGICAL: element classification still runs for both files.
+    const elementPaths = new Set(
+      log.calls
+        .filter((c) => isElementCall(c.state))
+        .map((c) => (c.state as { path: string }).path),
     );
-    expect(sampleElementCalls.length).toBeGreaterThan(0);
-    // The custom rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
-    const tsMeasurements = events.filter(
-      (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
-    );
-    expect(tsMeasurements).toHaveLength(2);
-    expect(
-      tsMeasurements.every(
-        (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),
-      ),
-    ).toBe(true);
+    expect([...elementPaths].sort()).toEqual([FILE, GOOD].sort());
+    // and the callback rule still sees only its own target
+    const measured = events
+      .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
+      .map((e) => e.measurement.rule);
+    expect(measured.filter((r) => r === "ts_retention_probe").length).toBeGreaterThan(0);
   });
 });
 
@@ -1099,7 +1081,7 @@ describe("lint — str unit is its own inventory", () => {
       lint({
         config: baseConfig,
         str: { content: "const x = 1;\n" },
-        only: ["is_function_srp"],
+        only: ["probe_functions"],
         classifier,
       }),
     );
