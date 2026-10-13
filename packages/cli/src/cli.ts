@@ -21,6 +21,7 @@ import {
   collectReport,
   describeRules,
   selectRules,
+  validateRuleSelection,
   knownLanguages,
   lint,
   loadConfig,
@@ -510,6 +511,20 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // pre-print and --dry-run, so the block always names exactly what the run will classify.
   const effective = selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json;
 
+  // Pre-flight: setup failures surface BEFORE the rubric pre-print - the block names what WILL
+  // run, so a run that cannot start prints its error alone (ordering, not volume: the block
+  // itself stays deliberate for runs that proceed).
+  try {
+    validateRuleSelection(
+      resolvedConfig.rules,
+      resolvedConfig.customRules ?? [],
+      cliArgs.disable,
+      cliArgs.rule,
+    );
+  } catch (thrown) {
+    return exitForThrown(thrown);
+  }
+
   // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
   // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice,
   // empty stdout — the block is the whole payload (rubric before reading, for free).
@@ -539,7 +554,11 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // The rubric lands in the consumer's context BEFORE the findings it interprets:
     // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
     // place their meaning lives in-band (context timing, not artifact embedding — output can
-    // be sub-sampled, context cannot).
+    // be sub-sampled, context cannot). A path input that does not exist fails HERE, so the
+    // rubric never prints for a run that cannot start.
+    if (typeof lintInput?.input === "string" && !existsSync(lintInput.input)) {
+      throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${lintInput.input}`);
+    }
     printRules(effective, resolvedConfig.customRules?.length ?? 0);
     const lintReport = await collectReport(
       lint({

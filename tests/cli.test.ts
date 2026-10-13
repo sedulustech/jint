@@ -75,10 +75,17 @@ describe("cli: contract basics", () => {
 
   test.concurrent("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", async () => {
     // NO_SERVICE: input resolution is key-independent (the key check must not mask it)
-    expectContract(await run(["nope/missing.ts"], NO_SERVICE), {
-      exit: 2,
-      stderr: "ENTRYPOINT_NOT_FOUND",
-    });
+    const r = await run(["nope/missing.ts"], NO_SERVICE);
+    expectContract(r, { exit: 2, stderr: "ENTRYPOINT_NOT_FOUND" });
+    // pre-flight ordering: a run that cannot start prints its error ALONE - the rubric
+    // block (deliberate for runs that proceed) never buries the actionable line
+    expect(r.stderr).not.toContain("measuring with");
+  });
+
+  test.concurrent("unknown --rule -> CONFIG_INVALID alone, no rubric pre-print", async () => {
+    const r = await run(["--rule", "not_a_rule", "packages/sdk/src/core/types.ts"], NO_SERVICE);
+    expectContract(r, { exit: 2, stderr: 'unknown rule "not_a_rule"' });
+    expect(r.stderr).not.toContain("measuring with");
   });
 
   test.concurrent("two files classify as file units", async () => {

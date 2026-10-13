@@ -644,12 +644,25 @@ function partitionRules(
   disable: readonly string[] | undefined,
   only: readonly string[] | undefined,
 ): { json: Rule[]; custom: CustomRule[] } {
+  validateRuleSelection(jsonRules, customRules, disable, only);
+  return selectRules(jsonRules, customRules, disable, only);
+}
+
+/**
+ * The validation half of partitionRules, shared with the CLI's pre-flight: an unknown disable/only
+ * name throws before the rubric pre-print, so the error is never buried under the block.
+ */
+export function validateRuleSelection(
+  jsonRules: readonly Rule[],
+  customRules: readonly CustomRule[],
+  disable: readonly string[] | undefined,
+  only: readonly string[] | undefined,
+): void {
   const known = new Set([...jsonRules, ...customRules].map((rule) => rule.name));
   for (const name of disable ?? [])
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
   for (const name of only ?? [])
     if (!known.has(name)) throw new SetupError("CONFIG_INVALID", unknownRuleMessage(name, known));
-  return selectRules(jsonRules, customRules, disable, only);
 }
 
 export interface LintReport {
