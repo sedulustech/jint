@@ -60,11 +60,13 @@ export const isNamePurposeful: NoulRuleSchema = {
   },
   target: "definitions",
   // Defect pole "false" (a name that hides purpose). Calibrated under the per-rule question
-  // (issue 001): the defective control cluster sits at P(good) <= 0.26, i.e. P(bad) >= 0.74 -
-  // error_at 0.7 catches it; the healthy median is P(good) 0.56 (P(bad) 0.44), comfortably
-  // under warn_at 0.6. m4_obfuscate (P(good) 0.48, P(bad) 0.52) lands in warn. Test-code noise
-  // stays open as issue 008 (config granularity).
-  handle: { warn: { less_than: 0.4 }, error: { less_than: 0.3 } },
+  // (issue 001): the defective control cluster sits at P(good) <= 0.26 - the error line at 0.25
+  // catches its floor; the healthy median is P(good) 0.56, comfortably under warn_at 0.6.
+  // m4_obfuscate (P(good) 0.48) lands in warn. 0.30 was too high: healthy names measure
+  // 0.25-0.43 with +/-0.07 run-to-run variance (walker dogfood, 2026-10-12), so the old line
+  // flagged good names as errors on a coin flip; ~0.5 is the judge being undecisive, not a
+  // defect. Test-code noise stays open as issue 008.
+  handle: { warn: { less_than: 0.4 }, error: { less_than: 0.25 } },
 };
 
 export const isFunctionSrp: NoulRuleSchema = {

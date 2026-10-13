@@ -9,9 +9,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_name_purposeful`
 
-| kind | target      | handle                                  |
-| ---- | ----------- | --------------------------------------- |
-| noul | definitions | warn less than 0.4, error less than 0.3 |
+| kind | target      | handle                                   |
+| ---- | ----------- | ---------------------------------------- |
+| noul | definitions | warn less than 0.4, error less than 0.25 |
 
 **Instructions.** Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?
 
