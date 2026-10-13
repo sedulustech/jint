@@ -51,11 +51,16 @@ export default defineConfig({
       criteria: { true: "t", false: "f" },
       state: { comment: self.source },
     }),
-    handle: (results) =>
+    handle: (results, ctx) =>
       results.map((r) => ({
         severity: r.type === "noul" && r.noul > 0.7 ? "error" : null,
         message: "the comment drifts from the code",
-        data: { rule_local: true },
+        data: {
+          rule_local: true,
+          noul_seen: r.type === "noul" ? r.noul : null,
+          results_len: results.length,
+          ctx_targets: ctx.targets.length,
+        },
       })),
   }],
 });
@@ -124,7 +129,16 @@ describe("cli: custom rules end-to-end", () => {
     );
     // findings carry NO message (report contract 2026-09-28): consumers join by rule id
     expect(finding?.message).toBeUndefined();
-    expect(finding?.data).toEqual({ rule_local: true });
+    // exact decision values: the mock answers noul 0.8, so the callback returns severity "error"
+    // (0.8 > 0.7) and data flowing through verbatim — results positionally paired (1 result) with
+    // the resolved ctx.targets (the single comment element).
+    expect(finding?.severity).toBe("error");
+    expect(finding?.data).toEqual({
+      rule_local: true,
+      noul_seen: 0.8,
+      results_len: 1,
+      ctx_targets: 1,
+    });
     expect(finding?.location?.span.start.line).toBe(8);
   });
 
