@@ -32,7 +32,10 @@ To build from source, see [Development](#development).
 
 ### No runtime needed
 
-The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules. On Linux the only system requirement is glibc (any mainstream distro). On musl-based images (Alpine), install a glibc layer first (e.g. `sgerrand/alpine-pkg-glibc` plus a `/lib64` symlink to its loader) or use a glibc base image.
+The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules.
+
+On Linux the only system requirement is glibc (any mainstream distro).
+On musl-based images (Alpine), install a glibc layer first or use a glibc base image.
 
 ```ts
 import { defaultRules } from "jint:defaults";
@@ -42,7 +45,7 @@ export default { rules: [...defaultRules] };
 
 ### Skill
 
-For AI agents, [`SKILL.md`](SKILL.md) is the distilled operating manual - invocation forms, the fix-loop, calibration workflow - install it alongside the binary.
+Get the [skill file](SKILL.md) for the agent alongside the binary so it has clear instructions on how to behave.
 
 ## How to use
 
