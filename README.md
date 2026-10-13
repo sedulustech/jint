@@ -66,7 +66,7 @@ git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipelin
 jint                                     # no positional: input comes from auto-discovered config
 ```
 
-`jint` auto-discovers `jint.config.ts` in the working directory.
+`jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory (TS preferred).
 `--config <path>` overrides discovery.
 
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_DIR`).
