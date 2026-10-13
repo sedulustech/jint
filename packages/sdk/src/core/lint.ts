@@ -236,7 +236,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       options.classifier ??
         createClassifier({
           apiKey: options.config.apiKey,
-          ...(options.log !== undefined && { log: options.log }),
+          log: options.log,
         }),
       timeout,
     ),
@@ -638,7 +638,7 @@ function unknownRuleError(name: string, known: ReadonlySet<string>): SetupError 
     detail: {
       kind: "unknown-rule",
       valid: [...known],
-      ...(suggest !== undefined && { suggest }),
+      suggest,
     },
   });
 }

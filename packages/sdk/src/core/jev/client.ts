@@ -97,9 +97,9 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
   const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   try {
     return new TypeSafeClient({
-      ...(config?.apiKey !== undefined && { apiKey: config.apiKey }),
-      ...(config?.baseURL !== undefined && { baseURL: config.baseURL }),
-      ...(config?.fetch !== undefined && { fetch: config.fetch }),
+      apiKey: config?.apiKey,
+      baseURL: config?.baseURL,
+      fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
       // backoff is visible in the CLI (one line per retry; nothing when the API is healthy).

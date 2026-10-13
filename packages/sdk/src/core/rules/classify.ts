@@ -147,12 +147,14 @@ function isUsableAnswer(answer: ClassifiedAnswer | undefined): boolean {
 }
 
 function measurementFields(rule: string, input: string, answer: ClassifiedAnswer): Measurement {
+  // Direct optional properties: score rules only (noul's probability IS the value - no separate
+  // distribution). Consumers gate on !== undefined, identical for absent and present-undefined.
   return {
     rule,
     input,
     value: answer.value,
-    ...(answer.probabilities !== undefined && { probabilities: answer.probabilities }),
-    ...(answer.confidence !== undefined && { confidence: answer.confidence }),
+    probabilities: answer.probabilities,
+    confidence: answer.confidence,
   };
 }
 

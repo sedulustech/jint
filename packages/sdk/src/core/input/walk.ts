@@ -355,6 +355,8 @@ interface RawElement {
   readonly content: string;
   readonly nodeType: string;
   readonly role: NodeRole;
+  /** The declared name, when one was extracted (render-only; carried onto WalkElement). */
+  readonly name?: string;
   readonly attachedComment?: readonly string[];
   readonly docstringOf?: DocstringOwner;
   readonly internalCommentCount: number;
@@ -461,7 +463,7 @@ function appendStandaloneComments(collection: ElementCollection, parent?: string
       role: "comment",
       span: pendingComment.span,
       internalCommentCount: 0,
-      ...(parent !== undefined && { parent }),
+      parent,
     });
   collection.pendingComments = [];
 }
@@ -492,12 +494,12 @@ function appendDefinition(
     content,
     nodeType: type,
     role,
-    ...(declared !== undefined && { name: declared }),
-    ...(parent !== undefined && { parent }),
+    name: declared,
+    parent,
     // Internal comments stay IN PLACE (the body slice already carries them); the count is what
     // makes comment-target rules see (and cost a call for) a definition whose only comment is
     // internal - matchesTarget reads it, so the payload never duplicates a comment.
-    ...(commentRun !== undefined && { attachedComment: commentRun }),
+    attachedComment: commentRun,
     internalCommentCount: internalComments.length,
   });
   const docstring = docstringOf(declarationNode);
@@ -751,22 +753,22 @@ export function projectElement(element: WalkElement): Element {
   const base = {
     span: element.span,
     label: element.label,
-    ...(element.parent !== undefined && { parent: element.parent }),
+    parent: element.parent,
   };
   switch (element.role) {
     case "comment":
       return {
         kind: "comment",
         ...base,
-        ...(element.docstringOf !== undefined && { docstringOf: element.docstringOf }),
+        docstringOf: element.docstringOf,
       };
     case "type":
-      return { kind: "type", ...base, ...(element.name !== undefined && { name: element.name }) };
+      return { kind: "type", ...base, name: element.name };
     case "binding":
       return {
         kind: "binding",
         ...base,
-        ...(element.name !== undefined && { name: element.name }),
+        name: element.name,
       };
     case "import":
       return { kind: "import", ...base };
@@ -774,7 +776,7 @@ export function projectElement(element: WalkElement): Element {
       return {
         kind: "function",
         ...base,
-        ...(element.name !== undefined && { name: element.name }),
+        name: element.name,
       };
   }
 }

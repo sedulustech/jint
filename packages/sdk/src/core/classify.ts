@@ -118,6 +118,6 @@ export async function classify(
     measurements,
     errors,
     oversized: result.oversized,
-    ...(result.inventory !== undefined && { inventory: result.inventory }),
+    inventory: result.inventory,
   };
 }

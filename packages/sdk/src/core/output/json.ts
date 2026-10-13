@@ -15,17 +15,18 @@ export function renderJson(report: LintReport): string {
         tool: "jint",
         version: pkg.version,
         // The run pointer: the same recordSummary the stderr notice names. Absent only when no
-        // classifier call started a run (a report without captures).
-        ...(report.run !== undefined && { run: report.run }),
+        // classifier call started a run (a report without captures). Direct optional properties:
+        // this object feeds JSON.stringify only, which drops undefined - absent and
+        // present-undefined serialize to the same bytes.
+        run: report.run,
         measurements: report.measurements.map((m) => ({
           rule: m.rule,
           input: m.input,
           value: m.value,
-          // additive (score rules): the distribution the value summarizes. Old dumps
-          // without the fields still parse.
-          ...(m.probabilities !== undefined && { probabilities: m.probabilities }),
-          ...(m.confidence !== undefined && { confidence: m.confidence }),
-          ...(m.element !== undefined && { element: m.element }),
+          // score rules only: the distribution the value summarizes
+          probabilities: m.probabilities,
+          confidence: m.confidence,
+          element: m.element,
         })),
         // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
         // return position, so excess-property checking fires — a field the wire shape does not
