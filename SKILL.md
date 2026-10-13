@@ -32,7 +32,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 Install (either):
 
 - npm: `npm install -g @sedulus/jint@rc` or as a devDependency. The package is a meta-package that pulls the matching platform binary (`@sedulus/jint-linux-x64`, `-linux-arm64`, `-darwin-x64`, `-darwin-arm64`) via optionalDependencies and exposes the `jint` bin. Works with npm and bun (`bunx`). The `rc` dist-tag tracks prereleases; plain `@sedulus/jint` resolves `latest`, empty until the first stable release. `npx @sedulus/jint@rc --version` runs without installing.
-- Shell: `curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash` - installs to `~/.local/bin`, verifies sha256 against the release `checksums.txt`, warns if `~/.local/bin` is not on `PATH`, prints `--version`. Pin with `VERSION=v1.2.3`. Linux binaries need glibc (any mainstream distro); Alpine/musl images are not supported.
+- Shell: `curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash` - installs to `~/.local/bin`, verifies sha256 against the release `checksums.txt`, warns if `~/.local/bin` is not on `PATH`, prints `--version`. Pin with `VERSION=v1.2.3`. Linux needs glibc (any mainstream distro); on musl/Alpine images add a glibc layer (e.g. `sgerrand/alpine-pkg-glibc` + a `/lib64` loader symlink) or use a glibc base image.
 
 Then `TYPESAFE_API_KEY` in the environment (used as-is).
 

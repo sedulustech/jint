@@ -32,7 +32,7 @@ To build from source, see [Development](#development).
 
 ### No runtime needed
 
-The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules. The only system requirement is glibc on Linux (Debian, Ubuntu, Fedora, Arch) - Alpine and other musl images are not supported.
+The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules. On Linux the only system requirement is glibc (any mainstream distro). On musl-based images (Alpine), install a glibc layer first (e.g. `sgerrand/alpine-pkg-glibc` plus a `/lib64` symlink to its loader) or use a glibc base image.
 
 ```ts
 import { defaultRules } from "jint:defaults";
