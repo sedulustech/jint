@@ -41,6 +41,21 @@ export interface NoulHandlerData {
  */
 export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
 
+/**
+ * The runtime face of RuleTarget: one entry per union member, in union order. The type stays the
+ * compile-time face (its exhaustive Record pin in handlers.test.ts fails to typecheck when a member
+ * is added without a registration here); this array is what coverage checks iterate — a test set
+ * that claims to exercise every target reads its list from here, not from a hand-copied literal
+ * that can drift.
+ */
+export const ruleTargets: readonly RuleTarget[] = [
+  "files",
+  "functions",
+  "definitions",
+  "comments",
+  "imports",
+];
+
 /** A declarative handler: exactly one of the two typed forms. */
 export type HandlerData = ScoreHandlerData | NoulHandlerData;
 

@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   checkNoulHandler,
   handleSeverity,
+  ruleTargets,
   type HandlerData,
   type NoulHandlerData,
+  type RuleTarget,
   type ScoreHandlerData,
 } from "./index.ts";
 
@@ -97,4 +99,27 @@ describe("checkNoulHandler", () => {
 test("HandlerData accepts both forms structurally", () => {
   const both: readonly HandlerData[] = [gt, score];
   expect(both).toHaveLength(2);
+});
+
+describe("ruleTargets - the runtime face of the RuleTarget union", () => {
+  // The compile-time half of the pin: Record<RuleTarget, true> requires a key per union member,
+  // so a new member without an entry here fails `tsc` (missing key), and an entry that is not a
+  // member fails it too (the array element type). The runtime half below ties this record to the
+  // exported array, so neither face can drift from the other.
+  const _exhaustive: Record<RuleTarget, true> = {
+    files: true,
+    functions: true,
+    definitions: true,
+    comments: true,
+    imports: true,
+  };
+  // Same pin in assignment form: ruleTargets' element type must stay exactly RuleTarget.
+  const _all: readonly RuleTarget[] = ruleTargets;
+
+  test("every union member is registered exactly once; no extras, no duplicates", () => {
+    expect([...ruleTargets].sort()).toEqual(Object.keys(_exhaustive).sort());
+    expect(new Set(ruleTargets).size).toBe(ruleTargets.length);
+    for (const target of ruleTargets) expect(_exhaustive[target]).toBe(true);
+    expect(_all).toBe(ruleTargets);
+  });
 });

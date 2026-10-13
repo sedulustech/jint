@@ -1,5 +1,6 @@
 import { afterAll, describe, test, expect } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { ruleTargets } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
@@ -56,14 +57,36 @@ const probeComments = mkRule("noul", {
   target: "comments",
   handle: { warn: { greater_than: 0.7 } },
 });
+const probeImports = mkRule("noul", { name: "probe_imports", target: "imports" });
 
 const baseConfig = {
   input: "",
   include: [] as string[],
   exclude: [] as string[],
   customRules: [] as never[],
-  rules: [probeFiles, probeFunctions, probeDefinitions, probeComments],
+  rules: [probeFiles, probeFunctions, probeDefinitions, probeComments, probeImports],
 };
+
+describe("synthetic coverage", () => {
+  test("the synthetic rule set exercises every RuleTarget and both kinds", () => {
+    // The registry above is the only fixture source these engine tests have; this pin keeps its
+    // minimalism honest - a target or kind added to the contract with no synthetic rule makes
+    // every count below silently blind to that route. Normalize the target: the compiled JSON-tier
+    // rule carries the string form; the array form is tolerated so a future multi-target rule
+    // cannot skip the check.
+    const targetOf = (rule: Rule): string =>
+      typeof rule.target === "string" ? rule.target : (rule.target as readonly string[])[0]!;
+    const targets = new Set(baseConfig.rules.map(targetOf));
+    const kinds = new Set(baseConfig.rules.map((rule) => rule.kind ?? "noul"));
+    const missingTargets = ruleTargets.filter((t) => !targets.has(t));
+    expect(missingTargets, "a new RuleTarget/kind needs a synthetic rule exercising it").toEqual(
+      [],
+    );
+    expect([...kinds].sort(), "a new RuleTarget/kind needs a synthetic rule exercising it").toEqual(
+      ["choice", "noul"],
+    );
+  });
+});
 
 const FILE = "tests/fixtures/sample-file.ts"; // two definitions, no comments: d0, d1
 
