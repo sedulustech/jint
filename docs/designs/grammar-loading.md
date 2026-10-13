@@ -81,6 +81,39 @@ fewer embedded additions, embedded set frozen at the current four, or
 embedded grammars becoming thin pins on manifests. Decide from the spike's
 difficulty verdict.
 
+#### Kind-set validation is approximable, not exact
+
+`nodeTypeForId` enumerates the grammar's declared kinds - a superset of what
+occurs in real trees. Validation catches misspelled keys, not keys that are
+spellable but never match. Per-kind frequency validation would close the gap;
+costs more than the core feature.
+
+#### wrapperTypes have no manifest home
+
+The walker's unwrap step (export wrappers, decorated definitions) is per-
+language knowledge. The manifest carries no field for it; user grammars get an
+empty list and wrapper-having languages mis-map. Needs a manifest field or a
+declared limitation.
+
+#### Extension conflicts are silent-wins
+
+A user grammar claiming an extension an embedded grammar also claims (`.ts`)
+reroutes the file with no signal. Needs a specified behavior - loud failure or
+a note naming both grammars.
+
+#### Provenance stops at the Inventory
+
+`Inventory.provenance` records the grammar source per parse, but neither the
+run record nor the report schema carries it. Threading it through is contract
+work; it also unblocks UI syntax highlighting for unknown languages (see
+below).
+
+#### UI highlighting is the one grammar-aware surface
+
+The UI consumes targets and is grammar-blind, except CodeBlock's hardcoded
+four-language highlight.js map. Near term: widen the map statically. Correct:
+derive highlighting from provenance once it reaches the run record.
+
 #### Grammar-version skew
 
 A user wasm may name node kinds differently than the built-in mapping expects
