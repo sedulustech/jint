@@ -25,6 +25,7 @@ import {
   collectReport,
   selectRules,
   validateRuleSelection,
+  apiKeyAvailable,
   knownLanguages,
   lint,
   loadConfig,
@@ -584,6 +585,18 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // rubric never prints for a run that cannot start.
     if (typeof lintInput?.input === "string" && !existsSync(lintInput.input)) {
       throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${lintInput.input}`);
+    }
+    // Auth pre-flight (the same check lint() makes): with rules to classify and no key
+    // anywhere, the run aborts anyway - surface it before the rubric block so the one
+    // actionable line is never buried under it.
+    if (
+      effective.length + (resolvedConfig.customRules?.length ?? 0) > 0 &&
+      !apiKeyAvailable(resolvedConfig.apiKey)
+    ) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
+      );
     }
     printRules(effective, resolvedConfig.customRules?.length ?? 0);
     const lintReport = await collectReport(

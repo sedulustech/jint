@@ -513,7 +513,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
 }
 
 /** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
-function apiKeyAvailable(configKey?: string): boolean {
+export function apiKeyAvailable(configKey?: string): boolean {
   return (configKey !== undefined && configKey !== "") || !!process.env.TYPESAFE_API_KEY;
 }
 

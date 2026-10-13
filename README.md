@@ -32,13 +32,17 @@ To build from source, see [Development](#development).
 
 ### No runtime needed
 
-The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules.
+The binary ships with virtual modules and the Bun runtime: you do not need to have a JS runtime locally to write your own `.ts` rules. The only system requirement is glibc on Linux (Debian, Ubuntu, Fedora, Arch) - Alpine and other musl images are not supported.
 
 ```ts
 import { defaultRules } from "jint:defaults";
 
 export default { rules: [...defaultRules] };
 ```
+
+### Skill
+
+For AI agents, [`SKILL.md`](SKILL.md) is the distilled operating manual - invocation forms, the fix-loop, calibration workflow - install it alongside the binary.
 
 ## How to use
 
