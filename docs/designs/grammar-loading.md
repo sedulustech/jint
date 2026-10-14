@@ -64,9 +64,8 @@ export default defineConfig({
 
 #### Grammar manifest and provisioning
 
-A user grammar needs a pinned version, extensions, and a fetchable source.
-Local untracked checkouts are not a source: validation must not depend on what
-happens to sit on disk. Open: the manifest format and the provisioning command.
+Superseded by "Loading, not fetching" below - loading only, no fetch command.
+The manifest format question moved to "Mapping shape reopened".
 
 #### Overriding built-in grammars
 
@@ -113,6 +112,37 @@ below).
 The UI consumes targets and is grammar-blind, except CodeBlock's hardcoded
 four-language highlight.js map. Near term: widen the map statically. Correct:
 derive highlighting from provenance once it reaches the run record.
+
+#### Loading, not fetching (supersedes the provisioning question)
+
+jint loads grammars present in the grammar dir. Fetching grammars is not
+jint's responsibility - no registry, no checksums, no fetch command. Revisit
+only if a real demand arrives.
+
+#### Mapping shape reopened: mapping.ts
+
+Declaring which structures to surface is not a flat kind-to-role table.
+wrapperTypes (unwrap lists) and non-trivial name extraction (sibling
+declarators, decorators) are extraction knowledge, not facts. Proposal:
+
+    <lang>.manifest.json   facts pinned with the wasm: version, extensions
+    <lang>.mapping.ts      extraction: kind-to-role table + unwrap + names
+
+The mapping loads like the config: a virtual module (jint:grammar) supplies
+defineGrammarMapping - no install, works in compiled binaries. Trade: kind-set
+validation covers the table portion only; code cannot be statically checked.
+
+#### Extension conflicts deferred to override
+
+File routing (which language owns an extension) is entangled with grammar
+override (issue pending). Current behavior is silent-wins; recorded as known
+and deferred, not specified.
+
+#### Kind-usage gap is a known limit, not an open problem
+
+The never-occurring-but-spellable key scenario was not observed in the spike;
+the failing case was a misspelling, which validation catches. No frequency
+machinery without a corpus that demonstrates the failure.
 
 #### Grammar-version skew
 
