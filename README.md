@@ -9,6 +9,11 @@ It then turns the classification values into actionable output via per-rule call
 
 [Read the blogpost!](https://sedulus.tech/blog/jint/)
 
+Results:
+
+- [jint being used to refactor a component of `jint`'s UI.](https://github.com/sedulustech/jint/commit/084f0af8b08a3261358d0f96d37dd6fa4a77cd36)
+- [jint being used to refactor the input walker.](https://github.com/sedulustech/jint/commit/7a8297fc3eb766fc7314a7a7a6158c3f9e2e2fb8)
+
 ## Install
 
 Install through NPM:
