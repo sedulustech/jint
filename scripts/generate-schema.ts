@@ -191,9 +191,10 @@ const runDirBlock = [
   "### The binary goes stale",
   "",
   "The repo-root `jint` is a compiled artifact. Merges do not rebuild it. `bun run build`",
-  "refreshes `packages/cli/dist/cli.js`, not the root binary. Run `node packages/cli/dist/cli.js`",
-  "after a merge, or recompile the root binary before trusting it. A stale binary reports old",
-  "behavior as if it were current.",
+  "refreshes `packages/cli/dist/cli.js`, not the root binary. Run",
+  "`bun packages/cli/dist/cli.js` after a merge, or recompile the root binary before trusting",
+  "it. Use bun, not node: the SDK uses parameter properties, which node cannot execute. A stale",
+  "binary reports old behavior as if it were current.",
   "",
 ].join("\n");
 writeFileSync(
