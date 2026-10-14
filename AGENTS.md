@@ -69,8 +69,9 @@ Titles follow `package(scope): concise description` - package is the surface (`c
 Section order:
 
 - **What** - 2-3 sentences. The contract violation, readable with zero context.
-- **Repro** - required. Command or steps, config, actual output, exact numbers.
-  Evidence, not adjectives. Name the branch or worktree.
+- **Repro** — preferred; the rule, not the exception. Command or steps, config, actual
+  output, exact numbers. Evidence, not adjectives. Name the branch or worktree. Omit only
+  where no repro can exist (a capability that does not exist).
 - **Cause** - only if known; otherwise omit, or write "The cause is unknown."
 - **Proposal** - only if one exists. The behavioral change, scope, test impact.
 - **Screenshot** - only for UI-rendering issues. Crop to the defect.
