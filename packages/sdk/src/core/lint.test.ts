@@ -67,6 +67,37 @@ const baseConfig = {
   rules: [probeFiles, probeFunctions, probeDefinitions, probeComments, probeImports],
 };
 
+describe("barrel files measure clean (real-jev dogfood defect)", () => {
+  test("a re-export-only file yields an import element and no WALK_FAILED", async () => {
+    const dir = "tmp/barrel-test";
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      `${dir}/index.ts`,
+      ["export * from './a.ts';", "export { b } from './b.ts';", ""].join("\n"),
+    );
+    const events = await drain(
+      lint({
+        config: baseConfig,
+        input: `${dir}/index.ts`,
+        classifier: classifierWith({ probe_imports: 0.5 }),
+      }),
+    );
+    const measurements = events.filter((e) => e.type === "measurement");
+    // the import lane carries the file: the whole-unit files rule plus the element measurement
+    // for the merged re-export element
+    expect(measurements.map((m) => m.measurement.rule)).toEqual(["probe_files", "probe_imports"]);
+    const elementMeasurement = measurements.find((m) => m.measurement.rule === "probe_imports")!;
+    expect(elementMeasurement.measurement.input).toMatch(/#[0-9a-f-]{36}$/);
+    // the zero-elements failure that dogfood hit must not fire on a legal barrel file
+    const failures = events.filter(
+      (e) =>
+        e.type === "error" &&
+        /no definitions, comments, or imports found/.test(String(e.error.message ?? e.error.code)),
+    );
+    expect(failures).toEqual([]);
+  });
+});
+
 describe("synthetic coverage", () => {
   test("the synthetic rule set exercises every RuleTarget and both kinds", () => {
     // The registry above is the only fixture source these engine tests have; this pin keeps its

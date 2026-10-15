@@ -61,6 +61,15 @@
 (import_require_clause) @import
 (import_alias) @import
 
+; A RE-EXPORT is an import-lane item: `export * from './a'` / `export { b } from './b'` pulls
+; names in from another module exactly as an import does, and it is the whole content of a barrel
+; file. Without this pattern a barrel yields zero elements and the walk reports WALK_FAILED on a
+; legal file - the real-jev dogfood defect. The `source:` field is what marks the re-export shape
+; (a plain `export { a }` has no source and stays a wrapper over its declaration); the node type
+; exists with this field in typescript and tsx only (node-types.json is the reference: python's
+; from-import is already @import, go/php/c/cpp have no re-export-with-source shape).
+(export_statement source: (_)) @import ; @priority
+
 ; --- comments ---------------------------------------------------------------------------------
 (comment) @comment
 

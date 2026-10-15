@@ -251,6 +251,33 @@ class Klass {
     ]);
   });
 
+  test("a barrel file walks clean: re-exports are the import lane (the WALK_FAILED defect)", async () => {
+    const inv = await decomposeTS("export * from './a.ts';\n");
+    expect(inv.definitions).toEqual([]);
+    expect(inv.comments).toEqual([]);
+    expect(inv.imports).toHaveLength(1);
+    expect(inv.imports[0]!.content).toBe("export * from './a.ts';");
+  });
+
+  test("named and type-only re-exports join the same import group", async () => {
+    const inv = await decomposeTS(
+      [
+        "export { b } from './b.ts';",
+        "export type { C } from './c.ts';",
+        "export * as ns from './d.ts';",
+      ].join("\n"),
+    );
+    expect(inv.definitions).toEqual([]);
+    expect(inv.imports).toHaveLength(1);
+    expect(inv.imports[0]!.content.split("\n")).toHaveLength(3);
+  });
+
+  test("a plain export without a source is NOT an import: it wraps its declaration", async () => {
+    const inv = await decomposeTS("const a = 1;\nexport { a };\n");
+    expect(inv.imports).toEqual([]);
+    expect(inv.definitions.map((d) => [d.capture, d.name])).toEqual([["binding", "a"]]);
+  });
+
   test("imports merge across mid-file blocks: ONE element, statements only", async () => {
     const inv = await decomposeTS(`
 import a from "./a";

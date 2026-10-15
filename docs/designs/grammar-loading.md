@@ -261,6 +261,32 @@ by name and path; the rest is reported as `unresolved`, loudly, never guessed. E
 built: scope-aware binding resolution, type inference, go-to-definition. Those are a compiler's
 job and the measurement does not need them.
 
+#### Re-exports are the import lane
+
+Settled 2026-10-15 (real-jev dogfood defect, run 1792104210519, case
+packages/contract/src/index.ts): a pure barrel/re-export file yielded zero elements and the walk
+reported WALK_FAILED on a legal file - `export_statement` with a `source` matched no pattern.
+The fix is the pattern `(export_statement source: (_)) @import` in the grammars whose node types
+carry that field (typescript, tsx; the `source:` field is the shape marker, so `export { a }`
+without a source stays a wrapper over its declaration). python's from-import is already @import;
+go, php, c, cpp, verilog, css and markdown have no re-export-with-source shape (node-types.json
+is the reference). A re-export IS an import-lane item - it pulls names in from another module -
+so the import lane is where it belongs, and the zero-elements net stops failing barrel files.
+
+#### CLI stream interleave under combined piped output (post-merge nice)
+
+Observed in dogfood: under high concurrency, with stdout and stderr piped to the SAME
+consumer (`2>&1`), a stderr summary line can land mid-way through a stdout line - the two
+streams are written independently and the terminal/consumer interleaves their writes. Cosmetic
+only (no report is malformed; the JSON on stdout is intact when read alone). Fix direction: one
+write per line, or a single-writer flush discipline, when a caller merges the streams.
+
+#### One directory positional per run (CLI limitation)
+
+Observed in dogfood: the CLI accepts only ONE directory positional, so measuring two packages
+needed two runs. Not a defect, a scope note for the CLI surface; a repeatable-directory input
+(or a paths-list) is the shape that would lift it.
+
 #### Test composites as functions
 
 Settled 2026-10-15 (62e010f): jest/vitest call composites (describe/it/test and the before/after
