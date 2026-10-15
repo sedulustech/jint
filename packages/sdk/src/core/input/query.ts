@@ -171,11 +171,50 @@ function splitPatterns(scm: string): { text: string; precededBy: string }[] {
   return patterns;
 }
 
+/**
+ * Blank out string literals (single- or double-quoted, backslash-escaped) so predicates that merely
+ * MENTION a word - (#match? @name "@priority") - cannot fake a directive, a capture, or a root
+ * token. The quoted text is replaced by spaces, keeping offsets and line structure.
+ */
+function withoutStrings(text: string): string {
+  let out = "";
+  let quote: string | null = null;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]!;
+    if (quote === null) {
+      if (char === '"' || char === "'") {
+        quote = char;
+        out += " ";
+        continue;
+      }
+      out += char;
+      continue;
+    }
+    if (char === "\\") {
+      out += "  ";
+      i++;
+      continue;
+    }
+    if (char === quote) {
+      quote = null;
+      out += " ";
+      continue;
+    }
+    out += char === "\n" ? "\n" : " ";
+  }
+  return out;
+}
+
 export function parseScmPatterns(scm: string): ScmPattern[] {
   return splitPatterns(scm).map((pattern, index) => {
-    const code = pattern.text.replace(/;.*$/gm, "");
+    // comments and string literals both go: only real syntax names a root, a capture or a
+    // directive (a predicate string mentioning @priority must not fake one)
+    // text with string literals blanked but COMMENTS INTACT: the directive is a comment, so it
+    // must survive here while a predicate string cannot fake it
+    const unquoted = withoutStrings(pattern.text);
+    const code = unquoted.replace(/;.*$/gm, "");
     const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
-    const captures = [...pattern.text.matchAll(/@(\w+)/g)].map((m) => m[1]!);
+    const captures = [...code.matchAll(/@(\w+)/g)].map((m) => m[1]!);
     const capture =
       captures.find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ??
       null;
@@ -184,9 +223,25 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
       rootType,
       capture,
       // the directive rides a preceding comment line OR a trailing comment inside the pattern
-      intentional: /@priority\b/.test(pattern.precededBy) || /@priority\b/.test(pattern.text),
+      intentional: /@priority\b/.test(pattern.precededBy) || /@priority\b/.test(unquoted),
     };
   });
+}
+
+/**
+ * Count cross-check: our scanner must see exactly the patterns the grammar compiled. A stray paren
+ * or quote can collapse (or grow) our pattern list silently - the validator would then reason about
+ * a file the grammar reads differently - so a mismatch is a broken .scm and fails by name.
+ * tree-sitter rejects most such files first; this catches the ones it tolerates.
+ */
+export function assertPatternCount(language: string, scm: string, compiledCount: number): void {
+  const parsedCount = parseScmPatterns(scm).length;
+  if (parsedCount !== compiledCount) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `query patterns for ${language}: parsed ${String(parsedCount)} pattern(s) from queries.scm but the grammar compiled ${String(compiledCount)} - the file is unbalanced (a stray paren or quote)`,
+    );
+  }
 }
 
 export function validatePatternOrder(language: string, scm: string): void {
@@ -240,6 +295,7 @@ export function queryFor(
           (e instanceof Error ? e.message : String(e)),
       );
     }
+    assertPatternCount(language, scm, query.patternCount());
     validatePatternOrder(language, scm);
     const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
     if (unknown.length > 0) {

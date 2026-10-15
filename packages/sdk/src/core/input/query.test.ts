@@ -5,6 +5,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  assertPatternCount,
+  parseScmPatterns,
   resolveCandidates,
   validatePatternOrder,
   type Candidate,
@@ -119,6 +121,37 @@ describe("validatePatternOrder", () => {
     const scm =
       "(long_declaration\n  name: (identifier) @name) @function\n(long_declaration) @binding\n";
     expect(() => validatePatternOrder("probe", scm)).toThrow(/root node type "long_declaration"/);
+  });
+
+  test("a predicate string mentioning @priority does NOT fake the directive", () => {
+    // the only @priority occurrences are inside (#match? ...) strings: both patterns are
+    // unstated, so the pair must still fail - raw-text regexing would have passed it
+    const scm =
+      '(foo_declaration\n  (#match? @name "@priority")) @function\n' +
+      '(foo_declaration\n  (#match? @name "@priority")) @binding\n';
+    expect(() => validatePatternOrder("probe", scm)).toThrow(/\(unstated\)/);
+  });
+
+  test("a real directive beside a predicate string still states the pair", () => {
+    const scm =
+      '(foo_declaration\n  (#match? @name "@priority")) @function ; @priority\n' +
+      '(foo_declaration\n  (#match? @name "@priority")) @binding ; @priority\n';
+    expect(() => validatePatternOrder("probe", scm)).not.toThrow();
+  });
+
+  test("a string literal cannot fake a capture name either", () => {
+    const parsed = parseScmPatterns(
+      '(foo_declaration\n  (#eq? @name "@binding")) @function ; @priority\n',
+    );
+    expect(parsed[0]!.capture).toBe("function");
+  });
+
+  test("the parsed pattern count must equal the compiled count", () => {
+    const scm = ["(foo_declaration) @function", "(bar_declaration) @binding", ""].join("\n");
+    expect(() => assertPatternCount("probe", scm, 2)).not.toThrow();
+    expect(() => assertPatternCount("probe", scm, 3)).toThrow(
+      /probe: parsed 2 pattern\(s\) from queries.scm but the grammar compiled 3/,
+    );
   });
 
   test("a preceding comment line carries the directive too", () => {
