@@ -78,6 +78,82 @@ const LANES: ReadonlySet<Capture> = new Set(["comment", "import", "docstring"]);
 const NAME_CAPTURE = "name";
 const KNOWN_CAPTURES: ReadonlySet<string> = new Set([...ELEMENT_CAPTURES, NAME_CAPTURE]);
 
+/**
+ * PATTERN-ORDER VALIDATION: when two patterns root on the same node type but assign DIFFERENT
+ * element captures, the order between them is load-bearing (the earlier pattern wins) - silence
+ * there is the highest-risk invariant an agent reordering patterns can break. Such a pair must be
+ * stated: each involved pattern carries an "; @priority" directive comment. A pair without the
+ * directive fails the run at setup, naming the patterns and the fix.
+ *
+ * Root node type = the first token of the pattern (conservative: two patterns may root on the same
+ * type yet never match the same node - over-approximation forces explicitness, which is the point;
+ * a false positive costs one comment line).
+ */
+export interface ScmPattern {
+  readonly pattern: number;
+  readonly rootType: string;
+  readonly capture: Capture | null;
+  readonly intentional: boolean;
+}
+
+/** Parse the .scm's patterns structurally: element capture, root node type, @priority directive. */
+export function parseScmPatterns(scm: string): ScmPattern[] {
+  const patterns: ScmPattern[] = [];
+  let directive = false;
+  for (const line of scm.split("\n")) {
+    const text = line.trim();
+    if (text.startsWith(";")) {
+      if (/@priority\b/.test(text)) directive = true;
+      continue;
+    }
+    if (text.length === 0) {
+      directive = false;
+      continue;
+    }
+    const rootType = text.slice(1).split(/[\s:()]/)[0] ?? "";
+    const captureMatch = text.match(/@\w+/g);
+    const capture =
+      (captureMatch ?? [])
+        .map((c) => c.slice(1))
+        .find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ?? null;
+    patterns.push({
+      pattern: patterns.length,
+      rootType,
+      capture,
+      // the directive rides a preceding comment line OR a trailing comment on the pattern line
+      intentional: directive || /;\s*@priority\b/.test(text),
+    });
+    directive = false;
+  }
+  return patterns;
+}
+
+export function validatePatternOrder(language: string, scm: string): void {
+  const patterns = parseScmPatterns(scm);
+  const byRoot = new Map<string, ScmPattern[]>();
+  for (const p of patterns) {
+    if (p.capture === null) continue;
+    const group = byRoot.get(p.rootType) ?? [];
+    group.push(p);
+    byRoot.set(p.rootType, group);
+  }
+  for (const [rootType, group] of byRoot) {
+    const captures = new Set(group.map((p) => p.capture));
+    if (captures.size <= 1) continue;
+    // one stated intent is enough for the whole conflicting group: it says "this order is
+    // load-bearing on purpose"; silence anywhere in the group is the failure
+    if (group.some((p) => p.intentional)) continue;
+    const detail = group
+      .map((p) => `pattern ${p.pattern}: @${p.capture} on ${p.rootType}`)
+      .join("; ");
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `${language}: patterns ${detail} share root node type "${rootType}" with different captures - ` +
+        `the order between them is load-bearing; state the intent with an "; @priority" comment on one pattern of the group`,
+    );
+  }
+}
+
 /** Compile one grammar's .scm; cached per language (queries are immutable per process). */
 const compiled = new Map<string, Promise<Query>>();
 
@@ -101,6 +177,7 @@ export function queryFor(
           (e instanceof Error ? e.message : String(e)),
       );
     }
+    validatePatternOrder(language, scm);
     const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
     if (unknown.length > 0) {
       throw new SetupError(
@@ -212,25 +289,55 @@ export function resolveCandidates(
 }
 
 /**
- * Grammar-declared structure fact (manifest: sameCaptureNesting). Default false: a same-capture
- * match inside an existing same-capture element is read through the policy table's absorb shape.
- * Markdown declares true: its sections genuinely nest, so no same-capture collapse at all.
+ * Grammar-declared policy overrides (manifest: policy). Keys are captures or "selfNesting"; absent
+ * keys keep the POLICY table defaults - simple grammars stay zero-config.
  */
-export interface ResolveOptions {
+export interface PolicyOverrides {
   readonly selfNesting?: boolean;
+  readonly [capture: string]:
+    | { readonly opaque?: boolean; readonly absorbTail?: number }
+    | boolean
+    | undefined;
 }
 
-/** Does the outer candidate hide the inner one? (policy table; ordered checks) */
+/** Grammar-declared structure facts that modulate suppression (manifest policy, see above). */
+export interface ResolveOptions {
+  readonly selfNesting?: boolean;
+  readonly overrides?: PolicyOverrides;
+}
+
+function effectivePolicy(
+  capture: Capture,
+  options: ResolveOptions,
+): { readonly absorbTail: number; readonly opaque: boolean } {
+  const override = options.overrides?.[capture];
+  const base = POLICY[capture];
+  if (override === undefined || typeof override === "boolean") return base;
+  return {
+    absorbTail: override.absorbTail ?? base.absorbTail,
+    opaque: override.opaque ?? base.opaque,
+  };
+}
+
+function selfNestingOf(options: ResolveOptions): boolean {
+  return options.overrides?.selfNesting === true || options.selfNesting === true;
+}
+
+/** Does the outer candidate hide the inner one? (policy table + manifest overrides; ordered) */
 function hides(outer: Candidate, inner: Candidate, options: ResolveOptions): boolean {
   // lane captures travel intact: the materializer counts them internal and keeps runs whole
   if (LANES.has(inner.capture)) return false;
   if (!contains(outer, inner)) return false;
   if (outer.capture === inner.capture) {
-    if (options.selfNesting === true) return false;
-    // prefix-absorb shape: the wrapper carries at most a small tail (';') past its payload
-    return inner.node.endIndex >= outer.node.endIndex - POLICY[outer.capture].absorbTail;
+    if (selfNestingOf(options)) return false;
+    // prefix-absorb shape: the wrapper carries at most the capture's tail tolerance (';') past
+    // its payload; a larger tail is a unit of its own and surfaces as a child
+    return (
+      inner.node.endIndex >=
+      outer.node.endIndex - effectivePolicy(outer.capture, options).absorbTail
+    );
   }
-  return POLICY[outer.capture].opaque;
+  return effectivePolicy(outer.capture, options).opaque;
 }
 
 export function spanOf(node: QueryNode): Span {

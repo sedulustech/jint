@@ -26,6 +26,9 @@ import { Language, Parser, type Language as LanguageType } from "web-tree-sitter
 // ($bunfs) path inside the compiled binary — Bun.file reads both, one loader serves both modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
 import { InternalError, SetupError } from "../types.ts";
+import cManifest from "./embedded/c/c.manifest.json" with { type: "json" };
+import cWasm from "./embedded/c/c.wasm" with { type: "file" };
+import cScm from "./embedded/c/queries.scm" with { type: "text" };
 import cssManifest from "./embedded/css/css.manifest.json" with { type: "json" };
 import cssWasm from "./embedded/css/css.wasm" with { type: "file" };
 import cssScm from "./embedded/css/queries.scm" with { type: "text" };
@@ -59,11 +62,10 @@ export interface GrammarEntry {
   /** The grammar's query patterns (the extraction half); compiled per language in query.ts. */
   readonly queries: string;
   /**
-   * Same-capture candidates nest legitimately (markdown's sections). Default false: a same-capture
-   * match inside an existing same-capture element reads as a wrapper's payload and collapses into
-   * it (see the policy table in query.ts).
+   * Per-grammar policy overrides over the capture table in query.ts (keys: captures or
+   * "selfNesting"; absent keys keep the table defaults - simple grammars stay zero-config).
    */
-  readonly sameCaptureNesting?: boolean;
+  readonly policy?: Record<string, unknown>;
   readonly provenance: GrammarProvenance;
 }
 
@@ -99,7 +101,7 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: markdownManifest.extensions,
     wasmPath: markdownWasm,
     queries: markdownScm,
-    sameCaptureNesting: markdownManifest.sameCaptureNesting === true,
+    policy: markdownManifest.policy,
     provenance: { source: "embedded" },
   },
   go: {
@@ -107,6 +109,13 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: goManifest.extensions,
     wasmPath: goWasm,
     queries: goScm,
+    provenance: { source: "embedded" },
+  },
+  c: {
+    language: "c",
+    extensions: cManifest.extensions,
+    wasmPath: cWasm,
+    queries: cScm,
     provenance: { source: "embedded" },
   },
   css: {
@@ -216,10 +225,52 @@ export async function parserFor(language: string): Promise<Parser> {
 // The grammar-dir scan
 // ---------------------------------------------------------------------------
 
+/**
+ * Validated manifest policy: keys are captures or "selfNesting"; a capture's value carries opaque /
+ * absorbTail; unknown keys or shapes are loud config errors (an override that can never fire must
+ * not parse into silence).
+ */
+function manifestPolicy(
+  language: string,
+  version: string,
+  raw: unknown,
+): Record<string, unknown> | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `invalid grammar manifest for ${language} ${version}: "policy" must be an object keyed by capture or "selfNesting"`,
+    );
+  }
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (key === "selfNesting") {
+      if (typeof value !== "boolean") {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `invalid grammar manifest for ${language} ${version}: policy.selfNesting must be a boolean`,
+        );
+      }
+      continue;
+    }
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      ("opaque" in value && typeof (value as { opaque: unknown }).opaque !== "boolean") ||
+      ("absorbTail" in value && typeof (value as { absorbTail: unknown }).absorbTail !== "number")
+    ) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid grammar manifest for ${language} ${version}: policy.${key} must be { opaque?: boolean, absorbTail?: number } (capture keys only)`,
+      );
+    }
+  }
+  return raw as Record<string, unknown>;
+}
+
 interface Manifest {
   version: string;
   extensions: string[];
-  sameCaptureNesting?: boolean;
+  policy?: Record<string, unknown>;
 }
 
 /** Facts only — the extraction half is the grammar's queries.scm. */
@@ -233,7 +284,7 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language}: not valid JSON (${e instanceof Error ? e.message : String(e)})`,
     );
   }
-  const { version, extensions, sameCaptureNesting } = raw as Partial<Manifest>;
+  const { version, extensions } = raw as Partial<Manifest>;
   if (typeof version !== "string" || version.length === 0) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -250,7 +301,11 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language} ${version}: "extensions" must be a non-empty array of file extensions`,
     );
   }
-  return { version, extensions, sameCaptureNesting };
+  return {
+    version,
+    extensions,
+    policy: manifestPolicy(language, version, (raw as { policy?: unknown }).policy),
+  };
 }
 
 async function registerUserGrammar(language: string, dir: string): Promise<void> {
@@ -288,7 +343,7 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
       extensions: manifest.extensions,
       wasmPath: effectivePath,
       queries,
-      sameCaptureNesting: manifest.sameCaptureNesting === true,
+      policy: manifest.policy,
       provenance: { source: "user", path: effectivePath, version: manifest.version },
     },
   };

@@ -16,8 +16,9 @@
 (class_definition name: (identifier) @name) @type
 
 ; ABSORB: decorated definitions (decorator prefixes travel with the element)
-(decorated_definition (function_definition name: (identifier) @name)) @function
-(decorated_definition (class_definition name: (identifier) @name)) @type
+; @priority: a decorated_definition is a function OR a class - never the same node
+(decorated_definition (function_definition name: (identifier) @name)) @function ; @priority
+(decorated_definition (class_definition name: (identifier) @name)) @type ; @priority
 
 ; --- imports ----------------------------------------------------------------------------------
 (import_statement) @import
@@ -28,8 +29,9 @@
 (comment) @comment
 
 ; The docstring of a definition: the FIRST statement of its body wrapping a string.
-(function_definition body: (block . (expression_statement (string) @docstring)))
-(class_definition body: (block . (expression_statement (string) @docstring)))
+; @priority: the docstring capture coexists with the definition capture (different nodes)
+(function_definition body: (block . (expression_statement (string) @docstring))) ; @priority
+(class_definition body: (block . (expression_statement (string) @docstring))) ; @priority
 
 ; The module docstring: the file's first statement wrapping a string.
-(module . (expression_statement (string) @docstring))
+(module . (expression_statement (string) @docstring)) ; @priority

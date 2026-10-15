@@ -21,12 +21,12 @@
 
 ; Callable initializers keep the function noun (old refineCallableInitializers); any other
 ; lexical/variable declaration is a binding. Earlier patterns win (see header).
-(lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function
-(lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function
-(variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function
-(variable_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function
-(lexical_declaration (variable_declarator name: (identifier) @name)) @binding
-(variable_declaration (variable_declarator name: (identifier) @name)) @binding
+(lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
+(lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
+(variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
+(variable_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
+(lexical_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
+(variable_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
 
 ; --- declarations: types ---------------------------------------------------------------------
 (class_declaration name: (type_identifier) @name) @type
@@ -47,16 +47,16 @@
 ; The wrapper is the element: the span carries the "export" prefix, the inner declaration's
 ; bare pattern match is suppressed by same-capture nesting (see query.ts). Absorb = capture
 ; the wrapper; no walker unwrap step exists.
-(export_statement declaration: (function_declaration name: (identifier) @name)) @function
-(export_statement declaration: (generator_function_declaration name: (identifier) @name)) @function
-(export_statement declaration: (class_declaration name: (type_identifier) @name)) @type
-(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name)) @type
-(export_statement declaration: (interface_declaration name: (type_identifier) @name)) @type
-(export_statement declaration: (type_alias_declaration name: (type_identifier) @name)) @type
-(export_statement declaration: (enum_declaration name: (identifier) @name)) @type
-(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function
-(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function
-(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function
-(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function
-(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name))) @binding
-(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name))) @binding
+(export_statement declaration: (function_declaration name: (identifier) @name)) @function ; @priority
+(export_statement declaration: (generator_function_declaration name: (identifier) @name)) @function ; @priority
+(export_statement declaration: (class_declaration name: (type_identifier) @name)) @type ; @priority
+(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name)) @type ; @priority
+(export_statement declaration: (interface_declaration name: (type_identifier) @name)) @type ; @priority
+(export_statement declaration: (type_alias_declaration name: (type_identifier) @name)) @type ; @priority
+(export_statement declaration: (enum_declaration name: (identifier) @name)) @type ; @priority
+(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function ; @priority
+(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function ; @priority
+(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function ; @priority
+(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function ; @priority
+(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority
+(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority

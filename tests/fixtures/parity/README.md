@@ -49,6 +49,19 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
+## c (corpus.c, from the c field trial's sample)
+
+Verdict (Oct 15, seventh port): parity holds with three documented deltas:
+
+- NAMES everywhere: enum/struct/typedef/declarations bind @name (the reference was nameless);
+  names descend through pointer declarators (`struct Ring *f(void)`).
+- PROTOTYPE SPLIT: the trial's STRETCH (prototypes as bindings) is dead - pattern priority on
+  function_declarator roots splits a declaration-with-declarator into a function unit;
+  state declarations stay bindings. The split is stated with @priority directives and enforced
+  by the load-time pattern-order validator.
+- STRUCT SPAN: the reference bounded a composite struct to its header; the query element carries
+  the whole body (span = captured node; fields stay inside, WAITING on the future field capture).
+
 ## markdown (corpus.md, from the markdown field trial's sample)
 
 Verdict (Oct 15, sixth port): sections-only by decided policy; every retired stretch is a

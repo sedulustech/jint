@@ -317,7 +317,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   const candidates = resolveCandidates(runQuery(query, tree.rootNode), {
-    selfNesting: entry.sameCaptureNesting === true,
+    overrides: entry.policy as import("./query.ts").PolicyOverrides | undefined,
   });
   const { definitions, comments, imports } = materialize(candidates);
   return {
