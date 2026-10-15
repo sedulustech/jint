@@ -1,0 +1,5 @@
+{
+  "version": "0.25.0",
+  "extensions": ["py"],
+  "docstringNodeTypes": ["string"]
+}

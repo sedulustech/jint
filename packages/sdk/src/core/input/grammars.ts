@@ -29,6 +29,15 @@ import { InternalError, SetupError } from "../types.ts";
 import cssManifest from "./embedded/css/css.manifest.json" with { type: "json" };
 import cssWasm from "./embedded/css/css.wasm" with { type: "file" };
 import cssScm from "./embedded/css/queries.scm" with { type: "text" };
+import goManifest from "./embedded/go/go.manifest.json" with { type: "json" };
+import goWasm from "./embedded/go/go.wasm" with { type: "file" };
+import goScm from "./embedded/go/queries.scm" with { type: "text" };
+import pythonManifest from "./embedded/python/python.manifest.json" with { type: "json" };
+import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
+import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
+import tsxScm from "./embedded/tsx/queries.scm" with { type: "text" };
+import tsxManifest from "./embedded/tsx/tsx.manifest.json" with { type: "json" };
+import tsxWasm from "./embedded/tsx/tsx.wasm" with { type: "file" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
 import typescriptManifest from "./embedded/typescript/typescript.manifest.json" with { type: "json" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
@@ -46,6 +55,12 @@ export interface GrammarEntry {
   readonly wasmPath: string;
   /** The grammar's query patterns (the extraction half); compiled per language in query.ts. */
   readonly queries: string;
+  /**
+   * Node types whose @comment captures are DOCSTRINGS (e.g. python's string-in-block): the walker
+   * owns them (docstringOf: the enclosing definition, or the module) instead of counting them
+   * internal. Empty for grammars with no docstring convention.
+   */
+  readonly docstringNodeTypes: readonly string[];
   readonly provenance: GrammarProvenance;
 }
 
@@ -55,18 +70,44 @@ export interface GrammarEntry {
 // ---------------------------------------------------------------------------
 
 const EMBEDDED: Record<string, GrammarEntry> = {
-  css: {
-    language: "css",
-    extensions: cssManifest.extensions,
-    wasmPath: cssWasm,
-    queries: cssScm,
-    provenance: { source: "embedded" },
-  },
   typescript: {
     language: "typescript",
     extensions: typescriptManifest.extensions,
     wasmPath: typescriptWasm,
     queries: typescriptScm,
+    docstringNodeTypes: [],
+    provenance: { source: "embedded" },
+  },
+  tsx: {
+    language: "tsx",
+    extensions: tsxManifest.extensions,
+    wasmPath: tsxWasm,
+    queries: tsxScm,
+    docstringNodeTypes: [],
+    provenance: { source: "embedded" },
+  },
+  python: {
+    language: "python",
+    extensions: pythonManifest.extensions,
+    wasmPath: pythonWasm,
+    queries: pythonScm,
+    docstringNodeTypes: pythonManifest.docstringNodeTypes ?? [],
+    provenance: { source: "embedded" },
+  },
+  go: {
+    language: "go",
+    extensions: goManifest.extensions,
+    wasmPath: goWasm,
+    queries: goScm,
+    docstringNodeTypes: [],
+    provenance: { source: "embedded" },
+  },
+  css: {
+    language: "css",
+    extensions: cssManifest.extensions,
+    wasmPath: cssWasm,
+    queries: cssScm,
+    docstringNodeTypes: [],
     provenance: { source: "embedded" },
   },
 };
@@ -172,6 +213,7 @@ export async function parserFor(language: string): Promise<Parser> {
 interface Manifest {
   version: string;
   extensions: string[];
+  docstringNodeTypes?: string[];
 }
 
 /** Facts only — the extraction half is the grammar's queries.scm. */
@@ -185,7 +227,7 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language}: not valid JSON (${e instanceof Error ? e.message : String(e)})`,
     );
   }
-  const { version, extensions } = raw as Partial<Manifest>;
+  const { version, extensions, docstringNodeTypes } = raw as Partial<Manifest>;
   if (typeof version !== "string" || version.length === 0) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -202,7 +244,17 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language} ${version}: "extensions" must be a non-empty array of file extensions`,
     );
   }
-  return { version, extensions };
+  if (
+    docstringNodeTypes !== undefined &&
+    (!Array.isArray(docstringNodeTypes) ||
+      docstringNodeTypes.some((x) => typeof x !== "string" || x.length === 0))
+  ) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `invalid grammar manifest for ${language} ${version}: "docstringNodeTypes" must be a list of node-type names`,
+    );
+  }
+  return { version, extensions, docstringNodeTypes };
 }
 
 async function registerUserGrammar(language: string, dir: string): Promise<void> {
@@ -240,6 +292,7 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
       extensions: manifest.extensions,
       wasmPath: effectivePath,
       queries,
+      docstringNodeTypes: manifest.docstringNodeTypes ?? [],
       provenance: { source: "user", path: effectivePath, version: manifest.version },
     },
   };

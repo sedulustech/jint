@@ -20,6 +20,35 @@ queries.scm. Deltas vs the reference:
 - Legal result: a comments-only inventory; zero elements (a stylesheet without comments) is
   legal per grammar.
 
+## tsx (corpus.tsx, from embed-all's port-corpus)
+
+Verdict (Oct 15, third port): parity holds; the single delta is ABSORB on
+`export function Counter` (wrapper span, identical element set). The tsx grammar shares the
+typescript pattern set verbatim (same declaration node types; JSX stays inside them - the old
+probe found no jsx_* node type at the top level). NAMES: the query patterns bind @name where the
+reference produced nameless elements.
+
+## python (corpus.py, from embed-all's port-corpus)
+
+Verdict (Oct 15, fourth port): parity holds with two documented deltas:
+
+- CLASS SPANS: the reference bounded a composite class to its declaration header
+  (`class Config:`); the query element captures the class WHOLE (span = captured node; the size
+  backstop guards the budget). Methods and docstrings identical.
+- NAMES: @name binds everywhere (the reference produced nameless elements on this corpus).
+
+Docstrings: the string-in-block convention moved into the grammar dir - the .scm captures the
+docstring, the manifest's docstringNodeTypes fact tells the walker which captured comments are
+docstrings, and the walker owns them (docstringOf: innermost containing definition, or module).
+Decorated definitions absorb their decorator (wrapper = element).
+
+## go (corpus.go, from embed-all's port-corpus)
+
+Verdict (Oct 15, fifth port): parity holds; NAMES is the only delta (@name on functions, methods,
+single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a block only when it
+declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
+present (a consts-only package file yields elements); doc comments attach as leading runs.
+
 ## typescript (corpus.ts, from embed-all's port-corpus)
 
 Verdict (Oct 15, first query port): parity holds — every reference element has a counterpart.

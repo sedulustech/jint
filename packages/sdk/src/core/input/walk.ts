@@ -127,7 +127,10 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set(["function", "type", "
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
  * following definition), internal-comment counting, the imports merge, labels, parent links.
  */
-function materialize(candidates: readonly Candidate[]): {
+function materialize(
+  candidates: readonly Candidate[],
+  docstringNodeTypes: readonly string[],
+): {
   definitions: WalkElement[];
   comments: WalkElement[];
   imports: WalkElement[];
@@ -136,11 +139,35 @@ function materialize(candidates: readonly Candidate[]): {
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
 
+  // Docstrings: comment captures whose node type the grammar declared a docstring convention
+  // (python's string-in-block). They are owned comment elements - docstringOf answers who they
+  // document (the innermost containing definition, or the module) - never internal counts.
+  const isDocstring = (c: Candidate): boolean => docstringNodeTypes.includes(c.node.type);
+  const docstringOf = (candidate: Candidate): DocstringOwner => {
+    let innermost: Candidate | undefined;
+    for (const definition of definitions) {
+      if (!containsSpan(definition, candidate)) continue;
+      if (
+        innermost === undefined ||
+        definition.node.endIndex - definition.node.startIndex <=
+          innermost.node.endIndex - innermost.node.startIndex
+      ) {
+        innermost = definition;
+      }
+    }
+    if (innermost === undefined) return { kind: "module", name: "" };
+    return {
+      kind: innermost.capture === "type" ? "class" : "function",
+      name: innermost.name ?? "",
+    };
+  };
+
   // Internal comments: every non-empty comment fully inside a definition counts for EACH
   // containing definition (a method body's comment counts for the method and its class) - the
   // count is what lets comment-target rules see a definition whose only comment is internal.
   const internalCounts = new Map<Candidate, number>();
   for (const comment of comments) {
+    if (isDocstring(comment)) continue;
     if (isEmptyComment(comment.node.text)) continue;
     for (const definition of definitions) {
       if (
@@ -188,10 +215,17 @@ function materialize(candidates: readonly Candidate[]): {
   }
   standalone.push(...pending);
 
-  // Labels follow document order: definitions d0.., standalone comments c0.., imports i0.
+  // Labels follow document order: definitions d0.., comments c0.. (docstrings and standalone
+  // comments share the c-lane, ordered by document position), imports i0.
+  const docstringElements = docstringsOf(comments, isDocstring);
+  // docstrings are owned, never standalone: the standalone lane drops them (a module docstring
+  // matches both the .scm's docstring pattern and the top-level comment walk)
+  const commentElements = [...new Set([...standalone, ...docstringElements])].sort(
+    (a, b) => a.node.startIndex - b.node.startIndex,
+  );
   const labels = new Map<Candidate, string>();
   definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
-  standalone.forEach((c, i) => labels.set(c, "c" + String(i)));
+  commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
 
   // Parents: the innermost OTHER definition containing this one.
   const parentOf = (candidate: Candidate): string | undefined => {
@@ -221,7 +255,7 @@ function materialize(candidates: readonly Candidate[]): {
     internalCommentCount: internalCounts.get(d) ?? 0,
     parent: parentOf(d),
   }));
-  const walkComments: WalkElement[] = standalone.map((c) => ({
+  const walkComments: WalkElement[] = commentElements.map((c) => ({
     label: labels.get(c)!,
     span: spanOf(c.node),
     content: c.node.text,
@@ -229,6 +263,7 @@ function materialize(candidates: readonly Candidate[]): {
     capture: "comment" as const,
     internalCommentCount: 0,
     parent: parentOf(c),
+    docstringOf: isDocstring(c) ? docstringOf(c) : undefined,
   }));
 
   // The imports element spans the whole run (first to last import node); one merged element
@@ -255,6 +290,16 @@ function materialize(candidates: readonly Candidate[]): {
   return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
 }
 
+/** The docstring comment candidates, document order (empty comments are not docstrings). */
+function docstringsOf(
+  comments: readonly Candidate[],
+  isDocstring: (c: Candidate) => boolean,
+): Candidate[] {
+  return comments
+    .filter((c) => isDocstring(c) && !isEmptyComment(c.node.text))
+    .sort((a, b) => a.node.startIndex - b.node.startIndex);
+}
+
 function containsSpan(outer: Candidate, inner: Candidate): boolean {
   return (
     outer.node.startIndex <= inner.node.startIndex && outer.node.endIndex >= inner.node.endIndex
@@ -272,7 +317,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   const candidates = resolveCandidates(runQuery(query, tree.rootNode));
-  const { definitions, comments, imports } = materialize(candidates);
+  const { definitions, comments, imports } = materialize(candidates, entry.docstringNodeTypes);
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,

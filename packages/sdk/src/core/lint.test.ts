@@ -813,7 +813,7 @@ describe("lint", () => {
         e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, tsx, py, go, css · not parsed (no grammar): (extensionless), .json, .md",
     );
   });
 
@@ -851,7 +851,7 @@ describe("lint", () => {
         e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, tsx, py, go, css · not parsed (no grammar): (extensionless), .json, .md",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
