@@ -26,6 +26,9 @@ import { Language, Parser, type Language as LanguageType } from "web-tree-sitter
 // ($bunfs) path inside the compiled binary — Bun.file reads both, one loader serves both modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
 import { InternalError, SetupError } from "../types.ts";
+import cssManifest from "./embedded/css/css.manifest.json" with { type: "json" };
+import cssWasm from "./embedded/css/css.wasm" with { type: "file" };
+import cssScm from "./embedded/css/queries.scm" with { type: "text" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
 import typescriptManifest from "./embedded/typescript/typescript.manifest.json" with { type: "json" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
@@ -52,6 +55,13 @@ export interface GrammarEntry {
 // ---------------------------------------------------------------------------
 
 const EMBEDDED: Record<string, GrammarEntry> = {
+  css: {
+    language: "css",
+    extensions: cssManifest.extensions,
+    wasmPath: cssWasm,
+    queries: cssScm,
+    provenance: { source: "embedded" },
+  },
   typescript: {
     language: "typescript",
     extensions: typescriptManifest.extensions,

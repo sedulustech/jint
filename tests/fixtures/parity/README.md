@@ -5,6 +5,21 @@ the query walker against the previous implementation (embed-all worktree, run li
 double as the regression corpus for extraction-policy changes; change a corpus only with the
 parity verdict re-recorded here.
 
+## css (corpus.css, from the css field trial's stylesheet)
+
+Verdict (Oct 15, second port): comments-only by decided policy — the trials' stretch mappings
+(rule_set -> type, declaration -> binding) are retired; every stretch is a recorded WAITING in
+queries.scm. Deltas vs the reference:
+
+- REF-ONLY: all rule sets, declarations, @keyframes (stretched elements) — gone, honestly.
+- NEW-ONLY: comments inside rule bodies become standalone elements — with no captured
+  definitions, nothing contains them (the reference counted them internal to the stretched
+  composite).
+- @import is NOT captured: css imports are not code imports (no merge-run semantics); decide
+  with the vocabulary, not by stretch.
+- Legal result: a comments-only inventory; zero elements (a stylesheet without comments) is
+  legal per grammar.
+
 ## typescript (corpus.ts, from embed-all's port-corpus)
 
 Verdict (Oct 15, first query port): parity holds — every reference element has a counterpart.

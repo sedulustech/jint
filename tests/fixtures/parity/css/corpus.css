@@ -1,0 +1,31 @@
+/* Header comment for the stylesheet. */
+@import url("other.css");
+
+:root {
+  --brand: #0066cc;
+  font-size: 16px;
+}
+
+.card {
+  display: flex;
+  padding: 1rem; /* trailing note */
+}
+
+.btn:hover::before {
+  content: "";
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: 0.5rem;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
