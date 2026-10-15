@@ -8,12 +8,22 @@
 ; earlier pattern wins — the callable-initializer refinement below depends on it.
 ;
 ; WAITING (recorded, not stretched — the five have no honest answer yet):
-; - call_expression composites (describe/it blocks): the old walker stretched every top-level
-;   call to the function noun and descended into its arguments. Not captured; needs contextual
-;   refinement (a call is a definition only when its callback carries declarations).
+
 ; - header-bounded class spans: elements carry their full node text now; the size backstop skips
 ;   what overflows.
 
+; --- call composites: test constructs (jest/vitest) — ABSORB by callee predication ----------
+; The whole call is the element: the span carries the title line (a describe('title', ...) span
+; includes the describe line). The callee predicate is what makes a call honest as a function -
+; a bare top-level call is NOT a definition, the allowlisted family is. No @priority needed: no
+; other pattern captures call_expression. The title string as render name is the WAITING
+; text-name capture (the same seam as markdown headings); the name is the callee.
+(call_expression
+  function: (identifier) @name
+  (#any-of? @name "describe" "it" "test" "beforeEach" "afterEach" "beforeAll" "afterAll")) @function
+(call_expression
+  function: (member_expression object: (identifier) @name)
+  (#any-of? @name "describe" "it" "test")) @function
 ; --- declarations: functions -----------------------------------------------------------------
 (function_declaration name: (identifier) @name) @function
 (generator_function_declaration name: (identifier) @name) @function

@@ -114,6 +114,39 @@ class Klass {
     expect(summary(inv)).toEqual(["d0 type Klass L2-L6", "d1 function method L3-L5 in d0"]);
   });
 
+  test("call composites: describe/it/beforeEach capture as functions with parent links; the span carries the title line", async () => {
+    const inv = await decomposeTS(`
+describe("store", () => {
+  let s: Store;
+  beforeEach(() => { s = new Store(); });
+  it("adds", () => { expect(s.add(1)).toBe(1); });
+});
+`);
+    expect(summary(inv)).toEqual([
+      "d0 function describe L2-L6",
+      "d1 function beforeEach L4-L4 in d0",
+      "d2 function it L5-L5 in d0",
+    ]);
+    expect(inv.definitions[0]!.content.startsWith('describe("store"')).toBe(true);
+    expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "beforeEach", "it"]);
+  });
+
+  test("call composites: the member-call variant (describe.only / it.skip) captures; non-family calls produce nothing", async () => {
+    const inv = await decomposeTS(`
+describe.only("outer", () => {
+  it.skip("x", () => {});
+});
+const plain = compute(1);
+expect(1).toBe(1);
+compute(2);
+`);
+    expect(summary(inv)).toEqual([
+      "d0 function describe L2-L4",
+      "d1 function it L3-L3 in d0",
+      "d2 binding plain L5-L5",
+    ]);
+  });
+
   test("different-capture overlap is legal: a method lives inside its class", async () => {
     const inv = await decomposeTS(`
 class Klass {

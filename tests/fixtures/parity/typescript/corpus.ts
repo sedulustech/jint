@@ -32,4 +32,8 @@ describe("renderer", () => {
   });
 });
 
+describe.only("focused", () => {
+  it.skip("skipped", () => {});
+});
+
 import { readFile } from "node:fs/promises";

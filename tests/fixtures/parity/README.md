@@ -132,9 +132,11 @@ Deltas, all documented policy:
   replaces header bounding as the token-budget guard.
 - DESCENT: a `@function`/`@binding` interior is opaque (the reference only surfaced what composite
   descent reached); a `@type` interior surfaces (methods), as before.
-- WAITING: `describe`/`it` call composites are no longer elements — the reference stretched every
-  top-level call to the function noun. Needs contextual refinement (a call is a definition only
-  when its callback carries declarations); recorded in queries.scm, not stretched.
+- CALL COMPOSITES (Oct 15, retired WAITING — owner decision: test call-composites become
+  @function elements): `describe`/`it`/`test`/hooks capture via callee-predicated patterns (the
+  member-call variant covers `describe.only`/`it.skip`). The span carries the title line (the
+  whole call); the name is the callee — the title string stays the WAITING text-name capture.
+  NEW-ONLY vs the reference on name only: the reference stretched the same spans, nameless.
 - NAMES: the reference produced nameless elements on this corpus; the query patterns bind @name
   for every definition (the 6-language name evidence, applied).
 

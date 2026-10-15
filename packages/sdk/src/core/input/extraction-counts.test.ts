@@ -36,7 +36,9 @@ const PINNED: Readonly<
 > = {
   typescript: {
     ext: "ts",
-    definitions: { type: 2, function: 4, binding: 2 },
+    // function=8: 4 declarations + the retired WAITING call composites (describe/it x2 incl. the
+    // member-call variant) — see the parity README CALL COMPOSITES delta.
+    definitions: { type: 2, function: 8, binding: 2 },
     comments: {},
     imports: { import: 1 },
   },
@@ -115,6 +117,6 @@ describe("extraction counts - parity corpora pinned per language", () => {
       render("comments", counts(inv.comments)),
       render("imports", counts(inv.imports)),
     ].join("\n");
-    expect(table).toContain("function=4");
+    expect(table).toContain("function=8");
   });
 });
