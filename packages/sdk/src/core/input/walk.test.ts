@@ -1,808 +1,209 @@
+/**
+ * The walker tests: decompose over the typescript grammar (the first .scm port), plus the generic
+ * policy seams every grammar rides - absorb, refinement, comment attachment, the imports merge,
+ * parents, the size backstop. Per-grammar extraction tests land beside each grammar's port; the
+ * parity corpora (tests/fixtures/parity/) carry the cross-walker comparison.
+ */
 import { describe, expect, test } from "bun:test";
-import { Language, Parser } from "web-tree-sitter";
-import { matchesTarget } from "../rules/classify.ts";
 import {
+  MAX_ELEMENT_TOKENS,
   charsToTokens,
   decompose,
-  isEmptyComment,
-  languageOf,
-  MAX_ELEMENT_TOKENS,
+  projectElement,
   type Inventory,
 } from "./walk.ts";
 
-const GOLDEN = "packages/sdk/src/core/types.ts";
+const TS_LANG = "typescript";
 
-async function countCommentNodes(source: string): Promise<number> {
-  // Independent count: parse again and walk the whole tree, counting comment nodes.
-  await Parser.init({ locateFile: (f: string) => "node_modules/web-tree-sitter/" + f });
-  const lang = await Language.load(
-    "node_modules/tree-sitter-typescript/tree-sitter-typescript.wasm",
+function decomposeTS(source: string): Promise<Inventory> {
+  return decompose(source, TS_LANG);
+}
+
+/** One line per element: label, capture, name, span - the shape assertions read. */
+function summary(inventory: Inventory): string[] {
+  return [...inventory.definitions, ...inventory.comments, ...inventory.imports].map(
+    (e) =>
+      `${e.label} ${e.capture} ${e.name ?? "-"} L${e.span.start.line}-L${e.span.end.line}` +
+      (e.parent !== undefined ? ` in ${e.parent}` : ""),
   );
-  const tree = new Parser().setLanguage(lang).parse(source);
-  if (!tree) return 0;
-  let count = 0;
-  const walk = (node: { type: string; namedChildren: any[] }): void => {
-    if (node.type === "comment") count++;
-    for (const child of node.namedChildren) walk(child);
-  };
-  walk(tree.rootNode);
-  return count;
 }
 
-function attachedCount(inv: Inventory): number {
-  return inv.definitions.reduce((sum, d) => sum + (d.attachedComment?.length ?? 0), 0);
-}
+describe("decompose — typescript", () => {
+  test("declarations capture with their noun and their name", async () => {
+    const inv = await decomposeTS(`
+function declared() {}
+async function* gen() {}
+class Klass {}
+interface Shape { a: number }
+type Alias = number;
+enum Color { Red }
+const bound = 5;
+`);
+    expect(summary(inv)).toEqual([
+      "d0 function declared L2-L2",
+      "d1 function gen L3-L3",
+      "d2 type Klass L4-L4",
+      "d3 type Shape L5-L5",
+      "d4 type Alias L6-L6",
+      "d5 type Color L7-L7",
+      "d6 binding bound L8-L8",
+    ]);
+  });
 
-function internalCount(inv: Inventory): number {
-  return inv.definitions.reduce((sum, d) => sum + d.internalCommentCount, 0);
-}
+  test("a callable initializer keeps the function noun; other initializers are bindings", async () => {
+    const inv = await decomposeTS(`
+const arrow = () => 1;
+const expr = function () {};
+const plain = 5;
+let reassigned = 2;
+`);
+    expect(inv.definitions.map((e) => e.capture)).toEqual([
+      "function",
+      "function",
+      "binding",
+      "binding",
+    ]);
+    expect(inv.definitions.map((e) => e.name)).toEqual(["arrow", "expr", "plain", "reassigned"]);
+  });
 
-// Internal comments stay IN PLACE (inside the definition's body slice): they are counted
-// (internalCommentCount) but never travel in attachedComment, so no payload duplicates a comment.
-// Accounting: every AST comment is exactly one of attached-leading, standalone, or in-place.
-function accountedComments(inv: Inventory): number {
-  return attachedCount(inv) + inv.comments.length + internalCount(inv);
-}
+  test("absorb: the export wrapper is the element (span and content carry the prefix)", async () => {
+    const inv = await decomposeTS(`
+export function exported() {}
+export class Klass {}
+export const factory = () => 1;
+export default function bare() {}
+`);
+    expect(inv.definitions.map((e) => e.capture)).toEqual([
+      "function",
+      "type",
+      "function",
+      "function",
+    ]);
+    for (const e of inv.definitions) expect(e.nodeType).toBe("export_statement");
+    expect(inv.definitions[0]!.content.startsWith("export function")).toBe(true);
+    expect(inv.definitions.map((e) => e.name)).toEqual(["exported", "Klass", "factory", "bare"]);
+  });
 
-/** Every element's byte span must round-trip: src.slice(startByte, endByte) === content. */
-function expectSpansRoundTrip(source: string, inv: Inventory): void {
-  const elements = [...inv.definitions, ...inv.comments, ...inv.imports];
-  for (const element of elements) {
-    expect(element.label).toMatch(/^[dci][0-9]+$/);
-    expect(source.slice(element.span.startByte, element.span.endByte)).toBe(element.content);
+  test("same-capture nesting is suppressed keeping the outer element", async () => {
+    const inv = await decomposeTS(`
+function outer() {
+  function inner() {}
+}
+`);
+    expect(summary(inv)).toEqual(["d0 function outer L2-L4"]);
+  });
+
+  test("a function body is opaque: its locals and nested functions are not elements", async () => {
+    const inv = await decomposeTS(`
+function outer() {
+  const local = 1;
+  function nested() {}
+}
+`);
+    expect(summary(inv)).toEqual(["d0 function outer L2-L5"]);
+  });
+
+  test("a type body surfaces: methods live inside their class", async () => {
+    const inv = await decomposeTS(`
+class Klass {
+  method(): void {
+    const inside = 1;
   }
 }
+`);
+    expect(summary(inv)).toEqual(["d0 type Klass L2-L6", "d1 function method L3-L5 in d0"]);
+  });
 
-describe("decompose — golden fixture (packages/sdk/src/core/types.ts)", () => {
-  test("produces the expected inventory", async () => {
-    const source = await Bun.file(GOLDEN).text();
-    const inv = await decompose(source, "typescript");
-    expect(inv.hasError).toBe(false);
-    // Top-level definitions + method elements from composite descent into the class declarations,
-    // 1 import (the contract re-export import; golden tracks packages/sdk/src/core/types.ts —
-    // update when it grows).
-    expect(inv.definitions).toHaveLength(44);
+  test("different-capture overlap is legal: a method lives inside its class", async () => {
+    const inv = await decomposeTS(`
+class Klass {
+  method(): void {}
+}
+`);
+    expect(summary(inv)).toEqual(["d0 type Klass L2-L4", "d1 function method L3-L3 in d0"]);
+  });
+
+  test("unlisted nodes passthrough: a file of expressions yields nothing", async () => {
+    const inv = await decomposeTS(`
+const x = someCall(1, 2);
+console.log(x);
+if (x) { throw new Error("no"); }
+`);
+    expect(inv.definitions.map((e) => e.capture)).toEqual(["binding"]);
+    expect(inv.comments).toEqual([]);
+    expect(inv.imports).toEqual([]);
+  });
+
+  test("a leading comment run attaches to the directly following definition", async () => {
+    const inv = await decomposeTS(`
+// first line
+// second line
+function documented() {}
+
+// detached
+// by a blank line
+
+const later = 1;
+`);
+    expect(inv.definitions[0]!.attachedComment).toEqual(["// first line", "// second line"]);
+    expect(inv.definitions[1]!.attachedComment).toBeUndefined();
+    expect(inv.comments.map((c) => c.content)).toEqual(["// detached", "// by a blank line"]);
+  });
+
+  test("comments inside a definition stay internal: counted, never duplicated", async () => {
+    const inv = await decomposeTS(`
+class Klass {
+  // inside the body
+  method(): void {
+    // inside the method
+  }
+}
+`);
+    const klass = inv.definitions[0]!;
+    const method = inv.definitions[1]!;
+    expect(klass.internalCommentCount).toBe(2);
+    expect(method.internalCommentCount).toBe(1);
+    expect(inv.comments).toEqual([]);
+  });
+
+  test("imports merge into one element spanning the run", async () => {
+    const inv = await decomposeTS(`
+import { a } from "./a";
+import b from "./b";
+function after() {}
+`);
     expect(inv.imports).toHaveLength(1);
-    // Comment nodes all accounted for: leading docs ride attachedComment; member-doc comments
-    // inside declaration bodies stay in place (counted, not attached); 2 standalone (the file
-    // header and the re-export vocabulary note, each separated from the next declaration by a
-    // blank line).
-    expect(attachedCount(inv)).toBe(30);
-    expect(accountedComments(inv)).toBe(51);
-    expect(inv.comments).toHaveLength(2);
-    expect(internalCount(inv)).toBe(19);
-    // Labels are stable and positional.
-    expect(inv.definitions.map((d) => d.label)).toEqual(
-      inv.definitions.map((_, i) => "d" + String(i)),
-    );
-    expect(inv.comments.map((c) => c.label)).toEqual(["c0", "c1"]);
-    // The leading declarations, in order; the export wrapper's full text is the content.
-    expect(inv.definitions[0]?.nodeType).toBe("interface_declaration");
-    expect(inv.definitions[0]?.content).toBe(
-      "export interface HandleOutcome {\n  readonly severity: Severity;\n}",
-    );
-    const classifyErrorDoc = [
-      "/**",
-      " * A per-unit failure to produce a measurement: the request to the classifier failed (JEV_*), or the",
-      " * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.",
-      " * One bad unit never kills the run and never fails it by itself — the error streams as a value and",
-      " * the run is failed only by findings. The seam throws it and the pipeline catches it into the",
-      " * stream; it never escapes the pipeline boundary.",
-      " */",
-    ].join("\n");
-    expect(inv.definitions[11]?.attachedComment).toEqual([classifyErrorDoc]);
+    expect(inv.imports[0]!.label).toBe("i0");
+    expect(inv.imports[0]!.content.split("\n")).toHaveLength(2);
+    expect(inv.imports[0]!.span.start.line).toBe(2);
+    expect(inv.imports[0]!.span.end.line).toBe(3);
   });
 
-  test("comment-accounting invariant: AST comment count === comments accounted in elements", async () => {
-    const source = await Bun.file(GOLDEN).text();
-    const inv = await decompose(source, "typescript");
-    expect(accountedComments(inv)).toBe(await countCommentNodes(source));
-  });
-
-  test("spans round-trip to the source", async () => {
-    const source = await Bun.file(GOLDEN).text();
-    const inv = await decompose(source, "typescript");
-    expectSpansRoundTrip(source, inv);
-    // Line numbers are one-based and point at the element's first line.
-    expect(inv.comments[0]?.span.start.line).toBe(1);
-    expect(inv.definitions[0]?.span.start.line).toBe(22);
-  });
-});
-
-describe("decompose — imports fixture", () => {
-  test("groups all imports into one merged element", async () => {
-    const source = await Bun.file(
-      "packages/sdk/src/core/input/fixtures/unit-tree/imports.ts",
-    ).text();
-    const inv = await decompose(source, "typescript");
-    expect(inv.imports).toHaveLength(1);
-    const merged = inv.imports[0];
-    if (!merged) throw new Error("imports fixture must yield one merged element");
-    expect(merged.label).toBe("i0");
-    expect(merged.nodeType).toBe("import_statement");
-    // One element per file: every import's text is inside the single merged element.
-    for (const line of source.split("\n").filter((l) => l.startsWith("import "))) {
-      expect(merged.content).toContain(line);
-    }
-    // The span covers the first through last import.
-    expect(
-      source.slice(merged.span.startByte, merged.span.endByte).startsWith("import { readFileSync"),
-    ).toBe(true);
-    // The doc comment before the const attaches; the export wrapper is unwrapped.
-    const thing = inv.definitions.find((d) => d.content.includes("export const thing"));
-    expect(thing?.attachedComment).toEqual(["/** Doc for thing. */"]);
-    expectSpansRoundTrip(source, inv);
-  });
-});
-
-describe("decompose — standalone-comment fixture", () => {
-  test("separated and trailing comments land standalone, never attached", async () => {
-    const source = await Bun.file(
-      "packages/sdk/src/core/input/fixtures/unit-tree/standalone-comment.ts",
-    ).text();
-    const inv = await decompose(source, "typescript");
-    expect(inv.comments).toHaveLength(2);
-    expect(inv.comments[0]?.content).toContain("file-header comment");
-    expect(inv.comments[1]?.content).toContain("trailing comment at EOF");
-    expect(inv.definitions.every((d) => !d.attachedComment)).toBe(true);
-  });
-});
-
-describe("decompose — comment-orphan fixture", () => {
-  test("orphans land standalone; comments before imports never attach", async () => {
-    const source = await Bun.file(
-      "packages/sdk/src/core/input/fixtures/unit-tree/comment-orphan.ts",
-    ).text();
-    const inv = await decompose(source, "typescript");
-    expect(attachedCount(inv)).toBe(0);
-    expect(inv.comments).toHaveLength(2);
-    expect(accountedComments(inv)).toBe(await countCommentNodes(source));
-  });
-});
-
-describe("decompose — graceful degradation", () => {
-  test("a parse with errors still yields the elements that parsed, flagged via hasError", async () => {
-    const source = [
-      "export const fine = 1;",
-      "export const broken = ;;;;", // syntax error from here on
-      "function oops( {", // unterminated
-    ].join("\n");
-    const inv = await decompose(source, "typescript");
+  test("a partial parse still yields what parsed, flagged", async () => {
+    const inv = await decomposeTS("function ok() {}\nfunction broken( {}\n");
     expect(inv.hasError).toBe(true);
-    // The well-formed top-level block before the errors is still extracted, exactly.
-    expect(inv.definitions.map((d) => d.content)).toContain("export const fine = 1;");
-    expectSpansRoundTrip(source, inv);
-  });
-});
-
-describe("decompose — languages", () => {
-  test("unknown language throws INTERNAL, with a clear message", async () => {
-    expect(decompose("x", "cobol")).rejects.toMatchObject({ code: "INTERNAL" });
+    expect(inv.definitions.map((e) => e.name)).toEqual(["ok"]);
   });
 
-  test("the parser instance is cached per language", async () => {
-    // Same call twice in one process: both succeed against the shared cached parser.
-    const a = await decompose("const a = 1;", "typescript");
-    const b = await decompose("const b = 2;", "typescript");
-    expect(a.hasError).toBe(false);
-    expect(b.definitions[0]?.label).toBe("d0");
-  });
-});
-
-describe("decompose — composite-descent fixture", () => {
-  test("parent labels thread the hierarchy: docstring/method -> owner, top-level -> none", async () => {
-    const inv = await decompose(
-      [
-        '"""Module docstring."""',
-        "",
-        "",
-        "def outer():",
-        '    """Docs for outer."""',
-        "    return 1",
-        "",
-      ].join("\n"),
-      "python",
-    );
-    const outer = inv.definitions.find((d) => d.role === "function")!;
-    // A top-level function has no parent label; its docstring (a comment element) points back.
-    expect(outer.parent).toBeUndefined();
-    const doc = inv.comments.find((c) => c.docstringOf?.kind === "function");
-    expect(doc).toBeDefined();
-    expect(doc!.parent).toBe(outer.label);
-  });
-
-  test("typescript class methods carry their class header's label as parent", async () => {
-    const inv = await decompose(
-      ["class Widget {", "  render(): string {", "    return 'x';", "  }", "}"].join("\n"),
-      "typescript",
-    );
-    const klass = inv.definitions.find((d) => d.nodeType === "class_declaration")!;
-    const method = inv.definitions.find((d) => d.nodeType === "method_definition")!;
-    expect(method.parent).toBe(klass.label);
-    // Top-level class: no parent.
-    expect(klass.parent).toBeUndefined();
-  });
-
-  test("composites are judged AND descended into: nested calls, class methods, sub-spans", async () => {
-    const source = await Bun.file(
-      "packages/sdk/src/core/input/fixtures/unit-tree/composite-tree.ts",
-    ).text();
-    const inv = await decompose(source, "typescript");
-    // Headers flow into existing roles: call expressions -> function, class -> type.
-    expect(
-      inv.definitions.some((d) => d.role === "function" && d.content.startsWith("describe(")),
-    ).toBe(true);
-    expect(inv.definitions.some((d) => d.role === "function" && d.content.startsWith("it("))).toBe(
-      true,
-    );
-    // Class header is an element (type role) and its methods are elements of their own.
-    expect(
-      inv.definitions.some((d) => d.role === "type" && d.nodeType === "class_declaration"),
-    ).toBe(true);
-    // The class element is a HEADER state now: declaration through the opening brace, no body.
-    const klass = inv.definitions.find((d) => d.nodeType === "class_declaration")!;
-    expect(klass.content).toBe("class Widget");
-    expect(klass.content).not.toContain("render");
-    // Its method is still a child element of its own, with the full body.
-    const method = inv.definitions.find((d) => d.nodeType === "method_definition")!;
-    expect(method.content).toContain("render(): string");
-    expect(method.content).toContain("return");
-    // Descent is recursive: expect(...) inside it(...) is its own element.
-    expect(inv.definitions.some((d) => d.content.startsWith("expect("))).toBe(true);
-    // Inner elements stay after their composite; the composite's span is its header now, so
-    // inner spans are no longer contained by it — identity is span-derived, not containment.
-    const outerSpan = inv.definitions.find((d) => d.content.startsWith('describe("outer"'))!.span;
-    const innerSpan = inv.definitions.find((d) => d.content.startsWith("it("))!.span;
-    expect(innerSpan.start.line).toBeGreaterThan(outerSpan.start.line);
-    expect(outerSpan.end.line).toBe(outerSpan.start.line); // header-only: single line
-    expectSpansRoundTrip(source, inv);
-    expect(accountedComments(inv)).toBe(await countCommentNodes(source));
-  });
-});
-
-describe("decompose — oversized backstop", () => {
-  test("an element over MAX_ELEMENT_TOKENS is flagged oversized, language-agnostic", async () => {
-    // A giant single expression element: over the backstop, flagged, still emitted (with identity —
-    // the flag rides the element itself, so the report names the skip, never just a count).
-    const source =
-      "const big = [" +
-      Array.from({ length: 3000 }, () => '"' + "x".repeat(40) + '"').join(", ") +
-      "];";
-    expect(charsToTokens(source.length)).toBeGreaterThan(MAX_ELEMENT_TOKENS);
-    const inv = await decompose(source, "typescript");
-    expect(inv.definitions).toHaveLength(1);
+  test("the size backstop flags, never truncates", async () => {
+    const huge = "const big = " + JSON.stringify("x".repeat(MAX_ELEMENT_TOKENS * 4)) + ";";
+    const inv = await decomposeTS(huge);
+    expect(charsToTokens(inv.definitions[0]!.content.length)).toBeGreaterThan(MAX_ELEMENT_TOKENS);
     expect(inv.definitions[0]!.oversized).toBe(true);
-    expectSpansRoundTrip(source, inv);
   });
 
-  test("charsToTokens: the ~4-chars-per-token jev-budget estimate, ceiling", () => {
-    expect(charsToTokens(0)).toBe(0);
-    expect(charsToTokens(1)).toBe(1);
-    expect(charsToTokens(4)).toBe(1);
-    expect(charsToTokens(8000)).toBe(2000); // the retired char cap, in estimated tokens
-    expect(charsToTokens(120_000)).toBe(30_000); // the current cap, in chars
-  });
-
-  test("a python class header ends at its colon; no brace, header still bounded", async () => {
-    const source = "class Greeter:\n    def hi(self):\n        pass";
-    const inv = await decompose(source, "python");
-    expect(inv.definitions[0]!.content).toBe("class Greeter:");
+  test("the wire projection keeps the contract union", async () => {
+    const inv = await decomposeTS("function f() {}\nconst x = 1;\n// note\nimport a from './a';\n");
+    const all = [...inv.definitions, ...inv.comments, ...inv.imports];
+    const kinds = all.map((e) => projectElement(e).kind);
+    expect(kinds).toEqual(["function", "binding", "comment", "import"]);
+    expect((projectElement(inv.definitions[0]!) as { name?: string }).name).toBe("f");
   });
 });
 
-describe("decompose — python", () => {
-  const PY_SOURCE = [
-    '"""Module docstring."""',
-    "import os",
-    "",
-    "# leading comment",
-    "def greet(name):",
-    '    """Doc."""',
-    '    return "hi " + name',
-    "",
-    "@decorator",
-    "class Greeter:",
-    "    def method(self):",
-    "        pass",
-    "",
-    "class Inner:",
-    "    pass",
-    "",
-  ].join("\n");
-
-  test("functions, classes, decorated defs, comments, imports extract with existing roles", async () => {
-    const inv = await decompose(PY_SOURCE, "python");
-    expect(inv.hasError).toBe(false);
-    const shapes = inv.definitions.map((d) => [d.nodeType, d.role]);
-    expect(shapes).toEqual([
-      ["function_definition", "function"],
-      ["class_definition", "type"],
-      // Greeter's method: composite descent yields it as an element of its own.
-      ["function_definition", "function"],
-      ["class_definition", "type"],
-    ]);
-    // Decorator stays in the element content; decorated def unwraps to its class.
-    expect(inv.definitions[1]!.content.startsWith("@decorator")).toBe(true);
-    // Composite descent: the method inside Greeter is an element of its own.
-    expect(
-      inv.definitions.some(
-        (d) => d.nodeType === "function_definition" && d.content.includes("def method"),
-      ),
-    ).toBe(true);
-    // Leading comment attaches to the function that follows it.
-    expect(inv.definitions[0]!.attachedComment).toEqual(["# leading comment"]);
-    // Docstrings are comment elements owned by their construct: the module docstring plus
-    // greet's — neither is an orphan.
-    expect(inv.comments.map((c) => [c.content, c.docstringOf])).toEqual([
-      ['"""Module docstring."""', { kind: "module", name: "" }],
-      ['"""Doc."""', { kind: "function", name: "greet" }],
-    ]);
-    expect(inv.imports).toHaveLength(1);
-    expect(inv.imports[0]!.content).toBe("import os");
-    expectSpansRoundTrip(PY_SOURCE, inv);
-  });
-
-  test("docstrings get owners on def, class, and module; non-first strings stay plain", async () => {
-    const source = [
-      '"""Module docs."""',
-      "def f():",
-      '    """Function docs."""',
-      "    return 1",
-      "",
-      "class C:",
-      '    """Class docs."""',
-      "    x = 1",
-      "",
-      "# plain narration comment — standalone, no definition follows",
-      'x = "not first, not a docstring"',
-      "",
-      "def g():",
-      "    pass",
-      "",
-    ].join("\n");
-    const inv = await decompose(source, "python");
-    expect(inv.hasError).toBe(false);
-    const docstrings = inv.comments
-      .filter((c) => c.docstringOf)
-      .map((c) => [c.content, c.docstringOf?.kind, c.docstringOf?.name]);
-    expect(docstrings).toEqual([
-      ['"""Module docs."""', "module", ""],
-      ['"""Function docs."""', "function", "f"],
-      ['"""Class docs."""', "class", "C"],
-    ]);
-    // A string expression NOT in first position is not a docstring (here: a plain assignment).
-    expect(inv.comments.some((c) => c.content.includes("not first"))).toBe(false);
-    expect(
-      inv.definitions.some((d) => d.nodeType === "assignment" && d.content.includes("not first")),
-    ).toBe(false);
-    // Plain # comments are unaffected: no owner, still standalone.
-    expect(
-      inv.comments.some((c) => c.content.startsWith("# plain narration comment") && !c.docstringOf),
-    ).toBe(true);
-    expectSpansRoundTrip(source, inv);
-  });
-
-  test("typescript is unaffected by the python mapping", async () => {
-    const inv = await decompose("function f() {}\n// note\n", "typescript");
-    expect(inv.hasError).toBe(false);
-    expect(inv.definitions[0]!.role).toBe("function");
-    expect(inv.comments.map((c) => c.content)).toEqual(["// note"]);
-  });
-
-  test("unsupported language throws SetupError", async () => {
-    expect(decompose("x", "cobol")).rejects.toMatchObject({ code: "INTERNAL" });
-  });
-});
-
-describe("decompose — go", () => {
-  const GO_SOURCE = [
-    "package main",
-    "",
-    'import "fmt"',
-    "",
-    "// greet says hi.",
-    "func greet(name string) string {",
-    "\t// internal note",
-    '\treturn "hi " + name',
-    "}",
-    "",
-    "func (g *Greeter) greetLoudly() string {",
-    "\treturn strings.ToUpper(greet(g.name))",
-    "}",
-    "",
-    "type Greeter struct {",
-    "\tname string // field doc",
-    "}",
-    "",
-    "type Greeter interface {",
-    "\tgreetLoudly() string",
-    "}",
-    "",
-    "func standalone() {}",
-    "",
-  ].join("\n");
-
-  test("funcs, methods, structs, interfaces, comments, imports extract with existing roles", async () => {
-    const inv = await decompose(GO_SOURCE, "go");
-    expect(inv.hasError).toBe(false);
-    const shapes = inv.definitions.map((d) => [d.nodeType, d.role]);
-    expect(shapes).toEqual([
-      ["function_declaration", "function"],
-      // Method with receiver: Go keeps methods top-level, not nested in the type.
-      ["method_declaration", "function"],
-      ["type_declaration", "type"],
-      ["type_declaration", "type"],
-      ["function_declaration", "function"],
-    ]);
-    // Doc comment attaches to the func that follows it; the internal comment stays in place
-    // (inside the body slice, counted only) - the comment unit's run is the leading doc alone.
-    expect(inv.definitions[0]!.attachedComment).toEqual(["// greet says hi."]);
-    expect(inv.definitions[0]!.internalCommentCount).toBe(1);
-    expect(inv.comments).toHaveLength(0);
-    expect(inv.imports).toHaveLength(1);
-    expect(inv.imports[0]!.content).toBe('import "fmt"');
-    expectSpansRoundTrip(GO_SOURCE, inv);
-  });
-
-  test("no composite descent: struct/interface members and method bodies stay flat", async () => {
-    const inv = await decompose(GO_SOURCE, "go");
-    // Exactly the five top-level declarations — no elements synthesized from struct fields,
-    // interface methods, or statements inside function bodies.
-    expect(inv.definitions).toHaveLength(5);
-    expect(
-      inv.definitions.some(
-        (d) =>
-          d.nodeType !== "function_declaration" &&
-          d.nodeType !== "method_declaration" &&
-          d.nodeType !== "type_declaration",
-      ),
-    ).toBe(false);
-  });
-
-  test("consts-only and vars-only files produce data elements, not empty inventories", async () => {
-    const source = [
-      "package p",
-      "",
-      "const (",
-      '\tRedisNull = "<nil>"',
-      ")",
-      "",
-      'var ErrClosed = errors.New("closed")',
-      "",
-    ].join("\n");
-    const inv = await decompose(source, "go");
-    expect(inv.hasError).toBe(false);
-    expect(inv.definitions.map((d) => [d.nodeType, d.role])).toEqual([
-      ["const_declaration", "binding"],
-      ["var_declaration", "binding"],
-    ]);
-    expectSpansRoundTrip(source, inv);
-  });
-
-  test("the predicate: empty iff no letter or digit", () => {
-    const empty = [
-      "//",
-      "// ",
-      "//\t",
-      "/* */",
-      "/*----*/",
-      "///",
-      "/// ",
-      "#",
-      "# ---",
-      "--",
-      "// ----",
-      "// !!!",
-      "",
-      "// \u00a0",
-    ];
-    for (const text of empty) expect(isEmptyComment(text), JSON.stringify(text)).toBe(true);
-    const content = [
-      "//x",
-      "// x",
-      "// 1. first",
-      "// TODO: fix",
-      "// émoji 🎉",
-      "// 中文注释",
-      "// 0x1F",
-      "//\u00a0non-breaking",
-      "/* body */",
-    ];
-    for (const text of content) expect(isEmptyComment(text), JSON.stringify(text)).toBe(false);
-  });
-
-  test("bare markers yield no comment elements; real comments still do", async () => {
-    const source = ["package p", "", "//", "/* */", "// ----", "///", "", "func f() {}"].join("\n");
-    const inv = await decompose(source, "go");
-    expect(inv.hasError).toBe(false);
-    expect(inv.comments).toHaveLength(0);
-    // attached/internal counting is unaffected — the definition still exists.
-    expect(inv.definitions).toHaveLength(1);
-  });
-
-  test("comments with letters or digits remain comment elements", async () => {
-    const source = [
-      "package p",
-      "",
-      "// 1. retry",
-      "// TODO",
-      "// ---- divider with words",
-      "",
-      "func f() {}",
-    ].join("\n");
-    const inv = await decompose(source, "go");
-    expect(inv.comments.map((c) => c.content)).toEqual([
-      "// 1. retry",
-      "// TODO",
-      "// ---- divider with words",
-    ]);
-    expectSpansRoundTrip(source, inv);
-  });
-
-  test("decoration-only lines are dropped in every shipped grammar", async () => {
-    const ts = await decompose(
-      ["// ----", "// ====", "/* */", "function f() {}"].join("\n"),
-      "typescript",
-    );
-    expect(ts.comments).toHaveLength(0);
-    const py = await decompose(["# ---", "def f():", "    pass"].join("\n"), "python");
-    expect(py.comments).toHaveLength(0);
-  });
-
-  test("bare markers in each shipped grammar yield zero comment elements", async () => {
-    // Go: line + block + doc + decoration.
-    const go = await decompose(
-      ["package p", "", "//", "/* */", "///", "// ----", "", "func f() {}"].join("\n"),
-      "go",
-    );
-    expect(go.comments).toHaveLength(0);
-    expect(go.definitions).toHaveLength(1);
-    // TypeScript: bare line comment.
-    const ts = await decompose(["//", "function f() {}"].join("\n"), "typescript");
-    expect(ts.comments).toHaveLength(0);
-    // Python: bare `#` — the grammar DOES emit a comment node for it (verified), and the
-    // filter drops it.
-    const py = await decompose(["#", "def f():", "    pass"].join("\n"), "python");
-    expect(py.comments).toHaveLength(0);
-    // Rust is not shipped (LANGUAGES: typescript, python, go) — no /// or //! case exists.
-  });
-
-  test("tricky real comments are never dropped", async () => {
-    const source = [
-      "package p",
-      "",
-      "// 1. first",
-      "// TODO: fix",
-      "// émoji 🎉",
-      "// 中文注释",
-      "// 0x1F",
-      "// x",
-      "func f() {}",
-      "",
-    ].join("\n");
-    const inv = await decompose(source, "go");
-    // Six real comments attach to the func; nothing was lost to the filter.
-    expect(inv.definitions[0]!.attachedComment).toHaveLength(6);
-    expect(inv.comments).toHaveLength(0);
-    // Python `#` form with real content survives too. (Note: `# from __future__ ...` parses
-    // as a future_import_statement, not a comment — grammar-level, filter-independent.)
-    const py = await decompose(
-      ["# retry with backoff", "def f():", "    pass", "# tail"].join("\n"),
-      "python",
-    );
-    expect(py.comments.map((c) => c.content)).toEqual(["# tail"]);
-    expect(py.definitions[0]!.attachedComment).toEqual(["# retry with backoff"]);
-    expectSpansRoundTrip(source, inv);
-  });
-
-  test("attachment: a real comment still attaches; an empty one disconnects cleanly", async () => {
-    const real = await decompose(
-      ["package p", "", "// documented", "func f() {}"].join("\n"),
-      "go",
-    );
-    expect(real.definitions[0]!.attachedComment).toEqual(["// documented"]);
-    const bare = await decompose(["package p", "", "//", "func f() {}"].join("\n"), "go");
-    expect(bare.definitions[0]!.attachedComment).toBeUndefined();
-  });
-
-  test("an empty marker does not split a run of real comments", async () => {
-    const inv = await decompose(
-      ["package p", "", "// real", "//", "// real2", "func f() {}", ""].join("\n"),
-      "go",
-    );
-    expect(inv.definitions[0]!.attachedComment).toEqual(["// real", "// real2"]);
-    expect(inv.comments).toHaveLength(0);
-  });
-
-  test("a definition whose only comment is internal stays comment-target eligible (count, not run)", async () => {
-    const inv = await decompose(
-      ["package p", "", "func f() {", "// inner note", "}"].join("\n"),
-      "go",
-    );
-    // the comment stays in place - in the body slice, counted - and never joins the run
-    expect(inv.definitions[0]!.attachedComment).toBeUndefined();
-    expect(inv.definitions[0]!.internalCommentCount).toBe(1);
-    expect(inv.definitions[0]!.content).toContain("// inner note");
-    expect(matchesTarget("comments", inv.definitions[0]!)).toBe(true);
-  });
-
-  test("internalCommentCount drops empty body comments, keeps real ones", async () => {
-    const real = await decompose(["package p", "", "func f() {", "// inner", "}"].join("\n"), "go");
-    expect(real.definitions[0]!.internalCommentCount).toBe(1);
-    const bare = await decompose(
-      ["package p", "", "func f() {", "//", "// ----", "}"].join("\n"),
-      "go",
-    );
-    expect(bare.definitions[0]!.internalCommentCount).toBe(0);
-  });
-
-  test("typescript and python are unaffected by the go mapping", async () => {
-    const ts = await decompose("function f() {}\n// note\n", "typescript");
-    expect(ts.definitions[0]!.role).toBe("function");
-    expect(ts.comments.map((c) => c.content)).toEqual(["// note"]);
-    const py = await decompose('"""Doc."""\ndef f():\n    pass\n', "python");
-    expect(py.definitions[0]!.role).toBe("function");
-    expect(py.comments[0]!.docstringOf).toEqual({ kind: "module", name: "" });
-  });
-});
-
-describe("decompose — variable declaration roles", () => {
-  test("a binding const is role binding, never function; an arrow const stays function", async () => {
-    const source = [
-      "const report = buildReport();",
-      "const add = (a: number, b: number): number => a + b;",
-      "function declared(): void {}",
-    ].join("\n");
-    const inv = await decompose(source, "typescript");
-    const binding = inv.definitions.find((d) => d.content.startsWith("const report"));
-    expect(binding?.role).toBe("binding");
-    expect(binding?.nodeType).toBe("lexical_declaration");
-    const arrow = inv.definitions.find((d) => d.content.startsWith("const add"));
-    expect(arrow?.role).toBe("function");
-    const fn = inv.definitions.find((d) => d.content.startsWith("function declared"));
-    expect(fn?.role).toBe("function");
-    expectSpansRoundTrip(source, inv);
-  });
-});
-
-describe("decompose - degraded-parse statement fragments (issue 021, real-shaped fixture)", () => {
-  // The regression fixture is the REAL cut, not an idealized body: the leak only reproduces on
-  // real-body structure (multi-line ternary/expression consts before the call) under error
-  // recovery — idealized bodies parse healthy and never leaked.
-  const FIXTURE = "tests/fixtures/statements-grammar/repro-app-fn.tsx";
-
-  test("recovered body statements do not leak as sibling 1-line fragments", async () => {
-    const source = await Bun.file(FIXTURE).text();
-    const inv = await decompose(source, "typescript");
-    expect(inv.hasError).toBe(true); // the cut is truncated: recovery is the leak's precondition
-    // BEFORE: L34 'useEffect(() =>', L35 'setMode(...)', L36 'setFocusRule(...)' as sibling
-    // kind:function elements at 1-line spans. AFTER: none of those 1-line fragments exist.
-    for (const line of [34, 35, 36]) {
-      const fragment = inv.definitions.find(
-        (d) => d.span.start.line === line && d.span.end.line === line,
-      );
-      expect(fragment).toBeUndefined();
-    }
-  });
-
-  test("anchors over the leaked lines resolve to the enclosing (rescoped) unit", async () => {
-    const source = await Bun.file(FIXTURE).text();
-    const inv = await decompose(source, "typescript");
-    const container = inv.definitions.find((d) => d.span.start.line <= 35 && 35 <= d.span.end.line);
-    expect(container).toBeDefined();
-    expect(container!.span.start.line).toBe(34);
-    expect(container!.span.end.line).toBe(37);
-    expect(container!.nodeType).toBe("call_expression");
-    expect(container!.role).toBe("function");
-    expect(container!.content).toContain("setMode");
-    expect(container!.content).toContain("setFocusRule");
-  });
-
-  test("py/go gate: healthy-grammar fixtures are untouched by the degraded-path change", async () => {
-    const py = await decompose(
-      await Bun.file("packages/sdk/src/core/input/statements-grammar/frag.py").text(),
-      "python",
-    );
-    expect(py.hasError).toBe(false);
-    expect(py.definitions.map((d) => [d.nodeType, d.span.start.line, d.span.end.line])).toEqual([
-      ["function_definition", 1, 3],
-      ["function_definition", 5, 6],
-    ]);
-    const go = await decompose(
-      await Bun.file("packages/sdk/src/core/input/statements-grammar/frag.go").text(),
-      "go",
-    );
-    expect(go.hasError).toBe(false);
-    expect(go.definitions.map((d) => [d.nodeType, d.span.start.line, d.span.end.line])).toEqual([
-      ["function_declaration", 1, 4],
-      ["function_declaration", 6, 8],
-    ]);
-  });
-
-  test("the original app file loses the L71-L73 fragments; the rest of its inventory stands", async () => {
-    const inv = await decompose(
-      await Bun.file("tests/fixtures/statements-grammar/app-orig.tsx").text(),
-      "typescript",
-    );
-    for (const line of [71, 72, 73]) {
-      expect(
-        inv.definitions.find((d) => d.span.start.line === line && d.span.end.line === line),
-      ).toBeUndefined();
-    }
-    const rescoped = inv.definitions.find((d) => d.span.start.line === 71);
-    expect(rescoped?.span.end.line).toBe(74);
-    expect(rescoped!.content).toContain("setMode");
-    // untouched neighbours: the real nested arrow functions still emit
-    expect(inv.definitions.find((d) => d.span.start.line === 76)?.span.end.line).toBe(83);
-  });
-});
-
-describe("decompose — tsx", () => {
-  test("jsx parses with the tsx grammar: no error, real spans and content", async () => {
-    const source = [
-      'import { useEffect, useState } from "react";',
-      "",
-      "export function Counter(): JSX.Element {",
-      "  const [count, setCount] = useState(0);",
-      "  useEffect(() => {",
-      "    document.title = `count: ${count}`;",
-      "  }, [count]);",
-      "  return (",
-      '    <button className="counter" onClick={() => setCount(count + 1)}>',
-      "      Clicked {count} times",
-      "    </button>",
-      "  );",
-      "}",
-    ].join("\n");
-    const inv = await decompose(source, "tsx");
-    // Under the plain typescript grammar this same source parses with hasError=true and emits
-    // ERROR-node fragments (empty/degraded units) — the dogfood finding this regression guards.
-    expect(inv.hasError).toBe(false);
-    const elements = [...inv.definitions, ...inv.comments, ...inv.imports];
-    expect(elements.length).toBeGreaterThan(0);
-    for (const element of elements) {
-      expect(element.content.length).toBeGreaterThan(0);
-    }
-    expectSpansRoundTrip(source, inv);
-    const fn = inv.definitions.find((d) => d.name === "Counter");
-    expect(fn?.role).toBe("function");
-    expect(inv.imports).toHaveLength(1);
-  });
-
-  test("languageOf routes .tsx to tsx and keeps .ts/.mts/.cts on typescript", () => {
-    expect(languageOf("src/views/App.tsx")).toBe("tsx");
-    expect(languageOf("src/core/types.ts")).toBe("typescript");
-    expect(languageOf("src/x.mts")).toBe("typescript");
-    expect(languageOf("src/x.cts")).toBe("typescript");
-    expect(languageOf("src/x.jsx")).toBe(null);
-  });
-  test("css has no grammar: languageOf is null and decompose refuses (sweep coverage, not a tier)", async () => {
-    expect(languageOf("src/index.css")).toBe(null);
-    await expect(decompose(".row:hover { background: var(--muted); }", "css")).rejects.toThrow(
-      /unknown language: css/,
-    );
-  });
-
-  test("a real .tsx file parses healthy under the tsx grammar", async () => {
-    const source = await Bun.file("packages/app/src/views/PairDetail.tsx").text();
-    const inv = await decompose(source, "tsx");
-    expect(inv.hasError).toBe(false);
-    expect(inv.definitions.length).toBeGreaterThan(0);
-    expectSpansRoundTrip(source, inv);
-  });
-
-  test("a genuinely broken .tsx still takes the degraded-rescope path (pairing)", async () => {
-    const source = await Bun.file("tests/fixtures/statements-grammar/repro-app-fn.tsx").text();
-    const inv = await decompose(source, "tsx");
-    expect(inv.hasError).toBe(true); // truncated cut: recovery is the leak's precondition
-    for (const line of [34, 35, 36]) {
-      expect(
-        inv.definitions.find((d) => d.span.start.line === line && d.span.end.line === line),
-      ).toBeUndefined();
-    }
-    const container = inv.definitions.find((d) => d.span.start.line <= 35 && 35 <= d.span.end.line);
-    expect(container!.span.start.line).toBe(34);
-    expect(container!.span.end.line).toBe(37);
-    expect(container!.content).toContain("setMode");
+describe("provenance", () => {
+  test("the embedded grammar records itself on every inventory", async () => {
+    const inv = await decomposeTS("const x = 1;");
+    expect(inv.provenance).toEqual({ source: "embedded" });
   });
 });

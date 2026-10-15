@@ -95,7 +95,7 @@ describe("cross-tier target consistency (the drift killer)", () => {
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
     // alpha carries the leading comment: target "comments" must match it in BOTH tiers.
     expect(inventory.some((e) => (e.attachedComment?.length ?? 0) > 0)).toBe(true);
-    expect(inventory.some((e) => e.role === "comment")).toBe(true);
+    expect(inventory.some((e) => e.capture === "comment")).toBe(true);
     const fakeRule = (target: string) =>
       ({
         name: "consistency_probe",
@@ -121,7 +121,7 @@ describe("resolveAllCustomTargets", () => {
     const resolvedRule = [...resolved.values()][0]!;
     expect("targets" in resolvedRule && resolvedRule.targets).toHaveLength(1);
     expect("targets" in resolvedRule && resolvedRule.targets[0]?.id).toBe("c0");
-    expect("targets" in resolvedRule && resolvedRule.targets[0]?.role).toBe("comment");
+    expect("targets" in resolvedRule && resolvedRule.targets[0]?.capture).toBe("comment");
   });
 
   test("oversized elements never enter TS targets (same backstop as the JSON tier)", async () => {
@@ -160,7 +160,7 @@ describe("resolveAllCustomTargets", () => {
       },
       content: "x",
       nodeType: "function_declaration",
-      role: "function",
+      capture: "function",
       internalCommentCount: 0,
       parent: "d99",
     } as WalkElement;
@@ -175,7 +175,7 @@ describe("resolveAllCustomTargets", () => {
       target: (elements) => {
         evaluations++;
         seen = elements;
-        return elements.filter((e) => e.role === "function");
+        return elements.filter((e) => e.capture === "function");
       },
     });
     const resolved = resolveAllCustomTargets([rule], inventory);
@@ -208,8 +208,8 @@ describe("tsElementsOf — materialized parent view", () => {
     );
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
     const elements = tsElementsOf(inventory, "src/w.ts");
-    const klass = elements.find((e) => e.role === "type")!;
-    const method = elements.find((e) => e.role === "function")!;
+    const klass = elements.find((e) => e.capture === "type")!;
+    const method = elements.find((e) => e.capture === "function")!;
     expect(klass.parent).toBeNull();
     expect(method.parent?.id).toBe(klass.id);
     // The parent chain materializes the SAME view (shared element identity).
@@ -311,7 +311,7 @@ describe("walk-first resolution (multi-file)", () => {
     const rule = ruleOf({
       target: (elements) => {
         seenPaths = [...new Set(elements.map((e) => e.path))];
-        return elements.filter((e) => e.role === "comment");
+        return elements.filter((e) => e.capture === "comment");
       },
     });
     const resolved = resolveAllCustomTargets([rule], inventory);

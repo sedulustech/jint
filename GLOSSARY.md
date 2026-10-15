@@ -15,22 +15,32 @@ measurement its handle judged actionable and is the only output that demands act
 - **binding** — an element that is a name bound to a non-callable, non-type value.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
   classifies states, it never generates or transforms them.
-- **composite** — a parsed structure that is both judged and descended into during the walk; its
-  identity is its declaration (header), its body is walked so inner nodes become elements.
-  Composites exist only during the walk.
+- **capture** — the jint-owned shared noun a grammar's queries assign to a matched node
+  (function, type, binding, comment, import): what one element IS. Singular names one element;
+  the plural addresses the group a rule targets. A capture name is an identity, never a label.
+  Replaces role (the living collision).
+- **capture vocabulary** — the frozen set of captures the runtime knows: function, type,
+  binding, comment, import, plus the @name capture that renders a definition's name. A query
+  capturing outside the set fails the run at setup.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
+- **descent default** — the per-noun policy for what a captured element's interior yields: a
+  @type interior surfaces (a method is an element of its own); a @function or @binding interior
+  is opaque (a body's captures are implementation, never elements).
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
   union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
   the walk-time form additionally carries the element's source. Targets stay rule-side: a rule
   resolves targets, an element is what they land on.
+- **node type** — one grammar's raw tree-sitter node type (node-types.json); grammar-local,
+  written lang:node_type when addressed, with no shared meaning across grammars. The middle of
+  the three rule-target namespaces: FILE / NODE TYPE / CAPTURE.
 - **false positive rate** — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.
 - **finding** — a measurement its handle judged actionable; the only output that demands action.
-- **grammar** — the parser that turns source text into the parse tree the walk abstracts into
-  roles; shipped embedded with the binary.
+- **grammar** — the parser (wasm) plus its extraction half (queries.scm assigning captures);
+  shipped embedded, one directory per language, overridable per user grammar dir.
 - **handle** — the rule's policy: thresholds (declarative) or a policy callback (TS tier) that
   turns measurements into findings.
 - **input** — what a run classifies: where the bytes come from, nothing more.
@@ -65,8 +75,9 @@ measurement its handle judged actionable and is the only output that demands act
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
 - **question** — one classified judgment request sent to the model about one state.
-- **role** — the classification a node gets during the walk (function, comment, binding, import,
-  ...); roles are the exposed selection vocabulary.
+- **rule target** — which unit instances a rule judges; resolves over the three namespaces
+  (FILE / NODE TYPE / CAPTURE). 'noun' stays CLI-owned - it names a declared input read, never a
+  capture.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
 - **request** — the recorded classifier call: the exact bytes sent to the model and the

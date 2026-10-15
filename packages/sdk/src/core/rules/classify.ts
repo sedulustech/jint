@@ -212,7 +212,7 @@ export interface ClassifyEvent {
 export interface OversizedElement {
   /** The stable positional walk label ("d5"). */
   readonly label: string;
-  readonly role: string;
+  readonly capture: string;
   readonly span: Span;
   /** Source size in UTF-16 code units (content.length), as the note reports it. */
   readonly chars: number;
@@ -242,7 +242,7 @@ export const DEFAULT_CONCURRENCY = 16;
  * view carries attachedComment through precisely so this one predicate serves both).
  */
 export interface TargetableElement {
-  readonly role: string;
+  readonly capture: string;
   readonly oversized?: boolean;
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
@@ -258,18 +258,18 @@ export interface TargetableElement {
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
   const carriesComment =
-    element.role === "comment" ||
+    element.capture === "comment" ||
     (element.attachedComment?.length ?? 0) > 0 ||
     (element.internalCommentCount ?? 0) > 0;
   switch (target) {
     case "comments":
       return carriesComment;
     case "functions":
-      return element.role === "function";
+      return element.capture === "function";
     case "definitions":
-      return element.role !== "comment" && element.role !== "import";
+      return element.capture !== "comment" && element.capture !== "import";
     case "imports":
-      return element.role === "import";
+      return element.capture === "import";
     default:
       return false;
   }
@@ -620,7 +620,7 @@ function oversizedElements(inventory: Inventory | undefined): OversizedElement[]
   if (inventory === undefined) return [];
   return [...inventory.definitions, ...inventory.comments, ...inventory.imports]
     .filter((e) => e.oversized === true)
-    .map((e) => ({ label: e.label, role: e.role, span: e.span, chars: e.content.length }));
+    .map((e) => ({ label: e.label, capture: e.capture, span: e.span, chars: e.content.length }));
 }
 
 /**

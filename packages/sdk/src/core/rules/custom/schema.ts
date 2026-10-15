@@ -19,7 +19,7 @@ export interface CustomElement {
   /** The owning file: identity and wire naming derive from it. */
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
-  readonly role: import("../../types.ts").ElementRole;
+  readonly capture: import("../../types.ts").ElementRole;
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };
@@ -121,7 +121,7 @@ export interface TsConfig {
   readonly timeout?: number;
 }
 
-/** The element roles a custom rule may target in v1 (unit-level targets stay JSON-tier). */
+/** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
 export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
   "functions",
   "definitions",

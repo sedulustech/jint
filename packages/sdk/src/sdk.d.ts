@@ -9,13 +9,13 @@
 
 declare module "jint:sdk" {
   /**
-   * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the
-   * element).
+   * The element a rule sees: identity, capture, source, span, and its parent (hierarchy rides on
+   * the element).
    */
   export interface CustomElement {
     readonly id: string;
     readonly path: string;
-    readonly role: "function" | "type" | "binding" | "import" | "comment";
+    readonly capture: "function" | "type" | "binding" | "import" | "comment";
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };

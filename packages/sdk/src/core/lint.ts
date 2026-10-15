@@ -11,6 +11,7 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { loadUserGrammars } from "./input/grammars.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
@@ -134,7 +135,7 @@ export interface LintOptions {
 function scopeSkipReason(target: string, element: WalkElement): string {
   if (element.oversized === true) return "exceeds the size backstop";
   if (target === "comments") return "carries none";
-  return `is a ${element.role}`;
+  return `is a ${element.capture}`;
 }
 
 /** The honest skip line: element identity, per-requested-rule mismatch, zero calls spent. */
@@ -193,6 +194,9 @@ function selectScopedElements(
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
+  // The grammar dir registers before anything parses: user grammars win over embedded, a manifest
+  // + .scm without a wasm shadows an embedded grammar's extraction.
+  await loadUserGrammars();
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
@@ -472,7 +476,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           type: "note",
           note:
             `${path}@L${skipped.span.start.line}` +
-            ` skipped: ${skipped.role} '${skipped.label}'` +
+            ` skipped: ${skipped.capture} '${skipped.label}'` +
             ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`,
         };
       }

@@ -1,6 +1,15 @@
-// Bundled grammar wasm assets (import ... with { type: "file" }): the default export is the
-// asset's file path at runtime — a node_modules path from source, an embedded path when compiled.
+// Bundled assets (import ... with { type }): the default export is the asset's content carrier —
+// a file path for type "file" (node_modules path from source, embedded $bunfs path when
+// compiled), the decoded text / parsed JSON for the data types.
 declare module "*.wasm" {
   const path: string;
   export default path;
+}
+declare module "*.scm" {
+  const source: string;
+  export default source;
+}
+declare module "*.manifest.json" {
+  const facts: { version: string; extensions: string[] };
+  export default facts;
 }

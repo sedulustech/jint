@@ -15,6 +15,7 @@ import {
   ClassifyError,
   type AnyState,
   type Classifier,
+  type Element,
   type Finding,
   type LintEvent,
   type RuleResult,
@@ -56,7 +57,7 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): C
     const element: CustomElement = {
       id: e.label,
       path,
-      role: e.role,
+      capture: e.capture,
       source: e.content,
       span: {
         start: e.span.start,
@@ -85,9 +86,9 @@ export type ResolvedCustomTarget =
 export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 
 /**
- * Resolves every rule ONCE per run over the completed walk: role strings filter the full inventory;
- * the function form receives the FULL walk inventory — not the rule's context — and is pure
- * selection. Errors resolve to a per-unit failure for that rule.
+ * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
+ * inventory; the function form receives the FULL walk inventory — not the rule's context — and is
+ * pure selection. Errors resolve to a per-unit failure for that rule.
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
@@ -285,7 +286,7 @@ export async function runCustomRules(
           input,
           value,
           element: {
-            kind: element.role,
+            kind: element.capture as Element["kind"],
             span: element.span,
             label: element.id,
             parent: element.parent !== null ? element.parent.id : undefined,
