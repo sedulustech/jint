@@ -41,6 +41,9 @@ import goScm from "./embedded/go/queries.scm" with { type: "text" };
 import markdownManifest from "./embedded/markdown/markdown.manifest.json" with { type: "json" };
 import markdownWasm from "./embedded/markdown/markdown.wasm" with { type: "file" };
 import markdownScm from "./embedded/markdown/queries.scm" with { type: "text" };
+import phpManifest from "./embedded/php/php.manifest.json" with { type: "json" };
+import phpWasm from "./embedded/php/php.wasm" with { type: "file" };
+import phpScm from "./embedded/php/queries.scm" with { type: "text" };
 import pythonManifest from "./embedded/python/python.manifest.json" with { type: "json" };
 import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
 import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
@@ -105,6 +108,13 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     wasmPath: markdownWasm,
     queries: markdownScm,
     policy: markdownManifest.policy,
+    provenance: { source: "embedded" },
+  },
+  php: {
+    language: "php",
+    extensions: phpManifest.extensions,
+    wasmPath: phpWasm,
+    queries: phpScm,
     provenance: { source: "embedded" },
   },
   go: {

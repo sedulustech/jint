@@ -49,6 +49,19 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
+## php (corpus.php, from the php field trial's sample)
+
+Verdict (Oct 15, ninth port): parity holds with documented deltas:
+
+- NAMES: @name binds php's universal `name` node - the trial's names blocker dies; every
+  definition renders named.
+- CLASS SPAN: whole class (span = captured node); the reference header-bounded it.
+- CLOSURES RETIRED: the trial's anonymous_function/arrow_function -> function stretch is dead;
+  a closure assignment is an honest NAMED binding ($pricer, $maker) - the declarator-free
+  callable-initializer question the trial flagged is answered by the honest noun.
+- include/require stay transit (runtime control flow; the trial's own verdict).
+- Member data ($stock) stays inside its class - WAITING on the field capture.
+
 ## cpp (corpus.cpp, from the cpp field trial's sample, plus template fixtures)
 
 Verdict (Oct 15, eighth port): parity holds with documented deltas:

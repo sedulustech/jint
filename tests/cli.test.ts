@@ -326,7 +326,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       // same shape as the SDK's unknown-language throws: message, capped valid list, code
       stderr: [
         "unknown language 'klingon'",
-        "valid: typescript, tsx, python, markdown, go, c ...",
+        "valid: typescript, tsx, python, markdown, php, go ...",
         "[MISSING_GRAMMAR]",
       ],
       stdout: "empty",
