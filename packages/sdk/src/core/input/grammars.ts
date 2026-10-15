@@ -29,6 +29,9 @@ import { InternalError, SetupError } from "../types.ts";
 import cManifest from "./embedded/c/c.manifest.json" with { type: "json" };
 import cWasm from "./embedded/c/c.wasm" with { type: "file" };
 import cScm from "./embedded/c/queries.scm" with { type: "text" };
+import cppManifest from "./embedded/cpp/cpp.manifest.json" with { type: "json" };
+import cppWasm from "./embedded/cpp/cpp.wasm" with { type: "file" };
+import cppScm from "./embedded/cpp/queries.scm" with { type: "text" };
 import cssManifest from "./embedded/css/css.manifest.json" with { type: "json" };
 import cssWasm from "./embedded/css/css.wasm" with { type: "file" };
 import cssScm from "./embedded/css/queries.scm" with { type: "text" };
@@ -116,6 +119,13 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: cManifest.extensions,
     wasmPath: cWasm,
     queries: cScm,
+    provenance: { source: "embedded" },
+  },
+  cpp: {
+    language: "cpp",
+    extensions: cppManifest.extensions,
+    wasmPath: cppWasm,
+    queries: cppScm,
     provenance: { source: "embedded" },
   },
   css: {

@@ -49,6 +49,20 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
+## cpp (corpus.cpp, from the cpp field trial's sample, plus template fixtures)
+
+Verdict (Oct 15, eighth port): parity holds with documented deltas:
+
+- TEMPLATE ABSORB: `template<typename T> class Box {};` captures the whole template_declaration
+  (the policy table's type absorbTail=2 swallows the trailing ';' - the shape test the review
+  asked for); the reference header-bounded to `class Box`. Template functions likewise absorb,
+  carrying the template line in the span and the declared name via descent.
+- NAMES everywhere; the trial's field stretch is dead - member function prototypes surface as
+  functions (field_declaration priority split), member DATA fields stay WAITING (field).
+- REF-ONLY: macros (invisible to the grammar - a grammar fact), namespace (transit; its
+  functions surface on their own), the old merged-import run (our import element stops at the
+  last #include).
+
 ## c (corpus.c, from the c field trial's sample)
 
 Verdict (Oct 15, seventh port): parity holds with three documented deltas:
