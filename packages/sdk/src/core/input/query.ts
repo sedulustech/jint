@@ -30,9 +30,49 @@
 import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
 
-/** The element captures, frozen for v1. A query capturing anything else fails at load. */
-export const ELEMENT_CAPTURES = ["function", "type", "binding", "comment", "import"] as const;
+/**
+ * The element captures, frozen for v1. A query capturing anything else fails at load.
+ *
+ * @docstring is a COMMENT-KIND capture: a grammar's docstring convention, captured by pattern
+ * (python's string-in-block) and owned by its enclosing definition (docstringOf) - the capture
+ * seam is the ONE authority for what a docstring is; the walker holds no node-type names.
+ */
+export const ELEMENT_CAPTURES = [
+  "function",
+  "type",
+  "binding",
+  "comment",
+  "import",
+  "docstring",
+] as const;
 export type Capture = (typeof ELEMENT_CAPTURES)[number];
+
+/**
+ * THE SUPPRESSION POLICY TABLE - keyed by the OUTER capture; the cpp field/prototype and verilog
+ * nested-always questions port here as DATA, never as new if-branches in hides().
+ *
+ * AbsorbTail - the largest wrapper tail (bytes between a same-capture payload's end and the
+ * wrapper's end) that still reads as PREFIX-ABSORB: one logical element, the wrapper survives, the
+ * payload dies (export statement, decorated definition, template declaration + trailing ';'). A
+ * same-capture nest with a LARGER tail is a unit of its own and SURFACES as a child (nested
+ * functions; the parity verdict kept that). A selfNesting grammar (markdown) disables same-capture
+ * collapse entirely (a manifest fact). opaque - a DIFFERENT-capture capture strictly inside this
+ * element is implementation and dies (a local binding inside a function); a show-through interior
+ * (@type) surfaces its captures.
+ */
+const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly opaque: boolean }>> =
+  {
+    function: { absorbTail: 0, opaque: true },
+    type: { absorbTail: 2, opaque: false },
+    binding: { absorbTail: 2, opaque: true },
+    // lanes: never containers of elements; the lanes themselves never hide
+    comment: { absorbTail: 0, opaque: false },
+    import: { absorbTail: 0, opaque: false },
+    docstring: { absorbTail: 0, opaque: false },
+  };
+
+/** Lane captures, never contained elements: exempt from every suppression rule. */
+const LANES: ReadonlySet<Capture> = new Set(["comment", "import", "docstring"]);
 
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
@@ -146,13 +186,14 @@ function contains(outer: Candidate, inner: Candidate): boolean {
 
 /**
  * Resolve candidate conflicts, in order: same-node double capture resolves by PATTERN ORDER (the
- * earlier .scm pattern wins - the callable-initializer refinement depends on it); same-capture
- * nesting keeps the outer element; and the per-noun descent default drops captures strictly inside
- * a @function or @binding element (opaque interiors). Different-capture overlap inside a
- *
- * @type element is legal.
+ * earlier .scm pattern wins - the callable-initializer refinement depends on it); then the
+ * suppression policy table decides what a contained candidate is - an absorbed payload, a child of
+ * its own, or implementation that dies.
  */
-export function resolveCandidates(candidates: readonly Candidate[]): Candidate[] {
+export function resolveCandidates(
+  candidates: readonly Candidate[],
+  options: ResolveOptions = {},
+): Candidate[] {
   const byNode = new Map<string, Candidate>();
   for (const candidate of candidates) {
     const key = candidate.node.startIndex + ":" + candidate.node.endIndex;
@@ -164,22 +205,32 @@ export function resolveCandidates(candidates: readonly Candidate[]): Candidate[]
   );
   const kept: Candidate[] = [];
   for (const candidate of ordered) {
-    const swallowed = kept.some((outer) => hides(outer, candidate));
+    const swallowed = kept.some((outer) => hides(outer, candidate, options));
     if (!swallowed) kept.push(candidate);
   }
   return kept;
 }
 
-const OPAQUE: ReadonlySet<string> = new Set(["function", "binding"]);
+/**
+ * Grammar-declared structure fact (manifest: sameCaptureNesting). Default false: a same-capture
+ * match inside an existing same-capture element is read through the policy table's absorb shape.
+ * Markdown declares true: its sections genuinely nest, so no same-capture collapse at all.
+ */
+export interface ResolveOptions {
+  readonly selfNesting?: boolean;
+}
 
-/** Does the outer candidate hide the inner one? (suppression policy - see the header) */
-function hides(outer: Candidate, inner: Candidate): boolean {
-  // comments and imports never hide: they stay candidates so the materializer can count them
-  // internal and keep the imports run whole
-  if (inner.capture === "comment" || inner.capture === "import") return false;
+/** Does the outer candidate hide the inner one? (policy table; ordered checks) */
+function hides(outer: Candidate, inner: Candidate, options: ResolveOptions): boolean {
+  // lane captures travel intact: the materializer counts them internal and keeps runs whole
+  if (LANES.has(inner.capture)) return false;
   if (!contains(outer, inner)) return false;
-  if (outer.capture === inner.capture) return true;
-  return OPAQUE.has(outer.capture) && inner.node.startIndex !== outer.node.startIndex;
+  if (outer.capture === inner.capture) {
+    if (options.selfNesting === true) return false;
+    // prefix-absorb shape: the wrapper carries at most a small tail (';') past its payload
+    return inner.node.endIndex >= outer.node.endIndex - POLICY[outer.capture].absorbTail;
+  }
+  return POLICY[outer.capture].opaque;
 }
 
 export function spanOf(node: QueryNode): Span {

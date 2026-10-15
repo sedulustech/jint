@@ -35,13 +35,33 @@ describe("resolveCandidates", () => {
     expect(kept.map((c) => c.capture)).toEqual(["function"]);
   });
 
-  test("same capture nested in the same capture: the outer survives", () => {
+  test("same-capture absorb shape (wrapper ends with its payload): the wrapper survives", () => {
+    const kept = resolveCandidates([
+      candidate(1, "function", 0, 10),
+      candidate(0, "function", 5, 10),
+    ]);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]!.node.startIndex).toBe(0);
+  });
+
+  test("same-capture nest that is not absorb-shaped surfaces as a child (nested functions)", () => {
     const kept = resolveCandidates([
       candidate(0, "function", 0, 20),
       candidate(1, "function", 5, 10),
     ]);
+    expect(kept).toHaveLength(2);
+  });
+
+  test("a selfNesting grammar disables same-capture collapse (markdown sections)", () => {
+    const kept = resolveCandidates([candidate(0, "type", 0, 20), candidate(1, "type", 5, 20)], {
+      selfNesting: true,
+    });
+    expect(kept).toHaveLength(2);
+  });
+
+  test("absorb tolerance: a trailing ';' wrapper still collapses", () => {
+    const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)]);
     expect(kept).toHaveLength(1);
-    expect(kept[0]!.node.startIndex).toBe(0);
   });
 
   test("different-capture overlap is legal", () => {

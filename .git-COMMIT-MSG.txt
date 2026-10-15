@@ -1,0 +1,23 @@
+sdk: markdown port + capture policy table + @docstring seam
+
+Markdown: sections are the only honest capture under the frozen five
+(every trial stretch retired to WAITING in queries.scm); sections
+genuinely nest, which forces sameCaptureNesting into the manifest -
+the same-capture collapse is now grammar-declared, not assumed.
+
+Shape-review seams folded in before the remaining ports:
+
+- hides() de-fused into a suppression POLICY TABLE keyed by the outer
+  capture (absorbTail + opaque per capture); cpp field/prototype and
+  verilog nested-always will port as table data, not if-branches.
+- prefix-absorb is a SHAPE test with per-capture tolerance
+  (absorbTail: function 0, type/binding 2 - trailing ';' wrappers
+  collapse), not byte equality. Same-capture nests that are not
+  absorb-shaped SURFACE as children (parity verdict: nested functions
+  surface; opaque interior now means different-capture only).
+- docstringNodeTypes is gone: @docstring joins the capture vocabulary
+  as a comment-kind capture owned by its container. The capture seam
+  is again the only node-type authority.
+- every grammar dir now ships test + parity verdict + WAITING ledger.
+
+Suite 438 green; markdown test, parity verdict, and ledger in place.

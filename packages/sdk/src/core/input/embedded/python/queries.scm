@@ -3,9 +3,9 @@
 ; python has ONE wrapper: decorated_definition. ABSORB - the wrapper is the element, so the
 ; decorator prefix travels with it (the old wrapperTypes list, as pattern authoring).
 ;
-; DOCSTRINGS are captured as @comment from STRING nodes (string-in-block, the isolation
-; requirement). The manifest's docstringNodeTypes fact tells the walker which captured comment
-; nodes are docstrings, so it can own them (docstringOf: the enclosing definition, or the
+; DOCSTRINGS are captured with the @docstring capture (string-in-block, the isolation
+; requirement). @docstring is a comment-kind capture: the walker owns these elements
+; (docstringOf: the enclosing definition, or the
 ; module) instead of counting them internal.
 ;
 ; WAITING (recorded, not stretched): assignments are NOT bindings in v1 (the old table mapped
@@ -28,8 +28,8 @@
 (comment) @comment
 
 ; The docstring of a definition: the FIRST statement of its body wrapping a string.
-(function_definition body: (block . (expression_statement (string) @comment)))
-(class_definition body: (block . (expression_statement (string) @comment)))
+(function_definition body: (block . (expression_statement (string) @docstring)))
+(class_definition body: (block . (expression_statement (string) @docstring)))
 
 ; The module docstring: the file's first statement wrapping a string.
-(module . (expression_statement (string) @comment))
+(module . (expression_statement (string) @docstring))

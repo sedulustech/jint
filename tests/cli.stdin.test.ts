@@ -208,7 +208,7 @@ describe("cli: piped stdin str unit", async () => {
       // same shape as the SDK's unknown-language throws: message, capped valid list, code
       stderr: [
         "unknown language 'klingon'",
-        "valid: typescript, tsx, python, go",
+        "valid: typescript, tsx, python, markdown, go, css",
         "[MISSING_GRAMMAR]",
       ],
       stdout: "empty",

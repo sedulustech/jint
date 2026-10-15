@@ -32,6 +32,9 @@ import cssScm from "./embedded/css/queries.scm" with { type: "text" };
 import goManifest from "./embedded/go/go.manifest.json" with { type: "json" };
 import goWasm from "./embedded/go/go.wasm" with { type: "file" };
 import goScm from "./embedded/go/queries.scm" with { type: "text" };
+import markdownManifest from "./embedded/markdown/markdown.manifest.json" with { type: "json" };
+import markdownWasm from "./embedded/markdown/markdown.wasm" with { type: "file" };
+import markdownScm from "./embedded/markdown/queries.scm" with { type: "text" };
 import pythonManifest from "./embedded/python/python.manifest.json" with { type: "json" };
 import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
 import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
@@ -56,11 +59,11 @@ export interface GrammarEntry {
   /** The grammar's query patterns (the extraction half); compiled per language in query.ts. */
   readonly queries: string;
   /**
-   * Node types whose @comment captures are DOCSTRINGS (e.g. python's string-in-block): the walker
-   * owns them (docstringOf: the enclosing definition, or the module) instead of counting them
-   * internal. Empty for grammars with no docstring convention.
+   * Same-capture candidates nest legitimately (markdown's sections). Default false: a same-capture
+   * match inside an existing same-capture element reads as a wrapper's payload and collapses into
+   * it (see the policy table in query.ts).
    */
-  readonly docstringNodeTypes: readonly string[];
+  readonly sameCaptureNesting?: boolean;
   readonly provenance: GrammarProvenance;
 }
 
@@ -75,7 +78,6 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: typescriptManifest.extensions,
     wasmPath: typescriptWasm,
     queries: typescriptScm,
-    docstringNodeTypes: [],
     provenance: { source: "embedded" },
   },
   tsx: {
@@ -83,7 +85,6 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: tsxManifest.extensions,
     wasmPath: tsxWasm,
     queries: tsxScm,
-    docstringNodeTypes: [],
     provenance: { source: "embedded" },
   },
   python: {
@@ -91,7 +92,14 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: pythonManifest.extensions,
     wasmPath: pythonWasm,
     queries: pythonScm,
-    docstringNodeTypes: pythonManifest.docstringNodeTypes ?? [],
+    provenance: { source: "embedded" },
+  },
+  markdown: {
+    language: "markdown",
+    extensions: markdownManifest.extensions,
+    wasmPath: markdownWasm,
+    queries: markdownScm,
+    sameCaptureNesting: markdownManifest.sameCaptureNesting === true,
     provenance: { source: "embedded" },
   },
   go: {
@@ -99,7 +107,6 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: goManifest.extensions,
     wasmPath: goWasm,
     queries: goScm,
-    docstringNodeTypes: [],
     provenance: { source: "embedded" },
   },
   css: {
@@ -107,7 +114,6 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     extensions: cssManifest.extensions,
     wasmPath: cssWasm,
     queries: cssScm,
-    docstringNodeTypes: [],
     provenance: { source: "embedded" },
   },
 };
@@ -213,7 +219,7 @@ export async function parserFor(language: string): Promise<Parser> {
 interface Manifest {
   version: string;
   extensions: string[];
-  docstringNodeTypes?: string[];
+  sameCaptureNesting?: boolean;
 }
 
 /** Facts only — the extraction half is the grammar's queries.scm. */
@@ -227,7 +233,7 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language}: not valid JSON (${e instanceof Error ? e.message : String(e)})`,
     );
   }
-  const { version, extensions, docstringNodeTypes } = raw as Partial<Manifest>;
+  const { version, extensions, sameCaptureNesting } = raw as Partial<Manifest>;
   if (typeof version !== "string" || version.length === 0) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -244,17 +250,7 @@ function readManifest(language: string, text: string): Manifest {
       `invalid grammar manifest for ${language} ${version}: "extensions" must be a non-empty array of file extensions`,
     );
   }
-  if (
-    docstringNodeTypes !== undefined &&
-    (!Array.isArray(docstringNodeTypes) ||
-      docstringNodeTypes.some((x) => typeof x !== "string" || x.length === 0))
-  ) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      `invalid grammar manifest for ${language} ${version}: "docstringNodeTypes" must be a list of node-type names`,
-    );
-  }
-  return { version, extensions, docstringNodeTypes };
+  return { version, extensions, sameCaptureNesting };
 }
 
 async function registerUserGrammar(language: string, dir: string): Promise<void> {
@@ -292,7 +288,7 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
       extensions: manifest.extensions,
       wasmPath: effectivePath,
       queries,
-      docstringNodeTypes: manifest.docstringNodeTypes ?? [],
+      sameCaptureNesting: manifest.sameCaptureNesting === true,
       provenance: { source: "user", path: effectivePath, version: manifest.version },
     },
   };

@@ -20,8 +20,12 @@ measurement its handle judged actionable and is the only output that demands act
   the plural addresses the group a rule targets. A capture name is an identity, never a label.
   Replaces role (the living collision).
 - **capture vocabulary** — the frozen set of captures the runtime knows: function, type,
-  binding, comment, import, plus the @name capture that renders a definition's name. A query
-  capturing outside the set fails the run at setup.
+  binding, comment, import, docstring (a comment-kind capture: the grammar's declared docstring
+  convention, owned by its enclosing definition), plus the @name capture that renders a
+  definition's name. A query capturing outside the set fails the run at setup.
+- **sameCaptureNesting** — a grammar manifest fact: same-capture candidates nest legitimately
+  (markdown's sections). Default false: a same-capture match inside an existing same-capture
+  element reads as a wrapper's payload and collapses into it (the policy table in query.ts).
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.

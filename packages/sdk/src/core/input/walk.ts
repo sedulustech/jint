@@ -35,6 +35,8 @@ import {
 
 export { grammarExtensions, knownLanguages, languageOf };
 export { isEmptyComment };
+/** The wire captures: @docstring projects into the comment kind (it IS a comment element). */
+export type WireCapture = Exclude<Capture, "docstring">;
 export type { Capture };
 export type { DocstringOwner } from "../types.ts";
 
@@ -48,9 +50,10 @@ export interface WalkElement {
   readonly nodeType: string;
   /**
    * The jint-owned capture the .scm assigned to this node: what the element IS. Rules and the
-   * classifier route on it; the frozen vocabulary lives in query.ts.
+   * classifier route on it; the frozen vocabulary lives in query.ts. @docstring candidates carry
+   * the comment capture (a docstring IS a comment element; docstringOf says whose).
    */
-  readonly capture: Capture;
+  readonly capture: WireCapture;
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
   /**
@@ -127,10 +130,7 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set(["function", "type", "
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
  * following definition), internal-comment counting, the imports merge, labels, parent links.
  */
-function materialize(
-  candidates: readonly Candidate[],
-  docstringNodeTypes: readonly string[],
-): {
+function materialize(candidates: readonly Candidate[]): {
   definitions: WalkElement[];
   comments: WalkElement[];
   imports: WalkElement[];
@@ -139,10 +139,10 @@ function materialize(
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
 
-  // Docstrings: comment captures whose node type the grammar declared a docstring convention
-  // (python's string-in-block). They are owned comment elements - docstringOf answers who they
-  // document (the innermost containing definition, or the module) - never internal counts.
-  const isDocstring = (c: Candidate): boolean => docstringNodeTypes.includes(c.node.type);
+  // Docstrings: the grammar's @docstring captures (its declared convention, python's
+  // string-in-block). They are owned comment elements - docstringOf answers who they document
+  // (the innermost containing definition, or the module) - never internal counts.
+  const isDocstring = (c: Candidate): boolean => c.capture === "docstring";
   const docstringOf = (candidate: Candidate): DocstringOwner => {
     let innermost: Candidate | undefined;
     for (const definition of definitions) {
@@ -217,7 +217,7 @@ function materialize(
 
   // Labels follow document order: definitions d0.., comments c0.. (docstrings and standalone
   // comments share the c-lane, ordered by document position), imports i0.
-  const docstringElements = docstringsOf(comments, isDocstring);
+  const docstringElements = docstringsOf(candidates, isDocstring);
   // docstrings are owned, never standalone: the standalone lane drops them (a module docstring
   // matches both the .scm's docstring pattern and the top-level comment walk)
   const commentElements = [...new Set([...standalone, ...docstringElements])].sort(
@@ -249,7 +249,7 @@ function materialize(
     span: spanOf(d.node),
     content: d.node.text,
     nodeType: d.node.type,
-    capture: d.capture,
+    capture: d.capture as WireCapture,
     name: d.name,
     attachedComment: attached.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
@@ -290,12 +290,12 @@ function materialize(
   return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
 }
 
-/** The docstring comment candidates, document order (empty comments are not docstrings). */
+/** The @docstring candidates, document order (empty texts are not docstrings). */
 function docstringsOf(
-  comments: readonly Candidate[],
+  candidates: readonly Candidate[],
   isDocstring: (c: Candidate) => boolean,
 ): Candidate[] {
-  return comments
+  return candidates
     .filter((c) => isDocstring(c) && !isEmptyComment(c.node.text))
     .sort((a, b) => a.node.startIndex - b.node.startIndex);
 }
@@ -316,8 +316,10 @@ export async function decompose(source: string, language: string): Promise<Inven
   // an empty inventory would report success on an unmeasured file
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
-  const candidates = resolveCandidates(runQuery(query, tree.rootNode));
-  const { definitions, comments, imports } = materialize(candidates, entry.docstringNodeTypes);
+  const candidates = resolveCandidates(runQuery(query, tree.rootNode), {
+    selfNesting: entry.sameCaptureNesting === true,
+  });
+  const { definitions, comments, imports } = materialize(candidates);
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,

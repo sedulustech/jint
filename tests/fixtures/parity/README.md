@@ -49,6 +49,23 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
+## markdown (corpus.md, from the markdown field trial's sample)
+
+Verdict (Oct 15, sixth port): sections-only by decided policy; every retired stretch is a
+WAITING in queries.scm (prose, code-block, link-reference). Deltas vs the reference:
+
+- NAMES: sections carry their heading text (the reference rendered them nameless). The name is
+  raw inline source — itself a stretch; WAITING for a text-name capture.
+- SPAN TAIL: our section spans include the file's trailing newline (one byte; key-mismatch
+  only).
+- REF-ONLY: fenced code blocks (the trial's worst stretch, function), paragraphs, quotes, link
+  references — the stretches retired; the trial's own verdict was that they die inside a section
+  anyway.
+
+SHAPE NOTE (policy seam from this port): markdown forced sameCaptureNesting into the manifest —
+its sections genuinely nest; the wrapper-absorb collapse in the policy table (query.ts) is off
+for this grammar.
+
 ## typescript (corpus.ts, from embed-all's port-corpus)
 
 Verdict (Oct 15, first query port): parity holds — every reference element has a counterpart.

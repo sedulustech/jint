@@ -84,23 +84,23 @@ export default function bare() {}
     expect(inv.definitions.map((e) => e.name)).toEqual(["exported", "Klass", "factory", "bare"]);
   });
 
-  test("same-capture nesting is suppressed keeping the outer element", async () => {
+  test("a nested function is a unit of its own: it surfaces as a child", async () => {
     const inv = await decomposeTS(`
 function outer() {
   function inner() {}
 }
 `);
-    expect(summary(inv)).toEqual(["d0 function outer L2-L4"]);
+    expect(summary(inv)).toEqual(["d0 function outer L2-L4", "d1 function inner L3-L3 in d0"]);
   });
 
-  test("a function body is opaque: its locals and nested functions are not elements", async () => {
+  test("a function interior hides different captures (locals) and shows same-capture ones", async () => {
     const inv = await decomposeTS(`
 function outer() {
   const local = 1;
   function nested() {}
 }
 `);
-    expect(summary(inv)).toEqual(["d0 function outer L2-L5"]);
+    expect(summary(inv)).toEqual(["d0 function outer L2-L5", "d1 function nested L4-L4 in d0"]);
   });
 
   test("a type body surfaces: methods live inside their class", async () => {

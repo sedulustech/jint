@@ -805,15 +805,16 @@ describe("lint", () => {
         ...[...inputs].filter((i) => i.includes("#")),
       ]),
     );
-    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
-    for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
+    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(3);
+    for (const i of inputs)
+      if (i.includes("#")) expect(i).toMatch(/^(good\.ts|README\.md)#[0-9a-f-]{36}$/);
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, md, go, css"),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go, css · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, tsx, py, md, go, css · not parsed (no grammar): (extensionless), .json",
     );
   });
 
@@ -848,10 +849,10 @@ describe("lint", () => {
     );
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, md, go, css"),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go, css · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, tsx, py, md, go, css · not parsed (no grammar): (extensionless), .json",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
