@@ -244,8 +244,13 @@ export interface Finding {
 export type Span = import("@jint/contract").Span;
 /** The typed subject of a measurement: the closed element union. */
 export type Element = import("@jint/contract").Element;
-/** The element-kind vocabulary minus the whole-unit "file" kind: what a grammar node abstracts to. */
-export type ElementRole = Exclude<Element["kind"], "file">;
+/**
+ * The element-kind vocabulary minus the whole-unit "file" kind. One vocabulary, two views: it is
+ * the wire `kind` on a measurement's element AND the `capture` a custom rule sees - a capture name
+ * is the element's identity, never a label. Derived from the contract's union, so the compiler
+ * rejects a kind the contract drops (no hand-copied mirror).
+ */
+export type ElementCapture = Exclude<Element["kind"], "file">;
 export type FileElement = import("@jint/contract").FileElement;
 export type FunctionElement = import("@jint/contract").FunctionElement;
 export type TypeElement = import("@jint/contract").TypeElement;

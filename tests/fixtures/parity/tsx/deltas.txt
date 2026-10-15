@@ -1,0 +1,4 @@
+# Documented parity deltas: tsx (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW function Counter L4.0-L7.1
+REF function Counter L4.7-L7.1

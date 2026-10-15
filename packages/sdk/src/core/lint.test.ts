@@ -811,10 +811,13 @@ describe("lint", () => {
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing v, ts, tsx, py, md, php, go, c, cpp, css"),
+        e.type === "note" &&
+        e.note.startsWith(
+          "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+        ),
     );
     expect(coverage?.note).toBe(
-      "parsing v, ts, tsx, py, md, php, go, c, cpp, css · not parsed (no grammar): (extensionless), .json",
+      "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
   });
 
@@ -849,10 +852,13 @@ describe("lint", () => {
     );
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing v, ts, tsx, py, md, php, go, c, cpp, css"),
+        e.type === "note" &&
+        e.note.startsWith(
+          "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+        ),
     );
     expect(coverage?.note).toBe(
-      "parsing v, ts, tsx, py, md, php, go, c, cpp, css · not parsed (no grammar): (extensionless), .json",
+      "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });

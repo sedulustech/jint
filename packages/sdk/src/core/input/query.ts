@@ -81,13 +81,18 @@ const KNOWN_CAPTURES: ReadonlySet<string> = new Set([...ELEMENT_CAPTURES, NAME_C
 /**
  * PATTERN-ORDER VALIDATION: when two patterns root on the same node type but assign DIFFERENT
  * element captures, the order between them is load-bearing (the earlier pattern wins) - silence
- * there is the highest-risk invariant an agent reordering patterns can break. Such a pair must be
- * stated: each involved pattern carries an "; @priority" directive comment. A pair without the
- * directive fails the run at setup, naming the patterns and the fix.
+ * there is the highest-risk invariant an agent reordering patterns can break.
  *
- * Root node type = the first token of the pattern (conservative: two patterns may root on the same
- * type yet never match the same node - over-approximation forces explicitness, which is the point;
- * a false positive costs one comment line).
+ * The boundary is PER PATTERN, not per group: every pattern that takes part in a same-root conflict
+ * must carry the directive, because each one's POSITION is what the runtime reads (a directive on
+ * the last pattern alone would leave the earlier ones silently order-bearing). A pattern with no
+ * directive in a conflicting root group fails the run at setup.
+ *
+ * Root node type is read from the COMPILED query's pattern offsets (startIndexForPattern /
+ * endIndexForPattern), so multi-line patterns report their real root rather than a continuation
+ * line; comments and the pattern's own leading whitespace are stripped before the root token is
+ * taken. Over-approximation remains (two patterns may root on the same type yet never match the
+ * same node) - forcing the one-line statement is the point.
  */
 export interface ScmPattern {
   readonly pattern: number;
@@ -96,43 +101,99 @@ export interface ScmPattern {
   readonly intentional: boolean;
 }
 
-/** Parse the .scm's patterns structurally: element capture, root node type, @priority directive. */
-export function parseScmPatterns(scm: string): ScmPattern[] {
-  const patterns: ScmPattern[] = [];
-  let directive = false;
-  for (const line of scm.split("\n")) {
-    const text = line.trim();
-    if (text.startsWith(";")) {
-      if (/@priority\b/.test(text)) directive = true;
-      continue;
-    }
-    if (text.length === 0) {
-      directive = false;
-      continue;
-    }
-    const rootType = text.slice(1).split(/[\s:()]/)[0] ?? "";
-    const captureMatch = text.match(/@\w+/g);
-    const capture =
-      (captureMatch ?? [])
-        .map((c) => c.slice(1))
-        .find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ?? null;
+/**
+ * Split a .scm into its top-level patterns with a depth scanner (comments and string literals
+ * ignored), so each pattern's OWN text supplies its root node type and its directive. The compiled
+ * query's offsets are deliberately not used: startIndex/endIndex point at captured nodes, not at
+ * pattern boundaries, which made multi-line patterns report an inner token as their root (the
+ * merge-gate finding).
+ */
+function splitPatterns(scm: string): { text: string; precededBy: string }[] {
+  const patterns: { text: string; precededBy: string }[] = [];
+  let depth = 0;
+  let start = -1;
+  // index of the closing paren, pinned when depth returns to 0
+  let open = -1;
+  let inString = false;
+  let comments = "";
+  let pendingComments = "";
+  const flush = (tailEnd: number) => {
+    if (open === -1) return;
     patterns.push({
-      pattern: patterns.length,
+      text: scm.slice(start, Math.max(open + 1, tailEnd)),
+      precededBy: pendingComments,
+    });
+    start = -1;
+    open = -1;
+    pendingComments = "";
+  };
+  for (let i = 0; i < scm.length; i++) {
+    const char = scm[i]!;
+    if (inString) {
+      if (char === '"' && scm[i - 1] !== "\\") inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === ";") {
+      const eol = scm.indexOf("\n", i);
+      const end = eol === -1 ? scm.length : eol;
+      const comment = scm.slice(i, end);
+      if (open !== -1 && start !== -1) {
+        // trailing comment inside the pattern's tail: keep it (directives ride there)
+        i = end;
+        continue;
+      }
+      comments += comment + "\n";
+      i = end;
+      continue;
+    }
+    if (char === "(") {
+      if (depth === 0) {
+        if (open !== -1) flush(i);
+        start = i;
+        pendingComments = comments;
+        comments = "";
+      }
+      depth++;
+      continue;
+    }
+    if (char === ")") {
+      depth--;
+      if (depth === 0) open = i;
+      continue;
+    }
+    if (depth === 0 && char.trim() !== "" && open === -1) comments = "";
+  }
+  flush(scm.length);
+  return patterns;
+}
+
+export function parseScmPatterns(scm: string): ScmPattern[] {
+  return splitPatterns(scm).map((pattern, index) => {
+    const code = pattern.text.replace(/;.*$/gm, "");
+    const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
+    const captures = [...pattern.text.matchAll(/@(\w+)/g)].map((m) => m[1]!);
+    const capture =
+      captures.find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ??
+      null;
+    return {
+      pattern: index,
       rootType,
       capture,
-      // the directive rides a preceding comment line OR a trailing comment on the pattern line
-      intentional: directive || /;\s*@priority\b/.test(text),
-    });
-    directive = false;
-  }
-  return patterns;
+      // the directive rides a preceding comment line OR a trailing comment inside the pattern
+      intentional: /@priority\b/.test(pattern.precededBy) || /@priority\b/.test(pattern.text),
+    };
+  });
 }
 
 export function validatePatternOrder(language: string, scm: string): void {
   const patterns = parseScmPatterns(scm);
   const byRoot = new Map<string, ScmPattern[]>();
   for (const p of patterns) {
-    if (p.capture === null) continue;
+    if (p.capture === null || p.rootType === "") continue;
     const group = byRoot.get(p.rootType) ?? [];
     group.push(p);
     byRoot.set(p.rootType, group);
@@ -140,16 +201,18 @@ export function validatePatternOrder(language: string, scm: string): void {
   for (const [rootType, group] of byRoot) {
     const captures = new Set(group.map((p) => p.capture));
     if (captures.size <= 1) continue;
-    // one stated intent is enough for the whole conflicting group: it says "this order is
-    // load-bearing on purpose"; silence anywhere in the group is the failure
-    if (group.some((p) => p.intentional)) continue;
+    const unstated = group.filter((p) => !p.intentional);
+    if (unstated.length === 0) continue;
     const detail = group
-      .map((p) => `pattern ${p.pattern}: @${p.capture} on ${p.rootType}`)
+      .map(
+        (p) =>
+          `pattern ${p.pattern}: @${p.capture} on ${p.rootType}${p.intentional ? "" : " (unstated)"}`,
+      )
       .join("; ");
     throw new SetupError(
       "CONFIG_INVALID",
       `${language}: patterns ${detail} share root node type "${rootType}" with different captures - ` +
-        `the order between them is load-bearing; state the intent with an "; @priority" comment on one pattern of the group`,
+        `the order between them is load-bearing; every pattern in the group needs an "; @priority" comment`,
     );
   }
 }

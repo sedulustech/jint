@@ -1,0 +1,14 @@
+# Documented parity deltas: c (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW binding g_capacity L14.0-L14.27
+NEW function ring_create L19.0-L22.1
+NEW function ring_init L16.0-L16.39
+NEW type Ring L7.0-L10.1
+NEW type RingHandle L12.0-L12.32
+NEW type Status L5.0-L5.34
+REF binding - L14.0-L14.27
+REF binding - L16.0-L16.39
+REF function - L19.0-L22.1
+REF type - L12.0-L12.32
+REF type - L5.0-L5.34
+REF type - L7.0-L7.11

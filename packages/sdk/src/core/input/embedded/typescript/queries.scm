@@ -12,17 +12,28 @@
 ; - header-bounded class spans: elements carry their full node text now; the size backstop skips
 ;   what overflows.
 
-; --- call composites: test constructs (jest/vitest) — ABSORB by callee predication ----------
+; --- call composites: test constructs (jest/vitest) — ABSORB by callee AND shape ----------
 ; The whole call is the element: the span carries the title line (a describe('title', ...) span
-; includes the describe line). The callee predicate is what makes a call honest as a function -
-; a bare top-level call is NOT a definition, the allowlisted family is. No @priority needed: no
-; other pattern captures call_expression. The title string as render name is the WAITING
-; text-name capture (the same seam as markdown headings); the name is the callee.
+; includes the describe line). Two conditions make a call honest as a function: the callee family
+; (name predicate) AND a function-valued argument — a callback or arrow in the arguments. The
+; shape test is what kills the collisions the name test alone lets through: a user-defined
+; toString(), a constructor() call, or a shadowed `const test = 1; test(1)` all carry the
+; matching TEXT but no callback, so they are no longer functions.
+;
+; KNOWN LIMIT (recorded, not solved): a shadowed name called WITH a callback
+; (`const test = (x) => beep(x); test(1, () => {});`) is syntactically indistinguishable from a
+; test construct — pattern predicates cannot see bindings. The limit is why this pattern is
+; WAITING-to-retire behind the contextual-refinement tier.
+;
+; No @priority needed: no other pattern captures call_expression. The name is the callee (the
+; title string as render name is the WAITING text-name capture, the same seam as markdown's).
 (call_expression
   function: (identifier) @name
+  arguments: (arguments [(arrow_function) (function_expression)])
   (#any-of? @name "describe" "it" "test" "beforeEach" "afterEach" "beforeAll" "afterAll")) @function
 (call_expression
   function: (member_expression object: (identifier) @name)
+  arguments: (arguments [(arrow_function) (function_expression)])
   (#any-of? @name "describe" "it" "test")) @function
 ; --- declarations: functions -----------------------------------------------------------------
 (function_declaration name: (identifier) @name) @function

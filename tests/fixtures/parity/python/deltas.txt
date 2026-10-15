@@ -1,0 +1,4 @@
+# Documented parity deltas: python (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW type Config L6.0-L14.24
+REF type Config L6.0-L6.13

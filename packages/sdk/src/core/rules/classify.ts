@@ -63,10 +63,10 @@ export function unitKindNoun(_kind: UnitKind): string {
   return "source file";
 }
 
-export function elementKindNoun(role: string): string {
-  if (role === "function") return "function definition";
-  if (role === "type") return "type definition";
-  return role;
+export function elementKindNoun(capture: string): string {
+  if (capture === "function") return "function definition";
+  if (capture === "type") return "type definition";
+  return capture;
 }
 
 function questionSpec(rule: Rule, instructions: string): QuestionSchema {
@@ -104,9 +104,9 @@ export function compileRuleQuestions(
  */
 export function compileElementQuestions(
   rules: readonly Rule[],
-  role: string,
+  capture: string,
 ): Record<string, QuestionSchema> {
-  const kindPrefix = `${kindSentence(elementKindNoun(role))} `;
+  const kindPrefix = `${kindSentence(elementKindNoun(capture))} `;
   const questions: Record<string, QuestionSchema> = {};
   for (const rule of rules) {
     questions[rule.name] = questionSpec(rule, kindPrefix + rule.instructions);

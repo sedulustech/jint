@@ -92,7 +92,36 @@ function firstLine(text: string): string {
   return line.length > 70 ? line.slice(0, 70) + "..." : line;
 }
 
-for (const language of process.argv.slice(2)) {
+/**
+ * Delta keys, one per element under-comparison: the machine-comparable form of a parity verdict.
+ * `--assert` compares these against the language's committed allowlist
+ * (tests/fixtures/parity/<lang>/deltas.txt), so a NEW delta fails and a FIXED one is reported for
+ * re-recording — the verdict files stop being prose nobody re-runs.
+ */
+function deltaKeys(reference: ComparedElement[], query: ComparedElement[]): string[] {
+  const queryKeys = new Set(query.map(key));
+  const referenceKeys = new Set(reference.map(key));
+  return [
+    ...reference.filter((e) => !queryKeys.has(key(e))).map((e) => "REF " + key(e)),
+    ...query.filter((e) => !referenceKeys.has(key(e))).map((e) => "NEW " + key(e)),
+  ].sort();
+}
+
+async function allowlist(language: string): Promise<string[]> {
+  const path = join(ROOT, "tests/fixtures/parity", language, "deltas.txt");
+  const file = Bun.file(path);
+  if (!(await file.exists())) return [];
+  return (await file.text())
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+}
+
+const languages = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const assert = process.argv.includes("--assert");
+let failed = false;
+
+for (const language of languages) {
   const corpusPath = join(
     ROOT,
     "tests/fixtures/parity",
@@ -105,4 +134,23 @@ for (const language of process.argv.slice(2)) {
     queryElements(source, language),
   ]);
   diff(language + " (reference " + relative(ROOT, REFERENCE) + ")", reference, query);
+  if (!assert) continue;
+  const allowed = new Set(await allowlist(language));
+  const actual = deltaKeys(reference, query);
+  const unexpected = actual.filter((key) => !allowed.has(key));
+  const stale = [...allowed].filter((key) => !actual.includes(key));
+  if (unexpected.length > 0) {
+    failed = true;
+    console.error("\n" + language + ": " + String(unexpected.length) + " UNDOCUMENTED delta(s):");
+    for (const key of unexpected) console.error("  " + key);
+  }
+  if (stale.length > 0) {
+    failed = true;
+    console.error("\n" + language + ": " + String(stale.length) + " stale allowlist line(s):");
+    for (const key of stale) console.error("  " + key);
+  }
+  if (unexpected.length === 0 && stale.length === 0)
+    console.log("\n" + language + ": " + String(actual.length) + " delta(s), all documented");
 }
+
+if (failed) process.exit(1);

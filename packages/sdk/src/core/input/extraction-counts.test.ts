@@ -103,20 +103,22 @@ describe("extraction counts - parity corpora pinned per language", () => {
         comments: pin.comments,
         imports: pin.imports,
       };
-      expect(actual).toEqual(expected);
+      // the assertion message IS the deliverable: on drift it hands back the paste-ready table
+      // so the update is an explicit act, never a silent re-pin
+      const pasteReady =
+        language +
+        ": { ext: " +
+        JSON.stringify(pin.ext) +
+        ", " +
+        [
+          render("definitions", actual.definitions),
+          render("comments", actual.comments),
+          render("imports", actual.imports),
+        ]
+          .map((line) => line.trim())
+          .join("\n") +
+        " }";
+      expect(actual, pasteReady).toEqual(expected);
     });
   }
-
-  test("a count failure prints the ready-to-paste actual table", async () => {
-    // The message contract of the pins above: on drift, the developer sees the new table and
-    // updates PINNED explicitly - never silently.
-    const source = await Bun.file(join(PARITY_DIR, "typescript", "corpus.ts")).text();
-    const inv = await decompose(source, "typescript");
-    const table = [
-      render("definitions", counts(inv.definitions)),
-      render("comments", counts(inv.comments)),
-      render("imports", counts(inv.imports)),
-    ].join("\n");
-    expect(table).toContain("function=8");
-  });
 });

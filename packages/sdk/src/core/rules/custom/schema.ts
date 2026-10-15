@@ -19,7 +19,7 @@ export interface CustomElement {
   /** The owning file: identity and wire naming derive from it. */
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
-  readonly capture: import("../../types.ts").ElementRole;
+  readonly capture: import("../../types.ts").ElementCapture;
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };

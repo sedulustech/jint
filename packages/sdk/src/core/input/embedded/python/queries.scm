@@ -12,8 +12,8 @@
 ; none either); a python binding noun needs the same callable-refinement evidence ts got.
 
 ; --- declarations ----------------------------------------------------------------------------
-(function_definition name: (identifier) @name) @function
-(class_definition name: (identifier) @name) @type
+(function_definition name: (identifier) @name) @function ; @priority
+(class_definition name: (identifier) @name) @type ; @priority
 
 ; ABSORB: decorated definitions (decorator prefixes travel with the element)
 ; @priority: a decorated_definition is a function OR a class - never the same node

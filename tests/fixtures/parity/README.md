@@ -5,6 +5,11 @@ the query walker against the previous implementation (embed-all worktree, run li
 double as the regression corpus for extraction-policy changes; change a corpus only with the
 parity verdict re-recorded here.
 
+Each language carries a `deltas.txt`: the machine-readable form of its verdict below. The suite
+gate (`tests/parity.test.ts`, skipped when the reference worktree is absent) runs
+`bun scripts/parity.ts <langs> --assert` and fails on any delta that is not in the allowlist, and
+on any stale allowlist line — a verdict that stops matching the code fails loudly.
+
 ## css (corpus.css, from the css field trial's stylesheet)
 
 Verdict (Oct 15, second port): comments-only by decided policy — the trials' stretch mappings
@@ -37,9 +42,9 @@ Verdict (Oct 15, fourth port): parity holds with two documented deltas:
   backstop guards the budget). Methods and docstrings identical.
 - NAMES: @name binds everywhere (the reference produced nameless elements on this corpus).
 
-Docstrings: the string-in-block convention moved into the grammar dir - the .scm captures the
-docstring, the manifest's docstringNodeTypes fact tells the walker which captured comments are
-docstrings, and the walker owns them (docstringOf: innermost containing definition, or module).
+Docstrings: the string-in-block convention is the @docstring capture (a comment-kind capture in
+the frozen vocabulary) - the .scm marks the docstring, and the walker owns it (docstringOf:
+innermost containing definition, or module). No manifest field decides docstrings.
 Decorated definitions absorb their decorator (wrapper = element).
 
 ## go (corpus.go, from embed-all's port-corpus)

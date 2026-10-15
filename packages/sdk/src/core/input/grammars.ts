@@ -56,6 +56,7 @@ import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: 
 import verilogScm from "./embedded/verilog/queries.scm" with { type: "text" };
 import verilogManifest from "./embedded/verilog/verilog.manifest.json" with { type: "json" };
 import verilogWasm from "./embedded/verilog/verilog.wasm" with { type: "file" };
+import { ELEMENT_CAPTURES } from "./query.ts";
 
 /** Which grammar served a parse: the embedded asset, or a user wasm by path and version. */
 export type GrammarProvenance =
@@ -134,18 +135,18 @@ const EMBEDDED: Record<string, GrammarEntry> = {
     queries: goScm,
     provenance: { source: "embedded" },
   },
-  c: {
-    language: "c",
-    extensions: cManifest.extensions,
-    wasmPath: cWasm,
-    queries: cScm,
-    provenance: { source: "embedded" },
-  },
   cpp: {
     language: "cpp",
     extensions: cppManifest.extensions,
     wasmPath: cppWasm,
     queries: cppScm,
+    provenance: { source: "embedded" },
+  },
+  c: {
+    language: "c",
+    extensions: cManifest.extensions,
+    wasmPath: cWasm,
+    queries: cScm,
     provenance: { source: "embedded" },
   },
   css: {
@@ -182,17 +183,28 @@ export function knownLanguages(): string[] {
   return [...new Set([...Object.keys(EMBEDDED), ...Object.keys(userGrammars ?? {})])];
 }
 
+/**
+ * Every registered extension, in registration order — the "parsing" coverage note lists the ACTUAL
+ * claim surface (c also parses .h, so the note says c, h, not just c).
+ */
+export function grammarExtensions(): string[] {
+  return [...new Set(knownLanguages().flatMap((language) => [...entry(language).extensions]))];
+}
+
+/**
+ * Extension -> language routing. Collisions resolve by REGISTRATION ORDER, first wins, and the
+ * registry lists files in the order the embedded table declares them - cpp precedes c, so .h routes
+ * to cpp today. That is a policy choice, not a fact of the languages: it is recorded in the design
+ * doc's open questions (grammar-loading: extension conflicts are silent-wins).
+ */
 function extensionToLanguage(): Record<string, string> {
   const map: Record<string, string> = {};
   for (const language of knownLanguages()) {
-    for (const extension of entry(language).extensions) map[extension] = language;
+    for (const extension of entry(language).extensions) {
+      map[extension] ??= language;
+    }
   }
   return map;
-}
-
-/** Canonical (first) extension per registered grammar — the "parsing" coverage note. */
-export function grammarExtensions(): string[] {
-  return knownLanguages().map((language) => entry(language).extensions[0]!);
 }
 
 /** The language for a path by registered extension, or null when no grammar claims it. */
@@ -272,6 +284,7 @@ function manifestPolicy(
       `invalid grammar manifest for ${language} ${version}: "policy" must be an object keyed by capture or "selfNesting"`,
     );
   }
+  const captures = new Set<string>(ELEMENT_CAPTURES);
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (key === "selfNesting") {
       if (typeof value !== "boolean") {
@@ -282,15 +295,43 @@ function manifestPolicy(
       }
       continue;
     }
+    // an unknown key is a typo that would sit inert forever: reject it by name, with the list
+    if (!captures.has(key)) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid grammar manifest for ${language} ${version}: policy.${key} names no capture (captures: ${[...captures].join(", ")}, or "selfNesting")`,
+      );
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid grammar manifest for ${language} ${version}: policy.${key} must be { opaque?: boolean, absorbTail?: non-negative integer }`,
+      );
+    }
+    const entry = value as { opaque?: unknown; absorbTail?: unknown };
+    for (const field of Object.keys(entry)) {
+      if (field !== "opaque" && field !== "absorbTail") {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `invalid grammar manifest for ${language} ${version}: policy.${key}.${field} is not a policy field (opaque, absorbTail)`,
+        );
+      }
+    }
+    if (entry.opaque !== undefined && typeof entry.opaque !== "boolean") {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid grammar manifest for ${language} ${version}: policy.${key}.opaque must be a boolean`,
+      );
+    }
     if (
-      typeof value !== "object" ||
-      value === null ||
-      ("opaque" in value && typeof (value as { opaque: unknown }).opaque !== "boolean") ||
-      ("absorbTail" in value && typeof (value as { absorbTail: unknown }).absorbTail !== "number")
+      entry.absorbTail !== undefined &&
+      (typeof entry.absorbTail !== "number" ||
+        !Number.isInteger(entry.absorbTail) ||
+        entry.absorbTail < 0)
     ) {
       throw new SetupError(
         "CONFIG_INVALID",
-        `invalid grammar manifest for ${language} ${version}: policy.${key} must be { opaque?: boolean, absorbTail?: number } (capture keys only)`,
+        `invalid grammar manifest for ${language} ${version}: policy.${key}.absorbTail must be a non-negative integer (got ${String(entry.absorbTail)})`,
       );
     }
   }

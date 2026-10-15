@@ -4,7 +4,12 @@
  * different-capture overlap is legal; capture-vocabulary validation is loud.
  */
 import { describe, expect, test } from "bun:test";
-import { resolveCandidates, type Candidate, type QueryNode } from "./query.ts";
+import {
+  resolveCandidates,
+  validatePatternOrder,
+  type Candidate,
+  type QueryNode,
+} from "./query.ts";
 
 let next = 0;
 function node(startIndex: number, endIndex: number): QueryNode {
@@ -75,5 +80,50 @@ describe("resolveCandidates", () => {
       candidate(0, "function", 10, 15),
     ]);
     expect(kept).toHaveLength(2);
+  });
+});
+
+describe("validatePatternOrder", () => {
+  const conflict = (captures: [string, string], directives: [boolean, boolean]) =>
+    [
+      `(foo_declaration) @${captures[0]}${directives[0] ? " ; @priority" : ""}`,
+      `(foo_declaration) @${captures[1]}${directives[1] ? " ; @priority" : ""}`,
+      "",
+    ].join("\n");
+
+  test("an unstated same-root different-capture pair fails", () => {
+    expect(() =>
+      validatePatternOrder("probe", conflict(["function", "binding"], [false, false])),
+    ).toThrow(/probe: patterns .*foo_declaration.*load-bearing/);
+  });
+
+  test("the boundary is per pattern: one directive does not cover the pair", () => {
+    expect(() =>
+      validatePatternOrder("probe", conflict(["function", "binding"], [false, true])),
+    ).toThrow(/pattern 0: @function on foo_declaration \(unstated\)/);
+  });
+
+  test("both patterns stated passes", () => {
+    expect(() =>
+      validatePatternOrder("probe", conflict(["function", "binding"], [true, true])),
+    ).not.toThrow();
+  });
+
+  test("same capture on one root is not a conflict", () => {
+    expect(() =>
+      validatePatternOrder("probe", conflict(["type", "type"], [false, false])),
+    ).not.toThrow();
+  });
+
+  test("a multi-line pattern's root is its own head node, not a continuation token", () => {
+    const scm =
+      "(long_declaration\n  name: (identifier) @name) @function\n(long_declaration) @binding\n";
+    expect(() => validatePatternOrder("probe", scm)).toThrow(/root node type "long_declaration"/);
+  });
+
+  test("a preceding comment line carries the directive too", () => {
+    const scm =
+      "; @priority: deliberate order\n(bar_declaration) @function\n(bar_declaration) @binding ; @priority\n";
+    expect(() => validatePatternOrder("probe", scm)).not.toThrow();
   });
 });

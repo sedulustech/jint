@@ -1,0 +1,7 @@
+# Documented parity deltas: markdown (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW type Configuration L5.0-L23.0
+NEW type Getting started L1.0-L23.0
+REF function - L9.0-L12.0
+REF type - L1.0-L22.7
+REF type - L5.0-L22.7
