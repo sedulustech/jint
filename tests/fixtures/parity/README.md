@@ -49,6 +49,21 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
+## verilog (corpus.sv, from the verilog field trial's counter sample)
+
+Verdict (Oct 15, tenth port): parity holds with documented deltas:
+
+- NAMES: modules bind @name via the module_header's simple_identifier (the trial rendered every
+  element nameless).
+- MODULE SPAN: whole module (span = captured node); the reference header-bounded it (verilog has
+  no braces - the old header heuristic degraded to a prefix).
+- HONEST-STRETCH CALL: always_construct -> @function is KEPT as honest, documented in
+  queries.scm - a procedural behavioral unit with an event-control header and a body; the code
+  noun describes it without lying. initial/final likewise.
+- TRANSIT: module_instantiation (u_counter) is invisible - no honest home in the five; the
+  ledger's module/port/instance captures. The trial's descent containers are absorbed by the
+  unlisted-node passthrough (no transit machinery needed at all).
+
 ## php (corpus.php, from the php field trial's sample)
 
 Verdict (Oct 15, ninth port): parity holds with documented deltas:

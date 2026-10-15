@@ -1,0 +1,10 @@
+sdk: port the verilog grammar to queries - ten of ten
+
+Modules capture named via the module_header (the trial rendered every
+element nameless); always/initial constructs keep the function noun as
+a DOCUMENTED honest call (a procedural unit with a body - not a
+stretch); nets/assigns are bindings; module instantiation stays transit
+(WAITING on the ledger module/port/instance captures). The trial's
+descent-container machinery is simply gone: unlisted nodes passthrough.
+
+Suite 447 green; test + parity verdict + WAITING ledger shipped.
