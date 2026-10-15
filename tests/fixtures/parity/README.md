@@ -137,3 +137,24 @@ Deltas, all documented policy:
   when its callback carries declarations); recorded in queries.scm, not stretched.
 - NAMES: the reference produced nameless elements on this corpus; the query patterns bind @name
   for every definition (the 6-language name evidence, applied).
+
+## Dogfood parity (Oct 15, final gate before merge)
+
+The shipped CLIs - main at be54e46 (scratch build, byte-identical tree) vs this branch - ran the
+same corpus (main's packages/contract/src, 4 files, 456 lines) with the same element-scoped probe
+config (one rule per target: definitions, functions, comments, imports) and a mock jev. Reports
+diffed on (file, kind, span):
+
+- ALLOWED, 52 REF-ONLY functions in handlers.test.ts: the reference stretched every
+  describe/test/it call composite to the function noun - the typescript WAITING above. All other
+  counts and spans byte-identical: types (7/7, 15/15), bindings (7/7, 1/1), functions in
+  handlers.ts (6/6), imports and comments elsewhere.
+- ALLOWED, 3 NEW-ONLY trailing comments in handlers.test.ts (L33, L46, L47): the reference counted
+  them internal to the now-retired call composites - the css comment-surfacing policy family.
+- DEFECT, REFERENCE-side, 1 REF-ONLY comment in index.ts L1.14-29: the reference emits a phantom
+  module-docstring element - its docstring heuristic unwraps the export_statement wrapper of
+  "export * from ...;" down to the module-specifier STRING and classifies it as a comment.
+  Reproduced against main's walk.ts directly. The branch is honest (no comment in those bytes);
+  no branch action. Needs an issue against the reference walker if it survives.
+
+Verdict: SHIP. No branch-side unexplained delta.
