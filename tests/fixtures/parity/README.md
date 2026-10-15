@@ -5,6 +5,17 @@ the query walker against the previous implementation (embed-all worktree, run li
 double as the regression corpus for extraction-policy changes; change a corpus only with the
 parity verdict re-recorded here.
 
+## Comment model (Oct 15, owner decision)
+
+The comments bucket holds EVERY comment text - standalone, attached to a definition, internal to
+one, or a docstring - while definitions keep `attachedComment` / `internalCommentCount` and
+comments keep `docstringOf`. Presence and attachment became orthogonal dimensions, so a fully
+documented file no longer reports near-zero loose comments, comment-drift rules judge docblocks,
+and "undocumented function" reads as `attachedComment` unset. The reference emitted only
+STANDALONE comments in the bucket; every `NEW comment` delta below is a comment the reference
+consumed into attachment fields and we now also surface. `tests/fixtures/parity/*/deltas.txt`
+was regenerated deliberately with that reading.
+
 Each language carries a `deltas.txt`: the machine-readable form of its verdict below. The suite
 gate (`tests/parity.test.ts`, skipped when the reference worktree is absent) runs
 `bun scripts/parity.ts <langs> --assert` and fails on any delta that is not in the allowlist, and

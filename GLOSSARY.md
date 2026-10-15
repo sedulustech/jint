@@ -22,7 +22,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **capture vocabulary** — the frozen set of captures the runtime knows: function, type,
   binding, comment, import, docstring (a comment-kind capture: the grammar's declared docstring
   convention, owned by its enclosing definition), plus the @name capture that renders a
-  definition's name. A query capturing outside the set fails the run at setup.
+  definition's name. A query capturing outside the set fails the run at setup. `test` is RESERVED (a valid token no grammar emits yet, held for the test noun).
 - **sameCaptureNesting** — a grammar manifest fact: same-capture candidates nest legitimately
   (markdown's sections). Default false: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it (the policy table in query.ts).

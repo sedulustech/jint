@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  RESERVED_CAPTURES,
   assertPatternCount,
   parseScmPatterns,
   resolveCandidates,
@@ -144,6 +145,16 @@ describe("validatePatternOrder", () => {
       '(foo_declaration\n  (#eq? @name "@binding")) @function ; @priority\n',
     );
     expect(parsed[0]!.capture).toBe("function");
+  });
+
+  test("the reserved @test token validates but emits nothing", () => {
+    // reserved names are valid captures: validation accepts them, no grammar assigns one yet
+    expect(RESERVED_CAPTURES).toContain("test");
+    const scm = "(function_declaration) @test ; @priority\n(function_declaration) @function\n";
+    const parsed = parseScmPatterns(scm);
+    expect(parsed[0]!.intentional).toBe(true);
+    // @test is not an element capture, so the pattern reads as nameless rather than as an element
+    expect(parsed[0]!.capture).toBeNull();
   });
 
   test("the parsed pattern count must equal the compiled count", () => {

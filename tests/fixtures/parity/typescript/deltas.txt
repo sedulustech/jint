@@ -1,5 +1,8 @@
 # Documented parity deltas: typescript (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
+NEW comment - L10.4-L10.20
+NEW comment - L19.0-L19.33
+NEW comment - L5.0-L5.23
 NEW function constructor L9.2-L12.3
 NEW function describe L29.0-L33.2
 NEW function describe L35.0-L37.2

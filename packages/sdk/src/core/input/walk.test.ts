@@ -196,7 +196,38 @@ const later = 1;
 `);
     expect(inv.definitions[0]!.attachedComment).toEqual(["// first line", "// second line"]);
     expect(inv.definitions[1]!.attachedComment).toBeUndefined();
-    expect(inv.comments.map((c) => c.content)).toEqual(["// detached", "// by a blank line"]);
+    // the three-dimension model: attachment is extra structure, never a replacement for presence
+    // - every comment text stays in the bucket, in document order
+    expect(inv.comments.map((c) => c.content)).toEqual([
+      "// first line",
+      "// second line",
+      "// detached",
+      "// by a blank line",
+    ]);
+  });
+
+  test("a documented file keeps every comment in the bucket AND on the definitions", async () => {
+    const inv = await decomposeTS(`
+/** Module docs. */
+function documented() {
+  // internal note
+  return 1;
+}
+
+// detached standalone
+
+function bare() {}
+`);
+    expect(inv.comments.map((c) => c.content)).toEqual([
+      "/** Module docs. */",
+      "// internal note",
+      "// detached standalone",
+    ]);
+    // the same texts are still carried as structure on their owners
+    expect(inv.definitions[0]!.attachedComment).toEqual(["/** Module docs. */"]);
+    expect(inv.definitions[0]!.internalCommentCount).toBe(1);
+    expect(inv.definitions[1]!.attachedComment).toBeUndefined();
+    expect(inv.definitions[1]!.internalCommentCount).toBe(0);
   });
 
   test("comments inside a definition stay internal: counted, never duplicated", async () => {
@@ -210,9 +241,36 @@ class Klass {
 `);
     const klass = inv.definitions[0]!;
     const method = inv.definitions[1]!;
+    // counted for EACH containing definition (the method and its class)...
     expect(klass.internalCommentCount).toBe(2);
     expect(method.internalCommentCount).toBe(1);
-    expect(inv.comments).toEqual([]);
+    // ...and still present in the bucket, once each, in document order
+    expect(inv.comments.map((c) => c.content)).toEqual([
+      "// inside the body",
+      "// inside the method",
+    ]);
+  });
+
+  test("imports merge across mid-file blocks: ONE element, statements only", async () => {
+    const inv = await decomposeTS(`
+import a from "./a";
+import b from "./b";
+function between() {}
+import c from "./c";
+const mid = 1;
+import d from "./d";
+`);
+    // the group is one element spanning first to last import; it gathers the import STATEMENTS,
+    // so the function and const that sit between the blocks are not inside its content
+    expect(inv.imports).toHaveLength(1);
+    expect(inv.imports[0]!.span.start.line).toBe(2);
+    expect(inv.imports[0]!.span.end.line).toBe(7);
+    expect(inv.imports[0]!.content.split("\n")).toEqual([
+      `import a from "./a";`,
+      `import b from "./b";`,
+      `import c from "./c";`,
+      `import d from "./d";`,
+    ]);
   });
 
   test("imports merge into one element spanning the run", async () => {

@@ -289,18 +289,21 @@ describe("lint — classification shape", () => {
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     // one call per element, state = {path, source} - the array matrix state is banned (averages)
     const elementCalls = log.calls.filter((c) => isElementCall(c.state));
-    expect(elementCalls).toHaveLength(2); // two definitions: addSeconds, formatDuration
+    // two definitions + the file's one comment, which the three-dimension comment model keeps
+    // in the bucket (it is also attached to addSeconds - presence and attachment are orthogonal)
+    expect(elementCalls).toHaveLength(3);
     const sources = elementCalls.map((c) => (c.state as { path: string; source: string }).source);
     expect(sources[0]).toContain("addSeconds");
     expect(sources[1]).toContain("formatDuration");
     for (const c of elementCalls) {
       expect((c.state as { path: string }).path).toBe(FILE);
     }
-    // per (element, target-matched rule): the docblock-carrying d0 (functions + definitions +
-    // comments via its attached comment) draws 3 questions, the bare d1 draws 2; question keys
-    // inside a call are bare rule names (one element per call, no ambiguity)
+    // per (element, target-matched rule): the file's one comment is now its own element (the
+    // three-dimension model keeps it in the bucket as well as on d0), so the comment element
+    // draws 1 question while the docblock-carrying d0 draws 3 and the bare d1 draws 2; question
+    // keys inside a call are bare rule names (one element per call, no ambiguity)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
-    expect(counts).toEqual([2, 3]);
+    expect(counts).toEqual([1, 2, 3]);
     const withFunctions = elementCalls.find((c) => c.questions.includes("probe_functions"));
     const withComments = elementCalls.find((c) => c.questions.includes("probe_comments"));
     expect(withFunctions).toBeDefined();
@@ -597,8 +600,8 @@ describe("lint", () => {
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
     // the whole-file call (probe_files) + the docblock-carrying d0 (functions + definitions +
-    // comments) + the bare d1 (functions + definitions)
-    expect(measurements).toHaveLength(6);
+    // comments) + the bare d1 (functions + definitions) + the comment element (comments)
+    expect(measurements).toHaveLength(7);
     // functions level 1 (warn) fires on BOTH elements - no aggregation, no candidacy
     expect(findings).toHaveLength(2);
     // element identity is a classify-time uuid, not the positional wire id
@@ -629,12 +632,12 @@ describe("lint", () => {
       // no aggregation: a finding directly follows its own measurement
       if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
-    // functions level 2 (error) fires on both elements; comments warn (>0.7) fires on the
-    // docblock-carrying d0 only
-    expect(events.filter((e) => e.type === "finding")).toHaveLength(3);
+    // functions level 2 (error) fires on both definitions; comments warn (>0.7) fires on the
+    // docblock-carrying d0 and the comment element (three-dimension model): 2 + 2
+    expect(events.filter((e) => e.type === "finding")).toHaveLength(4);
     // every classified unit was measured against every in-scope rule (the files rule judged the
-    // whole unit once; both elements drew their target-matched questions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
+    // whole unit once; all three elements drew their target-matched questions)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(7);
     // findings and measurements name the same rule, adjacent in the stream
     for (let i = 0; i < events.length; i++) {
       if (events[i]!.type === "finding") {
@@ -737,12 +740,14 @@ describe("lint", () => {
     const errors = events.filter(
       (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
-    // the failed file's calls (whole-content + one call per element) surface an error
-    expect(errors).toHaveLength(3);
+    // the failed file's calls (whole-content + one call per element: two definitions + the
+    // comment element) surface an error each
+    expect(errors).toHaveLength(4);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    // second unit: 1 whole-file + 2 element questions batches (the comment-carrying binding
-    // draws definitions + comments; the bare function draws functions + definitions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5);
+    // second unit: 1 whole-file + 3 element questions batches (the comment-carrying binding
+    // draws definitions + comments; the bare function draws functions + definitions; the
+    // comment element draws comments - the three-dimension comment model)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -805,7 +810,9 @@ describe("lint", () => {
         ...[...inputs].filter((i) => i.includes("#")),
       ]),
     );
-    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(3);
+    // good.ts contributes two element identities now: its binding/function AND the comment
+    // element the three-dimension model keeps, plus README.md's section
+    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(4);
     for (const i of inputs)
       if (i.includes("#")) expect(i).toMatch(/^(good\.ts|README\.md)#[0-9a-f-]{36}$/);
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
@@ -887,7 +894,7 @@ describe("collectReport", () => {
         classifier: classifierWith({ probe_functions: 1 }),
       }),
     );
-    expect(report.measurements).toHaveLength(6);
+    expect(report.measurements).toHaveLength(7);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });
@@ -1062,7 +1069,9 @@ describe("lint — inline callback rules (content retention, the logical content
     const tsMeasurements = events.filter(
       (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
     );
-    expect(tsMeasurements).toHaveLength(2);
+    // the custom rule's targets in good.ts: the binding-carrying element, the function, and the
+    // comment element (three-dimension model)
+    expect(tsMeasurements).toHaveLength(3);
     expect(
       tsMeasurements.every(
         (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),

@@ -1,5 +1,8 @@
 # Documented parity deltas: cpp (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
+NEW comment - L10.0-L10.45
+NEW comment - L44.3-L44.20
+NEW comment - L46.0-L46.33
 NEW function box_value L31.0-L34.1
 NEW function handle L14.2-L14.24
 NEW function reset L17.2-L17.40

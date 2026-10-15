@@ -215,12 +215,15 @@ function materialize(candidates: readonly Candidate[]): {
   }
   standalone.push(...pending);
 
-  // Labels follow document order: definitions d0.., comments c0.. (docstrings and standalone
-  // comments share the c-lane, ordered by document position), imports i0.
-  const docstringElements = docstringsOf(candidates, isDocstring);
-  // docstrings are owned, never standalone: the standalone lane drops them (a module docstring
-  // matches both the .scm's docstring pattern and the top-level comment walk)
-  const commentElements = [...new Set([...standalone, ...docstringElements])].sort(
+  // Comments bucket (design: the three-dimension comment model): EVERY non-empty comment text
+  // lands in the bucket - standalone, attached to a definition, internal to one, or a docstring
+  // - so a comment is always judged as a comment. Attachment is extra structure on top
+  // (attachedComment / internalCommentCount on the definition, docstringOf on the comment),
+  // never a replacement for presence.
+  const commentTexts = [...comments, ...docstringsOf(candidates, isDocstring)].filter(
+    (c) => !isEmptyComment(c.node.text),
+  );
+  const commentElements = [...new Set(commentTexts)].sort(
     (a, b) => a.node.startIndex - b.node.startIndex,
   );
   const labels = new Map<Candidate, string>();

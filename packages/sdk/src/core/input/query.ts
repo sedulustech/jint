@@ -48,6 +48,13 @@ export const ELEMENT_CAPTURES = [
 export type Capture = (typeof ELEMENT_CAPTURES)[number];
 
 /**
+ * RESERVED capture tokens: valid in a query, validated, but emitted by no grammar today. `test` is
+ * held for the test noun (design: Test identification) so the name cannot be coined twice when it
+ * ships; a query binding it produces no element until a grammar assigns it to a node.
+ */
+export const RESERVED_CAPTURES = ["test"] as const;
+
+/**
  * THE SUPPRESSION POLICY TABLE - keyed by the OUTER capture; the cpp field/prototype and verilog
  * nested-always questions port here as DATA, never as new if-branches in hides().
  *
@@ -76,7 +83,11 @@ const LANES: ReadonlySet<Capture> = new Set(["comment", "import", "docstring"]);
 
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
-const KNOWN_CAPTURES: ReadonlySet<string> = new Set([...ELEMENT_CAPTURES, NAME_CAPTURE]);
+const KNOWN_CAPTURES: ReadonlySet<string> = new Set([
+  ...ELEMENT_CAPTURES,
+  ...RESERVED_CAPTURES,
+  NAME_CAPTURE,
+]);
 
 /**
  * PATTERN-ORDER VALIDATION: when two patterns root on the same node type but assign DIFFERENT

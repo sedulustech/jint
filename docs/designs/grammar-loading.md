@@ -224,6 +224,43 @@ verdict: the dying layer was the call-path middle (the node-kind table and its p
 machinery), not the walker's edges - so the reference walker ran live beside the port until the
 dogfood gate (ten ports, then main-vs-branch on the same corpus: SHIP, no unexplained delta).
 
+#### The three-dimension comment model
+
+Settled 2026-10-15 (owner decision): the comments bucket holds EVERY comment text - standalone,
+attached to a definition, internal to one, or a docstring - while a definition keeps its
+`attachedComment` and `internalCommentCount` and a comment keeps `docstringOf`. Presence and
+attachment are orthogonal dimensions, not alternatives. The why: a fully documented file
+reported near-zero loose comments (attachment consumed them), so comment-drift rules could not
+judge docblocks and "undocumented function" had no reading - today it is `attachedComment`
+unset. Cost, accepted: comment elements rise (a docblock is judged as its own comment AND
+counted on its owner) and every extraction pin moved with them, deliberately.
+
+#### Test identification
+
+Settled 2026-10-15: tests are identified by (a) @function captures whose patterns are
+callee-predicated (the jest/vitest families with a function-valued argument), (b) rule-side
+include/exclude globs over paths. That pairing is the stopgap and it is stable. A dedicated
+@test / @suite noun ships when the first rule needs test identity finer than file granularity.
+Trigger examples: per-test assertion limits (that a single test asserts too much), skipped-test
+identity (a skipped test is not a passing test), suite structure (a suite with no assertions),
+honest tests-per-function (a rule that wants the ratio needs distinct test identity).
+
+#### @test is a RESERVED capture token
+
+Settled 2026-10-15: `@test` is part of the frozen capture vocabulary as a RESERVED name - a
+valid capture token that no grammar's queries emit yet. Reserving it keeps the name from being
+coined twice (one name for two things) when the test noun ships; a query that binds it today is
+accepted by validation and produces no element, because no grammar assigns it to a node.
+
+#### Cross-file stance
+
+Settled 2026-10-15: no cross-file analysis beyond two syntactic structures - the import graph
+(@import captures) and a project symbol table built from existing @name captures. That resolves
+the syntactically decidable majority (roughly 70-80% of a typical import/identifier question)
+by name and path; the rest is reported as `unresolved`, loudly, never guessed. Explicitly NOT
+built: scope-aware binding resolution, type inference, go-to-definition. Those are a compiler's
+job and the measurement does not need them.
+
 #### Test composites as functions
 
 Settled 2026-10-15 (62e010f): jest/vitest call composites (describe/it/test and the before/after

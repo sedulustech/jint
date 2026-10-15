@@ -1,5 +1,8 @@
 # Documented parity deltas: verilog (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
+NEW comment - L1.0-L1.46
+NEW comment - L11.2-L11.42
+NEW comment - L21.0-L21.41
 NEW type counter L2.0-L19.9
 NEW type top L22.0-L32.9
 REF type - L2.0-L14.14
