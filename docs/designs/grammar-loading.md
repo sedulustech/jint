@@ -58,6 +58,35 @@ export default defineConfig({
 - **mapping** - the node-kind -> element-role table; the extraction half that
   turns a parse tree into elements.
 
+## Kickoff (revised Oct 15: evidence-first, not abstraction-first)
+
+Direction: fresh branch from main; embed-all is REFERENCE ONLY. Ship the
+minimum walker first (query runtime + capture vocabulary + passthrough);
+INTERIOR POLICY, SPAN RULES, and OVERLAP HANDLING are NOT pre-decided -
+they are extracted grammar by grammar while porting, and frozen only when
+evidence agrees. The ten trial verdicts are the pre-loaded corpus of known
+demands (absorb: ts export, python decorators, cpp templates; overlap:
+md section+paragraphs wanted, ts member-chains unwanted; names: 6-language
+hardcode evidence). Known candidate defaults to test, not assume: span =
+captured node (absorb becomes pattern authoring); different-capture overlap
+legal, same-name nesting suppressed; per-noun descent defaults.
+
+Naming (deepseek round 4, adopted): the three rule-target namespaces are
+FILE / NODE TYPE / CAPTURE. file = whole file as one judgment unit.
+node type = one grammar's raw tree-sitter type, grammar-local
+(lang:node_type), no shared meaning. capture = the jint-owned shared noun a
+query assigns to a matched node (function, type, binding); singular names
+what one element is, plural addresses the group a rule targets. Glossary
+rewrite in the same series: capture REPLACES role (the living collision);
+kill 'declared target', 'primitive', 'implicit lane', 'atomic target';
+'noun' stays owned by the CLI - never used for the vocabulary. A capture
+name is an identity, never a label.
+
+Mid-build assignments unchanged: five captures for v1; static capture
+analysis over-approximates under predicates; predicates #eq?/#match? only;
+degraded-mode runtime warning ported; MDX excluded (issue #9); md inline
+parked.
+
 ## Questions
 
 ### Open
@@ -184,3 +213,46 @@ Yes - per-key merge, same name-replacement semantics rules already use. (2026-10
 #### Where do user wasms live?
 
 `$JINT_DIR/grammars/<lang>.wasm`, default `~/.jint/grammars/`. (2026-10-12)
+
+## Per-format isolation requirements
+
+The input to the mapping shape: what each format wants isolated, attached,
+and contextual. Requirements FIRST, walker policy derived from them.
+
+| format  | isolate (elements)                                   | attach                                         | context/notes                                                                                                                                                                                                                                                                                                      |
+| ------- | ---------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ts/tsx  | functions, types, bindings                           | leading comments, docstrings                   | composite classes; export/decorator prefixes                                                                                                                                                                                                                                                                       |
+| python  | functions, types, bindings                           | docstrings (string-in-block)                   | decorator prefixes                                                                                                                                                                                                                                                                                                 |
+| go      | functions, types, bindings                           | doc comments                                   | package-per-dir convention                                                                                                                                                                                                                                                                                         |
+| rust    | functions, types, bindings                           | doc comments (///)                             | impl blocks composite                                                                                                                                                                                                                                                                                              |
+| c       | functions, types, bindings                           | comments; prototypes must split from variables | declarator depth; macros invisible                                                                                                                                                                                                                                                                                 |
+| cpp     | + methods, fields (distinct from bindings?)          | comments                                       | template headers; namespaces composite                                                                                                                                                                                                                                                                             |
+| css     | rule sets, declarations                              | lead comments to rule sets                     | value-position calls (calc/var) NOT functions                                                                                                                                                                                                                                                                      |
+| md      | headings, paragraphs, code blocks, sections-as-units | intro-paragraph-as-docstring                   | granularity is rule-side: some rules want paragraphs, some section+intro together; fenced code wants embed handoff; frontmatter = minus_metadata node, transits safely outside sections (v1: invisible; comment-lane mapping if a rule wants metadata); MDX: NO for v1 (grammar immature, no wasm, injection cost) |
+| php     | functions, methods, classes                          | docblocks                                      | closures; use-aliases                                                                                                                                                                                                                                                                                              |
+| verilog | modules, always blocks, instances?, ports?           | header comments colocated like code languages? | 988 node types; generate blocks                                                                                                                                                                                                                                                                                    |
+
+Settled by embedding: CI determinism - grammars ship in the binary, no
+homedir state affects a run; same commit = same report.
+
+## Keyword convergence (evidence for the owned-noun layer)
+
+Node-type keywords across the ten grammars, for each noun:
+
+| noun     | keywords                                                                                                                                                     | convergence                                                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| function | function_definition (c/cpp/py/php), function_declaration (go/ts/tsx), function_item (rust), method_declaration (go/php), always_construct (verilog, stretch) | HIGH - stem `function_*` in 8/8 code grammars; suffix (_definition/_declaration/_item) sometimes carries semantics (rust function_item vs function_signature_item) |
+| type     | class / struct_specifier / interface_type / enum_specifier / module_declaration / section                                                                    | NONE - no shared stem                                                                                                                                              |
+| binding  | declaration / variable_declarator / const_declaration / net_declaration / field_declaration                                                                  | WORSE - shared stem `declaration` is the overloaded trap (go field_declaration = struct field; cpp declaration = variables AND prototypes)                         |
+
+Verdict: the inter-language noun cannot be derived from grammar keywords.
+Keywords name parse SHAPES, not semantic ROLES (function_type is a type;
+class_static_block is neither). The noun is an owned abstraction the query
+file ASSIGNS: @element.function on function_definition (c), function_item
+(rust), always_construct (verilog, stretch-annotated). NAMING RULE: singular
+nouns for captures (what one element IS); plural forms for the rule-target
+group-addressing layer ("the function elements of this file") - the split
+today's resolution grammar already ships.
+
+Node-type inventories for all ten grammars dumped at /tmp/node-types/
+(<lang>.node-types.json full facts, <lang>.types.txt names only).
