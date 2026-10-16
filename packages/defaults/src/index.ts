@@ -5,6 +5,14 @@
  * same declarative-compile seam the JSON config tier uses. Calibration comments are the calibration
  * record: thresholds are anchored to readings taken under the rule text, so moving a threshold or
  * editing a criteria line is a recalibration event.
+ *
+ * THE THRESHOLD GUARDRAIL: there is no automated calibration replay - calibration is a measurement
+ * ritual, not a test (recorded readings go stale and testify only to the model version that
+ * produced them). Changing a default threshold requires a manual calibration probe: a healthy
+ * corpus plus defective fixtures, on TWO languages (see AGENTS.md, "Adding defaults"), with the
+ * measured healthy-max / defective-min bands recorded beside the handle, dated, with the model
+ * version. The tests in defaults-handles.test.ts pin only what the fixtures cannot: handle math,
+ * polarity, and recorded gap rows.
  */
 
 import type { NoulHandlerData, RuleTarget, ScoreHandlerData } from "@jint/contract";
@@ -177,7 +185,7 @@ export const is_comment_narration: NoulRuleSchema = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
+  handle: { warn: { greater_than: 0.6 }, error: { greater_than: 0.7 } },
 };
 
 export const is_comment_patching_readability: NoulRuleSchema = {

@@ -71,9 +71,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_comment_narration`
 
-| kind | target   | handle                                         |
-| ---- | -------- | ---------------------------------------------- |
-| noul | comments | warn greater than 0.3, error greater than 0.45 |
+| kind | target   | handle                                        |
+| ---- | -------- | --------------------------------------------- |
+| noul | comments | warn greater than 0.6, error greater than 0.7 |
 
 **Instructions.** Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?
 
