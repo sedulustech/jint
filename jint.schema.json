@@ -511,6 +511,12 @@
         "type": "string"
       }
     },
+    "secretDenylist": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "disable": {
       "type": "array",
       "items": {

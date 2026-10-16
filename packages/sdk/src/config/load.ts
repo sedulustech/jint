@@ -125,6 +125,10 @@ export const CONFIG_SCHEMA = Type.Object({
   // filter; per-rule include narrows further). Symmetrical with exclude, same glob semantics.
   include: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
+  // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
+  // negations allowed; default = the frozen SECRET_DENYLIST in input/dir.ts). For repos that
+  // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
+  secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
@@ -152,6 +156,8 @@ export interface ResolvedConfig {
   readonly customRules?: readonly CustomRule[];
   readonly include: readonly string[];
   readonly exclude: readonly string[];
+  /** The walk's secret-shaped denylist (config override; default = SECRET_DENYLIST). */
+  readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
@@ -421,6 +427,7 @@ export function validateConfig(
     customRules: readonly CustomRule[];
     include: string[];
     exclude: string[];
+    secretDenylist?: string[];
     apiKey?: string;
     concurrency?: number;
     timeout?: number;
@@ -432,6 +439,7 @@ export function validateConfig(
     include: parsed.include ?? [],
     exclude: parsed.exclude ?? [],
   };
+  if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.

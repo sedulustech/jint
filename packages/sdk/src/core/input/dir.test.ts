@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { walkDir, parseGitignore, compilePattern } from "./dir.ts";
+import { resolveInput } from "./infer.ts";
 
 async function collect(root: string, exclude?: readonly string[]): Promise<string[]> {
   const paths: string[] = [];
@@ -87,5 +88,127 @@ describe("compilePattern", () => {
     expect(compilePattern("*.ts").re.test("a/b/x.ts")).toBe(true);
     expect(compilePattern("src/*.ts").re.test("src/a/x.ts")).toBe(false);
     expect(compilePattern("src/*.ts").re.test("src/x.ts")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The SECRET-SHAPED DENYLIST (owner decision after the leak audit): .env, id_rsa, *.pem, .npmrc
+// et al reached the classifier whenever they were not gitignored. The matrix below is the audit's
+// repro corpus, regressed at the walker level.
+// ---------------------------------------------------------------------------
+
+describe("secret-shaped denylist (directory walk)", () => {
+  async function collectNotes(root: string, secretDenylist?: readonly string[]) {
+    const paths: string[] = [];
+    const notes: string[] = [];
+    for await (const unit of walkDir(root, undefined, undefined, undefined, secretDenylist, (n) =>
+      notes.push(n),
+    )) {
+      paths.push(unit.state.path);
+    }
+    return { paths, notes };
+  }
+
+  test("the audit corpus yields no units from a directory walk; one coverage note per class", async () => {
+    const root = await mkdtemp(join(tmpdir(), "jint-secrets-"));
+    try {
+      // no .gitignore at all: the denylist must carry the whole weight (the audit's finding)
+      for (const name of [".env", "db.env", "id_rsa", ".npmrc", "server.pem", "secrets.txt"]) {
+        await Bun.write(join(root, name), "SECRET\n");
+      }
+      await Bun.write(join(root, "app.ts"), "export {};\n");
+      const { paths, notes } = await collectNotes(root);
+      expect(paths).toEqual(["app.ts"]);
+      // ONE note per CLASS, never per path: six files, six distinct classes
+      expect(notes).toHaveLength(6);
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching '*.env'");
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching 'id_*'");
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching '.npmrc'");
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching '*.pem'");
+      expect(notes).toContain("secret denylist skipped 1 path(s) matching 'secrets*'");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("!keep.pem negation re-admits the file - UNLESS its bytes are PEM armor (sniff backstop)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "jint-secrets-neg-"));
+    try {
+      await Bun.write(join(root, "keep.pem"), "not actually a key\n");
+      await Bun.write(join(root, "key2.pem"), "-----BEGIN CERTIFICATE-----\nabc\n-----END-----\n");
+      await Bun.write(join(root, "real.pem"), "-----BEGIN PRIVATE KEY-----\nabc\n-----END-----\n");
+      const { paths, notes } = await collectNotes(root, ["*.pem", "!key2.pem"]);
+      // keep.pem: denied by the pattern class outright; key2.pem: RE-ADMITTED by the deeper
+      // negation but its bytes are PEM armor - the sniff backstop skips it anyway; real.pem:
+      // denied by the pattern class. Nothing yields.
+      expect(paths).toEqual([]);
+      expect(notes).toContain("secret denylist skipped 2 path(s) matching '*.pem'");
+      expect(notes).toContain(
+        "secret denylist skipped 1 path(s) with a PEM header ('-----BEGIN ')",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the config override replaces the list: a repo linting .env.example keeps it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "jint-secrets-cfg-"));
+    try {
+      await Bun.write(join(root, ".env.example"), "HOST=\n");
+      await Bun.write(join(root, ".env"), "SECRET\n");
+      await Bun.write(join(root, "app.ts"), "export {};\n");
+      // default list: .env.example is .env.*-shaped, skipped
+      const denied = await collectNotes(root);
+      expect(denied.paths).toEqual(["app.ts"]);
+      // override: drop the .env.* class, keep the rest - .env.example measures
+      const allowed = await collectNotes(root, [
+        ".env",
+        ".npmrc",
+        ".envrc",
+        "credentials",
+        "id_*",
+        "*.pem",
+        "*.key",
+        "secrets*",
+        ".netrc",
+        ".pgpass",
+      ]);
+      expect(allowed.paths.sort()).toEqual([".env.example", "app.ts"]);
+      expect(allowed.notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a secret-shaped DIRECTORY (id_rsa/) prunes the walk", async () => {
+    const root = await mkdtemp(join(tmpdir(), "jint-secrets-dir-"));
+    try {
+      await mkdir(join(root, "id_rsa"), { recursive: true });
+      await Bun.write(join(root, "id_rsa", "key.pem"), "-----BEGIN X-----\n");
+      await Bun.write(join(root, "app.ts"), "export {};\n");
+      const { paths } = await collectNotes(root);
+      expect(paths).toEqual(["app.ts"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("an explicitly passed file bypasses the denylist entirely (explicit path = consent)", async () => {
+    // resolveInput's file path never enters walkDir: the denylist is a DIRECTORY-walk mechanism.
+    // Verified at the resolution seam: an explicit .env yields its unit.
+    const root = await mkdtemp(join(tmpdir(), "jint-secrets-explicit-"));
+    try {
+      // credentials.ts: denylist-shaped NAME, but .ts so the explicit file path resolves a grammar
+      const envPath = join(root, "credentials.ts");
+      await Bun.write(envPath, "export const SECRET = 1;\n");
+      const units: string[] = [];
+      for await (const unit of resolveInput({ input: envPath, inputType: "file" })) {
+        units.push("path" in unit.state ? unit.state.path : "");
+      }
+      expect(units).toHaveLength(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

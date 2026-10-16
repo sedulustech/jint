@@ -1,5 +1,7 @@
 import { afterAll, describe, test, expect } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
 import { lint, collectReport } from "./lint.ts";
@@ -837,6 +839,44 @@ describe("lint", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
+    }
+  });
+
+  test("the config secretDenylist knob overrides the walk denylist; notes surface once per class", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "jint-denylist-"));
+    try {
+      writeFileSync(join(dir, ".env"), "SECRET=1\n");
+      writeFileSync(join(dir, ".env.example"), "HOST=\n");
+      writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+      const drain2 = async (secretDenylist?: readonly string[]) => {
+        const events = await drain(
+          lint({
+            config: { ...baseConfig, input: dir, inputType: "dir", secretDenylist },
+            classifier: classifierWith({}),
+          }),
+        );
+        return {
+          measured: events.some(
+            (e) => e.type === "measurement" && (e.measurement.input as string) === ".env.example",
+          ),
+          notes: events
+            .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
+            .map((e) => e.note)
+            .filter((n) => n.startsWith("secret denylist")),
+        };
+      };
+      // default: both .env shapes skipped, ONE note per class
+      const denied = await drain2();
+      expect(denied.measured).toBe(false);
+      expect(denied.notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+      expect(denied.notes).toContain("secret denylist skipped 1 path(s) matching '.env.*'");
+      // override drops the .env.* class: .env.example measures
+      const allowed = await drain2([".env"]);
+      expect(allowed.measured).toBe(true);
+      expect(allowed.notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+      expect(allowed.notes).not.toContain("secret denylist skipped 1 path(s) matching '.env.*'");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

@@ -292,6 +292,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The changeset selection: every listed path is the file's identity verbatim. Entries that
   // resolve to no walked unit (missing, unreadable, non-source) are SIGNAL — a note names them
   // below, never silence.
+  // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
+  const walkerNotes: string[] = [];
   const units =
     options.str !== undefined
       ? [strUnit(options.str.content, options.str.path)]
@@ -332,6 +334,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               exclude,
               include,
               scopeBase: options.scopeBase,
+              // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
+              secretDenylist: options.config.secretDenylist,
+              onNote: (note) => walkerNotes.push(note),
               // explicit file selection measures raw when only files-target rules are in scope
               requireGrammarFor: (p) =>
                 customRules.some((rule) => ruleInScope(rule, p)) ||
@@ -347,6 +352,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (const missing of pathsList.filter((p) => !unitPaths.has(p))) {
       yield { type: "note", note: `path list entry not found in the walk: ${missing}` };
     }
+  }
+  // the walk's denylist coverage notes (one per class), in walk order - signal, not silence
+  for (const note of walkerNotes) {
+    yield { type: "note", note };
   }
   const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;

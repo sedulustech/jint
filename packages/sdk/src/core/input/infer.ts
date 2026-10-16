@@ -27,6 +27,10 @@ export interface ResolveOptions {
   include?: readonly string[];
   /** Config-scope basis: the input's path relative to the config dir (walkDir pathPrefix). */
   scopeBase?: string;
+  /** The walk's secret-shaped denylist (config secretDenylist; default = SECRET_DENYLIST). */
+  secretDenylist?: readonly string[];
+  /** Walk coverage notes (the denylist's one-note-per-class skips); absent = silent. */
+  onNote?: (note: string) => void;
   /**
    * Whether a file needs a grammar to be measured (an element-target rule is in scope for it).
    * Absent = every file requires a grammar. A grammar-less file with requireGrammar false measures
@@ -61,7 +65,14 @@ export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
       return;
     }
     if (kind === "dir") {
-      yield* walkDir(input, exclude, options.scopeBase, include);
+      yield* walkDir(
+        input,
+        exclude,
+        options.scopeBase,
+        include,
+        options.secretDenylist,
+        options.onNote,
+      );
       return;
     }
     // Unreachable by the type; a guard against a future kind, not a branch.
