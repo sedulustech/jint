@@ -25,8 +25,8 @@ const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
 /**
  * The SECRET-SHAPED DENYLIST (frozen default; overridable through config). Patterns are
  * gitignore-flavored, composed as the shallowest ignore scope (negations inside the list work; a
- * deeper .gitignore/config negation re-admits). The leak audit found .env / id_rsa / *.pem / .npmrc
- * all reaching the classifier when not gitignored - none may, gitignore or no gitignore.
+ * deeper .gitignore/config negation re-admits). The leak audit is the reason none may reach the
+ * classifier - gitignored or not.
  */
 export const SECRET_DENYLIST: readonly string[] = Object.freeze([
   ".env",
