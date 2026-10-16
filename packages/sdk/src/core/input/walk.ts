@@ -140,6 +140,8 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
   "binding",
   // markdown's grammar-autonomous container-with-body (the @section capture)
   "section",
+  // markdown's flat prose (the @paragraph capture)
+  "paragraph",
 ]);
 
 /**
@@ -375,9 +377,16 @@ export async function decompose(source: string, language: string): Promise<Inven
   // an empty inventory would report success on an unmeasured file
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
-  const candidates = resolveCandidates(runQuery(query, tree.rootNode), {
-    overrides: entry.policy as import("./query.ts").PolicyOverrides | undefined,
-  });
+  // SHAPE DIRECTIVES: read syntactically from the .scm (same parser discipline as
+  // emittedCaptures - comment lines stripped, no second channel). #set! "selfNesting" lets
+  // same-capture candidates nest (markdown's sections); absence keeps the tail-absorb default.
+  const selfNesting = /#\s*set!\s*"selfNesting"/.test(
+    entry.queries
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith(";"))
+      .join("\n"),
+  );
+  const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
   const { definitions, comments, imports } = materialize(candidates, language);
   return {
     hasError: tree.rootNode.hasError,
@@ -416,6 +425,8 @@ export function projectElement(element: InventoryElement): Element {
       return { kind: "class", ...base, name: element.name };
     case "section":
       return { kind: "section", ...base, name: element.name };
+    case "paragraph":
+      return { kind: "paragraph", ...base };
     default: {
       // Unreachable with the frozen vocabulary; a loud internal error, never a silent projection.
       throw new InternalError(

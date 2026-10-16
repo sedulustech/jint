@@ -1,13 +1,14 @@
 # Grammars
 
-Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar is a directory of
-three artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, extensions,
-optional policy), `queries.scm` (extraction patterns). The walker holds no node-type names — the
-.scm assigns **captures**, and the runtime sees only captures. A user grammar dir
-(`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers through the same three-artifact shape - the supported home for
-domain languages. One grammar per dir, artifacts flat: the three files sit directly in the dir,
-no subdirs, one manifest + one queries.scm (a second manifest is a setup error - two would share
-the one .scm). docs/byog.md is the contract plus a full verilog worked example.
+Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar is a directory
+NAMED for its id (nextjs-route semantics: the directory IS the grammar id, cross-checked at load
+against the wasm's own `tree_sitter_<name>` export) holding three artifacts: `<id>.wasm` (parse),
+`extensions.json` (routing: a bare JSON array like `[".md"]`), `queries.scm`
+(extraction patterns + shape directives). The walker holds no node-type names - the .scm assigns
+**captures**, and the runtime sees only captures. A user grammar dir
+(`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers through the same shape - each
+SUBDIRECTORY is one grammar, its id the directory name. docs/byog.md is the contract plus a full
+verilog worked example.
 
 | grammar id   | extensions                          | what it captures                                                                                                                                                                                                                                      |
 | ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,7 +19,7 @@ the one .scm). docs/byog.md is the contract plus a full verilog worked example.
 | `c`          | `.c`, `.h`                          | function definitions and prototypes, struct/union/enum/typedef, declarations, includes, comments                                                                                                                                                      |
 | `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes (`@class`, templates absorbed), methods (`@method`: in-class prototypes/definitions and out-of-line `K::f` definitions)                                                                                                     |
 | `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
-| `markdown`   | `.md`                               | sections (`@section`, markdown's own capture - addressed as `markdown:section` - the .scm emits it, so the address validates; heading text as name; sections nest)                                                                                    |
+| `markdown`   | `.md`                               | sections (`@section`, self-nesting per the .scm's #set! directive, addressed as `markdown:section`; heading text as name) and paragraphs (`@paragraph`, flat - paragraphs never nest; addressed as `markdown:paragraph`)                              |
 | `php`        | `.php`                              | functions (named + closures: `fn`/anonymous, an assigned closure keeping one element with the function noun), methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)    |
 
 `.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:

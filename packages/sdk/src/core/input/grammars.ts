@@ -1,17 +1,17 @@
 /**
  * The grammar registry: which languages exist, which wasm serves each parse, which .scm turns its
  * tree into elements. Embedded grammars are NOT special: each embedded/<lang>/ directory carries
- * the same three artifacts a user grammar dir holds — <lang>.wasm (parse), <lang>.manifest.json
- * (facts: version, extensions), queries.scm (extraction patterns) — and registers through the same
- * shape a user grammar uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default
+ * the same three artifacts a user grammar dir holds — <lang>.wasm (parse), extensions.json (facts:
+ * extensions.json), queries.scm (extraction patterns + shape directives) — and registers through
+ * the same shape a user grammar uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default
  * ~/.jint/grammars) registers at lint start: a user wasm wins over embedded for the same language,
- * and a manifest+scm without a wasm shadows an embedded grammar's extraction (override without a
- * parse override). The registry table is ONE LINE per grammar; the dirs stay pure data, so the
- * custom-grammar seam and the embedded grammars are the same shape.
+ * and a queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override
+ * without a parse override). The registry table is ONE LINE per grammar; the dirs stay pure data,
+ * so the custom-grammar seam and the embedded grammars are the same shape.
  *
  * Grammar dir shape: <lang>.wasm - the tree-sitter grammar (absent: shadow an embedded grammar)
- * <lang>.manifest.json - facts only: { "version": "0.23.2", "extensions": ["ts"] } queries.scm -
- * tree-sitter query patterns assigning jint captures (see query.ts)
+ * extensions.json - facts only: [".ts"] - queries.scm - tree-sitter query patterns assigning jint
+ * captures (see query.ts)
  *
  * Validation: query compilation itself rejects unknown node types (loud, at load); capture names
  * are checked against the frozen vocabulary (see query.ts) — an .scm that captures outside the
@@ -26,39 +26,38 @@ import { Language, Parser, type Language as LanguageType } from "web-tree-sitter
 // ($bunfs) path inside the compiled binary — Bun.file reads both, one loader serves both modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
 import { InternalError, SetupError } from "../types.ts";
-import cManifest from "./embedded/c/c.manifest.json" with { type: "json" };
 import cWasm from "./embedded/c/c.wasm" with { type: "file" };
+import cExtensions from "./embedded/c/extensions.json" with { type: "json" };
 import cScm from "./embedded/c/queries.scm" with { type: "text" };
-import cppManifest from "./embedded/cpp/cpp.manifest.json" with { type: "json" };
 import cppWasm from "./embedded/cpp/cpp.wasm" with { type: "file" };
+import cppExtensions from "./embedded/cpp/extensions.json" with { type: "json" };
 import cppScm from "./embedded/cpp/queries.scm" with { type: "text" };
-import cssManifest from "./embedded/css/css.manifest.json" with { type: "json" };
 import cssWasm from "./embedded/css/css.wasm" with { type: "file" };
+import cssExtensions from "./embedded/css/extensions.json" with { type: "json" };
 import cssScm from "./embedded/css/queries.scm" with { type: "text" };
-import goManifest from "./embedded/go/go.manifest.json" with { type: "json" };
+import goExtensions from "./embedded/go/extensions.json" with { type: "json" };
 import goWasm from "./embedded/go/go.wasm" with { type: "file" };
 import goScm from "./embedded/go/queries.scm" with { type: "text" };
-import markdownManifest from "./embedded/markdown/markdown.manifest.json" with { type: "json" };
+import markdownExtensions from "./embedded/markdown/extensions.json" with { type: "json" };
 import markdownWasm from "./embedded/markdown/markdown.wasm" with { type: "file" };
 import markdownScm from "./embedded/markdown/queries.scm" with { type: "text" };
-import phpManifest from "./embedded/php/php.manifest.json" with { type: "json" };
+import phpExtensions from "./embedded/php/extensions.json" with { type: "json" };
 import phpWasm from "./embedded/php/php.wasm" with { type: "file" };
 import phpScm from "./embedded/php/queries.scm" with { type: "text" };
-import pythonManifest from "./embedded/python/python.manifest.json" with { type: "json" };
+import pythonExtensions from "./embedded/python/extensions.json" with { type: "json" };
 import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
 import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
+import tsxExtensions from "./embedded/tsx/extensions.json" with { type: "json" };
 import tsxScm from "./embedded/tsx/queries.scm" with { type: "text" };
-import tsxManifest from "./embedded/tsx/tsx.manifest.json" with { type: "json" };
 import tsxWasm from "./embedded/tsx/tsx.wasm" with { type: "file" };
+import typescriptExtensions from "./embedded/typescript/extensions.json" with { type: "json" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
-import typescriptManifest from "./embedded/typescript/typescript.manifest.json" with { type: "json" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
-import { ELEMENT_CAPTURES } from "./query.ts";
 
-/** Which grammar served a parse: the embedded asset, or a user wasm by path and version. */
+/** Which grammar served a parse: the embedded asset, or a user wasm by path. */
 export type GrammarProvenance =
   | { readonly source: "embedded" }
-  | { readonly source: "user"; readonly path: string; readonly version: string };
+  | { readonly source: "user"; readonly path: string };
 
 export interface GrammarEntry {
   readonly language: string;
@@ -68,11 +67,6 @@ export interface GrammarEntry {
   readonly wasmPath: string;
   /** The grammar's query patterns (the extraction half); compiled per language in query.ts. */
   readonly queries: string;
-  /**
-   * Per-grammar policy overrides over the capture table in query.ts (keys: captures or
-   * "selfNesting"; absent keys keep the table defaults - simple grammars stay zero-config).
-   */
-  readonly policy?: Record<string, unknown>;
   readonly provenance: GrammarProvenance;
 }
 
@@ -84,64 +78,63 @@ export interface GrammarEntry {
 const EMBEDDED: Record<string, GrammarEntry> = {
   typescript: {
     language: "typescript",
-    extensions: typescriptManifest.extensions,
+    extensions: typescriptExtensions,
     wasmPath: typescriptWasm,
     queries: typescriptScm,
     provenance: { source: "embedded" },
   },
   tsx: {
     language: "tsx",
-    extensions: tsxManifest.extensions,
+    extensions: tsxExtensions,
     wasmPath: tsxWasm,
     queries: tsxScm,
     provenance: { source: "embedded" },
   },
   python: {
     language: "python",
-    extensions: pythonManifest.extensions,
+    extensions: pythonExtensions,
     wasmPath: pythonWasm,
     queries: pythonScm,
     provenance: { source: "embedded" },
   },
   markdown: {
     language: "markdown",
-    extensions: markdownManifest.extensions,
+    extensions: markdownExtensions,
     wasmPath: markdownWasm,
     queries: markdownScm,
-    policy: markdownManifest.policy,
     provenance: { source: "embedded" },
   },
   php: {
     language: "php",
-    extensions: phpManifest.extensions,
+    extensions: phpExtensions,
     wasmPath: phpWasm,
     queries: phpScm,
     provenance: { source: "embedded" },
   },
   go: {
     language: "go",
-    extensions: goManifest.extensions,
+    extensions: goExtensions,
     wasmPath: goWasm,
     queries: goScm,
     provenance: { source: "embedded" },
   },
   cpp: {
     language: "cpp",
-    extensions: cppManifest.extensions,
+    extensions: cppExtensions,
     wasmPath: cppWasm,
     queries: cppScm,
     provenance: { source: "embedded" },
   },
   c: {
     language: "c",
-    extensions: cManifest.extensions,
+    extensions: cExtensions,
     wasmPath: cWasm,
     queries: cScm,
     provenance: { source: "embedded" },
   },
   css: {
     language: "css",
-    extensions: cssManifest.extensions,
+    extensions: cssExtensions,
     wasmPath: cssWasm,
     queries: cssScm,
     provenance: { source: "embedded" },
@@ -182,7 +175,9 @@ export function knownLanguages(): string[] {
  * claim surface (c also parses .h, so the note says c, h, not just c).
  */
 export function grammarExtensions(): string[] {
-  return [...new Set(knownLanguages().flatMap((language) => [...entry(language).extensions]))];
+  return [...new Set(knownLanguages().flatMap((language) => [...entry(language).extensions]))].map(
+    (e) => e.replace(/^\./, ""),
+  );
 }
 
 /**
@@ -195,7 +190,7 @@ function extensionToLanguage(): Record<string, string> {
   const map: Record<string, string> = {};
   for (const language of knownLanguages()) {
     for (const extension of entry(language).extensions) {
-      map[extension] ??= language;
+      map[extension.replace(/^\./, "")] ??= language;
     }
   }
   return map;
@@ -262,167 +257,121 @@ export async function parserFor(language: string): Promise<Parser> {
 // ---------------------------------------------------------------------------
 
 /**
- * Validated manifest policy: keys are captures or "selfNesting"; a capture's value carries opaque /
- * absorbTail; unknown keys or shapes are loud config errors (an override that can never fire must
- * not parse into silence).
+ * The grammar's DECLARED routing: extensions.json, a bare JSON array of dot-prefixed extensions
+ * (e.g. [".md"]). One fact per artifact; invalid shapes fail loud at registration.
  */
-function manifestPolicy(
-  language: string,
-  version: string,
-  raw: unknown,
-): Record<string, unknown> | undefined {
-  if (raw === undefined) return undefined;
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      `invalid grammar manifest for ${language} ${version}: "policy" must be an object keyed by capture or "selfNesting"`,
-    );
-  }
-  const captures = new Set<string>(ELEMENT_CAPTURES);
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (key === "selfNesting") {
-      if (typeof value !== "boolean") {
-        throw new SetupError(
-          "CONFIG_INVALID",
-          `invalid grammar manifest for ${language} ${version}: policy.selfNesting must be a boolean`,
-        );
-      }
-      continue;
-    }
-    // an unknown key is a typo that would sit inert forever: reject it by name, with the list
-    if (!captures.has(key)) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `invalid grammar manifest for ${language} ${version}: policy.${key} names no capture (captures: ${[...captures].join(", ")}, or "selfNesting")`,
-      );
-    }
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `invalid grammar manifest for ${language} ${version}: policy.${key} must be { opaque?: boolean, absorbTail?: non-negative integer }`,
-      );
-    }
-    const entry = value as { opaque?: unknown; absorbTail?: unknown };
-    for (const field of Object.keys(entry)) {
-      if (field !== "opaque" && field !== "absorbTail") {
-        throw new SetupError(
-          "CONFIG_INVALID",
-          `invalid grammar manifest for ${language} ${version}: policy.${key}.${field} is not a policy field (opaque, absorbTail)`,
-        );
-      }
-    }
-    if (entry.opaque !== undefined && typeof entry.opaque !== "boolean") {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `invalid grammar manifest for ${language} ${version}: policy.${key}.opaque must be a boolean`,
-      );
-    }
-    if (
-      entry.absorbTail !== undefined &&
-      (typeof entry.absorbTail !== "number" ||
-        !Number.isInteger(entry.absorbTail) ||
-        entry.absorbTail < 0)
-    ) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `invalid grammar manifest for ${language} ${version}: policy.${key}.absorbTail must be a non-negative integer (got ${String(entry.absorbTail)})`,
-      );
-    }
-  }
-  return raw as Record<string, unknown>;
-}
-
-interface Manifest {
-  version: string;
-  extensions: string[];
-  policy?: Record<string, unknown>;
-}
-
-/** Facts only — the extraction half is the grammar's queries.scm. */
-function readManifest(language: string, text: string): Manifest {
+function readExtensions(grammarId: string, text: string): string[] {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch (e) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `invalid grammar manifest for ${language}: not valid JSON (${e instanceof Error ? e.message : String(e)})`,
-    );
-  }
-  const { version, extensions } = raw as Partial<Manifest>;
-  if (typeof version !== "string" || version.length === 0) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      `invalid grammar manifest for ${language}: "version" (a pinned grammar version string) is required`,
+      `invalid extensions.json for grammar ${grammarId}: not valid JSON (${e instanceof Error ? e.message : String(e)})`,
     );
   }
   if (
-    !Array.isArray(extensions) ||
-    extensions.length === 0 ||
-    extensions.some((x) => typeof x !== "string" || !/^[A-Za-z0-9][A-Za-z0-9.]*$/.test(x))
+    !Array.isArray(raw) ||
+    raw.length === 0 ||
+    raw.some((x) => typeof x !== "string" || !/^\.[A-Za-z0-9][A-Za-z0-9.]*$/.test(x))
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `invalid grammar manifest for ${language} ${version}: "extensions" must be a non-empty array of file extensions`,
+      `invalid extensions.json for grammar ${grammarId}: must be a non-empty array of dot-prefixed extensions (e.g. [".md"])`,
     );
   }
-  return {
-    version,
-    extensions,
-    policy: manifestPolicy(language, version, (raw as { policy?: unknown }).policy),
-  };
+  return (raw as string[]).map((x) => x.slice(1));
 }
 
-async function registerUserGrammar(language: string, dir: string): Promise<void> {
-  const manifestPath = join(dir, `${language}.manifest.json`);
-  const manifest = readManifest(language, await Bun.file(manifestPath).text());
-  const wasmPath = join(dir, `${language}.wasm`);
-  const hasWasm = await Bun.file(wasmPath).exists();
-  const embeddedEntry = EMBEDDED[language];
-  if (!hasWasm && embeddedEntry === undefined) {
+/**
+ * THE COPY-PASTE GUARD: the wasm's exported tree-sitter language function names its language; the
+ * directory names the grammar id. A mismatch (a copied wasm under the wrong dir) is a loud
+ * CONFIG_INVALID naming both - the id is owned by the directory and cross-checked against the
+ * wasm's own export, never taken on faith.
+ */
+export async function assertWasmMatchesDir(grammarId: string, wasmPath: string): Promise<void> {
+  let mod: WebAssembly.Module;
+  try {
+    mod = await WebAssembly.compile(new Uint8Array(await Bun.file(wasmPath).arrayBuffer()));
+  } catch {
     throw new SetupError(
       "CONFIG_INVALID",
-      `grammar ${language} ${manifest.version}: no ${language}.wasm beside the manifest and no embedded grammar to shadow`,
+      `grammar ${grammarId}: ${wasmPath} is not a valid wasm module - the wasm must be a tree-sitter grammar whose export is tree_sitter_${grammarId}`,
     );
   }
+  const exported = WebAssembly.Module.exports(mod)
+    .map((e) => e.name)
+    .find((n) => /^tree_sitter_[A-Za-z0-9_]+$/.test(n));
+  if (exported === undefined) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${grammarId}: ${wasmPath} exports no tree_sitter_* language function - not a tree-sitter grammar wasm`,
+    );
+  }
+  const wasmName = exported.replace(/^tree_sitter_/, "");
+  if (wasmName !== grammarId) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar dir "${grammarId}" holds a wasm whose language function is "${exported}" - the directory name and the wasm disagree (a copy-paste?); rename the dir to "${wasmName}" or ship the right wasm`,
+    );
+  }
+}
+
+async function registerUserGrammar(grammarId: string, dir: string): Promise<void> {
   const queriesPath = join(dir, "queries.scm");
   if (!(await Bun.file(queriesPath).exists())) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `grammar ${language} ${manifest.version}: queries.scm is missing — a manifest carries facts only; the extraction patterns are the .scm`,
+      `grammar ${grammarId}: queries.scm is missing - the .scm is the extraction half and the grammar's interface; there is no manifest to carry facts`,
     );
   }
+  const extensionsPath = join(dir, "extensions.json");
+  if (!(await Bun.file(extensionsPath).exists())) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${grammarId}: extensions.json is missing - routing is a bare JSON array of dot-prefixed extensions (e.g. [".md"])`,
+    );
+  }
+  const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
   const queries = await Bun.file(queriesPath).text();
-
+  const wasmPath = join(dir, `${grammarId}.wasm`);
+  const hasWasm = await Bun.file(wasmPath).exists();
+  const embeddedEntry = EMBEDDED[grammarId];
+  if (!hasWasm && embeddedEntry === undefined) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${grammarId}: no ${grammarId}.wasm in the dir and no embedded grammar of that name to shadow`,
+    );
+  }
   // The wasm that will actually serve parses: the user's when present, else the shadowed
-  // embedded asset the manifest's facts describe.
+  // embedded asset. Either way the export must agree with the directory name.
   const servingWasmPath = hasWasm ? wasmPath : embeddedEntry!.wasmPath;
-  if (userGrammars?.[language] !== undefined) {
+  await assertWasmMatchesDir(grammarId, servingWasmPath);
+  if (userGrammars?.[grammarId] !== undefined) {
     // re-registration (a second lint start in-process): drop the cached parse state first
-    languages.delete(language);
-    parsers.delete(language);
+    languages.delete(grammarId);
+    parsers.delete(grammarId);
   }
   userGrammars = {
     ...userGrammars,
-    [language]: {
-      language,
-      extensions: manifest.extensions,
+    [grammarId]: {
+      language: grammarId,
+      extensions,
       wasmPath: servingWasmPath,
       queries,
-      policy: manifest.policy,
-      provenance: { source: "user", path: servingWasmPath, version: manifest.version },
+      provenance: { source: "user", path: servingWasmPath },
     },
   };
 }
 
 /**
- * Lint-start scan: register the grammars in ONE flat grammar dir. THE SEAM IS ONE GRAMMAR PER DIR,
- * ARTIFACTS FLAT: two manifests would share the one queries.scm filename (the second language would
- * extract with the first's patterns, silently wrong) - that is a setup error naming the dir and the
- * rule. Subdirectories are ignored, as one coverage note (artifacts sit flat; a nested grammar dir
- * is invisible, and signal beats silence). Missing dir scans as zero grammars (the embedded set
- * alone). A malformed manifest, a missing queries.scm, or an uncompilable .scm throws
- * CONFIG_INVALID — loud, at setup, before any file is measured.
+ * Lint-start scan: register the grammars under the grammar dir. THE SEAM IS ONE GRAMMAR PER DIR:
+ * each SUBDIRECTORY is one grammar, its id the DIRECTORY NAME (nextjs-route semantics); a stray
+ * file at the root is a coverage note (stale artifact of the flat layout - artifacts are flat
+ * INSIDE a grammar dir, never at the root). Missing dir scans as zero grammars (the embedded set
+ * alone). A missing artifact, a malformed extensions.json, an uncompilable .scm, or a wasm whose
+ * export disagrees with the dir name throws CONFIG_INVALID - loud, at setup, before any file is
+ * measured.
  */
 export async function loadUserGrammars(
   dir: string = grammarsDir(),
@@ -441,26 +390,20 @@ export async function loadUserGrammars(
       }
       return;
     }
-    const manifests = entries
-      .filter((entry) => /^([A-Za-z0-9_-]+)\.manifest\.json$/.test(entry.name))
-      .map((entry) => entry.name);
-    if (manifests.length > 1) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `grammar dir ${dir}: ${manifests.length} manifests (${manifests.join(", ")}) - one grammar per dir: the artifacts sit flat and share one queries.scm, so a second manifest would extract with the first's patterns`,
+    const strayFiles = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
+    if (strayFiles.length > 0 && onNote !== undefined) {
+      onNote(
+        `grammar dir ${dir}: ${strayFiles.length} loose file(s) (${strayFiles.join()}) ignored - each grammar is one directory named for its id`,
       );
     }
-    if (onNote !== undefined && entries.some((entry) => entry.isDirectory())) {
-      onNote(`grammar dir ${dir}: subdirs are ignored - artifacts sit flat (one grammar per dir)`);
-    }
-    for (const name of manifests) {
-      const match = name.match(/^([A-Za-z0-9_-]+)\.manifest\.json$/);
-      if (match) await registerUserGrammar(match[1]!, dir);
+    for (const entry of entries) {
+      if (entry.isDirectory() && /^[A-Za-z0-9_-]+$/.test(entry.name)) {
+        await registerUserGrammar(entry.name, join(dir, entry.name));
+      }
     }
   })();
   await loadPromise;
 }
-
 /** Test seam: reset registration state (cached parsers included) between scenarios. */
 export function resetGrammarsForTest(): void {
   userGrammars = null;

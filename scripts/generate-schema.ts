@@ -261,10 +261,10 @@ const EXT_TABLE = grammarOrder
   .map((language) => language + " (" + grammarExtensionsFor(language) + ")")
   .join("; ");
 function grammarExtensionsFor(language: string): string {
-  const manifest = JSON.parse(
-    readFileSync(embeddedDir + language + "/" + language + ".manifest.json", "utf8"),
-  ) as { extensions: string[] };
-  return manifest.extensions.join(", ");
+  const extensions = JSON.parse(
+    readFileSync(embeddedDir + language + "/extensions.json", "utf8"),
+  ) as string[];
+  return extensions.join(", ");
 }
 
 interface Row {

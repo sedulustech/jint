@@ -773,6 +773,20 @@ describe("lint", () => {
       } catch (thrown) {
         expect((thrown as { code?: string }).code ?? "CONFIG_INVALID").toBe("CONFIG_INVALID");
       }
+      // the second md-only capture addresses flat prose (never nests - no #set! directive)
+      const paragraphRule = mkRule("noul", {
+        name: "probe_paragraph",
+        target: "markdown:paragraph" as never,
+        handle: { warn: { greater_than: 0.9 } },
+      });
+      const prose = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [paragraphRule], input: file },
+          classifier: loggingClassifier({ probe_paragraph: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(prose.measurements.length).toBe(1);
+      expect(prose.measurements[0]!.element?.kind).toBe("paragraph");
       // the shared nouns do not reach it: 'types' matches nothing on this file now
       const typeProbe = mkRule("noul", { name: "probe_types", target: "types" });
       const empty = await collectReport(
@@ -832,7 +846,7 @@ describe("lint", () => {
       }
     }
     // the derivation is element captures only: markdown's @name never becomes addressable
-    expect(emittedCaptures("markdown")).toEqual(["section"]);
+    expect(emittedCaptures("markdown")).toEqual(["section", "paragraph"]);
   });
 
   test("module docstrings are loose comments - no definition owns them", async () => {

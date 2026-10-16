@@ -1,21 +1,22 @@
 ---
 title: Grammar loading
 status: implemented
-modified: 2026-10-15
+modified: 2026-10-16
 ---
 
 ## What exists today
 
 Nine grammars ship embedded in the binary: c, cpp, css, go, markdown, php, python, tsx,
-typescript. Each lives in `packages/sdk/src/core/input/embedded/<lang>/` as three
-artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, extensions, optional
-policy), `queries.scm` (extraction patterns). The walker (`walk.ts`) parses with web-tree-sitter,
-runs the grammar's compiled queries (`query.ts`), and materializes the inventory. It holds no
-node-type names: the .scm assigns captures, the runtime sees only captures.
+typescript. Each lives in `packages/sdk/src/core/input/embedded/<id>/` - the DIRECTORY NAME is
+the grammar id - as three artifacts: `<id>.wasm` (parse), `extensions.json` (routing: a bare
+JSON array like [".md"]), `queries.scm` (extraction patterns + shape directives).
+The walker (`walk.ts`) parses with web-tree-sitter, runs the grammar's compiled queries
+(`query.ts`), and materializes the inventory. It holds no node-type names: the .scm assigns
+captures, the runtime sees only captures.
 
 A user grammar dir (`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers at lint start
-through the same three-artifact shape; a user wasm wins over embedded for the same language, and a
-manifest + queries.scm without a wasm shadows an embedded grammar's extraction. The registry table
+through the same shape - each SUBDIRECTORY is one grammar, its id the directory name; a user wasm wins over embedded for the same id, and a
+queries.scm + extensions.json dir without a wasm shadows an embedded grammar's extraction. The registry table
 (`grammars.ts`) is one line per grammar; the dirs stay pure data.
 
 The parity corpora (`tests/fixtures/parity/`) pin the extraction per language; the ten-grammar
@@ -35,25 +36,25 @@ The why: the agent-authored field trials replaced the hypothetical bring-your-ow
 Ten real grammars went through trials, review rounds, and ported parity corpora; the vocabulary
 grew through releases with two-language calibration (the is_filename_fitting precedent), never
 by user minting. A user grammar dir stays the seam for the long tail, and it is the SAME three-file
-shape as embedded - wasm + manifest + queries.scm - so the custom-grammar path exercises the
+shape as embedded - wasm + extensions.json + queries.scm - so the custom-grammar path exercises the
 identical code the binary ships.
 
 ```mermaid 60
 flowchart LR
   subgraph user["user grammar dir (~/.jint/grammars)"]
     UW["lang.wasm"]
-    UM["lang.manifest.json"]
+    UE["extensions.json"]
     US["queries.scm"]
   end
   subgraph emb["embedded/<lang>/ (in the binary)"]
     EW["lang.wasm"]
-    EM["lang.manifest.json"]
+    EE["extensions.json"]
     ES["queries.scm"]
   end
   REG["registry (grammars.ts)"]
   user -- "same shape, same code" --> REG
   emb -- "same shape, same code" --> REG
-  REG -- "wasm + queries + policy" --> W["walker"]
+  REG -- "wasm + queries + extensions" --> W["walker"]
 ```
 
 ### Queries are the mapping (2026-10-15, query port)
@@ -74,10 +75,12 @@ table:
 - **Same-capture nesting is suppressed, outer wins** - a same-capture match inside an existing
   same-capture element reads as a wrapper's payload and collapses into it, unless the tail
   distance is real (a nested function with a body surfaces as a child). A selfNesting grammar
-  (manifest fact; markdown) disables the collapse entirely - sections nest legitimately.
-- **Per-noun descent is a POLICY table**, keyed by the outer capture, overridable per grammar in
-  the manifest (`policy`, validated at load: capture keys or selfNesting). Of the ten, only
-  markdown needed an override (`selfNesting: true`); every other grammar ships zero-config.
+  (.scm #set! fact; markdown) disables the collapse entirely - sections nest legitimately.
+- **Per-noun descent is a POLICY table**, keyed by the outer capture, in `query.ts` - no
+  per-grammar overrides. The one grammar that needed a shape change (markdown, sections nest)
+  expresses it IN the .scm as a `#set! "selfNesting"` directive beside the section pattern -
+  shape directives are per-pattern facts, so they live per-pattern. Every other grammar ships
+  zero-config.
 - **Honest absence over stretch.** A node type with no honest home in the vocabulary is not
   force-mapped; it is recorded as WAITING in the .scm comments and the parity README. Stretches
   poison the classifier frame.
@@ -99,7 +102,9 @@ flowchart LR
 | @function  | functions, definitions                                | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx); free functions only                                        |
 | @method    | methods, definitions                                  | function's shape (opaque)                                                      | 0          | member functions: ts/tsx method_definition, python class-body functions (context capture), go/php/cpp receivers and member shapes |
 | @class     | classes, definitions                                  | type's shape (show-through interiors)                                          | 2          | class-like units: ts/tsx/python/php/cpp class declarations; anonymous classes unjudged                                            |
-| @type      | types, definitions                                    | show-through interiors                                                         | 2          | composite units: interfaces, structs, enums, aliases, modules, packages, md sections (selfNesting)                                |
+| @type      | types, definitions                                    | show-through interiors                                                         | 2          | composite units: interfaces, structs, enums, aliases, modules, packages                                                           |
+| @section   | (grammar-autonomous; address `markdown:section`)      | show-through interiors; selfNesting per the .scm #set! directive               | 2          | md-only: a heading plus its body; heading text is the name                                                                        |
+| @paragraph | (grammar-autonomous; address `markdown:paragraph`)    | never a container - flat by construction                                       | 0          | md-only: a run of body text; no name, no nesting                                                                                  |
 | @binding   | bindings, definitions                                 | opaque                                                                         | 2          |                                                                                                                                   |
 | @comment   | comments (owned: the frame), loose-comments (unowned) | terminate; never hides                                                         | 0          | the pair split below owns the routing                                                                                             |
 | @import    | imports                                               | never hides                                                                    | 0          |                                                                                                                                   |
@@ -166,6 +171,15 @@ Decision trail, one day, three states:
   emitted (named with the emitted set, e.g. "markdown emits: section"). Bare unknown strings
   fail at schema and again at compile - resolution never silently no-matches a well-formed target.
 
+#### The manifest is deleted; one fact per artifact (2026-10-16, owner decisions)
+
+One afternoon, three deletions, one principle: every grammar fact lives in the artifact that owns it.
+
+- VERSION key REMOVED: git owns versioning. Embedded grammars date to the repo tag; an external grammar dir IS a checkout ($JINT_GRAMMAR_DIR), so its repo history is its version. A manifest version key would only matter for a hub/registry pulling anonymous tarballs - a venue that does not exist.
+- POLICY key REMOVED: shape directives are per-pattern facts, so they live per-pattern. The F experiment measured the need: 13 sections with selfNesting, 12 without - the general tail-distance rule handles eleven of twelve nested sections; only the boundary-coincident FINAL child (its end equals the parent's end) is mistaken for a wrapper payload and absorbed. The fix is a (#set! "selfNesting") directive beside the section pattern in markdown's .scm - visible at the site it changes, one artifact, no channel. A start-proximity guard on the walker heuristic (absorb only when the payload also starts near the wrapper head) was considered and NOT taken: it re-risks nine languages' extraction counts to delete one honest directive.
+- MANIFEST FILE REMOVED: grammar id = DIRECTORY NAME (nextjs-route semantics), cross-checked at load against the wasm's own export (tree_sitter_<name> - verified present in the wasm export table; it carries identity but no routing data). Routing lives in extensions.json, a bare JSON array. Final artifact set per grammar: <name>.wasm, queries.scm, extensions.json.
+- PARAGRAPHS join SECTIONS as markdown captures: (paragraph) @paragraph - flat by construction (paragraphs never nest), so it needs no shape directive at all. Both are md-only element captures addressed through the qualified lane. The design lesson recorded: prefer deleting a concept over relocating it - paragraphs delete the nesting question that policy existed to answer.
+
 #### Verilog removed from the embedded grammars (2026-10-15, owner decision)
 
 Verilog is OUT of the embedded set (nine grammars now; 022bc14 landed its container patterns and
@@ -177,7 +191,7 @@ needed - verilog was the ONLY forcing case for the lang:node_type lane, which is
 deferred (no other grammar needs it; revisit only with a real forcing case).
 
 The user grammar dir ($JINT_GRAMMAR_DIR) is the supported home for verilog and every
-domain-specific language: a team ships wasm + manifest + queries.scm in the SAME three-artifact
+domain-specific language: a team ships wasm + extensions.json + queries.scm in the SAME three-artifact
 shape the embedded grammars use, through the same registration code. The seam is PROVEN - the
 verilog field trial exercised the shadow path end to end (its wasm parsed, its mappings
 extracted, its runs classified), and the trial evidence (surveys, runs, the container proposal)
@@ -262,9 +276,9 @@ truth; the parity README holds the verdicts):
 - **lane** - a capture (@comment, @import, @docstring) that is never a container of elements and
   never hides: exempt from every suppression rule.
 - **descent default** - the per-noun policy for what a captured element's interior yields
-  (opaque vs show-through). Glossary term; the table lives in `query.ts`, overrides in the
-  manifest.
-- **selfNesting** - a manifest fact: same-capture candidates nest legitimately (markdown
+  (opaque vs show-through). Glossary term; the table lives in `query.ts`. There are no overrides:
+  a grammar-level shape change is a #set! directive in its .scm.
+- **selfNesting** - a .scm #set! fact: same-capture candidates nest legitimately (markdown
   sections). Glossary term.
 
 ## Questions
@@ -298,7 +312,7 @@ surfacing it in the report is not.
 Both c and cpp claim `.h`; first registration wins, so cpp serves `.h` today. The default is
 kept and documented, not specified further.
 
-#### Grammar version-pin bump policy
+#### Grammar version-pin bump policy (RETIRED 2026-10-16: the version key is gone - git owns versioning)
 
 Embedded grammars pin versions in their manifests. When to bump (grammar bugfix vs risk of
 inventory churn) has no policy; the parity corpora make the churn visible when it happens.

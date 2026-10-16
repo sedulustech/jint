@@ -46,9 +46,11 @@ export const ELEMENT_CAPTURES = [
   "comment",
   "import",
   "docstring",
-  // markdown-only element capture (the BYOG precedent for grammar-autonomous vocabulary): a
-  // section is prose's container-with-body - never a code noun, and no shared target addresses it.
+  // markdown-only element captures (the BYOG precedent for grammar-autonomous vocabulary) -
+  // never a code noun, no shared target addresses them. section: prose's container-with-body,
+  // self-nesting per the .scm's #set! directive. paragraph: flat prose - paragraphs never nest.
   "section",
+  "paragraph",
 ] as const;
 export type Capture = (typeof ELEMENT_CAPTURES)[number];
 
@@ -68,9 +70,9 @@ export const RESERVED_CAPTURES = ["test"] as const;
  * payload dies (export statement, decorated definition, template declaration + trailing ';'). A
  * same-capture nest with a LARGER tail is a unit of its own and SURFACES as a child (nested
  * functions; the parity verdict kept that). A selfNesting grammar (markdown) disables same-capture
- * collapse entirely (a manifest fact). opaque - a DIFFERENT-capture capture strictly inside this
- * element is implementation and dies (a local binding inside a function); a show-through interior
- * (@type) surfaces its captures.
+ * collapse entirely (a .scm #set! directive). opaque - a DIFFERENT-capture capture strictly inside
+ * this element is implementation and dies (a local binding inside a function); a show-through
+ * interior (@type) surfaces its captures.
  */
 const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly opaque: boolean }>> =
   {
@@ -80,9 +82,11 @@ const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly o
     // class: type's shape (show-through interior - its methods surface as elements)
     class: { absorbTail: 2, opaque: false },
     type: { absorbTail: 2, opaque: false },
-    // section: type's shape (markdown's container-with-body; the manifest's selfNesting lets
-    // sections nest) - show-through interior, no absorb
+    // section: type's shape (markdown's container-with-body; the .scm's #set! "selfNesting"
+    // directive lets sections nest) - show-through interior, no absorb
     section: { absorbTail: 2, opaque: false },
+    // paragraph: markdown's flat prose - paragraphs never nest, nothing nests inside them
+    paragraph: { absorbTail: 0, opaque: false },
     binding: { absorbTail: 2, opaque: true },
     // lanes: never containers of elements; the lanes themselves never hide
     comment: { absorbTail: 0, opaque: false },
@@ -430,39 +434,20 @@ export function resolveCandidates(
   return kept;
 }
 
-/**
- * Grammar-declared policy overrides (manifest: policy). Keys are captures or "selfNesting"; absent
- * keys keep the POLICY table defaults - simple grammars stay zero-config.
- */
-export interface PolicyOverrides {
-  readonly selfNesting?: boolean;
-  readonly [capture: string]:
-    | { readonly opaque?: boolean; readonly absorbTail?: number }
-    | boolean
-    | undefined;
-}
-
-/** Grammar-declared structure facts that modulate suppression (manifest policy, see above). */
+/** Grammar-declared structure facts that modulate suppression (.scm #set! directives). */
 export interface ResolveOptions {
   readonly selfNesting?: boolean;
-  readonly overrides?: PolicyOverrides;
 }
 
 function effectivePolicy(
   capture: Capture,
-  options: ResolveOptions,
+  _options: ResolveOptions,
 ): { readonly absorbTail: number; readonly opaque: boolean } {
-  const override = options.overrides?.[capture];
-  const base = POLICY[capture];
-  if (override === undefined || typeof override === "boolean") return base;
-  return {
-    absorbTail: override.absorbTail ?? base.absorbTail,
-    opaque: override.opaque ?? base.opaque,
-  };
+  return POLICY[capture];
 }
 
 function selfNestingOf(options: ResolveOptions): boolean {
-  return options.overrides?.selfNesting === true || options.selfNesting === true;
+  return options.selfNesting === true;
 }
 
 /** Does the outer candidate hide the inner one? (policy table + manifest overrides; ordered) */

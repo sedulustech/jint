@@ -15,16 +15,16 @@ primitives.
 
 ## The seam contract
 
-Drop three files into the grammar dir: `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`.
-ONE GRAMMAR PER DIR, ARTIFACTS FLAT: the three files sit directly in the dir - no `<lang>/`
-subdirs (they are ignored, with a coverage note), and only ONE `<lang>.manifest.json` + one
-`queries.scm` (two manifests share the one queries.scm and are rejected at setup):
+Each grammar is ONE DIRECTORY under the grammar dir (`$JINT_GRAMMAR_DIR`, default
+`~/.jint/grammars`); the DIRECTORY NAME is the grammar id (nextjs-route semantics), cross-checked
+at load against the wasm's own `tree_sitter_<name>` export - a copied wasm under the wrong dir
+is a loud setup error naming both. The three artifacts sit flat inside the dir:
 
-| file                   | what it is                                                                                                                                                                                          |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<lang>.wasm`          | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`). Absent: an embedded grammar of the same name is shadowed for extraction only.  |
-| `<lang>.manifest.json` | facts only: `{ "version": "1.0.3", "extensions": ["v", "sv"] }` — version is a pinned grammar version string; extensions route files to the grammar. Optionally a `policy` object keyed by capture. |
-| `queries.scm`          | tree-sitter query patterns assigning **jint captures** — the extraction half                                                                                                                        |
+| file              | what it is                                                                                                                                                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<id>.wasm`       | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`); its export MUST be `tree_sitter_<id>` - the cross-check. Absent: an embedded grammar of the same id is shadowed for extraction only. |
+| `extensions.json` | routing: a bare JSON array of dot-prefixed extensions, e.g. `[".v", ".sv"]`. There is no version key - git owns versioning (the grammar dir IS a checkout).                                                                                               |
+| `queries.scm`     | tree-sitter query patterns assigning **jint captures** — the extraction half. Shape directives (`#set! "selfNesting"`) live here too, beside the pattern whose shape they change.                                                                         |
 
 **The .scm IS the interface.** A capture your queries emit is rule-facing - addressable through
 the qualified capture address `<lang>:<capture>` (e.g. `markdown:section`) - by the fact of being
@@ -37,7 +37,7 @@ capture a loaded grammar does not emit, is a setup error naming the loaded gramm
 emitted set (e.g. `markdown emits: section`), even when that grammar's files never walk the run.
 
 Registration happens at lint start. A user wasm wins over an embedded grammar of the same
-language; a manifest+scm without a wasm shadows an embedded grammar's extraction. The frozen
+language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The frozen
 capture vocabulary is the contract: the seam accepts ANY grammar, but only jint's ontology —
 `function, method, class, type, binding, comment, import, docstring`. Your .scm decides which of
 your grammar's node types speak as which capture; the rules, the target table
@@ -58,9 +58,9 @@ Everything fails loud, at setup, before any file is measured — never into sile
   must be a visible decision, not an accident.
 - **Unbalanced .scm**: the compiled pattern count must equal the patterns parsed from the file
   (a stray paren or quote the tree-sitter parser tolerated is caught by count).
-- **Manifest problems**: invalid JSON, a missing `version`, an empty or malformed `extensions`
-  array, a `policy` keyed by anything but a capture or `selfNesting`, or an override that could
-  never fire (manifest+scm with neither a wasm beside it nor an embedded grammar to shadow).
+- **Artifact problems**: a missing `extensions.json` or `queries.scm`, malformed extensions.json
+  (not an array, empty, not dot-prefixed), a wasm that is not a valid module or exports no
+  `tree_sitter_*` function, or a wasm export that disagrees with the directory name.
 
 ## The worked example: verilog, end to end
 
@@ -69,10 +69,10 @@ used to be embedded. The artifacts are recoverable verbatim from commit fe3653d 
 carrying the embedded grammar) — that is the point:
 a grammar that was embedded and a grammar a user drops in are the same shape.
 
-`verilog.manifest.json`:
+`extensions.json`:
 
 ```json
-{ "version": "1.0.3", "extensions": ["v", "sv"] }
+[".v", ".sv"]
 ```
 
 `verilog.wasm`: compiled from **tree-sitter-verilog 1.0.3** (you bring your own compiled wasm —

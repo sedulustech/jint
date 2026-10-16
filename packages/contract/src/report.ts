@@ -73,6 +73,11 @@ export interface SectionElement extends ElementBase {
   readonly name?: string;
 }
 
+/** A markdown paragraph (the grammar-autonomous @paragraph capture): flat prose. */
+export interface ParagraphElement extends ElementBase {
+  readonly kind: "paragraph";
+}
+
 export interface CommentElement extends ElementBase {
   readonly kind: "comment";
   /** For a docstring element: the module/class/function it documents. */
@@ -93,7 +98,8 @@ export type Element =
   | BindingElement
   | ImportElement
   | CommentElement
-  | SectionElement;
+  | SectionElement
+  | ParagraphElement;
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score

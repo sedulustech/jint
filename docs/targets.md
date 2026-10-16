@@ -35,4 +35,4 @@ so they are never a fixed row in the table above — they are read from the gram
 resolve like any other target. Use the CAPTURE targets for rules that must run across grammars;
 use this lane only when the rule is honestly about that one format.
 
-Registered grammars: typescript (ts, mts, cts); tsx (tsx); python (py); markdown (md); php (php); go (go); cpp (cpp, cc, cxx, hpp, h); c (c, h); css (css).
+Registered grammars: typescript (.ts, .mts, .cts); tsx (.tsx); python (.py); markdown (.md); php (.php); go (.go); cpp (.cpp, .cc, .cxx, .hpp, .h); c (.c, .h); css (.css).

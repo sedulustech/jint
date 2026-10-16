@@ -9,7 +9,7 @@ declare module "*.scm" {
   const source: string;
   export default source;
 }
-declare module "*.manifest.json" {
-  const facts: { version: string; extensions: string[] };
-  export default facts;
+declare module "*.extensions.json" {
+  const extensions: string[];
+  export default extensions;
 }
