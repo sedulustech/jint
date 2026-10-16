@@ -35,7 +35,7 @@ import {
 
 export { grammarExtensions, knownLanguages, languageOf };
 export { isEmptyComment };
-/** The wire captures: @docstring projects into the comment kind (it IS a comment element). */
+/** The wire captures: a docstring projects into the comment kind (it IS a comment element). */
 export type WireCapture = Exclude<Capture, "docstring">;
 export type { Capture };
 export type { DocstringOwner } from "../types.ts";
@@ -151,15 +151,15 @@ function materialize(candidates: readonly Candidate[]): {
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
 
-  // Docstrings: the grammar's @docstring captures (its declared convention, python's
-  // string-in-block). They are owned comment elements - docstringOf answers who they document
-  // (the innermost containing definition, or the module) - never internal counts.
+  // Docstrings: the grammar's declared docstring convention (python's string-in-block). They
+  // are owned comment elements - docstring ownership answers who they document (the innermost
+  // containing definition, or the module) - never internal counts.
   const isDocstring = (c: Candidate): boolean => c.capture === "docstring";
   // OWNER LINK (the comment-target pair split): a comment element is DOCUMENTATION when a
   // definition owns it - its text is that definition's attached run, or it sits inside the
-  // definition's body (an internal note). Owned comments resolve under `comments` (the pair
-  // frame); unowned ones under `loose-comments`. The link reuses docstringOf, which answers
-  // "who this comment documents".
+  // definition's body (an internal note). Owned comments travel in the definition's pair
+  // frame; unowned ones are reported as loose comments. The link reuses docstring ownership,
+  // which answers "who this comment documents".
   const ownerOf = (comment: Candidate): DocstringOwner | undefined => {
     for (const [definition, run] of attached) {
       if (run.includes(comment.node.text)) {
@@ -244,7 +244,7 @@ function materialize(candidates: readonly Candidate[]): {
   // Comments bucket (design: the three-dimension comment model): EVERY non-empty comment text
   // lands in the bucket - standalone, attached to a definition, internal to one, or a docstring
   // - so a comment is always judged as a comment. Attachment is extra structure on top
-  // (attachedComment / internalCommentCount on the definition, docstringOf on the comment),
+  // (the attached run and internal counts live on the definition, ownership on the comment),
   // never a replacement for presence.
   // Docstring ownership (the pair split): the count per definition that contains one, so the
   // frame knows it carries documentation even when no comment attaches and none is internal.
@@ -260,9 +260,9 @@ function materialize(candidates: readonly Candidate[]): {
 
   // Comments bucket (the comment-target pair split): every non-empty comment text still lands
   // as a comment element, but target resolution routes it - owned comments travel in their
-  // definition's pair frame (attachedComment / internalCommentCount / docstringCount), and only
-  // unowned ones address rules through the element itself (loose-comments). A module docstring
-  // (docstringOf: module) has no definition frame, so its element speaks for it under comments.
+  // definition's pair frame (the attached run, internal and docstring counts), and only
+  // unowned ones address rules through the element itself (loose comments). A module docstring
+  // has no definition frame, so its element speaks for it in the comments group.
   const commentTexts = [...comments, ...docstringsOf(candidates, isDocstring)].filter(
     (c) => !isEmptyComment(c.node.text),
   );

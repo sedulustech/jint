@@ -23,10 +23,10 @@ import type { Dirent } from "node:fs";
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
 
 /**
- * The SECRET-SHAPED DENYLIST (frozen default; config-overridable via `secretDenylist`). Patterns
- * are gitignore-flavored, composed as the shallowest ignore scope (negations inside the list work;
- * a deeper .gitignore/config negation re-admits). The leak audit found .env / id_rsa / *.pem /
- * .npmrc all reaching the classifier when not gitignored - none may, gitignore or no gitignore.
+ * The SECRET-SHAPED DENYLIST (frozen default; overridable through config). Patterns are
+ * gitignore-flavored, composed as the shallowest ignore scope (negations inside the list work; a
+ * deeper .gitignore/config negation re-admits). The leak audit found .env / id_rsa / *.pem / .npmrc
+ * all reaching the classifier when not gitignored - none may, gitignore or no gitignore.
  */
 export const SECRET_DENYLIST: readonly string[] = Object.freeze([
   ".env",
@@ -241,7 +241,7 @@ async function* descendIntoDirectory(
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
   if (DEFAULT_SKIP_DIRS.has(entry.name)) return;
   if (matchesAnyExcludeRule(excludeRules, scopePath, true)) return;
-  // the denylist scope rides inheritedScopes: a secret-shaped DIRECTORY (id_rsa/) prunes too
+  // the denylist scope rides the inherited scopes: a secret-shaped DIRECTORY prunes too
   if (isSecretShaped(relativePath, true, inheritedScopes, deny)) return;
   if (isGitignored(relativePath, true, inheritedScopes)) return;
   yield* walkDirectory(
@@ -296,8 +296,8 @@ async function readFileUnit(
 /**
  * Collect .gitignore scopes from the walk root ANCESTORS, up to and including the repo top (nearest
  * directory containing .git). Git applies those files to everything below; a walk rooted deeper
- * must inherit them, or the root .gitignore's dist/ and tmp/ leak into a packages-rooted walk.
- * Ordered shallow-to-deep: deeper scopes still win, like git.
+ * must inherit them, or the walk root's ignore rules leak into a deeper-rooted walk. Ordered
+ * shallow-to-deep: deeper scopes still win, like git.
  */
 async function ancestorGitignoreScopes(normalizedRoot: string): Promise<IgnoreScope[]> {
   const ancestors: { dir: string; prefixFromRoot: string }[] = [];
@@ -325,7 +325,7 @@ async function ancestorGitignoreScopes(normalizedRoot: string): Promise<IgnoreSc
   }
   return scopes;
 }
-/** Push this directory's .gitignore rules (if any) as the deepest scope. */
+/** Push this directory's ignore rules (if any) as the deepest scope. */
 async function withGitignore(
   absDir: string,
   relDir: string,
@@ -401,8 +401,8 @@ function isGitignored(relativePath: string, isDirectory: boolean, scopes: Ignore
 
 /**
  * Secret-shaped path test: the denylist scope composes with the deeper scopes by ordinary
- * last-match-wins (a re-admitting negation wins), except the PEM sniff never re-admits. Records the
- * class for the coverage note.
+ * last-match-wins (a re-admitting negation wins), except the armor sniff never re-admits. Records
+ * the matched class for reporting.
  */
 function isSecretShaped(
   relativePath: string,
@@ -412,7 +412,7 @@ function isSecretShaped(
 ): boolean {
   const denied = isGitignored(relativePath, isDirectory, [deny.scope, ...deeperScopes]);
   if (!denied) return false;
-  // class = the first denylist pattern that matches (the note names the class, not the path)
+  // the matched class is the first denylist pattern that hit; fall back to the generic class
   const matched =
     deny.classes.find((c) => !(c.rule.dirOnly && !isDirectory) && c.rule.re.test(relativePath))
       ?.pattern ?? "secret-shaped";
