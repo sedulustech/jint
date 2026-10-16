@@ -214,7 +214,13 @@ export const will_comment_drift: NoulRuleSchema = {
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
-  handle: { warn: { greater_than: 0.55 }, error: { greater_than: 0.7 } },
+  handle: {
+    warn: { greater_than: 0.55 },
+    error: {
+      greater_than: 0.7,
+      message: "Remove the comment or comply with the criteria.",
+    },
+  },
 };
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
