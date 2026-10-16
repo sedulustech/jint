@@ -75,6 +75,7 @@ jint                                     # no positional: input comes from auto-
 `--config <path>` overrides discovery.
 
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_DIR`).
+The same `JINT_DIR` relocates the user grammar dir (`$JINT_DIR/grammars`) - the bring-your-own-grammar seam, docs/byog.md.
 
 ### Rules
 
