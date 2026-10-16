@@ -270,8 +270,9 @@ Element-scoped runs - address one element directly:
   jint src/a.ts@L58-L70          every element FULLY ENCLOSED in [s,e] (comma list: each item
                                  independent; a range enclosing none is an error naming the
                                  file's element spans)
-Finding lines paste back as file@L<line> - element ids are never selectable; a
-finding's @L is pre-edit (edits shift lines): re-check at the CURRENT line.
+Finding lines paste back as file@L<line> (or file@L<start>-L<end> for a multi-line element) -
+element ids are never selectable; a finding's @L is pre-edit (edits shift lines): re-check at the
+CURRENT line.
 
 Options:
 ${helpRows(OPTION_ROWS)}

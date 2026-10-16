@@ -33,8 +33,8 @@ export {
 } from "@jint/contract";
 
 import {
-  handleSeverity,
-  resolveScore,
+  handleTier,
+  resolveScoreTier,
   type ClassifiedAnswer,
   type NoulHandlerData,
   type ScoreHandlerData,
@@ -52,15 +52,12 @@ export type Handle = (answer: ClassifiedAnswer) => HandleOutcome | null;
  */
 export function compileNoulHandler(data: NoulHandlerData): Handle {
   // the contract evaluator owns the semantics (operators, band, strict comparisons)
-  return (answer) => {
-    const severity = handleSeverity(answer.value, data);
-    return severity === null ? null : { severity };
-  };
+  return (answer) => handleTier(answer.value, data);
 }
 
 /**
- * The single data -> function seam for choice rules: the map indexes the score axis (0..N).
- * Findings carry no message — consumers join by rule id to the config (v1 contract).
+ * The single data -> function seam for choice rules: the map indexes the score axis (0..N). The
+ * fired tier's message (if the author wrote one) rides the outcome as the finding's note.
  */
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
   return (answer) => {
@@ -73,9 +70,9 @@ export function compileScoreHandler(data: ScoreHandlerData): Handle {
         `score ${answer.value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
       );
     }
-    // the resolver owns the read; DEFAULT (and only) read is round-to-nearest-level
-    const severity = resolveScore(answer.value, answer.probabilities, answer.confidence, data);
-    return severity === null ? null : { severity };
+    // the resolver owns the read; DEFAULT (and only) read is round-to-nearest-level; the fired
+    // tier's author message (if any) rides the outcome as the finding's note
+    return resolveScoreTier(answer.value, answer.probabilities, answer.confidence, data);
   };
 }
 
@@ -85,24 +82,50 @@ const LEVEL_SCHEMA = Type.Union([
   Type.Literal("error"),
 ]);
 
+const SCORE_TIER_SCHEMA = Type.Union([
+  LEVEL_SCHEMA,
+  Type.Object({
+    level: LEVEL_SCHEMA,
+    message: Type.Optional(
+      Type.String({
+        description: "The rule author's feedback; the finding's note when this tier fires.",
+      }),
+    ),
+  }),
+]);
+
 const SCORE_HANDLER_SCHEMA = Type.Object(
   {
-    map: Type.Array(LEVEL_SCHEMA, { minItems: 1 }),
+    map: Type.Array(SCORE_TIER_SCHEMA, { minItems: 1 }),
   },
   {
     description:
-      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
   },
 );
 
 const CONDITION_SCHEMA = Type.Union(
   [
     Type.Object(
-      { greater_than: Type.Number() },
+      {
+        greater_than: Type.Number(),
+        message: Type.Optional(
+          Type.String({
+            description: "The rule author's feedback; the finding's note when this tier fires.",
+          }),
+        ),
+      },
       { description: "Fires when the raw value is strictly greater." },
     ),
     Type.Object(
-      { less_than: Type.Number() },
+      {
+        less_than: Type.Number(),
+        message: Type.Optional(
+          Type.String({
+            description: "The rule author's feedback; the finding's note when this tier fires.",
+          }),
+        ),
+      },
       { description: "Fires when the raw value is strictly less." },
     ),
   ],

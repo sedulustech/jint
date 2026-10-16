@@ -119,8 +119,9 @@ export interface Measurement {
 }
 
 /**
- * A reading that crossed its handle's threshold: the actionable output. Score findings carry the
- * chosen rubric level's legend text as note (score rules only) so the report is self-contained.
+ * A reading that crossed its handle's threshold: the actionable output. The note is the rule
+ * author's message attached at the fired handle tier (any handle form); absent = a bare finding -
+ * classifier-adjacent rubric prose never reaches findings.
  */
 export interface Finding {
   readonly rule: string;
@@ -138,10 +139,26 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only: the report is self-contained. Absent
-   * for noul findings and policy findings.
+   * The rule author's message attached at the fired handle tier. Absent by default - default rules
+   * carry no messages (authoring them is a deliberate, calibration-gated pass).
    */
   readonly note?: string;
+}
+
+/**
+ * The run's self-description of one rule that ran: its name, its criteria text, and the compiled
+ * handle tiers (thresholds / score map, including any author message). NOT instructions - criteria
+ * plus tiers suffice to read a finding; instructions stay provenance-of-the-config. handle is null
+ * for a custom-tier callback rule (a code policy has no declarative tier form).
+ */
+export interface RuleDigest {
+  readonly name: string;
+  /**
+   * Null for a custom-tier callback rule: its policy is code, not text - the criteria live in the
+   * config source, which is the provenance for these rules.
+   */
+  readonly criteria: readonly string[] | { readonly true: string; readonly false: string } | null;
+  readonly handle: import("./handlers.ts").HandlerData | null;
 }
 
 /** A reading that could not happen: acquisition or classification failed for one input. */

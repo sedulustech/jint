@@ -152,7 +152,7 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
                         "type": "object",
                         "required": ["map"],
                         "properties": {
@@ -162,16 +162,46 @@
                             "items": {
                               "anyOf": [
                                 {
-                                  "const": "pass",
-                                  "type": "string"
+                                  "anyOf": [
+                                    {
+                                      "const": "pass",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "warn",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error",
+                                      "type": "string"
+                                    }
+                                  ]
                                 },
                                 {
-                                  "const": "warn",
-                                  "type": "string"
-                                },
-                                {
-                                  "const": "error",
-                                  "type": "string"
+                                  "type": "object",
+                                  "required": ["level"],
+                                  "properties": {
+                                    "level": {
+                                      "anyOf": [
+                                        {
+                                          "const": "pass",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "warn",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "error",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "message": {
+                                      "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                      "type": "string"
+                                    }
+                                  }
                                 }
                               ]
                             }
@@ -193,6 +223,10 @@
                                 "properties": {
                                   "greater_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -203,6 +237,10 @@
                                 "properties": {
                                   "less_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -218,6 +256,10 @@
                                 "properties": {
                                   "greater_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -228,6 +270,10 @@
                                 "properties": {
                                   "less_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -381,7 +427,7 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. A fired level's finding message defaults to that level's criteria line, prefixed by the element reference.",
+                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
                         "type": "object",
                         "required": ["map"],
                         "properties": {
@@ -391,16 +437,46 @@
                             "items": {
                               "anyOf": [
                                 {
-                                  "const": "pass",
-                                  "type": "string"
+                                  "anyOf": [
+                                    {
+                                      "const": "pass",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "warn",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error",
+                                      "type": "string"
+                                    }
+                                  ]
                                 },
                                 {
-                                  "const": "warn",
-                                  "type": "string"
-                                },
-                                {
-                                  "const": "error",
-                                  "type": "string"
+                                  "type": "object",
+                                  "required": ["level"],
+                                  "properties": {
+                                    "level": {
+                                      "anyOf": [
+                                        {
+                                          "const": "pass",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "warn",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "error",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "message": {
+                                      "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                      "type": "string"
+                                    }
+                                  }
                                 }
                               ]
                             }
@@ -422,6 +498,10 @@
                                 "properties": {
                                   "greater_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -432,6 +512,10 @@
                                 "properties": {
                                   "less_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -447,6 +531,10 @@
                                 "properties": {
                                   "greater_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -457,6 +545,10 @@
                                 "properties": {
                                   "less_than": {
                                     "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
                                   }
                                 }
                               }

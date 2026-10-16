@@ -78,8 +78,8 @@ export const FINDING_SCHEMA = Type.Object({
   message: Type.Optional(Type.String()),
   // Element-scoped findings: the element's exact span; files-target findings lack it.
   location: Type.Optional(Type.Object({ input: Type.String(), span: SPAN_SCHEMA })),
-  // Score rules: the chosen rubric level's legend text — the report displays self-contained,
-  // no criteria or request reach-ins.
+  // The rule author's message attached at the fired handle tier; absent = a bare finding. The
+  // criteria legend echo is gone: rubric prose never reaches findings.
   note: Type.Optional(Type.String()),
 });
 
@@ -88,10 +88,10 @@ export const FINDING_SCHEMA = Type.Object({
  * regex-parseable. All columns optional except rule/level/score.
  */
 export const LINE_SCHEMA = Type.String({
-  // path(@L<line>)  rule  level  score — two-space separators, parseable. The element id
-  // never prints (run-scoped internal); files-target findings have no anchor. The chosen-level
-  // note and run id stay json-side: the note quotes the rule's own rubric, the run id prints once on stderr.
-  pattern: "^\\s*\\S+(@L\\d+)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}$",
+  // path(@L<start>) or path(@L<start>-L<end>)  rule  level  score — two-space separators,
+  // parseable. The element id never prints (run-scoped internal); files-target findings have no
+  // anchor. The run id stays stderr-side: it prints once per run.
+  pattern: "^\\s*\\S+(@L\\d+(-L\\d+)?)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({
@@ -111,6 +111,22 @@ export const REPORT_SCHEMA = Type.Object({
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),
   notes: Type.Array(Type.String()),
+  // The run's self-description: one digest per rule that ran (name, criteria, compiled handle
+  // tiers incl. the author message). Absent from pre-rules reports. NOT instructions - criteria
+  // plus tiers suffice to read a finding.
+  rules: Type.Optional(
+    Type.Array(
+      Type.Object({
+        name: Type.String(),
+        criteria: Type.Union([
+          Type.Array(Type.String()),
+          Type.Object({ true: Type.String(), false: Type.String() }),
+          Type.Null(),
+        ]),
+        handle: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()]),
+      }),
+    ),
+  ),
 });
 
 export type Report = Static<typeof REPORT_SCHEMA>;

@@ -21,6 +21,8 @@ export type { RuleTarget };
  */
 export interface HandleOutcome {
   readonly severity: Severity;
+  /** The rule author's message attached at the fired tier; the finding's note. Absent = bare. */
+  readonly message?: string;
 }
 /** Null is a deliberate silent verdict: the reading happened, nothing surfaces. */
 export type HandleResult = HandleOutcome | null;
@@ -236,9 +238,8 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only: the report is self-contained, so a
-   * renderer never reaches into criteria or recorded requests for display. Absent for yes/no
-   * readings and policy findings.
+   * The rule author's message attached at the fired handle tier; absent = a bare finding. The
+   * criteria legend echo is gone: rubric prose never reaches findings.
    */
   readonly note?: string;
 }
@@ -341,4 +342,6 @@ export type LintEvent =
   | { type: "finding"; finding: Finding }
   | { type: "error"; error: ClassifyError }
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
-  | { type: "note"; note: string };
+  | { type: "note"; note: string }
+  /** The run's rule self-descriptions: one digest per rule that ran, emitted once at run start. */
+  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] };

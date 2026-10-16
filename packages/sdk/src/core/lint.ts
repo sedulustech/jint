@@ -54,6 +54,7 @@ import {
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
+import type { RuleDigest } from "@jint/contract";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;
@@ -243,6 +244,17 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const scopedRules = scopeElementRules(rules, options);
+  // The report is self-describing about its rules: one digest per rule that ran (defaults +
+  // config-authored custom rules; handle null for callback policies - no declarative tiers).
+  yield {
+    type: "rules",
+    rules: [...rules, ...customRules].map((rule) => ({
+      name: rule.name,
+      // a custom callback rule is code policy: no declarative criteria or tier form to publish
+      criteria: "criteria" in rule ? rule.criteria : null,
+      handle: ("handleData" in rule ? rule.handleData : undefined) ?? null,
+    })),
+  };
   // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
@@ -448,11 +460,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // carries probabilities/confidence for future reads
         const outcome = handle(event);
         if (outcome !== null) {
-          // Findings carry no free-form message: consumers join by rule id to the config. Score
-          // rules embed the chosen rubric level's legend text (v1.3), so the report displays
-          // self-contained; noul findings stay bare.
-          const criteria = byName.get(event.rule)?.criteria;
-          const note = Array.isArray(criteria) ? criteria[Math.round(event.value)] : undefined;
+          // The criteria legend echo is gone (owner contract change): classifier-adjacent rubric
+          // prose never reaches findings. The note is the rule AUTHOR's message attached at the
+          // fired handle tier, or nothing - default rules carry no messages (authoring them is a
+          // separate calibration pass).
           yield {
             type: "finding",
             // Literal ternary branches, NOT conditional spreads: the LintEvent context type puts
@@ -462,7 +473,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               input: event.input,
               value: event.value,
               severity: outcome.severity,
-              note: note !== undefined ? note : undefined,
+              note: outcome.message,
               location:
                 element !== undefined ? { input: event.input, span: element.span } : undefined,
             },
@@ -742,6 +753,8 @@ export interface LintReport {
   errors: ClassifyError[];
   /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
   notes: string[];
+  /** The self-description of every rule that ran (defaults + config-authored). */
+  rules: RuleDigest[];
   /**
    * The run pointer (recording is always on; absent only when no classifier call started a run — a
    * report without captures). Consumers join findings to judged text via run.dir's captures
@@ -752,12 +765,13 @@ export interface LintReport {
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [] };
+  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [], rules: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
+    else if (event.type === "rules") report.rules = event.rules;
   }
   // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
   // array sorts on a total key over the data (never completion order, never stable-sort tie

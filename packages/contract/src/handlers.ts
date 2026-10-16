@@ -14,15 +14,33 @@
 /** One graded criteria level, as declared in a ScoreHandler map. */
 export type HandlerLevel = "pass" | "warn" | "error";
 
-/** The score-type handler: one level per criteria entry, at least one non-"pass". */
-export interface ScoreHandlerData {
-  readonly map: readonly HandlerLevel[];
+/**
+ * One score-map tier: a level, optionally carrying the rule author's message - the finding's note
+ * when the tier fires (author feedback, never classifier prose; absent = a bare finding).
+ */
+export interface ScoreTier {
+  readonly level: HandlerLevel;
+  readonly message?: string;
 }
 
-/** One threshold's comparison: exactly one operator, declared at the threshold. */
+/** The score-type handler: one tier per criteria entry, at least one non-"pass". */
+export interface ScoreHandlerData {
+  readonly map: readonly (HandlerLevel | ScoreTier)[];
+}
+
+/** Normalize a map entry to its tier object. */
+export function asTier(entry: HandlerLevel | ScoreTier): ScoreTier {
+  return typeof entry === "string" ? { level: entry } : entry;
+}
+
+/**
+ * One threshold's comparison: exactly one operator, declared at the threshold. An optional message
+ * is the rule author's feedback, attached at THIS tier - the finding's note when it fires.
+ */
 export interface ThresholdCondition {
   readonly greater_than?: number;
   readonly less_than?: number;
+  readonly message?: string;
 }
 
 /** The noul-type handler: per-threshold operators, optional silent band. */
@@ -103,17 +121,31 @@ export function conditionFires(value: number, condition: ThresholdCondition): bo
  * fabricated verdict.
  */
 export function handleSeverity(value: number, data: HandlerData): Severity | null {
+  return handleTier(value, data)?.severity ?? null;
+}
+
+/**
+ * Pure handle evaluation: value -> {severity, message?} for the FIRED tier, or null (silent). The
+ * message is the rule author's feedback attached at the tier (a threshold condition or a score-map
+ * tier); absent = a bare finding. The single semantics both the engine's compiled handle and the
+ * UI's severity projection share, so the two cannot drift.
+ */
+export function handleTier(
+  value: number,
+  data: HandlerData,
+): { readonly severity: Severity; readonly message?: string } | null {
   if (isScoreHandler(data)) {
     const index = Math.round(value);
     if (!Number.isInteger(index) || index < 0 || index >= data.map.length) return null;
-    // bounds checked above guarantee the level
-    const level = data.map[index]!;
-    return level === "pass" ? null : level;
+    // bounds checked above guarantee the tier
+    const tier = asTier(data.map[index]!);
+    return tier.level === "pass" ? null : { severity: tier.level, message: tier.message };
   }
   const band = data.silent_band;
   if (band !== undefined && value >= band[0] && value <= band[1]) return null;
-  if (data.error !== undefined && conditionFires(value, data.error)) return "error";
-  if (conditionFires(value, data.warn)) return "warn";
+  if (data.error !== undefined && conditionFires(value, data.error))
+    return { severity: "error", message: data.error.message };
+  if (conditionFires(value, data.warn)) return { severity: "warn", message: data.warn.message };
   return null;
 }
 
@@ -132,6 +164,21 @@ export function resolveScore(
   void probabilities;
   void confidence;
   return handleSeverity(value, data);
+}
+
+/**
+ * Score resolution to the FIRED TIER: the same DEFAULT read, carrying the tier's author message
+ * (the finding's note). Absent message = a bare finding; null = silent.
+ */
+export function resolveScoreTier(
+  value: number,
+  probabilities: Record<string, number> | undefined,
+  confidence: number | undefined,
+  data: ScoreHandlerData,
+): { readonly severity: Severity; readonly message?: string } | null {
+  void probabilities;
+  void confidence;
+  return handleTier(value, data);
 }
 
 /** One condition carries exactly one operator: null when valid, else the problem. */

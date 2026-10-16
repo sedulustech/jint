@@ -672,10 +672,101 @@ describe("lint", () => {
         input: s.finding.input,
         value: 1,
         severity: "warn",
-        note: CHOICE_DATA.criteria[1],
+        note: undefined, // no author message on the fired tier: a bare finding (no legend echo)
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }
+  });
+
+  test("finding note: absent by default; an author tier message becomes the note", async () => {
+    // the legend echo is gone: a bare tier fires a note-less finding, whatever the criteria say
+    const bare = await drain(
+      lint({ config: baseConfig, input: FILE, classifier: classifierWith({ probe_functions: 1 }) }),
+    );
+    for (const e of bare.filter((e) => e.type === "finding")) {
+      expect(e.finding.note).toBeUndefined();
+    }
+    // an author message on the fired tier rides the outcome as the finding's note
+    const messaged = mkRule("choice", {
+      name: "probe_messaged",
+      handle: {
+        map: [
+          "pass",
+          { level: "warn", message: "Split this function - one pause is the limit." },
+          "error",
+        ],
+      },
+    });
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [messaged] },
+        input: FILE,
+        classifier: classifierWith({ probe_messaged: 1 }),
+      }),
+    );
+    const findings = events.filter((e) => e.type === "finding");
+    expect(findings.length).toBeGreaterThan(0);
+    for (const e of findings) {
+      expect(e.finding.note).toBe("Split this function - one pause is the limit.");
+    }
+    // the noul form too: the fired condition's message becomes the note
+    const noulMessaged = mkRule("noul", {
+      name: "probe_noul_msg",
+      target: "files",
+      handle: {
+        warn: { greater_than: 0.5, message: "File-scope smell - see the rubric docs." },
+      },
+    });
+    const noulEvents = await drain(
+      lint({
+        config: { ...baseConfig, rules: [noulMessaged] },
+        input: FILE,
+        classifier: classifierWith({ probe_noul_msg: 0.9 }),
+      }),
+    );
+    const noulFindings = noulEvents.filter((e) => e.type === "finding");
+    expect(noulFindings).toHaveLength(1);
+    expect(noulFindings[0]!.finding.note).toBe("File-scope smell - see the rubric docs.");
+  });
+
+  test("report.rules: every rule that ran, self-described (criteria + compiled tiers)", async () => {
+    // a config-authored custom rule runs alongside the JSON-tier probe set
+    const custom = {
+      name: "probe_custom",
+      target: "functions" as const,
+      classify: (self: { content: string }) => ({
+        instructions: "Is this function tiny?",
+        criteria: { true: "Tiny.", false: "Not tiny." },
+        state: { source: self.content },
+      }),
+      handle: { warn: { greater_than: 0.9 } },
+    };
+    const report = await collectReport(
+      lint({
+        config: {
+          ...baseConfig,
+          rules: [probeFiles, probeFunctions],
+          customRules: [custom as never],
+        },
+        input: FILE,
+        classifier: classifierWith({ probe_files: 0.2, probe_functions: 1 }),
+      }),
+    );
+    const names = report.rules!.map((r) => r.name);
+    expect(names).toContain("probe_files");
+    expect(names).toContain("probe_functions");
+    expect(names).toContain("probe_custom");
+    // criteria text matches the compiled rule; handle carries the compiled tiers (+ message field)
+    const files = report.rules!.find((r) => r.name === "probe_files")!;
+    expect(files.criteria).toEqual(probeFiles.criteria);
+    expect(files.handle).toEqual(probeFiles.handleData ?? null);
+    const choice = report.rules!.find((r) => r.name === "probe_functions")!;
+    expect(choice.criteria).toEqual(probeFunctions.criteria);
+    expect(choice.handle).toEqual(probeFunctions.handleData ?? null);
+    // the custom callback rule is code policy: no declarative criteria or tier form
+    const digest = report.rules!.find((r) => r.name === "probe_custom")!;
+    expect(digest.criteria).toBeNull();
+    expect(digest.handle).toBeNull();
   });
 
   test("single pass: every measurement runs its handle, each finding follows its measurement", async () => {
@@ -830,8 +921,9 @@ describe("lint", () => {
     // the wave bound (4) caps in-flight probes: each of the 3 files calls exactly once before
     // the abort flag stops everything further
     expect(calls).toBe(3);
-    expect(events).toHaveLength(3);
-    for (const e of events) {
+    // 3 errors + the rules digest event (the report is self-describing about its rules)
+    expect(events.filter((e) => e.type === "error")).toHaveLength(3);
+    for (const e of events.filter((e) => e.type !== "rules")) {
       expect(e.type).toBe("error");
       if (e.type === "error") expect(e.error.code).toBe("JEV_AUTH");
     }
