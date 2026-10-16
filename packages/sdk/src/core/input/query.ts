@@ -57,8 +57,8 @@ export type Capture = (typeof ELEMENT_CAPTURES)[number];
 export const RESERVED_CAPTURES = ["test"] as const;
 
 /**
- * THE SUPPRESSION POLICY TABLE - keyed by the OUTER capture; the cpp field/prototype and verilog
- * nested-always questions port here as DATA, never as new if-branches in hides().
+ * THE SUPPRESSION POLICY TABLE - keyed by the OUTER capture; the cpp field/prototype and
+ * verilog-trial nested-always questions port here as DATA, never as new if-branches in hides().
  *
  * AbsorbTail - the largest wrapper tail (bytes between a same-capture payload's end and the
  * wrapper's end) that still reads as PREFIX-ABSORB: one logical element, the wrapper survives, the

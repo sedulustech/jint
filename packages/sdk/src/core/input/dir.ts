@@ -3,7 +3,14 @@
  *
  * Default exclusions: node_modules, .git, gitignored paths (the walker reads .gitignore files it
  * encounters), and binary files (extension + null-byte sniff). Config/CLI exclude patterns prune on
- * top.
+ * top. SECRET-SHAPED DENYLIST (owner decision after the leak audit): secret-shaped files are
+ * skipped ON TOP OF the parsed gitignore rules, composed at the SAME lifecycle stage - the denylist
+ * is the SHALLOWEST ignore scope, so gitignore/config negations compose like ordinary rules (a
+ * `!keep.pem` deeper scope re-admits). EXCEPT the PEM sniff: a file whose first bytes are
+ * `-----BEGIN ` is skipped even when a negation re-admitted it. Skips are signal: ONE coverage note
+ * per denylist class per walk (same doctrine as the other walker exclusions). Explicitly passed
+ * single files bypass the denylist entirely (explicit path = consent; resolveInput's file path
+ * never enters walkDir).
  */
 
 import { existsSync } from "node:fs";
@@ -14,6 +21,30 @@ import { SetupError, type Unit } from "../types.ts";
 import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
+
+/**
+ * The SECRET-SHAPED DENYLIST (frozen default; config-overridable via `secretDenylist`). Patterns
+ * are gitignore-flavored, composed as the shallowest ignore scope (negations inside the list work;
+ * a deeper .gitignore/config negation re-admits). The leak audit found .env / id_rsa / *.pem /
+ * .npmrc all reaching the classifier when not gitignored - none may, gitignore or no gitignore.
+ */
+export const SECRET_DENYLIST: readonly string[] = Object.freeze([
+  ".env",
+  ".env.*",
+  "*.env",
+  ".npmrc",
+  ".envrc",
+  "credentials",
+  "id_*",
+  "*.pem",
+  "*.key",
+  "secrets*",
+  ".netrc",
+  ".pgpass",
+]);
+
+/** First bytes of any PEM armor (a content backstop: overrides even a re-admitting negation). */
+const PEM_HEADER = "-----BEGIN ";
 
 const GITIGNORE_FILENAME = ".gitignore";
 
@@ -74,6 +105,8 @@ export async function* walkDir(
   exclude?: readonly string[],
   pathPrefix?: string,
   include?: readonly string[],
+  secretDenylist?: readonly string[],
+  onNote?: (note: string) => void,
 ): AsyncGenerator<Unit> {
   const rootStat = await stat(root).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT")
@@ -92,7 +125,52 @@ export async function* walkDir(
   const ancestorScopes = await ancestorGitignoreScopes(normalizedRoot);
   const prefix = pathPrefix === undefined ? "" : pathPrefix.replace(/\/+$/, "");
   const includeRules = (include ?? []).map(compilePattern);
-  yield* walkDirectory(normalizedRoot, "", ancestorScopes, excludeRules, prefix, includeRules);
+  const deny = denyState(secretDenylist ?? SECRET_DENYLIST, onNote);
+  // the denylist is the SHALLOWEST scope: deeper .gitignore scopes (and the list's own
+  // negations) compose with ordinary last-match-wins semantics
+  yield* walkDirectory(
+    normalizedRoot,
+    "",
+    [deny.scope, ...ancestorScopes],
+    excludeRules,
+    prefix,
+    includeRules,
+    deny,
+  );
+  flushDenyNotes(deny);
+}
+
+/** Per-walk denylist state: the scope, per-class skip counts, the PEM-sniff count, the note sink. */
+interface DenyState {
+  readonly scope: IgnoreScope;
+  /** Class = the denylist pattern string; the coverage note names classes, never paths. */
+  readonly classes: readonly { readonly pattern: string; readonly rule: IgnoreRule }[];
+  readonly counts: Map<string, number>;
+  pem: number;
+  readonly note?: (note: string) => void;
+}
+
+function denyState(patterns: readonly string[], note?: (note: string) => void): DenyState {
+  const classes = patterns.map((pattern) => ({ pattern, rule: compilePattern(pattern) }));
+  return {
+    // base "" and prefix "" make every walked path evaluate against the patterns verbatim
+    scope: { base: "", prefix: "", rules: classes.map((c) => c.rule) },
+    classes,
+    counts: new Map(),
+    pem: 0,
+    note,
+  };
+}
+
+/** ONE coverage note per denylist class (signal, not silence - the walker-exclusions doctrine). */
+function flushDenyNotes(deny: DenyState): void {
+  if (deny.note === undefined) return;
+  for (const [pattern, count] of deny.counts) {
+    if (count > 0) deny.note(`secret denylist skipped ${count} path(s) matching '${pattern}'`);
+  }
+  if (deny.pem > 0) {
+    deny.note(`secret denylist skipped ${deny.pem} path(s) with a PEM header ('${PEM_HEADER}')`);
+  }
 }
 
 /** Walk one directory level: scope its gitignore rules, then classify and handle each entry. */
@@ -103,6 +181,7 @@ async function* walkDirectory(
   excludeRules: IgnoreRule[],
   pathPrefix: string,
   includeRules: IgnoreRule[],
+  deny: DenyState,
 ): AsyncGenerator<Unit> {
   const currentScopes = await withGitignore(absDir, relDir, inheritedScopes);
   const entries = (
@@ -128,6 +207,7 @@ async function* walkDirectory(
         excludeRules,
         pathPrefix,
         includeRules,
+        deny,
       );
     } else if (entry.isFile()) {
       const unit = await readFileUnit(
@@ -138,6 +218,7 @@ async function* walkDirectory(
         excludeRules,
         pathPrefix,
         includeRules,
+        deny,
       );
       if (unit !== null) yield unit;
     }
@@ -155,10 +236,13 @@ async function* descendIntoDirectory(
   pathPrefix: string,
 
   includeRules: IgnoreRule[],
+  deny: DenyState,
 ): AsyncGenerator<Unit> {
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
   if (DEFAULT_SKIP_DIRS.has(entry.name)) return;
   if (matchesAnyExcludeRule(excludeRules, scopePath, true)) return;
+  // the denylist scope rides inheritedScopes: a secret-shaped DIRECTORY (id_rsa/) prunes too
+  if (isSecretShaped(relativePath, true, inheritedScopes, deny)) return;
   if (isGitignored(relativePath, true, inheritedScopes)) return;
   yield* walkDirectory(
     absolutePath,
@@ -167,6 +251,7 @@ async function* descendIntoDirectory(
     excludeRules,
     pathPrefix,
     includeRules,
+    deny,
   );
 }
 
@@ -179,15 +264,24 @@ async function readFileUnit(
   excludeRules: IgnoreRule[],
   pathPrefix: string,
   includeRules: IgnoreRule[],
+  deny: DenyState,
 ): Promise<Unit | null> {
   // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
   if (matchesAnyExcludeRule(excludeRules, scopePath, false)) return null;
   if (includeRules.length > 0 && !matchesAnyIncludeRule(includeRules, scopePath)) return null;
+  if (isSecretShaped(relativePath, false, currentScopes, deny)) return null;
   if (isGitignored(relativePath, false, currentScopes)) return null;
   if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
-  if (await looksBinary(absolutePath)) return null;
+  const sniff = await sniffHead(absolutePath);
+  // null head = a null byte in the first SNIFF_BYTES: binary, reading text later is wasted
+  if (sniff === null) return null;
+  // PEM content backstop: overrides even a re-admitting negation - the bytes are the secret
+  if (sniff.startsWith(PEM_HEADER)) {
+    deny.pem += 1;
+    return null;
+  }
   const content = await readTextFile(absolutePath);
   return {
     kind: "file",
@@ -305,6 +399,27 @@ function isGitignored(relativePath: string, isDirectory: boolean, scopes: Ignore
   return false;
 }
 
+/**
+ * Secret-shaped path test: the denylist scope composes with the deeper scopes by ordinary
+ * last-match-wins (a re-admitting negation wins), except the PEM sniff never re-admits. Records the
+ * class for the coverage note.
+ */
+function isSecretShaped(
+  relativePath: string,
+  isDirectory: boolean,
+  deeperScopes: IgnoreScope[],
+  deny: DenyState,
+): boolean {
+  const denied = isGitignored(relativePath, isDirectory, [deny.scope, ...deeperScopes]);
+  if (!denied) return false;
+  // class = the first denylist pattern that matches (the note names the class, not the path)
+  const matched =
+    deny.classes.find((c) => !(c.rule.dirOnly && !isDirectory) && c.rule.re.test(relativePath))
+      ?.pattern ?? "secret-shaped";
+  deny.counts.set(matched, (deny.counts.get(matched) ?? 0) + 1);
+  return true;
+}
+
 /** True when any include rule matches; an empty list matches everything. */
 function matchesAnyIncludeRule(rules: IgnoreRule[], scopePath: string): boolean {
   return rules.some((rule) => !rule.dirOnly && rule.re.test(scopePath));
@@ -370,13 +485,15 @@ function fileExtension(name: string): string {
   return lastDotIndex === -1 ? "" : name.slice(lastDotIndex).toLowerCase();
 }
 
-/** Null-byte sniff of the first SNIFF_BYTES: reading text later is wasted on binaries. */
-async function looksBinary(absolutePath: string): Promise<boolean> {
+/** The file's head text, or null when the head carries a null byte (binary). */
+async function sniffHead(absolutePath: string): Promise<string | null> {
   const fileHandle = await open(absolutePath, "r");
   try {
     const sniffBuffer = Buffer.alloc(SNIFF_BYTES);
     const { bytesRead } = await fileHandle.read(sniffBuffer, 0, SNIFF_BYTES, 0);
-    return sniffBuffer.subarray(0, bytesRead).includes(0);
+    const head = sniffBuffer.subarray(0, bytesRead);
+    if (head.includes(0)) return null;
+    return head.toString("utf8");
   } finally {
     await fileHandle.close();
   }

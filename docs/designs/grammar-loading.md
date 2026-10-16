@@ -6,8 +6,8 @@ modified: 2026-10-15
 
 ## What exists today
 
-Ten grammars ship embedded in the binary: c, cpp, css, go, markdown, php, python, tsx,
-typescript, verilog. Each lives in `packages/sdk/src/core/input/embedded/<lang>/` as three
+Nine grammars ship embedded in the binary: c, cpp, css, go, markdown, php, python, tsx,
+typescript. Each lives in `packages/sdk/src/core/input/embedded/<lang>/` as three
 artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, extensions, optional
 policy), `queries.scm` (extraction patterns). The walker (`walk.ts`) parses with web-tree-sitter,
 runs the grammar's compiled queries (`query.ts`), and materializes the inventory. It holds no
@@ -97,7 +97,7 @@ flowchart LR
 | ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | @function  | functions, definitions                                | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx); free functions only                                        |
 | @method    | methods, definitions                                  | function's shape (opaque)                                                      | 0          | member functions: ts/tsx method_definition, python class-body functions (context capture), go/php/cpp receivers and member shapes |
-| @class     | classes, definitions                                  | type's shape (show-through interiors)                                          | 2          | class-like units: ts/tsx/python/php/cpp/verilog class declarations; anonymous classes unjudged                                    |
+| @class     | classes, definitions                                  | type's shape (show-through interiors)                                          | 2          | class-like units: ts/tsx/python/php/cpp class declarations; anonymous classes unjudged                                            |
 | @type      | types, definitions                                    | show-through interiors                                                         | 2          | composite units: interfaces, structs, enums, aliases, modules, packages, md sections (selfNesting)                                |
 | @binding   | bindings, definitions                                 | opaque                                                                         | 2          |                                                                                                                                   |
 | @comment   | comments (owned: the frame), loose-comments (unowned) | terminate; never hides                                                         | 0          | the pair split below owns the routing                                                                                             |
@@ -126,17 +126,30 @@ shorthand by packages/sdk/src/core/rules/defaults-targets.test.ts.
 
 Per-grammar capture census: @class speaks in ts/tsx (class_declaration, abstract_class_declaration),
 python (class_definition), php (class_declaration, NOT anonymous_class), cpp (class_specifier,
-templates absorbed), verilog (class_declaration). @method speaks in ts/tsx (method_definition),
+templates absorbed). @method speaks in ts/tsx (method_definition),
 python (function_definition in a class body - the first STRUCTURAL-CONTEXT capture: the method
 noun is positional, not nominal; expressed as a context query over the class body), php and go
 (method_declaration), cpp (field_declaration-priority member functions plus out-of-line
 qualified definitions). Interfaces, structs, enums, aliases, modules, sections stay @type.
 
-Verilog containers (the verilator-trial proposal, landed): package/interface/program/checker
-declarations as @type with ansi_header-guarded name patterns, typedef_declaration as a @type
-alias, class_declaration as @class. Committed as the parity slice
-tests/fixtures/parity/verilog/containers.sv (before: 0 elements from these shapes - the WAITING
-ledger; after: 7 definition elements).
+#### Verilog removed from the embedded grammars (2026-10-15, owner decision)
+
+Verilog is OUT of the embedded set (nine grammars now; 022bc14 landed its container patterns and
+@class - reverted with this decision). The why: real SystemVerilog degrades the parse as the
+norm, so elements would be extracted from broken trees; six constructs (ports, instances, nets
+with vector lists, packages, interfaces, programs) never found an honest noun; and TS-calibrated
+default rules misfire on hardware shapes. It also forced surface the rest of the set never
+needed - verilog was the ONLY forcing case for the lang:node_type lane, which is CANCELLED, not
+deferred (no other grammar needs it; revisit only with a real forcing case).
+
+The user grammar dir ($JINT_DIR/grammars) is the supported home for verilog and every
+domain-specific language: a team ships wasm + manifest + queries.scm in the SAME three-artifact
+shape the embedded grammars use, through the same registration code. The seam is PROVEN - the
+verilog field trial exercised the shadow path end to end (its wasm parsed, its mappings
+extracted, its runs classified), and the trial evidence (surveys, runs, the container proposal)
+stays referenced as the BYOG documentation basis. Note: tmp/proposed-queries.scm, cited as the
+container-proposal evidence, was never present in this tree - a docs defect against the trial
+handoff, named here rather than hidden.
 
 #### The comment-target pair split (2026-10-15)
 
@@ -163,7 +176,7 @@ A rule's target resolves over three namespaces, in order of breadth:
    format.
 
 Examples: `files` judges every file; `functions` resolves to every @function element across
-all ten languages; a css-only rule addresses `css:rule_set` without forcing the node into the
+all nine languages; a css-only rule addresses `css:rule_set` without forcing the node into the
 shared vocabulary.
 
 ### Per-grammar summary
@@ -181,7 +194,7 @@ truth; the parity README holds the verdicts):
 | php              | functions, methods, types, bindings (universal name node)                                 | closures, include/require, property (field), per-alias import split             |
 | css              | comments only - decided policy                                                            | selector-rule, declaration-pair, @-statements (incl. imports: not code imports) |
 | markdown         | sections (@type, selfNesting; heading text as name)                                       | prose, code-block, link_reference_definition; inline grammar parked             |
-| verilog          | modules (@type), always/initial/final as @function (honest call), nets as bindings        | module/port/instance captures; packages/interfaces/programs                     |
+| verilog          | REMOVED from the embedded grammars (2026-10-15) - the user grammar dir is its home        | (its whole ledger went with it)                                                 |
 
 ## Rejections
 
@@ -192,8 +205,8 @@ truth; the parity README holds the verdicts):
 | Declared/minted user targets (grammars export custom nouns rules address)                                            | a double-judgment seam and a vocabulary-governance hole; vocabulary grows through releases, never user minting. Rule-side node-type addressing covers the format-specific tail                                                                                                  |
 | JIT d.ts projection at run start (types generated from the grammar dir)                                              | a product choice, not a technical necessity, under agent authorship; ambient shims plus loud runtime validation suffice. Revisit trigger: a human writing rules in a checked editor                                                                                             |
 | Stretches in the default mappings (md fenced_code_block -> function, css rule_set -> type, php closures -> function) | stretch mappings poison the classifier frame; honest absence plus a recorded WAITING beats a judged unit that lies about what it is                                                                                                                                             |
-| graphify-style per-language extractors                                                                               | 37 hand-written walkers for 37 languages; our ten languages cost zero bespoke walk modules - the .scm plus one shared runtime                                                                                                                                                   |
-| Fetch-on-demand grammar registry                                                                                     | dead on size: embedding all ten costs +1.25 MB gzipped, and fetching puts the network in the measurement path                                                                                                                                                                   |
+| graphify-style per-language extractors                                                                               | 37 hand-written walkers for 37 languages; our nine languages cost zero bespoke walk modules - the .scm plus one shared runtime                                                                                                                                                  |
+| Fetch-on-demand grammar registry                                                                                     | dead on size: embedding all nine costs +1.25 MB gzipped, and fetching puts the network in the measurement path                                                                                                                                                                  |
 
 ## Definitions
 
@@ -218,7 +231,7 @@ truth; the parity README holds the verdicts):
 #### Vocabulary growth ledger
 
 Future embedded captures, release-gated with two-language calibration: prose and code-block
-(markdown), field (c/cpp/php member data), module/port/instance (verilog), selector-rule and
+(markdown), field (c/cpp/php member data), selector-rule and
 declaration-pair (css), text-name capture (test title strings, md headings - a render name that
 is not an identifier), and contextual refinement beyond one discriminator (today's predicates
 cover c prototypes and ts call composites; deeper context still has no shape).

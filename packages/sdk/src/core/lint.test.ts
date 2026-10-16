@@ -874,11 +874,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
   });
 
@@ -915,11 +915,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing v, sv, ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });

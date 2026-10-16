@@ -1,6 +1,6 @@
 # Grammars
 
-Parsing is tree-sitter; ten grammars ship embedded with the binary. A grammar is a directory of
+Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar is a directory of
 three artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, extensions,
 optional policy), `queries.scm` (extraction patterns). The walker holds no node-type names — the
 .scm assigns **captures**, and the runtime sees only captures. A user grammar dir
@@ -32,7 +32,7 @@ and its source. Captures:
 | ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | `function`  | named free functions, prototypes, and test call composites                                                         | `functions`                                                    |
 | `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes) | `methods`                                                      |
-| `class`     | class-like units (ts/tsx/python/php/cpp/verilog class declarations)                                                | `classes`                                                      |
+| `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                        | `classes`                                                      |
 | `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs, markdown sections                           | `types` (and the `definitions` umbrella)                       |
 | `binding`   | a name bound to a non-callable, non-type value (declarations, nets, assigns, assignments)                          | `bindings` (and the `definitions` umbrella)                    |
 | `import`    | import statements/declarations (one merged element per file)                                                       | `imports`                                                      |
@@ -43,8 +43,7 @@ What a capture's interior yields is the per-capture policy table (`query.ts`), o
 grammar in its manifest. Targets are rule-side vocabulary: a rule names a target, the walk lands
 it on elements. The `files` target skips the walk — the whole file is the judged subject.
 
-Which constructs have no honest capture yet (prose, code blocks, struct fields, verilog
-instantiations) is recorded per grammar in `queries.scm` comments and in the design doc's
+Which constructs have no honest capture yet (prose, code blocks, struct fields) is recorded per grammar in `queries.scm` comments and in the design doc's
 vocabulary-growth ledger.
 
 ## Walk contract

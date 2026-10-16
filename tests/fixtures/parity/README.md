@@ -65,20 +65,14 @@ single-spec const/var/type blocks - the anchor pattern `. (spec) .` names a bloc
 declares exactly one spec, keeping multi-spec blocks honestly nameless). Package-level bindings
 present (a consts-only package file yields elements); doc comments attach as leading runs.
 
-## verilog (corpus.sv, from the verilog field trial's counter sample)
+## verilog (REMOVED from the embedded grammars, Oct 15 owner decision)
 
-Verdict (Oct 15, tenth port): parity holds with documented deltas:
-
-- NAMES: modules bind @name via the module_header's simple_identifier (the trial rendered every
-  element nameless).
-- MODULE SPAN: whole module (span = captured node); the reference header-bounded it (verilog has
-  no braces - the old header heuristic degraded to a prefix).
-- HONEST-STRETCH CALL: always_construct -> @function is KEPT as honest, documented in
-  queries.scm - a procedural behavioral unit with an event-control header and a body; the code
-  noun describes it without lying. initial/final likewise.
-- TRANSIT: module_instantiation (u_counter) is invisible - no honest home in the five; the
-  ledger's module/port/instance captures. The trial's descent containers are absorbed by the
-  unlisted-node passthrough (no transit machinery needed at all).
+Verilog is no longer embedded (design: grammar-loading, "verilog removed" decision) - degraded
+parse is the norm on real SystemVerilog, six constructs had no honest noun, and TS-calibrated
+rules misfire on it. corpus.sv/deltas.txt and their pins are withdrawn with it. The field trial's
+evidence stays the BYOG documentation basis: a verilog team ships wasm + manifest + queries.scm
+through the user grammar dir ($JINT_DIR/grammars), the same three-artifact shape the embedded
+grammars use - the trial exercised that shadow path end to end.
 
 ## php (corpus.php, from the php field trial's sample)
 

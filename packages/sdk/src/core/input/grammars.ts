@@ -53,9 +53,6 @@ import tsxWasm from "./embedded/tsx/tsx.wasm" with { type: "file" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
 import typescriptManifest from "./embedded/typescript/typescript.manifest.json" with { type: "json" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
-import verilogScm from "./embedded/verilog/queries.scm" with { type: "text" };
-import verilogManifest from "./embedded/verilog/verilog.manifest.json" with { type: "json" };
-import verilogWasm from "./embedded/verilog/verilog.wasm" with { type: "file" };
 import { ELEMENT_CAPTURES } from "./query.ts";
 
 /** Which grammar served a parse: the embedded asset, or a user wasm by path and version. */
@@ -85,13 +82,6 @@ export interface GrammarEntry {
 // ---------------------------------------------------------------------------
 
 const EMBEDDED: Record<string, GrammarEntry> = {
-  verilog: {
-    language: "verilog",
-    extensions: verilogManifest.extensions,
-    wasmPath: verilogWasm,
-    queries: verilogScm,
-    provenance: { source: "embedded" },
-  },
   typescript: {
     language: "typescript",
     extensions: typescriptManifest.extensions,

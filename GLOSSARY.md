@@ -13,7 +13,7 @@ measurement its handle judged actionable and is the only output that demands act
 
 - **answer** — the single calibrated probability returned per question.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
-- **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp/verilog
+- **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp
   class declarations). Split from @type so a rule can judge classes as classes; every other type
   shape (interfaces, structs, enums, aliases, modules, sections) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever

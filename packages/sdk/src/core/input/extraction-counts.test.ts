@@ -81,12 +81,6 @@ const PINNED: Readonly<
     comments: { comment: 2 },
     imports: { import: 1 },
   },
-  verilog: {
-    ext: "sv",
-    definitions: { type: 2, binding: 5, function: 1 },
-    comments: { comment: 3 },
-    imports: {},
-  },
 };
 
 function counts(elements: readonly { capture: Capture }[]): Partial<Record<Capture, number>> {

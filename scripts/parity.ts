@@ -66,7 +66,6 @@ const CORPUS_EXT: Record<string, string> = {
   c: "c",
   cpp: "cpp",
   php: "php",
-  verilog: "sv",
 };
 
 function key(e: ComparedElement): string {

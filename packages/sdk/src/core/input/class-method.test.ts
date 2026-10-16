@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
 import { decompose, type Inventory } from "./walk.ts";
 
 // The @class / @method split, verified per grammar (comment-targets style): class-like units
@@ -121,30 +120,6 @@ describe("class/method captures across the grammars", () => {
     );
     expect(counts(inv)).toEqual({ type: 1, class: 1, method: 3 });
     expect(inv.definitions.find((e) => e.name === "K::f")!.capture).toBe("method");
-  });
-
-  test("verilog: class_declaration is @class; containers are @type; class methods keep @function", async () => {
-    // the committed parity slice: tests/fixtures/parity/verilog/containers.sv
-    const source = await Bun.file(
-      join(import.meta.dir, "../../../../../tests/fixtures/parity/verilog/containers.sv"),
-    ).text();
-    const inv = await decompose(source, "verilog");
-    const captures = counts(inv);
-    // the verilator-trial container proposal, landed: 4 containers + 2 typedefs = 6 @type
-    // elements + the @class. BEFORE this change every one of these shapes extracted ZERO
-    // elements (the WAITING ledger in queries.scm); AFTER it is 7 new definition elements.
-    expect(captures).toEqual({ type: 7, class: 1, function: 2, binding: 3 });
-    const named = inv.definitions.filter((e) => e.capture === "class" || e.capture === "type");
-    expect(named.map((e) => e.name)).toEqual([
-      "pkg_a",
-      "ifc_t",
-      "prog_t",
-      "chk_t",
-      "state_t",
-      "byte_t",
-      "pkt_t",
-      "m", // the module: @type, named, unchanged by this split
-    ]);
   });
 
   test("grammars with no class/method shapes extract none of them", async () => {

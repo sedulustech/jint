@@ -22,11 +22,9 @@ const SOURCES: Record<string, string> = {
   tsx: "// tsx doc\nexport function add(a: number): number {\n  // inline note\n  return a;\n}\n\n// tsx loose\n",
   typescript:
     "// ts doc\nexport function add(a: number): number {\n  // inline note\n  return a;\n}\n\n// ts loose\n",
-  verilog:
-    "// vl doc\nmodule add(input a, output b);\n  // inline note\n  assign b = a;\nendmodule\n\n// vl loose\n",
 };
 
-describe("comment-target pair split across all ten grammars", () => {
+describe("comment-target pair split across all nine grammars", () => {
   test("every grammar is registered with a probe source", () => {
     expect(Object.keys(SOURCES).sort()).toEqual([...knownLanguages()].sort());
   });
