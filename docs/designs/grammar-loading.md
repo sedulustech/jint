@@ -25,7 +25,8 @@ port and the dogfood run against main are complete. This branch IS the implement
 
 ### Grammars are embedded and tool-owned (2026-10-14, embed verdict)
 
-All ten grammars register through the compile-time embedded path. Size (linux-x64, gzip -9, the
+All ten grammars registered through the compile-time embedded path at the 2026-10-14 verdict
+(nine today — verilog was removed, see the removal decision below). Size (linux-x64, gzip -9, the
 release setting): four-grammar tar.gz 35.7 MB -> all-ten 36.9 MB, +1.25 MB (+3.3%) - raw delta
 +24 MB, but wasms compress ~95% in the container. CI determinism buys the rest: the same commit
 produces the same report, with no network, no registry, no version drift in the measurement path.
@@ -325,7 +326,7 @@ reported WALK_FAILED on a legal file - `export_statement` with a `source` matche
 The fix is the pattern `(export_statement source: (_)) @import` in the grammars whose node types
 carry that field (typescript, tsx; the `source:` field is the shape marker, so `export { a }`
 without a source stays a wrapper over its declaration). python's from-import is already @import;
-go, php, c, cpp, verilog, css and markdown have no re-export-with-source shape (node-types.json
+go, php, c, cpp, css and markdown have no re-export-with-source shape (node-types.json
 is the reference). A re-export IS an import-lane item - it pulls names in from another module -
 so the import lane is where it belongs, and the zero-elements net stops failing barrel files.
 

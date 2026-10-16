@@ -17,7 +17,6 @@ optional policy), `queries.scm` (extraction patterns). The walker holds no node-
 | `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
 | `markdown`   | `.md`                               | sections (`@type`, heading text as name; sections nest)                                                                                                                                                                                               |
 | `php`        | `.php`                              | functions, methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)                                                                                                       |
-| `verilog`    | `.v`, `.sv`                         | modules, packages/interfaces/programs/checkers (`@type`), classes (`@class`), typedefs (`@type` aliases), always/initial constructs, nets/assigns, comments                                                                                           |
 
 `.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:
 `grammar-loading` open question).
@@ -34,7 +33,7 @@ and its source. Captures:
 | `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes) | `methods`                                                      |
 | `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                        | `classes`                                                      |
 | `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs, markdown sections                           | `types` (and the `definitions` umbrella)                       |
-| `binding`   | a name bound to a non-callable, non-type value (declarations, nets, assigns, assignments)                          | `bindings` (and the `definitions` umbrella)                    |
+| `binding`   | a name bound to a non-callable, non-type value (declarations, assignments)                                         | `bindings` (and the `definitions` umbrella)                    |
 | `import`    | import statements/declarations (one merged element per file)                                                       | `imports`                                                      |
 | `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                  | `comments`                                                     |
 | `docstring` | a grammar's docstring convention (python string-in-block); owned by its enclosing definition                       | `comments` (projected as a comment element with `docstringOf`) |
@@ -52,7 +51,7 @@ vocabulary-growth ledger.
   targets elements in scope for it; files-target rules read raw source with no parse.
 - **Sweep coverage.** Non-grammar files are units measured as raw source when a files-target rule
   is in scope; otherwise they are sweep coverage — one run-wide note, never an error:
-  `parsing v, sv, ts, …, css · not parsed (no grammar): .json, .sql`.
+  `parsing ts, tsx, py, …, css · not parsed (no grammar): .json, .sql`.
 - **Explicit + unparseable is loud.** An explicit file path plus an element-target rule plus no
   grammar is a `MISSING_GRAMMAR` setup error naming the supported grammars (silence would read
   as "nothing wrong").
