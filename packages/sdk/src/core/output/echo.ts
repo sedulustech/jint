@@ -1,7 +1,7 @@
 /** The content echo for element-scoped queries - stderr only; stdout stays finding data. */
 import { fileUnit } from "../input/file.ts";
 import { elementWireId, selectElement, selectElements } from "../rules/classify.ts";
-import type { WalkElement } from "../input/walk.ts";
+import type { InventoryElement } from "../input/walk.ts";
 import type { Finding, Span, Unit } from "../types.ts";
 
 const NL = String.fromCharCode(10);
@@ -61,10 +61,10 @@ export async function selectionEcho(
 ): Promise<EchoRender> {
   const unit: Unit = await fileUnit(selection.path);
   const { walkUnit } = await import("../rules/classify.ts");
-  const inventory: WalkElement[] = (await walkUnit(unit)).inventory;
+  const inventory: InventoryElement[] = (await walkUnit(unit)).inventory;
   if (inventory.length === 0) return { headers: [], body: "" };
   const items: { label: string; spans: string[] }[] = [];
-  const picked = new Map<string, WalkElement>();
+  const picked = new Map<string, InventoryElement>();
   if (selection.anchor !== undefined) {
     const element = selectElement(inventory, { line: selection.anchor });
     const spans = element === undefined ? [] : [elementWireId(element.span)];

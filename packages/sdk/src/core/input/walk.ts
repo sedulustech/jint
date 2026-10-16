@@ -1,8 +1,8 @@
 /**
  * Tree-sitter mapping of a source file into a unit inventory: definitions, comments, and imports.
- * The walker is infrastructure: it parses, runs the grammar's compiled queries (query.ts), and
- * materializes the result - labels, comment attachment, the imports merge, the size backstop. It
- * holds no node-type names: the .scm assigns captures, the runtime sees only captures, and every
+ * This module is the AST side of input: it parses, runs the grammar's compiled queries (query.ts),
+ * and materializes the result - labels, comment attachment, the imports merge, the size backstop.
+ * It holds no node-type names: the .scm assigns captures, the runtime sees only captures, and every
  * node no pattern captures passes through as nothing (unlisted nodes are legal and silent).
  *
  * Extraction is flag-independent: which files are acquired is decided elsewhere; the parse and the
@@ -41,7 +41,7 @@ export type { Capture };
 export type { DocstringOwner } from "../types.ts";
 
 /** An inventory element; slicing the source by its span bytes yields its content exactly. */
-export interface WalkElement {
+export interface InventoryElement {
   /** Stable positional label: "d0", "d1", "c0", "i0". */
   readonly label: string;
   readonly span: Span;
@@ -88,15 +88,15 @@ export interface Inventory {
   readonly hasError: boolean;
   /** Which grammar served this parse (embedded asset or user wasm by path+version). */
   readonly provenance: GrammarProvenance;
-  readonly definitions: WalkElement[];
-  readonly comments: WalkElement[];
+  readonly definitions: InventoryElement[];
+  readonly comments: InventoryElement[];
   /** Exactly one merged element when the file has imports; empty otherwise. */
-  readonly imports: WalkElement[];
+  readonly imports: InventoryElement[];
 }
 
 /**
  * The char -> token estimate behind the size backstop. jev's limit is a TOKEN budget, not a char
- * budget; the walker carries no tokenizer (and must not grow one - no new deps), so the backstop
+ * budget; this side carries no tokenizer (and must not grow one - no new deps), so the backstop
  * converts source chars with the ~4-chars-per-token rule of thumb for code. An ESTIMATE, not a
  * measurement: dense symbol-heavy source reads as more tokens than the ratio predicts, which is why
  * the cap below keeps a margin under the measured ceiling instead of sitting on it.
@@ -143,9 +143,9 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
  * following definition), internal-comment counting, the imports merge, labels, parent links.
  */
 function materialize(candidates: readonly Candidate[]): {
-  definitions: WalkElement[];
-  comments: WalkElement[];
-  imports: WalkElement[];
+  definitions: InventoryElement[];
+  comments: InventoryElement[];
+  imports: InventoryElement[];
 } {
   const definitions = candidates.filter((c) => DEFINITION_CAPTURES.has(c.capture));
   const comments = candidates.filter((c) => c.capture === "comment");
@@ -290,7 +290,7 @@ function materialize(candidates: readonly Candidate[]): {
     return innermost === undefined ? undefined : labels.get(innermost);
   };
 
-  const walkDefinitions: WalkElement[] = definitions.map((d) => ({
+  const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
     label: labels.get(d)!,
     span: spanOf(d.node),
     content: d.node.text,
@@ -302,7 +302,7 @@ function materialize(candidates: readonly Candidate[]): {
     docstringCount: docstringCounts.get(d) ?? 0,
     parent: parentOf(d),
   }));
-  const walkComments: WalkElement[] = commentElements.map((c) => ({
+  const walkComments: InventoryElement[] = commentElements.map((c) => ({
     label: labels.get(c)!,
     span: spanOf(c.node),
     content: c.node.text,
@@ -316,7 +316,7 @@ function materialize(candidates: readonly Candidate[]): {
 
   // The imports element spans the whole run (first to last import node); one merged element
   // keeps the import block a single judgment unit.
-  const walkImports: WalkElement[] =
+  const walkImports: InventoryElement[] =
     imports.length > 0
       ? [
           {
@@ -383,7 +383,7 @@ export async function decompose(source: string, language: string): Promise<Inven
  * the walked form's source content. One capture, two forms: the walk-time form carries the source;
  * the wire form is what a measurement references.
  */
-export function projectElement(element: WalkElement): Element {
+export function projectElement(element: InventoryElement): Element {
   const base = {
     span: element.span,
     label: element.label,

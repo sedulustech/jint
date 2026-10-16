@@ -1,7 +1,7 @@
 /**
  * The query runtime: a grammar's queries.scm IS the mapping. The .scm assigns jint-owned captures
  * to matched nodes; this file turns matches into candidate elements and resolves the overlap
- * policy. The walker (walk.ts) holds no node-type names; the runtime sees only captures.
+ * policy. The decompose runtime holds no node-type names; it sees only captures.
  *
  * Capture vocabulary (frozen for v1; a capture name is an identity, never a label):
  *
@@ -19,7 +19,7 @@
  *   - per-noun descent defaults: a @type element's interior surfaces (a method is an element of
  *     its own); a @function or @binding interior is OPAQUE - captures inside a function body
  *     (local bindings, nested functions) are implementation, never elements. This is the query
- *     shape of the old walker's composite-descent limit, settled by the typescript parity run.
+ *     shape of the old composite-descent limit, settled by the typescript parity run.
  *   - unlisted nodes passthrough: a node no pattern captures yields nothing and blocks nothing.
  *
  * Static analysis of the .scm over-approximates under predicates (a captured node may be filtered
@@ -35,7 +35,7 @@ import { SetupError, type Span } from "../types.ts";
  *
  * @docstring is a COMMENT-KIND capture: a grammar's docstring convention, captured by pattern
  * (python's string-in-block) and owned by its enclosing definition (docstringOf) - the capture
- * seam is the ONE authority for what a docstring is; the walker holds no node-type names.
+ * seam is the ONE authority for what a docstring is; the decompose runtime holds no node-type names.
  */
 export const ELEMENT_CAPTURES = [
   "function",

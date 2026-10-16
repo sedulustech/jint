@@ -77,6 +77,26 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     rmScratchTree(tmpDir);
   });
 
+  test("--dry-run --json composes: one JSON document on stdout, banner on stderr", async () => {
+    const tmpDir = scratchDir("jint-dryrun-json");
+    Bun.write(
+      tmpDir + "/jint.config.json",
+      JSON.stringify({ rules: ["is_name_purposeful"], exclude: [] }),
+    );
+
+    const proc = await runCli(["--dry-run", "--json"], {
+      cwd: tmpDir,
+      env: { TYPESAFE_API_KEY: "" },
+    });
+    expect(proc.code).toBe(0);
+    // byte-clean stdout: exactly one JSON document (the declared rule set), banner on stderr
+    const doc = JSON.parse(proc.stdout) as { rules: { name: string }[]; customRules: number };
+    expect(doc.rules.map((r) => r.name)).toEqual(["is_name_purposeful"]);
+    expect(proc.stderr).toContain("jint: measuring with 1 rule");
+    expect(proc.stdout).not.toContain("jint:");
+    rmScratchTree(tmpDir);
+  });
+
   test("config resolving to zero rules: CONFIG_NO_RULES, exit 2", async () => {
     const tmpDir = scratchDir("jint-dryrun-empty");
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));

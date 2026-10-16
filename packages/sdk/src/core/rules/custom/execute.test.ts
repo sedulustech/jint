@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decompose, type WalkElement } from "../../input/walk.ts";
+import { decompose, type InventoryElement } from "../../input/walk.ts";
 import { rulesForElement } from "../classify.ts";
 import {
   resolveAllCustomTargets,
@@ -15,7 +15,7 @@ import type { CustomElement, CustomRule } from "./schema.ts";
 async function oneFile(
   source: string,
   path = "src/fixture.ts",
-): Promise<Map<string, readonly WalkElement[]>> {
+): Promise<Map<string, readonly InventoryElement[]>> {
   const inv = await decompose(source, "typescript");
   return new Map([[path, [...inv.definitions, ...inv.comments, ...inv.imports]]]);
 }
@@ -64,7 +64,7 @@ const spec = (state: Record<string, unknown>) => ({
 
 async function run(
   rule: CustomRule,
-  inventory: Map<string, readonly WalkElement[]>,
+  inventory: Map<string, readonly InventoryElement[]>,
   classifier: Classifier,
 ): Promise<Awaited<ReturnType<typeof runCustomRules>>> {
   const resolved: ResolvedCustomTargets = resolveAllCustomTargets([rule], inventory);
@@ -148,7 +148,7 @@ describe("resolveAllCustomTargets", () => {
 
   test("oversized elements never enter TS targets (same backstop as the JSON tier)", async () => {
     const inv = await oneFile(SOURCE);
-    const oversized: WalkElement = {
+    const oversized: InventoryElement = {
       ...[...inv.get("src/fixture.ts")!][0]!,
       label: "d9",
       oversized: true,
@@ -191,7 +191,7 @@ describe("resolveAllCustomTargets", () => {
       capture: "function",
       internalCommentCount: 0,
       parent: "d99",
-    } as WalkElement;
+    } as InventoryElement;
     expect(() => tsElementsOf([dangling], "src/fixture.ts")).toThrow(/d99/);
   });
 

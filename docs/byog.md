@@ -15,7 +15,10 @@ primitives.
 
 ## The seam contract
 
-Drop three files into the grammar dir: `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`:
+Drop three files into the grammar dir: `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`.
+ONE GRAMMAR PER DIR, ARTIFACTS FLAT: the three files sit directly in the dir - no `<lang>/`
+subdirs (they are ignored, with a coverage note), and only ONE `<lang>.manifest.json` + one
+`queries.scm` (two manifests share the one queries.scm and are rejected at setup):
 
 | file                   | what it is                                                                                                                                                                                          |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -37,7 +40,7 @@ Everything fails loud, at setup, before any file is measured — never into sile
 - **Unknown node types**: `queries.scm` names a node type the grammar does not have. Query
   compilation rejects it; the error quotes the compiler message verbatim.
 - **Unknown captures**: a capture outside the vocabulary. The run refuses to start and prints
-  your captures next to the eight legal ones — an .scm that captures outside the ontology would
+  your captures next to the seven code nouns plus docstring — an .scm that captures outside the ontology would
   parse into elements no rule can address, so it is a config error by name.
 - **Pattern-order conflicts**: two patterns assigning different captures to the same root node
   type. Pattern order is priority (the earlier pattern wins), so the validator requires every
@@ -52,7 +55,8 @@ Everything fails loud, at setup, before any file is measured — never into sile
 ## The worked example: verilog, end to end
 
 Everything below was run against the CURRENT binary through the seam, not against a verilog that
-used to be embedded. The artifacts are recoverable from this repo's history — that is the point:
+used to be embedded. The artifacts are recoverable verbatim from commit fe3653d (the last commit
+carrying the embedded grammar) — that is the point:
 a grammar that was embedded and a grammar a user drops in are the same shape.
 
 `verilog.manifest.json`:

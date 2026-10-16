@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { defaultRules } from "@jint/defaults";
 import { matchesTarget } from "../rules/classify.ts";
-import type { WalkElement } from "../input/walk.ts";
+import type { InventoryElement } from "../input/walk.ts";
 
 // THE DEFAULTS-IDENTICAL PIN (owner decision: defaults rewritten as explicit target lists with
 // identical behavior). Every default that used to say target: "definitions" now says the
@@ -9,7 +9,7 @@ import type { WalkElement } from "../input/walk.ts";
 // spans every definition capture, so the rewrite is provably a no-op for the measured set.
 
 describe("defaults targets: the union is identical to the definitions shorthand", () => {
-  const inventory: WalkElement[] = [
+  const inventory: InventoryElement[] = [
     {
       label: "f",
       span: span(),

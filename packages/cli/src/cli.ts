@@ -46,7 +46,15 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
 import { defaultConfig, defaultRules, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
-import { emit, emitLines, jevLog, printRules, printRulesStdout, usageError } from "./output.ts";
+import {
+  emit,
+  emitLines,
+  jevLog,
+  printRules,
+  printRulesJson,
+  printRulesStdout,
+  usageError,
+} from "./output.ts";
 
 /**
  * The flag table — the ONE source for the flag vocabulary. Every projection is a mechanical map
@@ -589,9 +597,15 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
   // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
   // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice —
-  // the block on STDOUT is the whole payload (the flag's product, pipe-able).
+  // the stdout block is the whole payload (the flag's product, pipe-able). With --json the
+  // payload composes: one JSON document on stdout, the banner on stderr (same byte-clean
+  // contract as a run's --json).
   if (cliArgs["dry-run"] === true) {
-    printRulesStdout(effective, resolvedConfig.customRules?.length ?? 0);
+    if (cliArgs.json === true) {
+      printRulesJson(effective, resolvedConfig.customRules?.length ?? 0);
+    } else {
+      printRulesStdout(effective, resolvedConfig.customRules?.length ?? 0);
+    }
     return 0;
   }
 

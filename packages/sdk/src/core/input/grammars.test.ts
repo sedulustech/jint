@@ -3,7 +3,7 @@
  * failures that keep a typo from parsing into silence.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { knownLanguages, loadUserGrammars, resetGrammarsForTest } from "./grammars.ts";
@@ -99,5 +99,39 @@ describe("loadUserGrammars", () => {
     );
     await loadUserGrammars(good);
     expect(knownLanguages()).toContain("probe");
+  });
+});
+
+describe("one grammar per dir", () => {
+  test("two manifests in one dir are a setup error naming the dir and the rule", async () => {
+    // both manifests share the one queries.scm: the second language would extract with the
+    // first's patterns - silently wrong extraction is the failure the seam must never allow
+    const dir = scratchDir({
+      "alpha.manifest.json": MANIFEST,
+      "beta.manifest.json": MANIFEST,
+      "queries.scm": SCM,
+      "probe.wasm": "not a real wasm",
+    });
+    await expect(loadUserGrammars(dir)).rejects.toThrow(
+      /grammar dir .+2 manifests \((alpha\.manifest\.json, beta\.manifest\.json|beta\.manifest\.json, alpha\.manifest\.json)\) - one grammar per dir/,
+    );
+  });
+
+  test("a subdirectory in the grammar dir yields one coverage note, not silence", async () => {
+    const dir = scratchDir(withWasm({ "probe.manifest.json": MANIFEST, "queries.scm": SCM }));
+    mkdirSync(join(dir, "probe-nested"), { recursive: true });
+    const notes: string[] = [];
+    await loadUserGrammars(dir, (note) => notes.push(note));
+    expect(notes).toEqual([
+      `grammar dir ${dir}: subdirs are ignored - artifacts sit flat (one grammar per dir)`,
+    ]);
+    expect(knownLanguages()).toContain("probe");
+  });
+
+  test("a flat grammar dir yields no note", async () => {
+    const dir = scratchDir(withWasm({ "probe.manifest.json": MANIFEST, "queries.scm": SCM }));
+    const notes: string[] = [];
+    await loadUserGrammars(dir, (note) => notes.push(note));
+    expect(notes).toEqual([]);
   });
 });

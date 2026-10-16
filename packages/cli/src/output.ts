@@ -65,6 +65,16 @@ export function printRulesStdout(effective: readonly Rule[], customCount: number
   );
 }
 
+/**
+ * --dry-run --json's payload: the effective rule set as ONE JSON document on stdout (the rules'
+ * declared shape - name, kind, target, criteria, handle - what the run WILL load), byte-clean for
+ * the documented --json promise; the banner stays on stderr.
+ */
+export function printRulesJson(effective: readonly Rule[], customCount: number): void {
+  emit({ message: measuringLine(effective, customCount) });
+  process.stdout.write(JSON.stringify({ rules: effective, customRules: customCount }, null, 2));
+}
+
 /** A usage error: the emitter's bare-error shape (message leads, no code - nothing to code yet). */
 export function usageError(usageMessage: string): void {
   emit({ message: usageMessage, kind: "error" });

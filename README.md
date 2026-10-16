@@ -75,7 +75,7 @@ jint                                     # no positional: input comes from auto-
 `--config <path>` overrides discovery.
 
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_RUNS_DIR`).
-The user grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR)`. - the bring-your-own-grammar seam, docs/byog.md.
+The user grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.
 
 ### Rules
 
@@ -103,13 +103,20 @@ export default {
 
 `target` names what the rule judges, as one value or a list:
 
-| target        | what it judges                                        |
-| ------------- | ----------------------------------------------------- |
-| `files`       | the whole file as one unit                            |
-| `functions`   | each function or method                               |
-| `definitions` | every declaration except comments and imports         |
-| `comments`    | each comment, including one attached to a declaration |
-| `imports`     | the file's imports as one merged unit                 |
+| target           | what it judges                                                                |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `files`          | the whole file as one unit                                                    |
+| `functions`      | each function or method                                                       |
+| `classes`        | each class-like unit                                                          |
+| `methods`        | each member function                                                          |
+| `types`          | interfaces, structs, enums, aliases, sections                                 |
+| `bindings`       | each name bound to a non-callable, non-type value                             |
+| `definitions`    | every declaration except comments and imports                                 |
+| `comments`       | the comment pair frame (a definition judged together with its owned comments) |
+| `loose-comments` | comments with no definition frame                                             |
+| `imports`        | the file's imports as one merged unit                                         |
+
+Full table: docs/targets.md (generated from the live resolution).
 
 A TS config rule may also carry a callback `handle: (results, ctx) => decisions`, called once after
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.

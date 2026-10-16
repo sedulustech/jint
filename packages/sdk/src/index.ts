@@ -56,7 +56,7 @@ export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint
 export { validateCustomRule } from "./core/rules/custom/schema.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
-export type { Inventory, WalkElement, Capture } from "./core/input/walk.ts";
+export type { Inventory, InventoryElement, Capture } from "./core/input/walk.ts";
 export type {
   Element,
   FileElement,

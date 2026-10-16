@@ -14,7 +14,7 @@
 import { loadUserGrammars } from "./input/grammars.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
-import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
+import { grammarExtensions, MAX_ELEMENT_TOKENS, type InventoryElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import { recordSummary } from "./jev/debug.ts";
 import {
@@ -96,11 +96,11 @@ export interface LintOptions {
    */
   timeout?: number;
   /**
-   * Config-scope basis for dir inputs: the walk root's path relative to the config's directory.
-   * Walked paths and scope patterns (config exclude + per-rule include/exclude) share this basis,
-   * so a config pattern naming the tests subtree excludes the walk even when the walk root is the
-   * tests dir itself. Empty or undefined = walk-root basis. The CLI derives it from the config
-   * location; SDK callers walking arbitrary trees leave it unset.
+   * Config-scope basis for dir inputs: the dir-walk root's path relative to the config's directory.
+   * Dir-walked paths and scope patterns (config exclude + per-rule include/exclude) share this
+   * basis, so a config pattern naming the tests subtree excludes the dir walk even when its root is
+   * the tests dir itself. Empty or undefined = dir-walk-root basis. The CLI derives it from the
+   * config location; SDK callers walking arbitrary trees leave it unset.
    */
   scopeBase?: string;
   /**
@@ -114,12 +114,12 @@ export interface LintOptions {
    */
   paths?: { readonly content: string };
   /**
-   * Element-scoped run (CLI `<file>@L<line>`): judge ONE walker element of ONE file. The input is
-   * exactly that file; the walked inventory narrows to the selected element, so element jobs fan
-   * out to a single classifier call (all of the element's rules batched — fewer with --rule).
-   * Whole-unit (files-target) rules never run element-scoped: their claim is about the file, not
-   * the element — an explicit --rule naming one is a caller contradiction and fails setup. Dir
-   * nouns and str units are incompatible by construction.
+   * Element-scoped run (CLI `<file>@L<line>`): judge ONE inventory element of ONE file. The input
+   * is exactly that file; the inventory narrows to the selected element, so element jobs fan out to
+   * a single classifier call (all of the element's rules batched — fewer with --rule). Whole-unit
+   * (files-target) rules never run element-scoped: their claim is about the file, not the element —
+   * an explicit --rule naming one is a caller contradiction and fails setup. Dir nouns and str
+   * units are incompatible by construction.
    */
   element?: {
     readonly path: string;
@@ -132,14 +132,14 @@ export interface LintOptions {
  * Why one target does not apply to one element. The reason is per (target, element) pair, so the
  * skip note can say precisely why no requested rule matched - never a generic parenthetical.
  */
-function scopeSkipReason(target: string, element: WalkElement): string {
+function scopeSkipReason(target: string, element: InventoryElement): string {
   if (element.oversized === true) return "exceeds the size backstop";
   if (target === "comments") return "carries none";
   return `is a ${element.capture}`;
 }
 
 /** The honest skip line: element identity, per-requested-rule mismatch, zero calls spent. */
-function scopeSkipNote(path: string, element: WalkElement, rules: readonly Rule[]): string {
+function scopeSkipNote(path: string, element: InventoryElement, rules: readonly Rule[]): string {
   const span = `L${element.span.start.line}-L${element.span.end.line}`;
   const mismatches = rules
     .map((rule) => {
@@ -160,11 +160,11 @@ function selectScopedElements(
   w: WalkedUnit,
   element: NonNullable<LintOptions["element"]>,
   scopedRules: readonly Rule[],
-): { selected: WalkElement[]; skipped: WalkElement[] } {
+): { selected: InventoryElement[]; skipped: InventoryElement[] } {
   if (w.failed !== null)
     throw new SetupError("ELEMENT_NOT_FOUND", `cannot resolve element: ${w.failed}`);
   const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
-  let selected: WalkElement[];
+  let selected: InventoryElement[];
   if (element.anchor !== undefined) {
     // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
     const anchor = selectElement(w.inventory, { line: element.anchor });
@@ -195,8 +195,13 @@ function selectScopedElements(
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The grammar dir registers before anything parses: user grammars win over embedded, a manifest
-  // + .scm without a wasm shadows an embedded grammar's extraction.
-  await loadUserGrammars();
+  // + .scm without a wasm shadows an embedded grammar's extraction. Scan coverage (subdirs
+  // ignored) surfaces as a note, like the dir-walk coverage notes.
+  const grammarNotes: string[] = [];
+  await loadUserGrammars(undefined, (note) => grammarNotes.push(note));
+  for (const note of grammarNotes) {
+    yield { type: "note", note };
+  }
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
@@ -432,7 +437,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // JSON rule needs every file's text.
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
-    const elementsByPath = new Map<string, readonly WalkElement[]>();
+    const elementsByPath = new Map<string, readonly InventoryElement[]>();
     for (let i = 0; i < units.length; i++) {
       const w = walked.get(i);
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);

@@ -10,7 +10,7 @@ import {
   languageOf,
   projectElement,
   type Inventory,
-  type WalkElement,
+  type InventoryElement,
 } from "../input/walk.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
@@ -324,7 +324,7 @@ export const targetsOf = (rule: {
 
 export const rulesForElement = (
   rules: readonly Rule[],
-  element: WalkElement,
+  element: InventoryElement,
   path?: string,
 ): Rule[] =>
   rules.filter(
@@ -344,7 +344,7 @@ export interface ClassifyFileOptions {
  * nothing ever re-walks.
  */
 export interface WalkedUnit {
-  readonly inventory: WalkElement[];
+  readonly inventory: InventoryElement[];
   readonly derived?: Inventory;
   /** Why the unit could not be mapped to elements (file units only); streamed as an error. */
   readonly failed: string | null;
@@ -389,7 +389,7 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   }
 }
 
-function elementContent(element: WalkElement): string {
+function elementContent(element: InventoryElement): string {
   // A docstring out of context always reads like narration; naming what it documents restores the
   // reading "as written".
   const docstringLead = element.docstringOf
@@ -464,7 +464,7 @@ function wholeUnitRules(rules: readonly Rule[], path: string, kind: UnitKind): R
  */
 function scopeNotesFor(
   rules: readonly Rule[],
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   path: string,
   kind: UnitKind,
 ): string[] {
@@ -493,9 +493,9 @@ function scopeNotesFor(
  * selector — the only public query is the line.)
  */
 export function selectElement(
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   selector: { readonly line: number },
-): WalkElement | undefined {
+): InventoryElement | undefined {
   return inventory.find(
     (e) => e.span.start.line <= selector.line && selector.line <= e.span.end.line,
   );
@@ -509,9 +509,9 @@ export function selectElement(
  * in-band, never silence. (Element ids are run-scoped internals, never a selector.)
  */
 export function selectElements(
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   range: { readonly start: number; readonly end: number },
-): WalkElement[] {
+): InventoryElement[] {
   return inventory.filter((e) => e.span.start.line >= range.start && e.span.end.line <= range.end);
 }
 
@@ -529,7 +529,7 @@ interface ElementJob {
  */
 function elementJobsFor(
   rules: readonly Rule[],
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   path: string,
 ): ElementJob[] {
   const jobs: ElementJob[] = [];

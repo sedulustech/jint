@@ -5,7 +5,9 @@ three artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, 
 optional policy), `queries.scm` (extraction patterns). The walker holds no node-type names — the
 .scm assigns **captures**, and the runtime sees only captures. A user grammar dir
 (`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers through the same three-artifact shape - the supported home for
-domain languages; docs/byog.md is the contract plus a full verilog worked example.
+domain languages. One grammar per dir, artifacts flat: the three files sit directly in the dir,
+no subdirs, one manifest + one queries.scm (a second manifest is a setup error - two would share
+the one .scm). docs/byog.md is the contract plus a full verilog worked example.
 
 | grammar id   | extensions                          | what it captures                                                                                                                                                                                                                                      |
 | ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

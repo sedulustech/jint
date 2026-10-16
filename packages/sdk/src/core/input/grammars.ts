@@ -415,20 +415,39 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
 }
 
 /**
- * Lint-start scan: register every <lang>.manifest.json in the grammar dir. Idempotent; missing dir
- * scans as zero grammars (the embedded set alone). A malformed manifest, a missing queries.scm, or
- * an uncompilable .scm throws CONFIG_INVALID — loud, at setup, before any file is measured.
+ * Lint-start scan: register the grammars in ONE flat grammar dir. THE SEAM IS ONE GRAMMAR PER DIR,
+ * ARTIFACTS FLAT: two manifests would share the one queries.scm filename (the second language would
+ * extract with the first's patterns, silently wrong) - that is a setup error naming the dir and the
+ * rule. Subdirectories are ignored, as one coverage note (artifacts sit flat; a nested grammar dir
+ * is invisible, and signal beats silence). Missing dir scans as zero grammars (the embedded set
+ * alone). A malformed manifest, a missing queries.scm, or an uncompilable .scm throws
+ * CONFIG_INVALID — loud, at setup, before any file is measured.
  */
-export async function loadUserGrammars(dir: string = grammarsDir()): Promise<void> {
+export async function loadUserGrammars(
+  dir: string = grammarsDir(),
+  onNote?: (note: string) => void,
+): Promise<void> {
   loadPromise ??= (async () => {
-    let names: string[];
+    let entries: import("node:fs").Dirent[];
     try {
-      names = await readdir(dir);
+      entries = await readdir(dir, { withFileTypes: true });
     } catch {
       // no grammar dir: embedded set only
       return;
     }
-    for (const name of names) {
+    const manifests = entries
+      .filter((entry) => /^([A-Za-z0-9_-]+)\.manifest\.json$/.test(entry.name))
+      .map((entry) => entry.name);
+    if (manifests.length > 1) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar dir ${dir}: ${manifests.length} manifests (${manifests.join(", ")}) - one grammar per dir: the artifacts sit flat and share one queries.scm, so a second manifest would extract with the first's patterns`,
+      );
+    }
+    if (onNote !== undefined && entries.some((entry) => entry.isDirectory())) {
+      onNote(`grammar dir ${dir}: subdirs are ignored - artifacts sit flat (one grammar per dir)`);
+    }
+    for (const name of manifests) {
       const match = name.match(/^([A-Za-z0-9_-]+)\.manifest\.json$/);
       if (match) await registerUserGrammar(match[1]!, dir);
     }

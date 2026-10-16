@@ -163,6 +163,15 @@ element never matches separately - narration fires exactly once per documented d
 Ownership travels on the element (`docstringOf`) and the frame (`attachedComment`,
 `internalCommentCount`, `docstringCount`).
 
+Ratified ownership decisions (2026-10-16, one line each):
+
+- Header/license comments before the first definition stay loose-comments - a file-level frame is
+  unrequested surface; the escape valve is config-level rules scoping loose-comments, and
+  capture-based targeting remains the backdoor.
+- Comments interior to a @class counting into the class's internalCommentCount (invisible to
+  loose-comments rules) is INTENDED: the comment documents class content and is judged with the
+  class - the pair-frame model working, not a leak.
+
 #### The three target namespaces
 
 A rule's target resolves over three namespaces, in order of breadth:
@@ -232,7 +241,9 @@ truth; the parity README holds the verdicts):
 #### Vocabulary growth ledger
 
 Future embedded captures, release-gated with two-language calibration: prose and code-block
-(markdown), field (c/cpp/php member data), selector-rule and
+and HTML comments (markdown), field (c/cpp/php member data) and the class-body
+property_definition whose value is an arrow function (typescript/tsx - captures nothing today,
+though it is behaviorally a method), selector-rule and
 declaration-pair (css), text-name capture (test title strings, md headings - a render name that
 is not an identifier), and contextual refinement beyond one discriminator (today's predicates
 cover c prototypes and ts call composites; deeper context still has no shape).

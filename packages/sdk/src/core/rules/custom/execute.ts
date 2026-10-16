@@ -30,17 +30,20 @@ import {
   type CustomElement,
   type CustomRule,
 } from "./schema.ts";
-import type { WalkElement } from "../../input/walk.ts";
+import type { InventoryElement } from "../../input/walk.ts";
 
 /**
  * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are
  * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
  * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
  */
-export function tsElementsOf(inventory: readonly WalkElement[], path: string): CustomElement[] {
+export function tsElementsOf(
+  inventory: readonly InventoryElement[],
+  path: string,
+): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
-  const convert = (e: WalkElement): CustomElement => {
+  const convert = (e: InventoryElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
     const parentLabel = e.parent;
@@ -95,7 +98,7 @@ export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
-  inventoryByPath: ReadonlyMap<string, readonly WalkElement[]>,
+  inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
 ): ResolvedCustomTargets {
   const elementsByPath = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
