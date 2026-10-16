@@ -15,7 +15,7 @@ primitives.
 
 ## The seam contract
 
-Drop three files into `$JINT_DIR/grammars/` (default `~/.jint/grammars`):
+Drop three files into the grammar dir: `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`:
 
 | file                   | what it is                                                                                                                                                                                          |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -58,9 +58,9 @@ describe("startUi", () => {
     }
   });
 
-  test("GET /api/runs answers 200 JSON from the runs store (JINT_DIR scratch)", async () => {
-    // the bun preload points JINT_DIR at a pid-scoped scratch store: write a run into it
-    const store = resolve(process.env.JINT_DIR!, "runs");
+  test("GET /api/runs answers 200 JSON from the runs store (JINT_RUNS_DIR scratch)", async () => {
+    // the bun preload points JINT_RUNS_DIR at a pid-scoped scratch store: write a run into it
+    const store = resolve(process.env.JINT_RUNS_DIR!);
     expect(store).toBeDefined();
     mkdirSync(join(store!, "1700000000001-files-run"), { recursive: true });
     writeFileSync(join(store!, "1700000000001-files-run", "1700000000001-files.json"), "{}");
@@ -75,7 +75,7 @@ describe("startUi", () => {
     }
   });
 
-  test("root option serves THAT store (a runsDir-configured store is visible)", async () => {
+  test("root option serves THAT store (an explicit-root store is visible)", async () => {
     const store = tempDir("jint-ui-store-");
     mkdirSync(join(store, "1700000000002-root-run"));
     writeFileSync(join(store, "1700000000002-root-run", "1700000000002-files.json"), "{}");

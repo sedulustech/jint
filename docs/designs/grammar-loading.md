@@ -13,7 +13,7 @@ policy), `queries.scm` (extraction patterns). The walker (`walk.ts`) parses with
 runs the grammar's compiled queries (`query.ts`), and materializes the inventory. It holds no
 node-type names: the .scm assigns captures, the runtime sees only captures.
 
-A user grammar dir (`$JINT_DIR/grammars`, default `~/.jint/grammars`) registers at lint start
+A user grammar dir (`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers at lint start
 through the same three-artifact shape; a user wasm wins over embedded for the same language, and a
 manifest + queries.scm without a wasm shadows an embedded grammar's extraction. The registry table
 (`grammars.ts`) is one line per grammar; the dirs stay pure data.
@@ -143,7 +143,7 @@ default rules misfire on hardware shapes. It also forced surface the rest of the
 needed - verilog was the ONLY forcing case for the lang:node_type lane, which is CANCELLED, not
 deferred (no other grammar needs it; revisit only with a real forcing case).
 
-The user grammar dir ($JINT_DIR/grammars) is the supported home for verilog and every
+The user grammar dir ($JINT_GRAMMAR_DIR) is the supported home for verilog and every
 domain-specific language: a team ships wasm + manifest + queries.scm in the SAME three-artifact
 shape the embedded grammars use, through the same registration code. The seam is PROVEN - the
 verilog field trial exercised the shadow path end to end (its wasm parsed, its mappings

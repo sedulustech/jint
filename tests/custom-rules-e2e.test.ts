@@ -173,9 +173,10 @@ describe("cli: custom rules end-to-end", () => {
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
     const dir = setup("dumps", GOOD_CONFIG);
     const dumps = DIR + "/dump-captures";
-    const r = await runIn(dir, { JINT_DIR: dumps });
+    const r = await runIn(dir, { JINT_RUNS_DIR: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
-    const runDirs = readdirSync(dumps + "/runs").map((d) => dumps + "/runs/" + d);
+    // JINT_RUNS_DIR IS the runs root: run dirs sit directly under the override
+    const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
     // report.json + manifest.json (the run's persisted metadata, not captures) are excluded
     const files = runDirs
       .flatMap((d) => readdirSync(d).map((f) => d + "/" + f))

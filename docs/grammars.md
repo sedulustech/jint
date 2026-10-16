@@ -4,7 +4,7 @@ Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar i
 three artifacts: `<lang>.wasm` (parse), `<lang>.manifest.json` (facts: version, extensions,
 optional policy), `queries.scm` (extraction patterns). The walker holds no node-type names — the
 .scm assigns **captures**, and the runtime sees only captures. A user grammar dir
-(`$JINT_DIR/grammars`) registers through the same three-artifact shape - the supported home for
+(`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers through the same three-artifact shape - the supported home for
 domain languages; docs/byog.md is the contract plus a full verilog worked example.
 
 | grammar id   | extensions                          | what it captures                                                                                                                                                                                                                                      |

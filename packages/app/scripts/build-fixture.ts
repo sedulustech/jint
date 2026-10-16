@@ -118,7 +118,7 @@ const baseline: Record<string, Rule> = Object.fromEntries(
 async function main(): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
-  process.env.JINT_DIR = stagingDir;
+  process.env.JINT_RUNS_DIR = stagingDir;
   process.env.TYPESAFE_API_KEY = "fixture-key";
 
   const config = {

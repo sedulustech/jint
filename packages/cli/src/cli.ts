@@ -317,13 +317,13 @@ function ruleOriginLabel(args: CliArgs, config: ResolvedConfig): string | undefi
 /**
  * The end-of-run stderr notice for run recording: where the requests went and how many — the
  * UNPREFIXED emitter message (the prefix is emit's). Empty when nothing was recorded. Recording is
- * always on — JINT_DIR only moves where run dirs land; the notice always reports, even zero
+ * always on — JINT_RUNS_DIR only moves where run dirs land; the notice always reports, even zero
  * requests (the run may have failed before any classifier call).
  */
 export function recordNotice(): string {
   const record = recordSummary();
   if (record === null) return "";
-  const override = record.override ? " (override: JINT_DIR)" : "";
+  const override = record.override ? " (override: JINT_RUNS_DIR)" : "";
   return `requests -> ${record.dir} (${record.count} calls)${override}`;
 }
 /**

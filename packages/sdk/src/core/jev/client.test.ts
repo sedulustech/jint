@@ -65,7 +65,7 @@ const scoreBody = {
 };
 
 async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, ClassifiedAnswer>> {
-  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl, runsDir: DIR });
+  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
   return await classifier(state, questions);
 }
 
@@ -91,7 +91,7 @@ describe("createClassifier", () => {
         headers: { "Content-Type": "application/json" },
       });
     };
-    const classifier = createClassifier({ apiKey: "test-key", fetch: probe, runsDir: DIR });
+    const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
     const answers = await classifier(state, scoreQuestions);
     expect(answers.is_readable?.value).toBe(2);
     expect(answers.is_readable?.confidence).toBe(0.9);

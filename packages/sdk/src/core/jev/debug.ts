@@ -2,7 +2,7 @@
  * Run recording for the jev adapter: always on, every run. Captures the exact bytes the vendor SDK
  * serializes — not our pre-SDK question objects — plus the manifest and the machine report, so any
  * run can be replayed, inspected, or judged from real payloads. There is no off switch — consumers
- * must always be able to debug; JINT_DIR only moves WHERE the run dir lands.
+ * must always be able to debug; JINT_RUNS_DIR only moves WHERE the run dir lands.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -13,10 +13,9 @@ import type { ClassifierConfig } from "./client.ts";
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
  * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
- * <base>/<runid>/ (base = config.runsDir, else $JINT_DIR/runs, else <homedir>/.jint/runs; runid =
- * unix timestamp of the run's first request; past runs are never overwritten). The kind (elements /
- * files) is derived from the request's state shape. Recording is unconditional — there is no off
- * switch.
+ * <base>/<runid>/ (base = $JINT_RUNS_DIR, else <homedir>/.jint/runs; runid = unix timestamp of the
+ * run's first request; past runs are never overwritten). The kind (elements / files) is derived
+ * from the request's state shape. Recording is unconditional — there is no off switch.
  */
 /** What this run recorded, for the end-of-run stderr notice. Null when recording is disabled. */
 export interface RequestRecordSummary {
@@ -35,17 +34,18 @@ export function recordSummary(): RequestRecordSummary | null {
 }
 
 /**
- * The run-store base directory: config.runsDir / $JINT_DIR/runs / <homedir>/.jint/runs — the same
- * resolution recordRequests applies, exported so the UI server serves the SAME store the recorder
- * writes (no second homedir constant in the SDK).
+ * The run-store base directory: $JINT_RUNS_DIR, else <homedir>/.jint/runs — ONE var, one root, no
+ * precedence chain. The same resolution recordRequests applies, exported so the UI server serves
+ * the SAME store the recorder writes (no second homedir constant in the SDK).
+ *
+ * Deliberation note (recorded, not implemented): if a container one-knob need ever materializes,
+ * the future shape is a JINT_HOME base the specific vars DEFAULT FROM (JINT_GRAMMAR_DIR,
+ * JINT_RUNS_DIR; specific always wins) — never an umbrella tier.
  */
-export function runsBase(configRunsDir?: string): string {
-  return (
-    configRunsDir ??
-    (process.env.JINT_DIR !== undefined
-      ? resolve(process.env.JINT_DIR, "runs")
-      : `${homedir()}/.jint/runs`)
-  );
+export function runsBase(): string {
+  return process.env.JINT_RUNS_DIR !== undefined
+    ? resolve(process.env.JINT_RUNS_DIR)
+    : `${homedir()}/.jint/runs`;
 }
 
 /**
@@ -99,18 +99,18 @@ export function recordRunReport(json: string): void {
 
 /**
  * Wrap the classifier's fetch so every call records. Recording is unconditional: there is no off
- * switch. JINT_DIR never changes WHETHER — only WHERE the run dir lands.
+ * switch. JINT_RUNS_DIR never changes WHETHER — only WHERE the run dir lands.
  */
 export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
   const runid = Date.now();
   runStartedAt = runid;
   usageTotals = { input: 0, output: 0 };
-  const base = runsBase(config?.runsDir);
+  const base = runsBase();
   const dir = `${base}/${runid}`;
   runSummary = {
     dir,
     count: 0,
-    override: config?.runsDir !== undefined || process.env.JINT_DIR !== undefined,
+    override: process.env.JINT_RUNS_DIR !== undefined,
   };
   const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {

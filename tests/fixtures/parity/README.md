@@ -70,7 +70,7 @@ present (a consts-only package file yields elements); doc comments attach as lea
 Verilog is no longer embedded (design: grammar-loading, "verilog removed" decision) - degraded
 parse is the norm on real SystemVerilog, six constructs had no honest noun, and TS-calibrated
 rules misfire on it. corpus.sv/deltas.txt and their pins are withdrawn with it. A domain-specific
-grammar's home is the user grammar dir ($JINT_DIR/grammars) - the field trial's evidence stays the
+grammar's home is the user grammar dir ($JINT_GRAMMAR_DIR) - the field trial's evidence stays the
 BYOG documentation basis. The seam requires the same three artifacts the embedded grammars use:
 a wasm, a manifest, and a queries.scm speaking the frozen captures, registered through the same
 code. The trial exercised that shadow path end to end.

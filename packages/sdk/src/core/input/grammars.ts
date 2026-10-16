@@ -3,7 +3,7 @@
  * tree into elements. Embedded grammars are NOT special: each embedded/<lang>/ directory carries
  * the same three artifacts a user grammar dir holds — <lang>.wasm (parse), <lang>.manifest.json
  * (facts: version, extensions), queries.scm (extraction patterns) — and registers through the same
- * shape a user grammar uses at runtime. A user grammar dir ($JINT_DIR/grammars, default
+ * shape a user grammar uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default
  * ~/.jint/grammars) registers at lint start: a user wasm wins over embedded for the same language,
  * and a manifest+scm without a wasm shadows an embedded grammar's extraction (override without a
  * parse override). The registry table is ONE LINE per grammar; the dirs stay pure data, so the
@@ -156,10 +156,14 @@ const EMBEDDED: Record<string, GrammarEntry> = {
 let userGrammars: Record<string, GrammarEntry> | null = null;
 let loadPromise: Promise<void> | null = null;
 
-/** The grammar dir: $JINT_DIR/grammars (JINT_DIR precedent for moving roots off the homedir). */
+/**
+ * The grammar dir: $JINT_GRAMMAR_DIR, else <homedir>/.jint/grammars — ONE var, one root, no
+ * precedence chain. (Deliberation note: a future container one-knob would be a JINT_HOME base the
+ * specific vars default FROM, specific always wins — never an umbrella tier.)
+ */
 export function grammarsDir(): string {
-  return process.env.JINT_DIR !== undefined
-    ? join(process.env.JINT_DIR, "grammars")
+  return process.env.JINT_GRAMMAR_DIR !== undefined
+    ? process.env.JINT_GRAMMAR_DIR
     : join(homedir(), ".jint", "grammars");
 }
 
