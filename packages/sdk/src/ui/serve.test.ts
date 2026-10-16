@@ -2,7 +2,7 @@ import { describe, test, expect, jest, afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { hostAllowed, startUi } from "./serve.ts";
+import { hostAllowed, normalizeUiHost, startUi } from "./serve.ts";
 
 jest.setTimeout(60_000);
 
@@ -131,6 +131,37 @@ describe("startUi", () => {
   });
 });
 
+describe("host option precedence and custom-host round trip", () => {
+  test("host option beats JINT_UI_HOST; the bind follows the option", async () => {
+    process.env.JINT_UI_HOST = "127.0.0.3";
+    try {
+      const ui = await startUi({ distDir: tempDir("jint-ui-dist-"), host: "127.0.0.2" });
+      try {
+        expect(ui.url).toContain("127.0.0.2:");
+        expect(ui.url).not.toContain("127.0.0.3");
+      } finally {
+        ui.close();
+      }
+    } finally {
+      delete process.env.JINT_UI_HOST;
+    }
+  });
+
+  test("a custom bound host round-trips: its own Host is 200, a foreign Host is 403", async () => {
+    const dist = tempDir("jint-ui-dist-");
+    writeFileSync(join(dist, "index.html"), "<html><body>jint ui</body></html>");
+    const ui = await startUi({ distDir: dist, host: "127.0.0.2" });
+    try {
+      const good = await fetch(new URL("/", ui.url));
+      expect(good.status).toBe(200);
+      const evil = await fetch(new URL("/", ui.url), { headers: { host: "evil.example" } });
+      expect(evil.status).toBe(403);
+    } finally {
+      ui.close();
+    }
+  });
+});
+
 describe("hostAllowed", () => {
   test("localhost variants pass, port suffix optional", () => {
     for (const host of [
@@ -160,6 +191,20 @@ describe("hostAllowed", () => {
   test("the bound host is allowed when a custom host is set", () => {
     expect(hostAllowed("0.0.0.0:5178", "0.0.0.0")).toBe(true);
     expect(hostAllowed("evil.example:80", "0.0.0.0")).toBe(false);
+  });
+});
+
+describe("normalizeUiHost", () => {
+  test("hosts pass through; bracketed IPv6 is a host, not host:port", () => {
+    for (const host of ["127.0.0.1", "localhost", "0.0.0.0", "[::1]", "::1"]) {
+      expect(normalizeUiHost(host)).toBe(host);
+    }
+  });
+
+  test("a :port suffix is rejected, naming the right var", () => {
+    for (const host of ["0.0.0.0:5178", "localhost:4222", "[::1]:5178"]) {
+      expect(() => normalizeUiHost(host)).toThrow("JINT_UI_PORT");
+    }
   });
 });
 

@@ -251,7 +251,7 @@ export const VERBS = {
   serve: {
     example: "jint serve",
     blurb:
-      "the run UI over the store's newest run - hold, Ctrl+C to exit; binds loopback only (override: JINT_UI_HOST - a non-loopback host is your trust decision); honors JINT_UI_PORT",
+      "the run UI over the store's newest run - hold, Ctrl+C to exit; binds loopback only (override: JINT_UI_HOST - a non-loopback host is your trust decision, a port in it is rejected); honors JINT_UI_PORT",
     flags: [],
   },
   capture: {

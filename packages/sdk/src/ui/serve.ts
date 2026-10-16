@@ -86,6 +86,18 @@ export function hostAllowed(hostHeader: string | null, boundHost: string): boole
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === boundHost;
 }
 
+/**
+ * JINT_UI_HOST (and the host option) names a HOST, never host:port — the port is JINT_UI_PORT's
+ * job. A :port suffix is rejected with an error naming the right var, not silently stripped: a
+ * silent strip would let the configured value disagree with the bound host. Bracketed IPv6 ([::1])
+ * is a host, not host:port, and passes through untouched.
+ */
+export function normalizeUiHost(raw: string): string {
+  if (!/:\d+$/.test(raw) || ((raw.match(/:/g) ?? []).length !== 1 && !raw.includes("]")))
+    return raw;
+  throw new Error(`jint ui: '${raw}' names a host, not host:port — put the port in JINT_UI_PORT`);
+}
+
 /** The 403 for a rejected Host, shared so both surfaces answer identically. */
 export function hostForbidden(): Response {
   return new Response("forbidden host", { status: 403 });
@@ -123,7 +135,7 @@ export async function startUi(options: StartUiOptions = {}): Promise<UiServer> {
   // precedence: explicit option > env > default (host: JINT_UI_HOST, else loopback-only)
   const envPort = process.env.JINT_UI_PORT;
   const envHost = process.env.JINT_UI_HOST;
-  const hostname = options.host ?? (envHost !== undefined ? envHost : "127.0.0.1");
+  const hostname = normalizeUiHost(options.host ?? (envHost !== undefined ? envHost : "127.0.0.1"));
   const server = Bun.serve({
     port: options.port ?? (envPort !== undefined ? Number(envPort) : 0),
     hostname,

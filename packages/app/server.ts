@@ -6,11 +6,11 @@ import { join } from "node:path";
  * overridable via server opts.
  */
 import { serveApiRequest } from "@jint/sdk/ui/api";
-import { compress, hostAllowed, hostForbidden } from "@jint/sdk/ui/serve";
+import { compress, hostAllowed, hostForbidden, normalizeUiHost } from "@jint/sdk/ui/serve";
 
 const dist = join(import.meta.dir, "dist");
 // loopback-only by default; JINT_UI_HOST opts out — a non-loopback bind is the user's trust decision
-const hostname = process.env.JINT_UI_HOST ?? "127.0.0.1";
+const hostname = normalizeUiHost(process.env.JINT_UI_HOST ?? "127.0.0.1");
 
 Bun.serve({
   port: Number(process.env.JINT_UI_PORT ?? 5178),
