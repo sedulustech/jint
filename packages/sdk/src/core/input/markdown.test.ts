@@ -39,6 +39,20 @@ describe("decompose — markdown", () => {
     expect(inv.definitions.filter((d) => d.capture === "paragraph")).toHaveLength(2);
   });
 
+  test("the boundary-coincident FINAL sibling survives BECAUSE of #set! selfNesting (the F pin)", async () => {
+    // THE F EXPERIMENT'S truth: the last sibling section shares its parent's end offset, so the
+    // general tail-distance rule mistakes it for a wrapper payload and absorbs it (13 sections
+    // with the directive, 12 without). The directive is the only thing keeping it - pin that.
+    const md = await Bun.file(
+      new URL("../../../../../tests/fixtures/parity/README.md", import.meta.url),
+    ).text();
+    const inv = await decompose(md, "markdown");
+    const sections = inv.definitions.filter((d) => d.capture === "section");
+    expect(sections).toHaveLength(13); // root + 12 children - the absorbed-without-directive case
+    const last = sections.at(-1)!;
+    expect(last.name).toContain("Dogfood parity");
+    expect(last.parent).toBeDefined(); // a child, not a root: it spans to the parent's end
+  });
   test("prose, fences, quotes, lists, and link references passthrough (WAITING ledger)", async () => {
     const inv = await decompose(
       "# A\n\nprose\n\n```ts\nconst x = 1;\n```\n\n> quote\n\n- item\n\n[ref]: https://e.com\n",

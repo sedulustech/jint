@@ -201,9 +201,11 @@ function splitPatterns(scm: string): { text: string; precededBy: string }[] {
 /**
  * Blank out string literals (single- or double-quoted, backslash-escaped) so predicates that merely
  * MENTION a word - (#match? @name "@priority") - cannot fake a directive, a capture, or a root
- * token. The quoted text is replaced by spaces, keeping offsets and line structure.
+ * token. The quoted text is replaced by spaces, keeping offsets and line structure. SHARED: every
+ * .scm text reader (patterns, directives, emitted captures) blanks strings through this one
+ * function - one discipline, no reader that leaks a mention into a fact.
  */
-function withoutStrings(text: string): string {
+export function withoutStrings(text: string): string {
   let out = "";
   let quote: string | null = null;
   for (let i = 0; i < text.length; i++) {
@@ -232,6 +234,130 @@ function withoutStrings(text: string): string {
   return out;
 }
 
+/**
+ * The .scm CODE view, shared by every fact reader: `;` comments cut (only where the `;` is real
+ * syntax - outside string literals, so an apostrophe in a comment cannot open a phantom quote),
+ * THEN string literals blanked (a mention inside a predicate string is not syntax). Both steps
+ * quote-aware: the naive orderings leak (comments first lets trailing-comment tokens survive;
+ * blanking first over a full file lets a comment apostrophe swallow real code into a phantom
+ * string).
+ */
+export function scmCode(scm: string): string {
+  let commentsCut = "";
+  let quote: string | null = null;
+  for (let i = 0; i < scm.length; i++) {
+    const char = scm[i]!;
+    if (quote !== null) {
+      commentsCut += char;
+      if (char === "\\") {
+        commentsCut += scm[i + 1] ?? "";
+        i++;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === ";") {
+      while (i < scm.length && scm[i] !== "\n") i++;
+      commentsCut += "\n";
+      continue;
+    }
+    if (char === '"' || char === "\'") quote = char;
+    commentsCut += char;
+  }
+  return withoutStrings(commentsCut);
+}
+
+/** The shape directives a .scm may set today. */
+const KNOWN_DIRECTIVES = new Set(["selfNesting"]);
+
+/** One #set! occurrence that is real syntax: outside strings, outside comments. */
+interface ScmDirective {
+  readonly name: string;
+  readonly line: number;
+}
+
+/**
+ * The .scm's #set! directives, found syntactically: a #set! counts only OUTSIDE string literals and
+ * OUTSIDE ; comments (a trailing comment or a predicate string cannot fake a directive), and the
+ * quoted directive name survives - it IS a string literal, so strings stay intact here while the
+ * scan tracks quote state positionally. Single pass, line-faithful.
+ */
+export function scmDirectives(scm: string): ScmDirective[] {
+  const directives: ScmDirective[] = [];
+  let line = 1;
+  let quote: string | null = null;
+  let i = 0;
+  while (i < scm.length) {
+    const char = scm[i]!;
+    if (char === "\n") {
+      line++;
+      i++;
+      continue;
+    }
+    if (quote !== null) {
+      if (char === "\\") {
+        i += 2;
+        continue;
+      }
+      if (char === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (char === ";") {
+      while (i < scm.length && scm[i] !== "\n") i++;
+      continue;
+    }
+    if (char === "#" && scm.slice(i, i + 4) === "#set") {
+      const bang = scm[i + 4] === "!";
+      i += 4;
+      // past the bang, onto the (required) quoted name
+      if (bang) i++;
+      while (i < scm.length && scm[i] === " ") i++;
+      const nameMatch = scm.slice(i).match(/^"([A-Za-z0-9_-]+)"/);
+      const name = nameMatch?.[1];
+      if (!bang) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar queries.scm line ${line}: "#set" is malformed - the directive form is #set! "<name>"`,
+        );
+      }
+      if (name === undefined) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar queries.scm line ${line}: #set! is missing its quoted directive name (known: ${[...KNOWN_DIRECTIVES].join(", ")})`,
+        );
+      }
+      directives.push({ name, line });
+      break;
+    }
+    if (char === '"' || char === "\'") quote = char;
+    i++;
+  }
+  return directives;
+}
+
+/**
+ * Loud directive validation at .scm load: a #set! naming an unknown directive is a setup error
+ * naming the line - a directive that silently no-ops is a grammar author's false belief about their
+ * own extraction. Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business; only
+ * the #set family is ours.
+ */
+export function assertScmDirectives(scm: string, grammarId: string): void {
+  for (const directive of scmDirectives(scm)) {
+    if (!KNOWN_DIRECTIVES.has(directive.name)) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar ${grammarId} queries.scm line ${directive.line}: unknown directive "${directive.name}" (known: ${[...KNOWN_DIRECTIVES].join(", ")})`,
+      );
+    }
+  }
+}
+
+/** Does the .scm set the selfNesting shape directive? (real syntax only; see scmDirectives) */
+export function scmSelfNesting(scm: string): boolean {
+  return scmDirectives(scm).some((d) => d.name === "selfNesting");
+}
 export function parseScmPatterns(scm: string): ScmPattern[] {
   return splitPatterns(scm).map((pattern, index) => {
     // comments and string literals both go: only real syntax names a root, a capture or a
@@ -323,6 +449,7 @@ export function queryFor(
       );
     }
     assertPatternCount(language, scm, query.patternCount());
+    assertScmDirectives(scm, language);
     validatePatternOrder(language, scm);
     const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
     if (unknown.length > 0) {
@@ -450,7 +577,7 @@ function selfNestingOf(options: ResolveOptions): boolean {
   return options.selfNesting === true;
 }
 
-/** Does the outer candidate hide the inner one? (policy table + manifest overrides; ordered) */
+/** Does the outer candidate hide the inner one? (policy table + .scm #set! facts; ordered) */
 function hides(outer: Candidate, inner: Candidate, options: ResolveOptions): boolean {
   // lane captures travel intact: the materializer counts them internal and keeps runs whole
   if (LANES.has(inner.capture)) return false;

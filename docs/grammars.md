@@ -42,8 +42,8 @@ and its source. Captures:
 | `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                                    | `comments`                                                     |
 | `docstring` | python's docstring convention - PLUMBING, not a shared noun (projects into the comment element; grammar-side vocabulary, like @name) | `comments` (projected as a comment element with `docstringOf`) |
 
-What a capture's interior yields is the per-capture policy table (`query.ts`), overridable per
-grammar in its manifest. Targets are rule-side vocabulary: a rule names a target, the walk lands
+What a capture's interior yields is the per-capture policy table (`query.ts`); a grammar-level
+shape change is a #set! directive in its .scm. Targets are rule-side vocabulary: a rule names a target, the walk lands
 it on elements. The `files` target skips the walk — the whole file is the judged subject.
 
 Which constructs have no honest capture yet (prose, code blocks, struct fields) is recorded per grammar in `queries.scm` comments and in the design doc's

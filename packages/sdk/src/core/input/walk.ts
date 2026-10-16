@@ -31,6 +31,7 @@ import {
   spanOf,
   type Candidate,
   type Capture,
+  scmSelfNesting,
 } from "./query.ts";
 
 export { grammarExtensions, knownLanguages, languageOf };
@@ -377,15 +378,11 @@ export async function decompose(source: string, language: string): Promise<Inven
   // an empty inventory would report success on an unmeasured file
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
-  // SHAPE DIRECTIVES: read syntactically from the .scm (same parser discipline as
-  // emittedCaptures - comment lines stripped, no second channel). #set! "selfNesting" lets
-  // same-capture candidates nest (markdown's sections); absence keeps the tail-absorb default.
-  const selfNesting = /#\s*set!\s*"selfNesting"/.test(
-    entry.queries
-      .split("\n")
-      .filter((line) => !line.trimStart().startsWith(";"))
-      .join("\n"),
-  );
+  // SHAPE DIRECTIVES: read syntactically from the .scm through the SHARED reader (strings blanked,
+  // then comments cut - a trailing comment or a predicate string cannot fake a directive). #set!
+  // "selfNesting" lets same-capture candidates nest (markdown's sections); absence keeps the
+  // tail-absorb default.
+  const selfNesting = scmSelfNesting(entry.queries);
   const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
   const { definitions, comments, imports } = materialize(candidates, language);
   return {

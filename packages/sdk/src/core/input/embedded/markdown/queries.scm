@@ -17,7 +17,9 @@
 ;
 ; PROSE: the paragraph (flat - paragraphs never nest; the pattern has no #set! directive and the
 ; policy table's shape keeps them flat) is the second md-only capture, addressed as
-; markdown:paragraph.
+; markdown:paragraph. The section CARRIER requires an atx_heading: tree-sitter-markdown wraps
+; content BEFORE the first heading in a headingless section - matching it would surface preamble
+; (logo HTML blocks) as nameless elements; headingless sections match nothing (honest absence).
 ;
 ; STILL WAITING on vocabulary growth (the design's ledger; retired stretches from the trial):
 ; - code-block (fenced_code_block, indented_code_block): the trial's worst stretch (function);
@@ -29,7 +31,7 @@
 
 (section (atx_heading (inline) @name)) @section
 
-((section) @section
+((section . (atx_heading) .) @section
   (#set! "selfNesting"))
 
 (paragraph) @paragraph

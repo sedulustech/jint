@@ -1,9 +1,10 @@
+import { describe, expect, test } from "bun:test";
 /**
  * The query runtime's conflict resolution, over plain structural nodes (no grammar needed):
  * same-node double capture resolves by pattern order; same-capture nesting keeps the outer;
  * different-capture overlap is legal; capture-vocabulary validation is loud.
  */
-import { describe, expect, test } from "bun:test";
+import { assertScmDirectives, scmSelfNesting } from "./query.ts";
 import {
   RESERVED_CAPTURES,
   assertPatternCount,
@@ -169,5 +170,29 @@ describe("validatePatternOrder", () => {
     const scm =
       "; @priority: deliberate order\n(bar_declaration) @function\n(bar_declaration) @binding ; @priority\n";
     expect(() => validatePatternOrder("probe", scm)).not.toThrow();
+  });
+});
+
+describe("scm directive reading (the shared .scm discipline)", () => {
+  test("a real directive is found; trailing comments and predicate strings cannot fake it", () => {
+    expect(scmSelfNesting('((section) @section (#set! "selfNesting"))')).toBe(true);
+    // trailing comment: prose, not a directive
+    expect(scmSelfNesting('(paragraph) @paragraph ; #set! "selfNesting"')).toBe(false);
+    // predicate string: a mention, not a directive
+    expect(scmSelfNesting('(#match? @x "#set! \"selfNesting\"")')).toBe(false);
+  });
+
+  test("malformed or unknown #set forms are loud, naming the line", () => {
+    expect(() => assertScmDirectives('(a) @a #set "x"', "g")).toThrow(/#set" is malformed/);
+    expect(() => assertScmDirectives("(a) @a #set!", "g")).toThrow(
+      /missing its quoted directive name/,
+    );
+    expect(() => assertScmDirectives('(a) @a (#set! "nesting")', "g")).toThrow(
+      /unknown directive \"nesting\"/,
+    );
+    // no throw: known directive, and unknown predicate forms stay tree-sitter's business
+    expect(() =>
+      assertScmDirectives('(a) @a (#eq? @x "y") (#set! "selfNesting")', "g"),
+    ).not.toThrow();
   });
 });

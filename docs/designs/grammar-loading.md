@@ -250,7 +250,7 @@ truth; the parity README holds the verdicts):
 | cpp              | c plus classes, methods, template absorb                                                                              | field, using/alias declarations; namespace is transit                           |
 | php              | functions (named + closures - nameless functions are still functions), methods, types, bindings (universal name node) | include/require, property (field), per-alias import split                       |
 | css              | comments only - decided policy                                                                                        | selector-rule, declaration-pair, @-statements (incl. imports: not code imports) |
-| markdown         | sections (@type, selfNesting; heading text as name)                                                                   | prose, code-block, link_reference_definition; inline grammar parked             |
+| markdown         | sections (@section, selfNesting per #set!; heading text as name) and paragraphs (@paragraph, flat)                    | code-block, link_reference_definition; inline grammar parked                    |
 | verilog          | REMOVED from the embedded grammars (2026-10-15) - the user grammar dir is its home                                    | (its whole ledger went with it)                                                 |
 
 ## Rejections

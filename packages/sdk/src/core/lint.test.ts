@@ -6,6 +6,7 @@ import { ruleTargets } from "@jint/contract";
 import { compileRule, emittedCaptures } from "../config/load.ts";
 import { grammar } from "../core/input/grammars.ts";
 import { ELEMENT_CAPTURES } from "../core/input/query.ts";
+import { scmCode } from "./input/query.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
 import {
@@ -834,7 +835,9 @@ describe("lint", () => {
     // matching, not vocabulary. Pin: every element capture named on a predicate line of the
     // typescript .scm is in the derived emitted set.
     const scm = grammar("typescript").queries;
-    const predicateLines = scm.split("\n").filter((l) => l.includes("(#"));
+    const predicateLines = scmCode(scm)
+      .split("\n")
+      .filter((l) => l.includes("(#"));
     expect(predicateLines.length).toBeGreaterThan(0);
     const emitted = new Set(emittedCaptures("typescript"));
     for (const line of predicateLines) {

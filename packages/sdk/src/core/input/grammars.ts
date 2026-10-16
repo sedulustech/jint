@@ -1,13 +1,13 @@
 /**
  * The grammar registry: which languages exist, which wasm serves each parse, which .scm turns its
- * tree into elements. Embedded grammars are NOT special: each embedded/<lang>/ directory carries
- * the same three artifacts a user grammar dir holds — <lang>.wasm (parse), extensions.json (facts:
- * extensions.json), queries.scm (extraction patterns + shape directives) — and registers through
- * the same shape a user grammar uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default
- * ~/.jint/grammars) registers at lint start: a user wasm wins over embedded for the same language,
- * and a queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override
- * without a parse override). The registry table is ONE LINE per grammar; the dirs stay pure data,
- * so the custom-grammar seam and the embedded grammars are the same shape.
+ * tree into elements. Embedded grammars are NOT special: each embedded/<id>/ directory carries the
+ * same three artifacts a user grammar dir holds — <id>.wasm (parse), extensions.json (routing:
+ * queries.scm (extraction + shape directives) — and registers through the same shape a user grammar
+ * uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default ~/.jint/grammars) registers at
+ * lint start: a user wasm wins over embedded for the same language, and a
+ * queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override without a
+ * parse override). The registry table is ONE LINE per grammar; the dirs stay pure data, so the
+ * custom-grammar seam and the embedded grammars are the same shape.
  *
  * Grammar dir shape: <lang>.wasm - the tree-sitter grammar (absent: shadow an embedded grammar)
  * extensions.json - facts only: [".ts"] - queries.scm - tree-sitter query patterns assigning jint
@@ -280,7 +280,9 @@ function readExtensions(grammarId: string, text: string): string[] {
       `invalid extensions.json for grammar ${grammarId}: must be a non-empty array of dot-prefixed extensions (e.g. [".md"])`,
     );
   }
-  return (raw as string[]).map((x) => x.slice(1));
+  // lowercased HERE, not at routing: ".TS" must not register a key languageOf (which lowercases
+  // paths) can never hit - a silently unroutable extension is the failure shape we refuse
+  return (raw as string[]).map((x) => x.slice(1).toLowerCase());
 }
 
 /**
@@ -299,20 +301,18 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
       `grammar ${grammarId}: ${wasmPath} is not a valid wasm module - the wasm must be a tree-sitter grammar whose export is tree_sitter_${grammarId}`,
     );
   }
-  const exported = WebAssembly.Module.exports(mod)
-    .map((e) => e.name)
-    .find((n) => /^tree_sitter_[A-Za-z0-9_]+$/.test(n));
-  if (exported === undefined) {
+  // EXACT lookup, never first-match: multi-export wasms (tree-sitter-typescript ships tsx AND
+  // typescript functions) make .find() order-dependent - the dir asks for one specific language.
+  const expected = "tree_sitter_" + grammarId;
+  const exported = WebAssembly.Module.exports(mod).map((e) => e.name);
+  const found = exported.filter((n) => /^tree_sitter_[A-Za-z0-9_]+$/.test(n));
+  if (!exported.includes(expected)) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `grammar ${grammarId}: ${wasmPath} exports no tree_sitter_* language function - not a tree-sitter grammar wasm`,
-    );
-  }
-  const wasmName = exported.replace(/^tree_sitter_/, "");
-  if (wasmName !== grammarId) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      `grammar dir "${grammarId}" holds a wasm whose language function is "${exported}" - the directory name and the wasm disagree (a copy-paste?); rename the dir to "${wasmName}" or ship the right wasm`,
+      `grammar dir "${grammarId}" holds a wasm that does not export "${expected}"` +
+        (found.length > 0
+          ? ` (it exports: ${found.join(", ")}) - the directory name and the wasm disagree (a copy-paste?); rename the dir or ship the right wasm`
+          : ` - not a tree-sitter grammar wasm`),
     );
   }
 }

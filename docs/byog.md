@@ -39,7 +39,7 @@ emitted set (e.g. `markdown emits: section`), even when that grammar's files nev
 Registration happens at lint start. A user wasm wins over an embedded grammar of the same
 language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The frozen
 capture vocabulary is the contract: the seam accepts ANY grammar, but only jint's ontology —
-`function, method, class, type, binding, comment, import, docstring`. Your .scm decides which of
+`function, method, class, type, binding, comment, import, docstring`, plus the grammar-autonomous captures a grammar's own .scm declares (markdown: section, paragraph). Your .scm decides which of
 your grammar's node types speak as which capture; the rules, the target table
 (docs/targets.md), and every default rule then work on your language unchanged.
 
@@ -52,6 +52,10 @@ Everything fails loud, at setup, before any file is measured — never into sile
 - **Unknown captures**: a capture outside the vocabulary. The run refuses to start and prints
   your captures next to the seven code nouns plus docstring — an .scm that captures outside the ontology would
   parse into elements no rule can address, so it is a config error by name.
+- **Malformed or unknown #set! directives**: a `#set` without the bang, a `#set!` with no quoted
+  name, or a `#set! "unknown"` naming no known directive is a setup error naming the line - a
+  directive that silently no-ops is a false belief about your own extraction. Known today:
+  `selfNesting`. Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business.
 - **Pattern-order conflicts**: two patterns assigning different captures to the same root node
   type. Pattern order is priority (the earlier pattern wins), so the validator requires every
   pattern in a conflicting group to state its intent with a `; @priority` comment — reordering
@@ -291,3 +295,8 @@ asynchronous vs synchronous) until healthy blocks read clean. Write -> probe hea
 defective -> reword. Thresholds are the last knob, moved only when two languages' gaps agree
 (the AGENTS.md calibration doctrine); wording is the first, moved every time a healthy fixture
 scores above your gut.
+
+## Open questions
+
+- Extension collisions across grammars resolve silent first-wins (registration order); a loud
+  collision error is the candidate fix if a real dir ever trips it.

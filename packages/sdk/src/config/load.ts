@@ -11,7 +11,7 @@ import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { grammar, knownLanguages } from "../core/input/grammars.ts";
-import { ELEMENT_CAPTURES } from "../core/input/query.ts";
+import { ELEMENT_CAPTURES, scmCode } from "../core/input/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -68,10 +68,10 @@ const SHARED_TARGETS = new Set([
  * first: prose naming a capture does not emit it.
  */
 export function emittedCaptures(grammarId: string): readonly string[] {
-  const scm = grammar(grammarId)
-    .queries.split("\n")
-    .filter((line) => !line.trimStart().startsWith(";"))
-    .join("\n");
+  // the SHARED .scm reader: strings blanked, then comments cut - a capture named in a trailing
+  // comment or a predicate string is prose, not an emitted fact (an address must never validate
+  // against a capture the grammar would not actually extract)
+  const scm = scmCode(grammar(grammarId).queries);
   const named = new Set([...scm.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)].map((m) => m[1]!));
   return ELEMENT_CAPTURES.filter((c) => named.has(c));
 }

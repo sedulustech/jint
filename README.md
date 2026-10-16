@@ -154,9 +154,9 @@ The authoritative list of default rules lives in [`packages/defaults/src/index.t
 
 ### Custom grammars
 
-Any tree-sitter grammar works through the bring-your-own-grammar seam: three artifacts -
-`<lang>.wasm`, `<lang>.manifest.json`, `queries.scm` - flat in the grammar dir (`~/.jint/grammars`,
-or what `JINT_GRAMMAR_DIR` points to; one grammar per dir). The queries assign the shared capture
+Any tree-sitter grammar works through the bring-your-own-grammar seam: one directory named
+for the grammar id, holding three artifacts - `<id>.wasm`, `extensions.json`, `queries.scm` - under
+`~/.jint/grammars` (or what `JINT_GRAMMAR_DIR` points to). The queries assign the shared capture
 vocabulary (`@function`, `@class`, `@type`, ...), so every rule target works on your language the
 moment the queries speak it. The full contract, validation errors, and a worked verilog example:
 docs/byog.md.

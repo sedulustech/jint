@@ -96,7 +96,7 @@ describe("loadUserGrammars", () => {
   test("THE COPY-PASTE GUARD: a wasm whose export disagrees with the dir name errors naming both", async () => {
     const dir = scratchDir(await markdownDir("notmarkdown"));
     await expect(loadUserGrammars(dir)).rejects.toThrow(
-      /grammar dir "notmarkdown" holds a wasm whose language function is "tree_sitter_markdown"/,
+      /grammar dir "notmarkdown" holds a wasm that does not export "tree_sitter_notmarkdown" \(it exports: tree_sitter_markdown\)/,
     );
   });
 
@@ -112,7 +112,7 @@ describe("one grammar per dir", () => {
   test("each subdirectory is one grammar; a second dir holding the wrong wasm trips the guard", async () => {
     const dir = scratchDir({ ...(await markdownDir("markdown")), ...(await markdownDir("other")) });
     // "other" holds the markdown wasm - the copy-paste guard fires on the second registration
-    await expect(loadUserGrammars(dir)).rejects.toThrow(/holds a wasm whose language function/);
+    await expect(loadUserGrammars(dir)).rejects.toThrow(/does not export "tree_sitter_other"/);
   });
 
   test("a loose file at the grammar-dir root yields one coverage note, not silence", async () => {

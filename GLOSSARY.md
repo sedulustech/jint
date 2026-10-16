@@ -30,9 +30,9 @@ measurement its handle judged actionable and is the only output that demands act
   section (prose's container-with-body; the BYOG precedent) — and the @name capture that renders a
   definition's name. A query capturing outside the set fails the run at setup. `test` is
   RESERVED (a valid token no grammar emits yet, held for the test noun).
-- **sameCaptureNesting** — a grammar manifest fact: same-capture candidates nest legitimately
-  (markdown's sections). Default false: a same-capture match inside an existing same-capture
-  element reads as a wrapper's payload and collapses into it (the policy table in query.ts).
+- **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
+  (markdown's sections). Absent: a same-capture match inside an existing same-capture
+  element reads as a wrapper's payload and collapses into it unless the tail distance is real (the policy table in query.ts).
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
