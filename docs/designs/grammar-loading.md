@@ -133,6 +133,20 @@ noun is positional, not nominal; expressed as a context query over the class bod
 (method_declaration), cpp (field_declaration-priority member functions plus out-of-line
 qualified definitions). Interfaces, structs, enums, aliases, modules, sections stay @type.
 
+#### Markdown sections capture @section; module docstrings are loose comments; no engine prefix (2026-10-16, owner decisions)
+
+- MD SECTIONS: the section -> @type stretch (the trial's "one defensible mapping") is REVERSED -
+  a code noun lying about prose is worse than grammar-autonomous vocabulary. Sections capture
+  @section, a markdown-only ELEMENT CAPTURE: the seven shared nouns stay seven, the shared target
+  union is untouched, and sections are reachable only through the capture address (target
+  "section" - the targeting backdoor, now real in matchesTarget). Consequence: code-calibrated
+  default rules stop measuring markdown prose; only file-scope rules and comments remain for md.
+- MODULE DOCSTRINGS: routed to loose-comments - no definition owns them, so they are commentary
+  like any other unowned run (the "speaks for itself" special case is deleted).
+- KIND SENTENCE: the engine no longer prefixes "This unit is a <kind>." to questions - the
+  state's path/extension say what the unit is and rule authors self-describe (the prefix lied for
+  md sections).
+
 #### Verilog removed from the embedded grammars (2026-10-15, owner decision)
 
 Verilog is OUT of the embedded set (nine grammars now; 022bc14 landed its container patterns and

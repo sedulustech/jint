@@ -136,6 +136,8 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
   "class",
   "type",
   "binding",
+  // markdown's grammar-autonomous container-with-body (the @section capture)
+  "section",
 ]);
 
 /**
@@ -404,6 +406,8 @@ export function projectElement(element: InventoryElement): Element {
       return { kind: "method", ...base, name: element.name };
     case "class":
       return { kind: "class", ...base, name: element.name };
+    case "section":
+      return { kind: "section", ...base, name: element.name };
     default: {
       // Unreachable with the frozen vocabulary; a loud internal error, never a silent projection.
       throw new InternalError(

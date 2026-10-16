@@ -46,6 +46,9 @@ export const ELEMENT_CAPTURES = [
   "comment",
   "import",
   "docstring",
+  // markdown-only element capture (the BYOG precedent for grammar-autonomous vocabulary): a
+  // section is prose's container-with-body - never a code noun, and no shared target addresses it.
+  "section",
 ] as const;
 export type Capture = (typeof ELEMENT_CAPTURES)[number];
 
@@ -77,6 +80,9 @@ const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly o
     // class: type's shape (show-through interior - its methods surface as elements)
     class: { absorbTail: 2, opaque: false },
     type: { absorbTail: 2, opaque: false },
+    // section: type's shape (markdown's container-with-body; the manifest's selfNesting lets
+    // sections nest) - show-through interior, no absorb
+    section: { absorbTail: 2, opaque: false },
     binding: { absorbTail: 2, opaque: true },
     // lanes: never containers of elements; the lanes themselves never hide
     comment: { absorbTail: 0, opaque: false },

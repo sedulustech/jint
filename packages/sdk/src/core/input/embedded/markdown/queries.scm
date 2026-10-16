@@ -1,10 +1,12 @@
 ; markdown: extraction patterns over tree-sitter-markdown 0.5.3 (block grammar; `inline`
 ; parses as empty external stubs and is transit anyway).
 ;
-; Under the frozen five, exactly ONE honest capture exists: the section. A heading plus
-; everything under it is markdown's only container-with-body; section -> @type is the trial's
-; one defensible mapping. Its name is its heading text (atx_heading > inline) - a real
-; name, not an identifier hunt; the reference walker rendered sections nameless.
+; ONE honest capture exists: the section. A heading plus everything under it is markdown's only
+; container-with-body; it captures @section - markdown's OWN element capture, not a shared noun
+; (the @type stretch was reversed, owner decision: a code noun lying about prose is worse than a
+; grammar-autonomous capture; see the design's dated decision). Its name is its heading text
+; (atx_heading > inline) - a real name, not an identifier hunt. Rules address sections through
+; the capture address (target "section"), never a shared target noun.
 ;
 ; WAITING on vocabulary growth (the design's ledger; retired stretches from the trial):
 ; - prose (paragraph, setext_heading, block_quote, html_block): the trial stretched them to
@@ -17,5 +19,5 @@
 ; - list, list_item, pipe_table*, thematic_break, atx_heading: transit under every mapping so
 ;   far - none is a judged unit under any noun, and a table row judged alone is noise.
 
-(section (atx_heading (inline) @name)) @type
-(section) @type
+(section (atx_heading (inline) @name)) @section
+(section) @section

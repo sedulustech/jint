@@ -40,6 +40,11 @@ export const ELEMENT_SCHEMA = Type.Union([
   }),
   Type.Object({ kind: Type.Literal("import"), ...ELEMENT_BASE }),
   Type.Object({
+    kind: Type.Literal("section"),
+    ...ELEMENT_BASE,
+    name: Type.Optional(Type.String()),
+  }),
+  Type.Object({
     kind: Type.Literal("comment"),
     ...ELEMENT_BASE,
     docstringOf: Type.Optional(

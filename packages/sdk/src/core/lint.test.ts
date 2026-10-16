@@ -729,6 +729,64 @@ describe("lint", () => {
     expect(noulFindings[0]!.finding.note).toBe("File-scope smell - see the rubric docs.");
   });
 
+  test("the capture address: target 'section' judges a README section; shared targets do not", async () => {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-section-test.md";
+    await Bun.write(file, "# Head\n\nsome prose under the heading\n");
+    try {
+      const sectionRule = mkRule("noul", {
+        name: "probe_section",
+        target: "section" as never, // the capture address: grammar-autonomous vocabulary
+        handle: { warn: { greater_than: 0.9 } },
+      });
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [sectionRule], input: file },
+          classifier: loggingClassifier({ probe_section: 0.95 }, { calls: [] }),
+        }),
+      );
+      // the section element was selected, judged, and carries the section kind
+      expect(report.measurements).toHaveLength(1);
+      expect(report.measurements[0]!.element?.kind).toBe("section");
+      expect(report.findings).toHaveLength(1);
+      expect(report.findings[0]!.rule).toBe("probe_section");
+      // the shared nouns do not reach it: 'types' matches nothing on this file now
+      const typeProbe = mkRule("noul", { name: "probe_types", target: "types" });
+      const empty = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [typeProbe], input: file },
+          classifier: loggingClassifier({ probe_types: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(empty.measurements).toHaveLength(0);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  test("module docstrings are loose comments - no definition owns them", async () => {
+    const pyRule = mkRule("noul", {
+      name: "probe_py_loose",
+      target: "loose-comments",
+      handle: { warn: { greater_than: 0.9 } },
+    });
+    const modDoc = "tmp/lint-mod-doc-test.py";
+    await Bun.write(modDoc, '"""Module docs."""\n\ndef f():\n    pass\n');
+    try {
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [pyRule], input: modDoc },
+          classifier: loggingClassifier({ probe_py_loose: 0.95 }, { calls: [] }),
+        }),
+      );
+      // the module docstring fires the loose-comments rule (it used to route to 'comments')
+      expect(report.findings).toHaveLength(1);
+      expect(report.findings[0]!.rule).toBe("probe_py_loose");
+    } finally {
+      rmSync(modDoc, { force: true });
+    }
+  });
+
   test("report.rules: every rule that ran, self-described (criteria + compiled tiers)", async () => {
     // a config-authored custom rule runs alongside the JSON-tier probe set
     const custom = {
@@ -1001,10 +1059,10 @@ describe("lint", () => {
       ]),
     );
     // good.ts contributes its binding/function AND its documented binding (the attached comment
-    // rides the pair frame, one identity), plus README.md's section
-    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(3);
-    for (const i of inputs)
-      if (i.includes("#")) expect(i).toMatch(/^(good\.ts|README\.md)#[0-9a-f-]{36}$/);
+    // rides the pair frame, one identity). README.md's section is @section - no shared target
+    // addresses it, so no default probe measures it (the capture backdoor is the only road).
+    expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
+    for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>

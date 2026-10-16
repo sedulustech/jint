@@ -101,6 +101,11 @@
                         "type": "string"
                       },
                       {
+                        "pattern": "^[a-z][a-z0-9_-]*$",
+                        "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                        "type": "string"
+                      },
+                      {
                         "type": "array",
                         "items": {
                           "anyOf": [
@@ -142,6 +147,11 @@
                             },
                             {
                               "const": "imports",
+                              "type": "string"
+                            },
+                            {
+                              "pattern": "^[a-z][a-z0-9_-]*$",
+                              "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
                               "type": "string"
                             }
                           ]
@@ -376,6 +386,11 @@
                         "type": "string"
                       },
                       {
+                        "pattern": "^[a-z][a-z0-9_-]*$",
+                        "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                        "type": "string"
+                      },
+                      {
                         "type": "array",
                         "items": {
                           "anyOf": [
@@ -417,6 +432,11 @@
                             },
                             {
                               "const": "imports",
+                              "type": "string"
+                            },
+                            {
+                              "pattern": "^[a-z][a-z0-9_-]*$",
+                              "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
                               "type": "string"
                             }
                           ]

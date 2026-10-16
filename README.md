@@ -118,9 +118,24 @@ export default {
 
 Full table: docs/targets.md (generated from the live resolution).
 
+Handles carry an optional per-tier `message` - an instruction to the caller fixing the finding:
+severity says whether, message says how. In the declarative form it sits beside the threshold; it
+renders beneath the finding line and rides the report as `finding.message`.
+
+```jsonc
+// a noul rule's handle with author guidance on the error tier only
+"handle": {
+  "warn":  { "greater_than": 0.55 },
+  "error": {
+    "greater_than": 0.7,
+    "message": "Delete the comment if it only pins a name. Keep it only if it teaches something the code cannot."
+  }
+}
+```
+
 A TS config rule may also carry a callback `handle: (results, ctx) => decisions`, called once after
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
-`null` severity is silent (measurement only). The optional `message` is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as `finding.message`.
+`null` severity is silent (measurement only).
 
 #### Default rules
 
@@ -132,6 +147,15 @@ Omitting `target` on an override keeps the default rule's own target.
 Treat default rules as a starting point and tune once you understand how `jint` works and have your own rules to enforce.
 
 The authoritative list of default rules lives in [`packages/defaults/src/index.ts`](packages/defaults/src/index.ts).
+
+### Custom grammars
+
+Any tree-sitter grammar works through the bring-your-own-grammar seam: three artifacts -
+`<lang>.wasm`, `<lang>.manifest.json`, `queries.scm` - flat in the grammar dir (`~/.jint/grammars`,
+or what `JINT_GRAMMAR_DIR` points to; one grammar per dir). The queries assign the shared capture
+vocabulary (`@function`, `@class`, `@type`, ...), so every rule target works on your language the
+moment the queries speak it. The full contract, validation errors, and a worked verilog example:
+docs/byog.md.
 
 ## UI
 

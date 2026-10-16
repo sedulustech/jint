@@ -255,13 +255,16 @@ export function matchesTarget(target: string, element: TargetableElement): boole
       // the PAIR frame: a definition judged together with the comments it owns (attached run,
       // internal notes, docstrings - the frame carries code + comment). Owned comment ELEMENTS
       // never match separately - that would judge the same comment twice (narration fires once
-      // per documented definition). A module docstring has no definition frame, so its element
-      // speaks for it.
-      return ownsComments || (isCommentElement && element.docstringOf?.kind === "module");
+      // per documented definition).
+      return ownsComments;
     case "loose-comments":
       // the complement: a comment element NO definition owns (standalone runs, inline comments
-      // outside any definition). Disjoint from comments and jointly exhaustive over comment text.
-      return isCommentElement && element.docstringOf === undefined;
+      // outside any definition, and the module docstring - no definition owns it either).
+      // Disjoint from comments and jointly exhaustive over comment text.
+      return (
+        isCommentElement &&
+        (element.docstringOf === undefined || element.docstringOf.kind === "module")
+      );
     case "functions":
       return element.capture === "function";
     case "classes":
@@ -273,13 +276,23 @@ export function matchesTarget(target: string, element: TargetableElement): boole
     case "bindings":
       return element.capture === "binding";
     case "definitions":
-      // the umbrella shorthand: every definition capture at once. New rules prefer the specific
-      // targets (functions/classes/methods/types/bindings) - the shorthand stays for old rules.
-      return !isCommentElement && element.capture !== "import";
+      // the umbrella shorthand: the SHARED definition captures at once. New rules prefer the
+      // specific targets - the shorthand stays for old rules. Grammar-autonomous captures
+      // (markdown's @section) are NOT definitions: no code-calibrated default measures them.
+      return (
+        element.capture === "function" ||
+        element.capture === "method" ||
+        element.capture === "class" ||
+        element.capture === "type" ||
+        element.capture === "binding"
+      );
     case "imports":
       return element.capture === "import";
     default:
-      return false;
+      // THE CAPTURE ADDRESS (the targeting backdoor): a target naming a capture addresses that
+      // capture directly - grammar-autonomous vocabulary (markdown's "section") is reachable
+      // without growing the shared target union. A shared noun never falls through to here.
+      return element.capture === target;
   }
 }
 

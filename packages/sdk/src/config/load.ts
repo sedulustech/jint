@@ -33,6 +33,14 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
+// A capture address: a plain capture name addressing grammar-autonomous vocabulary directly
+// (markdown's "section") - the targeting backdoor for captures no shared target noun covers.
+const CAPTURE_ADDRESS_SCHEMA = Type.String({
+  pattern: "^[a-z][a-z0-9_-]*$",
+  description:
+    "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+});
+
 const TARGET_SCHEMA = Type.Union([
   Type.Literal("files"),
   Type.Literal("functions"),
@@ -44,6 +52,7 @@ const TARGET_SCHEMA = Type.Union([
   Type.Literal("comments"),
   Type.Literal("loose-comments"),
   Type.Literal("imports"),
+  CAPTURE_ADDRESS_SCHEMA,
   // the explicit list: the defaults use it (identical behavior to the old definitions shorthand)
   Type.Array(
     Type.Union([
@@ -57,6 +66,7 @@ const TARGET_SCHEMA = Type.Union([
       Type.Literal("comments"),
       Type.Literal("loose-comments"),
       Type.Literal("imports"),
+      CAPTURE_ADDRESS_SCHEMA,
     ]),
   ),
 ]);
@@ -474,7 +484,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
       name: entry.name,
       instructions: entry.instructions,
       criteria: entry.criteria,
-      target: entry.target,
+      target: entry.target as Rule["target"],
       handle,
       handleData: handleSnapshot,
       ...scope,
@@ -485,7 +495,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     kind: "choice",
     criteria: entry.criteria as [string, string, ...string[]],
     instructions: (entry as { instructions: string }).instructions,
-    target: entry.target,
+    target: entry.target as Rule["target"],
     handle,
     handleData: handleSnapshot,
     ...scope,

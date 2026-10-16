@@ -18,7 +18,7 @@ the one .scm). docs/byog.md is the contract plus a full verilog worked example.
 | `c`          | `.c`, `.h`                          | function definitions and prototypes, struct/union/enum/typedef, declarations, includes, comments                                                                                                                                                      |
 | `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes (`@class`, templates absorbed), methods (`@method`: in-class prototypes/definitions and out-of-line `K::f` definitions)                                                                                                     |
 | `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
-| `markdown`   | `.md`                               | sections (`@type`, heading text as name; sections nest)                                                                                                                                                                                               |
+| `markdown`   | `.md`                               | sections (`@section`, markdown's own capture - addressed by the capture address `section`; heading text as name; sections nest)                                                                                                                       |
 | `php`        | `.php`                              | functions (named + closures: `fn`/anonymous, an assigned closure keeping one element with the function noun), methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)    |
 
 `.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:
@@ -30,16 +30,16 @@ The walk turns one parsed file into its inventory. Each element carries a captur
 positional label (`d0`, `c2`, `i0`), an optional declared name (render-only), its parent label,
 and its source. Captures:
 
-| capture     | element                                                                                                            | target                                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `function`  | named free functions, prototypes, and test call composites                                                         | `functions`                                                    |
-| `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes) | `methods`                                                      |
-| `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                        | `classes`                                                      |
-| `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs, markdown sections                           | `types` (and the `definitions` umbrella)                       |
-| `binding`   | a name bound to a non-callable, non-type value (declarations, assignments)                                         | `bindings` (and the `definitions` umbrella)                    |
-| `import`    | import statements/declarations (one merged element per file)                                                       | `imports`                                                      |
-| `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                  | `comments`                                                     |
-| `docstring` | a grammar's docstring convention (python string-in-block); owned by its enclosing definition                       | `comments` (projected as a comment element with `docstringOf`) |
+| capture     | element                                                                                                                              | target                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `function`  | named free functions, prototypes, and test call composites                                                                           | `functions`                                                    |
+| `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes)                   | `methods`                                                      |
+| `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                                          | `classes`                                                      |
+| `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs                                                                | `types` (and the `definitions` umbrella)                       |
+| `binding`   | a name bound to a non-callable, non-type value (declarations, assignments)                                                           | `bindings` (and the `definitions` umbrella)                    |
+| `import`    | import statements/declarations (one merged element per file)                                                                         | `imports`                                                      |
+| `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                                    | `comments`                                                     |
+| `docstring` | python's docstring convention - PLUMBING, not a shared noun (projects into the comment element; grammar-side vocabulary, like @name) | `comments` (projected as a comment element with `docstringOf`) |
 
 What a capture's interior yields is the per-capture policy table (`query.ts`), overridable per
 grammar in its manifest. Targets are rule-side vocabulary: a rule names a target, the walk lands

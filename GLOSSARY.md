@@ -23,11 +23,13 @@ measurement its handle judged actionable and is the only output that demands act
   one element; the plural addresses the group a rule targets. A capture name is an identity,
   never a label; the names are flat nouns — no dotted names at either layer, decided and final.
   Replaces role (the living collision).
-- **capture vocabulary** — the frozen set of captures the runtime knows: function, method,
-  class, type, binding, comment, import, docstring (a comment-kind capture: the grammar's
-  declared docstring convention, owned by its enclosing definition), plus the @name capture that
-  renders a definition's name — seven element nouns plus docstring and @name. A query capturing
-  outside the set fails the run at setup. `test` is RESERVED (a valid token no grammar emits yet, held for the test noun).
+- **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED NOUNS
+  (function, method, class, type, binding, comment, import) that every grammar addresses and the
+  target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
+  docstring convention (a comment-kind capture: owned by its enclosing definition) and markdown's
+  section (prose's container-with-body; the BYOG precedent) — and the @name capture that renders a
+  definition's name. A query capturing outside the set fails the run at setup. `test` is
+  RESERVED (a valid token no grammar emits yet, held for the test noun).
 - **sameCaptureNesting** — a grammar manifest fact: same-capture candidates nest legitimately
   (markdown's sections). Default false: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it (the policy table in query.ts).
@@ -104,8 +106,9 @@ measurement its handle judged actionable and is the only output that demands act
   lint, output) plus its public barrel. Same process as its caller — "SDK" says call-into-me;
   the retired synonym "engine" implied a separate runtime, which this layer never is.
 - **comments** — the rule target for DOCUMENTATION: the pair frame — a definition judged together
-  with the comments it owns (its attached run, its internal notes, its docstrings, and its code) —
-  plus a module-level docstring, which has no definition frame and speaks for itself. An owned
+  with the comments it owns (its attached run, its internal notes, its docstrings, and its code).
+  A module-level docstring has no definition frame either — it is loose commentary, like any other
+  unowned run. An owned
   comment element never matches separately, so a narration rule fires exactly once per documented
   definition. The name is deliberately shared with @comment in the sanctioned singular/plural
   split: the capture names ONE comment element, the target plural addresses the documentation

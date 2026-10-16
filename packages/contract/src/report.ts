@@ -67,6 +67,12 @@ export interface ImportElement extends ElementBase {
   readonly kind: "import";
 }
 
+/** A markdown section (the grammar-autonomous @section capture): a heading plus its body. */
+export interface SectionElement extends ElementBase {
+  readonly kind: "section";
+  readonly name?: string;
+}
+
 export interface CommentElement extends ElementBase {
   readonly kind: "comment";
   /** For a docstring element: the module/class/function it documents. */
@@ -86,7 +92,8 @@ export type Element =
   | TypeElement
   | BindingElement
   | ImportElement
-  | CommentElement;
+  | CommentElement
+  | SectionElement;
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score
