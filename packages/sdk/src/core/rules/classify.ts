@@ -5,9 +5,11 @@
  */
 
 import {
+  charsToTokens,
   decompose,
   fileElement,
   languageOf,
+  MAX_ELEMENT_TOKENS,
   projectElement,
   type Inventory,
   type InventoryElement,
@@ -696,7 +698,23 @@ export async function classifyFile(
   const state = unit.state;
   const events: ClassifyEvent[] = [];
 
-  if (await classifyWholeUnit(unit, rules, classifier, events))
+  // The FILE unit needs the same token backstop the elements have: file-scope rules send the
+  // whole content, and jev rejects over-budget requests with a 400 (the only red errors in the
+  // verilator-cpp sweep). One constant serves both sides - a token is a token to jev, and the
+  // criteria reserve the margin protects is the same shape for a files-rule batch as an element
+  // batch - so the file unit reuses MAX_ELEMENT_TOKENS rather than growing a second constant.
+  // Skips are a coverage note, never a 400; element rules still measure the file.
+  const fileOversized =
+    "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;
+  const fileOversizedNote =
+    fileOversized && wholeUnitRules(rules, state.path, unit.kind).length > 0
+      ? [
+          `file too large for file-scope rules - ${state.content.length} chars over the ${MAX_ELEMENT_TOKENS}-token backstop`,
+        ]
+      : [];
+  // the oversized-file note rides the same channel as the other coverage notes; the file-scope
+  // call is skipped entirely - no request is ever attempted for an over-cap file unit
+  if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events)))
     return { events, fatal: true, oversized: [], notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
@@ -709,7 +727,10 @@ export async function classifyFile(
   );
   collectWalkFailure(unit, walkedUnit, events, needsInventory);
 
-  const notes = scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind);
+  const notes = [
+    ...scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind),
+    ...fileOversizedNote,
+  ];
   const oversized = oversizedElements(walkedUnit.derived);
   if (isAborted()) return { events, fatal: false, oversized, notes };
   const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path);

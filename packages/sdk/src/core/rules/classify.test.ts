@@ -510,3 +510,53 @@ describe("selectElements - RANGE resolution: fully-enclosed only", () => {
     expect(selectElements(inventory, { start: 8, end: 90 })).toEqual([]);
   });
 });
+
+describe("classifyFile — the file-unit token backstop", () => {
+  test("a file over the cap skips its file-scope calls with a note; element rules still measure", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    // a line of padding that stays over the 120k-char (30k estimated tokens) backstop
+    const filler = "const pad = [" + "0,".repeat(60_000) + "];\n";
+    const elementRule = noulDefs; // definitions-target: still measures the file's elements
+    const calls: Unit[] = [];
+    const classifier = classifierWith({ probe_noul: 0.5 }, calls);
+    const { events, notes } = await classifyFile(
+      {
+        kind: "file",
+        state: {
+          path: "src/huge.ts",
+          content: filler + "export const tiny = 1;\n",
+          id: FILE_ID,
+        },
+      },
+      [noulFile, elementRule],
+      classifier,
+    );
+    // no request ever carried the file unit (file state = {content}); the one call out is the
+    // ELEMENT call - the file-scope call is skipped, not 400'd
+    expect(calls.filter((c) => "content" in c.state)).toHaveLength(0);
+    expect(calls).toHaveLength(1);
+    expect(notes).toContain(
+      `file too large for file-scope rules - ${filler.length + 23} chars over the 30000-token backstop`,
+    );
+    const classified = events.filter((e) => !(e.event instanceof ClassifyError));
+    expect(classified.length).toBeGreaterThan(0); // element rules still measured
+    expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
+  });
+
+  test("a file over the cap with NO file-scope rules measures normally, no note", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const filler = "const pad = [" + "0,".repeat(60_000) + "];\n";
+    const calls: Unit[] = [];
+    const classifier = classifierWith({ probe_defs: 0.5 }, calls);
+    const { notes } = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/huge2.ts", content: filler + "export const tiny = 1;\n", id: FILE_ID },
+      },
+      [noulDefs],
+      classifier,
+    );
+    expect(notes).not.toContain(expect.stringContaining("file too large for file-scope rules"));
+    expect(calls.length).toBeGreaterThan(0); // element calls went out
+  });
+});

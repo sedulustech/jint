@@ -253,10 +253,14 @@ test("oversized element: skipped with one named note per skip, siblings still ju
     const report = await collectReport(
       lint({ config: baseConfig, input: file, classifier: loggingClassifier({}, log) }),
     );
-    // named the way every element is named (path@L<line>, the finding anchor convention), with
-    // role + label + size; "skipped:" is the machine-matchable marker (notes are plain strings)
-    expect(report.notes).toHaveLength(1);
-    expect(report.notes[0]).toMatch(
+    // two notes: the oversized ELEMENT skip, plus the file-unit backstop note (the file carrying
+    // a >120k element is itself over the file backstop, so its file-scope rules skip too)
+    expect(report.notes).toHaveLength(2);
+    expect(report.notes.some((n) => n.startsWith("file too large for file-scope rules"))).toBe(
+      true,
+    );
+    const elementNote = report.notes.find((n) => !n.startsWith("file too large"))!;
+    expect(elementNote).toMatch(
       new RegExp(
         "^" + file + "@L1 skipped: function 'd0' — \\d+ chars \\(over the 30000-token cap\\)$",
       ),
