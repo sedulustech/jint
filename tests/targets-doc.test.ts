@@ -15,9 +15,20 @@ describe("docs/targets.md freshness", () => {
     expect(readFileSync(file, "utf8")).toBe(before);
   });
 
-  test("one row per target, no more, no fewer (6 vocabulary members)", () => {
+  test("one row per target, no more, no fewer (10 vocabulary members)", () => {
     const doc = readFileSync("docs/targets.md", "utf8");
-    const targets = ["files", "functions", "definitions", "comments", "loose-comments", "imports"];
+    const targets = [
+      "files",
+      "functions",
+      "classes",
+      "methods",
+      "types",
+      "bindings",
+      "definitions",
+      "comments",
+      "loose-comments",
+      "imports",
+    ];
     for (const target of targets) {
       expect(doc).toContain("| `" + target + "`");
     }

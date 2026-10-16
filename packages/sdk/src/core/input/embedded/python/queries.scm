@@ -12,13 +12,25 @@
 ; none either); a python binding noun needs the same callable-refinement evidence ts got.
 
 ; --- declarations ----------------------------------------------------------------------------
+; methods: the FIRST STRUCTURAL-CONTEXT capture - @method is captured positionally (a
+; function_definition sitting in a class body), not nominally (the node type alone is shared with
+; free functions). Pattern order makes the context capture win over the bare @function pattern
+; for the same node; a function nested INSIDE a method is suppressed by the method's opaque
+; interior (same-capture collapse), so only class-body methods surface. Undecorated methods are
+; anchored as DIRECT children of the class body; decorated ones are captured through their
+; decorated_definition wrapper (earlier than the bare @function wrapper pattern - priority), so
+; the method's own decorators travel with it.
+(class_definition name: (identifier) @name) @class ; @priority
+(class_definition body: (block (function_definition name: (identifier) @name) @method)) ; @priority
+(class_definition
+  body: (block (decorated_definition (function_definition name: (identifier) @name)) @method)) ; @priority
 (function_definition name: (identifier) @name) @function ; @priority
-(class_definition name: (identifier) @name) @type ; @priority
 
 ; ABSORB: decorated definitions (decorator prefixes travel with the element)
-; @priority: a decorated_definition is a function OR a class - never the same node
+; @priority: a decorated_definition is a function, a method, OR a class - the earlier context
+; pattern takes decorated methods; the remaining two never share a node
 (decorated_definition (function_definition name: (identifier) @name)) @function ; @priority
-(decorated_definition (class_definition name: (identifier) @name)) @type ; @priority
+(decorated_definition (class_definition name: (identifier) @name)) @class ; @priority
 
 ; --- imports ----------------------------------------------------------------------------------
 (import_statement) @import

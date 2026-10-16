@@ -36,9 +36,29 @@ const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 const TARGET_SCHEMA = Type.Union([
   Type.Literal("files"),
   Type.Literal("functions"),
+  Type.Literal("classes"),
+  Type.Literal("methods"),
+  Type.Literal("types"),
+  Type.Literal("bindings"),
   Type.Literal("definitions"),
   Type.Literal("comments"),
+  Type.Literal("loose-comments"),
   Type.Literal("imports"),
+  // the explicit list: the defaults use it (identical behavior to the old definitions shorthand)
+  Type.Array(
+    Type.Union([
+      Type.Literal("files"),
+      Type.Literal("functions"),
+      Type.Literal("classes"),
+      Type.Literal("methods"),
+      Type.Literal("types"),
+      Type.Literal("bindings"),
+      Type.Literal("definitions"),
+      Type.Literal("comments"),
+      Type.Literal("loose-comments"),
+      Type.Literal("imports"),
+    ]),
+  ),
 ]);
 
 // Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents

@@ -45,6 +45,18 @@ export interface TypeElement extends ElementBase {
   readonly name?: string;
 }
 
+/** A class-like unit (the @class capture): classes judged as classes. */
+export interface ClassElement extends ElementBase {
+  readonly kind: "class";
+  readonly name?: string;
+}
+
+/** A member function (the @method capture): a method of its class. */
+export interface MethodElement extends ElementBase {
+  readonly kind: "method";
+  readonly name?: string;
+}
+
 /** A name bound to a non-callable, non-type value. */
 export interface BindingElement extends ElementBase {
   readonly kind: "binding";
@@ -69,6 +81,8 @@ export interface CommentElement extends ElementBase {
 export type Element =
   | FileElement
   | FunctionElement
+  | ClassElement
+  | MethodElement
   | TypeElement
   | BindingElement
   | ImportElement

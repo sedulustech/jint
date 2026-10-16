@@ -42,6 +42,10 @@ export interface NoulHandlerData {
 export type RuleTarget =
   | "files"
   | "functions"
+  | "classes"
+  | "methods"
+  | "types"
+  | "bindings"
   | "definitions"
   | "comments"
   | "loose-comments"
@@ -57,6 +61,10 @@ export type RuleTarget =
 export const ruleTargets: readonly RuleTarget[] = [
   "files",
   "functions",
+  "classes",
+  "methods",
+  "types",
+  "bindings",
   "definitions",
   "comments",
   "loose-comments",

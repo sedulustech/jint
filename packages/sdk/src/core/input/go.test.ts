@@ -10,7 +10,7 @@ describe("decompose — go", () => {
     );
     expect(inv.definitions.map((d) => [d.capture, d.name])).toEqual([
       ["function", "Top"],
-      ["function", "Get"],
+      ["method", "Get"],
       ["type", "Config"],
     ]);
     expect(inv.definitions[1]!.parent).toBeUndefined();

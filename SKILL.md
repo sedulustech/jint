@@ -173,7 +173,7 @@ A live config example, serialized from real default specs (always the current wi
         "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
         "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
       ],
-      "target": "definitions",
+      "target": ["functions", "classes", "methods", "types", "bindings"],
       "handle": {
         "map": ["pass", "warn", "error"]
       }

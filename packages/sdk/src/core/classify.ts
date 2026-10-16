@@ -85,7 +85,9 @@ export async function classify(
   if (
     options.language === undefined &&
     languageOf(path) === null &&
-    rules.some((rule) => rule.target !== "files")
+    rules.some(
+      (rule) => !(Array.isArray(rule.target) ? rule.target : [rule.target]).includes("files"),
+    )
   ) {
     throw new SetupError(
       "MISSING_GRAMMAR",

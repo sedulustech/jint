@@ -15,7 +15,7 @@ declare module "jint:sdk" {
   export interface CustomElement {
     readonly id: string;
     readonly path: string;
-    readonly capture: "function" | "type" | "binding" | "import" | "comment";
+    readonly capture: "function" | "method" | "class" | "type" | "binding" | "import" | "comment";
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };
@@ -76,6 +76,10 @@ declare module "jint:sdk" {
     readonly kind?: "noul";
     readonly target:
       | "functions"
+      | "classes"
+      | "methods"
+      | "types"
+      | "bindings"
       | "definitions"
       | "comments"
       | "loose-comments"

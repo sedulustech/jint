@@ -17,10 +17,12 @@
 
 ; --- functions ---------------------------------------------------------------------------------
 (function_definition name: (name) @name) @function
-(method_declaration name: (name) @name) @function
+(method_declaration name: (name) @name) @method
 
 ; --- types --------------------------------------------------------------------------------------
-(class_declaration name: (name) @name) @type
+; @class is the named-class capture; interfaces, traits and enums stay @type. anonymous_class is
+; deliberately NOT judged (an expression, not a unit) - the trial's verdict stands.
+(class_declaration name: (name) @name) @class
 (interface_declaration name: (name) @name) @type
 (trait_declaration name: (name) @name) @type
 (enum_declaration name: (name) @name) @type

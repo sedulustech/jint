@@ -26,6 +26,12 @@ export const ELEMENT_SCHEMA = Type.Union([
     ...ELEMENT_BASE,
     name: Type.Optional(Type.String()),
   }),
+  Type.Object({ kind: Type.Literal("class"), ...ELEMENT_BASE, name: Type.Optional(Type.String()) }),
+  Type.Object({
+    kind: Type.Literal("method"),
+    ...ELEMENT_BASE,
+    name: Type.Optional(Type.String()),
+  }),
   Type.Object({ kind: Type.Literal("type"), ...ELEMENT_BASE, name: Type.Optional(Type.String()) }),
   Type.Object({
     kind: Type.Literal("binding"),

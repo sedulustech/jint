@@ -88,6 +88,10 @@ export interface CustomRule {
   readonly kind?: "noul";
   readonly target:
     | "functions"
+    | "classes"
+    | "methods"
+    | "types"
+    | "bindings"
     | "definitions"
     | "comments"
     | "loose-comments"
@@ -134,6 +138,10 @@ export interface TsConfig {
 /** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
 export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
   "functions",
+  "classes",
+  "methods",
+  "types",
+  "bindings",
   "definitions",
   "comments",
   "loose-comments",

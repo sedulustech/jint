@@ -51,7 +51,8 @@ for (const spec of defaultSpecs) {
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
     ["kind", isChoice ? "choice" : "noul"],
-    ["target", spec.target],
+    // targets render joined: the explicit list form (the defaults' union) is one cell
+    ["target", Array.isArray(spec.target) ? spec.target.join(", ") : String(spec.target)],
     ["handle", handle],
   ];
   const width = cells.map(([header, value]) => Math.max(header.length, value.length));
@@ -293,11 +294,48 @@ const rows: Row[] = [
     scope: "yes",
   },
   {
+    target: "classes",
+    namespace: CAPTURE,
+    singular: "class",
+    resolves: "elements captured as classes (the @class capture: class-like units)",
+    grammars: emitting("class"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "methods",
+    namespace: CAPTURE,
+    singular: "method",
+    resolves: "elements captured as methods (the @method capture: member functions)",
+    grammars: emitting("method"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "types",
+    namespace: CAPTURE,
+    singular: "type",
+    resolves: "elements captured as types (interfaces, structs, enums, aliases, sections)",
+    grammars: emitting("type"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "bindings",
+    namespace: CAPTURE,
+    singular: "binding",
+    resolves: "elements captured as bindings (a name bound to a value)",
+    grammars: emitting("binding"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
     target: "definitions",
     namespace: CAPTURE,
-    singular: "definition",
-    resolves: "every non-comment, non-import element",
-    grammars: emitting("function", "type", "binding"),
+    singular: "definition (umbrella)",
+    resolves:
+      "SHORTHAND for every definition capture at once (functions, classes, methods, types, bindings) - the same measured set; prefer the specific targets in new rules",
+    grammars: emitting("function", "method", "class", "type", "binding"),
     frame: "attached run + inline comments + code (the pair frame)",
     scope: "yes",
   },

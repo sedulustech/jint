@@ -142,10 +142,10 @@ function scopeSkipReason(target: string, element: WalkElement): string {
 function scopeSkipNote(path: string, element: WalkElement, rules: readonly Rule[]): string {
   const span = `L${element.span.start.line}-L${element.span.end.line}`;
   const mismatches = rules
-    .map(
-      (rule) =>
-        `${rule.name} measures ${rule.target} (${element.label} ${scopeSkipReason(rule.target, element)})`,
-    )
+    .map((rule) => {
+      const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+      return `${rule.name} measures ${targets.join(",")} (${element.label} ${scopeSkipReason(targets[0]!, element)})`;
+    })
     .join(", ");
   return `${path}: ${element.label} (${span}) not measured - no requested rule applies: ${mismatches}; zero classifier calls were made for this selection`;
 }

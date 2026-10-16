@@ -63,6 +63,11 @@ const probeLooseComments = mkRule("noul", {
   target: "loose-comments",
   handle: { warn: { greater_than: 0.7 } },
 });
+// the split definition nouns: classes, methods, types, bindings (each silent at rest)
+const probeClasses = mkRule("noul", { name: "probe_classes", target: "classes" });
+const probeMethods = mkRule("noul", { name: "probe_methods", target: "methods" });
+const probeTypes = mkRule("noul", { name: "probe_types", target: "types" });
+const probeBindings = mkRule("noul", { name: "probe_bindings", target: "bindings" });
 
 const baseConfig = {
   input: "",
@@ -72,6 +77,10 @@ const baseConfig = {
   rules: [
     probeFiles,
     probeFunctions,
+    probeClasses,
+    probeMethods,
+    probeTypes,
+    probeBindings,
     probeDefinitions,
     probeComments,
     probeLooseComments,
@@ -791,8 +800,8 @@ describe("lint", () => {
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
     // second unit: 1 whole-file + 2 element question batches (the comment-carrying binding
-    // draws definitions + comments; the bare function draws functions + definitions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5);
+    // draws bindings + definitions + comments; the bare function draws functions + definitions)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {

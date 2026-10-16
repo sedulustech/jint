@@ -5,7 +5,7 @@
  *
  * Capture vocabulary (frozen for v1; a capture name is an identity, never a label):
  *
- * @function @type @binding @comment @import - what one element IS (singular)
+ * @function @method @class @type @binding @comment @import - what one element IS (singular)
  * @name - the element's declared name (render-only; never an identity)
  *
  * Policy shipped with the typescript port (design: grammar-loading, evidence-first):
@@ -39,6 +39,8 @@ import { SetupError, type Span } from "../types.ts";
  */
 export const ELEMENT_CAPTURES = [
   "function",
+  "method",
+  "class",
   "type",
   "binding",
   "comment",
@@ -70,6 +72,10 @@ export const RESERVED_CAPTURES = ["test"] as const;
 const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly opaque: boolean }>> =
   {
     function: { absorbTail: 0, opaque: true },
+    // method: function's shape (a nested method with a real body surfaces as a child)
+    method: { absorbTail: 0, opaque: true },
+    // class: type's shape (show-through interior - its methods surface as elements)
+    class: { absorbTail: 2, opaque: false },
     type: { absorbTail: 2, opaque: false },
     binding: { absorbTail: 2, opaque: true },
     // lanes: never containers of elements; the lanes themselves never hide

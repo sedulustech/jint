@@ -137,8 +137,11 @@ export type RuleKind = "noul" | "choice";
 
 interface RuleBase {
   readonly name: string;
-  /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
-  readonly target: RuleTarget;
+  /**
+   * Which unit instances this rule judges; the funnel routes on it (design.md §7.1). A list is the
+   * explicit form (the defaults use it); a single name is the one-target shorthand.
+   */
+  readonly target: RuleTarget | readonly RuleTarget[];
   /** Reads the full answer, decides whether it matters. */
   readonly handle: (answer: import("@jint/contract").ClassifiedAnswer) => HandleResult;
   /**

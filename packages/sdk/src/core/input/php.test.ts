@@ -35,13 +35,13 @@ describe("decompose — php", () => {
   test("classes, methods, functions, and interfaces capture with their names", async () => {
     const inv = await decompose(SRC, "php");
     expect(inv.definitions.map((d) => [d.capture, d.name])).toEqual([
-      ["type", "Item"],
-      ["function", "restock"],
+      ["class", "Item"],
+      ["method", "restock"],
       ["function", "total"],
       ["binding", "pricer"],
       ["binding", "TAX_RATE"],
       ["type", "Named"],
-      ["function", "name"],
+      ["method", "name"],
     ]);
     // member data (stock) stays inside its class: the field capture is WAITING
     expect(inv.definitions[0]!.internalCommentCount).toBe(0);

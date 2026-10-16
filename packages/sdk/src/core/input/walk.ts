@@ -130,7 +130,13 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
   );
 }
 
-const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set(["function", "type", "binding"]);
+const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
+  "function",
+  "method",
+  "class",
+  "type",
+  "binding",
+]);
 
 /**
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
@@ -177,7 +183,7 @@ function materialize(candidates: readonly Candidate[]): {
     if (innermost === undefined)
       return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
     return {
-      kind: innermost.capture === "type" ? "class" : "function",
+      kind: innermost.capture === "type" || innermost.capture === "class" ? "class" : "function",
       name: innermost.name ?? "",
     };
   };
@@ -394,6 +400,10 @@ export function projectElement(element: WalkElement): Element {
       return { kind: "import", ...base };
     case "function":
       return { kind: "function", ...base, name: element.name };
+    case "method":
+      return { kind: "method", ...base, name: element.name };
+    case "class":
+      return { kind: "class", ...base, name: element.name };
     default: {
       // Unreachable with the frozen vocabulary; a loud internal error, never a silent projection.
       throw new InternalError(

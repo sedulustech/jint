@@ -38,7 +38,9 @@
 ; --- declarations: functions -----------------------------------------------------------------
 (function_declaration name: (identifier) @name) @function
 (generator_function_declaration name: (identifier) @name) @function
-(method_definition name: (property_identifier) @name) @function
+; methods: the member-function shape (class bodies are show-through @class interiors, so the
+; method surfaces as its own element; object-literal methods are the same node - same noun)
+(method_definition name: (property_identifier) @name) @method
 
 ; Callable initializers keep the function noun (old refineCallableInitializers); any other
 ; lexical/variable declaration is a binding. Earlier patterns win (see header).
@@ -50,8 +52,10 @@
 (variable_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
 
 ; --- declarations: types ---------------------------------------------------------------------
-(class_declaration name: (type_identifier) @name) @type
-(abstract_class_declaration name: (type_identifier) @name) @type
+; @class is the named-class capture: class-like units judged as classes. Interfaces, aliases and
+; enums stay @type - every non-class, non-method type shape does.
+(class_declaration name: (type_identifier) @name) @class
+(abstract_class_declaration name: (type_identifier) @name) @class
 (interface_declaration name: (type_identifier) @name) @type
 (type_alias_declaration name: (type_identifier) @name) @type
 (enum_declaration name: (identifier) @name) @type
@@ -79,8 +83,8 @@
 ; the wrapper; no walker unwrap step exists.
 (export_statement declaration: (function_declaration name: (identifier) @name)) @function ; @priority
 (export_statement declaration: (generator_function_declaration name: (identifier) @name)) @function ; @priority
-(export_statement declaration: (class_declaration name: (type_identifier) @name)) @type ; @priority
-(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name)) @type ; @priority
+(export_statement declaration: (class_declaration name: (type_identifier) @name)) @class ; @priority
+(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name)) @class ; @priority
 (export_statement declaration: (interface_declaration name: (type_identifier) @name)) @type ; @priority
 (export_statement declaration: (type_alias_declaration name: (type_identifier) @name)) @type ; @priority
 (export_statement declaration: (enum_declaration name: (identifier) @name)) @type ; @priority

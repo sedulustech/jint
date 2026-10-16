@@ -25,6 +25,7 @@ import {
   type Span,
   type Unit,
   type UnitKind,
+  type RuleTarget,
 } from "../types.ts";
 
 /** Which rule and block (block wire id or unit id) a question id belongs to. */
@@ -291,7 +292,17 @@ export function matchesTarget(target: string, element: TargetableElement): boole
       return isCommentElement && element.docstringOf === undefined;
     case "functions":
       return element.capture === "function";
+    case "classes":
+      return element.capture === "class";
+    case "methods":
+      return element.capture === "method";
+    case "types":
+      return element.capture === "type";
+    case "bindings":
+      return element.capture === "binding";
     case "definitions":
+      // the umbrella shorthand: every definition capture at once. New rules prefer the specific
+      // targets (functions/classes/methods/types/bindings) - the shorthand stays for old rules.
       return !isCommentElement && element.capture !== "import";
     case "imports":
       return element.capture === "import";
@@ -301,6 +312,16 @@ export function matchesTarget(target: string, element: TargetableElement): boole
 }
 
 /** Per-rule scoping (issue 008): a scoped-out rule/element pair costs zero classifier calls. */
+/** One rule's targets, list or shorthand, as a list. */
+export const targetsOf = (rule: {
+  readonly target: RuleTarget | readonly RuleTarget[];
+}): readonly RuleTarget[] => {
+  const target = rule.target;
+  // not Array.isArray: TS7 does not narrow readonly-array unions through it
+  if (typeof target === "string") return [target];
+  return target;
+};
+
 export const rulesForElement = (
   rules: readonly Rule[],
   element: WalkElement,
@@ -308,7 +329,8 @@ export const rulesForElement = (
 ): Rule[] =>
   rules.filter(
     (rule) =>
-      matchesTarget(rule.target, element) && (path === undefined || ruleInScope(rule, path)),
+      targetsOf(rule).some((target) => matchesTarget(target, element)) &&
+      (path === undefined || ruleInScope(rule, path)),
   );
 
 export interface ClassifyFileOptions {
@@ -454,7 +476,10 @@ function scopeNotesFor(
       noteParts.push(`rule '${rule.name}' scope excluded the whole unit`);
       continue;
     }
-    const scopedOut = inventory.filter((element) => matchesTarget(rule.target, element)).length;
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    const scopedOut = inventory.filter((element) =>
+      targets.some((target) => matchesTarget(target, element)),
+    ).length;
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
   }
   if (noteParts.length === 0) return [];

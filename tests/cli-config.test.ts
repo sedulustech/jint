@@ -46,7 +46,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     expect(proc.stderr).toBe("");
     const err = proc.stdout;
     expect(err).toContain("jint: measuring with 2 rules");
-    expect(err).toContain("is_name_purposeful  [definitions]");
+    expect(err).toContain("is_name_purposeful  [functions,classes,methods,types,bindings]");
     expect(err).toContain("will_comment_drift  [comments]");
     expect(err).toContain("asks: "); // full criteria prose, not just names
     expect(err).not.toContain("is_greppable"); // third rule never declared, never printed

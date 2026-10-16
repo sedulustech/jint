@@ -13,16 +13,21 @@ measurement its handle judged actionable and is the only output that demands act
 
 - **answer** — the single calibrated probability returned per question.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
+- **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp/verilog
+  class declarations). Split from @type so a rule can judge classes as classes; every other type
+  shape (interfaces, structs, enums, aliases, modules, sections) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
   classifies states, it never generates or transforms them.
 - **capture** — the jint-owned shared noun a grammar's queries assign to a matched node
-  (function, type, binding, comment, import): what one element IS. Singular names one element;
-  the plural addresses the group a rule targets. A capture name is an identity, never a label.
+  (function, method, class, type, binding, comment, import): what one element IS. Singular names
+  one element; the plural addresses the group a rule targets. A capture name is an identity,
+  never a label; the names are flat nouns — no dotted names at either layer, decided and final.
   Replaces role (the living collision).
-- **capture vocabulary** — the frozen set of captures the runtime knows: function, type,
-  binding, comment, import, docstring (a comment-kind capture: the grammar's declared docstring
-  convention, owned by its enclosing definition), plus the @name capture that renders a
-  definition's name. A query capturing outside the set fails the run at setup. `test` is RESERVED (a valid token no grammar emits yet, held for the test noun).
+- **capture vocabulary** — the frozen set of captures the runtime knows: function, method,
+  class, type, binding, comment, import, docstring (a comment-kind capture: the grammar's
+  declared docstring convention, owned by its enclosing definition), plus the @name capture that
+  renders a definition's name — seven element nouns plus docstring and @name. A query capturing
+  outside the set fails the run at setup. `test` is RESERVED (a valid token no grammar emits yet, held for the test noun).
 - **sameCaptureNesting** — a grammar manifest fact: same-capture candidates nest legitimately
   (markdown's sections). Default false: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it (the policy table in query.ts).
@@ -109,10 +114,18 @@ measurement its handle judged actionable and is the only output that demands act
   runs, and inline comments outside any definition). Together with comments it is disjoint and
   jointly exhaustive over comment text, so a rule can measure a comment under exactly one target
   and none escapes both.
+- **method** — an element that is a member function: the @method capture (ts/tsx
+  method_definition, python class-body function_definitions — the structural-context capture —,
+  go/php receivers and member shapes, cpp in-class and out-of-line K::f definitions). Split from
+  @function so a rule can judge members as members.
 - **rule target** — which unit instances a rule judges; resolves over the three namespaces
-  (FILE / NODE TYPE / CAPTURE) and the target vocabulary (files, functions, definitions, comments,
-  loose-comments, imports). Declarative (a name) or a selection function. 'noun' stays CLI-owned -
-  it names a declared input read, never a capture.
+  (FILE / NODE TYPE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
+  types, bindings, definitions, comments, loose-comments, imports). Declarative: a name or an
+  explicit list; the defaults use the list form. 'noun' stays CLI-owned - it names a declared
+  input read, never a capture.
+- **definitions (target)** — the umbrella shorthand for every definition capture at once
+  (functions, classes, methods, types, bindings): the same measured set as the explicit union.
+  Demoted to shorthand — new rules prefer the specific targets; the defaults no longer use it.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
 - **walker / walk** — the pass that turns parsed sources into inventory elements (and the
   directory pass that turns an on-disk tree into file units).

@@ -10,11 +10,21 @@
 ;   ledger's future module/port/instance captures. Transit today: the wiring is invisible.
 ; - net/reg declarations name no single name when they declare vectors lists; captured whole as
 ;   bindings (a name binding to a wire). parameter_port_list stays inside its module element.
-; - packages/interfaces/programs: same container shape as module - add with the vocabulary.
 
 ; --- hardware units -----------------------------------------------------------------------------
 (module_declaration (module_header (simple_identifier) @name)) @type
 (module_declaration) @type
+
+; --- containers (the verilator-trial container proposal, landed with @class/@type) -------------
+; The same container shape as module: ansi_header-guarded name patterns. Classes are @class (the
+; class noun); packages, interfaces, programs and checkers are @type (type-like namespaces);
+; typedefs are @type aliases.
+(package_declaration (package_identifier (simple_identifier) @name)) @type
+(interface_declaration (interface_ansi_header (interface_identifier (simple_identifier) @name))) @type
+(program_declaration (program_ansi_header (program_identifier (simple_identifier) @name))) @type
+(checker_declaration (checker_identifier (simple_identifier) @name)) @type
+(class_declaration (class_identifier (simple_identifier) @name)) @class
+(type_declaration (simple_identifier) @name) @type
 
 ; --- behavior -------------------------------------------------------------------------------------
 (always_construct) @function

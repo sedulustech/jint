@@ -36,10 +36,10 @@ const PINNED: Readonly<
 > = {
   typescript: {
     ext: "ts",
-    // function=8: 4 declarations + the call composites (describe/it, incl. the member-call
-    // variant) - see the parity README CALL COMPOSITES delta. comments=3: the three-dimension
-    // model keeps EVERY comment text in the bucket (docblocks and internal notes included).
-    definitions: { type: 2, function: 8, binding: 2 },
+    // function=6, class=1, method=2: the class split moved the class and its two methods out of
+    // type/function (was type=2 function=8) - see the parity README CALL COMPOSITES delta.
+    // comments=3: the three-dimension model keeps EVERY comment text in the bucket.
+    definitions: { type: 1, class: 1, method: 2, function: 6, binding: 2 },
     comments: { comment: 3 },
     imports: { import: 1 },
   },
@@ -51,13 +51,13 @@ const PINNED: Readonly<
   },
   python: {
     ext: "py",
-    definitions: { type: 1, function: 3 },
+    definitions: { class: 1, method: 2, function: 1 },
     comments: { comment: 5 },
     imports: { import: 1 },
   },
   go: {
     ext: "go",
-    definitions: { type: 1, function: 2 },
+    definitions: { type: 1, method: 1, function: 1 },
     comments: { comment: 2 },
     imports: { import: 1 },
   },
@@ -71,13 +71,13 @@ const PINNED: Readonly<
   },
   cpp: {
     ext: "cpp",
-    definitions: { type: 4, function: 5 },
+    definitions: { class: 2, method: 2, type: 2, function: 3 },
     comments: { comment: 3 },
     imports: { import: 1 },
   },
   php: {
     ext: "php",
-    definitions: { type: 2, function: 3, binding: 3 },
+    definitions: { class: 1, method: 2, type: 1, function: 1, binding: 3 },
     comments: { comment: 2 },
     imports: { import: 1 },
   },

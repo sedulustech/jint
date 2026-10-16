@@ -12,7 +12,9 @@
 
 ; --- declarations ----------------------------------------------------------------------------
 (function_declaration name: (identifier) @name) @function
-(method_declaration name: (field_identifier) @name) @function
+; methods: go's receivers live OUTSIDE their type - the node type is the only method signal,
+; and it is an honest one (method_declaration exists solely for receiver functions).
+(method_declaration name: (field_identifier) @name) @method
 
 ; type_declaration wraps one or more type_spec; its full text is the element (a multi-spec block
 ; is one element - the old table's shape). The anchor pattern (first AND last child) names a

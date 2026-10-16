@@ -69,6 +69,22 @@
                         "type": "string"
                       },
                       {
+                        "const": "classes",
+                        "type": "string"
+                      },
+                      {
+                        "const": "methods",
+                        "type": "string"
+                      },
+                      {
+                        "const": "types",
+                        "type": "string"
+                      },
+                      {
+                        "const": "bindings",
+                        "type": "string"
+                      },
+                      {
                         "const": "definitions",
                         "type": "string"
                       },
@@ -77,8 +93,59 @@
                         "type": "string"
                       },
                       {
+                        "const": "loose-comments",
+                        "type": "string"
+                      },
+                      {
                         "const": "imports",
                         "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "files",
+                              "type": "string"
+                            },
+                            {
+                              "const": "functions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "classes",
+                              "type": "string"
+                            },
+                            {
+                              "const": "methods",
+                              "type": "string"
+                            },
+                            {
+                              "const": "types",
+                              "type": "string"
+                            },
+                            {
+                              "const": "bindings",
+                              "type": "string"
+                            },
+                            {
+                              "const": "definitions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "loose-comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "imports",
+                              "type": "string"
+                            }
+                          ]
+                        }
                       }
                     ]
                   },
@@ -231,6 +298,22 @@
                         "type": "string"
                       },
                       {
+                        "const": "classes",
+                        "type": "string"
+                      },
+                      {
+                        "const": "methods",
+                        "type": "string"
+                      },
+                      {
+                        "const": "types",
+                        "type": "string"
+                      },
+                      {
+                        "const": "bindings",
+                        "type": "string"
+                      },
+                      {
                         "const": "definitions",
                         "type": "string"
                       },
@@ -239,8 +322,59 @@
                         "type": "string"
                       },
                       {
+                        "const": "loose-comments",
+                        "type": "string"
+                      },
+                      {
                         "const": "imports",
                         "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "files",
+                              "type": "string"
+                            },
+                            {
+                              "const": "functions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "classes",
+                              "type": "string"
+                            },
+                            {
+                              "const": "methods",
+                              "type": "string"
+                            },
+                            {
+                              "const": "types",
+                              "type": "string"
+                            },
+                            {
+                              "const": "bindings",
+                              "type": "string"
+                            },
+                            {
+                              "const": "definitions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "loose-comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "imports",
+                              "type": "string"
+                            }
+                          ]
+                        }
                       }
                     ]
                   },

@@ -3,15 +3,11 @@
 NEW comment - L10.4-L10.20
 NEW comment - L19.0-L19.33
 NEW comment - L5.0-L5.23
-NEW function constructor L9.2-L12.3
 NEW function describe L29.0-L33.2
 NEW function describe L35.0-L37.2
 NEW function it L30.2-L32.4
 NEW function it L36.2-L36.30
-NEW function render L14.2-L16.3
 NEW function topLevel L20.0-L23.1
-NEW type Config L1.0-L3.1
-NEW type Renderer L6.0-L17.1
 REF function - L14.2-L16.3
 REF function - L29.0-L29.26
 REF function - L30.2-L30.21
@@ -23,3 +19,10 @@ REF function - L9.2-L12.3
 REF function topLevel L20.7-L23.1
 REF type - L1.7-L3.1
 REF type - L6.7-L6.39
+
+# class/method noun split (Oct 15, owner decision): classes are @class, methods @method -
+# same spans, renamed captures; the reference walker keeps the old nouns.
+NEW class Renderer L6.0-L17.1
+NEW method constructor L9.2-L12.3
+NEW method render L14.2-L16.3
+NEW type Config L1.0-L3.1

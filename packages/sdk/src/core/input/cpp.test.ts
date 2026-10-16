@@ -21,11 +21,11 @@ describe("decompose — cpp", () => {
       "cpp",
     );
     expect(inv.definitions.map((d) => [d.capture, d.name, d.parent])).toEqual([
-      ["type", "Handler", undefined],
+      ["class", "Handler", undefined],
       // member function prototype: field_declaration, split from member data by priority
-      ["function", "handle", "d0"],
+      ["method", "handle", "d0"],
       // member definition: function_definition inside the class
-      ["function", "reset", "d0"],
+      ["method", "reset", "d0"],
       ["function", "encode", undefined],
     ]);
     // member data (budget) stays inside the class: the field capture is WAITING
@@ -38,7 +38,7 @@ describe("decompose — cpp", () => {
       "cpp",
     );
     expect(inv.definitions.map((d) => [d.capture, d.name, d.nodeType])).toEqual([
-      ["type", undefined, "template_declaration"],
+      ["class", undefined, "template_declaration"],
       ["function", "pick", "template_declaration"],
     ]);
     expect(inv.definitions[0]!.content.endsWith("};")).toBe(true);

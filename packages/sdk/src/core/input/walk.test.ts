@@ -42,7 +42,7 @@ const bound = 5;
     expect(summary(inv)).toEqual([
       "d0 function declared L2-L2",
       "d1 function gen L3-L3",
-      "d2 type Klass L4-L4",
+      "d2 class Klass L4-L4",
       "d3 type Shape L5-L5",
       "d4 type Alias L6-L6",
       "d5 type Color L7-L7",
@@ -75,7 +75,7 @@ export default function bare() {}
 `);
     expect(inv.definitions.map((e) => e.capture)).toEqual([
       "function",
-      "type",
+      "class",
       "function",
       "function",
     ]);
@@ -111,7 +111,7 @@ class Klass {
   }
 }
 `);
-    expect(summary(inv)).toEqual(["d0 type Klass L2-L6", "d1 function method L3-L5 in d0"]);
+    expect(summary(inv)).toEqual(["d0 class Klass L2-L6", "d1 method method L3-L5 in d0"]);
   });
 
   test("call composites: describe/it/beforeEach capture as functions with parent links; the span carries the title line", async () => {
@@ -169,7 +169,7 @@ class Klass {
   method(): void {}
 }
 `);
-    expect(summary(inv)).toEqual(["d0 type Klass L2-L4", "d1 function method L3-L3 in d0"]);
+    expect(summary(inv)).toEqual(["d0 class Klass L2-L4", "d1 method method L3-L3 in d0"]);
   });
 
   test("unlisted nodes passthrough: a file of expressions yields nothing", async () => {

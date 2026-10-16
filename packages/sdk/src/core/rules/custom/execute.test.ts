@@ -237,8 +237,8 @@ describe("tsElementsOf — materialized parent view", () => {
     );
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
     const elements = tsElementsOf(inventory, "src/w.ts");
-    const klass = elements.find((e) => e.capture === "type")!;
-    const method = elements.find((e) => e.capture === "function")!;
+    const klass = elements.find((e) => e.capture === "class")!;
+    const method = elements.find((e) => e.capture === "method")!;
     expect(klass.parent).toBeNull();
     expect(method.parent?.id).toBe(klass.id);
     // The parent chain materializes the SAME view (shared element identity).

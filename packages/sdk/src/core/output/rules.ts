@@ -34,7 +34,9 @@ function handleLine(rule: Rule): string {
  */
 export function describeRule(rule: Rule): string {
   const lines: string[] = [];
-  lines.push(rule.name + "  [" + rule.target + "]");
+  lines.push(
+    rule.name + "  [" + (Array.isArray(rule.target) ? rule.target.join(",") : rule.target) + "]",
+  );
   const h = handleLine(rule);
   lines.push("  " + h);
   if ("instructions" in rule && rule.instructions !== undefined) {

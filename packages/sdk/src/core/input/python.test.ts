@@ -10,7 +10,7 @@ describe("decompose — python", () => {
     );
     expect(inv.definitions.map((d) => [d.capture, d.name])).toEqual([
       ["function", "handler"],
-      ["type", "Thing"],
+      ["class", "Thing"],
     ]);
   });
 

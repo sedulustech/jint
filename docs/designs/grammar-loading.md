@@ -93,18 +93,50 @@ flowchart LR
 
 #### The capture -> target table
 
-| capture    | rule-side targets                                     | descent policy                                                                 | absorbTail | notes                                                                                                |
-| ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------- |
-| @function  | functions, definitions                                | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx)                                |
-| @type      | definitions                                           | show-through interiors                                                         | 2          | composite units: classes, structs, modules, md sections (selfNesting)                                |
-| @binding   | definitions                                           | opaque                                                                         | 2          |                                                                                                      |
-| @comment   | comments (owned: the frame), loose-comments (unowned) | terminate; never hides                                                         | 0          | the pair split below owns the routing                                                                |
-| @import    | imports                                               | never hides                                                                    | 0          |                                                                                                      |
-| @name      | (name source, not a target)                           | -                                                                              | -          | binds the identifier/callee naming the element                                                       |
-| @docstring | (ownership marker, not a target)                      | -                                                                              | -          | python string-in-block docstrings; projects into the comment kind on the wire, owned via docstringOf |
+| capture    | rule-side targets                                     | descent policy                                                                 | absorbTail | notes                                                                                                                             |
+| ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| @function  | functions, definitions                                | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx); free functions only                                        |
+| @method    | methods, definitions                                  | function's shape (opaque)                                                      | 0          | member functions: ts/tsx method_definition, python class-body functions (context capture), go/php/cpp receivers and member shapes |
+| @class     | classes, definitions                                  | type's shape (show-through interiors)                                          | 2          | class-like units: ts/tsx/python/php/cpp/verilog class declarations; anonymous classes unjudged                                    |
+| @type      | types, definitions                                    | show-through interiors                                                         | 2          | composite units: interfaces, structs, enums, aliases, modules, packages, md sections (selfNesting)                                |
+| @binding   | bindings, definitions                                 | opaque                                                                         | 2          |                                                                                                                                   |
+| @comment   | comments (owned: the frame), loose-comments (unowned) | terminate; never hides                                                         | 0          | the pair split below owns the routing                                                                                             |
+| @import    | imports                                               | never hides                                                                    | 0          |                                                                                                                                   |
+| @name      | (name source, not a target)                           | -                                                                              | -          | binds the identifier/callee naming the element                                                                                    |
+| @docstring | (ownership marker, not a target)                      | -                                                                              | -          | python string-in-block docstrings; projects into the comment kind on the wire, owned via docstringOf                              |
 
 @comment, @import, and @docstring are LANES: never containers of elements, exempt from every
 suppression rule, never hidden by an enclosing element.
+
+#### The class/method census (2026-10-15, owner decision)
+
+Rule targets grew six -> ten: `classes` and `methods` join the union, alongside `types` and
+`bindings` promoted to first-class targets (they were capture-only before). The minting rule
+(a noun must change how a rule reads its units, calibrated on real corpora) is passed by exactly
+these two candidates: a class judged as a class reads differently from a generic composite type
+(show-through interiors, member surfaces), and a method reads differently from a free function
+(its contract lives against its class). Every other candidate stays WAITING with reasons in the
+vocabulary-growth ledger. DECIDED AND FINAL: capture and target names are FLAT NOUNS - no dotted
+names at either layer (the lang:node_type lane already owns grammar-local addressing).
+
+`definitions` is DEMOTED TO SHORTHAND: the umbrella for functions+classes+methods+types+
+bindings, kept for old rules; new rules prefer the specific targets. The DEFAULTS were rewritten
+to the explicit union with identical measured behavior - pinned element-for-element against the
+shorthand by packages/sdk/src/core/rules/defaults-targets.test.ts.
+
+Per-grammar capture census: @class speaks in ts/tsx (class_declaration, abstract_class_declaration),
+python (class_definition), php (class_declaration, NOT anonymous_class), cpp (class_specifier,
+templates absorbed), verilog (class_declaration). @method speaks in ts/tsx (method_definition),
+python (function_definition in a class body - the first STRUCTURAL-CONTEXT capture: the method
+noun is positional, not nominal; expressed as a context query over the class body), php and go
+(method_declaration), cpp (field_declaration-priority member functions plus out-of-line
+qualified definitions). Interfaces, structs, enums, aliases, modules, sections stay @type.
+
+Verilog containers (the verilator-trial proposal, landed): package/interface/program/checker
+declarations as @type with ansi_header-guarded name patterns, typedef_declaration as a @type
+alias, class_declaration as @class. Committed as the parity slice
+tests/fixtures/parity/verilog/containers.sv (before: 0 elements from these shapes - the WAITING
+ledger; after: 7 definition elements).
 
 #### The comment-target pair split (2026-10-15)
 

@@ -6,18 +6,18 @@ optional policy), `queries.scm` (extraction patterns). The walker holds no node-
 .scm assigns **captures**, and the runtime sees only captures. A user grammar dir
 (`$JINT_DIR/grammars`) registers through the same three-artifact shape.
 
-| grammar id   | extensions                          | what it captures                                                                                                                                                                         |
-| ------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `typescript` | `.ts`, `.mts`, `.cts`               | functions, methods, callable-initializer declarations; classes/interfaces/type aliases/enums; bindings; imports; comments; test call composites (`describe`/`it` family with a callback) |
-| `tsx`        | `.tsx`                              | the typescript patterns (JSX stays inside the declarations)                                                                                                                              |
-| `python`     | `.py`                               | functions, classes, decorated definitions (decorator absorbed), imports, comments, docstrings (`@docstring`: the string-in-block convention)                                             |
-| `go`         | `.go`                               | functions and methods, type declarations, package-level const/var blocks, imports, comments                                                                                              |
-| `c`          | `.c`, `.h`                          | function definitions and prototypes, struct/union/enum/typedef, declarations, includes, comments                                                                                         |
-| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes, methods, member-function prototypes, template declarations (absorbed)                                                                                         |
-| `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                             |
-| `markdown`   | `.md`                               | sections (`@type`, heading text as name; sections nest)                                                                                                                                  |
-| `php`        | `.php`                              | functions, methods, classes/interfaces/traits/enums, assignments, consts, imports, comments                                                                                              |
-| `verilog`    | `.v`, `.sv`                         | modules, always/initial constructs, nets/assigns, comments                                                                                                                               |
+| grammar id   | extensions                          | what it captures                                                                                                                                                                                                                                      |
+| ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript` | `.ts`, `.mts`, `.cts`               | functions, methods (`@method`), callable-initializer declarations; classes (`@class`), interfaces/type aliases/enums (`@type`); bindings; imports; comments; test call composites (`describe`/`it` family with a callback)                            |
+| `tsx`        | `.tsx`                              | the typescript patterns (JSX stays inside the declarations)                                                                                                                                                                                           |
+| `python`     | `.py`                               | functions, classes (`@class`), methods (`@method`, the structural-context capture: a `function_definition` in a class body), decorated definitions (decorator absorbed), imports, comments, docstrings (`@docstring`: the string-in-block convention) |
+| `go`         | `.go`                               | functions, methods (`@method`, receiver functions), type declarations, package-level const/var blocks, imports, comments                                                                                                                              |
+| `c`          | `.c`, `.h`                          | function definitions and prototypes, struct/union/enum/typedef, declarations, includes, comments                                                                                                                                                      |
+| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes (`@class`, templates absorbed), methods (`@method`: in-class prototypes/definitions and out-of-line `K::f` definitions)                                                                                                     |
+| `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
+| `markdown`   | `.md`                               | sections (`@type`, heading text as name; sections nest)                                                                                                                                                                                               |
+| `php`        | `.php`                              | functions, methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)                                                                                                       |
+| `verilog`    | `.v`, `.sv`                         | modules, packages/interfaces/programs/checkers (`@type`), classes (`@class`), typedefs (`@type` aliases), always/initial constructs, nets/assigns, comments                                                                                           |
 
 `.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:
 `grammar-loading` open question).
@@ -28,14 +28,16 @@ The walk turns one parsed file into its inventory. Each element carries a captur
 positional label (`d0`, `c2`, `i0`), an optional declared name (render-only), its parent label,
 and its source. Captures:
 
-| capture     | element                                                                                      | target                                                                                   |
-| ----------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `function`  | named functions, methods, prototypes, and test call composites                               | `functions`                                                                              |
-| `type`      | classes, interfaces, type aliases, enums, structs, modules, markdown sections                | `definitions`                                                                            |
-| `binding`   | a name bound to a non-callable, non-type value (declarations, nets, assigns, assignments)    | `definitions` (definitions-target rules judge bindings; functions-target rules never do) |
-| `import`    | import statements/declarations (one merged element per file)                                 | `imports`                                                                                |
-| `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)            | `comments`                                                                               |
-| `docstring` | a grammar's docstring convention (python string-in-block); owned by its enclosing definition | `comments` (projected as a comment element with `docstringOf`)                           |
+| capture     | element                                                                                                            | target                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `function`  | named free functions, prototypes, and test call composites                                                         | `functions`                                                    |
+| `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes) | `methods`                                                      |
+| `class`     | class-like units (ts/tsx/python/php/cpp/verilog class declarations)                                                | `classes`                                                      |
+| `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs, markdown sections                           | `types` (and the `definitions` umbrella)                       |
+| `binding`   | a name bound to a non-callable, non-type value (declarations, nets, assigns, assignments)                          | `bindings` (and the `definitions` umbrella)                    |
+| `import`    | import statements/declarations (one merged element per file)                                                       | `imports`                                                      |
+| `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                  | `comments`                                                     |
+| `docstring` | a grammar's docstring convention (python string-in-block); owned by its enclosing definition                       | `comments` (projected as a comment element with `docstringOf`) |
 
 What a capture's interior yields is the per-capture policy table (`query.ts`), overridable per
 grammar in its manifest. Targets are rule-side vocabulary: a rule names a target, the walk lands
