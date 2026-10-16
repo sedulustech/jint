@@ -276,19 +276,10 @@ function isCallbackRule(entry: unknown): boolean {
 }
 
 /**
- * The boundary failed: name the exact field. A bad rule entry collapses into the schema union's
- * generic message, so the dive re-validates each rule entry against its kind's branch and surfaces
- * the closer branch's field errors — the branch that failed on fewer fields is the shape the author
- * intended (a rule missing only its question, not a different shape entirely). The FIRST rule-path
- * error also becomes the invalid-rule detail; a path outside a rule index (top-level schema
- * problems) throws without one. String#match, not the RegExp method - the no-git guard forbids that
- * token under src/.
- */
-/**
- * Per-entry rule-schema errors, best branch per entry: the two rule schemas are tried and the
- * branch that failed on fewer fields is the shape the author intended (a rule missing only its
- * question, not a different shape entirely). Entries that are not objects contribute nothing (the
- * generic schema errors cover them).
+ * Per-entry rule-schema errors, best branch per entry: a rule entry that fails the schema union
+ * collapses into one generic message, so each entry is re-validated against its kind's branch here
+ * and the branch that failed on fewer fields is the shape the author intended. Entries that are not
+ * objects contribute nothing (the generic schema errors cover them).
  */
 function ruleFieldErrors(raw: unknown): string[] {
   if (!Array.isArray((raw as { rules?: unknown }).rules)) return [];
@@ -308,6 +299,11 @@ function ruleFieldErrors(raw: unknown): string[] {
     .flat();
 }
 
+/**
+ * The boundary failed: name the exact field. The FIRST rule-path error becomes the invalid-rule
+ * detail; a path outside a rule index (top-level schema problems) throws without one. String#match,
+ * not the RegExp method - the no-git guard forbids that token under src/.
+ */
 function throwConfigInvalid(raw: unknown, source: string): never {
   const messages = [...Value.Errors(CONFIG_SCHEMA, raw)].map((err) =>
     err.path === "" ? "/ " + err.message : `${err.path} ${err.message}`,
@@ -315,20 +311,17 @@ function throwConfigInvalid(raw: unknown, source: string): never {
   const ruleErrors = ruleFieldErrors(raw);
   const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
   const field = rulePath?.[2];
+  // A present-but-undefined detail is read the same as an absent one downstream, so the field is
+  // set only when both halves of the path are known.
+  const detail =
+    rulePath !== null && field !== undefined
+      ? ({ kind: "invalid-rule", ruleIndex: Number(rulePath[1]), field } as const)
+      : undefined;
   throw new SetupError(
     "CONFIG_INVALID",
     `invalid config ${source}: ${[...ruleErrors, ...messages].join("; ")}`,
     {
-      // Branched whole literal: a SetupError detail is read with !== undefined downstream,
-      // identical for absent and present-undefined, but the shape must be exact.
-      detail:
-        rulePath !== null && field !== undefined
-          ? {
-              kind: "invalid-rule",
-              ruleIndex: Number(rulePath?.[1]),
-              field,
-            }
-          : undefined,
+      detail,
     },
   );
 }

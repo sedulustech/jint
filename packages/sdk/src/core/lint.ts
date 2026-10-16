@@ -223,8 +223,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       "no input: pass a path (jint src/), declare piped stdin (jint str - / jint paths - for a path list), or set input in jint.config.json",
     );
   }
-  const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
   // Inline callback rules come from the config boundary, already validated (load-time duplicates
@@ -244,23 +242,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       "callback rules run on file inputs only - a str unit has no element inventory, so every callback rule would resolve zero targets (drop them or use a file input)",
     );
   }
-  // Element scope: files-target rules are claims about the FILE, never one element — they cannot
-  // run scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are
-  // silently out of the scoped set, like any rule whose target misses the subject.
-  let scopedRules = rules;
-  if (options.element !== undefined) {
-    const whole = rules.filter((rule) => judgesWholeUnit(rule, "file"));
-    if (whole.length > 0) {
-      const demanded = new Set(whole.map((rule) => rule.name));
-      const named = (options.only ?? []).find((name) => demanded.has(name));
-      if (named !== undefined)
-        throw new SetupError(
-          "ELEMENT_NOT_FOUND",
-          `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
-        );
-      scopedRules = rules.filter((rule) => !judgesWholeUnit(rule, "file"));
-    }
-  }
+  const scopedRules = scopeElementRules(rules, options);
   // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
@@ -299,55 +281,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // below, never silence.
   // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
   const walkerNotes: string[] = [];
-  const units =
-    options.str !== undefined
-      ? [strUnit(options.str.content, options.str.path)]
-      : pathsList !== undefined && (input === undefined || input === "")
-        ? await (async () => {
-            // The changeset form: the list IS the judged subject, one entry at a time so a
-            // missing or non-source entry degrades to the not-in-the-walk note, never fatal.
-            // (An empty list never reaches here: the guard above the auth gate threw LIST_EMPTY.)
-            const resolved: Unit[] = [];
-            for (const entry of pathsList) {
-              try {
-                for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
-                  resolved.push(unit);
-                }
-              } catch (thrown) {
-                // missing / unreadable / non-source entries take the note path below, never fatal
-                if (
-                  thrown instanceof SetupError &&
-                  ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(
-                    thrown.code,
-                  )
-                ) {
-                  continue;
-                }
-                throw thrown;
-              }
-            }
-            return resolved;
-          })()
-        : await collectUnits(
-            resolveInput({
-              // the empty-input guard above established non-empty; element scope pins the
-              // input to exactly the selector file (dir/config input is ignored)
-              input: (options.element !== undefined ? options.element.path : input) as
-                | string
-                | string[],
-              inputType: options.inputType ?? options.config.inputType,
-              exclude,
-              include,
-              scopeBase: options.scopeBase,
-              // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
-              secretDenylist: options.config.secretDenylist,
-              onNote: (note) => walkerNotes.push(note),
-              // explicit file selection measures raw when only files-target rules are in scope
-              requireGrammarFor: (p) =>
-                customRules.some((rule) => ruleInScope(rule, p)) ||
-                rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
-            }),
-          );
+  const units = await resolveRunUnits(options, pathsList, input, rules, customRules, (note) =>
+    walkerNotes.push(note),
+  );
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
   // SIGNAL, never silence: one note names each, the run continues around them.
   const unitPaths = new Set(
@@ -545,6 +481,25 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
 }
 
+/**
+ * Element scope: files-target rules are claims about the FILE, never one element — they cannot run
+ * scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are silently
+ * out of the scoped set, like any rule whose target misses the subject.
+ */
+function scopeElementRules(rules: readonly Rule[], options: LintOptions): readonly Rule[] {
+  if (options.element === undefined) return rules;
+  const whole = rules.filter((rule) => judgesWholeUnit(rule, "file"));
+  if (whole.length === 0) return rules;
+  const demanded = new Set(whole.map((rule) => rule.name));
+  const named = (options.only ?? []).find((name) => demanded.has(name));
+  if (named !== undefined)
+    throw new SetupError(
+      "ELEMENT_NOT_FOUND",
+      `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
+    );
+  return rules.filter((rule) => !judgesWholeUnit(rule, "file"));
+}
+
 /** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
 export function apiKeyAvailable(configKey?: string): boolean {
   return (configKey !== undefined && configKey !== "") || !!process.env.TYPESAFE_API_KEY;
@@ -625,6 +580,63 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
   return out;
 }
 
+/**
+ * The run's units, from whichever input form selected them. The changeset form defers per entry:
+ * the list IS the judged subject, so a missing or non-source entry degrades to a not-in-the-walk
+ * note instead of failing the run. (An empty list never reaches here: the guard above the auth gate
+ * threw LIST_EMPTY.)
+ */
+async function resolveRunUnits(
+  options: LintOptions,
+  pathsList: readonly string[] | undefined,
+  input: string | string[] | undefined,
+  rules: readonly Rule[],
+  customRules: readonly CustomRule[],
+  onWalkNote: (note: string) => void,
+): Promise<Unit[]> {
+  if (options.str !== undefined) return [strUnit(options.str.content, options.str.path)];
+  if (pathsList !== undefined && (input === undefined || input === "")) {
+    const resolved: Unit[] = [];
+    for (const entry of pathsList) {
+      try {
+        for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+          resolved.push(unit);
+        }
+      } catch (thrown) {
+        // missing / unreadable / non-source entries take the note path below, never fatal
+        if (
+          thrown instanceof SetupError &&
+          ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
+        ) {
+          continue;
+        }
+        throw thrown;
+      }
+    }
+    return resolved;
+  }
+  const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
+  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
+  return collectUnits(
+    resolveInput({
+      // the empty-input guard above established non-empty; element scope pins the
+      // input to exactly the selector file (dir/config input is ignored)
+      input: (options.element !== undefined ? options.element.path : input) as string | string[],
+      inputType: options.inputType ?? options.config.inputType,
+      exclude,
+      include,
+      scopeBase: options.scopeBase,
+      // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
+      secretDenylist: options.config.secretDenylist,
+      onNote: onWalkNote,
+      // explicit file selection measures raw when only files-target rules are in scope
+      requireGrammarFor: (p) =>
+        customRules.some((rule) => ruleInScope(rule, p)) ||
+        rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+    }),
+  );
+}
+
 /** Cheap edit distance for close-match suggestions over rule names. */
 function editDistance(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [
@@ -675,10 +687,6 @@ function unknownRuleError(name: string, known: ReadonlySet<string>): SetupError 
 }
 
 /**
- * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
- * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
- */
-/**
  * The pure selection half of partitionRules: disable/only set membership, nothing more. No
  * validation, no throw — shared by lint() (after it validates) and the CLI's rules pre-print, so
  * the block always shows exactly the set the run will classify.
@@ -696,10 +704,6 @@ export function selectRules(
   return { json: jsonRules.filter(keep), custom: customRules.filter(keep) };
 }
 
-/**
- * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
- * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
- */
 function partitionRules(
   jsonRules: readonly Rule[],
   customRules: readonly CustomRule[],

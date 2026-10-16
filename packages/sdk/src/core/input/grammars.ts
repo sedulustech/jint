@@ -394,8 +394,9 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
   }
   const queries = await Bun.file(queriesPath).text();
 
-  // The wasm that will serve parses (user when present, embedded shadow otherwise).
-  const effectivePath = hasWasm ? wasmPath : embeddedEntry!.wasmPath;
+  // The wasm that will actually serve parses: the user's when present, else the shadowed
+  // embedded asset the manifest's facts describe.
+  const servingWasmPath = hasWasm ? wasmPath : embeddedEntry!.wasmPath;
   if (userGrammars?.[language] !== undefined) {
     // re-registration (a second lint start in-process): drop the cached parse state first
     languages.delete(language);
@@ -406,10 +407,10 @@ async function registerUserGrammar(language: string, dir: string): Promise<void>
     [language]: {
       language,
       extensions: manifest.extensions,
-      wasmPath: effectivePath,
+      wasmPath: servingWasmPath,
       queries,
       policy: manifest.policy,
-      provenance: { source: "user", path: effectivePath, version: manifest.version },
+      provenance: { source: "user", path: servingWasmPath, version: manifest.version },
     },
   };
 }
@@ -431,8 +432,13 @@ export async function loadUserGrammars(
     let entries: import("node:fs").Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      // no grammar dir: embedded set only
+    } catch (err) {
+      // No grammar dir is the common case: the embedded set alone needs no note. A dir that
+      // exists but cannot be read is not absence - say so, because the run silently loses it.
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        onNote?.(`grammar dir ${dir}: unreadable (${(err as Error).message}) - embedded set only`);
+      }
       return;
     }
     const manifests = entries
