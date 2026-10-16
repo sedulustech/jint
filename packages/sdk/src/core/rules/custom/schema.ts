@@ -29,6 +29,15 @@ export interface CustomElement {
   };
   /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
   readonly attachedComment?: readonly string[];
+  /** Non-empty comments inside this element's body (target grammar: "comments"). */
+  readonly internalCommentCount?: number;
+  /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+  readonly docstringCount?: number;
+  /**
+   * For a comment element a definition owns (a docstring): who it documents. Its presence is what
+   * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
+   */
+  readonly docstringOf?: { readonly kind: "module" | "function" | "class"; readonly name: string };
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
 }
@@ -81,6 +90,7 @@ export interface CustomRule {
     | "functions"
     | "definitions"
     | "comments"
+    | "loose-comments"
     | "imports"
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
@@ -126,6 +136,7 @@ export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
   "functions",
   "definitions",
   "comments",
+  "loose-comments",
   "imports",
 ];
 

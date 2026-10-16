@@ -39,7 +39,13 @@ export interface NoulHandlerData {
  * merged import element — and the target selects which of them the rule's question runs over. The
  * vocabulary lives here (contract owns it); the engine and the defaults package import it.
  */
-export type RuleTarget = "files" | "functions" | "definitions" | "comments" | "imports";
+export type RuleTarget =
+  | "files"
+  | "functions"
+  | "definitions"
+  | "comments"
+  | "loose-comments"
+  | "imports";
 
 /**
  * The runtime face of RuleTarget: one entry per union member, in union order. The type stays the
@@ -53,6 +59,7 @@ export const ruleTargets: readonly RuleTarget[] = [
   "functions",
   "definitions",
   "comments",
+  "loose-comments",
   "imports",
 ];
 

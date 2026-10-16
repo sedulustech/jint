@@ -208,3 +208,185 @@ writeFileSync(
 // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
 Bun.spawnSync(["bunx", "oxfmt", skillOut]);
 process.stdout.write("wrote " + skillOut + "\n");
+
+import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { knownLanguages } from "../packages/sdk/src/core/input/grammars.ts";
+// docs/targets.md: the rule-side target table, GENERATED from the live resolution and the
+// grammars' own patterns, so the doc can never drift from what a rule actually resolves.
+//
+// Columns per target: namespace, singular, resolves to, grammars emitting it (the per-grammar
+// keyword census read from each embedded/<lang>/queries.scm), frame carried (what state the
+// classifier sees), scope-coupled (whether the target participates in per-rule include/exclude).
+// The lang:node_type lane is a section of its own (it is not a fixed member of the vocabulary).
+import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/input/query.ts";
+
+const embeddedDir = new URL("../packages/sdk/src/core/input/embedded/", import.meta.url).pathname;
+
+/** Per grammar: which element captures its .scm actually assigns (the keyword census). */
+function captureCensus(): Record<string, Set<string>> {
+  const census: Record<string, Set<string>> = {};
+  for (const language of knownLanguages()) {
+    let scm = "";
+    try {
+      scm = readFileSync(embeddedDir + language + "/queries.scm", "utf8");
+    } catch {
+      census[language] = new Set();
+      continue;
+    }
+    const found = new Set<string>();
+    for (const pattern of parseScmPatterns(scm)) {
+      if (pattern.capture !== null && ELEMENT_CAPTURES.includes(pattern.capture as never))
+        found.add(pattern.capture);
+    }
+    census[language] = found;
+  }
+  return census;
+}
+
+const census = captureCensus();
+const grammarOrder = knownLanguages();
+/** Grammars whose .scm assigns any of `captures`, in registration order. */
+const emitting = (...captures: string[]): string =>
+  grammarOrder.filter((language) => captures.some((c) => census[language]?.has(c))).join(", ") ||
+  "none";
+
+const EXT_TABLE = grammarOrder
+  .map((language) => language + " (" + grammarExtensionsFor(language) + ")")
+  .join("; ");
+function grammarExtensionsFor(language: string): string {
+  const manifest = JSON.parse(
+    readFileSync(embeddedDir + language + "/" + language + ".manifest.json", "utf8"),
+  ) as { extensions: string[] };
+  return manifest.extensions.join(", ");
+}
+
+interface Row {
+  target: string;
+  namespace: string;
+  singular: string;
+  resolves: string;
+  grammars: string;
+  frame: string;
+  scope: string;
+}
+
+const CAPTURE = "CAPTURE";
+const FILE = "FILE";
+
+const rows: Row[] = [
+  {
+    target: "files",
+    namespace: FILE,
+    singular: "file",
+    resolves: "the whole unit as source text (no walk)",
+    grammars: "every format (no grammar needed)",
+    frame: "the unit's raw content under its path",
+    scope: "yes",
+  },
+  {
+    target: "functions",
+    namespace: CAPTURE,
+    singular: "function",
+    resolves: "elements captured as functions",
+    grammars: emitting("function"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "definitions",
+    namespace: CAPTURE,
+    singular: "definition",
+    resolves: "every non-comment, non-import element",
+    grammars: emitting("function", "type", "binding"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "comments",
+    namespace: CAPTURE,
+    singular: "definition (the pair frame)",
+    resolves:
+      "the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition",
+    grammars: emitting("comment", "docstring"),
+    frame: "attached run + inline comments + docstrings + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "loose-comments",
+    namespace: CAPTURE,
+    singular: "comment (element)",
+    resolves:
+      "comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)",
+    grammars: emitting("comment", "docstring"),
+    frame: "the comment's own text under its path",
+    scope: "yes",
+  },
+  {
+    target: "imports",
+    namespace: CAPTURE,
+    singular: "import (element)",
+    resolves: "the one merged import-group element per file",
+    grammars: emitting("import"),
+    frame: "the merged import statements",
+    scope: "yes",
+  },
+];
+
+// Guard: the doc must have exactly one row per real target, no more, no fewer. A new target
+// without a row (or a row for a target that does not exist) fails generation loudly.
+const rowTargets = rows.map((r) => r.target).sort();
+const realTargets = [...ruleTargets].sort();
+if (JSON.stringify(rowTargets) !== JSON.stringify(realTargets)) {
+  throw new Error(
+    "targets doc drifted from the vocabulary: rows " +
+      JSON.stringify(rowTargets) +
+      " vs ruleTargets " +
+      JSON.stringify(realTargets),
+  );
+}
+
+const header = [
+  "---\n",
+  "title: Targets\n",
+  "description: The rule-side target table, generated from the live resolution and the grammars' patterns.\n",
+  "---\n\n",
+  "# Rule targets\n\n",
+  "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
+    "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
+    "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
+    "rule resolves what this table says or the generator fails.\n\n",
+  "The three rule-target namespaces are FILE / NODE TYPE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
+    "The table below covers the CAPTURE namespace's fixed targets; the NODE TYPE lane is its own\n" +
+    "section.\n\n",
+];
+
+const columns: [string, (r: Row) => string][] = [
+  ["target", (r) => "`" + r.target + "`"],
+  ["namespace", (r) => r.namespace],
+  ["singular", (r) => r.singular],
+  ["resolves to", (r) => r.resolves],
+  ["grammars emitting it", (r) => r.grammars],
+  ["frame carried", (r) => r.frame],
+  ["scope-coupled", (r) => r.scope],
+];
+
+const table = [
+  "| " + columns.map(([h]) => h).join(" | ") + " |\n",
+  "| " + columns.map(() => "---").join(" | ") + " |\n",
+  ...rows.map((r) => "| " + columns.map(([, v]) => v(r)).join(" | ") + " |\n"),
+];
+
+const lane = [
+  "\n## The `lang:node_type` lane\n\n",
+  'A rule may target one grammar\'s raw tree-sitter node type directly (`target: "typescript:class_declaration"`)\n' +
+    "for the format-specific tail. Node types are grammar-local (no shared meaning across grammars),\n" +
+    "so they are never a fixed row in the table above — they are read from the grammar at load and\n" +
+    "resolve like any other target. Use the CAPTURE targets for rules that must run across grammars;\n" +
+    "use this lane only when the rule is honestly about that one format.\n\n",
+  "Registered grammars: " + EXT_TABLE + ".\n",
+];
+
+const out = new URL("../docs/targets.md", import.meta.url).pathname;
+writeFileSync(out, header.join("") + table.join("") + lane.join(""));
+Bun.spawnSync(["bunx", "oxfmt", out]);
+process.stdout.write("wrote " + out + "\n");

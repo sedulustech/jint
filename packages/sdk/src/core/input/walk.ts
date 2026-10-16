@@ -68,6 +68,12 @@ export interface WalkElement {
   /** Non-empty comments fully inside this element's span (including nested elements' bodies). */
   readonly internalCommentCount: number;
   /**
+   * Non-empty docstrings this definition owns (the pair split): ownership makes the definition a
+   * comments match even with zero attached and zero internal comments, so a python function whose
+   * only documentation is its docstring is still judged as documentation-with-code.
+   */
+  readonly docstringCount: number;
+  /**
    * The enclosing element's label ("d3"), when this element sits inside one (a method inside its
    * class). Hierarchy travels with the element (design rules-context/02) - pairing reads it.
    */
@@ -143,10 +149,23 @@ function materialize(candidates: readonly Candidate[]): {
   // string-in-block). They are owned comment elements - docstringOf answers who they document
   // (the innermost containing definition, or the module) - never internal counts.
   const isDocstring = (c: Candidate): boolean => c.capture === "docstring";
-  const docstringOf = (candidate: Candidate): DocstringOwner => {
+  // OWNER LINK (the comment-target pair split): a comment element is DOCUMENTATION when a
+  // definition owns it - its text is that definition's attached run, or it sits inside the
+  // definition's body (an internal note). Owned comments resolve under `comments` (the pair
+  // frame); unowned ones under `loose-comments`. The link reuses docstringOf, which answers
+  // "who this comment documents".
+  const ownerOf = (comment: Candidate): DocstringOwner | undefined => {
+    for (const [definition, run] of attached) {
+      if (run.includes(comment.node.text)) {
+        return {
+          kind: definition.capture === "type" ? "class" : "function",
+          name: definition.name ?? "",
+        };
+      }
+    }
     let innermost: Candidate | undefined;
     for (const definition of definitions) {
-      if (!containsSpan(definition, candidate)) continue;
+      if (!containsSpan(definition, comment)) continue;
       if (
         innermost === undefined ||
         definition.node.endIndex - definition.node.startIndex <=
@@ -155,7 +174,8 @@ function materialize(candidates: readonly Candidate[]): {
         innermost = definition;
       }
     }
-    if (innermost === undefined) return { kind: "module", name: "" };
+    if (innermost === undefined)
+      return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
     return {
       kind: innermost.capture === "type" ? "class" : "function",
       name: innermost.name ?? "",
@@ -220,6 +240,23 @@ function materialize(candidates: readonly Candidate[]): {
   // - so a comment is always judged as a comment. Attachment is extra structure on top
   // (attachedComment / internalCommentCount on the definition, docstringOf on the comment),
   // never a replacement for presence.
+  // Docstring ownership (the pair split): the count per definition that contains one, so the
+  // frame knows it carries documentation even when no comment attaches and none is internal.
+  const docstringCounts = new Map<Candidate, number>();
+  for (const docstring of candidates) {
+    if (!isDocstring(docstring) || isEmptyComment(docstring.node.text)) continue;
+    for (const definition of definitions) {
+      if (containsSpan(definition, docstring)) {
+        docstringCounts.set(definition, (docstringCounts.get(definition) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Comments bucket (the comment-target pair split): every non-empty comment text still lands
+  // as a comment element, but target resolution routes it - owned comments travel in their
+  // definition's pair frame (attachedComment / internalCommentCount / docstringCount), and only
+  // unowned ones address rules through the element itself (loose-comments). A module docstring
+  // (docstringOf: module) has no definition frame, so its element speaks for it under comments.
   const commentTexts = [...comments, ...docstringsOf(candidates, isDocstring)].filter(
     (c) => !isEmptyComment(c.node.text),
   );
@@ -256,6 +293,7 @@ function materialize(candidates: readonly Candidate[]): {
     name: d.name,
     attachedComment: attached.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
+    docstringCount: docstringCounts.get(d) ?? 0,
     parent: parentOf(d),
   }));
   const walkComments: WalkElement[] = commentElements.map((c) => ({
@@ -265,8 +303,9 @@ function materialize(candidates: readonly Candidate[]): {
     nodeType: c.node.type,
     capture: "comment" as const,
     internalCommentCount: 0,
+    docstringCount: 0,
     parent: parentOf(c),
-    docstringOf: isDocstring(c) ? docstringOf(c) : undefined,
+    docstringOf: ownerOf(c),
   }));
 
   // The imports element spans the whole run (first to last import node); one merged element
@@ -286,6 +325,7 @@ function materialize(candidates: readonly Candidate[]): {
             nodeType: imports[0]!.node.type,
             capture: "import" as const,
             internalCommentCount: 0,
+            docstringCount: 0,
           },
         ]
       : [];

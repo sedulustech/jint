@@ -93,18 +93,29 @@ flowchart LR
 
 #### The capture -> target table
 
-| capture    | rule-side targets                | descent policy                                                                 | absorbTail | notes                                                                                                |
-| ---------- | -------------------------------- | ------------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------- |
-| @function  | functions, definitions           | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx)                                |
-| @type      | types, definitions               | show-through interiors                                                         | 2          | composite units: classes, structs, modules, md sections (selfNesting)                                |
-| @binding   | bindings, definitions            | opaque                                                                         | 2          |                                                                                                      |
-| @comment   | comments                         | terminate; never hides                                                         | 0          |                                                                                                      |
-| @import    | imports                          | never hides                                                                    | 0          |                                                                                                      |
-| @name      | (name source, not a target)      | -                                                                              | -          | binds the identifier/callee naming the element                                                       |
-| @docstring | (ownership marker, not a target) | -                                                                              | -          | python string-in-block docstrings; projects into the comment kind on the wire, owned via docstringOf |
+| capture    | rule-side targets                                     | descent policy                                                                 | absorbTail | notes                                                                                                |
+| ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------- |
+| @function  | functions, definitions                                | opaque (nested same-capture units with real tail distance surface as children) | 0          | test call composites included via callee-predicated patterns (ts/tsx)                                |
+| @type      | definitions                                           | show-through interiors                                                         | 2          | composite units: classes, structs, modules, md sections (selfNesting)                                |
+| @binding   | definitions                                           | opaque                                                                         | 2          |                                                                                                      |
+| @comment   | comments (owned: the frame), loose-comments (unowned) | terminate; never hides                                                         | 0          | the pair split below owns the routing                                                                |
+| @import    | imports                                               | never hides                                                                    | 0          |                                                                                                      |
+| @name      | (name source, not a target)                           | -                                                                              | -          | binds the identifier/callee naming the element                                                       |
+| @docstring | (ownership marker, not a target)                      | -                                                                              | -          | python string-in-block docstrings; projects into the comment kind on the wire, owned via docstringOf |
 
 @comment, @import, and @docstring are LANES: never containers of elements, exempt from every
 suppression rule, never hidden by an enclosing element.
+
+#### The comment-target pair split (2026-10-15)
+
+`comments` and `loose-comments` partition comment text. `comments` is the PAIR frame: a definition
+judged together with the comments it owns (attached run, internal notes, docstrings - the frame
+carries code + comment), plus a module-level docstring, which has no definition frame and speaks
+for itself. `loose-comments` is the complement: standalone runs and inline comments outside any
+definition. The two are disjoint and jointly exhaustive over comment text, and an owned comment
+element never matches separately - narration fires exactly once per documented definition.
+Ownership travels on the element (`docstringOf`) and the frame (`attachedComment`,
+`internalCommentCount`, `docstringCount`).
 
 #### The three target namespaces
 

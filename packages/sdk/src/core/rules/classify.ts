@@ -238,8 +238,18 @@ export interface ClassifyResult {
 export const DEFAULT_CONCURRENCY = 16;
 
 /**
- * The minimal element shape the target grammar reads; both tiers' element views satisfy it (the TS
- * view carries attachedComment through precisely so this one predicate serves both).
+ * THE target grammar - the routes from a rule's target to elements. One implementation serves BOTH
+ * selection tiers, so a target's element mapping can never drift between them. Oversized elements
+ * are never judged - the size backstop trades their readings for the run's reliability; every skip
+ * is named in-band.
+ *
+ * The comment targets are a PAIR split (round-8 naming): `comments` is the documentation unit - a
+ * definition judged together with the comments it owns (the pair frame: attached run + inline
+ * comments + docstrings + code). Owned comment elements never match separately - that would judge
+ * the same text twice; a module-level docstring has no definition frame, so its element speaks for
+ * it. `loose-comments` is the complement: comments no definition owns (standalone runs and inline
+ * comments outside any definition). The two are disjoint and jointly exhaustive over comment text,
+ * so a rule measures every comment under exactly one target and narration fires once per frame.
  */
 export interface TargetableElement {
   readonly capture: string;
@@ -247,27 +257,42 @@ export interface TargetableElement {
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
   readonly internalCommentCount?: number;
+  /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+  readonly docstringCount?: number;
+  /**
+   * Set on a comment element with an owner: a definition-owned comment is spoken for by its
+   * definition's pair frame (never judged as a separate comments match); a module docstring has no
+   * frame, so the element itself addresses comments-target rules.
+   */
+  readonly docstringOf?: { readonly kind: "module" | "function" | "class"; readonly name: string };
 }
 
-/**
- * THE target grammar — the routes from a rule's target to elements. One implementation serves BOTH
- * selection tiers, so a target's element mapping can never drift between them. Oversized elements
- * are never judged — the size backstop trades their readings for the run's reliability; every skip
- * is named in-band.
- */
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
-  const carriesComment =
-    element.capture === "comment" ||
+  const isCommentElement = element.capture === "comment";
+  // "owns documentation" is about CONTENT, not field presence: every definition carries
+  // internalCommentCount (often 0) and attachedComment may be absent, so the check counts real
+  // comments - otherwise every bare definition would read as a comments match
+  const ownsComments =
     (element.attachedComment?.length ?? 0) > 0 ||
-    (element.internalCommentCount ?? 0) > 0;
+    (element.internalCommentCount ?? 0) > 0 ||
+    (element.docstringCount ?? 0) > 0;
   switch (target) {
     case "comments":
-      return carriesComment;
+      // the PAIR frame: a definition judged together with the comments it owns (attached run,
+      // internal notes, docstrings - the frame carries code + comment). Owned comment ELEMENTS
+      // never match separately - that would judge the same comment twice (narration fires once
+      // per documented definition). A module docstring has no definition frame, so its element
+      // speaks for it.
+      return ownsComments || (isCommentElement && element.docstringOf?.kind === "module");
+    case "loose-comments":
+      // the complement: a comment element NO definition owns (standalone runs, inline comments
+      // outside any definition). Disjoint from comments and jointly exhaustive over comment text.
+      return isCommentElement && element.docstringOf === undefined;
     case "functions":
       return element.capture === "function";
     case "definitions":
-      return element.capture !== "comment" && element.capture !== "import";
+      return !isCommentElement && element.capture !== "import";
     case "imports":
       return element.capture === "import";
     default:

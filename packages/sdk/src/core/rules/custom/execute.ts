@@ -66,6 +66,9 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): C
         endByte: e.span.endByte,
       },
       attachedComment: e.attachedComment,
+      internalCommentCount: e.internalCommentCount,
+      docstringCount: e.docstringCount,
+      docstringOf: e.docstringOf,
       parent: parent ? convert(parent) : null,
     };
     cache.set(e.label, element);

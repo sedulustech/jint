@@ -79,9 +79,6 @@ measurement its handle judged actionable and is the only output that demands act
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
 - **question** — one classified judgment request sent to the model about one state.
-- **rule target** — which unit instances a rule judges; resolves over the three namespaces
-  (FILE / NODE TYPE / CAPTURE). 'noun' stays CLI-owned - it names a declared input read, never a
-  capture.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
 - **request** — the recorded classifier call: the exact bytes sent to the model and the
@@ -101,8 +98,21 @@ measurement its handle judged actionable and is the only output that demands act
 - **sdk** — the in-process library a consumer calls: the engine layer (config, walk, classify,
   lint, output) plus its public barrel. Same process as its caller — "SDK" says call-into-me;
   the retired synonym "engine" implied a separate runtime, which this layer never is.
-- **target** — what a rule asks the sdk to resolve into state (rule perspective;
-  the input kind is the CLI perspective). Declarative or a selection function.
+- **comments** — the rule target for DOCUMENTATION: the pair frame — a definition judged together
+  with the comments it owns (its attached run, its internal notes, its docstrings, and its code) —
+  plus a module-level docstring, which has no definition frame and speaks for itself. An owned
+  comment element never matches separately, so a narration rule fires exactly once per documented
+  definition. The name is deliberately shared with @comment in the sanctioned singular/plural
+  split: the capture names ONE comment element, the target plural addresses the documentation
+  units a rule judges. Default rules target this, not loose-comments.
+- **loose-comments** — the complement of comments: comment elements NO definition owns (standalone
+  runs, and inline comments outside any definition). Together with comments it is disjoint and
+  jointly exhaustive over comment text, so a rule can measure a comment under exactly one target
+  and none escapes both.
+- **rule target** — which unit instances a rule judges; resolves over the three namespaces
+  (FILE / NODE TYPE / CAPTURE) and the target vocabulary (files, functions, definitions, comments,
+  loose-comments, imports). Declarative (a name) or a selection function. 'noun' stays CLI-owned -
+  it names a declared input read, never a capture.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
 - **walker / walk** — the pass that turns parsed sources into inventory elements (and the
   directory pass that turns an on-disk tree into file units).

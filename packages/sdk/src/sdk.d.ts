@@ -25,6 +25,18 @@ declare module "jint:sdk" {
     };
     /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
     readonly attachedComment?: readonly string[];
+    /** Non-empty comments inside this element's body (target grammar: "comments"). */
+    readonly internalCommentCount?: number;
+    /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+    readonly docstringCount?: number;
+    /**
+     * For a comment element a definition owns (a docstring): who it documents. Its presence is what
+     * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
+     */
+    readonly docstringOf?: {
+      readonly kind: "module" | "function" | "class";
+      readonly name: string;
+    };
     readonly parent: CustomElement | null;
   }
 
@@ -66,6 +78,7 @@ declare module "jint:sdk" {
       | "functions"
       | "definitions"
       | "comments"
+      | "loose-comments"
       | "imports"
       | readonly string[]
       | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
