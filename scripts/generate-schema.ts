@@ -47,6 +47,12 @@ for (const spec of defaultSpecs) {
           const [opName, threshold] = Object.entries(op as Record<string, number>)[0]!;
           return `${level} ${opName.replace(/_/g, " ")} ${threshold}`;
         })
+        .concat(
+          // tier messages are author guidance for the finding consumer; quote them after thresholds
+          Object.entries(spec.handle)
+            .filter(([, op]) => typeof (op as { message?: string }).message === "string")
+            .map(([, op]) => `"${(op as { message: string }).message}"`),
+        )
         .join(", ");
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
