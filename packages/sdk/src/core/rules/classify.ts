@@ -49,29 +49,6 @@ export function questionKey(ruleName: string, blockId: string): string {
   return `${ruleName} in ${blockId}`;
 }
 
-/**
- * States what kind of object the judged state is. Prepended to every question's instructions so the
- * model never has to infer it from the payload.
- */
-export function kindSentence(noun: string): string {
-  return `This unit is a ${noun}.`;
-}
-
-/**
- * The noun for a whole-unit state. Every kind that reaches this seam (file, piped string) is judged
- * as source text, so one noun serves all; the kind parameter stays on the signature so call sites
- * declare which kind they are judging.
- */
-export function unitKindNoun(_kind: UnitKind): string {
-  return "source file";
-}
-
-export function elementKindNoun(capture: string): string {
-  if (capture === "function") return "function definition";
-  if (capture === "type") return "type definition";
-  return capture;
-}
-
 function questionSpec(rule: Rule, instructions: string): QuestionSchema {
   return rule.kind === "choice"
     ? { type: "score", instructions, criteria: rule.criteria }
@@ -79,23 +56,17 @@ function questionSpec(rule: Rule, instructions: string): QuestionSchema {
 }
 
 /**
- * Compile rules to questions for ONE unit state, criteria-as-rule: the rule's criteria pass
- * straight through; only the instructions gain the kind-sentence prefix. Question ids (record keys)
- * are never sent — the attribution map correlates answers.
+ * Compile rules to questions for ONE unit state, criteria-as-rule: the rule's criteria and
+ * instructions pass straight through (no engine-added prefix - the state's path and extension say
+ * what the unit is, and rule authors self-describe). Question ids (record keys) are never sent —
+ * the attribution map correlates answers.
  */
-export function compileRuleQuestions(
-  rules: readonly Rule[],
-  unitId: string,
-  unitKind: UnitKind = "file",
-): QuestionBatch {
+export function compileRuleQuestions(rules: readonly Rule[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSchema> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const rule of rules) {
     const questionId = questionKey(rule.name, unitId);
-    questions[questionId] = questionSpec(
-      rule,
-      `${kindSentence(unitKindNoun(unitKind))} ${rule.instructions}`,
-    );
+    questions[questionId] = questionSpec(rule, rule.instructions);
     attribution.set(questionId, { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
@@ -107,12 +78,11 @@ export function compileRuleQuestions(
  */
 export function compileElementQuestions(
   rules: readonly Rule[],
-  capture: string,
+  _capture: string,
 ): Record<string, QuestionSchema> {
-  const kindPrefix = `${kindSentence(elementKindNoun(capture))} `;
   const questions: Record<string, QuestionSchema> = {};
   for (const rule of rules) {
-    questions[rule.name] = questionSpec(rule, kindPrefix + rule.instructions);
+    questions[rule.name] = questionSpec(rule, rule.instructions);
   }
   return questions;
 }
@@ -169,7 +139,7 @@ export async function* classifyUnit(
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
-  const questionBatch = compileRuleQuestions(rules, unitId, unit.kind);
+  const questionBatch = compileRuleQuestions(rules, unitId);
   let answers: Record<string, ClassifiedAnswer>;
   try {
     answers = await classifier(unit.state, questionBatch.questions);
@@ -619,7 +589,7 @@ async function classifyWholeUnit(
   const fileId = state.id;
   const unitReply = await askClassifier(
     state,
-    compileRuleQuestions(wholeRules, fileId, unit.kind).questions,
+    compileRuleQuestions(wholeRules, fileId).questions,
     classifier,
     state.path,
   );

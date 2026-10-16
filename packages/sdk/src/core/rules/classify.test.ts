@@ -93,11 +93,11 @@ describe("compileRuleQuestions", () => {
     const { questions, attribution } = compileRuleQuestions(sensors, FILE_ID);
     const noulQ = questions[`probe_noul in ${FILE_ID}`]!;
     expect(noulQ.type).toBe("noul");
-    expect(noulQ.instructions).toBe("This unit is a source file. " + NOUL_DATA.instructions);
+    expect(noulQ.instructions).toBe(NOUL_DATA.instructions);
     expect(noulQ.criteria).toBe(NOUL_DATA.criteria); // the rule's own criteria object, untouched
     const scoreQ = questions[`probe_choice in ${FILE_ID}`]!;
     expect(scoreQ.type).toBe("score");
-    expect(scoreQ.instructions).toBe("This unit is a source file. " + CHOICE_DATA.instructions);
+    expect(scoreQ.instructions).toBe(CHOICE_DATA.instructions);
     expect(scoreQ.criteria).toBe(CHOICE_DATA.criteria);
     expect(attribution.get(`probe_noul in ${FILE_ID}`)).toEqual({
       rule: "probe_noul",
@@ -228,16 +228,16 @@ describe("compileRuleQuestions — composite keys", () => {
 });
 
 describe("compileElementQuestions", () => {
-  test("one element per call: question keys are bare rule names, type follows kind", () => {
+  test("one element per call: question keys are bare rule names, type follows kind, instructions pass through unprefixed", () => {
     const questions = compileElementQuestions([noulFile, choiceFn], "comment");
     expect(Object.keys(questions).sort()).toEqual(["probe_choice", "probe_noul"]);
     expect(questions.probe_noul!.type).toBe("noul");
     expect(questions.probe_noul!.instructions).toBe(
-      "This unit is a comment. " + (noulFile as { instructions: string }).instructions,
+      (noulFile as { instructions: string }).instructions,
     );
     expect(questions.probe_choice!.type).toBe("score");
     expect(questions.probe_choice!.instructions).toBe(
-      "This unit is a comment. " + (choiceFn as { instructions: string }).instructions,
+      (choiceFn as { instructions: string }).instructions,
     );
   });
 
