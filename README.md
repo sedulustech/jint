@@ -187,7 +187,7 @@ docs/byog.md.
 ## UI
 
 `jint serve` opens a local dashboard useful for rule calibrations, over the newest recorded
-run (the fix loop: measure with `jint run`, then look with `jint serve`).
+run (the fix loop: measure with `jint run`, then look with `jint serve`). It binds loopback only (127.0.0.1); override via `JINT_UI_HOST` - a non-loopback bind is your trust decision, nothing authenticates the served data.
 It polls the run directory for new runs and displays useful information to verify the applicability of a rule to a lexical unit. It shows, among other things:
 
 - tokens used

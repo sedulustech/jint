@@ -175,7 +175,7 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
       timeout: 60_000,
     });
     expect(r.code).toBe(0);
-    expect(r.stderr).toContain("jint: ui -> http://localhost:");
+    expect(r.stderr).toContain("jint: ui -> http://127.0.0.1:");
     expect(r.stderr).not.toContain("/runs/");
   });
 

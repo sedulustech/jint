@@ -2,7 +2,7 @@ import { describe, test, expect, jest, afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { startUi } from "./serve.ts";
+import { hostAllowed, startUi } from "./serve.ts";
 
 jest.setTimeout(60_000);
 
@@ -58,6 +58,25 @@ describe("startUi", () => {
     }
   });
 
+  test("binds loopback only by default", async () => {
+    const ui = await startUi({ distDir: tempDir("jint-ui-dist-") });
+    try {
+      expect(ui.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+      expect(new URL(ui.url).hostname).toBe("127.0.0.1");
+    } finally {
+      ui.close();
+    }
+  });
+
+  test("host option overrides the bind", async () => {
+    const ui = await startUi({ distDir: tempDir("jint-ui-dist-"), host: "localhost" });
+    try {
+      expect(new URL(ui.url).hostname).toBe("localhost");
+    } finally {
+      ui.close();
+    }
+  });
+
   test("GET /api/runs answers 200 JSON from the runs store (JINT_RUNS_DIR scratch)", async () => {
     // the bun preload points JINT_RUNS_DIR at a pid-scoped scratch store: write a run into it
     const store = resolve(process.env.JINT_RUNS_DIR!);
@@ -109,5 +128,53 @@ describe("startUi", () => {
     expect(() => ui.close()).not.toThrow();
     const res = await fetch(new URL("/", ui.url)).catch((err: unknown) => err);
     expect(res).toBeInstanceOf(Error);
+  });
+});
+
+describe("hostAllowed", () => {
+  test("localhost variants pass, port suffix optional", () => {
+    for (const host of [
+      "127.0.0.1:5178",
+      "localhost",
+      "localhost:4222",
+      "[::1]",
+      "[::1]:5178",
+      "LOCALHOST:80",
+    ]) {
+      expect(hostAllowed(host, "127.0.0.1")).toBe(true);
+    }
+  });
+
+  test("foreign hosts and a missing header are rejected", () => {
+    for (const host of [
+      "evil.example",
+      "evil.example:80",
+      "127.0.0.1.evil.example",
+      "internal.lan:5178",
+      null,
+    ]) {
+      expect(hostAllowed(host, "127.0.0.1")).toBe(false);
+    }
+  });
+
+  test("the bound host is allowed when a custom host is set", () => {
+    expect(hostAllowed("0.0.0.0:5178", "0.0.0.0")).toBe(true);
+    expect(hostAllowed("evil.example:80", "0.0.0.0")).toBe(false);
+  });
+});
+
+describe("host guard", () => {
+  test("a spoofed Host is 403 before any dispatch; the real host answers", async () => {
+    const dist = tempDir("jint-ui-dist-");
+    writeFileSync(join(dist, "index.html"), "<html><body>jint ui</body></html>");
+    const ui = await startUi({ distDir: dist });
+    try {
+      const evil = await fetch(new URL("/api/runs", ui.url), { headers: { host: "evil.example" } });
+      expect(evil.status).toBe(403);
+      const good = await fetch(new URL("/api/runs", ui.url));
+      expect(good.status).toBe(200);
+    } finally {
+      ui.close();
+    }
   });
 });
