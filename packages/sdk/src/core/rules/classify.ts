@@ -226,6 +226,8 @@ export const DEFAULT_CONCURRENCY = 16;
  */
 export interface TargetableElement {
   readonly capture: string;
+  /** The grammar that extracted the element; a qualified capture address resolves against it. */
+  readonly grammar?: string;
   readonly oversized?: boolean;
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
@@ -288,11 +290,15 @@ export function matchesTarget(target: string, element: TargetableElement): boole
       );
     case "imports":
       return element.capture === "import";
-    default:
-      // THE CAPTURE ADDRESS (the targeting backdoor): a target naming a capture addresses that
-      // capture directly - grammar-autonomous vocabulary (markdown's "section") is reachable
-      // without growing the shared target union. A shared noun never falls through to here.
-      return element.capture === target;
+    default: {
+      // THE QUALIFIED CAPTURE ADDRESS (the targeting backdoor): {grammar}:{capture} grammar-scoped
+      // - the element must come from THAT grammar AND carry THAT capture. Bare names are rejected
+      // by the schema (nothing reaches here); an unknown-grammar or unknown-capture address is a
+      // setup error at config load (assertCaptureAddress).
+      const qualified = target.match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/);
+      if (qualified === null) return false;
+      return element.grammar === qualified[1] && element.capture === qualified[2];
+    }
   }
 }
 

@@ -54,6 +54,8 @@ export interface InventoryElement {
    * the comment capture (a docstring IS a comment element; docstringOf says whose).
    */
   readonly capture: WireCapture;
+  /** The grammar that extracted this element (the capture address resolves against it). */
+  readonly grammar: string;
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
   /**
@@ -144,7 +146,10 @@ const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
  * following definition), internal-comment counting, the imports merge, labels, parent links.
  */
-function materialize(candidates: readonly Candidate[]): {
+function materialize(
+  candidates: readonly Candidate[],
+  grammarId: string,
+): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
   imports: InventoryElement[];
@@ -298,6 +303,7 @@ function materialize(candidates: readonly Candidate[]): {
     content: d.node.text,
     nodeType: d.node.type,
     capture: d.capture as WireCapture,
+    grammar: grammarId,
     name: d.name,
     attachedComment: attached.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
@@ -310,6 +316,7 @@ function materialize(candidates: readonly Candidate[]): {
     content: c.node.text,
     nodeType: c.node.type,
     capture: "comment" as const,
+    grammar: grammarId,
     internalCommentCount: 0,
     docstringCount: 0,
     parent: parentOf(c),
@@ -332,6 +339,7 @@ function materialize(candidates: readonly Candidate[]): {
             content: imports.map((i) => i.node.text).join("\n"),
             nodeType: imports[0]!.node.type,
             capture: "import" as const,
+            grammar: grammarId,
             internalCommentCount: 0,
             docstringCount: 0,
           },
@@ -370,7 +378,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   const candidates = resolveCandidates(runQuery(query, tree.rootNode), {
     overrides: entry.policy as import("./query.ts").PolicyOverrides | undefined,
   });
-  const { definitions, comments, imports } = materialize(candidates);
+  const { definitions, comments, imports } = materialize(candidates, language);
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,

@@ -10,6 +10,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { grammar, knownLanguages } from "../core/input/grammars.ts";
+import { ELEMENT_CAPTURES } from "../core/input/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -33,14 +35,101 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
-// A capture address: a plain capture name addressing grammar-autonomous vocabulary directly
-// (markdown's "section") - the targeting backdoor for captures no shared target noun covers.
+// A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
+// grammar-autonomous vocabulary (markdown's markdown:section). The bare form drifted; qualified
+// AND validated is the deliberate lane: an unknown grammar or an unknown capture in a loaded
+// grammar is a setup error (see assertCaptureAddress), never a silent no-match.
 const CAPTURE_ADDRESS_SCHEMA = Type.String({
-  pattern: "^[a-z][a-z0-9_-]*$",
+  pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
   description:
-    "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+    "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
 });
 
+const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
+
+const SHARED_TARGETS = new Set([
+  "files",
+  "functions",
+  "classes",
+  "methods",
+  "types",
+  "bindings",
+  "definitions",
+  "comments",
+  "loose-comments",
+  "imports",
+]);
+
+/**
+ * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
+ * interface, single source, no second authority. SYNTACTIC on purpose: a capture bound only under a
+ * predicate still counts as emitted (the .scm names it; predicates gate matching, not vocabulary).
+ * Element captures only - @name and reserved tokens are not targets. `;` comment lines are stripped
+ * first: prose naming a capture does not emit it.
+ */
+export function emittedCaptures(grammarId: string): readonly string[] {
+  const scm = grammar(grammarId)
+    .queries.split("\n")
+    .filter((line) => !line.trimStart().startsWith(";"))
+    .join("\n");
+  const named = new Set([...scm.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)].map((m) => m[1]!));
+  return ELEMENT_CAPTURES.filter((c) => named.has(c));
+}
+/**
+ * Setup-time loudness for targets, at LOAD always (even when that grammar's files never walk this
+ * run - no deferred loudness): a qualified address is checked against the grammar's EMITTED
+ * captures with two distinguished failures - grammar not registered (named with the loaded ids) vs
+ * capture not emitted (named with the emitted set, e.g. "markdown emits: section, comment"). A bare
+ * name that is neither a shared target nor an address is a typo and fails loudly too - resolution
+ * never silently no-matches a well-formed target. A well-formed address finding zero elements in a
+ * run is fine (measured nothing); an invalid NAME never reaches a run.
+ */
+function assertCaptureAddress(target: string): void {
+  const match = target.match(QUALIFIED_ADDRESS);
+  if (match === null) {
+    if (SHARED_TARGETS.has(target)) return;
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'unknown target "' +
+        target +
+        '" (shared targets: ' +
+        [...SHARED_TARGETS].join(", ") +
+        "; or a grammar-scoped capture address: grammar:capture)",
+    );
+  }
+  const grammarId = match[1]!;
+  const capture = match[2]!;
+  const loaded = knownLanguages();
+  if (!loaded.includes(grammarId)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'capture address "' +
+        target +
+        '" names an unknown grammar "' +
+        grammarId +
+        '" (loaded grammars: ' +
+        loaded.join(", ") +
+        ")",
+    );
+  }
+  const emitted = emittedCaptures(grammarId);
+  if (!emitted.includes(capture)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'capture address "' +
+        target +
+        '": grammar "' +
+        grammarId +
+        '" does not emit "' +
+        capture +
+        '" (' +
+        grammarId +
+        " emits: " +
+        emitted.join(", ") +
+        ")",
+    );
+  }
+}
 const TARGET_SCHEMA = Type.Union([
   Type.Literal("files"),
   Type.Literal("functions"),
@@ -464,6 +553,9 @@ export function validateConfig(
  * once.
  */
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
+  for (const target of Array.isArray(entry.target) ? entry.target : [entry.target]) {
+    assertCaptureAddress(target);
+  }
   const isChoice = entry.kind === "choice";
   const handle = compileDataHandle(
     entry.handle,

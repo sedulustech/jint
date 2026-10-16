@@ -101,8 +101,8 @@
                         "type": "string"
                       },
                       {
-                        "pattern": "^[a-z][a-z0-9_-]*$",
-                        "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                        "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                        "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                         "type": "string"
                       },
                       {
@@ -150,8 +150,8 @@
                               "type": "string"
                             },
                             {
-                              "pattern": "^[a-z][a-z0-9_-]*$",
-                              "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                              "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                              "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                               "type": "string"
                             }
                           ]
@@ -386,8 +386,8 @@
                         "type": "string"
                       },
                       {
-                        "pattern": "^[a-z][a-z0-9_-]*$",
-                        "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                        "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                        "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                         "type": "string"
                       },
                       {
@@ -435,8 +435,8 @@
                               "type": "string"
                             },
                             {
-                              "pattern": "^[a-z][a-z0-9_-]*$",
-                              "description": "A capture address: addresses a grammar's own capture directly (e.g. markdown's section). Matches only elements captured with that name.",
+                              "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                              "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
                               "type": "string"
                             }
                           ]

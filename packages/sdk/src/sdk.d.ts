@@ -15,6 +15,7 @@ declare module "jint:sdk" {
   export interface CustomElement {
     readonly id: string;
     readonly path: string;
+    readonly grammar: string;
     readonly capture:
       | "function"
       | "method"

@@ -109,12 +109,16 @@ export default {
 | `functions`      | each function or method                                                       |
 | `classes`        | each class-like unit                                                          |
 | `methods`        | each member function                                                          |
-| `types`          | interfaces, structs, enums, aliases, sections                                 |
+| `types`          | interfaces, structs, enums, aliases                                           |
 | `bindings`       | each name bound to a non-callable, non-type value                             |
 | `definitions`    | every declaration except comments and imports                                 |
 | `comments`       | the comment pair frame (a definition judged together with its owned comments) |
 | `loose-comments` | comments with no definition frame                                             |
 | `imports`        | the file's imports as one merged unit                                         |
+
+Beyond the shared targets, a grammar-scoped capture address `<lang>:<capture>` reaches a
+grammar's own emitted captures (e.g. `markdown:section` - the grammar's queries.scm is
+the single source; unknown grammar or unemitted capture is a setup error).
 
 Full table: docs/targets.md (generated from the live resolution).
 

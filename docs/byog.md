@@ -26,6 +26,16 @@ subdirs (they are ignored, with a coverage note), and only ONE `<lang>.manifest.
 | `<lang>.manifest.json` | facts only: `{ "version": "1.0.3", "extensions": ["v", "sv"] }` — version is a pinned grammar version string; extensions route files to the grammar. Optionally a `policy` object keyed by capture. |
 | `queries.scm`          | tree-sitter query patterns assigning **jint captures** — the extraction half                                                                                                                        |
 
+**The .scm IS the interface.** A capture your queries emit is rule-facing - addressable through
+the qualified capture address `<lang>:<capture>` (e.g. `markdown:section`) - by the fact of being
+emitted, derived from the .scm at load. No second list to maintain: there is no manifest export
+declaration and no registry; the derivation is syntactic (a capture bound only under a predicate
+still counts; `;` comment lines naming a capture do not). Element captures only: @name and
+reserved tokens are never rule-facing, and a capture outside jint's frozen vocabulary fails the
+grammar at registration. Validation is loud at load - an address naming an unknown grammar, or a
+capture a loaded grammar does not emit, is a setup error naming the loaded grammars or the
+emitted set (e.g. `markdown emits: section`), even when that grammar's files never walk the run.
+
 Registration happens at lint start. A user wasm wins over an embedded grammar of the same
 language; a manifest+scm without a wasm shadows an embedded grammar's extraction. The frozen
 capture vocabulary is the contract: the seam accepts ANY grammar, but only jint's ontology —

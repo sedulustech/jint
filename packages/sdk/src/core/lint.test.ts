@@ -3,7 +3,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
-import { compileRule } from "../config/load.ts";
+import { compileRule, emittedCaptures } from "../config/load.ts";
+import { grammar } from "../core/input/grammars.ts";
+import { ELEMENT_CAPTURES } from "../core/input/query.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
 import {
@@ -736,7 +738,7 @@ describe("lint", () => {
     try {
       const sectionRule = mkRule("noul", {
         name: "probe_section",
-        target: "section" as never, // the capture address: grammar-autonomous vocabulary
+        target: "markdown:section" as never, // the qualified capture address: grammar-scoped
         handle: { warn: { greater_than: 0.9 } },
       });
       const report = await collectReport(
@@ -750,6 +752,27 @@ describe("lint", () => {
       expect(report.measurements[0]!.element?.kind).toBe("section");
       expect(report.findings).toHaveLength(1);
       expect(report.findings[0]!.rule).toBe("probe_section");
+      // the shared captures stay addressable when the grammar emits them (typescript emits @comment)
+      expect(() =>
+        compileRule(
+          {
+            ...NOUL_DATA,
+            name: "probe_ts_comments",
+            target: "typescript:comment",
+          } as never,
+          "lint.test.ts",
+        ),
+      ).not.toThrow();
+      try {
+        mkRule("noul", {
+          name: "probe_md_function",
+          target: "markdown:function" as never,
+          handle: { warn: { greater_than: 0.9 } },
+        });
+        throw new Error("markdown:function must not compile - not a declared export");
+      } catch (thrown) {
+        expect((thrown as { code?: string }).code ?? "CONFIG_INVALID").toBe("CONFIG_INVALID");
+      }
       // the shared nouns do not reach it: 'types' matches nothing on this file now
       const typeProbe = mkRule("noul", { name: "probe_types", target: "types" });
       const empty = await collectReport(
@@ -762,6 +785,54 @@ describe("lint", () => {
     } finally {
       rmSync(file, { force: true });
     }
+  });
+
+  test("qualified capture addresses reject loudly at setup: bare form, unknown grammar, unknown capture", () => {
+    const base = { name: "probe_addr", handle: { warn: { greater_than: 0.9 } } } as const;
+    for (const [target, detail] of [
+      ["section", "bare form (schema-rejected)"],
+      ["nosuch:section", "unknown grammar"],
+      ["markdown:nosuch", "unknown capture in a loaded grammar"],
+      ["funtions", "a typo: neither shared target nor qualified address"],
+      ["markdown:name", "@name is not an element capture - not rule-facing"],
+      ["markdown:function", "markdown emits no function capture"],
+    ] as const) {
+      try {
+        compileRule(
+          {
+            ...NOUL_DATA,
+            ...base,
+            target,
+          } as never,
+          "lint.test.ts",
+        );
+        throw new Error("expected CONFIG_INVALID for " + detail);
+      } catch (thrown) {
+        expect(thrown).toBeInstanceOf(SetupError);
+        expect((thrown as { code: string }).code).toBe("CONFIG_INVALID");
+        expect((thrown as { message: string }).message).toContain(target);
+      }
+    }
+  });
+
+  test("emittedCaptures is syntactic over the .scm - predicates do not unemit", () => {
+    // a capture bound under a predicate still counts: the .scm names it; predicates gate
+    // matching, not vocabulary. Pin: every element capture named on a predicate line of the
+    // typescript .scm is in the derived emitted set.
+    const scm = grammar("typescript").queries;
+    const predicateLines = scm.split("\n").filter((l) => l.includes("(#"));
+    expect(predicateLines.length).toBeGreaterThan(0);
+    const emitted = new Set(emittedCaptures("typescript"));
+    for (const line of predicateLines) {
+      for (const m of line.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)) {
+        const name = m[1]!;
+        if ((ELEMENT_CAPTURES as readonly string[]).includes(name)) {
+          expect(emitted.has(name)).toBe(true);
+        }
+      }
+    }
+    // the derivation is element captures only: markdown's @name never becomes addressable
+    expect(emittedCaptures("markdown")).toEqual(["section"]);
   });
 
   test("module docstrings are loose comments - no definition owns them", async () => {

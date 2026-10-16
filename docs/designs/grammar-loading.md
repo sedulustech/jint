@@ -138,14 +138,33 @@ qualified definitions). Interfaces, structs, enums, aliases, modules, sections s
 - MD SECTIONS: the section -> @type stretch (the trial's "one defensible mapping") is REVERSED -
   a code noun lying about prose is worse than grammar-autonomous vocabulary. Sections capture
   @section, a markdown-only ELEMENT CAPTURE: the seven shared nouns stay seven, the shared target
-  union is untouched, and sections are reachable only through the capture address (target
-  "section" - the targeting backdoor, now real in matchesTarget). Consequence: code-calibrated
+  union is untouched, and sections are reachable only through the qualified capture address
+  (target "markdown:section" - the targeting backdoor, now real in matchesTarget). Consequence: code-calibrated
   default rules stop measuring markdown prose; only file-scope rules and comments remain for md.
 - MODULE DOCSTRINGS: routed to loose-comments - no definition owns them, so they are commentary
   like any other unowned run (the "speaks for itself" special case is deleted).
 - KIND SENTENCE: the engine no longer prefixes "This unit is a <kind>." to questions - the
   state's path/extension say what the unit is and rule authors self-describe (the prefix lied for
   md sections).
+
+#### Qualified capture addresses; the .scm is the interface (2026-10-16, design-review correction)
+
+Decision trail, one day, three states:
+
+- BARE capture address (target "section") - shipped with the @section change and REJECTED: a
+  bare string is indistinguishable from a typo and resolves against nothing at the grammar layer.
+- MANIFEST exports (a `captures` key declaring rule-facing captures) - considered and REJECTED:
+  a second authority for one fact. The queries already know what they emit; a manifest copy
+  drifts, and reviewability is git's job, not a duplicate declaration's. WireCapture already
+  filters plumbing (@docstring) from the wire - the lane needed no new gate.
+- EMITTED-SET validation - SETTLED. The qualified form {grammar}:{capture} resolves against the
+  captures the grammar's queries emit, derived syntactically at load (the .scm IS the grammar's
+  interface, single source). SYNTACTIC on purpose: a capture bound only under a predicate still
+  counts as emitted; `;` comments naming a capture do not. Validation runs at LOAD always - even
+  when that grammar's files never walk the run, no deferred loudness. Two distinguished
+  CONFIG_INVALID failures: grammar not registered (named with the loaded ids) vs capture not
+  emitted (named with the emitted set, e.g. "markdown emits: section"). Bare unknown strings
+  fail at schema and again at compile - resolution never silently no-matches a well-formed target.
 
 #### Verilog removed from the embedded grammars (2026-10-15, owner decision)
 

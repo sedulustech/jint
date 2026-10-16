@@ -20,6 +20,8 @@ export interface CustomElement {
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
   readonly capture: import("../../types.ts").ElementCapture;
+  /** The grammar that extracted this element (the qualified capture address resolves against it). */
+  readonly grammar: string;
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };

@@ -47,6 +47,11 @@ measurement its handle judged actionable and is the only output that demands act
 - **node type** — one grammar's raw tree-sitter node type (node-types.json); grammar-local,
   written lang:node_type when addressed, with no shared meaning across grammars. The middle of
   the three rule-target namespaces: FILE / NODE TYPE / CAPTURE.
+- **qualified capture address** — the grammar-scoped targeting form `{grammar}:{capture}` (e.g.
+  `markdown:section`): the only road to a grammar-autonomous capture. Validated against the
+  captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
+  source, no manifest involvement); an unknown grammar or an unemitted capture is a setup error,
+  never a silent no-match. The bare form drifted from the design and is schema-rejected.
 - **false positive rate** — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.
 - **finding** — a measurement its handle judged actionable; the only output that demands action.

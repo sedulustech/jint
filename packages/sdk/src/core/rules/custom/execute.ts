@@ -61,6 +61,7 @@ export function tsElementsOf(
       id: e.label,
       path,
       capture: e.capture,
+      grammar: e.grammar,
       source: e.content,
       span: {
         start: e.span.start,
