@@ -38,7 +38,7 @@ describe("decompose — php", () => {
       ["class", "Item"],
       ["method", "restock"],
       ["function", "total"],
-      ["binding", "pricer"],
+      ["function", "pricer"],
       ["binding", "TAX_RATE"],
       ["type", "Named"],
       ["method", "name"],

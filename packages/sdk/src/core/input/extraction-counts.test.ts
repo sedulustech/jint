@@ -77,7 +77,7 @@ const PINNED: Readonly<
   },
   php: {
     ext: "php",
-    definitions: { class: 1, method: 2, type: 1, function: 1, binding: 3 },
+    definitions: { class: 1, method: 2, type: 1, function: 3, binding: 1 },
     comments: { comment: 2 },
     imports: { import: 1 },
   },

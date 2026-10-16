@@ -1,8 +1,8 @@
 # Documented parity deltas: php (see ../README.md for the verdicts).
 # Regenerate only after re-recording a verdict.
 NEW binding TAX_RATE L28.0-L28.20
-NEW binding maker L26.0-L26.34
-NEW binding pricer L25.0-L25.42
+NEW function maker L26.0-L26.34
+NEW function pricer L25.0-L25.42
 NEW comment - L13.8-L13.45
 NEW comment - L8.0-L8.42
 NEW function total L21.0-L23.1

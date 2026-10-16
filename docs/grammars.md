@@ -19,7 +19,7 @@ the one .scm). docs/byog.md is the contract plus a full verilog worked example.
 | `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes (`@class`, templates absorbed), methods (`@method`: in-class prototypes/definitions and out-of-line `K::f` definitions)                                                                                                     |
 | `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
 | `markdown`   | `.md`                               | sections (`@type`, heading text as name; sections nest)                                                                                                                                                                                               |
-| `php`        | `.php`                              | functions, methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)                                                                                                       |
+| `php`        | `.php`                              | functions (named + closures: `fn`/anonymous, an assigned closure keeping one element with the function noun), methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged)    |
 
 `.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:
 `grammar-loading` open question).

@@ -5,9 +5,6 @@
 ; here: @name binds the name node directly, so every definition renders named.
 ;
 ; WAITING (recorded, not stretched; the trial's stretches retired):
-; - anonymous_function / arrow_function (closures): the trial stretched them to function; a
-;   closure is a unit of behavior but nameless - needs the vocabulary to decide (the callable-
-;   initializer refinement's php form: $f = fn() => ... wants to keep the binding noun).
 ; - include_expression / require_expression: runtime control flow, not an import - transit
 ;   (the trial's own verdict), WAITING for a vocabulary decision.
 ; - property_declaration (member data): the field capture, same as c/cpp - WAITING.
@@ -18,6 +15,21 @@
 ; --- functions ---------------------------------------------------------------------------------
 (function_definition name: (name) @name) @function
 (method_declaration name: (name) @name) @method
+
+; Closures are functions (nameless functions are still functions - precedent: ts arrows, verilog
+; always, test composites). ASSIGNED closures keep ONE element with the function noun: the
+; wrapper assignment is captured first (pattern order is priority on the outer node - the ts
+; callable-initializer precedent); the bare patterns follow for unassigned closures (arguments,
+; returns). A closure inside any @function/@method is suppressed by the opacity policy - no
+; special case.
+(assignment_expression
+  left: (variable_name (name) @name)
+  right: (arrow_function)) @function ; @priority
+(assignment_expression
+  left: (variable_name (name) @name)
+  right: (anonymous_function)) @function ; @priority
+(anonymous_function) @function
+(arrow_function) @function
 
 ; --- types --------------------------------------------------------------------------------------
 ; @class is the named-class capture; interfaces, traits and enums stay @type. anonymous_class is
