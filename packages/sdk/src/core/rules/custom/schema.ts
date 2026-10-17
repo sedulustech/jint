@@ -230,7 +230,7 @@ function isRole(t: unknown): boolean {
 
 // THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
 // autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
-// themselves are validated at config compile (assertCaptureAddress) - this check is shape-only.
+// themselves are validated at lint startup (assertCaptureAddress, merged registry) - this check is shape-only.
 const QUALIFIED_ADDRESS = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
 
 function isTargetable(t: unknown): boolean {

@@ -11,8 +11,8 @@ import { resolve } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { knownLanguages } from "../core/grammars/grammars.ts";
-import { emittedCaptures } from "../core/grammars/query.ts";
+import {} from "../core/grammars/grammars.ts";
+import {} from "../core/grammars/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -37,74 +37,14 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
 // A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
-// grammar-autonomous vocabulary (markdown's markdown:section). The bare form drifted; qualified
-// AND validated is the deliberate lane: an unknown grammar or an unknown capture in a loaded
-// grammar is a setup error (see assertCaptureAddress), never a silent no-match.
+// grammar-autonomous vocabulary (markdown's markdown:section). Validated at lint
+// startup against the merged registry (assertCaptureAddress in core/grammars/query.ts).
 const CAPTURE_ADDRESS_SCHEMA = Type.String({
   pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
   description:
     "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
 });
 
-const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
-
-const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
-
-/**
- * Setup-time loudness for targets, at LOAD always (even when that grammar's files never walk this
- * run - no deferred loudness): a qualified address is checked against the grammar's EMITTED
- * captures with two distinguished failures - grammar not registered (named with the loaded ids) vs
- * capture not emitted (named with the emitted set, e.g. "markdown emits: section, comment"). A bare
- * name that is neither a shared target nor an address is a typo and fails loudly too - resolution
- * never silently no-matches a well-formed target. A well-formed address finding zero elements in a
- * run is fine (measured nothing); an invalid NAME never reaches a run.
- */
-function assertCaptureAddress(target: string): void {
-  const match = target.match(QUALIFIED_ADDRESS);
-  if (match === null) {
-    if (SHARED_TARGETS.has(target)) return;
-    throw new SetupError(
-      "CONFIG_INVALID",
-      'unknown target "' +
-        target +
-        '" (shared targets: ' +
-        [...SHARED_TARGETS].join(", ") +
-        "; or a grammar-scoped capture address: grammar:capture)",
-    );
-  }
-  const grammarId = match[1]!;
-  const capture = match[2]!;
-  const loaded = knownLanguages();
-  if (!loaded.includes(grammarId)) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      'capture address "' +
-        target +
-        '" names an unknown grammar "' +
-        grammarId +
-        '" (loaded grammars: ' +
-        loaded.join(", ") +
-        ")",
-    );
-  }
-  const emitted = emittedCaptures(grammarId);
-  if (!emitted.includes(capture)) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      'capture address "' +
-        target +
-        '": grammar "' +
-        grammarId +
-        '" does not emit "' +
-        capture +
-        '" (' +
-        grammarId +
-        " emits: " +
-        emitted.join(", ") +
-        ")",
-    );
-  }
-}
 const TARGET_SCHEMA = Type.Union([
   // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
   // joining the union there; a literal copy here would be the drift this pass kills
@@ -168,6 +108,7 @@ const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
  * generation script keeps them identical). Additional top-level keys (e.g. "$schema", consumers'
  * own metadata) are allowed and ignored.
  */
+
 export const CONFIG_SCHEMA = Type.Object({
   $schema: Type.Optional(Type.String()),
   // Optional: rules-only probe configs are valid when the CLI supplies a path positional;
@@ -290,11 +231,6 @@ export async function loadTsConfig(path: string, options?: LoadOptions): Promise
   if (Array.isArray(declarative.rules)) {
     declarative.rules = declarative.rules.filter((entry) => {
       if (!isCallbackRule(entry)) return true;
-      // the qualified capture address is loud for TS custom rules too: same gate, same errors
-      const targets = (entry as { target?: unknown }).target;
-      for (const t of Array.isArray(targets) ? targets : [targets]) {
-        if (typeof t === "string") assertCaptureAddress(t);
-      }
       customRules.push(validateCustomRule(entry, path));
       return false;
     });
@@ -457,14 +393,6 @@ export function validateConfig(
   }
   // Per-rule scope validation; a scope that cancels a rule entirely is legal, warned, never an error.
   const warnings: string[] = [];
-  // THE QUALIFIED CAPTURE ADDRESS gate, loud for TS custom rules too: same validator, same errors
-  // (unknown grammar / unemitted capture). Shape is already validated in validateCustomRule.
-  for (const rule of customRules) {
-    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
-    for (const t of targets) {
-      if (typeof t === "string") assertCaptureAddress(t);
-    }
-  }
   for (const rule of [...byName.values(), ...customRules]) {
     if (rule.include === undefined && rule.exclude === undefined) continue;
     const scopeProblem = checkRuleScope(rule);
@@ -521,9 +449,8 @@ export function validateConfig(
  * once.
  */
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
-  for (const target of Array.isArray(entry.target) ? entry.target : [entry.target]) {
-    assertCaptureAddress(target);
-  }
+  // capture-address validation happens at LINT STARTUP against the merged registry (the user
+  // grammar dir is not scanned at config load; see lint() in core/lint.ts)
   const isChoice = entry.kind === "choice";
   const handle = compileDataHandle(
     entry.handle,

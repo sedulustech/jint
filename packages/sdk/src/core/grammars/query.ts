@@ -27,9 +27,10 @@
  * NAMES a query uses, never on the nodes they will bind.
  */
 
+import { ruleTargets } from "@jint/contract";
 import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
-import { grammar } from "./grammars.ts";
+import { grammar, knownLanguages } from "./grammars.ts";
 
 /**
  * The element captures, frozen for v1. A query capturing anything else fails at load.
@@ -637,4 +638,64 @@ export function emittedCaptures(grammarId: string): readonly string[] {
   const scm = scmCode(grammar(grammarId).queries);
   const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
   return ELEMENT_CAPTURES.filter((c) => named.has(c));
+}
+const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
+
+const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
+
+/**
+ * THE capture-address gate, run at LINT STARTUP (after loadUserGrammars, before any file walks): a
+ * qualified address is checked against the MERGED registry as it stands - a shadow grammar REPLACES
+ * its embedded extraction, so the emitted set for an id is the shadow's once registered. Two
+ * distinguished failures: grammar not registered (named with the loaded ids) vs capture not emitted
+ * (named with that grammar's ACTUAL emitted set - shadow-derived when a shadow exists). A bare name
+ * that is neither a shared target nor an address is a typo and fails loudly too. Config load stays
+ * grammar-blind (the dir is not scanned there); the loudness point in the user's experience is
+ * identical: CONFIG_INVALID, nothing measured.
+ */
+export function assertCaptureAddress(target: string): void {
+  const match = target.match(QUALIFIED_ADDRESS);
+  if (match === null) {
+    if (SHARED_TARGETS.has(target)) return;
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'unknown target "' +
+        target +
+        '" (shared targets: ' +
+        [...SHARED_TARGETS].join(", ") +
+        "; or a grammar-scoped capture address: grammar:capture)",
+    );
+  }
+  const grammarId = match[1]!;
+  const capture = match[2]!;
+  const loaded = knownLanguages();
+  if (!loaded.includes(grammarId)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'capture address "' +
+        target +
+        '" names an unknown grammar "' +
+        grammarId +
+        '" (loaded grammars: ' +
+        loaded.join(", ") +
+        ")",
+    );
+  }
+  const emitted = emittedCaptures(grammarId);
+  if (!emitted.includes(capture)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      'capture address "' +
+        target +
+        '": grammar "' +
+        grammarId +
+        '" does not emit "' +
+        capture +
+        '" (' +
+        grammarId +
+        " emits: " +
+        emitted.join(", ") +
+        ")",
+    );
+  }
 }

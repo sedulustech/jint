@@ -7,7 +7,7 @@ import { compileRule } from "../config/load.ts";
 import { grammar } from "../core/grammars/grammars.ts";
 import { ELEMENT_CAPTURES } from "../core/grammars/query.ts";
 import { emittedCaptures } from "./grammars/query.ts";
-import { scmCode } from "./grammars/query.ts";
+import { assertCaptureAddress, scmCode } from "./grammars/query.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
 import {
@@ -803,10 +803,13 @@ describe("lint", () => {
     }
   });
 
-  test("qualified capture addresses reject loudly at setup: bare form, unknown grammar, unknown capture", () => {
-    const base = { name: "probe_addr", handle: { warn: { greater_than: 0.9 } } } as const;
+  test("qualified capture addresses reject loudly at the merged-registry gate: bare form, unknown grammar, unknown capture", () => {
+    // The gate lives at LINT STARTUP now (core/lint.ts, after loadUserGrammars): addresses are
+    // checked against the MERGED registry - the emitted set of an id is its registered grammar's,
+    // whatever its origin. This pin exercises the validator directly (the embedded registry is
+    // the merged one here - no user dir in play); the shadow-set ordering is e2e-pinned in
+    // tests/byog-markdown.test.ts.
     for (const [target, detail] of [
-      ["section", "bare form (schema-rejected)"],
       ["nosuch:section", "unknown grammar"],
       ["markdown:nosuch", "unknown capture in a loaded grammar"],
       ["funtions", "a typo: neither shared target nor qualified address"],
@@ -814,14 +817,7 @@ describe("lint", () => {
       ["markdown:function", "markdown emits no function capture"],
     ] as const) {
       try {
-        compileRule(
-          {
-            ...NOUL_DATA,
-            ...base,
-            target,
-          } as never,
-          "lint.test.ts",
-        );
+        assertCaptureAddress(target);
         throw new Error("expected CONFIG_INVALID for " + detail);
       } catch (thrown) {
         expect(thrown).toBeInstanceOf(SetupError);

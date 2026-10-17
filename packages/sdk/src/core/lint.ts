@@ -12,6 +12,7 @@
  */
 
 import { loadUserGrammars } from "./grammars/grammars.ts";
+import { assertCaptureAddress } from "./grammars/query.ts";
 import { grammarExtensions, MAX_ELEMENT_TOKENS, type InventoryElement } from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
@@ -202,6 +203,22 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   await loadUserGrammars(undefined, (note) => grammarNotes.push(note));
   for (const note of grammarNotes) {
     yield { type: "note", note };
+  }
+  // THE CAPTURE-ADDRESS GATE runs HERE, after registration and before any file walks: addresses
+  // validate against the MERGED registry as it stands - a shadow grammar REPLACES its embedded
+  // extraction, so the emitted set for an id is the shadow's once registered. Config load stays
+  // grammar-blind (the dir is not scanned there); the loudness point in the user's experience is
+  // identical: CONFIG_INVALID, nothing measured.
+  for (const rule of options.config.rules) {
+    for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
+      assertCaptureAddress(t);
+    }
+  }
+  for (const rule of options.config.customRules ?? []) {
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    for (const t of targets) {
+      if (typeof t === "string") assertCaptureAddress(t);
+    }
   }
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.

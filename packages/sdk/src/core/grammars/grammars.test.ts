@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { knownLanguages, loadUserGrammars, resetGrammarsForTest } from "./grammars.ts";
+import { assertCaptureAddress } from "./query.ts";
 
 /** A scratch grammar root; `dirs` maps grammar-dir name -> artifact name -> content. */
 function scratchDir(dirs: Record<string, Record<string, string | Uint8Array>>): string {
@@ -123,5 +124,25 @@ describe("one grammar per dir", () => {
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain("loose file(s) (probe.manifest.json) ignored");
     expect(knownLanguages()).toContain("markdown");
+  });
+});
+
+describe("THE MERGED-REGISTRY ADDRESS GATE (ordering pin)", () => {
+  afterEach(() => {
+    resetGrammarsForTest();
+  });
+
+  test("a shadow registration re-scopes address validation: the emitted set is the shadow's", async () => {
+    // Before any user registration, markdown:paragraph validates (the embedded .scm emits it).
+    expect(() => assertCaptureAddress("markdown:paragraph")).not.toThrow();
+    // Register the shadow dir (section-only .scm, no wasm): validation must now read the
+    // SHADOW's emitted set - markdown:paragraph flips from valid to loud, markdown:section stays
+    // valid. This is the ordering the e2e pins observably (tests/byog-markdown.test.ts).
+    const shadow = join(
+      new URL("../../../../../tests/fixtures/grammars", import.meta.url).pathname,
+    );
+    await loadUserGrammars(shadow);
+    expect(() => assertCaptureAddress("markdown:section")).not.toThrow();
+    expect(() => assertCaptureAddress("markdown:paragraph")).toThrow(/markdown emits: section/);
   });
 });
