@@ -1,7 +1,7 @@
 /** The content echo for element-scoped queries - stderr only; stdout stays finding data. */
 import { fileUnit } from "../input/file.ts";
 import { elementWireId, selectElement, selectElements } from "../rules/classify.ts";
-import type { InventoryElement } from "../input/walk.ts";
+import type { InventoryElement } from "../grammars/walk.ts";
 import type { Finding, Span, Unit } from "../types.ts";
 
 const NL = String.fromCharCode(10);

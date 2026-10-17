@@ -217,7 +217,7 @@ Bun.spawnSync(["bunx", "oxfmt", skillOut]);
 process.stdout.write("wrote " + skillOut + "\n");
 
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
-import { knownLanguages } from "../packages/sdk/src/core/input/grammars.ts";
+import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
 // docs/targets.md: the rule-side target table, GENERATED from the live resolution and the
 // grammars' own patterns, so the doc can never drift from what a rule actually resolves.
 //
@@ -225,9 +225,10 @@ import { knownLanguages } from "../packages/sdk/src/core/input/grammars.ts";
 // keyword census read from each embedded/<lang>/queries.scm), frame carried (what state the
 // classifier sees), scope-coupled (whether the target participates in per-rule include/exclude).
 // The lang:node_type lane is a section of its own (it is not a fixed member of the vocabulary).
-import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/input/query.ts";
+import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/grammars/query.ts";
 
-const embeddedDir = new URL("../packages/sdk/src/core/input/embedded/", import.meta.url).pathname;
+const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
+  .pathname;
 
 /** Per grammar: which element captures its .scm actually assigns (the keyword census). */
 function captureCensus(): Record<string, Set<string>> {

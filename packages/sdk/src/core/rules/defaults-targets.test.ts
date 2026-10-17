@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { defaultRules } from "@jint/defaults";
 import { matchesTarget } from "../rules/classify.ts";
-import type { InventoryElement } from "../input/walk.ts";
+import type { InventoryElement } from "../grammars/walk.ts";
 
 // THE DEFAULTS-IDENTICAL PIN (owner decision: defaults rewritten as explicit target lists with
 // identical behavior). Every default that used to say target: "definitions" now says the

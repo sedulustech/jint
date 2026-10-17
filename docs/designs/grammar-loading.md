@@ -7,7 +7,7 @@ modified: 2026-10-16
 ## What exists today
 
 Nine grammars ship embedded in the binary: c, cpp, css, go, markdown, php, python, tsx,
-typescript. Each lives in `packages/sdk/src/core/input/embedded/<id>/` - the DIRECTORY NAME is
+typescript. Each lives in `packages/sdk/src/core/grammars/embedded/<id>/` - the DIRECTORY NAME is
 the grammar id - as three artifacts: `<id>.wasm` (parse), `extensions.json` (routing: a bare
 JSON array like [".md"]), `queries.scm` (extraction patterns + shape directives).
 The walker (`walk.ts`) parses with web-tree-sitter, runs the grammar's compiled queries

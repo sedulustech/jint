@@ -3,10 +3,11 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
-import { compileRule, emittedCaptures } from "../config/load.ts";
-import { grammar } from "../core/input/grammars.ts";
-import { ELEMENT_CAPTURES } from "../core/input/query.ts";
-import { scmCode } from "./input/query.ts";
+import { compileRule } from "../config/load.ts";
+import { grammar } from "../core/grammars/grammars.ts";
+import { ELEMENT_CAPTURES } from "../core/grammars/query.ts";
+import { emittedCaptures } from "./grammars/query.ts";
+import { scmCode } from "./grammars/query.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
 import {

@@ -9,7 +9,7 @@
  * bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../input/walk.ts";
+import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../grammars/walk.ts";
 import { ruleInScope } from "../../scope.ts";
 import {
   ClassifyError,
@@ -30,7 +30,7 @@ import {
   type CustomElement,
   type CustomRule,
 } from "./schema.ts";
-import type { InventoryElement } from "../../input/walk.ts";
+import type { InventoryElement } from "../../grammars/walk.ts";
 
 /**
  * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are

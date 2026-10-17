@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
+import { knownLanguages, languageOf } from "../grammars/walk.ts";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { knownLanguages, languageOf } from "./walk.ts";
 
 export async function fileUnit(
   path: string,

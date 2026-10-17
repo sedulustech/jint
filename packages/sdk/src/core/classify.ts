@@ -15,7 +15,7 @@
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
  */
 
-import { knownLanguages, languageOf } from "./input/walk.ts";
+import { knownLanguages, languageOf } from "./grammars/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -33,7 +33,7 @@ import {
   type Rule,
   type Unit,
 } from "./types.ts";
-import type { Inventory } from "./input/walk.ts";
+import type { Inventory } from "./grammars/walk.ts";
 
 /** Options for the one-shot classify door. */
 export interface ClassifyOptions {

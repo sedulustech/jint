@@ -11,8 +11,8 @@ import { resolve } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import { grammar, knownLanguages } from "../core/input/grammars.ts";
-import { CAPTURE_TOKEN, ELEMENT_CAPTURES, scmCode } from "../core/input/query.ts";
+import { knownLanguages } from "../core/grammars/grammars.ts";
+import { emittedCaptures } from "../core/grammars/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -50,21 +50,6 @@ const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 
 const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
 
-/**
- * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
- * interface, single source, no second authority. SYNTACTIC on purpose: a capture bound only under a
- * predicate still counts as emitted (the .scm names it; predicates gate matching, not vocabulary).
- * Element captures only - @name and reserved tokens are not targets. `;` comment lines are stripped
- * first: prose naming a capture does not emit it.
- */
-export function emittedCaptures(grammarId: string): readonly string[] {
-  // the SHARED .scm reader: strings blanked, then comments cut - a capture named in a trailing
-  // comment or a predicate string is prose, not an emitted fact (an address must never validate
-  // against a capture the grammar would not actually extract)
-  const scm = scmCode(grammar(grammarId).queries);
-  const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
-  return ELEMENT_CAPTURES.filter((c) => named.has(c));
-}
 /**
  * Setup-time loudness for targets, at LOAD always (even when that grammar's files never walk this
  * run - no deferred loudness): a qualified address is checked against the grammar's EMITTED

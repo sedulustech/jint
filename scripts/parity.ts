@@ -46,7 +46,7 @@ async function referenceElements(source: string, language: string): Promise<Comp
 }
 
 async function queryElements(source: string, language: string): Promise<ComparedElement[]> {
-  const { decompose } = await import(join(ROOT, "packages/sdk/src/core/input/walk.ts"));
+  const { decompose } = await import(join(ROOT, "packages/sdk/src/core/grammars/walk.ts"));
   const inventory = await decompose(source, language);
   return [...inventory.definitions, ...inventory.comments, ...inventory.imports].map((e) => ({
     noun: e.capture,

@@ -13,7 +13,7 @@ import {
   projectElement,
   type Inventory,
   type InventoryElement,
-} from "../input/walk.ts";
+} from "../grammars/walk.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,

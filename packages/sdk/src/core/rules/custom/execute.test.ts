@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decompose, type InventoryElement } from "../../input/walk.ts";
+import { decompose, type InventoryElement } from "../../grammars/walk.ts";
 import { rulesForElement } from "../classify.ts";
 import {
   resolveAllCustomTargets,

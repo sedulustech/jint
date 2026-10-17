@@ -13,10 +13,10 @@
  */
 
 import { stat } from "node:fs/promises";
+import { knownLanguages } from "../grammars/walk.ts";
 import { SetupError, type InputKind, type Unit } from "../types.ts";
 import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
-import { knownLanguages } from "./walk.ts";
 
 export interface InputOptions {
   input: string | string[];

@@ -29,6 +29,7 @@
 
 import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
+import { grammar } from "./grammars.ts";
 
 /**
  * The element captures, frozen for v1. A query capturing anything else fails at load.
@@ -620,4 +621,20 @@ export function runQuery(query: Query, rootNode: QueryMatchSource): Candidate[] 
     if (candidate !== null) candidates.push(candidate);
   }
   return candidates;
+}
+
+/**
+ * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
+ * interface, single source, no second authority. SYNTACTIC on purpose: a capture bound only under a
+ * predicate still counts as emitted (the .scm names it; predicates gate matching, not vocabulary).
+ * Element captures only - @name and reserved tokens are not targets. `;` comment lines are stripped
+ * first: prose naming a capture does not emit it.
+ */
+export function emittedCaptures(grammarId: string): readonly string[] {
+  // the SHARED .scm reader: strings blanked, then comments cut - a capture named in a trailing
+  // comment or a predicate string is prose, not an emitted fact (an address must never validate
+  // against a capture the grammar would not actually extract)
+  const scm = scmCode(grammar(grammarId).queries);
+  const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
+  return ELEMENT_CAPTURES.filter((c) => named.has(c));
 }

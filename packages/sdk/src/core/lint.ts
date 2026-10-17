@@ -11,10 +11,10 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { loadUserGrammars } from "./input/grammars.ts";
+import { loadUserGrammars } from "./grammars/grammars.ts";
+import { grammarExtensions, MAX_ELEMENT_TOKENS, type InventoryElement } from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
-import { grammarExtensions, MAX_ELEMENT_TOKENS, type InventoryElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import { recordSummary } from "./jev/debug.ts";
 import {
