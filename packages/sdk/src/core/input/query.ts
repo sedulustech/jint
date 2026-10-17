@@ -16,7 +16,7 @@
  *   - same-capture nesting is suppressed, keeping the outer element (an exported declaration's
  *     bare-pattern match dies under the wrapper match); different-capture overlap is legal
  *     (a method inside its class).
- *   - per-noun descent defaults: a @type element's interior surfaces (a method is an element of
+ *   - per-capture descent defaults: a @type element's interior surfaces (a method is an element of
  *     its own); a @function or @binding interior is OPAQUE - captures inside a function body
  *     (local bindings, nested functions) are implementation, never elements. This is the query
  *     shape of the old composite-descent limit, settled by the typescript parity run.
@@ -47,7 +47,7 @@ export const ELEMENT_CAPTURES = [
   "import",
   "docstring",
   // markdown-only element captures (the BYOG precedent for grammar-autonomous vocabulary) -
-  // never a code noun, no shared target addresses them. section: prose's container-with-body,
+  // never a code capture, no shared target addresses them. section: prose's container-with-body,
   // self-nesting per the .scm's #set! directive. paragraph: flat prose - paragraphs never nest.
   "section",
   "paragraph",
@@ -56,8 +56,8 @@ export type Capture = (typeof ELEMENT_CAPTURES)[number];
 
 /**
  * RESERVED capture tokens: valid in a query, validated, but emitted by no grammar today. `test` is
- * held for the test noun (design: Test identification) so the name cannot be coined twice when it
- * ships; a query binding it produces no element until a grammar assigns it to a node.
+ * held for the test capture (design: Test identification) so the name cannot be coined twice when
+ * it ships; a query binding it produces no element until a grammar assigns it to a node.
  */
 export const RESERVED_CAPTURES = ["test"] as const;
 
@@ -497,7 +497,10 @@ export interface Candidate {
   readonly name?: string;
 }
 
-/** The element capture of one match (the first captured noun), or null for name-only patterns. */
+/**
+ * The element capture of one match (the first capture in the pattern), or null for name-only
+ * patterns.
+ */
 function elementCaptureOf(match: QueryMatch): Capture | null {
   for (const capture of match.captures) {
     if ((ELEMENT_CAPTURES as readonly string[]).includes(capture.name)) {

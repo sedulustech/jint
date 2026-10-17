@@ -50,7 +50,7 @@ Everything fails loud, at setup, before any file is measured — never into sile
 - **Unknown node types**: `queries.scm` names a node type the grammar does not have. Query
   compilation rejects it; the error quotes the compiler message verbatim.
 - **Unknown captures**: a capture outside the vocabulary. The run refuses to start and prints
-  your captures next to the seven code nouns plus docstring — an .scm that captures outside the ontology would
+  your captures next to the seven code captures plus docstring — an .scm that captures outside the ontology would
   parse into elements no rule can address, so it is a config error by name.
 - **Malformed or unknown #set! directives**: a `#set` without the bang, a `#set!` with no quoted
   name, or a `#set! "unknown"` naming no known directive is a setup error naming the line - a
@@ -90,7 +90,7 @@ jint never fetches or builds grammars; the network stays out of the measurement 
 ; THE HONEST-STRETCH CALL (steer: judge always_construct fresh): always_construct -> @function
 ; is KEPT as honest, not a stretch. An always block is a procedural behavioral unit with a body
 ; and an event control header - the closest thing verilog has to a function-with-body; the code
-; nouns describe it without lying. initial/final_construct: same shape, same call.
+; captures describe it without lying. initial/final_construct: same shape, same call.
 ;
 ; WAITING (recorded, not stretched; the trial's vocabulary ledger):
 ; - module_instantiation (u_counter): a hardware unit wired in - no honest home in the five; the
@@ -120,7 +120,7 @@ jint never fetches or builds grammars; the network stays out of the measurement 
 ```
 
 Read the honest-stretch comment: an always block is not a function, but it is the closest thing
-verilog has to a function-with-body, and the code noun describes it without lying. THAT judgment
+verilog has to a function-with-body, and the code capture describes it without lying. THAT judgment
 — which node types may speak as which capture without the capture lying — is the authoring work.
 Everything else (comments attach, defaults fire, the target table applies) is inherited.
 

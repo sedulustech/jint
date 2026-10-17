@@ -76,7 +76,7 @@ table:
   same-capture element reads as a wrapper's payload and collapses into it, unless the tail
   distance is real (a nested function with a body surfaces as a child). A selfNesting grammar
   (.scm #set! fact; markdown) disables the collapse entirely - sections nest legitimately.
-- **Per-noun descent is a POLICY table**, keyed by the outer capture, in `query.ts` - no
+- **Per-capture descent is a POLICY table**, keyed by the outer capture, in `query.ts` - no
   per-grammar overrides. The one grammar that needed a shape change (markdown, sections nest)
   expresses it IN the .scm as a `#set! "selfNesting"` directive beside the section pattern -
   shape directives are per-pattern facts, so they live per-pattern. Every other grammar ships
@@ -118,11 +118,11 @@ suppression rule, never hidden by an enclosing element.
 
 Rule targets grew six -> ten: `classes` and `methods` join the union, alongside `types` and
 `bindings` promoted to first-class targets (they were capture-only before). The minting rule
-(a noun must change how a rule reads its units, calibrated on real corpora) is passed by exactly
+(a capture must change how a rule reads its units, calibrated on real corpora) is passed by exactly
 these two candidates: a class judged as a class reads differently from a generic composite type
 (show-through interiors, member surfaces), and a method reads differently from a free function
 (its contract lives against its class). Every other candidate stays WAITING with reasons in the
-vocabulary-growth ledger. DECIDED AND FINAL: capture and target names are FLAT NOUNS - no dotted
+vocabulary-growth ledger. DECIDED AND FINAL: capture and target names are FLAT CAPTURE NAMES - no dotted
 names at either layer (the lang:node_type lane already owns grammar-local addressing).
 
 `definitions` is DEMOTED TO SHORTHAND: the umbrella for functions+classes+methods+types+
@@ -134,15 +134,15 @@ Per-grammar capture census: @class speaks in ts/tsx (class_declaration, abstract
 python (class_definition), php (class_declaration, NOT anonymous_class), cpp (class_specifier,
 templates absorbed). @method speaks in ts/tsx (method_definition),
 python (function_definition in a class body - the first STRUCTURAL-CONTEXT capture: the method
-noun is positional, not nominal; expressed as a context query over the class body), php and go
+capture is positional, not nominal; expressed as a context query over the class body), php and go
 (method_declaration), cpp (field_declaration-priority member functions plus out-of-line
 qualified definitions). Interfaces, structs, enums, aliases, modules, sections stay @type.
 
 #### Markdown sections capture @section; module docstrings are loose comments; no engine prefix (2026-10-16, owner decisions)
 
 - MD SECTIONS: the section -> @type stretch (the trial's "one defensible mapping") is REVERSED -
-  a code noun lying about prose is worse than grammar-autonomous vocabulary. Sections capture
-  @section, a markdown-only ELEMENT CAPTURE: the seven shared nouns stay seven, the shared target
+  a code capture lying about prose is worse than grammar-autonomous vocabulary. Sections capture
+  @section, a markdown-only ELEMENT CAPTURE: the seven shared captures stay seven, the shared target
   union is untouched, and sections are reachable only through the qualified capture address
   (target "markdown:section" - the targeting backdoor, now real in matchesTarget). Consequence: code-calibrated
   default rules stop measuring markdown prose; only file-scope rules and comments remain for md.
@@ -209,7 +209,7 @@ One afternoon, three deletions, one principle: every grammar fact lives in the a
 Verilog is OUT of the embedded set (nine grammars now; 022bc14 landed its container patterns and
 @class - reverted with this decision). The why: real SystemVerilog degrades the parse as the
 norm, so elements would be extracted from broken trees; six constructs (ports, instances, nets
-with vector lists, packages, interfaces, programs) never found an honest noun; and TS-calibrated
+with vector lists, packages, interfaces, programs) never found an honest capture; and TS-calibrated
 default rules misfire on hardware shapes. It also forced surface the rest of the set never
 needed - verilog was the ONLY forcing case for the lang:node_type lane, which is CANCELLED, not
 deferred (no other grammar needs it; revisit only with a real forcing case).
@@ -279,19 +279,19 @@ truth; the parity README holds the verdicts):
 
 ## Rejections
 
-| what                                                                                                            | why                                                                                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Imperative defineGrammarExtraction (a TS extract function per grammar)                                          | grammar code diffs like prose; review must be read, not diffed; node-type strings in code are never checked. The escape hatch is queries-as-data, not TS                                                                                                                        |
-| Declarative 4-field mapping table (defineGrammarMapping: kind -> role plus wrappers, names, descent)            | contextual refinement (c prototypes, css value-position calls, php assignments, ts initializers) capped what a flat table can say - the tier-2 query signature kept appearing in our own tree; replaced by queries, the ecosystem's own language for alternation and predicates |
-| Declared/minted user targets (grammars export custom nouns rules address)                                       | a double-judgment seam and a vocabulary-governance hole; vocabulary grows through releases, never user minting. Rule-side node-type addressing covers the format-specific tail                                                                                                  |
-| JIT d.ts projection at run start (types generated from the grammar dir)                                         | a product choice, not a technical necessity, under agent authorship; ambient shims plus loud runtime validation suffice. Revisit trigger: a human writing rules in a checked editor                                                                                             |
-| Judging nameless behavior units by the function noun (ts arrows, verilog always, php closures - owner-ratified) | a nameless closure is still a unit of behavior; vocabulary shared/frozen, mapping per-language-autonomous, no cross-language parity requirement                                                                                                                                 |     |
-| graphify-style per-language extractors                                                                          | 37 hand-written walkers for 37 languages; our nine languages cost zero bespoke walk modules - the .scm plus one shared runtime                                                                                                                                                  |
-| Fetch-on-demand grammar registry                                                                                | dead on size: embedding all nine costs +1.25 MB gzipped, and fetching puts the network in the measurement path                                                                                                                                                                  |
+| what                                                                                                               | why                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Imperative defineGrammarExtraction (a TS extract function per grammar)                                             | grammar code diffs like prose; review must be read, not diffed; node-type strings in code are never checked. The escape hatch is queries-as-data, not TS                                                                                                                        |
+| Declarative 4-field mapping table (defineGrammarMapping: kind -> role plus wrappers, names, descent)               | contextual refinement (c prototypes, css value-position calls, php assignments, ts initializers) capped what a flat table can say - the tier-2 query signature kept appearing in our own tree; replaced by queries, the ecosystem's own language for alternation and predicates |
+| Declared/minted user targets (grammars export custom captures rules address)                                       | a double-judgment seam and a vocabulary-governance hole; vocabulary grows through releases, never user minting. Rule-side node-type addressing covers the format-specific tail                                                                                                  |
+| JIT d.ts projection at run start (types generated from the grammar dir)                                            | a product choice, not a technical necessity, under agent authorship; ambient shims plus loud runtime validation suffice. Revisit trigger: a human writing rules in a checked editor                                                                                             |
+| Judging nameless behavior units by the function capture (ts arrows, verilog always, php closures - owner-ratified) | a nameless closure is still a unit of behavior; vocabulary shared/frozen, mapping per-language-autonomous, no cross-language parity requirement                                                                                                                                 |     |
+| graphify-style per-language extractors                                                                             | 37 hand-written walkers for 37 languages; our nine languages cost zero bespoke walk modules - the .scm plus one shared runtime                                                                                                                                                  |
+| Fetch-on-demand grammar registry                                                                                   | dead on size: embedding all nine costs +1.25 MB gzipped, and fetching puts the network in the measurement path                                                                                                                                                                  |
 
 ## Definitions
 
-- **capture** - the jint-owned shared noun a grammar's queries assign to a matched node; what
+- **capture** - the jint-owned name a grammar's queries assign to a matched node; what
   one element IS. Glossary term; the frozen set and the @name seam live in `query.ts`.
 - **pattern priority** - the earlier query pattern wins when two patterns assign different
   captures to the same node; load-bearing, therefore `; @priority`-validated.
@@ -299,7 +299,7 @@ truth; the parity README holds the verdicts):
   logical element); a same-capture nest with a larger tail surfaces as a child.
 - **lane** - a capture (@comment, @import, @docstring) that is never a container of elements and
   never hides: exempt from every suppression rule.
-- **descent default** - the per-noun policy for what a captured element's interior yields
+- **descent default** - the per-capture policy for what a captured element's interior yields
   (opaque vs show-through). Glossary term; the table lives in `query.ts`. There are no overrides:
   a grammar-level shape change is a #set! directive in its .scm.
 - **selfNesting** - a .scm #set! fact: same-capture candidates nest legitimately (markdown
@@ -379,7 +379,7 @@ counted on its owner) and every extraction pin moved with them, deliberately.
 Settled 2026-10-15: tests are identified by (a) @function captures whose patterns are
 callee-predicated (the jest/vitest families with a function-valued argument), (b) rule-side
 include/exclude globs over paths. That pairing is the stopgap and it is stable. A dedicated
-@test / @suite noun ships when the first rule needs test identity finer than file granularity.
+@test / @suite capture ships when the first rule needs test identity finer than file granularity.
 Trigger examples: per-test assertion limits (that a single test asserts too much), skipped-test
 identity (a skipped test is not a passing test), suite structure (a suite with no assertions),
 honest tests-per-function (a rule that wants the ratio needs distinct test identity).
@@ -388,7 +388,7 @@ honest tests-per-function (a rule that wants the ratio needs distinct test ident
 
 Settled 2026-10-15: `@test` is part of the frozen capture vocabulary as a RESERVED name - a
 valid capture token that no grammar's queries emit yet. Reserving it keeps the name from being
-coined twice (one name for two things) when the test noun ships; a query that binds it today is
+coined twice (one name for two things) when the test capture ships; a query that binds it today is
 accepted by validation and produces no element, because no grammar assigns it to a node.
 
 #### Cross-file stance
@@ -431,7 +431,7 @@ needed two runs. Not a defect, a scope note for the CLI surface; a repeatable-di
 Settled 2026-10-15 (62e010f): jest/vitest call composites (describe/it/test and the before/after
 family) capture as @function through callee-predicated patterns - a bare top-level call is not a
 definition, the allowlisted family is. The old walker's stretch of every call composite to the
-function noun is retired; the title string stays the WAITING text-name capture.
+function capture is retired; the title string stays the WAITING text-name capture.
 
 #### Markdown frontmatter
 

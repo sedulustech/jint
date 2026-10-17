@@ -18,25 +18,25 @@ measurement its handle judged actionable and is the only output that demands act
   shape (interfaces, structs, enums, aliases, modules, sections) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
   classifies states, it never generates or transforms them.
-- **capture** — the jint-owned shared noun a grammar's queries assign to a matched node
+- **capture** — the jint-owned name a grammar's queries assign to a matched node
   (function, method, class, type, binding, comment, import): what one element IS. Singular names
   one element; the plural addresses the group a rule targets. A capture name is an identity,
-  never a label; the names are flat nouns — no dotted names at either layer, decided and final.
+  never a label; the names are flat capture names — no dotted names at either layer, decided and final.
   Replaces role (the living collision).
-- **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED NOUNS
+- **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED CAPTURES
   (function, method, class, type, binding, comment, import) that every grammar addresses and the
   target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
   docstring convention (a comment-kind capture: owned by its enclosing definition) and markdown's
   section (prose's container-with-body; the BYOG precedent) — and the @name capture that renders a
   definition's name. A query capturing outside the set fails the run at setup. `test` is
-  RESERVED (a valid token no grammar emits yet, held for the test noun).
+  RESERVED (a valid token no grammar emits yet, held for the test capture).
 - **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
   (markdown's sections). Absent: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it unless the tail distance is real (the policy table in query.ts).
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
-- **descent default** — the per-noun policy for what a captured element's interior yields: a
+- **descent default** — the per-capture policy for what a captured element's interior yields: a
   @type interior surfaces (a method is an element of its own); a @function or @binding interior
   is opaque (a body's captures are implementation, never elements).
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a

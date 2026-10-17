@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { decompose } from "./walk.ts";
 
 describe("decompose — python", () => {
-  test("functions and classes capture with their noun; assignments passthrough", async () => {
+  test("functions and classes capture with their capture; assignments passthrough", async () => {
     const inv = await decompose(
       "def handler():\n    return 1\n\nclass Thing:\n    pass\n\nx = 1\n",
       "python",
