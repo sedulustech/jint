@@ -133,4 +133,32 @@ declare module "jint:sdk" {
 
   /** The typed TS-config entry. */
   export function defineConfig(config: TsConfig): TsConfig;
+
+  /** One extracted element: the contract Element extended with input + grammar provenance. */
+  export interface CapturedElement {
+    readonly id: string;
+    readonly path: string;
+    readonly grammar: string;
+    readonly capture: CustomElement["capture"];
+    readonly source: string;
+    readonly span: CustomElement["span"];
+    readonly label: string;
+    readonly parent: string | undefined;
+    readonly name?: string | undefined;
+    readonly kind: CustomElement["kind"] | "file";
+    /** Which input file the element was extracted from. */
+    readonly input: string;
+  }
+
+  /**
+   * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
+   * elements; the classifier stays unplugged. Precedence: grammarDir (ad hoc) > registered >
+   * extension routing. queryPath, when given, replaces the grammar's own .scm for extraction (full
+   * loud checks apply).
+   */
+  export function capture(
+    targetPath: string,
+    queryPath?: string,
+    grammarPath?: string,
+  ): Promise<CapturedElement[]>;
 }

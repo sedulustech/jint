@@ -427,6 +427,48 @@ export function validatePatternOrder(language: string, scm: string): void {
   }
 }
 
+/**
+ * Compile + fully validate one .scm against its language (vocabulary, #set! directives,
+ * pattern-order conflicts - the loud checks every extraction source goes through). UNCACHED: the
+ * ad-hoc path (capture() with a query file) may compile several .scm against one language in a
+ * process; the embedded path caches per language below.
+ */
+export async function compileQuery(
+  language: string,
+  scm: string,
+  lang: import("web-tree-sitter").Language,
+): Promise<Query> {
+  let query: Query;
+  try {
+    query = new Query(lang, scm);
+  } catch (e) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "query compilation failed for " +
+        language +
+        ": " +
+        (e instanceof Error ? e.message : String(e)),
+    );
+  }
+  assertPatternCount(language, scm, query.patternCount());
+  assertScmDirectives(scm, language);
+  validatePatternOrder(language, scm);
+  const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
+  if (unknown.length > 0) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "query for " +
+        language +
+        " captures outside the vocabulary: " +
+        unknown.join(", ") +
+        " (the vocabulary is " +
+        [...KNOWN_CAPTURES].join(", ") +
+        ")",
+    );
+  }
+  return query;
+}
+
 /** Compile one grammar's .scm; cached per language (queries are immutable per process). */
 const compiled = new Map<string, Promise<Query>>();
 
@@ -435,43 +477,16 @@ export function queryFor(
   scm: string,
   lang: import("web-tree-sitter").Language,
 ): Promise<Query> {
-  let cached = compiled.get(language);
+  // keyed by language AND .scm content: a re-registration (a shadow replacing the embedded .scm)
+  // must not be served the previous grammar's compiled query - the cache keys the SOURCE, not just
+  // the language, so identical content reuses and changed content recompiles
+  const key = language + "|" + scm;
+  let cached = compiled.get(key);
   if (cached) return cached;
-  const created = (async () => {
-    let query: Query;
-    try {
-      query = new Query(lang, scm);
-    } catch (e) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        "query compilation failed for " +
-          language +
-          ": " +
-          (e instanceof Error ? e.message : String(e)),
-      );
-    }
-    assertPatternCount(language, scm, query.patternCount());
-    assertScmDirectives(scm, language);
-    validatePatternOrder(language, scm);
-    const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
-    if (unknown.length > 0) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        "query for " +
-          language +
-          " captures outside the vocabulary: " +
-          unknown.join(", ") +
-          " (the vocabulary is " +
-          [...KNOWN_CAPTURES].join(", ") +
-          ")",
-      );
-    }
-    return query;
-  })();
-  compiled.set(language, created);
+  const created = compileQuery(language, scm, lang);
+  compiled.set(key, created);
   return created;
 }
-
 /** Test seam: drop compiled queries (grammar re-registration replaces .scm content). */
 export function resetQueriesForTest(): void {
   compiled.clear();

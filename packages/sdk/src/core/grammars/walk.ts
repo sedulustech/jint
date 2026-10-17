@@ -37,6 +37,7 @@ import {
   spanOf,
   type Candidate,
   type Capture,
+  compileQuery,
   scmSelfNesting,
   ELEMENT_CAPTURES,
 } from "./query.ts";
@@ -378,10 +379,19 @@ function containsSpan(outer: Candidate, inner: Candidate): boolean {
 }
 
 /** Decompose one source string into its unit inventory; never throws for parse errors. */
-export async function decompose(source: string, language: string): Promise<Inventory> {
+export async function decompose(
+  source: string,
+  language: string,
+  options: { readonly queries?: string } = {},
+): Promise<Inventory> {
   const entry = grammar(language);
   const [parser, lang] = await Promise.all([parserFor(language), loadLanguage(language)]);
-  const query = await queryFor(language, entry.queries, lang);
+  // an explicit .scm override (capture() with a query file) REPLACES the registered one for
+  // extraction and goes through the SAME loud compile checks, uncached (one call, one compile)
+  const scm = options.queries ?? entry.queries;
+  const query = options.queries
+    ? await compileQuery(language, scm, lang)
+    : await queryFor(language, scm, lang);
   const tree = parser.parse(source);
   // a null tree is an engine failure, not a parse error (those surface via hasError):
   // an empty inventory would report success on an unmeasured file
@@ -391,7 +401,7 @@ export async function decompose(source: string, language: string): Promise<Inven
   // then comments cut - a trailing comment or a predicate string cannot fake a directive). #set!
   // "selfNesting" lets same-capture candidates nest (markdown's sections); absence keeps the
   // tail-absorb default.
-  const selfNesting = scmSelfNesting(entry.queries);
+  const selfNesting = scmSelfNesting(scm);
   const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
   const { definitions, comments, imports } = materialize(candidates, language);
   return {

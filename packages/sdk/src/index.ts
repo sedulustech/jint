@@ -56,6 +56,8 @@ export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint
 export { validateCustomRule } from "./core/rules/custom/schema.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
+// capture (verb): extraction without the classifier - the BYOG iterate-on-a-known-language loop
+export { capture, type CapturedElement } from "./core/grammars/capture.ts";
 export type { Inventory, InventoryElement, Capture } from "./core/grammars/walk.ts";
 export type {
   Element,

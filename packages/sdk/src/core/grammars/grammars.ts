@@ -317,9 +317,13 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
   }
 }
 
-async function registerUserGrammar(grammarId: string, dir: string): Promise<void> {
+async function registerUserGrammar(
+  grammarId: string,
+  dir: string,
+  options: { readonly queriesOptional?: boolean } = {},
+): Promise<void> {
   const queriesPath = join(dir, "queries.scm");
-  if (!(await Bun.file(queriesPath).exists())) {
+  if (!(await Bun.file(queriesPath).exists()) && options.queriesOptional !== true) {
     throw new SetupError(
       "CONFIG_INVALID",
       `grammar ${grammarId}: queries.scm is missing - the .scm is the extraction half and the grammar's interface; there is no manifest to carry facts`,
@@ -333,7 +337,9 @@ async function registerUserGrammar(grammarId: string, dir: string): Promise<void
     );
   }
   const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
-  const queries = await Bun.file(queriesPath).text();
+  // a missing queries.scm with queriesOptional means an explicit .scm override (capture())
+  // supplies extraction; registration still validates routing and the wasm cross-check
+  const queries = (await Bun.file(queriesPath).exists()) ? await Bun.file(queriesPath).text() : "";
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
@@ -403,6 +409,25 @@ export async function loadUserGrammars(
     }
   })();
   await loadPromise;
+}
+/**
+ * Ad-hoc registration for ONE capture() call: a grammar DIRECTORY (wasm + extensions.json [+
+ * queries.scm]) registered under its directory name with every BYOG loud validation - wasm
+ * cross-check, extensions.json routing, .scm compile when present. Nothing is installed: the
+ * registry is process-local memory, exactly what a JINT_GRAMMAR_DIR scan produces.
+ */
+export async function registerAdhocGrammar(
+  dir: string,
+  options: { readonly queriesOptional?: boolean } = {},
+): Promise<void> {
+  const id = dir.split(/[\\/]/).filter(Boolean).pop();
+  if (id === undefined || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "grammar dir " + dir + ": the directory name is the grammar id",
+    );
+  }
+  await registerUserGrammar(id, dir, options);
 }
 /** Test seam: reset registration state (cached parsers included) between scenarios. */
 export function resetGrammarsForTest(): void {
