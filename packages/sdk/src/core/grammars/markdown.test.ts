@@ -32,7 +32,7 @@ describe("decompose — markdown", () => {
     }
   });
 
-  test("paragraphs are not code nouns: prose under every heading survives as its own element", async () => {
+  test("paragraphs are not code captures: prose under every heading survives as its own element", async () => {
     // the F-experiment regression guard at the paragraph level: prose that once died inside a
     // composite (the comment-lane trial) now surfaces as a flat paragraph element
     const inv = await decompose("# T\n\nprose line\n\nmore prose\n", "markdown");

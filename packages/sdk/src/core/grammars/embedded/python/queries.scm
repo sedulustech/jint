@@ -9,7 +9,7 @@
 ; module) instead of counting them internal.
 ;
 ; WAITING (recorded, not stretched): assignments are NOT bindings in v1 (the old table mapped
-; none either); a python binding noun needs the same callable-refinement evidence ts got.
+; none either); a python binding capture needs the same callable-refinement evidence ts got.
 
 ; --- declarations ----------------------------------------------------------------------------
 ; methods: the FIRST STRUCTURAL-CONTEXT capture - @method is captured positionally (a

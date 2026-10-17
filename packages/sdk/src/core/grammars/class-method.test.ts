@@ -3,7 +3,7 @@ import { decompose, type Inventory } from "./walk.ts";
 
 // The @class / @method split, verified per grammar (comment-targets style): class-like units
 // capture as @class, member functions as @method, and everything that is NOT a class stays @type
-// (interfaces, structs, enums, aliases, sections). Flat nouns at both layers - no dotted names.
+// (interfaces, structs, enums, aliases, sections). Flat capture names at both layers - no dotted names.
 
 const counts = (inv: Inventory) => {
   const out: Record<string, number> = {};

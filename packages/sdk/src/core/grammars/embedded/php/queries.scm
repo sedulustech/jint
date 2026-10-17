@@ -17,7 +17,7 @@
 (method_declaration name: (name) @name) @method
 
 ; Closures are functions (nameless functions are still functions - precedent: ts arrows, verilog
-; always, test composites). ASSIGNED closures keep ONE element with the function noun: the
+; always, test composites). ASSIGNED closures keep ONE element with the function capture: the
 ; wrapper assignment is captured first (pattern order is priority on the outer node - the ts
 ; callable-initializer precedent); the bare patterns follow for unassigned closures (arguments,
 ; returns). A closure inside any @function/@method is suppressed by the opacity policy - no

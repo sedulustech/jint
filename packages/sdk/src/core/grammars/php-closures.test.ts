@@ -1,7 +1,7 @@
 /**
- * Php closures as @function: assigned closures keep ONE element with the function noun (the wrapper
- * assignment wins on the outer node - the ts callable-initializer precedent); bare closures capture
- * as functions; a closure inside a method is suppressed by the opacity policy.
+ * Php closures as @function: assigned closures keep ONE element with the function capture (the
+ * wrapper assignment wins on the outer node - the ts callable-initializer precedent); bare closures
+ * capture as functions; a closure inside a method is suppressed by the opacity policy.
  */
 import { describe, expect, test } from "bun:test";
 import { decompose } from "./walk.ts";

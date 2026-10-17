@@ -3,10 +3,10 @@
 ;
 ; TWO honest captures exist: the section and the paragraph. A heading plus everything under it is
 ; markdown's container-with-body; it captures @section - markdown's OWN element capture, not a
-; shared noun (the @type stretch was reversed, owner decision: a code noun lying about prose is
+; shared capture (the @type stretch was reversed, owner decision: a code capture lying about prose is
 ; worse than a grammar-autonomous capture). Its name is its heading text (atx_heading > inline) -
 ; a real name, not an identifier hunt. Rules address sections through the qualified capture
-; address (target "markdown:section"), never a shared target noun.
+; address (target "markdown:section"), never a shared target capture.
 ;
 ; SHAPE DIRECTIVE (the F experiment's result): the section's structure fact - sections nest - is
 ; expressed IN the .scm as a #set! directive (the meaning and the shape live in one artifact; the
@@ -27,7 +27,7 @@
 ; - link_reference_definition: the trial stretched it to import; it is not a code import and
 ;   would vanish into the merge-run anyway.
 ; - list, list_item, pipe_table*, thematic_break, atx_heading: transit under every mapping so
-;   far - none is a judged unit under any noun, and a table row judged alone is noise.
+;   far - none is a judged unit under any capture, and a table row judged alone is noise.
 
 (section (atx_heading (inline) @name)) @section
 

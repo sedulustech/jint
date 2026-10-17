@@ -24,7 +24,7 @@
 (declaration (function_declarator)) @function ; @priority
 (function_definition declarator: (function_declarator declarator: (field_identifier) @name)) @method ; @priority
 ; out-of-line method definitions: the qualified declarator (K::f) is the member signal, as the
-; field_identifier is for the in-class shapes - same noun, the qualifier is in the render name
+; field_identifier is for the in-class shapes - same capture, the qualifier is in the render name
 (function_definition
   declarator: (function_declarator declarator: (qualified_identifier) @name)) @method ; @priority
 (function_definition declarator: (function_declarator declarator: (identifier) @name)) @function ; @priority
@@ -34,7 +34,7 @@
 (function_definition) @function ; @priority
 
 ; --- types --------------------------------------------------------------------------------------
-; @class: the class capture (templates absorbed through their payload capture the same noun).
+; @class: the class capture (templates absorbed through their payload capture the same capture).
 ; structs, unions, enums and typedefs stay @type - every non-class type shape does.
 (class_specifier name: (type_identifier) @name body: (field_declaration_list)) @class
 (class_specifier body: (field_declaration_list)) @class

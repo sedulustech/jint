@@ -39,10 +39,10 @@
 (function_declaration name: (identifier) @name) @function
 (generator_function_declaration name: (identifier) @name) @function
 ; methods: the member-function shape (class bodies are show-through @class interiors, so the
-; method surfaces as its own element; object-literal methods are the same node - same noun)
+; method surfaces as its own element; object-literal methods are the same node - same capture)
 (method_definition name: (property_identifier) @name) @method
 
-; Callable initializers keep the function noun (old refineCallableInitializers); any other
+; Callable initializers keep the function capture (old refineCallableInitializers); any other
 ; lexical/variable declaration is a binding. Earlier patterns win (see header).
 (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
 (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority

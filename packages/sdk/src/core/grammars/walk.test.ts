@@ -29,7 +29,7 @@ function summary(inventory: Inventory): string[] {
 }
 
 describe("decompose — typescript", () => {
-  test("declarations capture with their noun and their name", async () => {
+  test("declarations capture with their capture and their name", async () => {
     const inv = await decomposeTS(`
 function declared() {}
 async function* gen() {}
@@ -50,7 +50,7 @@ const bound = 5;
     ]);
   });
 
-  test("a callable initializer keeps the function noun; other initializers are bindings", async () => {
+  test("a callable initializer keeps the function capture; other initializers are bindings", async () => {
     const inv = await decomposeTS(`
 const arrow = () => 1;
 const expr = function () {};
@@ -157,7 +157,7 @@ test(1);
 test("not a suite");
 `);
     // every one of these carries a matching callee NAME; none carries a function-valued
-    // argument, so none is a definition - the shape test is what makes the noun honest.
+    // argument, so none is a definition - the shape test is what makes the capture honest.
     // (The object literal's toString is a method_definition inside a binding: opaque interior.)
     expect(summary(inv)).toEqual(["d0 binding obj L2-L2", "d1 binding test L5-L5"]);
     expect(inv.definitions.every((d) => d.capture !== "function")).toBe(true);
