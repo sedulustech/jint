@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { ruleTargets, type RuleTarget } from "@jint/contract";
 import { validateConfig } from "../../config/load.ts";
 import {
   ClassifyError,
@@ -9,7 +10,7 @@ import {
   type Unit,
   type UnitState,
 } from "../types.ts";
-import { selectElement, selectElements } from "./classify.ts";
+import { matchesTarget, selectElement, selectElements } from "./classify.ts";
 import {
   elementWireId,
   compileRuleQuestions,
@@ -558,5 +559,46 @@ describe("classifyFile — the file-unit token backstop", () => {
     );
     expect(notes).not.toContain(expect.stringContaining("file too large for file-scope rules"));
     expect(calls.length).toBeGreaterThan(0); // element calls went out
+  });
+});
+
+describe("THE TARGET CHAIN (single source, exhaustively pinned)", () => {
+  // every shared target resolves to a NON-DEGENERATE predicate: given an element of the right
+  // shape, matchesTarget answers true. A target that can never fire (always-false) is drift.
+  const singular: Partial<Record<RuleTarget, string>> = {
+    functions: "function",
+    classes: "class",
+    methods: "method",
+    types: "type",
+    bindings: "binding",
+    imports: "import",
+  };
+  test("every ruleTarget resolves true on its element shape (files is whole-unit, skipped)", () => {
+    for (const target of ruleTargets) {
+      if (target === "files") continue; // whole-unit: never element-addressable, by design
+      if (target in singular) {
+        expect(matchesTarget(target, { capture: singular[target]!, grammar: "typescript" })).toBe(
+          true,
+        );
+      }
+    }
+    // the umbrella catches each definition capture; the comment pair covers both buckets
+    expect(matchesTarget("definitions", { capture: "function", grammar: "typescript" })).toBe(true);
+    expect(
+      matchesTarget("comments", {
+        capture: "comment",
+        grammar: "typescript",
+        attachedComment: ["docs"],
+      }),
+    ).toBe(true);
+    expect(matchesTarget("loose-comments", { capture: "comment", grammar: "typescript" })).toBe(
+      true,
+    );
+  });
+
+  test("an unknown bare target cannot reach the evaluator silently (invariant, not behavior)", () => {
+    expect(() => matchesTarget("funtions", { capture: "function", grammar: "typescript" })).toThrow(
+      /unvalidated rule target/,
+    );
   });
 });

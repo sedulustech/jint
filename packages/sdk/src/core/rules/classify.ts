@@ -17,6 +17,7 @@ import {
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
+  InternalError,
   type AnyState,
   type ClassifiedAnswer,
   type Element,
@@ -239,7 +240,7 @@ export interface TargetableElement {
    * definition's pair frame (never judged as a separate comments match); a module docstring has no
    * frame, so the element itself addresses comments-target rules.
    */
-  readonly docstringOf?: { readonly kind: "module" | "function" | "class"; readonly name: string };
+  readonly docstringOf?: import("@jint/contract").DocstringOwner;
 }
 
 export function matchesTarget(target: string, element: TargetableElement): boolean {
@@ -290,13 +291,19 @@ export function matchesTarget(target: string, element: TargetableElement): boole
       );
     case "imports":
       return element.capture === "import";
+    case "files":
+      // whole-unit target: never element-addressable (explicit, not drift - files-target rules
+      // route through wholeUnitRules; this case only sees a validated target that slipped in)
+      return false;
     default: {
       // THE QUALIFIED CAPTURE ADDRESS (the targeting backdoor): {grammar}:{capture} grammar-scoped
-      // - the element must come from THAT grammar AND carry THAT capture. Bare names are rejected
-      // by the schema (nothing reaches here); an unknown-grammar or unknown-capture address is a
-      // setup error at config load (assertCaptureAddress).
+      // - the element must come from THAT grammar AND carry THAT capture. Validation is the loud
+      // gate (schema rejects bare unknowns; load rejects bad addresses), so an unknown name HERE
+      // is an invariant break, never a silent no-match.
       const qualified = target.match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/);
-      if (qualified === null) return false;
+      if (qualified === null) {
+        throw new InternalError("unvalidated rule target reached the evaluator: " + target);
+      }
       return element.grammar === qualified[1] && element.capture === qualified[2];
     }
   }

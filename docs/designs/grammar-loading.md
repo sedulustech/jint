@@ -171,6 +171,30 @@ Decision trail, one day, three states:
   emitted (named with the emitted set, e.g. "markdown emits: section"). Bare unknown strings
   fail at schema and again at compile - resolution never silently no-matches a well-formed target.
 
+#### Vocabulary single-source (2026-10-16, abstraction-audit remediation)
+
+The audit's finding: the two vocabularies (element captures, rule targets) lived in SIX and
+SEVEN homes respectively - runtime arrays, schema unions, type unions, mirrors, and silent
+default-returns. The fix is DERIVE, DON'T MIRROR: one authority per vocabulary, everything else
+derived or loudly pinned.
+
+- ELEMENT CAPTURES: `query.ts` ELEMENT_CAPTURES is THE authority. Contract elementKinds is its
+  wire face (compile-time bidirectional pin in report.ts, runtime pin in query.test.ts); the
+  wire projection is a Record over Capture (adding a capture without a projection is a compile
+  error at the walk, not a mid-walk InternalError); POLICY is Record-typed the same way.
+- RULE TARGETS: contract `ruleTargets` is THE authority; the config schema's target enum is
+  DERIVED from it (no literal copy); matchesTarget's evaluator throws InternalError on an
+  unvalidated name (validation is the loud gate - a silent always-false return was the drift),
+  and an exhaustive test resolves every target on its element shape.
+- THE NEW-CAPTURE RITUAL: touch ELEMENT_CAPTURES + the grammar's .scm; everything else is
+  derived or pinned (measured: 2-3 places, all loud). DocstringOwner.kind reuses the owner's
+  capture losslessly (the class/function collapse is gone).
+- DEFINITION_CAPTURES kept sections/paragraphs OUT? No - deliberately NOT moved: the inventory
+  has three buckets (definitions/comments/imports) and prose needs a fourth name if it leaves
+  the definition bucket; that name is owner-gated via GLOSSARY (reported back, not invented).
+- TS custom rules gained the qualified capture lane (markdown:section) - validated identically
+  at config compile; the seam parity the declarative tier already had.
+
 #### The manifest is deleted; one fact per artifact (2026-10-16, owner decisions)
 
 One afternoon, three deletions, one principle: every grammar fact lives in the artifact that owns it.

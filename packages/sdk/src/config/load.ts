@@ -8,10 +8,11 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ruleTargets } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { grammar, knownLanguages } from "../core/input/grammars.ts";
-import { ELEMENT_CAPTURES, scmCode } from "../core/input/query.ts";
+import { CAPTURE_TOKEN, ELEMENT_CAPTURES, scmCode } from "../core/input/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -47,18 +48,7 @@ const CAPTURE_ADDRESS_SCHEMA = Type.String({
 
 const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 
-const SHARED_TARGETS = new Set([
-  "files",
-  "functions",
-  "classes",
-  "methods",
-  "types",
-  "bindings",
-  "definitions",
-  "comments",
-  "loose-comments",
-  "imports",
-]);
+const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
 
 /**
  * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
@@ -72,7 +62,7 @@ export function emittedCaptures(grammarId: string): readonly string[] {
   // comment or a predicate string is prose, not an emitted fact (an address must never validate
   // against a capture the grammar would not actually extract)
   const scm = scmCode(grammar(grammarId).queries);
-  const named = new Set([...scm.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)].map((m) => m[1]!));
+  const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
   return ELEMENT_CAPTURES.filter((c) => named.has(c));
 }
 /**
@@ -131,32 +121,12 @@ function assertCaptureAddress(target: string): void {
   }
 }
 const TARGET_SCHEMA = Type.Union([
-  Type.Literal("files"),
-  Type.Literal("functions"),
-  Type.Literal("classes"),
-  Type.Literal("methods"),
-  Type.Literal("types"),
-  Type.Literal("bindings"),
-  Type.Literal("definitions"),
-  Type.Literal("comments"),
-  Type.Literal("loose-comments"),
-  Type.Literal("imports"),
+  // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
+  // joining the union there; a literal copy here would be the drift this pass kills
+  ...ruleTargets.map((target) => Type.Literal(target)),
   CAPTURE_ADDRESS_SCHEMA,
-  // the explicit list: the defaults use it (identical behavior to the old definitions shorthand)
   Type.Array(
-    Type.Union([
-      Type.Literal("files"),
-      Type.Literal("functions"),
-      Type.Literal("classes"),
-      Type.Literal("methods"),
-      Type.Literal("types"),
-      Type.Literal("bindings"),
-      Type.Literal("definitions"),
-      Type.Literal("comments"),
-      Type.Literal("loose-comments"),
-      Type.Literal("imports"),
-      CAPTURE_ADDRESS_SCHEMA,
-    ]),
+    Type.Union([...ruleTargets.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
   ),
 ]);
 
@@ -335,6 +305,11 @@ export async function loadTsConfig(path: string, options?: LoadOptions): Promise
   if (Array.isArray(declarative.rules)) {
     declarative.rules = declarative.rules.filter((entry) => {
       if (!isCallbackRule(entry)) return true;
+      // the qualified capture address is loud for TS custom rules too: same gate, same errors
+      const targets = (entry as { target?: unknown }).target;
+      for (const t of Array.isArray(targets) ? targets : [targets]) {
+        if (typeof t === "string") assertCaptureAddress(t);
+      }
       customRules.push(validateCustomRule(entry, path));
       return false;
     });
@@ -497,6 +472,14 @@ export function validateConfig(
   }
   // Per-rule scope validation; a scope that cancels a rule entirely is legal, warned, never an error.
   const warnings: string[] = [];
+  // THE QUALIFIED CAPTURE ADDRESS gate, loud for TS custom rules too: same validator, same errors
+  // (unknown grammar / unemitted capture). Shape is already validated in validateCustomRule.
+  for (const rule of customRules) {
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    for (const t of targets) {
+      if (typeof t === "string") assertCaptureAddress(t);
+    }
+  }
   for (const rule of [...byName.values(), ...customRules]) {
     if (rule.include === undefined && rule.exclude === undefined) continue;
     const scopeProblem = checkRuleScope(rule);

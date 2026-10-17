@@ -13,7 +13,13 @@
  * flag; the yielded elements are exact for what parsed.
  */
 
-import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
+import {
+  InternalError,
+  SetupError,
+  type DocstringOwner,
+  type Element,
+  type Span,
+} from "../types.ts";
 import {
   grammar,
   grammarExtensions,
@@ -32,6 +38,7 @@ import {
   type Candidate,
   type Capture,
   scmSelfNesting,
+  ELEMENT_CAPTURES,
 } from "./query.ts";
 
 export { grammarExtensions, knownLanguages, languageOf };
@@ -133,7 +140,7 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
   );
 }
 
-const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
+export const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
   "function",
   "method",
   "class",
@@ -193,7 +200,9 @@ function materialize(
     if (innermost === undefined)
       return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
     return {
-      kind: innermost.capture === "type" || innermost.capture === "class" ? "class" : "function",
+      // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
+      // a definition capture only (ownerOf scans DEFINITION_CAPTURES); the lane captures cannot own
+      kind: innermost.capture as DocstringOwner["kind"],
       name: innermost.name ?? "",
     };
   };
@@ -399,40 +408,50 @@ export async function decompose(source: string, language: string): Promise<Inven
  * the walked form's source content. One capture, two forms: the walk-time form carries the source;
  * the wire form is what a measurement references.
  */
+/** The projection view: the base fields every Element shares (span, label, parent). */
+interface ProjectionBase {
+  readonly span: Span;
+  readonly label: string;
+  readonly parent?: string;
+}
+
+// THE PROJECTION: one entry per capture, typed exhaustively over Capture - adding a capture
+// without a projection is a compile error here, never a runtime surprise mid-walk.
+const PROJECTION: Readonly<
+  Record<Capture, (element: InventoryElement, base: ProjectionBase) => Element>
+> = {
+  comment: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
+  docstring: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
+  type: (e, base) => ({ kind: "type", ...base, name: e.name }),
+  binding: (e, base) => ({ kind: "binding", ...base, name: e.name }),
+  import: (_e, base) => ({ kind: "import", ...base }),
+  function: (e, base) => ({ kind: "function", ...base, name: e.name }),
+  method: (e, base) => ({ kind: "method", ...base, name: e.name }),
+  class: (e, base) => ({ kind: "class", ...base, name: e.name }),
+  section: (e, base) => ({ kind: "section", ...base, name: e.name }),
+  paragraph: (_e, base) => ({ kind: "paragraph", ...base }),
+};
+
 export function projectElement(element: InventoryElement): Element {
-  const base = {
+  const project = PROJECTION[element.capture];
+  if (project === undefined) {
+    // unreachable through the typed table (a Record over Capture); a data-level intruder still
+    // fails LOUD at the walk boundary naming the vocabulary, never a silent drop
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "element capture outside the vocabulary: " +
+        String((element as { capture: string }).capture) +
+        " (the vocabulary is " +
+        ELEMENT_CAPTURES.join(", ") +
+        ")",
+    );
+  }
+  return project(element, {
     span: element.span,
     label: element.label,
     parent: element.parent,
-  };
-  switch (element.capture) {
-    case "comment":
-      return { kind: "comment", ...base, docstringOf: element.docstringOf };
-    case "type":
-      return { kind: "type", ...base, name: element.name };
-    case "binding":
-      return { kind: "binding", ...base, name: element.name };
-    case "import":
-      return { kind: "import", ...base };
-    case "function":
-      return { kind: "function", ...base, name: element.name };
-    case "method":
-      return { kind: "method", ...base, name: element.name };
-    case "class":
-      return { kind: "class", ...base, name: element.name };
-    case "section":
-      return { kind: "section", ...base, name: element.name };
-    case "paragraph":
-      return { kind: "paragraph", ...base };
-    default: {
-      // Unreachable with the frozen vocabulary; a loud internal error, never a silent projection.
-      throw new InternalError(
-        "no wire projection for capture: " + String((element as { capture: string }).capture),
-      );
-    }
-  }
+  });
 }
-
 export function fileElement(id: string, content: string): Element {
   const lines = content.split("\n").length;
   return {

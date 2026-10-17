@@ -39,7 +39,7 @@ export interface CustomElement {
    * For a comment element a definition owns (a docstring): who it documents. Its presence is what
    * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
    */
-  readonly docstringOf?: { readonly kind: "module" | "function" | "class"; readonly name: string };
+  readonly docstringOf?: import("../../types.ts").DocstringOwner;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
 }
@@ -228,14 +228,22 @@ function isRole(t: unknown): boolean {
   return typeof t === "string" && (CUSTOM_TARGET_ROLES as readonly string[]).includes(t);
 }
 
+// THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
+// autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
+// themselves are validated at config compile (assertCaptureAddress) - this check is shape-only.
+const QUALIFIED_ADDRESS = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
+
+function isTargetable(t: unknown): boolean {
+  return typeof t === "string" && (isRole(t) || QUALIFIED_ADDRESS.test(t));
+}
+
 function validTarget(target: CustomRule["target"]): boolean {
   return (
     typeof target === "function" ||
-    isRole(target) ||
-    (Array.isArray(target) && target.length > 0 && target.every((t) => isRole(t)))
+    isTargetable(target) ||
+    (Array.isArray(target) && target.length > 0 && target.every((t) => isTargetable(t)))
   );
 }
-
 /** Fatal at load: a rejected custom rule never reaches the engine. */
 export function validateCustomRule(rule: unknown, file: string): CustomRule {
   const fail = (message: string): never => {

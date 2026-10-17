@@ -44,7 +44,7 @@ declare module "jint:sdk" {
      * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
      */
     readonly docstringOf?: {
-      readonly kind: "module" | "function" | "class";
+      readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
       readonly name: string;
     };
     readonly parent: CustomElement | null;

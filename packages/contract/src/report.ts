@@ -16,10 +16,35 @@ export interface Span {
 
 /** The construct a docstring documents; name is empty for the module. */
 export interface DocstringOwner {
-  readonly kind: "module" | "function" | "class";
+  readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
   readonly name: string;
 }
 
+/**
+ * THE element-kind vocabulary, runtime face: one entry per Element union member, in union order.
+ * The union below stays the compile-time face; the two pins (compile-time at the union, runtime in
+ * the sdk) make adding a kind without touching both a loud failure, not drift.
+ */
+export const elementKinds = [
+  "file",
+  "function",
+  "method",
+  "class",
+  "type",
+  "binding",
+  "comment",
+  "import",
+  "section",
+  "paragraph",
+] as const;
+export type ElementKind = (typeof elementKinds)[number];
+// COMPILE-TIME PIN: the union and the runtime array are the same set, both directions.
+type _KindsMatch = [Element["kind"]] extends [ElementKind]
+  ? [ElementKind] extends [Element["kind"]]
+    ? true
+    : never
+  : never;
+const _kindsPin: _KindsMatch = true;
 /** Shared projection shape of every element: where it is, its label, its parent. */
 interface ElementBase {
   readonly span: Span;

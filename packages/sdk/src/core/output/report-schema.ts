@@ -50,7 +50,15 @@ export const ELEMENT_SCHEMA = Type.Union([
     ...ELEMENT_BASE,
     docstringOf: Type.Optional(
       Type.Object({
-        kind: Type.Union([Type.Literal("module"), Type.Literal("function"), Type.Literal("class")]),
+        // derived from the DocstringOwner vocabulary (the owner's capture, losslessly)
+        kind: Type.Union([
+          Type.Literal("module"),
+          Type.Literal("function"),
+          Type.Literal("class"),
+          Type.Literal("method"),
+          Type.Literal("type"),
+          Type.Literal("binding"),
+        ]),
         name: Type.String(),
       }),
     ),

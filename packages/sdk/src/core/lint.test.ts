@@ -1206,6 +1206,38 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
 
+  test("a TS custom rule targets the qualified capture lane: markdown:section measures sections", async () => {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-ts-section-test.md";
+    await Bun.write(file, "# Head\n\nprose under it\n");
+    try {
+      const sectionRule = {
+        name: "custom_md_section",
+        target: "markdown:section",
+        classify: (self: { source: string }) => ({
+          instructions: "i",
+          criteria: { true: "t", false: "f" },
+          state: { source: self.source },
+        }),
+        handle: { warn: { greater_than: 0.9 } },
+      };
+      const report = await collectReport(
+        lint({
+          config: {
+            ...baseConfig,
+            input: file,
+            rules: [],
+            customRules: [sectionRule as never],
+          },
+          classifier: loggingClassifier({ custom_md_section: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(report.measurements).toHaveLength(1);
+      expect(report.measurements[0]!.element?.kind).toBe("section");
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
   test("custom rule set (selection = the rule list itself)", async () => {
     const only: Rule[] = [probeDefinitions];
     const config = { ...baseConfig, input: "", rules: only };

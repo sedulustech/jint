@@ -18,7 +18,7 @@ import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
 import { knownLanguages } from "./walk.ts";
 
-export interface ResolveOptions {
+export interface InputOptions {
   input: string | string[];
   inputType?: InputKind;
   /** Extra input exclusions (config exclude + CLI --exclude union). */
@@ -47,7 +47,7 @@ export async function inferKind(input: string): Promise<InputKind> {
   throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${input}`);
 }
 
-export function resolveInput(options: ResolveOptions): AsyncIterable<Unit> {
+export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
   const { input, inputType, exclude, include } = options;
   return (async function* () {
     // explicit file paths bypass exclude

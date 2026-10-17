@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { elementKinds } from "@jint/contract";
 /**
  * The query runtime's conflict resolution, over plain structural nodes (no grammar needed):
  * same-node double capture resolves by pattern order; same-capture nesting keeps the outer;
  * different-capture overlap is legal; capture-vocabulary validation is loud.
  */
-import { assertScmDirectives, scmSelfNesting } from "./query.ts";
+import { assertScmDirectives, ELEMENT_CAPTURES, scmSelfNesting } from "./query.ts";
 import {
   RESERVED_CAPTURES,
   assertPatternCount,
@@ -173,6 +174,16 @@ describe("validatePatternOrder", () => {
   });
 });
 
+describe("THE VOCABULARY CHAIN (single source, exhaustively pinned)", () => {
+  test("ELEMENT_CAPTURES is the authority; contract elementKinds is its exact wire face", () => {
+    // the chain: ELEMENT_CAPTURES (query.ts) -> WireCapture -> contract Element kinds.
+    // docstring is plumbing (projects into comment) and "file" is the whole-unit kind; every
+    // other capture is a wire kind 1:1. A capture added without the contract joining = this pin
+    // fails loudly; the reverse drift fails the compile-time pin in report.ts.
+    const wire = ["file", ...ELEMENT_CAPTURES.filter((c) => c !== "docstring")];
+    expect(wire).toEqual([...elementKinds]);
+  });
+});
 describe("scm directive reading (the shared .scm discipline)", () => {
   test("a real directive is found; trailing comments and predicate strings cannot fake it", () => {
     expect(scmSelfNesting('((section) @section (#set! "selfNesting"))')).toBe(true);

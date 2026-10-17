@@ -367,7 +367,7 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
     const unquoted = withoutStrings(pattern.text);
     const code = unquoted.replace(/;.*$/gm, "");
     const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
-    const captures = [...code.matchAll(/@(\w+)/g)].map((m) => m[1]!);
+    const captures = [...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!);
     const capture =
       captures.find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ??
       null;
@@ -542,7 +542,7 @@ function contains(outer: Candidate, inner: Candidate): boolean {
  */
 export function resolveCandidates(
   candidates: readonly Candidate[],
-  options: ResolveOptions = {},
+  options: SuppressionOptions = {},
 ): Candidate[] {
   const byNode = new Map<string, Candidate>();
   for (const candidate of candidates) {
@@ -562,23 +562,28 @@ export function resolveCandidates(
 }
 
 /** Grammar-declared structure facts that modulate suppression (.scm #set! directives). */
-export interface ResolveOptions {
+export interface SuppressionOptions {
   readonly selfNesting?: boolean;
 }
 
-function effectivePolicy(
-  capture: Capture,
-  _options: ResolveOptions,
-): { readonly absorbTail: number; readonly opaque: boolean } {
+function effectivePolicy(capture: Capture): {
+  readonly absorbTail: number;
+  readonly opaque: boolean;
+} {
   return POLICY[capture];
 }
 
-function selfNestingOf(options: ResolveOptions): boolean {
+function selfNestingOf(options: SuppressionOptions): boolean {
   return options.selfNesting === true;
 }
 
+/**
+ * THE capture token: what a .scm names a capture with. Shared by every .scm text reader (pattern
+ * parsing, emitted-capture derivation) - two regexes for one fact is two facts waiting to drift.
+ */
+export const CAPTURE_TOKEN = /@([A-Za-z_][A-Za-z0-9_-]*)/g;
 /** Does the outer candidate hide the inner one? (policy table + .scm #set! facts; ordered) */
-function hides(outer: Candidate, inner: Candidate, options: ResolveOptions): boolean {
+function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions): boolean {
   // lane captures travel intact: the materializer counts them internal and keeps runs whole
   if (LANES.has(inner.capture)) return false;
   if (!contains(outer, inner)) return false;
@@ -586,12 +591,9 @@ function hides(outer: Candidate, inner: Candidate, options: ResolveOptions): boo
     if (selfNestingOf(options)) return false;
     // prefix-absorb shape: the wrapper carries at most the capture's tail tolerance (';') past
     // its payload; a larger tail is a unit of its own and surfaces as a child
-    return (
-      inner.node.endIndex >=
-      outer.node.endIndex - effectivePolicy(outer.capture, options).absorbTail
-    );
+    return inner.node.endIndex >= outer.node.endIndex - effectivePolicy(outer.capture).absorbTail;
   }
-  return effectivePolicy(outer.capture, options).opaque;
+  return effectivePolicy(outer.capture).opaque;
 }
 
 export function spanOf(node: QueryNode): Span {
