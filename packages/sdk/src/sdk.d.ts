@@ -148,6 +148,11 @@ declare module "jint:sdk" {
     readonly kind: CustomElement["kind"] | "file";
     /** Which input file the element was extracted from. */
     readonly input: string;
+    /**
+     * The element's own source (span-sliced), truncated at 200 chars with one ellipsis when longer;
+     * the span stays the authority for the full content.
+     */
+    readonly text: string;
   }
 
   /**

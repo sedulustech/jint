@@ -26,7 +26,8 @@ measurement its handle judged actionable and is the only output that demands act
 - **capture (verb)** - run extraction over an input under a chosen grammar and query set,
   yielding elements; the classifier stays unplugged. The SDK function `capture()` - lint's
   pipeline with the classifier unplugged. NOT a CLI capability (no flag, no noun); a flag may
-  come later as a print of this.
+  come later as a print of this. Its elements carry `text` - the span content truncated at 200
+  chars (one ellipsis); the span stays the authority for full content.
 - **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED CAPTURES
   (function, method, class, type, binding, comment, import) that every grammar addresses and the
   target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's

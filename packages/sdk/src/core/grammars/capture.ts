@@ -12,6 +12,11 @@ import type { Element } from "@jint/contract";
 export type CapturedElement = Element & {
   readonly input: string;
   readonly grammar: string;
+  /**
+   * The element's own source (the span sliced from the file), TRUNCATED: first 200 chars then one
+   * ellipsis when longer. The span stays the authority for the full content.
+   */
+  readonly text: string;
 };
 
 /**
@@ -73,10 +78,13 @@ export async function capture(
     const inventory = await decompose(unit.state.content, language, { queries });
     for (const bucket of [inventory.definitions, inventory.comments, inventory.imports]) {
       for (const element of bucket) {
+        const text =
+          element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
         captured.push({
           ...projectElement(element),
           input: unit.state.path,
           grammar: language,
+          text,
         });
       }
     }

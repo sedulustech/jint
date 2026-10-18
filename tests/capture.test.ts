@@ -103,4 +103,27 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(ts.map((e) => e.kind)).toContain("function");
     expect(ts.every((e) => e.input.endsWith(".ts"))).toBe(true);
   });
+
+  test("text: the span-sliced source, truncated at 200 chars with one ellipsis", async () => {
+    const dir = setup("text", {
+      "doc.md": DOC,
+      // one paragraph well past the cap: truncation must cap at 200 + the single ellipsis char
+      "long.md": "# Long\n\n" + "p".repeat(500) + "\n",
+    });
+    // EXACT: text is the file sliced by the element's span bytes
+    const file = join(dir, "doc.md");
+    const bytes = await Bun.file(file).text();
+    const paragraph = (await capture(file)).find((e) => e.kind === "paragraph")!;
+    expect(paragraph.text).toBe(bytes.slice(paragraph.span.startByte, paragraph.span.endByte));
+    // TRUNCATION: a >200-char element caps at 200 chars plus the single ellipsis character, and
+    // the capped prefix is the span slice - the span stays the authority for the full content
+    const longFile = join(dir, "long.md");
+    const longBytes = await Bun.file(longFile).text();
+    const long = (await capture(longFile)).find((e) => e.span.endByte - e.span.startByte > 200)!;
+    expect(long.text.length).toBe(201);
+    expect(long.text.endsWith("\u2026")).toBe(true);
+    expect(long.text.slice(0, 200)).toBe(
+      longBytes.slice(long.span.startByte, long.span.startByte + 200),
+    );
+  });
 });
