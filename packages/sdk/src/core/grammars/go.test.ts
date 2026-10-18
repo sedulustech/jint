@@ -29,7 +29,24 @@ describe("decompose — go", () => {
   });
 
   test("doc comments attach as the leading run; a consts-only file still yields elements", async () => {
-    const inv = await decompose("// Rate limits the thing.\nconst Rate = 3\n", "go");
+    const inv = await decompose(
+      ["// Rate limits the thing.", "const Rate = 3", ""].join("\n"),
+      "go",
+    );
     expect(inv.definitions[0]!.attachedComment).toEqual(["// Rate limits the thing."]);
+    // the attached owner's kind is the definition's own capture, lossless (the cobra repro:
+    // type and method doc comments used to collapse to class/function)
+    expect(inv.comments[0]!.docstringOf).toEqual({ kind: "binding", name: "Rate" });
+    const methods = await decompose(
+      [
+        "type Handler struct{}",
+        "",
+        "// Serve does the thing.",
+        "func (h Handler) Serve() {}",
+        "",
+      ].join("\n"),
+      "go",
+    );
+    expect(methods.comments[0]!.docstringOf).toEqual({ kind: "method", name: "Serve" });
   });
 });

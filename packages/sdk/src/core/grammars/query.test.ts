@@ -206,4 +206,36 @@ describe("scm directive reading (the shared .scm discipline)", () => {
       assertScmDirectives('(a) @a (#eq? @x "y") (#set! "selfNesting")', "g"),
     ).not.toThrow();
   });
+
+  test("values are read and typed loudly: number, enum, presence-only", () => {
+    // dotted names parse; each value shape says what it wants when wrong
+    expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "0")', "g")).not.toThrow();
+    expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "2")', "g")).not.toThrow();
+    expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "zero")', "g")).toThrow(
+      /attach\.gap wants a whole number \(got "zero"\)/,
+    );
+    expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner" "next")', "g")).not.toThrow();
+    expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner" "sideways")', "g")).toThrow(
+      /docstring\.owner wants one of: next, enclosing \(got "sideways"\)/,
+    );
+    expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner")', "g")).toThrow(
+      /docstring\.owner wants one of: next, enclosing \(got no value\)/,
+    );
+    expect(() => assertScmDirectives('(a) @a (#set! "import.merge" "file")', "g")).toThrow(
+      /import\.merge wants one of: contiguous \(got "file"\)/,
+    );
+    expect(() => assertScmDirectives('(a) @a (#set! "selfNesting" "true")', "g")).toThrow(
+      /selfNesting is presence-only - it takes no value \(got "true"\)/,
+    );
+  });
+
+  test("one name, one setting: the same directive twice with different values is loud", () => {
+    expect(() =>
+      assertScmDirectives('(a) @a (#set! "attach.gap" "0")\n(b) @b (#set! "attach.gap" "2")', "g"),
+    ).toThrow(/directive "attach\.gap" is set twice with different values \(line 1 set "0"\)/);
+    // agreeing declarations are fine, and so is the same directive on several patterns
+    expect(() =>
+      assertScmDirectives('(a) @a (#set! "attach.gap" "2")\n(b) @b (#set! "attach.gap" "2")', "g"),
+    ).not.toThrow();
+  });
 });

@@ -206,6 +206,51 @@ const later = 1;
     ]);
   });
 
+  test("a same-row trailing comment attaches to nothing", async () => {
+    // interface.c repro (L325-327): `static size_t qjs_mem_limit = 0; /* 0 = unlimited */` - the
+    // note rides one row down onto the NEXT binding under a row-only gap; a comment that starts
+    // on a row where the previous candidate ends is a note on THAT candidate, never a doc for
+    // what follows
+    const inv = await decomposeTS(`
+const limit = 0; /* 0 = unlimited */
+const used = 1;
+`);
+    expect(inv.definitions.map((d) => d.name)).toEqual(["limit", "used"]);
+    expect(inv.definitions[1]!.attachedComment).toBeUndefined();
+    expect(inv.comments[0]!.docstringOf).toBeUndefined();
+  });
+
+  test("equal-text comments own by identity, never by text", async () => {
+    // process.cc repro (L466/L595): two identical comment texts - the second must not resolve
+    // to the first's owner through a text match
+    const inv = await decomposeTS(`
+// utility
+function first() {}
+
+// utility
+function second() {}
+`);
+    expect(inv.comments[0]!.docstringOf).toEqual({ kind: "function", name: "first" });
+    expect(inv.comments[1]!.docstringOf).toEqual({ kind: "function", name: "second" });
+  });
+
+  test("the attached owner kind is the definition's own capture (lossless)", async () => {
+    // cobra repro: go type/method doc comments are top-level runs - the old attached branch
+    // collapsed every owner to class-or-function; the contract's DocstringOwner keeps all six
+    // kinds (a class-body method docblock is a different shape: containment owns it to the class)
+    const inv = await decomposeTS(`
+/** Shape docs. */
+interface Shape {}
+
+/** Getter docs. */
+function widget(): number {
+  return 1;
+}
+`);
+    expect(inv.comments[0]!.docstringOf).toEqual({ kind: "type", name: "Shape" });
+    expect(inv.comments[1]!.docstringOf).toEqual({ kind: "function", name: "widget" });
+  });
+
   test("a documented file keeps every comment in the bucket AND on the definitions", async () => {
     const inv = await decomposeTS(`
 /** Module docs. */
@@ -278,28 +323,6 @@ class Klass {
     expect(inv.definitions.map((d) => [d.capture, d.name])).toEqual([["binding", "a"]]);
   });
 
-  test("imports merge across mid-file blocks: ONE element, statements only", async () => {
-    const inv = await decomposeTS(`
-import a from "./a";
-import b from "./b";
-function between() {}
-import c from "./c";
-const mid = 1;
-import d from "./d";
-`);
-    // the group is one element spanning first to last import; it gathers the import STATEMENTS,
-    // so the function and const that sit between the blocks are not inside its content
-    expect(inv.imports).toHaveLength(1);
-    expect(inv.imports[0]!.span.start.line).toBe(2);
-    expect(inv.imports[0]!.span.end.line).toBe(7);
-    expect(inv.imports[0]!.content.split("\n")).toEqual([
-      `import a from "./a";`,
-      `import b from "./b";`,
-      `import c from "./c";`,
-      `import d from "./d";`,
-    ]);
-  });
-
   test("imports merge into one element spanning the run", async () => {
     const inv = await decomposeTS(`
 import { a } from "./a";
@@ -313,10 +336,61 @@ function after() {}
     expect(inv.imports[0]!.span.end.line).toBe(3);
   });
 
+  test("scattered imports split per contiguous run: no element swallows code between", async () => {
+    // the walk.ts repro: an export-from re-export AFTER code dragged the code into one
+    // per-file merged span - a run ends at any non-import candidate or blank row
+    const source = [
+      'import a from "./a";',
+      'import b from "./b";',
+      "function between() {}",
+      "export type T = 1;",
+      'export { between } from "./b";',
+      "",
+    ].join("\n");
+    const inv = await decomposeTS(source);
+    expect(inv.imports).toHaveLength(2);
+    expect(inv.imports.map((i) => [i.label, i.span.start.line, i.span.end.line])).toEqual([
+      ["i0", 1, 2],
+      ["i1", 5, 5],
+    ]);
+    // slice the span, get the content: the run never contains intervening source
+    for (const element of inv.imports) {
+      expect(element.content).toBe(source.slice(element.span.startByte, element.span.endByte));
+    }
+  });
+
   test("a partial parse still yields what parsed, flagged", async () => {
     const inv = await decomposeTS("function ok() {}\nfunction broken( {}\n");
     expect(inv.hasError).toBe(true);
     expect(inv.definitions.map((e) => e.name)).toEqual(["ok"]);
+  });
+
+  test("directives ride the engine channel to the walker: attach.gap and docstring.owner", async () => {
+    // the full path: #set! in an .scm -> the engine's QueryMatch.setProperties -> Candidate
+    // -> the walker's reads, with code defaults when absent
+    const gapScm = [
+      "((function_declaration name: (identifier) @name) @function",
+      '  (#set! "attach.gap" "0"))',
+      "(comment) @comment",
+    ].join("\n");
+    const source = "// doc\nfunction f() {}\n";
+    const byDefault = await decompose(source, TS_LANG); // gap default 1: the comment attaches
+    expect(byDefault.definitions[0]!.attachedComment).toEqual(["// doc"]);
+    const withDirective = await decompose(source, TS_LANG, { queries: gapScm }); // gap 0: no run
+    expect(withDirective.definitions[0]!.attachedComment).toBeUndefined();
+
+    // docstring.owner "next": a module docstring owns the FOLLOWING definition, not the module
+    const ownerScm = [
+      "((function_definition name: (identifier) @name) @function)",
+      "((module . (expression_statement (string) @docstring))",
+      '  (#set! "docstring.owner" "next"))',
+    ].join("\n");
+    const py = '"""Module docs."""\ndef f():\n    return 1\n';
+    const enclosing = await decompose(py, "python"); // default: the module owns it
+    expect(enclosing.comments[0]!.docstringOf).toEqual({ kind: "module", name: "" });
+    const next = await decompose(py, "python", { queries: ownerScm });
+    expect(next.comments[0]!.docstringOf).toEqual({ kind: "function", name: "f" });
+    expect(next.definitions[0]!.docstringCount).toBe(1);
   });
 
   test("the size backstop flags, never truncates", async () => {

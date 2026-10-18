@@ -270,12 +270,28 @@ export function scmCode(scm: string): string {
   return withoutStrings(commentsCut);
 }
 
-/** The shape directives a .scm may set today. */
-const KNOWN_DIRECTIVES = new Set(["selfNesting"]);
+/**
+ * THE directive vocabulary: every #set! fact a queries.scm may declare, with the value shape each
+ * name accepts. Naming principle: the prefix names the grouper (attach, docstring, import), the
+ * suffix the knob (gap, owner, merge), the value the setting - a name never names a node; the
+ * pattern the directive sits on IS the target. presence = a boolean knob declared by its name alone
+ * (its presence is the setting); number = a whole count; enum = one listed word. The engine parses
+ * the same directives natively (QueryMatch.setProperties) - this table is the LOAD-TIME authority
+ * for names and value shapes; the walker reads the engine's values.
+ */
+const DIRECTIVES = {
+  selfNesting: { kind: "presence" },
+  "attach.gap": { kind: "number" },
+  "docstring.owner": { kind: "enum", values: ["next", "enclosing"] },
+  "import.merge": { kind: "enum", values: ["contiguous"] },
+} as const;
+type DirectiveName = keyof typeof DIRECTIVES;
 
 /** One #set! occurrence that is real syntax: outside strings, outside comments. */
 interface ScmDirective {
   readonly name: string;
+  /** The declared value, when the directive form carries one (#set! "name" "value"). */
+  readonly value?: string;
   readonly line: number;
 }
 
@@ -313,25 +329,31 @@ export function scmDirectives(scm: string): ScmDirective[] {
     if (char === "#" && scm.slice(i, i + 4) === "#set") {
       const bang = scm[i + 4] === "!";
       i += 4;
-      // past the bang, onto the (required) quoted name
+      // past the bang, onto the (required) quoted name, then the (optional) quoted value
       if (bang) i++;
       while (i < scm.length && scm[i] === " ") i++;
-      const nameMatch = scm.slice(i).match(/^"([A-Za-z0-9_-]+)"/);
+      const nameMatch = scm.slice(i).match(/^"([A-Za-z0-9_.-]+)"/);
       const name = nameMatch?.[1];
       if (!bang) {
         throw new SetupError(
           "CONFIG_INVALID",
-          `grammar queries.scm line ${line}: "#set" is malformed - the directive form is #set! "<name>"`,
+          `grammar queries.scm line ${line}: "#set" is malformed - the directive form is #set! "<name>" ["<value>"]`,
         );
       }
       if (name === undefined) {
         throw new SetupError(
           "CONFIG_INVALID",
-          `grammar queries.scm line ${line}: #set! is missing its quoted directive name (known: ${[...KNOWN_DIRECTIVES].join(", ")})`,
+          `grammar queries.scm line ${line}: #set! is missing its quoted directive name (known: ${(
+            Object.keys(DIRECTIVES) as DirectiveName[]
+          ).join(", ")})`,
         );
       }
-      directives.push({ name, line });
-      break;
+      i += nameMatch![0]!.length;
+      while (i < scm.length && scm[i] === " ") i++;
+      const valueMatch = scm.slice(i).match(/^"((?:[^"\\]|\\.)*)"/);
+      directives.push({ name, value: valueMatch?.[1], line });
+      if (valueMatch !== null) i += valueMatch[0]!.length;
+      continue;
     }
     if (char === '"' || char === "\'") quote = char;
     i++;
@@ -340,19 +362,55 @@ export function scmDirectives(scm: string): ScmDirective[] {
 }
 
 /**
- * Loud directive validation at .scm load: a #set! naming an unknown directive is a setup error
- * naming the line - a directive that silently no-ops is a grammar author's false belief about their
- * own extraction. Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business; only
- * the #set family is ours.
+ * Loud directive validation at .scm load: a #set! naming an unknown directive, or carrying a value
+ * its name does not accept, is a setup error naming the line and what it wants - a directive that
+ * silently no-ops is a grammar author's false belief about their own extraction. One name, one
+ * setting per file: the same directive declared twice with different values is the same loudness
+ * (the knobs are grammar-level facts; per-pattern disagreement would be two behaviors under one
+ * name). Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business; only the #set
+ * family is ours.
  */
 export function assertScmDirectives(scm: string, grammarId: string): void {
+  const known = Object.keys(DIRECTIVES) as DirectiveName[];
+  const seen = new Map<string, { readonly value: string | undefined; readonly line: number }>();
   for (const directive of scmDirectives(scm)) {
-    if (!KNOWN_DIRECTIVES.has(directive.name)) {
+    const shape = DIRECTIVES[directive.name as DirectiveName];
+    if (shape === undefined) {
       throw new SetupError(
         "CONFIG_INVALID",
-        `grammar ${grammarId} queries.scm line ${directive.line}: unknown directive "${directive.name}" (known: ${[...KNOWN_DIRECTIVES].join(", ")})`,
+        `grammar ${grammarId} queries.scm line ${directive.line}: unknown directive "${directive.name}" (known: ${known.join(", ")})`,
       );
     }
+    const wants =
+      shape.kind === "presence"
+        ? `${directive.name} is presence-only - it takes no value`
+        : shape.kind === "number"
+          ? `${directive.name} wants a whole number`
+          : `${directive.name} wants one of: ${shape.values.join(", ")}`;
+    if (shape.kind === "presence" && directive.value !== undefined) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got "${directive.value}")`,
+      );
+    }
+    if (
+      (shape.kind === "number" && !/^\d+$/.test(directive.value ?? "")) ||
+      (shape.kind === "enum" &&
+        !(shape.values as readonly string[]).includes(directive.value ?? ""))
+    ) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+      );
+    }
+    const prior = seen.get(directive.name);
+    if (prior !== undefined && prior.value !== directive.value) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" is set twice with different values (line ${prior.line} set "${prior.value ?? ""}") - one name, one setting per file`,
+      );
+    }
+    seen.set(directive.name, { value: directive.value, line: directive.line });
   }
 }
 
@@ -512,6 +570,12 @@ export interface Candidate {
   /** The captured node IS the element: span and content come from it (span = captured node). */
   readonly node: QueryNode;
   readonly name?: string;
+  /**
+   * The pattern's #set! facts as the ENGINE parsed them (QueryMatch.setProperties), keyed by
+   * directive name - the walker's grouping knobs travel here, validated separately at load
+   * (assertScmDirectives) and read with code defaults when absent.
+   */
+  readonly properties?: Readonly<Record<string, string | null>>;
 }
 
 /**
@@ -533,6 +597,10 @@ function candidateOf(match: QueryMatch): Candidate | null {
   if (capture === null) return null;
   const elementNode = match.captures.find((c) => c.name === capture)!.node;
   const name = match.captures.find((c) => c.name === NAME_CAPTURE)?.node.text;
+  const properties =
+    match.setProperties !== undefined && Object.keys(match.setProperties).length > 0
+      ? match.setProperties
+      : undefined;
   return {
     pattern: match.patternIndex,
     capture,
@@ -545,6 +613,7 @@ function candidateOf(match: QueryMatch): Candidate | null {
       type: elementNode.type,
     },
     name,
+    properties,
   };
 }
 

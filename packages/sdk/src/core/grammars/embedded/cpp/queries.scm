@@ -62,7 +62,10 @@
 (declaration declarator: (identifier) @name) @binding ; @priority
 
 ; --- imports --------------------------------------------------------------------------------------
-(preproc_include) @import
+; import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
+; since the scattered-merge fix; declared here because the per-file merge measured
+; diverging (merged span slices included non-import source between scattered imports)
+((preproc_include) @import (#set! "import.merge" "contiguous"))
 
 ; --- comments --------------------------------------------------------------------------------------
 (comment) @comment

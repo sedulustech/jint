@@ -33,9 +33,12 @@
 (decorated_definition (class_definition name: (identifier) @name)) @class ; @priority
 
 ; --- imports ----------------------------------------------------------------------------------
-(import_statement) @import
-(import_from_statement) @import
-(future_import_statement) @import
+; import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
+; since the scattered-merge fix; declared here because the per-file merge measured
+; diverging (merged span slices included non-import source between scattered imports)
+((import_statement) @import (#set! "import.merge" "contiguous"))
+((import_from_statement) @import (#set! "import.merge" "contiguous"))
+((future_import_statement) @import (#set! "import.merge" "contiguous"))
 
 ; --- comments and docstrings -------------------------------------------------------------------
 (comment) @comment
