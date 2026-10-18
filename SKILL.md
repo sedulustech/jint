@@ -72,24 +72,24 @@ The run dir is the record of what the model saw. Read it before you probe.
 
 ### Element inventory without the CLI
 
-Every run records its captures in a run dir. Find it on stderr after a run, or read the
+Every run writes a run dir. Find it on stderr after a run, or read the
 report's top-level `run` field: `run.dir` is the dir, `run.id` is its name. The dir holds
-capture files named `<unixts>-elements-<file>.json` - one file per request, one request per
+request dumps: files named `<unixts>-elements-<file>.json` - one file per request, one request per
 element. The envelope is `{request, response}`; the judged text is `request.state.source`,
-with `request.state.id` and `request.state.path`. A capture carries no span: spans live in the
+with `request.state.id` and `request.state.path`. A request dump carries no span: spans live in the
 report (`measurements[].element.span`, `findings[].location.span`), joined by input id. Read
 these instead of probing anchors with live queries.
 
 ### The join: finding to judged text
 
 A report finding names its element in `findings[].input`. That string is `<path>#<id>`,
-where `<id>` equals the capture's `state.id`. Split on `#` and match the tail. The match
+where `<id>` equals the request's `state.id`. Split on `#` and match the tail. The match
 recovers the exact text the model judged.
 
-### Quote source from the file, never from the capture
+### Quote source from the file, never from the request dump
 
 Captures tell you WHAT was judged. The file tells you HOW it is written now. Capture JSON is
-pretty-printed; its indentation is not source. Edit from the file. A pasted capture indent is
+pretty-printed; its indentation is not source. Edit from the file. A pasted request dump indent is
 a wasted edit.
 
 ### Paths and scoping
