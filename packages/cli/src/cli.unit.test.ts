@@ -1,4 +1,6 @@
-import { describe, test, expect } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { ClassifyError, InternalError, SetupError, lint, type ClassifyErrorCode } from "@jint/sdk";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { defaultConfig } from "./baseline.ts";
@@ -9,10 +11,15 @@ import {
   HELP,
   KNOWN_FLAGS,
   parseFileSelector,
+  resolveVerb,
+  serveRunDir,
   splitArgv,
   VALUED_FLAGS,
+  VERBS,
+  verbFlagProblem,
 } from "./cli.ts";
-import { emit } from "./output.ts";
+import { captureJson, captureLines, emit } from "./output.ts";
+import type { CapturedElement } from "@jint/sdk";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
@@ -111,6 +118,137 @@ describe("parseFileSelector - LOC element selectors on file nouns", () => {
   });
 });
 
+describe("VERBS — the verb table and one-level resolution", () => {
+  test("the first positional in the table is the command; anything else is run's", () => {
+    expect(resolveVerb(["capture", "a.ts"], false)).toEqual({ name: "capture", rest: ["a.ts"] });
+    expect(resolveVerb(["serve", "1735"], false)).toEqual({ name: "serve", rest: ["1735"] });
+    expect(resolveVerb(["run", "src/"], false)).toEqual({ name: "run", rest: ["src/"] });
+    // implicit run: today's shapes keep working untouched - paths, the input nouns, empty
+    expect(resolveVerb(["src/"], false)).toEqual({ name: "run", rest: ["src/"] });
+    expect(resolveVerb(["str", "-"], false)).toEqual({ name: "run", rest: ["str", "-"] });
+    expect(resolveVerb([], false)).toEqual({ name: "run", rest: [] });
+  });
+
+  test("the escapes: ./capture and -- capture are paths, never verbs", () => {
+    // a prefixed path is never an exact table match
+    expect(resolveVerb(["./capture"], false)).toEqual({ name: "run", rest: ["./capture"] });
+    expect(resolveVerb(["/usr/bin/capture"], false)).toEqual({
+      name: "run",
+      rest: ["/usr/bin/capture"],
+    });
+    // a leading -- disables the table match on the argv the COMPILED binary delivers; the bun
+    // script runner strips its own leading -- before the CLI sees argv (same as dash-paths)
+    const dashed = splitArgv(["--", "capture"]);
+    expect(dashed).toEqual({ flagArgs: [], positionals: ["capture"], escaped: true });
+    expect(resolveVerb(dashed.positionals, dashed.escaped)).toEqual({
+      name: "run",
+      rest: ["capture"],
+    });
+    // mid-argv -- keeps the same escape for the first positional after flags
+    const afterFlag = splitArgv(["--json", "--", "capture"]);
+    expect(afterFlag.escaped).toBe(true);
+    expect(resolveVerb(afterFlag.positionals, afterFlag.escaped).name).toBe("run");
+    // a -- AFTER the first positional is not a verb escape (the verb already matched)
+    expect(splitArgv(["capture", "--", "x.ts"])).toEqual({
+      flagArgs: [],
+      positionals: ["capture", "x.ts"],
+      escaped: false,
+    });
+  });
+
+  test("flag scope is table-driven both ways: a flag's verbs marker, a verb's flags list", () => {
+    expect(verbFlagProblem("run", { queries: "w.scm" })).toBe(
+      "--queries is a capture flag - see jint --help",
+    );
+    expect(verbFlagProblem("capture", { rule: ["x"] })).toBe(
+      "--rule does not apply to capture - see jint --help",
+    );
+    expect(verbFlagProblem("serve", { json: true })).toBe(
+      "--json does not apply to serve - see jint --help",
+    );
+    // globals pass everywhere; capture's own three pass; run takes every unmarked flag
+    expect(verbFlagProblem("serve", { debug: true })).toBeNull();
+    expect(verbFlagProblem("capture", { json: true, queries: "w.scm", grammar: "g/" })).toBeNull();
+    expect(verbFlagProblem("run", { rule: ["x"], ui: true, json: true })).toBeNull();
+  });
+
+  test("HELP names every verb (the Usage section is derived from the table)", () => {
+    for (const name of Object.keys(VERBS)) expect(HELP).toContain(name);
+  });
+});
+
+describe("capture output — one line per element; --json one document", () => {
+  /** One synthetic captured element; only what the line renderer reads is varied. */
+  const el = (
+    kind: CapturedElement["kind"],
+    lines: [number, number],
+    name?: string,
+  ): CapturedElement =>
+    ({
+      kind,
+      label: "d0",
+      span: {
+        start: { line: lines[0], column: 0 },
+        end: { line: lines[1], column: 1 },
+        startByte: 0,
+        endByte: 10,
+      },
+      name,
+      input: "src/a.ts",
+      grammar: "typescript",
+    }) as CapturedElement;
+
+  test("single-file lines omit the input column; a missing name renders '-'", () => {
+    const lines = captureLines([el("function", [2, 4], "addSeconds"), el("comment", [1, 1])]);
+    expect(lines).toBe("typescript function L2-L4 addSeconds\ntypescript comment L1-L1 -\n");
+  });
+
+  test("a run covering more than one file appends the input column", () => {
+    const two = [
+      { ...el("section", [1, 4], "Title"), input: "a.md", grammar: "markdown" },
+      el("function", [1, 1], "two"),
+    ];
+    expect(captureLines(two)).toBe(
+      "markdown section L1-L4 Title a.md\ntypescript function L1-L1 two src/a.ts\n",
+    );
+  });
+
+  test("an empty extraction prints nothing (exit 0, clean pipe)", () => {
+    expect(captureLines([])).toBe("");
+  });
+
+  test("--json wraps the SDK's element array under one key, 2-space indent, trailing newline", () => {
+    const element = el("function", [2, 4], "addSeconds");
+    const json = captureJson([element]);
+    expect(JSON.parse(json)).toEqual({ elements: [element] });
+    expect(json.endsWith("}\n")).toBe(true);
+    expect(json).toContain('"kind": "function"');
+  });
+});
+
+describe("serveRunDir — run-id resolution under the store base", () => {
+  const base = join(import.meta.dir, "..", "..", "..", "tmp", `serve-unit-${process.pid}`);
+  beforeAll(() => {
+    mkdirSync(join(base, "1735000000"), { recursive: true });
+    mkdirSync(join(base, "case-a", "1735000001"), { recursive: true });
+    process.env.JINT_RUNS_DIR = base;
+  });
+  afterAll(() => {
+    delete process.env.JINT_RUNS_DIR;
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  test("a flat id and a nested case id resolve; anything else is null", () => {
+    expect(serveRunDir("1735000000")).toBe(join(base, "1735000000"));
+    expect(serveRunDir("case-a/1735000001")).toBe(join(base, "case-a", "1735000001"));
+    expect(serveRunDir("nosuch")).toBeNull();
+    // traversal-shaped segments fail the whole id - serve never names a dir outside the store
+    expect(serveRunDir("../")).toBeNull();
+    expect(serveRunDir("1735000000/..")).toBeNull();
+    expect(serveRunDir(".hidden")).toBeNull();
+  });
+});
+
 describe("FLAGS — the one flag table, everything else derived", () => {
   test("KNOWN_FLAGS is exactly the table's names plus its single-char aliases", () => {
     const expected = [
@@ -147,10 +285,12 @@ describe("FLAGS — the one flag table, everything else derived", () => {
     expect(splitArgv(["--rule", "a", "--rule", "b", "src/"])).toEqual({
       flagArgs: ["--rule", "a", "--rule", "b"],
       positionals: ["src/"],
+      escaped: false,
     });
     expect(splitArgv(["--json", "str", "-"])).toEqual({
       flagArgs: ["--json"],
       positionals: ["str", "-"],
+      escaped: false,
     });
   });
 });

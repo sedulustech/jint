@@ -18,7 +18,8 @@ export type CapturedElement = Element & {
  * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
  * elements; the classifier stays unplugged. It is lint's pipeline with the classifier unplugged:
  * input resolution, grammar registration, walk, inventory - no rules, no jev, no config, no
- * handles. NOT a CLI capability (a flag may come later as a print of this).
+ * handles. The CLI verb `jint capture` is a thin print of this function (one word, two layers: the
+ * SDK function and the CLI verb share the name by design).
  *
  * - TargetPath: a file or dir, through the SAME input resolution lint uses - no new input logic.
  * - QueryPath: an .scm FILE that becomes the extraction source, ALWAYS through the full loud compile
