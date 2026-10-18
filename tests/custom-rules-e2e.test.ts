@@ -107,7 +107,7 @@ afterAll(() => {
 });
 
 async function runIn(dir: string, env: Record<string, string | undefined> = {}) {
-  return runCli(["--config", "jint.config.ts", "--json"], {
+  return runCli(["run", "--config", "jint.config.ts", "--json"], {
     cwd: dir,
     env: { ...MOCK_ENV, ...env },
   });
@@ -158,7 +158,7 @@ describe("cli: custom rules end-to-end", () => {
       "keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
     );
     // default stdout: the message renders as an indented continuation line beneath the finding
-    const raw = await runCli(["--config", "jint.config.ts"], {
+    const raw = await runCli(["run", "--config", "jint.config.ts"], {
       cwd: dir,
       env: { ...MOCK_ENV },
     });

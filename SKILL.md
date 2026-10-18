@@ -65,7 +65,7 @@ The run dir is the record of what the model saw. Read it before you probe.
 
 ### The fix loop
 
-1. Take a finding. Re-query just that unit: `jint <path>@L<line> --rule <rule>`. One query,
+1. Take a finding. Re-query just that unit: `jint run <path>@L<line> --rule <rule>`. One query,
    one unit, one verdict. No full re-run.
 2. Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that exists now.
 3. After any edit, re-anchor at the CURRENT line. Grep the declaration. Then re-query.
@@ -96,7 +96,7 @@ a wasted edit.
 
 An explicit path overrides config scoping. That is by design. A piped list must respect the
 config's `exclude`: filter before the pipe, e.g.
-`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint paths -`.
+`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint run paths -`.
 
 ### The binary goes stale
 

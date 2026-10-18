@@ -24,10 +24,10 @@ measurement its handle judged actionable and is the only output that demands act
   never a label; the names are flat capture names — no dotted names at either layer, decided and final.
   Replaces role (the living collision).
 - **capture (verb)** - run extraction over an input under a chosen grammar and query set,
-  yielding elements; the classifier stays unplugged. The SDK function `capture()` - lint's
-  pipeline with the classifier unplugged. NOT a CLI capability (no flag, no noun); a flag may
-  come later as a print of this. Its elements carry `text` - the span content truncated at 200
-  chars (one ellipsis); the span stays the authority for full content.
+  yielding elements; the classifier stays unplugged. One word, two layers (deliberate duality):
+  the SDK function `capture()` is lint's pipeline with the classifier unplugged, and the CLI
+  verb `jint capture` is a thin print of that function. Its elements carry `text` - the span
+  content truncated at 200 chars (one ellipsis); the span stays the authority for full content.
 - **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED CAPTURES
   (function, method, class, type, binding, comment, import) that every grammar addresses and the
   target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
@@ -86,13 +86,14 @@ measurement its handle judged actionable and is the only output that demands act
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
-- **noun** — the CLI word for a declared input read: the FIRST positional names the read
-  (str, paths). The resource (a path) needs no noun. A noun's next positional is its payload.
+- **noun** — the CLI word for a declared input read, INSIDE run: the first positional of
+  run's payload names the read (str, paths). The resource (a path) needs no noun. A noun's next
+  positional is its payload.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
 - **pass** — the level a handle returned when a reading needs no action: the score-map
   entry that never fires (score maps use pass/warn/error) and the absent-reading state for
   noul handles. Not a finding, not noise: a reading judged acceptable.
-- **path list** — one flat list of paths, one per line, read as declared (`jint paths -`): no
+- **path list** — one flat list of paths, one per line, read as declared (`jint run paths -`): no
   VCS vocabulary, no path algebra — entries are the caller's bytes used verbatim as file
   identity. A malformed list is a named LIST_* setup error (unreadable bytes, an entry that
   would need interpreting, empty); a listed path that resolves to nothing is a
@@ -100,6 +101,10 @@ measurement its handle judged actionable and is the only output that demands act
 - **payload** — the positional after a noun: always `-`, declaring piped stdin as the read.
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
+- **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
+  and the rest are its operands; there is no implicit verb, so a missing or unknown first
+  positional is a usage error. A verb token is never a path (a file named capture is reached as
+  `jint run ./capture`).
 - **question** — one classified judgment request sent to the model about one state.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.

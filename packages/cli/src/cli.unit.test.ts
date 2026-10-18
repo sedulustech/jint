@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { ClassifyError, InternalError, SetupError, lint, type ClassifyErrorCode } from "@jint/sdk";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { defaultConfig } from "./baseline.ts";
@@ -9,8 +9,10 @@ import {
   HELP,
   KNOWN_FLAGS,
   parseFileSelector,
+  resolveVerb,
   splitArgv,
   VALUED_FLAGS,
+  verbFlagProblem,
 } from "./cli.ts";
 import { emit } from "./output.ts";
 
@@ -108,6 +110,35 @@ describe("parseFileSelector - LOC element selectors on file nouns", () => {
   test("non-uuid suffix after hash stays a path (no selector)", () => {
     expect(parseFileSelector("weird#name.ts").path).toBe("weird#name.ts");
     expect(parseFileSelector("a.ts#abc@L5").path).toBe("a.ts#abc");
+  });
+});
+
+describe("VERBS — the verb table and one-level resolution", () => {
+  test("the FIRST positional is the command; there is no implicit verb", () => {
+    expect(resolveVerb(["capture", "a.ts"])).toEqual({ name: "capture", rest: ["a.ts"] });
+    expect(resolveVerb(["serve"])).toEqual({ name: "serve", rest: [] });
+    expect(resolveVerb(["run", "src/"])).toEqual({ name: "run", rest: ["src/"] });
+    // anything else - paths, the input nouns, a bare invocation - resolves to null (usage error)
+    expect(resolveVerb(["src/"])).toBeNull();
+    expect(resolveVerb(["./capture"])).toBeNull();
+    expect(resolveVerb(["str", "-"])).toBeNull();
+    expect(resolveVerb([])).toBeNull();
+  });
+
+  test("flag scope is table-driven both ways: a flag's verbs marker, a verb's flags list", () => {
+    expect(verbFlagProblem("run", { queries: "w.scm" })).toBe(
+      "--queries is a capture flag - see jint --help",
+    );
+    expect(verbFlagProblem("capture", { rule: ["x"] })).toBe(
+      "--rule does not apply to capture - see jint --help",
+    );
+    expect(verbFlagProblem("serve", { json: true })).toBe(
+      "--json does not apply to serve - see jint --help",
+    );
+    // globals pass everywhere; capture's own three pass; run takes every unmarked flag
+    expect(verbFlagProblem("serve", { debug: true })).toBeNull();
+    expect(verbFlagProblem("capture", { json: true, queries: "w.scm", grammar: "g/" })).toBeNull();
+    expect(verbFlagProblem("run", { rule: ["x"], json: true })).toBeNull();
   });
 });
 

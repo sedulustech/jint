@@ -87,7 +87,7 @@ describe("capture() e2e — the exported sdk surface", () => {
 
   test("a mixed-grammar dir yields elements from BOTH grammars, attribution exact", async () => {
     const dir = setup("mixed", {
-      "doc.md": MARKDOWN,
+      "doc.md": DOC,
       "code.ts": "function hello() {}\n",
     });
     const elements = await capture(dir);

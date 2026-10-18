@@ -14,15 +14,17 @@
  * discarded.
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   ClassifyError,
   InternalError,
   SetupError,
+  capture,
   checkRunKnobs,
   collectReport,
+  runsBase,
   selectRules,
   validateRuleSelection,
   apiKeyAvailable,
@@ -47,6 +49,8 @@ import packageJson from "../package.json";
 import { defaultConfig, defaultRules, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
+  captureJson,
+  captureLines,
   emit,
   emitLines,
   jevLog,
@@ -103,6 +107,20 @@ export const FLAGS = {
     blurb:
       "per-call classifier timeout (default 30; a hung call becomes a per-element JEV_TIMEOUT failure - liveness, not retry)",
   },
+  "--queries": {
+    type: "string",
+    arg: "<file.scm>",
+    blurb:
+      "capture only: the .scm file that drives extraction, replacing the grammar's own queries.scm",
+    verbs: ["capture"],
+  },
+  "--grammar": {
+    type: "string",
+    arg: "<dir>",
+    blurb:
+      "capture only: a grammar dir (<id>.wasm + extensions.json [+ queries.scm]) registered ad hoc for this call",
+    verbs: ["capture"],
+  },
   "--json": {
     type: "boolean",
     blurb: "machine report (byte-identical to the run's report.json) instead of raw finding lines",
@@ -111,11 +129,6 @@ export const FLAGS = {
     type: "boolean",
     blurb:
       "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
-  },
-  "--ui": {
-    type: "boolean",
-    blurb:
-      "after the run, serve the run UI and hold (Ctrl+C to exit); honors JINT_UI_PORT (or PORT for portless)",
   },
   "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
   "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
@@ -216,58 +229,151 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 }));
 
 /**
+ * The verb table — the ONE source for the command vocabulary and the position rule: the FIRST
+ * positional IS the command (run, serve, capture); the rest are its operands. There is no implicit
+ * verb: a missing or unknown first positional is a usage error naming `jint run <operands>`. Verbs
+ * never resolve to paths (a verb token as a later positional is an error; the path is reached as
+ * ./<name>). `flags` names the flags the verb accepts beyond the global three (--help, --version,
+ * --debug); run takes every unmarked flag (a flag may carry its own `verbs` marker in FLAGS —
+ * --queries and --grammar are capture's). `example`/`blurb` render into the help Usage section.
+ */
+export const VERBS = {
+  run: {
+    example: "jint run src/",
+    blurb: "classify an input: paths, the str/paths stdin nouns, or the discovered config",
+  },
+  serve: {
+    example: "jint serve",
+    blurb: "the run UI over the store's newest run - hold, Ctrl+C to exit (JINT_UI_PORT)",
+    flags: [],
+  },
+  capture: {
+    example: "jint capture doc.md",
+    blurb: "print extraction - grammar, kind, span, name - with the classifier unplugged",
+    flags: ["json", "queries", "grammar"],
+  },
+} as const;
+
+/** Any verb name, for table-derived types. */
+export type Verb = keyof typeof VERBS;
+
+/**
+ * The Usage section's verb example rows, derived from the same table dispatch reads. run carries no
+ * `flags` list (the whole unmarked flag table applies); verbFlagProblem is the scope check.
+ */
+const VERB_ROWS = Object.values(VERBS).map((verb) => ({
+  left: verb.example,
+  right: verb.blurb,
+}));
+
+/**
+ * Resolve the verb off the positionals, exactly one level: the FIRST positional must be in the
+ * table — it is the command, and everything after it is the verb's operands. Null when it is not
+ * (or there is no positional at all): there is NO implicit verb; the caller reports the usage error
+ * naming the `jint run <operands>` form.
+ */
+export function resolveVerb(positionals: readonly string[]): { name: Verb; rest: string[] } | null {
+  const first = positionals[0];
+  if (first !== undefined && Object.hasOwn(VERBS, first))
+    return { name: first as Verb, rest: positionals.slice(1) };
+  return null;
+}
+
+/** The flags every verb takes: help, version, debug. */
+const GLOBAL_FLAGS: ReadonlySet<string> = new Set(["help", "version", "debug"]);
+
+/**
+ * A flag the invocation's verb does not take, or null. Two halves, both table-driven: a flag's own
+ * `verbs` marker (FLAGS) may exclude verbs even run; a verb's `flags` list (VERBS) admits beyond
+ * the global three, and run (no list) takes every unmarked flag. Loud, naming the flag — a parsed
+ * flag that silently does nothing is a failure mode, not a convenience.
+ */
+export function verbFlagProblem(verb: Verb, cliArgs: CliArgs): string | null {
+  const admitted = (VERBS[verb] as { flags?: readonly string[] }).flags;
+  for (const key of Object.keys(cliArgs) as (keyof CliArgs & string)[]) {
+    if (cliArgs[key] === undefined || GLOBAL_FLAGS.has(key)) continue;
+    const entry = (FLAGS as Record<string, { verbs?: readonly string[] }>)[`--${key}`];
+    if (entry?.verbs !== undefined && !entry.verbs.includes(verb))
+      return `--${key} is a ${entry.verbs.join("/")} flag - see jint --help`;
+    if (admitted !== undefined && !admitted.includes(key))
+      return `--${key} does not apply to ${verb} - see jint --help`;
+  }
+  return null;
+}
+
+/**
  * The noun table — the ONE source for the noun vocabulary and the position rule: a noun is the
- * FIRST positional, its next positional is the payload — exactly `payload` ("-", the declared stdin
- * read; there is no inline payload) — and nothing follows the payload. Dispatch reads this table;
- * no per-noun branch may exist. `example`/`blurb` render into the help Usage section; `hint` names
- * the remedy when a payload arrives in a now-dead form.
+ * FIRST positional INSIDE run's payload, its next positional is the payload — exactly `payload`
+ * ("-", the declared stdin read; there is no inline payload) — and nothing follows the payload.
+ * Dispatch reads this table; no per-noun branch may exist. `example`/`blurb` render into the help
+ * Usage section; `hint` names the remedy when a payload arrives in a now-dead form. str and paths
+ * are INPUT nouns — they declare how run reads piped stdin; there are no others, and capture and
+ * serve take none (no stdin interaction).
  */
 export const NOUNS = {
   str: {
     payload: "-",
-    example: "cat snippet.ts | jint str -",
+    example: "cat snippet.ts | jint run str -",
     blurb: "piped stdin, one str unit",
   },
   paths: {
     payload: "-",
-    example: "git diff --name-only HEAD~1 | jint paths -",
+    example: "git diff --name-only HEAD~1 | jint run paths -",
     blurb: "a path LIST from piped stdin",
-    hint: "a list file is piped: jint paths - < list.txt",
+    hint: "a list file is piped: jint run paths - < list.txt",
   },
 } as const;
 
 /** The Usage section's noun rows, derived from the same table dispatch reads. */
 const NOUN_ROWS = Object.values(NOUNS).map((noun) => ({ left: noun.example, right: noun.blurb }));
 
-/** "jint str - = piped stdin, one str unit; jint paths - = a path LIST from piped stdin" */
+/** "jint run str - = piped stdin, one str unit; jint run paths - = a path LIST from piped stdin" */
 
-/** "jint str - (piped stdin, one str unit) or jint paths - (a path LIST from piped stdin)" */
+/** "jint run str - (piped stdin, one str unit) or jint run paths - (a path LIST from piped stdin)" */
 const NOUN_FORMS = Object.entries(NOUNS)
-  .map(([name, noun]) => `jint ${name} ${noun.payload} (${noun.blurb})`)
+  .map(([name, noun]) => `jint run ${name} ${noun.payload} (${noun.blurb})`)
   .join(" or ");
+
+/**
+ * ONE dash-positional vocabulary, used by BOTH doorways (the first-positional check in runCli and
+ * the operand scan in resolveCliInput): '--ui' names its replacement (serve); a bare '-' names the
+ * input-noun forms (a dash is a payload, a payload needs its noun); anything else dash-leading and
+ * unresolvable is a mistyped flag - name the token.
+ */
+function dashPositionalError(token: string): string {
+  if (token === "--ui") {
+    return "'--ui' was removed  - serve replaces it: jint run records the run, jint serve opens it (see jint --help)";
+  }
+  if (token === "-") return `bare '-' is undeclared - name the noun: ${NOUN_FORMS}`;
+  return `unknown option or missing path '${token}' - see jint --help`;
+}
 
 /** The full help text; the Options section is DERIVED from FLAGS. Exported for the derivation tests. */
 export const HELP = `jint  - jev lint: classifies code with AI-classifier judgments; rules in, findings out.
 
 Usage:
 ${helpRows([
-  { left: "jint src/", right: "classify a directory tree" },
-  { left: "jint a.ts b.ts", right: "classify files" },
+  ...VERB_ROWS,
   ...NOUN_ROWS,
-  { left: "jint", right: "no positional: input comes from the discovered config" },
+  { left: "jint run", right: "no operand: input comes from the discovered config" },
 ])}
 
-Nouns - the resource is the first positional; the verb (classify) is implicit:
-  jint str -                     one str unit from piped stdin
-  jint paths -                   a path LIST from piped stdin (jint paths - < list.txt)
-  jint src/a.ts                  a path: dir if a directory, else file - never content-sniffed
-  jint -- --weird.ts             -- ends flag parsing for dash-paths
-Nouns never resolve to paths (a file named str: jint ./str); anything after a
+Verbs - the FIRST positional IS the command (run, serve, capture); everything after it is the
+verb's operands. There is no implicit verb: a missing or unknown first positional is a usage
+error naming the jint run form.
+
+Nouns - str and paths are run's INPUT nouns; the noun is the FIRST positional of the run
+payload, its next positional is the payload, and nothing follows the payload:
+  jint run str -                 one str unit from piped stdin
+  jint run paths -               a path LIST from piped stdin (jint run paths - < list.txt)
+  jint run src/a.ts              a path: dir if a directory, else file - never content-sniffed
+  jint run -- --weird.ts         -- ends flag parsing for dash-paths
+Nouns never resolve to paths (a file named str: jint run ./str); anything after a
 noun's payload is a usage error naming the correct form.
 
 Element-scoped runs - address one element directly:
-  jint src/a.ts@L58              the element whose span contains line 58 (one call)
-  jint src/a.ts@L58-L70          every element FULLY ENCLOSED in [s,e] (comma list: each item
+  jint run src/a.ts@L58          the element whose span contains line 58 (one call)
+  jint run src/a.ts@L58-L70      every element FULLY ENCLOSED in [s,e] (comma list: each item
                                  independent; a range enclosing none is an error naming the
                                  file's element spans)
 Finding lines paste back as file@L<line> (or file@L<start>-L<end> for a multi-line element) -
@@ -358,13 +464,8 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
   // boundary that owns it) and hands lint() the already-read text, like str's content.
   let pathsContent: string | undefined;
   const firstPositional = positionals[0];
-  if (firstPositional === "-") {
-    // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
-    usageError(`bare '-' is undeclared - name the noun: ${NOUN_FORMS}`);
-    return { outcome: "usage" as const };
-  }
-  // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional, its next
-  // positional is the payload — '-' and nothing else — and nothing follows the payload. The noun
+  // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional of run's
+  // payload, its next positional is the payload — '-' and nothing else — and nothing follows the payload. The noun
   // declares how stdin is read; there is no inline payload to protect from flag parsing.
   const nounName =
     firstPositional !== undefined && Object.hasOwn(NOUNS, firstPositional)
@@ -374,24 +475,28 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     const noun = NOUNS[nounName];
     const payload = positionals[1];
     if (payload === undefined) {
-      usageError(`jint ${nounName} expects a payload  - use: jint ${nounName} ${noun.payload}`);
+      usageError(
+        `jint run ${nounName} expects a payload  - use: jint run ${nounName} ${noun.payload}`,
+      );
       return { outcome: "usage" as const };
     }
     if (payload !== noun.payload) {
       const hint = "hint" in noun ? ` (${noun.hint})` : "";
       usageError(
-        `'${payload}' is not a payload  - jint ${nounName} reads piped stdin: jint ${nounName} ${noun.payload}, and nothing follows it${hint}`,
+        `'${payload}' is not a payload  - jint run ${nounName} reads piped stdin: jint run ${nounName} ${noun.payload}, and nothing follows it${hint}`,
       );
       return { outcome: "usage" as const };
     }
     if (positionals.length > 2) {
       usageError(
-        `nothing may follow the payload  - jint ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
+        `nothing may follow the payload  - jint run ${nounName} ${noun.payload} is the whole input declaration (one noun per run)`,
       );
       return { outcome: "usage" as const };
     }
     if (process.stdin.isTTY) {
-      usageError(`jint ${nounName} ${noun.payload}: no piped stdin to read (stdin is a terminal)`);
+      usageError(
+        `jint run ${nounName} ${noun.payload}: no piped stdin to read (stdin is a terminal)`,
+      );
       return { outcome: "usage" as const };
     }
     // Nouns never resolve to filesystem paths (a repo file named 'str' is reached as ./str).
@@ -407,23 +512,31 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     // bun runtime consumed) — say so, naming the token. An existing dash-leading file stays a
     // path, reachable verbatim after `--`.
     for (const positional of positionals) {
-      if (Object.hasOwn(NOUNS, positional)) {
+      if (Object.hasOwn(VERBS, positional)) {
         usageError(
-          `a noun is the FIRST positional  - use: jint ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
+          `a verb is the FIRST positional  - a path named '${positional}' is reached as ./${positional} (or after --)`,
         );
         return { outcome: "usage" as const };
       }
     }
     for (const positional of positionals) {
-      if (positional.startsWith("-") && !existsSync(positional)) {
-        usageError(`unknown option or missing path '${positional}' - see jint --help`);
+      if (Object.hasOwn(NOUNS, positional)) {
+        usageError(
+          `a noun is the FIRST positional of the run payload  - use: jint run ${positional} ${NOUNS[positional as keyof typeof NOUNS].payload}`,
+        );
+        return { outcome: "usage" as const };
+      }
+    }
+    for (const positional of positionals) {
+      if (positional === "-" || (positional.startsWith("-") && !existsSync(positional))) {
+        usageError(dashPositionalError(positional));
         return { outcome: "usage" as const };
       }
     }
     if (positionals.length > 1) {
       try {
         if (statSync(positionals[0]!).isDirectory()) {
-          usageError(`a directory is one path  - use: jint ${positionals[0]}`);
+          usageError(`a directory is one path  - use: jint run ${positionals[0]}`);
           return { outcome: "usage" as const };
         }
       } catch {
@@ -437,7 +550,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     const pasted = selectors.find((sel) => sel.pastedId === true);
     if (pasted !== undefined) {
       usageError(
-        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint run ${pasted.path.split("#")[0]}@L58`,
       );
       return { outcome: "usage" as const };
     }
@@ -459,7 +572,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
       const sel = selected[0]!;
       if (selectors.length > 1) {
         usageError(
-          `an element selector selects one file  - classify the others separately: jint ${sel.path}`,
+          `an element selector selects one file  - classify the others separately: jint run ${sel.path}`,
         );
         return { outcome: "usage" as const };
       }
@@ -490,7 +603,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     const content = await Bun.stdin.text();
     if (content !== "") {
       usageError(
-        "piped stdin needs a kind  - use: jint str - (one source snippet) or jint paths - (a path list: git diff --name-only HEAD~1 | jint paths -)",
+        "piped stdin needs a kind  - use: jint run str - (one source snippet) or jint run paths - (a path list: git diff --name-only HEAD~1 | jint run paths -)",
       );
       return { outcome: "usage" as const };
     }
@@ -522,6 +635,41 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stdout.write(`${packageJson.version}\n`);
     return 0;
   }
+  // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
+  // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a retired flag names
+  // its replacement; a bare '-' names the input-noun forms. An existing dash-leading path stays
+  // a path (run reaches it after `--`).
+  const firstPositional = parsedCliArgs.positionals[0];
+  if (
+    firstPositional !== undefined &&
+    firstPositional.startsWith("-") &&
+    !existsSync(firstPositional)
+  ) {
+    usageError(dashPositionalError(firstPositional));
+    return 2;
+  }
+  // Verb resolution, exactly one level: the FIRST positional IS the command. No implicit verb -
+  // a missing or unknown first positional is a usage error naming the `jint run` form.
+  const verb = resolveVerb(parsedCliArgs.positionals);
+  if (verb === null) {
+    const operands = parsedCliArgs.positionals.join(" ");
+    usageError(
+      operands === ""
+        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path> - see jint --help"
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture - see jint --help)`,
+    );
+    return 2;
+  }
+  if (cliArgs.debug === true) setLogLevel("debug");
+  // The flat flag set parses whole, for every verb; a flag the verb does not take is a LOUD usage
+  // error naming it, never a silent no-op (clig: never ignore what you cannot honor).
+  const scopeProblem = verbFlagProblem(verb.name, cliArgs);
+  if (scopeProblem !== null) {
+    usageError(scopeProblem);
+    return 2;
+  }
+  if (verb.name === "serve") return serveVerb(verb.rest);
+  if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
   // An unknown grammar is a usage error before any input is touched: the run would stream
   // WALK_FAILED for the unit and still exit clean. Same code and detail as the SDK's
   // unknown-language throws, so a flag-named language and an SDK-resolved one render alike.
@@ -532,7 +680,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       }),
     );
   }
-  if (cliArgs.debug === true) setLogLevel("debug");
 
   // config discovery: TS preferred, JSON fallback; --config overrides discovery
   const foundConfig = findConfigFile();
@@ -554,14 +701,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
-  // that); piped stdin is DECLARED by a noun (jint str - for source, jint paths - for a path
+  // that); piped stdin is DECLARED by a noun (jint run str - for source, jint run paths - for a path
   // list), never guessed. EMPTY piped stdin falls through so config.input can flow (a closed or
   // /dev/null stdin is the config-only invocation shape). A TTY is never read; a TTY with the
   // payload '-' dies here, not blocking on the terminal, and a TTY with no noun and no config
   // input dies in lint()'s empty-input backstop.
   let selection: Awaited<ReturnType<typeof resolveCliInput>>;
   try {
-    selection = await resolveCliInput(parsedCliArgs.positionals);
+    selection = await resolveCliInput(verb.rest);
   } catch (thrown) {
     return exitForThrown(thrown);
   }
@@ -608,23 +755,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       printRulesStdout(effective, resolvedConfig.customRules?.length ?? 0);
     }
     return 0;
-  }
-
-  // --ui with no explicit input: viewer-only over the run store, newest first — no run, no
-  // deep link, no classifier calls (config.input does NOT compose the run: the design has
-  // input resolution as usual only when an input is actually given). An input (positional,
-  // stdin noun) measures first, then serves.
-  if (
-    cliArgs.ui === true &&
-    stdinStr === undefined &&
-    lintInput === undefined &&
-    pathsContent === undefined
-  ) {
-    return serveUiHold(0, (thrown) => {
-      // viewer-only: no run happened, so a broken UI setup IS the invocation failing (usage/config)
-      usageError(thrown instanceof Error ? thrown.message : String(thrown));
-      return 2;
-    });
   }
 
   try {
@@ -723,9 +853,6 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     const exit = computeExit(lintReport);
     const notice = recordNotice();
     if (notice !== "") emit({ message: notice });
-    // --ui lifecycle (design: measure-then-look): the run IS the work; the UI deep-links to THIS
-    // run (the id the requests notice already names) and holds.
-    if (cliArgs.ui === true) return serveUiHold(exit);
     return exit;
   } catch (thrown) {
     return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
@@ -733,18 +860,13 @@ export async function runCli(cliArgv: string[]): Promise<number> {
 }
 
 /**
- * The --ui tail: serve the run UI in-process, print the base url, hold until SIGINT (close server,
- * exit with the RUN's code — the work already happened; Ctrl+C is just the viewer leaving). No deep
- * link: the app opens newest-run-first, which after a measurement IS the run just made, and no
- * route string couples the CLI to the UI router. Viewer-only is the same shape, and its UI failure
- * maps to 2 (usage/config: the invocation itself is broken); the run path maps its UI failure
- * through exitForThrown instead. JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
- * exercise the flag without pinning a process.
+ * The serve verb's tail: serve the run UI in-process, print the url, hold until SIGINT (close
+ * server, exit 0 — Ctrl+C is just the viewer leaving). The app opens newest-run-first, so no route
+ * string couples the CLI to the UI router. A broken UI setup maps to 2 (usage/config: the
+ * invocation itself is broken). JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
+ * exercise the verb without pinning a process.
  */
-async function serveUiHold(
-  exitCode = 0,
-  onUiFailure: (thrown: unknown) => number = (thrown) => exitForThrown(thrown),
-): Promise<number> {
+async function serveUiHold(onUiFailure: (thrown: unknown) => number): Promise<number> {
   let ui;
   try {
     ui = await startUi();
@@ -754,7 +876,7 @@ async function serveUiHold(
   emit({ message: `ui -> ${ui.url}` });
   if (process.env.JINT_UI_NO_HOLD === "1") {
     ui.close();
-    return exitCode;
+    return 0;
   }
   // The hold OWNS SIGINT — ownership-transferring: the import.meta.main handler exits 130
   // promptly DURING a run, but once the UI is up Ctrl+C means "close the server, leave
@@ -766,7 +888,80 @@ async function serveUiHold(
       resolveHold();
     });
   });
-  return exitCode;
+  return 0;
+}
+
+/**
+ * The serve verb's UI-failure mapping: no run happened, so a broken UI setup IS the invocation
+ * failing (usage/config), not a run error.
+ */
+const viewerUiFailure = (thrown: unknown): number => {
+  usageError(thrown instanceof Error ? thrown.message : String(thrown));
+  return 2;
+};
+
+/**
+ * The store has at least one run: a directory under runsBase() (run dirs are timestamp-named;
+ * namespace dirs wrap case runs one level down). A missing base is the same answer - nothing to
+ * serve.
+ */
+function storeHasRuns(): boolean {
+  try {
+    return readdirSync(runsBase(), { withFileTypes: true }).some((entry) => entry.isDirectory());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Serve: the run store's UI, standalone - no measurement, no config, no arguments. The app opens
+ * the store's NEWEST run first (the fix loop: measure with `jint run`, then look with `jint
+ * serve`). Any positional is a usage error; an empty store fails loud, naming the store.
+ */
+async function serveVerb(rest: readonly string[]): Promise<number> {
+  if (rest.length > 0) {
+    usageError("serve takes no arguments  - it opens the store's newest run: jint serve");
+    return 2;
+  }
+  if (!storeHasRuns()) {
+    usageError(
+      `no runs in the store (${runsBase()}) - jint run records one, then jint serve opens it`,
+    );
+    return 2;
+  }
+  return serveUiHold(viewerUiFailure);
+}
+
+/**
+ * Capture <targetPath> [--queries <file.scm>] [--grammar <dir>]: a thin print of the SDK's
+ * capture() - input resolution, grammar routing, extraction; no rules, no classifier, no config, no
+ * stdin (a dash target is run's str noun, not capture's). One target, exactly: a directory covers
+ * its whole tree. Lines on stdout, one per element; --json prints the element array under the
+ * flag-product convention (one JSON document, errors stay on stderr). Setup failures map through
+ * exitForThrown (2): the invocation is broken, not the extraction.
+ */
+async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
+  if (rest.length === 0) {
+    usageError(
+      "jint capture expects a target path  - use: jint capture <path> [--queries <file.scm>] [--grammar <dir>]",
+    );
+    return 2;
+  }
+  if (rest.length > 1) {
+    usageError("jint capture takes one target path  - a directory covers its whole tree");
+    return 2;
+  }
+  if (rest[0] === "-") {
+    usageError("capture takes files and dirs  - piped stdin is run's str noun: jint run str -");
+    return 2;
+  }
+  try {
+    const elements = await capture(rest[0]!, cliArgs.queries, cliArgs.grammar);
+    process.stdout.write(cliArgs.json === true ? captureJson(elements) : captureLines(elements));
+    return 0;
+  } catch (thrown) {
+    return exitForThrown(thrown);
+  }
 }
 
 /** ParseArgs carries number flags as strings; coerce, naming the flag on a bad value. */
@@ -874,11 +1069,11 @@ export const VALUED_FLAGS: ReadonlySet<string> = new Set(
 );
 
 /**
- * Split raw argv into modifier-flag tokens (for parseArgs) and positionals (for noun dispatch).
- * `--` ends flag parsing: everything after it is positional (dash-paths). Flags may appear before
- * or after positionals (jint --json src/ == jint src/ --json). A noun's next token rides with it as
- * the payload positional, so dispatch — not this scan — enforces the payload rule ('-', nothing
- * else); flag scanning resumes after the payload.
+ * Split raw argv into modifier-flag tokens (for parseArgs) and positionals (for dispatch). `--`
+ * ends flag parsing: everything after it is positional, verbatim (dash-paths). Flags may appear
+ * before or after positionals (jint run --json src/ == jint run src/ --json). A noun's next token
+ * rides with it as the payload positional, so dispatch — not this scan — enforces the payload rule
+ * ('-', nothing else); flag scanning resumes after the payload.
  */
 export function splitArgv(argv: string[]): { flagArgs: string[]; positionals: string[] } {
   const flagArgs: string[] = [];
@@ -958,14 +1153,14 @@ export function computeExit(lintReport: LintReport): number {
   return 0;
 }
 
-/** The list size ceiling for one declared stdin read (jint paths -). */
+/** The list size ceiling for one declared stdin read (jint run paths -). */
 const MAX_LIST_BYTES = 16 * 1024 * 1024;
 
 /**
- * The stdin read behind `jint paths -` — the CLI's half of the noun: bytes are capped, must decode
- * as UTF-8, and must contain no NUL (binary, or git -z output, is not a line-separated list).
- * LIST_UNREADABLE fails loud here instead of degrading into mystery "not found in the walk" notes:
- * a list is never sniffed, so garbage cannot pass as paths.
+ * The stdin read behind `jint run paths -` — the CLI's half of the noun: bytes are capped, must
+ * decode as UTF-8, and must contain no NUL (binary, or git -z output, is not a line-separated
+ * list). LIST_UNREADABLE fails loud here instead of degrading into mystery "not found in the walk"
+ * notes: a list is never sniffed, so garbage cannot pass as paths.
  */
 async function readStdinList(): Promise<string> {
   const bytes = new Uint8Array(await Bun.stdin.arrayBuffer());

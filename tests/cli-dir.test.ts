@@ -22,7 +22,7 @@ describe("cli: dir walk ignores", () => {
   test.concurrent("ignored files never reach the report; resolver excludes them pre-jev", async () => {
     // No reachable jev: transport errors abort before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
-    const r = await run(["tests/fixtures/sample-dir", "--json"]);
+    const r = await run(["run", "tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
@@ -49,7 +49,7 @@ describe("cli: dir walk ignores", () => {
         JSON.stringify({ rules: ["is_greppable"], exclude: ["**/tests/**"] }),
       );
       const r = await runCli(
-        [join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
+        ["run", join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
         { env: NO_SERVICE },
       );
       expect(r.code).toBe(4);
@@ -72,7 +72,7 @@ describe("cli: dir walk ignores", () => {
     // No key: the run reaches input resolution and the units (JEV_AUTH, exit 4) — NOT
     // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
     // became optional.
-    const r = await run(["tests/fixtures/sample-dir", "--json", "--config", configPath]);
+    const r = await run(["run", "tests/fixtures/sample-dir", "--json", "--config", configPath]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     expect(report.errors.some((e: any) => e.code === "JEV_UNAVAILABLE")).toBe(true);
@@ -89,9 +89,12 @@ describe("cli: dir walk ignores", () => {
       // basis, which would (correctly) empty this walk - this test owns the walker contract
       const ownConfig = "/tmp/jint-walker-contract.json";
       require("node:fs").writeFileSync(ownConfig, JSON.stringify({ rules: ["is_greppable"] }));
-      const proc = await runCli(["tests/fixtures/sample-dir", "--json", "--config", ownConfig], {
-        env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
-      });
+      const proc = await runCli(
+        ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
+        {
+          env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
+        },
+      );
       const report = JSON.parse(proc.stdout);
       const paths = (report.measurements ?? []).map((m: any) => m.input);
       expect(paths.length).toBeGreaterThan(0);
@@ -112,7 +115,7 @@ describe("cli: dir walk ignores", () => {
         "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
       );
     }
-    const proc = await runCli(["tests/fixtures/sample-dir", "--json"]);
+    const proc = await runCli(["run", "tests/fixtures/sample-dir", "--json"]);
     const report = JSON.parse(proc.stdout);
     const paths = (report.measurements ?? []).map((m: any) => m.input);
     expect(paths.length).toBeGreaterThan(0);
