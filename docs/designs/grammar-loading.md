@@ -277,6 +277,72 @@ truth; the parity README holds the verdicts):
 | markdown         | sections (@section, selfNesting per #set!; heading text as name) and paragraphs (@paragraph, flat)                    | code-block, link_reference_definition; inline grammar parked                    |
 | verilog          | REMOVED from the embedded grammars (2026-10-15) - the user grammar dir is its home                                    | (its whole ledger went with it)                                                 |
 
+### The grouping boundary: what the engine may know about a language (2026-10-18, grouping-experiment)
+
+**The boundary law:** the .scm owns every fact a pattern can see; decompose owns only facts that
+span patterns. One pattern's world - node types, docstring shapes, what merges with what - is
+addressable in queries; everything that must look at two candidates at once (a comment run and
+its definition, two imports in a run, a docstring and its owner) is engine semantics, and the
+engine's grammar knowledge is exactly its directive vocabulary, nothing else.
+
+The evidence, both directions:
+
+- **Audit:** no grammar id appears in walk code - `git grep -E 'python|golang|"c"'` over
+  walk.ts returns nothing; the runtime sees captures and properties only. The one per-language
+  fact in the runtime (docstring projection, below) is capture-generic.
+- **Measurement:** all three groupers were probed on the nine grammars' parity corpora plus real
+  files (cobra command.go, v8 process.cc, quickjs-wasi interface.c, laravel Arr.php, hermes
+  hermes_state.py; `scripts/grouping-probe.ts`). The gap<=1 leading-run rule, innermost-owner
+  containment, and run accumulation held everywhere; four defects were engine bugs, not
+  language gaps (below). `attach.gap` is applied in NO embedded .scm: after the trailing-side
+  fix no measured grammar needs a non-default gap, and the vocabulary ships for the first
+  measured case.
+
+**The four engine bugs the measurement surfaced, all fixed:**
+
+1. **Owner-kind collapse** - the attached-run branch of `ownerOf` mapped every owner to
+   class-or-function while the containment branch was already lossless; cobra's type/method doc
+   comments reported `class:`/`function:` owners (100+ sites). Fix: the owner kind IS the
+   definition's capture.
+2. **Text-steal** - run ownership matched `run.includes(comment.text)`, so an equal-text comment
+   elsewhere stole ownership (process.cc L466 `// namespace`, L595's copied docblock). Fix:
+   the run holds the same candidate objects; ownership matches by identity.
+3. **Row-only gap** - a comment starting on a row where the previous candidate ends (a trailing
+   note: `static size_t x = 0; /* 0 = unlimited */`) rode one row down and attached to the NEXT
+   binding (interface.c L325-327). Fix: trailing side - such a comment never joins a pending
+   run; leading side - the run must end strictly above the definition's first row. Column-0
+   leak: grammars whose include nodes absorb the trailing newline end at column 0 of the next
+   row; that row is not claimed (effective end row steps back one).
+4. **Per-file import merge** - one merged element per file dragged intervening source into its
+   span when imports scatter (a typescript re-export after code: walk.ts itself, 771B span vs
+   507B content) and broke slice-span-equals-content on blank-separated runs. Fix: merge per
+   CONTIGUOUS run - a blank row or any non-import candidate ends the element; content is the
+   span slice, so the invariant holds by construction.
+
+**The directive gate.** A grammar declares grouping facts with `#set!` in its .scm; the engine
+parses them natively (per-pattern `QueryMatch.setProperties`), the load-time validator checks
+names and value shapes loudly (unknown name names the known set; a wrong value says what it
+wants; the same directive twice with different values is loud - one name, one setting), and the
+walker reads each knob with its code default when absent. The vocabulary: `selfNesting`
+(presence-only, markdown's founding member - it stays in its current form, now typed),
+`attach.gap` (a whole number; the rows a run's end may sit above the definition; default 1;
+0 declares the capture takes no attached run), `docstring.owner` (`enclosing` the default, or
+`next`), `import.merge` (`contiguous`). `import.merge "contiguous"` is DECLARED in c, cpp,
+python and typescript - the grammars whose per-file merge measured diverging - and is also the
+engine default since fix 4, so the declaration pins the measured style in the artifact that
+owns the fact. Naming principle (glossary): the prefix names the grouper, the suffix the knob,
+the value the setting; names never name the node - the pattern IS the target.
+
+**The docstring projection contract.** `@docstring` is a comment-kind capture: the element
+projects to the comment kind carrying `docstringOf`, and ownership is ENCLOSING by default - the
+innermost containing definition, else the module. Python's .scm (string-in-block) is the only
+emitter today; that is the boundary working, not python-specific runtime knowledge: a language
+whose doc convention is already comment syntax (jsdoc, php docblocks) needs no docstring
+capture (attachment owns it), and a language whose doc node PRECEDES what it documents declares
+`docstring.owner "next"` instead of a new projection. `docstringCount` counts for every
+containing definition (a method's docstring documents its class too) - the deliberate mirror
+of internalCommentCount.
+
 ## Rejections
 
 | what                                                                                                               | why                                                                                                                                                                                                                                                                             |

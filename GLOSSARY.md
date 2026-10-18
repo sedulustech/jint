@@ -35,6 +35,7 @@ measurement its handle judged actionable and is the only output that demands act
   section (prose's container-with-body; the BYOG precedent) — and the @name capture that renders a
   definition's name. A query capturing outside the set fails the run at setup. `test` is
   RESERVED (a valid token no grammar emits yet, held for the test capture).
+- **directive** — a #set! fact in a queries.scm attached to one pattern declaring how the engine treats what that pattern extracts; validated at load. Naming principle: the prefix names the grouper, the suffix the knob, the value the setting; names never name the node — the pattern is the target.
 - **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
   (markdown's sections). Absent: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it unless the tail distance is real (the policy table in query.ts).
