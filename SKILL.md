@@ -96,7 +96,7 @@ a wasted edit.
 
 An explicit path overrides config scoping. That is by design. A piped list must respect the
 config's `exclude`: filter before the pipe, e.g.
-`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint paths -`.
+`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint run paths -`.
 
 ### The binary goes stale
 

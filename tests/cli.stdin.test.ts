@@ -185,12 +185,6 @@ describe("cli: piped stdin str unit", async () => {
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
   });
 
-  test("the diff noun is removed: 'jint diff -' is a mistyped-flag usage error", async () => {
-    const r = await runWithStdin("not a diff at all", ["run", "diff", "-", "--json"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("unknown option or missing path '-'");
-  });
-
   test("jint paths - reads the stdin path list (never a str snippet)", async () => {
     const r = await runWithStdin("tests/fixtures/sample-file.ts\n", [
       "run",

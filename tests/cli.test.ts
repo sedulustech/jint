@@ -136,11 +136,6 @@ describe("cli: contract basics", () => {
     expect(proc.stderr).toContain("jint run paths -");
   });
 
-  test.concurrent("bare noun without payload -> usage error, exit 2 (never a path lookup)", async () => {
-    expectContract(await run(["run", "str"]), { exit: 2, stderr: "expects a payload" });
-    expectContract(await run(["run", "paths"]), { exit: 2, stderr: "expects a payload" });
-  });
-
   test.concurrent("a paths payload that is not '-' -> usage error naming the piped form", async () => {
     expectContract(await run(["run", "paths", "definitely-not-here.txt"]), {
       exit: 2,

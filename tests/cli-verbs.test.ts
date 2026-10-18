@@ -5,14 +5,55 @@ import { capture } from "../packages/sdk/src/index.ts";
 import { runCli, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
 
-// The verb surface e2e: the spawned binary's capture and serve. capture is pinned against the
-// SDK's own output for the same input; serve is pinned on its ONE behavior - the store's UI over
-// the newest run, held until SIGINT. The resolution RULES (verb table, flag scope) are unit-pinned
-// in packages/cli/src/cli.unit.test.ts.
+// The verb surface e2e: the spawned binary's capture and serve, and the flagship verb-resolution
+// contract (a missing or unknown first positional is a loud usage error naming the fix). capture is
+// pinned against the SDK's own output for the same input; serve is pinned on its ONE behavior -
+// the store's UI over the newest run, held until SIGINT.
 
 jest.setTimeout(60_000);
 
 const FIXTURE = join(import.meta.dir, "fixtures", "sample-file.ts");
+
+describe("cli verbs e2e — resolution: the first positional IS the command", () => {
+  test("jint . is a usage error naming the jint run form (no implicit verb)", async () => {
+    const r = await runCli(["."], { timeout: 60_000 });
+    expect(r.code).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("'.' is not a verb");
+    expect(r.stderr).toContain("use: jint run .");
+  });
+
+  test("bare jint asks for a verb, naming the three", async () => {
+    const r = await runCli([], { timeout: 60_000 });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("a verb is required");
+    expect(r.stderr).toContain("jint run");
+    expect(r.stderr).toContain("jint serve");
+    expect(r.stderr).toContain("jint capture <path>");
+  });
+
+  test("a flag the verb does not take: exit 2 naming the flag and the verb", async () => {
+    const r = await runCli(["capture", FIXTURE, "--rule", "is_reused"], { timeout: 60_000 });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("--rule does not apply to capture");
+  });
+
+  test("'--ui' is rejected with the serve pointer", async () => {
+    const r = await runCli(["run", FIXTURE, "--ui"], { timeout: 60_000 });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("'--ui' was removed");
+    expect(r.stderr).toContain("serve replaces it");
+    expect(r.stderr).toContain("jint serve");
+  });
+
+  test("a bare '-' anywhere in run's operands names the input-noun forms", async () => {
+    const r = await runCli(["run", "diff", "-"], { timeout: 60_000 });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("bare '-' is undeclared");
+    expect(r.stderr).toContain("jint run str -");
+    expect(r.stderr).toContain("jint run paths -");
+  });
+});
 
 describe("cli verbs e2e — capture through the spawned binary", () => {
   test("capture over a fixture with --json: byte shape matches the SDK capture() elements", async () => {
@@ -36,6 +77,28 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
         /^(typescript|tsx|python|markdown|php|go|cpp|c|css) \S+ L\d+-L\d+ (\S+.*|-)$/,
       );
     }
+  });
+
+  // promoted from the deleted capture-output unit describe: the input column appears exactly
+  // when the run covers more than one file. A scratch tree (the fixture dirs hold uncovered
+  // extensions - Makefile, .txt - and capture over them is a loud MISSING_GRAMMAR by design).
+  test("capture over a dir covering more than one file: every line carries the input column", async () => {
+    const dir = scratchDir("jint-capture-multi");
+    writeFileSync(join(dir, "one.ts"), "function one() {}\n");
+    writeFileSync(join(dir, "two.ts"), "function two(x: number) {\n  return x;\n}\n");
+    const r = await runCli(["capture", dir], { timeout: 60_000 });
+    expect(r.code).toBe(0);
+    expect(r.stderr).toBe("");
+    const lines = r.stdout.trimEnd().split("\n");
+    expect(lines.length).toBeGreaterThanOrEqual(2); // one element per file is enough - the set below proves both contributed
+    const inputs = new Set<string>();
+    for (const line of lines) {
+      const cols = line.split(" ");
+      expect(cols).toHaveLength(5); // grammar kind span name input
+      expect(cols[2]).toMatch(/^L\d+-L\d+$/);
+      inputs.add(cols[4]!);
+    }
+    expect([...inputs].sort()).toEqual(["one.ts", "two.ts"]);
   });
 });
 

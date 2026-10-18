@@ -134,21 +134,20 @@ declare module "jint:sdk" {
   /** The typed TS-config entry. */
   export function defineConfig(config: TsConfig): TsConfig;
 
-  /** One extracted element: the contract Element extended with input + grammar provenance. */
-  export interface CapturedElement {
-    readonly id: string;
-    readonly path: string;
-    readonly grammar: string;
-    readonly capture: CustomElement["capture"];
-    readonly source: string;
-    readonly span: CustomElement["span"];
-    readonly label: string;
-    readonly parent: string | undefined;
-    readonly name?: string | undefined;
-    readonly kind: CustomElement["kind"] | "file";
+  /**
+   * One extracted element: the contract Element extended with input + grammar provenance - NOT
+   * redeclared (the runtime type is Element & { input, grammar }; the phantom fields the hand-copy
+   * invented are gone, so completions show exactly what capture() returns). The contract type rides
+   * on an inline import() - a top-level import would make this FILE a module, and `declare module
+   * "jint:sdk"` an augmentation that no longer declares the virtual module (probe-verified: "Cannot
+   * find module 'jint:sdk'").
+   */
+  export type CapturedElement = import("@jint/contract").Element & {
     /** Which input file the element was extracted from. */
     readonly input: string;
-  }
+    /** The grammar (by id) that extracted the element. */
+    readonly grammar: string;
+  };
 
   /**
    * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding

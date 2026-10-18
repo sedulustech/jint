@@ -334,6 +334,20 @@ const NOUN_FORMS = Object.entries(NOUNS)
   .map(([name, noun]) => `jint run ${name} ${noun.payload} (${noun.blurb})`)
   .join(" or ");
 
+/**
+ * ONE dash-positional vocabulary, used by BOTH doorways (the first-positional check in runCli and
+ * the operand scan in resolveCliInput): '--ui' names its replacement (serve); a bare '-' names the
+ * input-noun forms (a dash is a payload, a payload needs its noun); anything else dash-leading and
+ * unresolvable is a mistyped flag - name the token.
+ */
+function dashPositionalError(token: string): string {
+  if (token === "--ui") {
+    return "'--ui' was removed  - serve replaces it: jint run records the run, jint serve opens it (see jint --help)";
+  }
+  if (token === "-") return `bare '-' is undeclared - name the noun: ${NOUN_FORMS}`;
+  return `unknown option or missing path '${token}' - see jint --help`;
+}
+
 /** The full help text; the Options section is DERIVED from FLAGS. Exported for the derivation tests. */
 export const HELP = `jint  - jev lint: classifies code with AI-classifier judgments; rules in, findings out.
 
@@ -450,11 +464,6 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
   // boundary that owns it) and hands lint() the already-read text, like str's content.
   let pathsContent: string | undefined;
   const firstPositional = positionals[0];
-  if (firstPositional === "-") {
-    // Bare '-' is undeclared: a dash is a payload, and a payload needs its noun. Say which.
-    usageError(`bare '-' is undeclared - name the noun: ${NOUN_FORMS}`);
-    return { outcome: "usage" as const };
-  }
   // The grammar, read off the NOUNS table in one place: a noun is the FIRST positional of run's
   // payload, its next positional is the payload — '-' and nothing else — and nothing follows the payload. The noun
   // declares how stdin is read; there is no inline payload to protect from flag parsing.
@@ -519,15 +528,15 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
       }
     }
     for (const positional of positionals) {
-      if (positional.startsWith("-") && !existsSync(positional)) {
-        usageError(`unknown option or missing path '${positional}' - see jint --help`);
+      if (positional === "-" || (positional.startsWith("-") && !existsSync(positional))) {
+        usageError(dashPositionalError(positional));
         return { outcome: "usage" as const };
       }
     }
     if (positionals.length > 1) {
       try {
         if (statSync(positionals[0]!).isDirectory()) {
-          usageError(`a directory is one path  - use: jint ${positionals[0]}`);
+          usageError(`a directory is one path  - use: jint run ${positionals[0]}`);
           return { outcome: "usage" as const };
         }
       } catch {
@@ -541,7 +550,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
     const pasted = selectors.find((sel) => sel.pastedId === true);
     if (pasted !== undefined) {
       usageError(
-        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint ${pasted.path.split("#")[0]}@L58`,
+        `element ids are run-scoped and cannot select across runs  - query by file@L, e.g. jint run ${pasted.path.split("#")[0]}@L58`,
       );
       return { outcome: "usage" as const };
     }
@@ -563,7 +572,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
       const sel = selected[0]!;
       if (selectors.length > 1) {
         usageError(
-          `an element selector selects one file  - classify the others separately: jint ${sel.path}`,
+          `an element selector selects one file  - classify the others separately: jint run ${sel.path}`,
         );
         return { outcome: "usage" as const };
       }
@@ -626,18 +635,17 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     process.stdout.write(`${packageJson.version}\n`);
     return 0;
   }
-  // The unknown-option rule runs on the FIRST positional before the verb check, so a mistyped
-  // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; an existing dash-path
-  // stays a path (run reaches it after `--`). A bare '-' is no flag token either (isFlagToken
-  // excludes it) - it falls to the verb error below and names the input-noun forms.
+  // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
+  // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a retired flag names
+  // its replacement; a bare '-' names the input-noun forms. An existing dash-leading path stays
+  // a path (run reaches it after `--`).
   const firstPositional = parsedCliArgs.positionals[0];
   if (
     firstPositional !== undefined &&
-    firstPositional !== "-" &&
     firstPositional.startsWith("-") &&
     !existsSync(firstPositional)
   ) {
-    usageError(`unknown option or missing path '${firstPositional}' - see jint --help`);
+    usageError(dashPositionalError(firstPositional));
     return 2;
   }
   // Verb resolution, exactly one level: the FIRST positional IS the command. No implicit verb -
@@ -648,9 +656,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     usageError(
       operands === ""
         ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path> - see jint --help"
-        : operands === "-"
-          ? `bare '-' is undeclared - name the noun: ${NOUN_FORMS}`
-          : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture - see jint --help)`,
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture - see jint --help)`,
     );
     return 2;
   }

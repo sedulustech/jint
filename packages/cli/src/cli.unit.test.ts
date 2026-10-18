@@ -12,11 +12,9 @@ import {
   resolveVerb,
   splitArgv,
   VALUED_FLAGS,
-  VERBS,
   verbFlagProblem,
 } from "./cli.ts";
-import { captureJson, captureLines, emit } from "./output.ts";
-import type { CapturedElement } from "@jint/sdk";
+import { emit } from "./output.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
@@ -141,59 +139,6 @@ describe("VERBS — the verb table and one-level resolution", () => {
     expect(verbFlagProblem("serve", { debug: true })).toBeNull();
     expect(verbFlagProblem("capture", { json: true, queries: "w.scm", grammar: "g/" })).toBeNull();
     expect(verbFlagProblem("run", { rule: ["x"], json: true })).toBeNull();
-  });
-
-  test("HELP names every verb (the Usage section is derived from the table)", () => {
-    for (const name of Object.keys(VERBS)) expect(HELP).toContain(name);
-  });
-});
-
-describe("capture output — one line per element; --json one document", () => {
-  /** One synthetic captured element; only what the line renderer reads is varied. */
-  const el = (
-    kind: CapturedElement["kind"],
-    lines: [number, number],
-    name?: string,
-  ): CapturedElement =>
-    ({
-      kind,
-      label: "d0",
-      span: {
-        start: { line: lines[0], column: 0 },
-        end: { line: lines[1], column: 1 },
-        startByte: 0,
-        endByte: 10,
-      },
-      name,
-      input: "src/a.ts",
-      grammar: "typescript",
-    }) as CapturedElement;
-
-  test("single-file lines omit the input column; a missing name renders '-'", () => {
-    const lines = captureLines([el("function", [2, 4], "addSeconds"), el("comment", [1, 1])]);
-    expect(lines).toBe("typescript function L2-L4 addSeconds\ntypescript comment L1-L1 -\n");
-  });
-
-  test("a run covering more than one file appends the input column", () => {
-    const two = [
-      { ...el("section", [1, 4], "Title"), input: "a.md", grammar: "markdown" },
-      el("function", [1, 1], "two"),
-    ];
-    expect(captureLines(two)).toBe(
-      "markdown section L1-L4 Title a.md\ntypescript function L1-L1 two src/a.ts\n",
-    );
-  });
-
-  test("an empty extraction prints nothing (exit 0, clean pipe)", () => {
-    expect(captureLines([])).toBe("");
-  });
-
-  test("--json wraps the SDK's element array under one key, 2-space indent, trailing newline", () => {
-    const element = el("function", [2, 4], "addSeconds");
-    const json = captureJson([element]);
-    expect(JSON.parse(json)).toEqual({ elements: [element] });
-    expect(json.endsWith("}\n")).toBe(true);
-    expect(json).toContain('"kind": "function"');
   });
 });
 
