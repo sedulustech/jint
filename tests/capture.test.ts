@@ -84,4 +84,23 @@ describe("capture() e2e — the exported sdk surface", () => {
     // routing: no registered grammar claims .rst
     expect(capture(join(dir, "doc.rst"))).rejects.toThrow(/missing grammar/);
   });
+
+  test("a mixed-grammar dir yields elements from BOTH grammars, attribution exact", async () => {
+    const dir = setup("mixed", {
+      "doc.md": MARKDOWN,
+      "code.ts": "function hello() {}\n",
+    });
+    const elements = await capture(dir);
+    // the grammar set is exactly the two routed grammars - no third kind of attribution
+    expect(new Set(elements.map((e) => e.grammar))).toEqual(new Set(["markdown", "typescript"]));
+    // per-element attribution matches the input file's extension
+    for (const e of elements) {
+      expect(e.grammar).toBe(e.input.endsWith(".md") ? "markdown" : "typescript");
+    }
+    const md = elements.filter((e) => e.grammar === "markdown");
+    const ts = elements.filter((e) => e.grammar === "typescript");
+    expect(md.every((e) => e.kind === "section" || e.kind === "paragraph")).toBe(true);
+    expect(ts.map((e) => e.kind)).toContain("function");
+    expect(ts.every((e) => e.input.endsWith(".ts"))).toBe(true);
+  });
 });
