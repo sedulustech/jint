@@ -85,13 +85,14 @@ measurement its handle judged actionable and is the only output that demands act
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
-- **noun** — the CLI word for a declared input read: the FIRST positional names the read
-  (str, paths). The resource (a path) needs no noun. A noun's next positional is its payload.
+- **noun** — the CLI word for a declared input read, INSIDE run: the first positional of
+  run's payload names the read (str, paths). The resource (a path) needs no noun. A noun's next
+  positional is its payload.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
 - **pass** — the level a handle returned when a reading needs no action: the score-map
   entry that never fires (score maps use pass/warn/error) and the absent-reading state for
   noul handles. Not a finding, not noise: a reading judged acceptable.
-- **path list** — one flat list of paths, one per line, read as declared (`jint paths -`): no
+- **path list** — one flat list of paths, one per line, read as declared (`jint run paths -`): no
   VCS vocabulary, no path algebra — entries are the caller's bytes used verbatim as file
   identity. A malformed list is a named LIST_* setup error (unreadable bytes, an entry that
   would need interpreting, empty); a listed path that resolves to nothing is a
@@ -99,9 +100,10 @@ measurement its handle judged actionable and is the only output that demands act
 - **payload** — the positional after a noun: always `-`, declaring piped stdin as the read.
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
-- **verb** — the CLI command word: the FIRST positional names the command (run, serve,
-  capture) and the rest are its operands; a first positional that is no verb is run's target
-  and run is implicit. Verbs never resolve to paths (a file named capture: `jint ./capture`).
+- **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
+  and the rest are its operands; there is no implicit verb, so a missing or unknown first
+  positional is a usage error. A verb token is never a path (a file named capture is reached as
+  `jint run ./capture`).
 - **question** — one classified judgment request sent to the model about one state.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.

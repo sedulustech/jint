@@ -5,8 +5,8 @@ Every form exists as an SDK option first; the CLI is a thin client of it.
 ## One snippet from stdin
 
 ```bash
-cat snippet.ts | jint str -                # extensionless: hint the grammar
-cat snippet.go | jint str - --language go
+cat snippet.ts | jint run str -                # extensionless: hint the grammar
+cat snippet.go | jint run str - --language go
 ```
 
 The `str` noun declares piped stdin as one str unit (identity `str:stdin`). Its own inventory
@@ -15,7 +15,7 @@ is derived; no grammar is ever inferred and it never `WALK_FAILED`s. SDK: `lint(
 ## Directory sweep
 
 ```bash
-jint src/
+jint run src/
 ```
 
 The input kind is inferred by shape (exists-as-dir -> dir). The walk turns the tree into file
@@ -26,7 +26,7 @@ coverage, not errors: `parsing ts, tsx, py, go · not parsed (no grammar): .md, 
 ## Single file
 
 ```bash
-jint src/a.ts
+jint run src/a.ts
 ```
 
 Explicit path: the user asked for THIS file, so silence would read as "nothing wrong" — an
@@ -36,8 +36,8 @@ non-source silently; explicit does not).
 ## Path list
 
 ```bash
-git diff --name-only HEAD~1 | jint paths -
-jint paths - < list.txt
+git diff --name-only HEAD~1 | jint run paths -
+jint run paths - < list.txt
 ```
 
 One flat list of paths, one per line — the caller's own VCS pipeline; jint never shells out and
@@ -48,9 +48,9 @@ silent skip. SDK: `lint({ paths: { content } })`.
 ## One element
 
 ```bash
-jint src/a.ts@L58                # element whose span contains line 58: one classifier call
-jint src/a.ts@L40-80             # every element fully enclosed in the range
-jint src/a.ts@L40-80 --rule is_function_srp
+jint run src/a.ts@L58                # element whose span contains line 58: one classifier call
+jint run src/a.ts@L40-80             # every element fully enclosed in the range
+jint run src/a.ts@L40-80 --rule is_function_srp
 ```
 
 The finding's `@L` is pre-edit; re-check at the element's CURRENT line, or re-run whole.

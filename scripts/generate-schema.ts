@@ -162,7 +162,7 @@ const runDirBlock = [
   "",
   "### The fix loop",
   "",
-  "1. Take a finding. Re-query just that unit: `jint <path>@L<line> --rule <rule>`. One query,",
+  "1. Take a finding. Re-query just that unit: `jint run <path>@L<line> --rule <rule>`. One query,",
   "   one unit, one verdict. No full re-run.",
   "2. Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that exists now.",
   "3. After any edit, re-anchor at the CURRENT line. Grep the declaration. Then re-query.",

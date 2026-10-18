@@ -75,7 +75,7 @@ function spansOf(report: Record<string, any>, rule: string): string[] {
 describe("byog: the user-grammar seam end-to-end", () => {
   test("a shadow dir governs extraction of a real file through a qualified-address rule", async () => {
     const dir = setup("shadow", [noulRule("probe_shadow_section", "markdown:section")]);
-    const r = await runCli(["--config", "jint.config.json", "--json"], {
+    const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
       env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
@@ -107,7 +107,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     const dir = setup("embedded", [noulRule("probe_embedded_section", "markdown:section")]);
     const empty = scratchDir("jint-byog-empty");
     try {
-      const r = await runCli(["--config", "jint.config.json", "--json"], {
+      const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
         cwd: dir,
         env: { ...WIRE, JINT_GRAMMAR_DIR: empty },
       });
@@ -122,7 +122,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
 
   test("a capture only the EMBEDDED .scm emits is a loud setup failure under a shadow without it", async () => {
     const dir = setup("not-emitted", [noulRule("probe_missing", "markdown:paragraph")]);
-    const r = await runCli(["--config", "jint.config.json", "--json"], {
+    const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
       env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
@@ -141,7 +141,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
 
   test("a qualified address naming a capture NO loaded grammar emits is a loud setup failure", async () => {
     const dir = setup("bad-capture", [noulRule("probe_bad", "markdown:function")]);
-    const r = await runCli(["--config", "jint.config.json", "--json"], {
+    const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
       env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
@@ -171,7 +171,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
         "(module_declaration) @type\n",
       );
       writeFileSync(join(root, "grammars", "verilog", "extensions.json"), JSON.stringify([".v"]));
-      const r = await runCli(["--config", "jint.config.json", "--json"], {
+      const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
         cwd: dir,
         env: { ...WIRE, JINT_GRAMMAR_DIR: join(root, "grammars") },
       });

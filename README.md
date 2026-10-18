@@ -63,23 +63,21 @@ export TYPESAFE_API_KEY=...   # required
 ```
 
 ```bash
-jint src/                                # a directory tree (run is the implicit verb)
-jint src/a.ts src/b.ts                   # explicit files
-cat snippet.ts | jint str -              # piped stdin, one str unit (the only str form)
-jint paths - < list.txt                  # a path LIST from a file, piped
-git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipeline
-jint                                     # no positional: input comes from auto-discovered config
+jint run src/                             # a directory tree
+jint run src/a.ts src/b.ts                # explicit files
+cat snippet.ts | jint run str -           # piped stdin, one str unit (the only str form)
+jint run paths - < list.txt               # a path LIST from a file, piped
+git diff --name-only HEAD~1 | jint run paths -  # a path LIST from your git pipeline
+jint run                                  # no operand: input comes from auto-discovered config
 
-jint capture src/a.ts                    # extraction only: grammar, kind, span, name - one line per element
-jint capture src/ --queries wip.scm      # your own .scm drives extraction (--grammar <dir>: your own grammar)
-jint capture src/a.ts --json             # the element array as one JSON document
-jint serve                               # the run UI over the run store, newest first
-jint serve 1760000000000                 # that run's UI, no re-measure; --ui after a run is the same server
+jint capture src/a.ts                     # extraction only: grammar, kind, span, name - one line per element
+jint capture src/ --queries wip.scm       # your own .scm drives extraction (--grammar <dir>: your own grammar)
+jint capture src/a.ts --json              # the element array as one JSON document
+jint serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
 
-The first positional names the verb (`run`, `serve`, `capture`); without one, `run` is implicit.
-Verbs never resolve to paths: a file or dir named `capture` is reached as `jint ./capture`
-(or `jint -- capture`).
+The first positional is the verb: `run`, `serve`, or `capture`. There is no implicit verb -
+`jint src/` is a usage error telling you to write `jint run src/`.
 
 `jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory.
 `--config <path>` overrides discovery.
@@ -173,8 +171,8 @@ docs/byog.md.
 
 ## UI
 
-`jint serve` opens a local dashboard useful for rule calibrations (`jint --ui` after a run is
-the same server; `jint serve <runId>` opens one recorded run without re-measuring).
+`jint serve` opens a local dashboard useful for rule calibrations, over the newest recorded
+run (the fix loop: measure with `jint run`, then look with `jint serve`).
 It polls the run directory for new runs and displays useful information to verify the applicability of a rule to a lexical unit. It shows, among other things:
 
 - tokens used
