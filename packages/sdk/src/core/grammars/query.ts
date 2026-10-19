@@ -5,7 +5,8 @@
  *
  * Capture vocabulary (frozen for v1; a capture name is an identity, never a label):
  *
- * @function @method @class @type @binding @comment @import - what one element IS (singular)
+ * @function @method @class @type @binding @comment @import - what one element IS (singular) import
+ *   { SHARED_LANES } from "./shared.ts";
  * @name - the element's declared name (render-only; never an identity)
  *
  * Policy shipped with the typescript port (design: grammar-loading, evidence-first):
@@ -30,6 +31,9 @@
  */
 
 import { ruleTargets } from "@jint/contract";
+import { SHARED_LANES, type SuppressionShape } from "./shared.ts";
+
+export type { SuppressionShape };
 import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
 import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
@@ -70,46 +74,43 @@ export type Capture = (typeof ELEMENT_CAPTURES)[number];
 export const RESERVED_CAPTURES = ["test"] as const;
 
 /**
- * THE SUPPRESSION POLICY TABLE - keyed by the OUTER capture; the cpp field/prototype and
- * verilog-trial nested-always questions port here as DATA, never as new if-branches in hides().
- *
- * AbsorbTail - the largest wrapper tail (bytes between a same-capture payload's end and the
- * wrapper's end) that still reads as PREFIX-ABSORB: one logical element, the wrapper survives, the
- * payload dies (export statement, decorated definition, template declaration + trailing ';'). A
- * same-capture nest with a LARGER tail is a unit of its own and SURFACES as a child (nested
- * functions; the parity verdict kept that). A selfNesting grammar (markdown) disables same-capture
- * collapse entirely (a .scm #set! directive). opaque - a DIFFERENT-capture capture strictly inside
- * this element is implementation and dies (a local binding inside a function); a show-through
- * interior (@type) surfaces its captures.
+ * ONE CANDIDATE'S SUPPRESSION SHAPE, resolved from the OWNING grammar's .scm directives over the
+ * tier-1 shared defaults (shared.ts): a capture's `capture.<name>.opaque` /
+ * `capture.<name>.absorbTail` lines OVERRIDE; an undeclared shared capture carries the lingua
+ * franca's default shape; an undeclared AUTONOMOUS capture carries the conservative default (hide
+ * nothing, absorb nothing - everything surfaces). No engine table survives here.
  */
-const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly opaque: boolean }>> =
-  {
-    function: { absorbTail: 0, opaque: true },
-    // method: function's shape (a nested method with a real body surfaces as a child)
-    method: { absorbTail: 0, opaque: true },
-    // class: type's shape (show-through interior - its methods surface as elements)
-    class: { absorbTail: 2, opaque: false },
-    type: { absorbTail: 2, opaque: false },
-    // section: type's shape (markdown's container-with-body; the .scm's #set! "selfNesting"
-    // directive lets sections nest) - show-through interior, no absorb
-    section: { absorbTail: 2, opaque: false },
-    // paragraph: markdown's flat prose - paragraphs never nest, nothing nests inside them
-    paragraph: { absorbTail: 0, opaque: false },
-    // list_item: paragraph's shape (the paragraph inside a list entry, marker stripped) - flat,
-    // nothing nests inside it; nested entries are disjoint sibling paragraphs, never children
-    list_item: { absorbTail: 0, opaque: false },
-    // list: section's shape (markdown's container; show-through interior - the items surface as
-    // list_item elements of their own) - nests legitimately via the .scm's selfNesting flag
-    list: { absorbTail: 2, opaque: false },
-    binding: { absorbTail: 2, opaque: true },
-    // lanes: never containers of elements; the lanes themselves never hide
-    comment: { absorbTail: 0, opaque: false },
-    import: { absorbTail: 0, opaque: false },
-    docstring: { absorbTail: 0, opaque: false },
-  };
 
-/** Lane captures, never contained elements: exempt from every suppression rule. */
-const LANES: ReadonlySet<Capture> = new Set(["comment", "import", "docstring"]);
+/** Per-capture suppression shapes declared by one grammar's .scm (the overrides only). */
+export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<SuppressionShape>> {
+  const declared = new Map<string, Partial<SuppressionShape>>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null) continue;
+    const [capture, knob] = [match[1]!, match[2]!];
+    if (knob !== "opaque" && knob !== "absorbTail") continue;
+    const prior = declared.get(capture) ?? {};
+    const shape: { absorbTail?: number; opaque?: boolean } = { ...prior };
+    if (knob === "opaque") shape.opaque = directive.value === "true";
+    else shape.absorbTail = Number(directive.value);
+    declared.set(capture, shape);
+  }
+  return declared;
+}
+
+/** Captures whose same-capture candidates nest legitimately (per-capture selfNesting). */
+export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
+  const nested = new Set<string>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null || match[2] !== "selfNesting" || directive.value !== "true") continue;
+    nested.add(match[1]!);
+  }
+  return nested;
+}
+
+/** Lane captures (shared.ts - the tier-1 contract): exempt from every suppression rule. */
+const LANES: ReadonlySet<string> = SHARED_LANES;
 
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
@@ -759,9 +760,14 @@ function contains(outer: Candidate, inner: Candidate): boolean {
  * suppression policy table decides what a contained candidate is - an absorbed payload, a child of
  * its own, or implementation that dies.
  */
+const NO_SUPPRESSION: SuppressionOptions = {
+  shapes: new Map(),
+  selfNestingCaptures: new Set(),
+};
+
 export function resolveCandidates(
   candidates: readonly Candidate[],
-  options: SuppressionOptions = {},
+  options: SuppressionOptions = NO_SUPPRESSION,
 ): Candidate[] {
   const byNode = new Map<string, Candidate>();
   for (const candidate of candidates) {
@@ -799,20 +805,24 @@ export function resolveCandidates(
   return kept;
 }
 
-/** Grammar-declared structure facts that modulate suppression (.scm #set! directives). */
+/**
+ * Grammar-declared structure facts that modulate suppression: the resolved per-capture shapes
+ * (shared defaults + that grammar's directive overrides) and the nesting flags (per-capture
+ * `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` for every capture).
+ */
 export interface SuppressionOptions {
-  readonly selfNesting?: boolean;
+  /** The grammar's resolved shapes (built by resolveSuppression in walk.ts). */
+  readonly shapes: ReadonlyMap<string, SuppressionShape>;
+  /** Captures whose same-capture candidates nest legitimately. */
+  readonly selfNestingCaptures: ReadonlySet<string>;
 }
 
-function effectivePolicy(capture: Capture): {
-  readonly absorbTail: number;
-  readonly opaque: boolean;
-} {
-  return POLICY[capture];
+function shapeOf(options: SuppressionOptions, capture: string): SuppressionShape {
+  return options.shapes.get(capture) ?? { absorbTail: 0, opaque: false };
 }
 
-function selfNestingOf(options: SuppressionOptions): boolean {
-  return options.selfNesting === true;
+function nestsOf(options: SuppressionOptions, capture: string): boolean {
+  return options.selfNestingCaptures.has(capture);
 }
 
 /**
@@ -823,15 +833,15 @@ export const CAPTURE_TOKEN = /@([A-Za-z_][A-Za-z0-9_-]*)/g;
 /** Does the outer candidate hide the inner one? (policy table + .scm #set! facts; ordered) */
 function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions): boolean {
   // lane captures travel intact: the materializer counts them internal and keeps runs whole
-  if (LANES.has(inner.capture)) return false;
+  if (SHARED_LANES.has(inner.capture)) return false;
   if (!contains(outer, inner)) return false;
   if (outer.capture === inner.capture) {
-    if (selfNestingOf(options)) return false;
+    if (nestsOf(options, outer.capture)) return false;
     // prefix-absorb shape: the wrapper carries at most the capture's tail tolerance (';') past
     // its payload; a larger tail is a unit of its own and surfaces as a child
-    return inner.node.endIndex >= outer.node.endIndex - effectivePolicy(outer.capture).absorbTail;
+    return inner.node.endIndex >= outer.node.endIndex - shapeOf(options, outer.capture).absorbTail;
   }
-  return effectivePolicy(outer.capture).opaque;
+  return shapeOf(options, outer.capture).opaque;
 }
 
 export function spanOf(node: QueryNode): Span {

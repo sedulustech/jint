@@ -39,7 +39,7 @@
 (section (atx_heading (inline) @name)) @section (#set! "capture.section.definition" "true") ; @priority
 
 ((section . (atx_heading) .) @section ; @priority
-  (#set! "selfNesting"))
+  (#set! "capture.section.selfNesting" "true"))
 
 ; list_item: the paragraph INSIDE a bullet/numbered entry, marker stripped - one per entry,
 ; continuations folded in (the nested form: a nested entry's paragraph is a direct child of the
@@ -49,7 +49,7 @@
 ; list: the WHOLE list as one element - one per bullet/ordered list, spanning every item. A
 ; nested list is a list node of its own and nests legitimately (the selfNesting fact below rides
 ; the grammar-wide flag the sections already declare: sections and lists both nest)
-(list) @list (#set! "capture.list.definition" "true")
+(list) @list (#set! "capture.list.definition" "true") (#set! "capture.list.selfNesting" "true")
 
 ; PROSE, loose: paragraphs NOT inside a list entry. Parents are enumerated honestly (the grammar
 ; allows paragraph under section, list_item, block_quote): the list_item parent is claimed above,

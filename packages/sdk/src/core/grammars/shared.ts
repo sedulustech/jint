@@ -28,7 +28,7 @@ export const isSharedCapture = (capture: string): capture is SharedCapture =>
   (SHARED_ELEMENT_CAPTURES as readonly string[]).includes(capture);
 
 /** Lane captures: internal runs, never contained elements - exempt from suppression. */
-export const SHARED_LANES: ReadonlySet<SharedCapture> = new Set(["comment", "import", "docstring"]);
+export const SHARED_LANES: ReadonlySet<string> = new Set(["comment", "import", "docstring"]);
 
 /**
  * DEFAULT definition-ness (is a capture's candidate an ELEMENT, or an internal lane?): the shared
@@ -51,4 +51,35 @@ const SHARED_DEFINITION_DEFAULTS: Readonly<Record<SharedCapture, boolean>> = {
 export function sharedDefinitionDefault(capture: string): boolean {
   if (!isSharedCapture(capture)) return false;
   return SHARED_DEFINITION_DEFAULTS[capture];
+}
+
+/** One capture's suppression shape, resolved per grammar (see query.ts's suppression pass). */
+export interface SuppressionShape {
+  readonly absorbTail: number;
+  readonly opaque: boolean;
+}
+
+/**
+ * DEFAULT suppression shapes for the shared definition captures (the lingua franca's shape -
+ * tier-1): absorbTail is the largest same-capture wrapper tail in BYTES that still reads as
+ * prefix-absorb; opaque hides a different-capture candidate strictly inside. A grammar OVERRIDES
+ * with `capture.<name>.absorbTail` / `capture.<name>.opaque` in its .scm. The cpp field/prototype
+ * and verilog-trial nested-always questions settled these values as DATA; they live here as the
+ * shared promise, not as per-grammar branches.
+ */
+export const SHARED_POLICY_DEFAULTS: Readonly<Record<string, SuppressionShape>> = {
+  function: { absorbTail: 0, opaque: true },
+  // method: function's shape (a nested method with a real body surfaces as a child)
+  method: { absorbTail: 0, opaque: true },
+  // class: type's shape (show-through interior - its methods surface as elements)
+  class: { absorbTail: 2, opaque: false },
+  type: { absorbTail: 2, opaque: false },
+  binding: { absorbTail: 2, opaque: true },
+};
+
+/** An autonomous capture's conservative default (undeclared): hide nothing, absorb nothing. */
+export const AUTONOMOUS_POLICY_DEFAULT: SuppressionShape = { absorbTail: 0, opaque: false };
+
+export function sharedPolicyDefault(capture: string): SuppressionShape {
+  return SHARED_POLICY_DEFAULTS[capture] ?? AUTONOMOUS_POLICY_DEFAULT;
 }

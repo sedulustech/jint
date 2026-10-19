@@ -69,13 +69,18 @@ describe("resolveCandidates", () => {
 
   test("a selfNesting grammar disables same-capture collapse (markdown sections)", () => {
     const kept = resolveCandidates([candidate(0, "type", 0, 20), candidate(1, "type", 5, 20)], {
-      selfNesting: true,
+      shapes: new Map(),
+      selfNestingCaptures: new Set(["type"]),
     });
     expect(kept).toHaveLength(2);
   });
 
   test("absorb tolerance: a trailing ';' wrapper still collapses", () => {
-    const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)]);
+    // type's SHARED DEFAULT shape (absorbTail 2, shared.ts) resolved as a grammar's facts would
+    const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)], {
+      shapes: new Map([["type", { absorbTail: 2, opaque: false }]]),
+      selfNestingCaptures: new Set(),
+    });
     expect(kept).toHaveLength(1);
   });
 

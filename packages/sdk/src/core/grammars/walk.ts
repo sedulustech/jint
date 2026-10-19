@@ -43,11 +43,15 @@ import {
   type QueryNode,
   compileQuery,
   scmCaptureDeclarations,
+  scmCapturePolicy,
   scmEmittedNames,
+  scmSelfNestingCaptures,
+  type SuppressionOptions,
+  type SuppressionShape,
   scmSelfNesting,
   ELEMENT_CAPTURES,
 } from "./query.ts";
-import { sharedDefinitionDefault } from "./shared.ts";
+import { sharedDefinitionDefault, sharedPolicyDefault } from "./shared.ts";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -164,6 +168,24 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
  * an element unless its grammar overrides to false; an AUTONOMOUS capture must declare true or it
  * is inert (captured, never materialized - the .scm said so, not an engine table).
  */
+/**
+ * One grammar's suppression facts: per-capture shapes (directive overrides over the tier-1 shared
+ * defaults; an undeclared autonomous capture hides and absorbs nothing) and the nesting flags
+ * (per-capture `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` - the grammar-wide
+ * form every capture of the grammar inherits).
+ */
+function resolveSuppression(scm: string): SuppressionOptions {
+  const declared = scmCapturePolicy(scm);
+  const shapes = new Map<string, SuppressionShape>();
+  for (const capture of scmEmittedNames(scm)) {
+    shapes.set(capture, { ...sharedPolicyDefault(capture), ...declared.get(capture) });
+  }
+  const selfNestingCaptures = new Set<string>(scmSelfNestingCaptures(scm));
+  if (scmSelfNesting(scm))
+    for (const capture of scmEmittedNames(scm)) selfNestingCaptures.add(capture);
+  return { shapes, selfNestingCaptures };
+}
+
 function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
   const declared = scmCaptureDeclarations(scm);
   const resolved = new Set<string>();
@@ -518,11 +540,10 @@ export async function decompose(
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   // SHAPE DIRECTIVES: read syntactically from the .scm through the SHARED reader (strings blanked,
-  // then comments cut - a trailing comment or a predicate string cannot fake a directive). #set!
-  // "selfNesting" lets same-capture candidates nest (markdown's sections); absence keeps the
-  // tail-absorb default.
-  const selfNesting = scmSelfNesting(scm);
-  const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
+  // then comments cut - a trailing comment or a predicate string cannot fake a directive). The
+  // grammar's own facts - definitions, suppression shapes, nesting - resolve HERE from its
+  // directives over the tier-1 shared defaults; the engine holds no per-capture table.
+  const candidates = resolveCandidates(runQuery(query, tree.rootNode), resolveSuppression(scm));
   const definitionCaptures = resolveDefinitionCaptures(scm);
   const { definitions, comments, imports } = materialize(
     candidates,
