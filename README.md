@@ -83,7 +83,7 @@ The first positional is the verb: `run`, `serve`, or `capture`. There is no impl
 `--config <path>` overrides discovery.
 
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_RUNS_DIR`).
-The user grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.
+The custom grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.
 
 ### Rules
 

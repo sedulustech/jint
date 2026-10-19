@@ -128,7 +128,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     );
     const dir = setup("cross", { "code.ts": "// one comment\nfunction f() {}\n" });
     expect(capture(join(dir, "code.ts"), cssScm)).rejects.toThrow(
-      /is the queries\.scm of css - it maps css nodes, not typescript/,
+      /is byte-identical to the registered queries\.scm of css - it is authored for css, not typescript/,
     );
   });
 
@@ -171,6 +171,71 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(long.text.endsWith("\u2026")).toBe(true);
     expect(long.text.slice(0, 200)).toBe(
       longBytes.slice(long.span.startByte, long.span.startByte + 200),
+    );
+  });
+
+  test("a mixed-grammar dir: the ts/tsx byte-identical sibling extracts as itself", async () => {
+    // ts and tsx share a byte-identical .scm (the accidental divergence was reverted): handing
+    // ts's queries.scm to a .tsx file is the sibling case the identity guard must keep LEGAL
+    const dir = setup("sibling", { "app.tsx": "function A() {}\n" });
+    const tsScm = join(
+      new URL("../packages/sdk/src/core/grammars/embedded/typescript/queries.scm", import.meta.url)
+        .pathname,
+    );
+    const elements = await capture(join(dir, "app.tsx"), tsScm);
+    expect(elements.some((e) => e.kind === "function")).toBe(true);
+    expect(elements.every((e) => e.grammar === "tsx")).toBe(true);
+  });
+
+  test('import.merge "none" flips the merge behavior the declared way', async () => {
+    // default (embedded .scm): adjacent imports merge per contiguous run - ONE import element.
+    // The directive read makes the declaration do work: the same file under an .scm declaring
+    // import.merge "none" yields each import as its OWN element.
+    const dir = setup("merge", {
+      "a.ts": 'import x from "x";\nimport y from "y";\nexport const z = 1;\n',
+      "none.scm":
+        '((import_statement) @import (#set! "import.merge" "none"))\n' +
+        '((import_require_clause) @import (#set! "import.merge" "none"))\n',
+    });
+    const file = join(dir, "a.ts");
+    const merged = await capture(file);
+    expect(merged.filter((e) => e.kind === "import")).toHaveLength(1);
+    const scattered = await capture(file, join(dir, "none.scm"));
+    expect(scattered.filter((e) => e.kind === "import")).toHaveLength(2);
+  });
+
+  test("a query-override registration never poisons later override-less use: LOUD, not silent zero", async () => {
+    // registering the shadow dir WITH a query file stores the empty-queries marker; a LATER
+    // capture on that language without one is a LOUD setup error - never a silent zero (an empty
+    // .scm compiles clean and extracts nothing)
+    const dir = setup("poison", { "doc.md": DOC });
+    const wip = join(dir, "wip.scm");
+    writeFileSync(wip, "(paragraph) @section\n");
+    const file = join(dir, "doc.md");
+    await capture(file, wip, join(SHADOW, "markdown"));
+    await expect(capture(file)).rejects.toThrow(
+      /grammar markdown registered without queries - supply a query file or add queries.scm to its dir/,
+    );
+  });
+
+  test("a grammar dir whose queries.scm is absent-but-invalid is skipped, not read (override supplies extraction)", async () => {
+    const dir = setup("skip", { "doc.md": DOC, "mine.scm": "(paragraph) @section\n" });
+    const bad = join(dir, "grammars", "markdown");
+    mkdirSync(bad, { recursive: true });
+    writeFileSync(join(bad, "extensions.json"), JSON.stringify([".md"]));
+    writeFileSync(join(bad, "queries.scm"), "(no_such_node) @section\n");
+    // the override supplies extraction; the dir's own (uncompilable) queries.scm is not read
+    const elements = await capture(join(dir, "doc.md"), join(dir, "mine.scm"), bad);
+    expect(elements.map((e) => e.kind)).toEqual(["section", "section"]);
+  });
+
+  test("an UPPERCASE grammar dir id is rejected LOUD at registration, naming the rename", async () => {
+    const dir = setup("upper", { "doc.md": DOC });
+    const bad = join(dir, "grammars", "MyLang");
+    mkdirSync(bad, { recursive: true });
+    writeFileSync(join(bad, "extensions.json"), JSON.stringify([".my"]));
+    expect(capture(join(dir, "doc.md"), undefined, bad)).rejects.toThrow(
+      /grammar ids are lowercase - rename the dir MyLang -> mylang/,
     );
   });
 });

@@ -306,11 +306,22 @@ function throwConfigInvalid(raw: unknown, source: string): never {
   const ruleErrors = ruleFieldErrors(raw);
   const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
   const field = rulePath?.[2];
+  // present-vs-missing: a field the entry HAS but that failed validation is an INVALID field,
+  // not a missing one - the CLI words the two differently (owner ruling: no more missing-target
+  // for a target that is present and malformed)
+  const ruleIndex = rulePath !== null ? Number(rulePath[1]) : -1;
+  const entry = ruleIndex >= 0 ? (raw as { rules: unknown[] }).rules[ruleIndex] : undefined;
+  const present =
+    entry !== undefined &&
+    field !== undefined &&
+    typeof entry === "object" &&
+    entry !== null &&
+    field in (entry as Record<string, unknown>);
   // A present-but-undefined detail is read the same as an absent one downstream, so the field is
   // set only when both halves of the path are known.
   const detail =
     rulePath !== null && field !== undefined
-      ? ({ kind: "invalid-rule", ruleIndex: Number(rulePath[1]), field } as const)
+      ? ({ kind: "invalid-rule", ruleIndex: Number(rulePath[1]), field, present } as const)
       : undefined;
   throw new SetupError(
     "CONFIG_INVALID",

@@ -52,6 +52,7 @@ describe("loadConfig", () => {
         kind: "invalid-rule",
         ruleIndex: 0,
         field: "instructions",
+        present: false,
       });
     }
   });

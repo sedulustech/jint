@@ -136,7 +136,7 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
     });
     expect(r.code).toBe(2);
     expect(r.stdout).toBe("");
-    expect(r.stderr).toContain("is the queries.scm of css");
+    expect(r.stderr).toContain("is byte-identical to the registered queries.scm of css");
     expect(r.stderr).toContain("not typescript");
   });
 });

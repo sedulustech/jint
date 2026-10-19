@@ -285,7 +285,7 @@ const DIRECTIVES = {
   selfNesting: { kind: "presence" },
   "attach.gap": { kind: "number" },
   "docstring.owner": { kind: "enum", values: ["next", "enclosing"] },
-  "import.merge": { kind: "enum", values: ["contiguous"] },
+  "import.merge": { kind: "enum", values: ["contiguous", "none"] },
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
 

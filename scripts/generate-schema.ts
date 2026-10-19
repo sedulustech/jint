@@ -311,7 +311,7 @@ const rows: Row[] = [
     target: "types",
     namespace: CAPTURE,
     singular: "type",
-    resolves: "elements captured as types (interfaces, structs, enums, aliases, sections)",
+    resolves: "elements captured as types (interfaces, structs, enums, aliases)",
     grammars: emitting("type"),
     frame: "attached run + inline comments + code (the pair frame)",
     scope: "yes",

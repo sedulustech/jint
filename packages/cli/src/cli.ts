@@ -402,7 +402,9 @@ function thrownLine(error: SetupError | InternalError | ClassifyError, origin?: 
   const detail = error instanceof SetupError ? error.detail : undefined;
   if (detail === undefined) return error.message;
   if (detail.kind === "invalid-rule")
-    return `invalid rule #${detail.ruleIndex}: missing "${detail.field}" - see the config example in README`;
+    return detail.present
+      ? `invalid rule #${detail.ruleIndex}: invalid "${detail.field}" - see the config example in README`
+      : `invalid rule #${detail.ruleIndex}: missing "${detail.field}" - see the config example in README`;
   // The origin label rides ON the message (parenthesized, space-joined), never on a hyphen: the
   // example shape is `unknown rule "x" (--rule) - valid: ...`.
   const segments = [origin !== undefined ? `${error.message} ${origin}` : error.message];

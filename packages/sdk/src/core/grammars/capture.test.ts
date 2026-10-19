@@ -155,7 +155,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     const cssScm = join(new URL("./embedded/css/queries.scm", import.meta.url).pathname);
     const dir = scratch("cross", { "code.ts": "// one comment\nfunction f() {}\n" });
     expect(capture(join(dir, "code.ts"), cssScm)).rejects.toThrow(
-      /is the queries\.scm of css - it maps css nodes, not typescript/,
+      /is byte-identical to the registered queries\.scm of css - it is authored for css, not typescript/,
     );
   });
 

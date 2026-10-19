@@ -346,9 +346,14 @@ async function registerUserGrammar(
     );
   }
   const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
-  // a missing queries.scm with queriesOptional means an explicit .scm override (capture())
-  // supplies extraction; registration still validates routing and the wasm cross-check
-  const queries = (await Bun.file(queriesPath).exists()) ? await Bun.file(queriesPath).text() : "";
+  // queriesOptional = an explicit .scm override supplies extraction for THIS call; the dir's own
+  // queries.scm - present or not - is NOT read (it would be unused, and reading it unvalidated
+  // would license a bad .scm through the side door). The registry entry carries the empty marker;
+  // the walker turns any OVERRIDE-LESS use of that marker into a LOUD error - never silent zero.
+  const queries =
+    options.queriesOptional !== true && (await Bun.file(queriesPath).exists())
+      ? await Bun.file(queriesPath).text()
+      : "";
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
@@ -430,6 +435,12 @@ export async function registerCustomGrammar(
   options: { readonly queriesOptional?: boolean } = {},
 ): Promise<void> {
   const id = dir.split(/[\\/]/).filter(Boolean).pop();
+  if (id !== undefined && /[A-Z]/.test(id)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ids are lowercase - rename the dir ${id} -> ${id.toLowerCase()}`,
+    );
+  }
   if (id === undefined || !/^[A-Za-z0-9_-]+$/.test(id)) {
     throw new SetupError(
       "CONFIG_INVALID",

@@ -51,15 +51,16 @@ async function loadQueryFile(queryPath: string): Promise<string> {
  * .scm whose node types all exist in the routed grammar - css's comments-only mapping compiles
  * clean over typescript. Identity can: a query file byte-equal to a registered grammar's OWN
  * queries.scm IS that grammar's mapping, and handing it to another language is a setup error naming
- * both, before extraction. (A grammar whose own .scm is passed back - or a sibling with an
- * identical .scm, ts/tsx - extracts as itself and stays legal.)
+ * both, before extraction - a BYTE-IDENTITY check, not a node-mapping claim. (A grammar whose own
+ * .scm is passed back - or a sibling with a byte-identical .scm, ts/tsx - extracts as itself and
+ * stays legal.)
  */
 function assertQueriesAuthoredFor(queries: string, queryPath: string, language: string): void {
   const owners = knownLanguages().filter((id) => grammar(id).queries === queries);
   if (owners.length > 0 && !owners.includes(language)) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `query file "${queryPath}" is the queries.scm of ${owners.join(", ")} - it maps ${owners.join(", ")} nodes, not ${language}; pass an .scm authored for ${language}`,
+      `query file "${queryPath}" is byte-identical to the registered queries.scm of ${owners.join(", ")} - it is authored for ${owners.join(", ")}, not ${language}; pass an .scm authored for ${language}`,
     );
   }
 }

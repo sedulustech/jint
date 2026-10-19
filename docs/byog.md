@@ -1,12 +1,12 @@
 ---
 title: BYOG — bring your own grammar
-description: The user grammar seam: register any tree-sitter grammar, keep jint's capture vocabulary, and encode domain review questions as rules. Worked example: verilog.
+description: The custom grammar seam: register any tree-sitter grammar, keep jint's capture vocabulary, and encode domain review questions as rules. Worked example: verilog.
 ---
 
 # BYOG — bring your own grammar
 
 The nine embedded grammars are not special. Each is a directory of three artifacts registered
-through the same shape any user grammar uses at runtime — and the same registration is open to
+through the same shape any custom grammar uses at runtime — and the same registration is open to
 you. This page is the seam's contract, a complete worked example (verilog, the hard case), and
 the measured limits. The product here is not "a semantic linter for hardware"; it is a seam: **a
 domain team encodes its review questions as rules** and points them at its own grammar. Verilog
@@ -55,7 +55,11 @@ Everything fails loud, at setup, before any file is measured — never into sile
 - **Malformed or unknown #set! directives**: a `#set` without the bang, a `#set!` with no quoted
   name, or a `#set! "unknown"` naming no known directive is a setup error naming the line - a
   directive that silently no-ops is a false belief about your own extraction. Known today:
-  `selfNesting`. Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business.
+  `selfNesting` (same-capture candidates nest legitimately - markdown sections),
+  `attach.gap N` (comment attaches only across N or fewer blank rows; default 1),
+  `docstring.owner next|enclosing` (who the docstring documents; default enclosing),
+  `import.merge contiguous|none` (adjacent imports merge per contiguous run; default contiguous).
+  Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business.
 - **Pattern-order conflicts**: two patterns assigning different captures to the same root node
   type. Pattern order is priority (the earlier pattern wins), so the validator requires every
   pattern in a conflicting group to state its intent with a `; @priority` comment — reordering

@@ -58,7 +58,7 @@ export type SetupErrorCode =
 export type SetupDetail =
   | { kind: "unknown-rule"; valid: readonly string[]; suggest?: string }
   | { kind: "unknown-language"; valid: readonly string[] }
-  | { kind: "invalid-rule"; ruleIndex: number; field: string };
+  | { kind: "invalid-rule"; ruleIndex: number; field: string; present: boolean };
 
 /**
  * Codes a streamed per-unit failure carries: request-layer causes (auth, availability, request and

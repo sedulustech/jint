@@ -402,6 +402,11 @@ function materialize(
   // content is its span slice, so "slice the span, get the content" holds by construction.
   // import.merge "contiguous" declares this style in the .scm; it is the engine default too.
   const orderedImports = [...imports].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  // the DIRECTIVE IS READ: import.merge "none" on a candidate keeps it out of any run (its own
+  // element); absent defaults to "contiguous" - the declared value can flip the behavior, and
+  // this read is what makes the declaration do work
+  const mergesWithPrevious = (candidate: (typeof orderedImports)[number]): boolean =>
+    candidate.properties?.["import.merge"] !== "none";
   const runs: (typeof orderedImports)[] = [];
   for (const candidate of orderedImports) {
     const previous = runs.at(-1)?.at(-1);
@@ -417,7 +422,7 @@ function materialize(
           other.node.startIndex < candidate.node.startIndex &&
           other.node.endIndex > previous.node.endIndex,
       );
-    if (splits) runs.push([candidate]);
+    if (splits || !mergesWithPrevious(candidate)) runs.push([candidate]);
     else runs.at(-1)!.push(candidate);
   }
   const walkImports: InventoryElement[] = runs.map((run, index) => {
@@ -470,6 +475,15 @@ export async function decompose(
   // an explicit .scm override (capture() with a query file) REPLACES the registered one for
   // extraction and goes through the SAME loud compile checks, uncached (one call, one compile)
   const scm = options.queries ?? entry.queries;
+  // THE EMPTY-QUERIES MARKER: a custom grammar registered with a query-file override carries no
+  // own .scm. An override-less use of that marker is a LOUD error - never a silent zero (an empty
+  // .scm compiles clean and extracts nothing, the worst failure shape there is).
+  if (scm === "" && options.queries === undefined) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `grammar ${language} registered without queries - supply a query file or add queries.scm to its dir`,
+    );
+  }
   const query = options.queries
     ? await compileQuery(language, scm, lang)
     : await queryFor(language, scm, lang);

@@ -15,7 +15,7 @@ measurement its handle judged actionable and is the only output that demands act
 - **binding** — an element that is a name bound to a non-callable, non-type value.
 - **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp
   class declarations). Split from @type so a rule can judge classes as classes; every other type
-  shape (interfaces, structs, enums, aliases, modules, sections) stays @type.
+  shape (interfaces, structs, enums, aliases, modules) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
   classifies states, it never generates or transforms them.
 - **capture** — the jint-owned name a grammar's queries assign to a matched node
@@ -69,7 +69,7 @@ measurement its handle judged actionable and is the only output that demands act
   over total findings; estimated by span-level spot-checks during calibration.
 - **finding** — a measurement its handle judged actionable; the only output that demands action.
 - **grammar** — the parser (wasm) plus its extraction half (queries.scm assigning captures);
-  shipped embedded, one directory per language, overridable per user grammar dir.
+  shipped embedded, one directory per language, overridable per custom grammar dir.
 - **handle** — the rule's policy: thresholds (declarative) or a policy callback (TS tier) that
   turns measurements into findings.
 - **input** — what a run classifies: where the bytes come from, nothing more.
