@@ -185,7 +185,10 @@ export const is_comment_narration: NoulRuleSchema = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: { warn: { greater_than: 0.6 }, error: { greater_than: 0.7 } },
+  handle: {
+    warn: { greater_than: 0.6 },
+    error: { greater_than: 0.7, message: "Remove this comment." },
+  },
 };
 
 export const is_comment_patching_readability: NoulRuleSchema = {
@@ -240,7 +243,17 @@ export const isCognitivelyComplex: ChoiceRuleSchema = {
   // Calibrated 2026-09-29 (two-language: app/src + cobra, healthy/defective fixtures):
   // scores are bounded 0..2; error at round>=2 (>=1.5) sits between cobra healthy-max 1.46
   // and defective stacked fixtures 1.95/1.97; warn at round>=1 (>=0.5) warns 5-13% of healthy.
-  handle: { map: ["pass", "warn", "error"] },
+  handle: {
+    map: [
+      "pass",
+      "warn",
+      {
+        level: "error",
+        message:
+          "Decompose this function: extract readable named steps so the main body reads easily.",
+      },
+    ],
+  },
 };
 
 /**
