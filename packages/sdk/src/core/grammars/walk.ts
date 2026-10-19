@@ -221,82 +221,117 @@ function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
  * docstring owner, contiguous import runs), and the directive only declares a fact the pattern can
  * see about its own captures.
  */
-function materialize(
+function containsSpan(outer: Candidate, inner: Candidate): boolean {
+  return (
+    outer.node.startIndex <= inner.node.startIndex && outer.node.endIndex >= inner.node.endIndex
+  );
+}
+
+/** A docstring candidate: the grammar's declared docstring convention (python's string-in-block). */
+function isDocstring(c: Candidate): boolean {
+  return c.capture === "docstring";
+}
+
+/**
+ * Column-0 leak: some grammars' nodes (C includes) absorb the trailing newline and end at column 0
+ * of the NEXT row - that row is not really claimed (nothing precedes col 0), so the effective end
+ * row steps back one when the span closes at column 0.
+ */
+function effectiveEndRow(node: QueryNode): number {
+  return node.endPosition.column === 0 && node.endPosition.row > node.startPosition.row
+    ? node.endPosition.row - 1
+    : node.endPosition.row;
+}
+
+/** The candidates no definition contains: where comment attachment runs, in document order. */
+function topLevelOf(
   candidates: readonly Candidate[],
-  grammarId: string,
-  source: string,
-  definitionCaptures: ReadonlySet<string>,
-): {
-  definitions: InventoryElement[];
-  comments: InventoryElement[];
-  imports: InventoryElement[];
-} {
-  const definitions = candidates.filter((c) => definitionCaptures.has(c.capture));
-  const comments = candidates.filter((c) => c.capture === "comment");
-  const imports = candidates.filter((c) => c.capture === "import");
-  const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  definitions: readonly Candidate[],
+): Candidate[] {
+  return candidates.filter((c) => !definitions.some((d) => d !== c && containsSpan(d, c)));
+}
 
-  // Docstrings: the grammar's declared docstring convention (python's string-in-block). They
-  // are owned comment elements - docstring ownership answers who they document (the innermost
-  // containing definition, or the module) - never internal counts.
-  const isDocstring = (c: Candidate): boolean => c.capture === "docstring";
-  // OWNER LINK (the comment-target pair split): a comment element is DOCUMENTATION when a
-  // definition owns it - its text is that definition's attached run, or it sits inside the
-  // definition's body (an internal note). Owned comments travel in the definition's pair
-  // frame; unowned ones are reported as loose comments. The link reuses docstring ownership,
-  // which answers "who this comment documents".
-  const ownerOf = (comment: Candidate): DocstringOwner | undefined => {
-    // DOCSTRING OWNER DIRECTION (the .scm's docstring.owner directive): a grammar whose docstring
-    // convention PRECEDES what it documents (a doc attribute above a definition) declares
-    // "next" and the owner is the first definition after the docstring; the default
-    // "enclosing" is the innermost containing definition (python's string-in-block).
-    if (comment.properties?.["docstring.owner"] === "next") {
-      const next = orderedDefinitions.find((d) => d.node.startIndex >= comment.node.endIndex);
-      return next === undefined
-        ? { kind: "module", name: "" }
-        : {
-            kind: next.capture as DocstringOwner["kind"],
-            name: next.name ?? "",
-          };
+/** The innermost definition fully containing this candidate (never the candidate itself). */
+function innermostContaining(
+  definitions: readonly Candidate[],
+  candidate: Candidate,
+): Candidate | undefined {
+  let innermost: Candidate | undefined;
+  for (const definition of definitions) {
+    if (definition === candidate) continue;
+    if (!containsSpan(definition, candidate)) continue;
+    if (
+      innermost === undefined ||
+      definition.node.endIndex - definition.node.startIndex <=
+        innermost.node.endIndex - innermost.node.startIndex
+    ) {
+      innermost = definition;
     }
-    for (const [definition, run] of attachedRuns) {
-      // IDENTITY, not text: the run holds the same candidate objects the comment elements hold -
-      // an equal-text comment elsewhere in the file (two "// namespace" closers, a copied
-      // docblock) can never steal ownership through a text match (process.cc L466/L595).
-      if (run.includes(comment)) {
-        return {
-          // LOSSLESS: the owner kind IS the owner capture - the same cast the innermost branch
-          // makes; the old type->class/everything-else->function map was a stale two-kind
-          // collapse the contract's six-kind DocstringOwner had already outgrown.
-          kind: definition.capture as DocstringOwner["kind"],
-          name: definition.name ?? "",
+  }
+  return innermost;
+}
+
+/**
+ * OWNER LINK (the comment-target pair split): a comment element is DOCUMENTATION when a definition
+ * owns it - its text is that definition's attached run, or it sits inside the definition's body (an
+ * internal note). Owned comments travel in the definition's pair frame; unowned ones are reported
+ * as loose comments. The link reuses docstring ownership, which answers "who this comment
+ * documents".
+ *
+ * DOCSTRING OWNER DIRECTION (the .scm's docstring.owner directive): a grammar whose docstring
+ * convention PRECEDES what it documents (a doc attribute above a definition) declares "next" and
+ * the owner is the first definition after the docstring; the default "enclosing" is the innermost
+ * containing definition (python's string-in-block).
+ */
+function ownerOf(
+  candidate: Candidate,
+  definitions: readonly Candidate[],
+  orderedDefinitions: readonly Candidate[],
+  attachedRuns: ReadonlyMap<Candidate, readonly Candidate[]>,
+): DocstringOwner | undefined {
+  if (candidate.properties?.["docstring.owner"] === "next") {
+    const next = orderedDefinitions.find((d) => d.node.startIndex >= candidate.node.endIndex);
+    return next === undefined
+      ? { kind: "module", name: "" }
+      : {
+          kind: next.capture as DocstringOwner["kind"],
+          name: next.name ?? "",
         };
-      }
+  }
+  for (const [definition, run] of attachedRuns) {
+    // IDENTITY, not text: the run holds the same candidate objects the comment elements hold -
+    // an equal-text comment elsewhere in the file (two "// namespace" closers, a copied
+    // docblock) can never steal ownership through a text match (process.cc L466/L595).
+    if (run.includes(candidate)) {
+      return {
+        // LOSSLESS: the owner kind IS the owner capture - the same cast the innermost branch
+        // makes; the old type->class/everything-else->function map was a stale two-kind
+        // collapse the contract's six-kind DocstringOwner had already outgrown.
+        kind: definition.capture as DocstringOwner["kind"],
+        name: definition.name ?? "",
+      };
     }
-    let innermost: Candidate | undefined;
-    for (const definition of definitions) {
-      if (!containsSpan(definition, comment)) continue;
-      if (
-        innermost === undefined ||
-        definition.node.endIndex - definition.node.startIndex <=
-          innermost.node.endIndex - innermost.node.startIndex
-      ) {
-        innermost = definition;
-      }
-    }
-    if (innermost === undefined)
-      return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
-    return {
-      // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
-      // a definition capture only (ownerOf scans the grammar's resolved definition set); the lane captures cannot own
-      kind: innermost.capture as DocstringOwner["kind"],
-      name: innermost.name ?? "",
-    };
+  }
+  const innermost = innermostContaining(definitions, candidate);
+  if (innermost === undefined)
+    return isDocstring(candidate) ? { kind: "module", name: "" } : undefined;
+  return {
+    // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
+    // a definition capture only (ownerOf scans the grammar's resolved definition set); the lane captures cannot own
+    kind: innermost.capture as DocstringOwner["kind"],
+    name: innermost.name ?? "",
   };
+}
 
-  // Internal comments: every non-empty comment fully inside a definition counts for EACH
-  // containing definition (a method body's comment counts for the method and its class) - the
-  // count is what lets comment-target rules see a definition whose only comment is internal.
+/**
+ * Internal comments: every non-empty comment fully inside a definition counts for EACH containing
+ * definition (a method body's comment counts for the method and its class) - the count is what lets
+ * comment-target rules see a definition whose only comment is internal.
+ */
+function internalCommentCounts(
+  definitions: readonly Candidate[],
+  comments: readonly Candidate[],
+): Map<Candidate, number> {
   const internalCounts = new Map<Candidate, number>();
   for (const comment of comments) {
     if (isDocstring(comment)) continue;
@@ -310,36 +345,28 @@ function materialize(
       }
     }
   }
+  return internalCounts;
+}
 
-  // Comment attachment, document order over the candidates NOT inside any definition: comments
-  // accumulate as a pending run; a following definition takes the run when the run ends strictly
-  // above the definition's first row within the grammar's attach.gap (default: the directly
-  // preceding row). Anything else flushes the run as standalone comment elements.
-  //
-  // TRAILING SIDE: a comment that starts on a row where the previous candidate ENDS is a note
-  // on that candidate (interface.c: `static size_t qjs_mem_limit = 0; /* 0 = unlimited */` - the
-  // note rode one row down onto the NEXT binding under a row-only gap), so it never joins a
-  // pending run. LEADING SIDE: the run's last comment must end strictly ABOVE the definition's
-  // first row - a comment sharing the definition's own row is beside it, not above it.
-  // Column-0 leak: some grammars' nodes (C includes) absorb the trailing newline and end at
-  // column 0 of the NEXT row - that row is not really claimed (nothing precedes col 0), so the
-  // effective end row steps back one when the span closes at column 0.
-  const effectiveEndRow = (node: QueryNode): number =>
-    node.endPosition.column === 0 && node.endPosition.row > node.startPosition.row
-      ? node.endPosition.row - 1
-      : node.endPosition.row;
-  const topLevel = candidates.filter(
-    (c) => !definitions.some((d) => d !== c && containsSpan(d, c)),
-  );
-  const pending: Candidate[] = [];
+// Comment attachment, document order over the candidates NOT inside any definition: comments
+// accumulate as a pending run; a following definition takes the run when the run ends strictly
+// above the definition's first row within the grammar's attach.gap (default: the directly
+// preceding row). Anything else flushes the run as standalone comment elements (every comment
+// text still lands in the comments bucket below - the run only decides who owns it).
+//
+// TRAILING SIDE: a comment that starts on a row where the previous candidate ENDS is a note
+// on that candidate (interface.c: `static size_t qjs_mem_limit = 0; /* 0 = unlimited */` - the
+// note rode one row down onto the NEXT binding under a row-only gap), so it never joins a
+// pending run. LEADING SIDE: the run's last comment must end strictly ABOVE the definition's
+// first row - a comment sharing the definition's own row is beside it, not above it.
+function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
-  const standalone: Candidate[] = [];
+  const pending: Candidate[] = [];
   let lastClaimantRow = -1;
   for (const candidate of topLevel) {
     const startRow = candidate.node.startPosition.row;
     if (candidate.capture === "comment") {
       if (startRow <= lastClaimantRow) {
-        standalone.push(...pending, candidate);
         pending.length = 0;
         continue;
       }
@@ -348,7 +375,6 @@ function materialize(
     }
     lastClaimantRow = effectiveEndRow(candidate.node);
     if (candidate.capture === "import") {
-      standalone.push(...pending);
       pending.length = 0;
       continue;
     }
@@ -362,110 +388,97 @@ function materialize(
     if (latest !== undefined && gap <= allowed && latestEnd < startRow) {
       // a copy: `pending` is reused (cleared) after every claim; the run must not alias it
       attachedRuns.set(candidate, [...pending]);
-    } else {
-      standalone.push(...pending);
     }
     pending.length = 0;
   }
-  standalone.push(...pending);
+  return attachedRuns;
+}
 
-  // Comments bucket (design: the three-dimension comment model): EVERY non-empty comment text
-  // lands in the bucket - standalone, attached to a definition, internal to one, or a docstring
-  // - so a comment is always judged as a comment. Attachment is extra structure on top
-  // (the attached run and internal counts live on the definition, ownership on the comment),
-  // never a replacement for presence.
-  // Docstring ownership (the pair split): the count per definition that contains one, so the
-  // frame knows it carries documentation even when no comment attaches and none is internal.
-  // A "next" docstring counts for the definition AFTER it instead (its declared owner) - and its
-  // TEXT rides that definition's frame (docstrings): a leading doc sits outside every span, so
-  // the count alone would gate the comments target while the classifier never saw the words.
-  // An enclosing-owned docstring (python's body shape) counts only - its text is inside the
-  // definition's span already, and content carries it.
-  const docstringCounts = new Map<Candidate, number>();
-  const docstringTexts = new Map<Candidate, readonly string[]>();
+// Docstring ownership (the pair split): the count per definition that contains one, so the
+// frame knows it carries documentation even when no comment attaches and none is internal.
+// A "next" docstring counts for the definition AFTER it instead (its declared owner) - and its
+// TEXT rides that definition's frame (docstrings): a leading doc sits outside every span, so
+// the count alone would gate the comments target while the classifier never saw the words.
+// An enclosing-owned docstring (python's body shape) counts only - its text is inside the
+// definition's span already, and content carries it.
+function docstringOwnership(
+  candidates: readonly Candidate[],
+  definitions: readonly Candidate[],
+  orderedDefinitions: readonly Candidate[],
+): { counts: Map<Candidate, number>; texts: Map<Candidate, readonly string[]> } {
+  const counts = new Map<Candidate, number>();
+  const texts = new Map<Candidate, readonly string[]>();
   for (const docstring of candidates) {
     if (!isDocstring(docstring) || isEmptyComment(docstring.node.text)) continue;
     if (docstring.properties?.["docstring.owner"] === "next") {
       const next = orderedDefinitions.find((d) => d.node.startIndex >= docstring.node.endIndex);
       if (next !== undefined) {
-        docstringCounts.set(next, (docstringCounts.get(next) ?? 0) + 1);
-        const owned = [...(docstringTexts.get(next) ?? []), docstring.node.text];
-        docstringTexts.set(next, owned);
+        counts.set(next, (counts.get(next) ?? 0) + 1);
+        const owned = [...(texts.get(next) ?? []), docstring.node.text];
+        texts.set(next, owned);
       }
       continue;
     }
     for (const definition of definitions) {
       if (containsSpan(definition, docstring)) {
-        docstringCounts.set(definition, (docstringCounts.get(definition) ?? 0) + 1);
+        counts.set(definition, (counts.get(definition) ?? 0) + 1);
       }
     }
   }
+  return { counts, texts };
+}
 
-  // Comments bucket (the comment-target pair split): every non-empty comment text still lands
-  // as a comment element, but target resolution routes it - owned comments travel in their
-  // definition's pair frame (the attached run, internal and docstring counts), and only
-  // unowned ones address rules through the element itself (loose comments). A module docstring
-  // has no definition frame, so its element speaks for it in the comments group.
-  const commentTexts = [...comments, ...docstringsOf(candidates, isDocstring)].filter(
-    (c) => !isEmptyComment(c.node.text),
+/** The @docstring candidates, document order (empty texts are not docstrings). */
+function docstringsOf(candidates: readonly Candidate[]): Candidate[] {
+  return candidates
+    .filter((c) => isDocstring(c) && !isEmptyComment(c.node.text))
+    .sort((a, b) => a.node.startIndex - b.node.startIndex);
+}
+
+/** Parents: the innermost OTHER definition containing this one. */
+function parentLabelOf(
+  candidate: Candidate,
+  definitions: readonly Candidate[],
+  labels: ReadonlyMap<Candidate, string>,
+): string | undefined {
+  const innermost = innermostContaining(definitions, candidate);
+  return innermost === undefined ? undefined : labels.get(innermost);
+}
+
+// The imports merge, per CONTIGUOUS RUN: adjacent import nodes (nothing but whitespace
+// between them, no other candidate intervening) merge into one element; a blank row or any
+// non-import candidate ends the element - a scattered import (a typescript re-export after
+// code, a C #include mid-file) never drags intervening source into a merged span. The run's
+// content is its span slice, so "slice the span, get the content" holds by construction.
+// import.merge "contiguous" declares this style in the .scm; it is the engine default too.
+//
+// a blank row between: the text between the two nodes carries two newlines (row-only gaps
+// misread on grammars whose include nodes absorb neighboring newlines into their spans)
+function importRunSplits(
+  previous: Candidate | undefined,
+  candidate: Candidate,
+  candidates: readonly Candidate[],
+  source: string,
+): boolean {
+  return (
+    previous === undefined ||
+    (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length >
+      1 ||
+    candidates.some(
+      (other) =>
+        other.capture !== "import" &&
+        other.node.startIndex < candidate.node.startIndex &&
+        other.node.endIndex > previous.node.endIndex,
+    )
   );
-  const commentElements = [...new Set(commentTexts)].sort(
-    (a, b) => a.node.startIndex - b.node.startIndex,
-  );
-  const labels = new Map<Candidate, string>();
-  definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
-  commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
+}
 
-  // Parents: the innermost OTHER definition containing this one.
-  const parentOf = (candidate: Candidate): string | undefined => {
-    let innermost: Candidate | undefined;
-    for (const definition of definitions) {
-      if (definition === candidate) continue;
-      if (!containsSpan(definition, candidate)) continue;
-      if (
-        innermost === undefined ||
-        definition.node.endIndex - definition.node.startIndex <=
-          innermost.node.endIndex - innermost.node.startIndex
-      ) {
-        innermost = definition;
-      }
-    }
-    return innermost === undefined ? undefined : labels.get(innermost);
-  };
-
-  const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
-    label: labels.get(d)!,
-    span: spanOf(d.node),
-    content: d.node.text,
-    nodeType: d.node.type,
-    capture: d.capture as WireCapture,
-    grammar: grammarId,
-    name: d.name,
-    attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
-    docstrings: docstringTexts.get(d),
-    internalCommentCount: internalCounts.get(d) ?? 0,
-    docstringCount: docstringCounts.get(d) ?? 0,
-    parent: parentOf(d),
-  }));
-  const walkComments: InventoryElement[] = commentElements.map((c) => ({
-    label: labels.get(c)!,
-    span: spanOf(c.node),
-    content: c.node.text,
-    nodeType: c.node.type,
-    capture: "comment" as const,
-    grammar: grammarId,
-    internalCommentCount: 0,
-    docstringCount: 0,
-    parent: parentOf(c),
-    docstringOf: ownerOf(c),
-  }));
-
-  // The imports merge, per CONTIGUOUS RUN: adjacent import nodes (nothing but whitespace
-  // between them, no other candidate intervening) merge into one element; a blank row or any
-  // non-import candidate ends the element - a scattered import (a typescript re-export after
-  // code, a C #include mid-file) never drags intervening source into a merged span. The run's
-  // content is its span slice, so "slice the span, get the content" holds by construction.
-  // import.merge "contiguous" declares this style in the .scm; it is the engine default too.
+function mergeImportRuns(
+  imports: readonly Candidate[],
+  candidates: readonly Candidate[],
+  source: string,
+  grammarId: string,
+): InventoryElement[] {
   const orderedImports = [...imports].sort((a, b) => a.node.startIndex - b.node.startIndex);
   // the DIRECTIVE IS READ: import.merge "none" on a candidate keeps it out of any run (its own
   // element); absent defaults to "contiguous" - the declared value can flip the behavior, and
@@ -475,22 +488,11 @@ function materialize(
   const runs: (typeof orderedImports)[] = [];
   for (const candidate of orderedImports) {
     const previous = runs.at(-1)?.at(-1);
-    const splits =
-      previous === undefined ||
-      // a blank row between: the text between the two nodes carries two newlines (row-only gaps
-      // misread on grammars whose include nodes absorb neighboring newlines into their spans)
-      (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length >
-        1 ||
-      candidates.some(
-        (other) =>
-          other.capture !== "import" &&
-          other.node.startIndex < candidate.node.startIndex &&
-          other.node.endIndex > previous.node.endIndex,
-      );
-    if (splits || !mergesWithPrevious(candidate)) runs.push([candidate]);
+    if (importRunSplits(previous, candidate, candidates, source) || !mergesWithPrevious(candidate))
+      runs.push([candidate]);
     else runs.at(-1)!.push(candidate);
   }
-  const walkImports: InventoryElement[] = runs.map((run, index) => {
+  return runs.map((run, index) => {
     const first = run[0]!;
     const last = run.at(-1)!;
     return {
@@ -509,24 +511,79 @@ function materialize(
       docstringCount: 0,
     };
   });
+}
+
+function materialize(
+  candidates: readonly Candidate[],
+  grammarId: string,
+  source: string,
+  definitionCaptures: ReadonlySet<string>,
+): {
+  definitions: InventoryElement[];
+  comments: InventoryElement[];
+  imports: InventoryElement[];
+} {
+  const definitions = candidates.filter((c) => definitionCaptures.has(c.capture));
+  const comments = candidates.filter((c) => c.capture === "comment");
+  const imports = candidates.filter((c) => c.capture === "import");
+  const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  const topLevel = topLevelOf(candidates, definitions);
+
+  const attachedRuns = claimCommentRuns(topLevel);
+  const internalCounts = internalCommentCounts(definitions, comments);
+  const { counts: docstringCounts, texts: docstringTexts } = docstringOwnership(
+    candidates,
+    definitions,
+    orderedDefinitions,
+  );
+
+  // Comments bucket (design: the three-dimension comment model): EVERY non-empty comment text
+  // lands in the bucket - standalone, attached to a definition, internal to one, or a docstring
+  // - so a comment is always judged as a comment. Attachment is extra structure on top
+  // (the attached run and internal counts live on the definition, ownership on the comment),
+  // never a replacement for presence. Only unowned ones address rules through the element
+  // itself (loose comments). A module docstring has no definition frame, so its element speaks
+  // for it in the comments group.
+  const commentTexts = [...comments, ...docstringsOf(candidates)].filter(
+    (c) => !isEmptyComment(c.node.text),
+  );
+  const commentElements = [...new Set(commentTexts)].sort(
+    (a, b) => a.node.startIndex - b.node.startIndex,
+  );
+  const labels = new Map<Candidate, string>();
+  definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
+  commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
+
+  const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
+    label: labels.get(d)!,
+    span: spanOf(d.node),
+    content: d.node.text,
+    nodeType: d.node.type,
+    capture: d.capture as WireCapture,
+    grammar: grammarId,
+    name: d.name,
+    attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
+    docstrings: docstringTexts.get(d),
+    internalCommentCount: internalCounts.get(d) ?? 0,
+    docstringCount: docstringCounts.get(d) ?? 0,
+    parent: parentLabelOf(d, definitions, labels),
+  }));
+  const walkComments: InventoryElement[] = commentElements.map((c) => ({
+    label: labels.get(c)!,
+    span: spanOf(c.node),
+    content: c.node.text,
+    nodeType: c.node.type,
+    capture: "comment" as const,
+    grammar: grammarId,
+    internalCommentCount: 0,
+    docstringCount: 0,
+    parent: parentLabelOf(c, definitions, labels),
+    docstringOf: ownerOf(c, definitions, orderedDefinitions, attachedRuns),
+  }));
+
+  const walkImports = mergeImportRuns(imports, candidates, source, grammarId);
 
   return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
-}
-
-/** The @docstring candidates, document order (empty texts are not docstrings). */
-function docstringsOf(
-  candidates: readonly Candidate[],
-  isDocstring: (c: Candidate) => boolean,
-): Candidate[] {
-  return candidates
-    .filter((c) => isDocstring(c) && !isEmptyComment(c.node.text))
-    .sort((a, b) => a.node.startIndex - b.node.startIndex);
-}
-
-function containsSpan(outer: Candidate, inner: Candidate): boolean {
-  return (
-    outer.node.startIndex <= inner.node.startIndex && outer.node.endIndex >= inner.node.endIndex
-  );
 }
 
 /** Decompose one source string into its unit inventory; never throws for parse errors. */

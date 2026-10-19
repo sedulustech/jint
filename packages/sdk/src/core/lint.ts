@@ -66,6 +66,7 @@ import {
   SetupError,
   type InputKind,
   type Classifier,
+  type Element,
   type LintEvent,
   type Measurement,
   type Finding,
@@ -214,6 +215,100 @@ function selectScopedElements(
   return { selected, skipped };
 }
 
+/**
+ * THE CAPTURE-ADDRESS GATE, over the run's registry and before any file walks: a shadow grammar
+ * REPLACES its embedded extraction, so the emitted set for an id is the shadow's once merged.
+ * Config load stays grammar-blind (no registry is built there); the loudness point in the user's
+ * experience is identical: CONFIG_INVALID, nothing measured.
+ */
+function assertTargetsAddressable(config: ResolvedConfig, registry: GrammarRegistry): void {
+  for (const rule of config.rules) {
+    for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
+      assertCaptureAddress(t, registry);
+    }
+  }
+  for (const rule of config.customRules ?? []) {
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    for (const t of targets) {
+      if (typeof t === "string") assertCaptureAddress(t, registry);
+    }
+  }
+}
+
+/**
+ * Backstop for optional config.input: no input at all is a setup failure (the CLI resolves flags >
+ * stdin > config before getting here). The changeset form counts as input: its list IS the
+ * selection.
+ */
+function assertInputSelected(
+  options: LintOptions,
+  pathsList: readonly string[] | undefined,
+  input: string | string[] | undefined,
+): void {
+  if (
+    options.str === undefined &&
+    pathsList === undefined &&
+    (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
+  ) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "no input: pass an input path, declare piped stdin (str for one source, paths for a path list), or set input in the config",
+    );
+  }
+}
+
+/**
+ * Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would stream
+ * the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
+ */
+function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
+  if (
+    ruleCount > 0 &&
+    options.classifier === undefined &&
+    !apiKeyAvailable(options.config.apiKey)
+  ) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
+    );
+  }
+}
+
+/**
+ * The run knobs: CLI flag > config key > default. Validated here (the SDK boundary) even when the
+ * config already validated them - lint() takes options that never passed the loader.
+ */
+function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: number } {
+  const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
+  const timeout = options.timeout ?? options.config.timeout ?? DEFAULT_TIMEOUT;
+  const problem = checkRunKnobs({ concurrency, timeout });
+  if (problem !== null) throw new SetupError("CONFIG_INVALID", problem);
+  return { concurrency, timeout };
+}
+
+/**
+ * The classifier seam carries all three knobs - composition order is load-bearing (pacer.ts): the
+ * limit caps in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a paced
+ * caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is the ONLY
+ * rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
+ */
+function pacedClassifier(
+  options: LintOptions,
+  knobs: { concurrency: number; timeout: number },
+): Classifier {
+  return withLimit(
+    withTimeout(
+      options.classifier ??
+        createClassifier({
+          apiKey: options.config.apiKey,
+          log: options.log,
+        }),
+      knobs.timeout,
+    ),
+    knobs.concurrency,
+  );
+}
+
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The run's registry VALUE, built once here and threaded through every walk/query entry point:
   // the grammar dir's customs merge over the embedded base (a custom wasm wins over embedded for
@@ -225,21 +320,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   for (const note of grammarNotes) {
     yield { type: "note", note };
   }
-  // THE CAPTURE-ADDRESS GATE runs HERE, over the run's registry and before any file walks: a
-  // shadow grammar REPLACES its embedded extraction, so the emitted set for an id is the shadow's
-  // once merged. Config load stays grammar-blind (no registry is built there); the loudness point
-  // in the user's experience is identical: CONFIG_INVALID, nothing measured.
-  for (const rule of options.config.rules) {
-    for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
-      assertCaptureAddress(t, registry);
-    }
-  }
-  for (const rule of options.config.customRules ?? []) {
-    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
-    for (const t of targets) {
-      if (typeof t === "string") assertCaptureAddress(t, registry);
-    }
-  }
+  assertTargetsAddressable(options.config, registry);
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
@@ -248,19 +329,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     throw new SetupError("LIST_EMPTY", "the path list selected no files (empty list)");
   }
   const input: string | string[] | undefined = options.input ?? options.config.input;
-  // Backstop for optional config.input: no input at all is a setup failure (the CLI resolves
-  // flags > stdin > config before getting here).
-  if (
-    options.str === undefined &&
-    // the changeset form: the LIST is the input (checked below)
-    pathsList === undefined &&
-    (input === undefined || input === "" || (Array.isArray(input) && input.length === 0))
-  ) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "no input: pass an input path, declare piped stdin (str for one source, paths for a path list), or set input in the config",
-    );
-  }
+  assertInputSelected(options, pathsList, input);
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
   // Inline callback rules come from the config boundary, already validated (load-time duplicates
@@ -292,43 +361,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       handle: ("handleData" in rule ? rule.handleData : undefined) ?? null,
     })),
   };
-  // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
-  // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
-  if (
-    rules.length + customRules.length > 0 &&
-    options.classifier === undefined &&
-    !apiKeyAvailable(options.config.apiKey)
-  ) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
-    );
-  }
-  // The run knobs: CLI flag > config key > default. Validated here (the SDK boundary) even when
-  // the config already validated them - lint() takes options that never passed the loader.
-  const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
-  const timeout = options.timeout ?? options.config.timeout ?? DEFAULT_TIMEOUT;
-  const knobProblem = checkRunKnobs({ concurrency, timeout });
-  if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
-  // The classifier seam carries all three knobs - composition order is load-bearing (pacer.ts):
-  // the limit caps in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a
-  // paced caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is
-  // the ONLY rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
-  const classifier = withLimit(
-    withTimeout(
-      options.classifier ??
-        createClassifier({
-          apiKey: options.config.apiKey,
-          log: options.log,
-        }),
-      timeout,
-    ),
-    concurrency,
-  );
+  assertApiKeyForRules(rules.length + customRules.length, options);
+  const knobs = resolveRunKnobs(options);
+  const classifier = pacedClassifier(options, knobs);
   // The changeset selection: every listed path is the file's identity verbatim. Entries that
   // resolve to no walked unit (missing, unreadable, non-source) are SIGNAL — a note names them
-  // below, never silence.
-  // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
+  // below, never silence. Walk coverage notes (the secret-shaped denylist's one-note-per-class
+  // skips) surface here.
   const walkerNotes: string[] = [];
   const stats = inputStats();
   const admission = await resolveRunUnits(
@@ -356,15 +395,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   for (const line of renderInputSummary(stats.summary(), admission.scopes)) {
     yield { type: "note", note: line };
   }
-  // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
-  // SIGNAL, never silence: one note names each, the run continues around them.
-  const unitPaths = new Set(
-    units.map((u) => ("path" in u.state ? u.state.path : "")).filter(Boolean),
-  );
-  if (pathsList !== undefined) {
-    for (const missing of pathsList.filter((p) => !unitPaths.has(p))) {
-      yield { type: "note", note: `path list entry not found in the walk: ${missing}` };
-    }
+  for (const note of unwalkedListEntryNotes(pathsList, units)) {
+    yield { type: "note", note };
   }
   // the walk's denylist coverage notes (one per class), in walk order - signal, not silence
   for (const note of walkerNotes) {
@@ -373,40 +405,16 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;
 
-  // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
-  // inventories (metadata + parent links) retained, trees freed inside walkUnit. Peak memory =
-  // metadata-so-far + contents-so-far + one tree, the same profile as the old streaming walk.
-  //
-  // The walk is a DEPENDENCY of inventory-scoped rules, so it is taken only where a consumer
-  // exists: a unit no in-scope rule targets at element level (files-target only) measures from
-  // its raw source and is never parsed. Unwalked units read as inventory-less downstream; a
-  // WALK_FAILED there is impossible by construction - the failure requires a walked-for file.
-  const skippedExtensions = new Set<string>();
-  const walked = new Map<number, WalkedUnit>();
-  for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
-    await Promise.all(
-      units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
-        if (unit.kind !== "file") return;
-        // custom rules resolve their targets from the inventory (element roles only), so any
-        // in-scope custom rule needs the walk just like a json-tier element rule
-        const needsWalk =
-          rules.some(
-            (rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
-          ) || customRules.some((rule) => inScopeFor(rule, unit.state.path));
-        if (!needsWalk) return;
-        const w = await walkUnit(
-          unit,
-          options.language !== undefined ? { language: options.language, registry } : { registry },
-        );
-        // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
-        // the coverage note; the unit still classifies whole (files-target rules read raw source)
-        if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
-          skippedExtensions.add(unclaimedExtension(unit.state.path));
-        }
-        walked.set(i + j, w);
-      }),
-    );
-  }
+  // WALK-FIRST (design rules-context/03): see walkedInventories - one walk over every file unit
+  // BEFORE any classification, taken only where a consumer exists.
+  const { walked, skippedExtensions } = await walkedInventories(
+    units,
+    options,
+    rules,
+    customRules,
+    registry,
+    inScopeFor,
+  );
   // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
   // union of what is parsed and what was seen-but-skipped is the run's honesty line.
   if (skippedExtensions.size > 0) {
@@ -433,35 +441,19 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     });
   }
 
-  // custom-tier resolution ONCE per run over the completed walk, then the retention decision: content
-  // of files with zero selected targets is dropped (logical drop, no re-read) unless a files-target
-  // JSON rule needs every file's text.
+  // custom-tier resolution ONCE per run over the completed walk, then the retention decision:
+  // content of files with zero selected targets is dropped (logical drop, no re-read) unless a
+  // files-target JSON rule needs every file's text.
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
-    const elementsByPath = new Map<string, readonly InventoryElement[]>();
-    for (let i = 0; i < units.length; i++) {
-      const w = walked.get(i);
-      if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
-    }
-    customResolved = resolveAllCustomTargets(customRules, elementsByPath);
-    // The retention guard is shape-robust on purpose: if the JSON target ever becomes an array
-    // form (the TS grammar already allows one), "files" anywhere in the target still retains.
-    const wantsAnyFile = (target: Rule["target"]): boolean =>
-      Array.isArray(target) ? target.includes("files") : target === "files";
-    if (!rules.some((r) => wantsAnyFile(r.target))) {
-      const targetPaths = new Set<string>();
-      for (const resolved of customResolved.values()) {
-        if ("targets" in resolved) for (const t of resolved.targets) targetPaths.add(t.path);
-      }
-      for (let i = 0; i < units.length; i++) {
-        const unit = units[i]!;
-        if (walked.has(i) && !targetPaths.has(unit.state.path)) {
-          units[i] = { kind: unit.kind, state: { ...unit.state, content: "" } };
-        }
-      }
+    customResolved = resolveAllCustomTargets(customRules, elementsByPathOf(units, walked));
+    if (!rules.some((r) => targetsFiles(r.target))) {
+      retainTargetedContent(units, walked, customResolved);
     }
   }
 
+  // the JSON-rule waves: FILE_CONCURRENCY units classify at a time, each wave's results
+  // streamed as they land (measurements before findings)
   for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
     const results = await Promise.all(
       units
@@ -481,65 +473,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
     for (let j = 0; j < results.length; j++) {
       const result = results[j]!;
-      const unit = units[i + j]!;
       if (result.abort) aborted = true;
-      // One note per skipped element, named the way every element in jint is named (path@L<line>,
-      // the finding convention): a count-only note said the run was incomplete, never WHERE or
-      // WHAT was skipped. The stable "skipped:" token is the machine-matchable marker — the note
-      // channel is plain strings in the report contract, so there is no code field to match on.
-      for (const skipped of result.oversized) {
-        const path = "path" in unit.state ? unit.state.path : "unit";
-        yield {
-          type: "note",
-          note:
-            `${path}@L${skipped.span.start.line}` +
-            ` skipped: ${skipped.capture} '${skipped.label}'` +
-            ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`,
-        };
-      }
-      for (const note of result.notes) yield { type: "note", note };
-      for (const { event, element } of result.events) {
-        if (event instanceof ClassifyError) {
-          yield { type: "error", error: withLanguageHint(event, options) };
-          continue;
-        }
-
-        yield { type: "measurement", measurement: { ...event, element } };
-        // One pass, no candidacy: every measurement is a reading; the rule's handle is the
-        // only threshold. Element readings carry their span into the finding's location.
-        const handle = byName.get(event.rule)?.handle;
-        // custom-tier events run their own policy pipeline; a rule outside the JSON map has no
-        // finding policy here.
-        if (handle === undefined) continue;
-        // the full answer flows to the handle: score resolution reads value (DEFAULT round) and
-        // carries probabilities/confidence for future reads
-        const outcome = handle(event);
-        if (outcome !== null) {
-          // The criteria legend echo is gone (owner contract change): classifier-adjacent rubric
-          // prose never reaches findings. The note is the rule AUTHOR's message attached at the
-          // fired handle tier, or nothing - default rules carry no messages (authoring them is a
-          // separate calibration pass).
-          yield {
-            type: "finding",
-            // Literal ternary branches, NOT conditional spreads: the LintEvent context type puts
-            // this literal under excess-property checking — an undeclared field is a compile error.
-            finding: {
-              rule: event.rule,
-              input: event.input,
-              value: event.value,
-              severity: outcome.severity,
-              note: outcome.message,
-              // the answer's certainty rides the finding (absent when the answer had none: noul
-              // answers, callback tiers) - findings are the actionable output; a coin-flip must
-              // be discoverable from them, not only from the measurement
-              confidence: event.confidence,
-              probabilities: event.probabilities,
-              location:
-                element !== undefined ? { input: event.input, span: element.span } : undefined,
-            },
-          };
-        }
-      }
+      yield* unitOutcomeEvents(result, units[i + j]!, byName, options);
     }
   }
 
@@ -549,6 +484,190 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     const phase = await runCustomRules(customRules, customResolved, classifier, () => aborted);
     for (const event of phase.events) yield event;
     if (phase.fatal) aborted = true;
+  }
+}
+
+/**
+ * Path-list entries that produced no walked unit (missing, unreadable, non-source) are SIGNAL,
+ * never silence: one note names each, the run continues around them.
+ */
+function unwalkedListEntryNotes(
+  pathsList: readonly string[] | undefined,
+  units: readonly Unit[],
+): string[] {
+  if (pathsList === undefined) return [];
+  const unitPaths = new Set(
+    units.map((u) => ("path" in u.state ? u.state.path : "")).filter(Boolean),
+  );
+  return pathsList
+    .filter((p) => !unitPaths.has(p))
+    .map((p) => `path list entry not found in the walk: ${p}`);
+}
+
+/**
+ * WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
+ * inventories (metadata + parent links) retained, trees freed inside walkUnit. Peak memory =
+ * metadata-so-far + contents-so-far + one tree, the same profile as the old streaming walk.
+ *
+ * The walk is a DEPENDENCY of inventory-scoped rules, so it is taken only where a consumer exists:
+ * a unit no in-scope rule targets at element level (files-target only) measures from its raw source
+ * and is never parsed. Unwalked units read as inventory-less downstream; a WALK_FAILED there is
+ * impossible by construction - the failure requires a walked-for file.
+ */
+async function walkedInventories(
+  units: readonly Unit[],
+  options: LintOptions,
+  rules: readonly Rule[],
+  customRules: readonly CustomRule[],
+  registry: GrammarRegistry,
+  inScopeFor: (rule: Rule | CustomRule, path: string) => boolean,
+): Promise<{ walked: Map<number, WalkedUnit>; skippedExtensions: Set<string> }> {
+  const skippedExtensions = new Set<string>();
+  const walked = new Map<number, WalkedUnit>();
+  for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
+    await Promise.all(
+      units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
+        if (unit.kind !== "file") return;
+        // custom rules resolve their targets from the inventory (element roles only), so any
+        // in-scope custom rule needs the walk just like a json-tier element rule
+        const needsWalk =
+          rules.some(
+            (rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
+          ) || customRules.some((rule) => inScopeFor(rule, unit.state.path));
+        if (!needsWalk) return;
+        const w = await walkUnit(
+          unit,
+          options.language !== undefined ? { language: options.language, registry } : { registry },
+        );
+        // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
+        // the coverage note; the unit still classifies whole (files-target rules read raw source)
+        if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
+          skippedExtensions.add(unclaimedExtension(unit.state.path));
+        }
+        walked.set(i + j, w);
+      }),
+    );
+  }
+  return { walked, skippedExtensions };
+}
+
+/**
+ * The retention guard is shape-robust on purpose: if the JSON target ever becomes an array form
+ * (the TS grammar already allows one), "files" anywhere in the target still retains.
+ */
+function targetsFiles(target: Rule["target"]): boolean {
+  return Array.isArray(target) ? target.includes("files") : target === "files";
+}
+
+/** Each walked unit's inventory by path: custom-target resolution over the completed walk. */
+function elementsByPathOf(
+  units: readonly Unit[],
+  walked: ReadonlyMap<number, WalkedUnit>,
+): Map<string, readonly InventoryElement[]> {
+  const byPath = new Map<string, readonly InventoryElement[]>();
+  for (let i = 0; i < units.length; i++) {
+    const w = walked.get(i);
+    if (w !== undefined) byPath.set(units[i]!.state.path, w.inventory);
+  }
+  return byPath;
+}
+
+/**
+ * The retention decision: content of files with zero selected targets is dropped (logical drop, no
+ * re-read) - every file's text stays only when a files-target JSON rule needs it.
+ */
+function retainTargetedContent(
+  units: Unit[],
+  walked: ReadonlyMap<number, WalkedUnit>,
+  customResolved: ResolvedCustomTargets,
+): void {
+  const targetPaths = new Set<string>();
+  for (const resolved of customResolved.values()) {
+    if ("targets" in resolved) for (const t of resolved.targets) targetPaths.add(t.path);
+  }
+  for (let i = 0; i < units.length; i++) {
+    const unit = units[i]!;
+    if (walked.has(i) && !targetPaths.has(unit.state.path)) {
+      units[i] = { kind: unit.kind, state: { ...unit.state, content: "" } };
+    }
+  }
+}
+
+/**
+ * One note per skipped element, named the way every element in jint is named (path@L<line>, the
+ * finding convention): a count-only note said the run was incomplete, never WHERE or WHAT was
+ * skipped. The stable "skipped:" token is the machine-matchable marker — the note channel is plain
+ * strings in the report contract, so there is no code field to match on.
+ */
+function oversizedSkipNote(path: string, skipped: OversizedElement): string {
+  return (
+    `${path}@L${skipped.span.start.line}` +
+    ` skipped: ${skipped.capture} '${skipped.label}'` +
+    ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`
+  );
+}
+
+/**
+ * One pass, no candidacy: every measurement is a reading; the rule's handle is the only threshold.
+ * Element readings carry their span into the finding's location. The criteria legend echo is gone
+ * (owner contract change): classifier-adjacent rubric prose never reaches findings. The note is the
+ * rule AUTHOR's message attached at the fired handle tier, or nothing - default rules carry no
+ * messages (authoring them is a separate calibration pass).
+ */
+function findingFor(
+  event: Measurement,
+  element: Element | undefined,
+  handle: Rule["handle"] | undefined,
+): Finding | undefined {
+  // custom-tier events run their own policy pipeline; a rule outside the JSON map has no
+  // finding policy here.
+  if (handle === undefined) return undefined;
+  // the full answer flows to the handle: score resolution reads value (DEFAULT round) and
+  // carries probabilities/confidence for future reads
+  const outcome = handle(event);
+  if (outcome === null) return undefined;
+  return {
+    rule: event.rule,
+    input: event.input,
+    value: event.value,
+    severity: outcome.severity,
+    note: outcome.message,
+    // the answer's certainty rides the finding (absent when the answer had none: noul
+    // answers, callback tiers) - findings are the actionable output; a coin-flip must be
+    // discoverable from them, not only from the measurement
+    confidence: event.confidence,
+    probabilities: event.probabilities,
+    // Literal ternary branches, NOT conditional spreads: this literal sits under
+    // excess-property checking — an undeclared field is a compile error.
+    location: element !== undefined ? { input: event.input, span: element.span } : undefined,
+  };
+}
+
+/**
+ * One unit's streamed outcome, in run order: oversized skips, the classifier's own notes, then
+ * measurements - each reading that crosses its rule's handle becoming a finding.
+ */
+function* unitOutcomeEvents(
+  result: UnitResult,
+  unit: Unit,
+  byName: ReadonlyMap<string, Rule>,
+  options: LintOptions,
+): Generator<LintEvent> {
+  const path = "path" in unit.state ? unit.state.path : "unit";
+  for (const skipped of result.oversized) {
+    yield { type: "note", note: oversizedSkipNote(path, skipped) };
+  }
+  for (const note of result.notes) {
+    yield { type: "note", note };
+  }
+  for (const { event, element } of result.events) {
+    if (event instanceof ClassifyError) {
+      yield { type: "error", error: withLanguageHint(event, options) };
+      continue;
+    }
+    yield { type: "measurement", measurement: { ...event, element } };
+    const finding = findingFor(event, element, byName.get(event.rule)?.handle);
+    if (finding !== undefined) yield { type: "finding", finding };
   }
 }
 
@@ -687,6 +806,78 @@ interface Admission {
 }
 
 /**
+ * The changeset form, entry by entry: a missing, unreadable, or non-source path degrades to a
+ * not-in-the-walk note (the caller names it below) - never a failed run.
+ */
+async function unitsFromPathsList(pathsList: readonly string[]): Promise<Unit[]> {
+  const resolved: Unit[] = [];
+  for (const entry of pathsList) {
+    try {
+      for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+        resolved.push(unit);
+      }
+    } catch (thrown) {
+      // missing / unreadable / non-source entries take the note path below, never fatal
+      if (
+        thrown instanceof SetupError &&
+        ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
+      ) {
+        continue;
+      }
+      throw thrown;
+    }
+  }
+  return resolved;
+}
+
+/**
+ * FILE-OPERAND SCOPES: the same one predicate as the walk, evaluated on each named path instead of
+ * by the walker. A named file behind the config scope is measured by unscoped rules exactly as a
+ * walked file is; a rule scope claims its files across the config exclude, as in the walk. The
+ * denylist is a SAFETY scope, not a selector: naming a secret-shaped path does not hand its
+ * contents to the classifier (pattern-level test; the PEM sniff stays walk-only - a named file with
+ * an innocent name is explicit consent, like piped source).
+ */
+function admittedOperands(
+  named: readonly string[],
+  options: LintOptions,
+  scopes: readonly OwnedScope[],
+  configAdmits: (p: string) => boolean,
+  stats: InputStats,
+  onWalkNote: (note: string) => void,
+): string[] {
+  // the ONE claim test (ruleScopeClaims over the same scopes the walk uses - never a second
+  // predicate): a rule claims the file when its include names it AND its own exclude does not
+  // subtract it. Attribution rides the same answer: the claiming scope is the admitting scope.
+  const claimingScope = (p: string): OwnedScope | undefined =>
+    scopes.find((scope) => ruleScopeClaims(scope, p));
+  const kept: string[] = [];
+  for (const path of named) {
+    const denied = denylistMatch(path, options.config.secretDenylist ?? SECRET_DENYLIST);
+    if (denied !== null) {
+      onWalkNote(
+        `secret denylist skipped '${path}' (named operand; pattern '${denied}') - naming a secret-shaped path does not hand its contents to the classifier`,
+      );
+      continue;
+    }
+    const claim = claimingScope(path);
+    if (!configAdmits(path) && claim === undefined) {
+      // the no-claim note names the emptiness; the operand still RESOLVES below - existence
+      // and grammar failures stay the caller's error, the scopes only decide which rules may
+      // measure (a resolve failure REPLACES this note: explicit consent, one hard error)
+      onWalkNote(
+        `${path}: no rule measures this file - outside the config scope and no rule claims it`,
+      );
+    }
+    // scope attribution for operands (run.input.admitted decomposes `included`): the config
+    // scope when it admits, else the claiming rule scope - the same first-match order as the walk
+    stats.tallyAdmit(configAdmits(path) ? "config" : (claim?.by ?? "config"));
+    kept.push(path);
+  }
+  return kept;
+}
+
+/**
  * The run's units, from whichever input form selected them. The changeset form defers per entry:
  * the list IS the judged subject, so a missing or non-source entry degrades to a not-in-the-walk
  * note instead of failing the run. (An empty list never reaches here: the guard above the auth gate
@@ -709,24 +900,7 @@ async function resolveRunUnits(
       scopes: [],
     };
   if (pathsList !== undefined && (input === undefined || input === "")) {
-    const resolved: Unit[] = [];
-    for (const entry of pathsList) {
-      try {
-        for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
-          resolved.push(unit);
-        }
-      } catch (thrown) {
-        // missing / unreadable / non-source entries take the note path below, never fatal
-        if (
-          thrown instanceof SetupError &&
-          ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
-        ) {
-          continue;
-        }
-        throw thrown;
-      }
-    }
-    return { units: resolved, configAdmits: () => true, scopes: [] };
+    return { units: await unitsFromPathsList(pathsList), configAdmits: () => true, scopes: [] };
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
@@ -765,43 +939,10 @@ async function resolveRunUnits(
       }),
     );
   if (resolvedKind === "file") {
-    // FILE-OPERAND SCOPES: the same one predicate, evaluated on the named path instead of by
-    // the walker. A named file behind the config scope is measured by unscoped rules exactly
-    // as a walked file is; a rule scope claims its files across the config exclude, as in the
-    // walk. The denylist is a SAFETY scope, not a selector: naming a secret-shaped path does
-    // not hand its contents to the classifier (pattern-level test; the PEM sniff stays
-    // walk-only - a named file with an innocent name is explicit consent, like piped source).
     const named = Array.isArray(input)
       ? [...input]
       : [elementPinned ? options.element!.path : (input as string)];
-    // the ONE claim test (ruleScopeClaims over the same scopes the walk uses - never a second
-    // predicate): a rule claims the file when its include names it AND its own exclude does not
-    // subtract it. Attribution rides the same answer: the claiming scope is the admitting scope.
-    const claimingScope = (p: string): OwnedScope | undefined =>
-      scopes.find((scope) => ruleScopeClaims(scope, p));
-    const kept: string[] = [];
-    for (const path of named) {
-      const denied = denylistMatch(path, options.config.secretDenylist ?? SECRET_DENYLIST);
-      if (denied !== null) {
-        onWalkNote(
-          `secret denylist skipped '${path}' (named operand; pattern '${denied}') - naming a secret-shaped path does not hand its contents to the classifier`,
-        );
-        continue;
-      }
-      const claim = claimingScope(path);
-      if (!configAdmits(path) && claim === undefined) {
-        // the no-claim note names the emptiness; the operand still RESOLVES below - existence
-        // and grammar failures stay the caller's error, the scopes only decide which rules may
-        // measure (a resolve failure REPLACES this note: explicit consent, one hard error)
-        onWalkNote(
-          `${path}: no rule measures this file - outside the config scope and no rule claims it`,
-        );
-      }
-      // scope attribution for operands (run.input.admitted decomposes `included`): the config
-      // scope when it admits, else the claiming rule scope - the same first-match order as the walk
-      stats.tallyAdmit(configAdmits(path) ? "config" : (claim?.by ?? "config"));
-      kept.push(path);
-    }
+    const kept = admittedOperands(named, options, scopes, configAdmits, stats, onWalkNote);
     const units = kept.length === 0 ? [] : await resolve(kept, "file");
     return { units, configAdmits, scopes };
   }
