@@ -73,6 +73,8 @@ jint run                                  # no operand: input comes from auto-di
 jint capture src/a.ts                     # extraction only: grammar, kind, span, name - one line per element
 jint capture src/ --queries wip.scm       # your own .scm drives extraction (--grammar <dir>: your own grammar)
 jint capture src/a.ts --json              # the element array as one JSON document
+jint capture                              # no target: walks the config's input, like run
+jint capture --rule is_name_purposeful    # preview: mark the population one rule will judge (nothing is classified)
 jint serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
 
@@ -81,6 +83,19 @@ The first positional is the verb: `run`, `serve`, or `capture`. There is no impl
 
 `jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory.
 `--config <path>` overrides discovery.
+
+`capture` loads the config through the same door `run` does, so it measures the same population
+a run will classify: with no target it walks the config's `input`; with a target it walks that
+path under the config's still-applicable scoping (`exclude`, `include`, `secretDenylist`; the
+`--exclude` flag unions on top, as in `run`). A config `run` cannot load, `capture` cannot
+either - same error, same message.
+
+`capture --rule <name>` previews one rule's population before any classification: the elements
+the rule's target and scope globs (`include`/`exclude` lists) would measure render with a
+leading `*` marker column (unmatched lines keep the column as a space), and carry
+`"matches": true` in `--json` - absent otherwise, never `false`. Default rules are addressed
+by name, config rules by theirs; an unknown name is run's own loud `unknown rule` error.
+Iterate on rules and scopes against this preview, then classify.
 
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_RUNS_DIR`).
 The custom grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.

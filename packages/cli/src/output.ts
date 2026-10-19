@@ -84,15 +84,21 @@ export function printRulesJson(effective: readonly Rule[], customCount: number):
  */
 export function captureLines(elements: readonly CapturedElement[]): string {
   const multiInput = new Set(elements.map((element) => element.input)).size > 1;
-  const lines = elements.map((element) =>
-    [
+  // The --rule preview's marker column: exists only when the preview marked something - `*` on
+  // the rule's population, a space on every other line (all lines carry the column, so it stays a
+  // column; grep '^\*' selects the population). No preview, no column - plain capture lines are
+  // byte-identical to before the preview existed.
+  const preview = elements.some((element) => element.matches === true);
+  const lines = elements.map((element) => {
+    const base = [
       element.grammar,
       element.kind,
       `L${element.span.start.line}-L${element.span.end.line}`,
       "name" in element ? (element.name ?? "-") : "-",
       ...(multiInput ? [element.input] : []),
-    ].join(" "),
-  );
+    ].join(" ");
+    return preview ? `${element.matches === true ? "*" : " "} ${base}` : base;
+  });
   return lines.length > 0 ? lines.join("\n") + "\n" : "";
 }
 

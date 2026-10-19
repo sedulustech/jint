@@ -33,9 +33,9 @@ describe("cli verbs e2e — resolution: the first positional IS the command", ()
   });
 
   test("a flag the verb does not take: exit 2 naming the flag and the verb", async () => {
-    const r = await runCli(["capture", FIXTURE, "--rule", "is_reused"], { timeout: 60_000 });
+    const r = await runCli(["capture", FIXTURE, "--disable", "is_reused"], { timeout: 60_000 });
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("--rule does not apply to capture");
+    expect(r.stderr).toContain("--disable does not apply to capture");
   });
 
   test("'--ui' is rejected with the serve pointer", async () => {
@@ -106,7 +106,10 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
     const dir = scratchDir("jint-capture-sweep");
     writeFileSync(join(dir, "one.ts"), "function one() {}\n");
     writeFileSync(join(dir, "data.json"), '{"a":1}\n');
-    const r = await runCli(["capture", dir], { timeout: 60_000 });
+    // cwd INSIDE the scratch dir: capture loads the config door now, and the repo root's own
+    // config (include: **/*.ts) would filter the .json out before the walk - the sweep note this
+    // test pins only fires where no config scoping removes the stray first
+    const r = await runCli(["capture", dir], { cwd: dir, timeout: 60_000 });
     // the strays never kill the run: the claimed file's elements are the payload (exit 0)
     expect(r.code).toBe(0);
     // one CLAIMED file only (the stray never reaches extraction), so the line keeps the

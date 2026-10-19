@@ -21,7 +21,7 @@ import {
   ClassifyError,
   InternalError,
   SetupError,
-  capture,
+  captureFor,
   checkRunKnobs,
   collectReport,
   runsBase,
@@ -93,7 +93,8 @@ export const FLAGS = {
   "--rule": {
     type: "string[]",
     arg: "<name>",
-    blurb: "run ONLY these rules (repeatable); overrides --disable for the named set",
+    blurb:
+      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified)",
   },
   "--concurrency": {
     type: "string",
@@ -249,8 +250,9 @@ export const VERBS = {
   },
   capture: {
     example: "jint capture doc.md",
-    blurb: "print extraction - grammar, kind, span, name - with the classifier unplugged",
-    flags: ["json", "queries", "grammar"],
+    blurb:
+      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always)",
+    flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
 } as const;
 
@@ -620,6 +622,42 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
   };
 }
 
+/**
+ * The CLI's ONE config door, shared by run and capture: --config > discovered jint.config.* >
+ * built-in defaults, loaded through the SDK loader with the bundled baseline (string rule names
+ * resolve), so both verbs see the same rules, input, and excludes - and a config that cannot load
+ * fails identically through either verb. configPath is the file that ran (absolute); null when the
+ * built-in defaults answered (no config file exists).
+ */
+async function loadCliConfig(cliArgs: CliArgs): Promise<{
+  resolvedConfig: ResolvedConfig;
+  configPath: string | null;
+}> {
+  const foundConfig = findConfigFile();
+  const resolvedConfig =
+    cliArgs.config !== undefined
+      ? await loadConfig(cliArgs.config, { baseline: defaultRules })
+      : foundConfig !== null
+        ? await loadConfig(foundConfig, { baseline: defaultRules })
+        : defaultConfig();
+  return {
+    resolvedConfig,
+    configPath: cliArgs.config !== undefined ? resolve(cliArgs.config) : foundConfig,
+  };
+}
+
+/**
+ * The config-scope basis for one input path, derived from the config's location: the walk root
+ * relative to the config's directory, so the config's scope patterns apply no matter where the walk
+ * starts (git parity). Undefined when no config file ran or the input escapes the config's
+ * directory. One derivation, two verbs (run and capture) - the mechanism is shared, not repeated.
+ */
+function configScopeBase(configPath: string | null, input: string): string | undefined {
+  if (configPath === null || input.startsWith("/")) return undefined;
+  const base = relative(dirname(configPath), resolve(input));
+  return base.startsWith("..") ? undefined : base;
+}
+
 export async function runCli(cliArgv: string[]): Promise<number> {
   provideVirtualModules();
   const parsedCliArgs = parseCliArgs(cliArgv);
@@ -683,23 +721,16 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     );
   }
 
-  // config discovery: TS preferred, JSON fallback; --config overrides discovery
-  const foundConfig = findConfigFile();
-
+  // config discovery: TS preferred, JSON fallback; --config overrides discovery - run and
+  // capture share this door (capture measures the population run will classify)
   let resolvedConfig: ResolvedConfig;
+  let configPath: string | null;
   try {
-    resolvedConfig =
-      cliArgs.config !== undefined
-        ? await loadConfig(cliArgs.config, { baseline: defaultRules })
-        : foundConfig !== null
-          ? await loadConfig(foundConfig, { baseline: defaultRules })
-          : defaultConfig();
+    ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
   } catch (thrown) {
     // Config-load errors are config-origin: no flag label applies.
     return exitForThrown(thrown);
   }
-  // The config file that ran (absolute); null when no config file exists (built-in defaults).
-  const configPath = cliArgs.config !== undefined ? resolve(cliArgs.config) : foundConfig;
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
@@ -794,14 +825,9 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // Config-scope basis (scopeBase): dir inputs walk with paths prefixed by their location
     // relative to the CONFIG's directory, so the config's scope patterns apply no matter
     // where the walk starts (git parity). Walks outside the config dir keep no prefix.
-    if (
-      configPath !== null &&
-      lintInput?.input !== undefined &&
-      typeof lintInput.input === "string" &&
-      !lintInput.input.startsWith("/")
-    ) {
-      const base = relative(dirname(configPath), resolve(lintInput.input));
-      if (!base.startsWith("..")) lintInputOptions.scopeBase = base;
+    if (lintInput?.input !== undefined && typeof lintInput.input === "string") {
+      const base = configScopeBase(configPath, lintInput.input);
+      if (base !== undefined) lintInputOptions.scopeBase = base;
     }
     const lintReport = await collectReport(
       lint({
@@ -935,20 +961,21 @@ async function serveVerb(rest: readonly string[]): Promise<number> {
 }
 
 /**
- * Capture <targetPath> [--queries <file.scm>] [--grammar <dir>]: a thin print of the SDK's
- * capture() - input resolution, grammar routing, extraction; no rules, no classifier, no config, no
- * stdin (a dash target is run's str noun, not capture's). One target, exactly: a directory covers
- * its whole tree. Lines on stdout, one per element; --json prints the element array under the
- * flag-product convention (one JSON document, errors stay on stderr). Setup failures map through
- * exitForThrown (2): the invocation is broken, not the extraction.
+ * Capture [<target>] [--queries <file.scm>] [--grammar <dir>] [--rule <name>]: a thin print of the
+ * SDK's capture door - input resolution, grammar routing, extraction; no rules run, no classifier,
+ * no stdin (a dash target is run's str noun, not capture's). The CONFIG loads exactly like run's
+ * (--config > discovered jint.config.* > built-in defaults), so capture measures the same
+ * population a run will classify: no target walks the config's input; a target walks it under the
+ * config's still-applicable scoping (include/exclude/secretDenylist - an explicit single FILE
+ * bypasses excludes, as in run); a config that cannot load fails with run's exact error. --rule
+ * previews ONE rule's population: the elements its target and scope globs would measure carry the
+ * marker (matches: true in --json, a leading * column in lines); nothing is classified. --exclude
+ * unions on top of the config's excludes - run's mechanism, reused. One target, exactly: a
+ * directory covers its whole tree. Lines on stdout, one per element; --json prints the element
+ * array under the flag-product convention (one JSON document, errors stay on stderr). Setup
+ * failures map through exitForThrown (2): the invocation is broken, not the extraction.
  */
 async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
-  if (rest.length === 0) {
-    usageError(
-      "jint capture expects a target path  - use: jint capture <path> [--queries <file.scm>] [--grammar <dir>]",
-    );
-    return 2;
-  }
   if (rest.length > 1) {
     usageError("jint capture takes one target path  - a directory covers its whole tree");
     return 2;
@@ -957,21 +984,49 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     usageError("capture takes files and dirs  - piped stdin is run's str noun: jint run str -");
     return 2;
   }
+  if ((cliArgs.rule?.length ?? 0) > 1) {
+    usageError(
+      "jint capture previews one rule at a time  - pass one --rule name (repeat the command for another rule)",
+    );
+    return 2;
+  }
+  let resolvedConfig: ResolvedConfig;
+  let configPath: string | null;
+  try {
+    ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
+  } catch (thrown) {
+    // the same door, the same message: a config run cannot load, capture cannot either
+    return exitForThrown(thrown);
+  }
+  if (rest.length === 0 && resolvedConfig.input === "") {
+    usageError(
+      "jint capture expects a target path  - use: jint capture <path> [--queries <file.scm>] [--grammar <dir>], or set input in the config",
+    );
+    return 2;
+  }
   try {
     // a dir's unclaimable files: one onSkip event each, folded here into ONE stderr note (the
     // extension set - lint's sweep-coverage words); stdout stays the one payload document
     const skips: { file: string; extension: string }[] = [];
-    const elements = await capture(rest[0]!, cliArgs.queries, cliArgs.grammar, (skip) =>
+    const notes: string[] = [];
+    const walk = captureFor(resolvedConfig, {
+      exclude: cliArgs.exclude,
+      rule: cliArgs.rule?.[0],
+      scopeBase: rest[0] !== undefined ? configScopeBase(configPath, rest[0]) : undefined,
+      onNote: (note) => notes.push(note),
+    });
+    const elements = await walk(rest[0], cliArgs.queries, cliArgs.grammar, (skip) =>
       skips.push(skip),
     );
     const skipped = [...new Set(skips.map((s) => s.extension))].sort();
     if (skipped.length > 0) {
       emit({ message: "not parsed (no grammar): " + skipped.join(", "), kind: "note" });
     }
+    for (const note of notes) emit({ message: note, kind: "note" });
     process.stdout.write(cliArgs.json === true ? captureJson(elements) : captureLines(elements));
     return 0;
   } catch (thrown) {
-    return exitForThrown(thrown);
+    return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
   }
 }
 
