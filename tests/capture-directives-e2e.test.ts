@@ -55,14 +55,12 @@ cpSync(
   join(GRAMMARS, "markdown.wasm"),
 );
 writeFileSync(join(GRAMMARS, "extensions.json"), JSON.stringify([".md"]));
-// THE ENTIRE AUTHORING SURFACE: two patterns, three directive lines - a NEW capture (@block)
-// declared a definition and a selfNester, with no engine registration anywhere
+// THE ENTIRE AUTHORING SURFACE: one pattern, two directives beside it - a NEW capture (@block) declared a
+// definition and a selfNester, with no engine registration anywhere
 writeFileSync(
   join(GRAMMARS, "queries.scm"),
   [
-    '(section (atx_heading (inline) @name)) @block (#set! "capture.block.definition" "true")',
-    '(#set! "capture.block.selfNesting" "true")',
-    '(block_continuation) @comment (#set! "capture.comment.definition" "false")',
+    '(section (atx_heading (inline) @name)) @block (#set! "capture.block.definition" "true") (#set! "capture.block.selfNesting" "true")',
     "",
   ].join("\n"),
 );

@@ -35,10 +35,7 @@ declare module "jint:sdk" {
      * For a comment element a definition owns (a docstring): who it documents. Its presence is what
      * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
      */
-    readonly docstringOf?: {
-      readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
-      readonly name: string;
-    };
+    readonly docstringOf?: import("@jint/contract").DocstringOwner;
     readonly parent: CustomElement | null;
   }
 

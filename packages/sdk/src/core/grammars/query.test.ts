@@ -230,6 +230,19 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     ).toThrow(/emit no @ghost - directive and patterns disagree/);
   });
 
+  test("a capture directive riding a pattern that binds a DIFFERENT capture is loud", () => {
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    // @chunk's directive attached to the @lane pattern (@chunk IS emitted, by the later
+    // pattern): a silent retarget the emitted check alone cannot catch
+    const scm = "(x) @lane " + D("capture.chunk.definition", "true") + " (y) @chunk";
+    expect(() => assertScmDirectives(scm, "g")).toThrow(
+      /rides a pattern that does not bind @chunk - attach it to a pattern that does/,
+    );
+    // the same directive, riding ITS OWN pattern, passes
+    const ok = "(x) @chunk " + D("capture.chunk.definition", "true") + " (y) @lane";
+    expect(() => assertScmDirectives(ok, "g")).not.toThrow();
+  });
+
   test("scmCaptureDeclarations resolves definition true/false from the directives", () => {
     const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
     const scm =

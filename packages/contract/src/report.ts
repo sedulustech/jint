@@ -14,9 +14,14 @@ export interface Span {
   readonly endByte: number;
 }
 
-/** The construct a docstring documents; name is empty for the module. */
+/**
+ * The construct a docstring documents; name is empty for the module. kind is the OWNER CAPTURE,
+ * open: the six shared definition kinds are the common values, but an autonomous capture may own a
+ * comment in its grammar (its capture name arrives here losslessly) - the wire never crashes a BYOG
+ * grammar on a closed enum.
+ */
 export interface DocstringOwner {
-  readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
+  readonly kind: string;
   readonly name: string;
 }
 

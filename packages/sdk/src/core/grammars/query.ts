@@ -124,6 +124,16 @@ export interface ScmPattern {
   readonly pattern: number;
   readonly rootType: string;
   readonly capture: Capture | null;
+  /** Every capture name the pattern binds (capture above is the FIRST - the element capture). */
+  readonly captures: readonly string[];
+  /** 1-based line span of the pattern (first..last) - for messages. */
+  readonly line: number;
+  readonly lastLine: number;
+  /** Character span (at..at+textLength) - locates attached directives EXACTLY. */
+  readonly at: number;
+  readonly textLength: number;
+  /** True for a predicate group ((#set! ...)) - a directive's tail, never its carrier. */
+  readonly textStartsPredicate: boolean;
   readonly intentional: boolean;
 }
 
@@ -134,8 +144,8 @@ export interface ScmPattern {
  * pattern boundaries, which made multi-line patterns report an inner token as their root (the
  * merge-gate finding).
  */
-function splitPatterns(scm: string): { text: string; precededBy: string }[] {
-  const patterns: { text: string; precededBy: string }[] = [];
+function splitPatterns(scm: string): { text: string; precededBy: string; at: number }[] {
+  const patterns: { text: string; precededBy: string; at: number }[] = [];
   let depth = 0;
   let start = -1;
   // index of the closing paren, pinned when depth returns to 0
@@ -148,6 +158,7 @@ function splitPatterns(scm: string): { text: string; precededBy: string }[] {
     patterns.push({
       text: scm.slice(start, Math.max(open + 1, tailEnd)),
       precededBy: pendingComments,
+      at: start,
     });
     start = -1;
     open = -1;
@@ -341,6 +352,8 @@ interface ScmDirective {
   /** The declared value, when the directive form carries one (#set! "name" "value"). */
   readonly value?: string;
   readonly line: number;
+  /** Character offset of the # - locates the CARRYING pattern exactly. */
+  readonly at: number;
 }
 
 /**
@@ -376,6 +389,7 @@ export function scmDirectives(scm: string): ScmDirective[] {
     }
     if (char === "#" && scm.slice(i, i + 4) === "#set") {
       const bang = scm[i + 4] === "!";
+      const setAt = i;
       i += 4;
       // past the bang, onto the (required) quoted name, then the (optional) quoted value
       if (bang) i++;
@@ -399,7 +413,7 @@ export function scmDirectives(scm: string): ScmDirective[] {
       i += nameMatch![0]!.length;
       while (i < scm.length && scm[i] === " ") i++;
       const valueMatch = scm.slice(i).match(/^"((?:[^"\\]|\\.)*)"/);
-      directives.push({ name, value: valueMatch?.[1], line });
+      directives.push({ name, value: valueMatch?.[1], line, at: setAt });
       if (valueMatch !== null) i += valueMatch[0]!.length;
       continue;
     }
@@ -422,6 +436,7 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
   const known = Object.keys(DIRECTIVES) as DirectiveName[];
   const seen = new Map<string, { readonly value: string | undefined; readonly line: number }>();
   const emitted = scmEmittedNames(scm);
+  const patterns = parseScmPatterns(scm);
   for (const directive of scmDirectives(scm)) {
     const captureKnob = directive.name.match(CAPTURE_DIRECTIVE);
     if (captureKnob !== null) {
@@ -433,6 +448,25 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
         throw new SetupError(
           "CONFIG_INVALID",
           `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" names capture '${capture}' but the queries emit no @${capture} - directive and patterns disagree`,
+        );
+      }
+      // CARRIED BY A BINDING PATTERN: a directive rides the LAST pattern opened before it -
+      // trailing predicates ((node) @cap (#set! ...)) follow the pattern's open paren, so
+      // last-opener attribution is exact. It may only name a capture THAT pattern binds: a
+      // capture.X directive riding a pattern that binds @Y is a silent retarget (the wrong knob
+      // on the wrong capture). A directive before ANY pattern (a standalone #set! line) is the
+      // same loudness: it attaches to nothing.
+      let carrying: ScmPattern | undefined;
+      for (const p of patterns) {
+        // predicate groups ((#set! ...)) are not carrying patterns - the carrier is the last
+        // REAL pattern opened before the directive
+        if (p.at < directive.at && !p.textStartsPredicate) carrying = p;
+      }
+      const bound = carrying !== undefined && carrying.captures.includes(capture);
+      if (!bound) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" rides a pattern that does not bind @${capture} - attach it to a pattern that does (a directive naming one capture while riding another's pattern is a silent retarget)`,
         );
       }
       const booleanOk = directive.value === "true" || directive.value === "false";
@@ -493,7 +527,12 @@ export function scmSelfNesting(scm: string): boolean {
   return scmDirectives(scm).some((d) => d.name === "selfNesting");
 }
 export function parseScmPatterns(scm: string): ScmPattern[] {
+  // line spans derive from CHARACTER INDICES (counting newlines before the pattern) - a running
+  // counter would drift past the comment blocks between patterns
+  const lineOf = (index: number): number => 1 + scm.slice(0, index).split("\n").length - 1;
   return splitPatterns(scm).map((pattern, index) => {
+    const startLine = lineOf(pattern.at);
+    const lastLine = startLine + pattern.text.split("\n").length - 1;
     // comments and string literals both go: only real syntax names a root, a capture or a
     // directive (a predicate string mentioning @priority must not fake one)
     // text with string literals blanked but COMMENTS INTACT: the directive is a comment, so it
@@ -508,6 +547,12 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
       pattern: index,
       rootType,
       capture,
+      captures,
+      line: startLine,
+      lastLine,
+      at: pattern.at,
+      textLength: pattern.text.length,
+      textStartsPredicate: /^\(\s*#/.test(pattern.text),
       // the directive rides a preceding comment line OR a trailing comment inside the pattern
       intentional: /@priority\b/.test(pattern.precededBy) || /@priority\b/.test(unquoted),
     };
@@ -877,15 +922,15 @@ const DEFAULT_ADDRESSABLE: ReadonlySet<string> = new Set(SHARED_ELEMENT_CAPTURES
  * first: prose naming a capture does not emit it.
  */
 export function emittedCaptures(registry: GrammarRegistry, grammarId: string): readonly string[] {
-  // the SHARED .scm reader: strings blanked, then comments cut - a capture named in a trailing
-  // comment or a predicate string is prose, not an emitted fact (an address must never validate
-  // against a capture the grammar would not actually extract)
-  const scm = scmCode(grammar(registry, grammarId).queries);
-  const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
-  // addressable = SHARED (the lingua franca) or declared by THIS grammar's .scm (autonomous).
-  // The RAW .scm feeds the declaration reader - the code-only text above has its strings blanked
-  // and a directive's name IS a string literal
-  const declared = scmCaptureDeclarations(grammar(registry, grammarId).queries);
+  // TWO VIEWS OF ONE FILE, deliberately (the boundary): the CODE view (scmEmittedNames - strings
+  // blanked, comments cut) for what the queries EMIT, and the RAW text for what they DECLARE
+  // (a directive's name is a string literal; the code view erases it). The views share this
+  // seam; merging them into one scanner would reshape three load-bearing readers
+  // (scmDirectives, scmEmittedNames, assertScmDirectives) for no new fact.
+  const raw = grammar(registry, grammarId).queries;
+  const named = scmEmittedNames(raw);
+  // addressable = SHARED (the lingua franca) or declared by THIS grammar's .scm (autonomous)
+  const declared = scmCaptureDeclarations(raw);
   return [...named]
     .filter(
       (c) =>

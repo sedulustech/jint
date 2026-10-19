@@ -39,11 +39,6 @@ export const ELEMENT_SCHEMA = Type.Union([
     name: Type.Optional(Type.String()),
   }),
   Type.Object({ kind: Type.Literal("import"), ...ELEMENT_BASE }),
-  Type.Object({
-    kind: Type.Literal("section"),
-    ...ELEMENT_BASE,
-    name: Type.Optional(Type.String()),
-  }),
   // the open namespace: an autonomous capture's element - kind is its capture name
   Type.Object({ kind: Type.String(), ...ELEMENT_BASE, name: Type.Optional(Type.String()) }),
   Type.Object({

@@ -44,7 +44,12 @@ import {
   type SuppressionShape,
   scmSelfNesting,
 } from "./query.ts";
-import { SHARED_ELEMENT_CAPTURES, sharedDefinitionDefault, sharedPolicyDefault } from "./shared.ts";
+import {
+  SHARED_ELEMENT_CAPTURES,
+  SHARED_PROJECTION,
+  sharedDefinitionDefault,
+  sharedPolicyDefault,
+} from "./shared.ts";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -171,11 +176,15 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
  * The captures this grammar's walk yields candidates for: the shared lingua franca plus its own
  * declared autonomous captures.
  */
+/**
+ * The captures this grammar's walk yields candidates for: the shared lingua franca plus its
+ * declared autonomous ELEMENT captures - the SAME set emittedCaptures exposes to target validation
+ * (a definition-false capture produces no elements, so neither side admits it).
+ */
 function resolveAddressable(scm: string): ReadonlySet<string> {
   const declared = scmCaptureDeclarations(scm);
   const addressable = new Set<string>(SHARED_ELEMENT_CAPTURES);
   for (const capture of declared.definitions) addressable.add(capture);
-  for (const capture of declared.inert) addressable.add(capture);
   return addressable;
 }
 
@@ -580,21 +589,6 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
-// THE PROJECTION: one entry per capture, typed exhaustively over Capture - adding a capture
-// without a projection is a compile error here, never a runtime surprise mid-walk.
-const PROJECTION: {
-  readonly [shared: string]: (element: InventoryElement, base: ProjectionBase) => Element;
-} = {
-  comment: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
-  docstring: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
-  type: (e, base) => ({ kind: "type", ...base, name: e.name }),
-  binding: (e, base) => ({ kind: "binding", ...base, name: e.name }),
-  import: (_e, base) => ({ kind: "import", ...base }),
-  function: (e, base) => ({ kind: "function", ...base, name: e.name }),
-  method: (e, base) => ({ kind: "method", ...base, name: e.name }),
-  class: (e, base) => ({ kind: "class", ...base, name: e.name }),
-};
-
 /**
  * Project one inventory element to the wire. SHARED captures carry their typed shapes; an
  * AUTONOMOUS capture rides the generic element shape - its kind is its capture name, its name rides
@@ -607,7 +601,7 @@ export function projectElement(element: InventoryElement): Element {
     label: element.label,
     parent: element.parent,
   };
-  const project = PROJECTION[element.capture];
+  const project = SHARED_PROJECTION[element.capture];
   if (project !== undefined) return project(element, base);
   if (element.name === undefined) return { kind: element.capture, ...base };
   return { kind: element.capture, ...base, name: element.name };

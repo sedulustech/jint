@@ -68,6 +68,12 @@ Everything fails loud, at setup, before any file is measured — never into sile
 
 - **Unknown node types**: `queries.scm` names a node type the grammar does not have. Query
   compilation rejects it; the error quotes the compiler message verbatim.
+- **BREAKING (grammar user grammars on main)**: `@section`, `@paragraph`, `@list`, `@list_item`
+  in a USER shadow grammar's queries.scm were loadable names on main; after the
+  capture-directives migration they are autonomous captures like any other and fail load
+  WITHOUT their declaration directives. Migration: add one line per capture -
+  `(#set! "capture.section.definition" "true")` attached to a pattern binding `@section` - and
+  the grammar measures as before. The embedded grammars already carry theirs.
 - **Undeclared captures**: a capture that is neither SHARED nor declared by a
   `capture.<name>.definition` directive. The run refuses to start, prints your captures next to
   the shared eight, and names the exact directive to add - an undeclared capture would parse
