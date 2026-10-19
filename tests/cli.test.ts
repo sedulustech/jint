@@ -91,7 +91,14 @@ describe("cli: contract basics", () => {
 
   test.concurrent("two files classify as file units", async () => {
     const r = await run(
-      ["run", "tests/fixtures/sample-file.ts", "tests/fixtures/sample-dir/good.ts", "--json"],
+      [
+        "run",
+        "tests/fixtures/sample-file.ts",
+        "tests/fixtures/sample-dir/good.ts",
+        "--json",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
       NO_SERVICE,
     );
     expect(r.code).toBe(4);
@@ -157,7 +164,17 @@ describe("cli: contract basics", () => {
 
   // the bun runtime eats a LEADING bare '--' from argv, so the flags must ride before it
   test.concurrent("'--' ends flag parsing: a dash-path classifies", async () => {
-    const r = await run(["run", "--json", "--", "tests/fixtures/dash-path/--weird.ts"], NO_SERVICE);
+    const r = await run(
+      [
+        "run",
+        "--json",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+        "--",
+        "tests/fixtures/dash-path/--weird.ts",
+      ],
+      NO_SERVICE,
+    );
     expect(r.code).toBe(4); // reached measurement: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
   });
@@ -171,11 +188,27 @@ describe("cli: contract basics", () => {
 
   test.concurrent("flags before and after positionals are equivalent", async () => {
     const a = await run(
-      ["--json", "--rule", "is_greppable", "run", "tests/fixtures/sample-file.ts"],
+      [
+        "--json",
+        "--rule",
+        "is_greppable",
+        "run",
+        "tests/fixtures/sample-file.ts",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
       NO_SERVICE,
     );
     const b = await run(
-      ["run", "tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"],
+      [
+        "run",
+        "tests/fixtures/sample-file.ts",
+        "--json",
+        "--rule",
+        "is_greppable",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
       NO_SERVICE,
     );
     expect(a.code).toBe(b.code);
@@ -194,10 +227,22 @@ describe("cli: contract basics", () => {
   test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {
     // file semantics: the 'diff' extension is not a source grammar -> MISSING_GRAMMAR; it was NOT
     // noun-dispatched (a bare noun is a payload usage error instead)
-    expectContract(await run(["run", "tests/fixtures/named-diff/diff", "--json"], NO_SERVICE), {
-      exit: 2,
-      stderr: "MISSING_GRAMMAR",
-    });
+    expectContract(
+      await run(
+        [
+          "run",
+          "tests/fixtures/named-diff/diff",
+          "--json",
+          "--config",
+          "tests/fixtures/configs/doors-open.json",
+        ],
+        NO_SERVICE,
+      ),
+      {
+        exit: 2,
+        stderr: "MISSING_GRAMMAR",
+      },
+    );
   });
 
   // NO_SERVICE points at a dead base URL and the CLI performs a real fetch; connection
@@ -410,7 +455,16 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 
   test.concurrent("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", async () => {
     // file semantics: rejected as a non-source extension (MISSING_GRAMMAR), not decomposed as a diff
-    const r = await run(["run", "tests/fixtures/sample.diff", "--json"], NO_SERVICE);
+    const r = await run(
+      [
+        "run",
+        "tests/fixtures/sample.diff",
+        "--json",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
+      NO_SERVICE,
+    );
     expectContract(r, { exit: 2, stderr: "MISSING_GRAMMAR" });
     expect(r.stderr).not.toContain("diff --git");
 
@@ -483,7 +537,15 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     const dir = ROOT + "/tmp/cli-tap-report";
     rmSync(dir, { recursive: true, force: true }); // no stale run dirs from past invocations
     const r = await runMock(
-      ["run", "tests/fixtures/sample-file.ts", "--json", "--rule", "is_greppable"],
+      [
+        "run",
+        "tests/fixtures/sample-file.ts",
+        "--json",
+        "--rule",
+        "is_greppable",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
       {
         JINT_RUNS_DIR: dir,
       },
@@ -506,7 +568,13 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     expect(report.run).toEqual({
       id: runDir!.split("/").pop(),
       dir: runDir,
-      input: { discovered: 1, included: 1, excluded: [], skipped: [], admitted: [] },
+      input: {
+        discovered: 1,
+        included: 1,
+        excluded: [],
+        skipped: [],
+        admitted: [{ by: "config", count: 1 }],
+      },
     });
   });
 
@@ -519,6 +587,8 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
       "tests/fixtures/sample-file.ts",
       "tests/fixtures/sample-dir/good.ts",
       "--json",
+      "--config",
+      "tests/fixtures/configs/doors-open.json",
       "--rule",
       "is_name_purposeful",
       "--rule",
@@ -543,9 +613,19 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     // (async runMock: the in-process mock cannot answer while a spawnSync blocks the loop)
     const dir = `/tmp/jint-dump-cli-${Date.now()}`;
     // DEFAULT stdout (no --json): raw lines are the projection; report.json persists anyway
-    const r = await runMock(["run", "tests/fixtures/sample-file.ts", "--rule", "is_greppable"], {
-      JINT_RUNS_DIR: dir,
-    });
+    const r = await runMock(
+      [
+        "run",
+        "tests/fixtures/sample-file.ts",
+        "--rule",
+        "is_greppable",
+        "--config",
+        "tests/fixtures/configs/doors-open.json",
+      ],
+      {
+        JINT_RUNS_DIR: dir,
+      },
+    );
     expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stderr).toContain(`jint: requests -> ${dir}/`);
     expect(r.stderr).toMatch(/\(\d+ calls\) \(override: JINT_RUNS_DIR\)/);

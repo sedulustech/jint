@@ -8,9 +8,10 @@
  * is the SHALLOWEST ignore scope, so gitignore/config negations compose like ordinary rules (a
  * `!keep.pem` deeper scope re-admits). EXCEPT the PEM sniff: a file whose first bytes are
  * `-----BEGIN ` is skipped even when a negation re-admitted it. Skips are signal: ONE coverage note
- * per denylist class per walk (same doctrine as the other walker exclusions). Explicitly passed
- * single files bypass the denylist entirely (explicit path = consent; resolveInput's file path
- * never enters walkDir).
+ * per denylist class per walk (same doctrine as the other walker exclusions). The walker itself
+ * only sees walked directories - a NAMED operand never enters walkDir; lint applies the same
+ * denylist to named operands at admission (safety door, not selector: pattern-level there, with
+ * this walk's PEM sniff staying walk-only).
  */
 
 import { existsSync } from "node:fs";
@@ -113,21 +114,40 @@ export interface IncludeDoor {
   readonly by: string;
   /** Include patterns; the config door with ZERO patterns admits everything (include = []). */
   readonly patterns: readonly string[];
+  /** Rule doors only: the rule's own exclude - a rule that excludes a file does not claim it. */
+  readonly exclude?: readonly string[];
 }
 
 interface CompiledDoor {
   readonly by: string;
   readonly rules: readonly IgnoreRule[];
+  /** Rule doors only: the rule's own compiled exclude. */
+  readonly excludeRules: readonly IgnoreRule[];
   /** The config door only: zero patterns = match everything. */
   readonly matchAll: boolean;
+  /**
+   * The ONE claim test (scope.ts ruleDoorClaims' semantics, precompiled): include match AND the
+   * rule's own exclude does not subtract.
+   */
+  claims(path: string): boolean;
 }
 
 function compileDoors(doors: readonly IncludeDoor[]): CompiledDoor[] {
-  return doors.map((door) => ({
-    by: door.by,
-    rules: door.patterns.map(compilePattern),
-    matchAll: door.by === "config" && door.patterns.length === 0,
-  }));
+  return doors.map((door) => {
+    const excludeRules = (door.exclude ?? []).map(compilePattern);
+    return {
+      by: door.by,
+      rules: door.patterns.map(compilePattern),
+      excludeRules,
+      matchAll: door.by === "config" && door.patterns.length === 0,
+      claims:
+        door.by === "config"
+          ? () => false
+          : (path) =>
+              door.patterns.some((p) => patternMatchesFile(compilePattern(p), path)) &&
+              !excludeRules.some((r) => patternMatchesFile(r, path)),
+    };
+  });
 }
 
 /** First door whose patterns admit the file (config door first in the list wins ties). */
@@ -339,25 +359,32 @@ async function readFileUnit(
   // discovered: the walker opened this file's doors - every drop below is accounted
   stats?.markDiscovered();
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
-  // WALK-UNION admission: a RULE door that admits the file claims jurisdiction over it - even
-  // where the config exclude would drop it (the more specific scope wins; the denylist and
-  // gitignore doors below are SAFETY doors and never yield). The config door is the ordinary
-  // whitelist: exclude subtracts first, include admits what remains.
-  const admittingDoor = firstAdmittingDoor(doors, scopePath);
-  const ruleDoorAdmits = admittingDoor !== null && admittingDoor.by !== "config";
-  if (!ruleDoorAdmits) {
-    const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
+  // WALK-UNION admission: a rule door that matches the file CLAIMS JURISDICTION over it -
+  // even where the config exclude would drop it (the more specific scope wins; the denylist
+  // and gitignore doors below are SAFETY doors and never yield). Jurisdiction is independent of
+  // the config door: a rule claims its file whether or not the config include also matches, so
+  // the claim test runs on the rule doors alone. Attribution stays first-match (config first)
+  // EXCEPT where the claim SAVED the file from the exclude - then the saving door owns it.
+  // the claim test is ruleDoorClaims' semantics (scope.ts) inlined over the compiled doors:
+  // include match AND the rule's own exclude does not subtract - one semantics, both consumers
+  const claim = doors.find((door) => door.claims(scopePath));
+  const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
+  if (claim === undefined || excludeMatch === -1) {
     if (excludeMatch !== -1) {
       stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
       return null;
     }
     // doors exist but none admits: outside every include list
+    const admittingDoor = firstAdmittingDoor(doors, scopePath);
     if (doors.length > 0 && admittingDoor === null) {
       stats?.tallySkip(SKIP_REASONS.notInInclude);
       return null;
     }
+    stats?.tallyAdmit(admittingDoor === null ? "config" : admittingDoor.by);
+  } else {
+    // the rule door saved this file from the config exclude: it is the admitting door
+    stats?.tallyAdmit(claim.by);
   }
-  stats?.tallyAdmit(admittingDoor === null ? "config" : admittingDoor.by);
   if (isSecretShaped(relativePath, false, currentScopes, deny)) {
     stats?.tallySkip(SKIP_REASONS.denylist);
     return null;
@@ -519,6 +546,24 @@ function isSecretShaped(
       ?.pattern ?? "secret-shaped";
   deny.counts.set(matched, (deny.counts.get(matched) ?? 0) + 1);
   return true;
+}
+
+/**
+ * The secret-shaped denylist evaluated for ONE NAMED operand (the walk composes the denylist as a
+ * scope with negations; the operand case is a pattern-level test - the named path either is
+ * secret-shaped or it is not). Returns the matched pattern, null when the path is clean. The PEM
+ * content sniff stays walk-only: a name under an innocent name is explicit consent the same way
+ * piped source is; the pattern door covers the leak audit's threat (secret-shaped NAMES).
+ */
+export function denylistMatch(
+  path: string,
+  patterns: readonly string[] = SECRET_DENYLIST,
+): string | null {
+  for (const pattern of patterns) {
+    const rule = compilePattern(pattern);
+    if (!rule.negated && patternMatchesFile(rule, path)) return pattern;
+  }
+  return null;
 }
 
 /**

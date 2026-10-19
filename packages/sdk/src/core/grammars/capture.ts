@@ -3,7 +3,7 @@ import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
-import { configDoorPredicate, ruleInScope, walkDoors } from "../scope.ts";
+import { configDoorAdmits, ruleInScope, walkDoors } from "../scope.ts";
 import { SetupError, type Rule } from "../types.ts";
 import {
   grammar,
@@ -248,7 +248,7 @@ function markPreviewPopulation(
   rule: Rule | CustomRule,
   captured: CapturedElement[],
   files: readonly WalkedFile[],
-  configDoorAdmits: (path: string) => boolean,
+  configAdmits: (path: string) => boolean,
 ): void {
   const marked = new Set<number>();
   if (isCustomRule(rule)) {
@@ -273,7 +273,7 @@ function markPreviewPopulation(
           targetsOf(rule).some((target) => matchesTarget(target, element)) &&
           // preview == run population: unscoped rules follow the config door too
           ruleInScope(rule, file.path) &&
-          (rule.include !== undefined || configDoorAdmits(file.path))
+          (rule.include !== undefined || configAdmits(file.path))
         ) {
           marked.add(index);
         }
@@ -344,9 +344,13 @@ export function captureFor(
       onSkip,
     );
     // preview == run population (walk-union): unscoped rules follow the config door, so the
-    // marker applies the same gate the run's rule selection applies
-    const configDoorAdmits = configDoorPredicate(config.include);
-    if (rule !== undefined) markPreviewPopulation(rule, captured, files, configDoorAdmits);
+    // marker applies the SAME one predicate the run's rule selection applies - over the COMPOSED
+    // exclude (config + the --exclude extra), exactly what the walk below and run compose
+    const configAdmits = configDoorAdmits(config.include, [
+      ...config.exclude,
+      ...(options.exclude ?? []),
+    ]);
+    if (rule !== undefined) markPreviewPopulation(rule, captured, files, configAdmits);
     onStats?.(stats.summary());
     return captured;
   };

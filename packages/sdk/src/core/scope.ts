@@ -127,23 +127,53 @@ export function ruleMeasuresNothing(rule: ScopeKeys): boolean {
  */
 export function walkDoors(
   configInclude: readonly string[],
-  rules: readonly { readonly name: string; readonly include?: readonly string[] }[],
+  rules: readonly {
+    readonly name: string;
+    readonly include?: readonly string[];
+    readonly exclude?: readonly string[];
+  }[],
 ): readonly IncludeDoor[] {
   const doors: IncludeDoor[] = [{ by: "config", patterns: configInclude }];
   for (const rule of rules) {
     if (rule.include === undefined || rule.include.length === 0) continue;
-    doors.push({ by: "rule:" + rule.name, patterns: rule.include });
+    doors.push({ by: "rule:" + rule.name, patterns: rule.include, exclude: rule.exclude });
   }
   return doors;
 }
 
 /**
- * Whether the CONFIG door admits a path (the door unscoped rules follow). File-operand inputs and
- * str units bypass the include walk entirely: callers pass a predicate that always returns true for
- * those, so every consumer of this gate stays honest about which units were bypassed.
+ * THE rule-door claim test (one semantics, both consumers - walk admission and the file-operand
+ * door check): a rule door claims a file when one of its include patterns matches AND its own
+ * exclude does not subtract it. A rule that excludes a file from its scope does not claim it - the
+ * include naming the file is not a claim when the rule's own exclude says otherwise (the operand
+ * note 'no rule include names it' must never lie about a rule that names-and-drops).
  */
-export function configDoorPredicate(configInclude: readonly string[]): (path: string) => boolean {
-  if (configInclude.length === 0) return () => true;
-  const rules = configInclude.map(compilePattern);
-  return (path) => rules.some((rule) => patternMatchesFile(rule, path));
+export function ruleDoorClaims(door: IncludeDoor, path: string): boolean {
+  if (door.by === "config" || !includePatternsMatch(door, path)) return false;
+  const exclude = door.exclude ?? [];
+  return exclude.length === 0 || !exclude.some((p) => patternMatchesFile(compilePattern(p), path));
+}
+
+function includePatternsMatch(door: IncludeDoor, path: string): boolean {
+  return door.patterns.some((p) => patternMatchesFile(compilePattern(p), path));
+}
+
+/**
+ * THE config-door admission test (one logic, every input kind - the walk-union contract): a path is
+ * behind the config doors when the include whitelist admits it (an empty list admits everything)
+ * AND no exclude pattern drops it. Dir walks enforce the same doors inside the walker, file
+ * operands evaluate the same predicate on the named path - never a second definition. Rule doors
+ * are not consulted here: a rule that names a file claims it across the config exclude (that
+ * composition lives in rule selection, once, at every consumer: ruleInScope(rule, path) &&
+ * (rule.include !== undefined || configDoorAdmits(path))).
+ */
+export function configDoorAdmits(
+  configInclude: readonly string[],
+  exclude: readonly string[],
+): (path: string) => boolean {
+  const includeRules = configInclude.map(compilePattern);
+  const excludeRules = exclude.map(compilePattern);
+  return (path) =>
+    (includeRules.length === 0 || includeRules.some((r) => patternMatchesFile(r, path))) &&
+    !excludeRules.some((r) => patternMatchesFile(r, path));
 }

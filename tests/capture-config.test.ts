@@ -175,12 +175,16 @@ describe("captureFor - the config door, run parity (sdk surface)", () => {
     await withCwd(dir, async () => {
       const config = await loadConfig(join(dir, "jint.config.json"));
       const marked = await captureFor(config, { rule: "probe_all" })();
-      // a.ts's four definitions are the population; b.py is scoped out by the rule's include
+      // the rule's include claims every .ts across the config exclude (jurisdiction: a rule
+      // door beats the config exclude for the files it names, walk-union); b.py is scoped out
+      // by the include. So gen/g.ts enters the walk AND is marked - the exclude alone cannot
+      // stop a rule that names the file.
       expect(marked.filter((e) => e.matches === true).map((e) => e.input)).toEqual([
         "a.ts",
         "a.ts",
         "a.ts",
         "a.ts",
+        "gen/g.ts",
       ]);
       expect(marked.filter((e) => e.input === "b.py").every((e) => !("matches" in e))).toBe(true);
     });
@@ -282,18 +286,20 @@ describe("jint capture - the config door through the spawned binary", () => {
     const rows = lines.stdout.split("\n").filter((l) => l !== "");
     expect(rows.some((l) => l.startsWith("* "))).toBe(true);
     expect(rows.some((l) => l.startsWith("  "))).toBe(true);
-    // the population is exactly a.ts's definitions (b.py scoped out by the rule's include)
+    // the population is a.ts's definitions plus gen/g.ts (jurisdiction: the rule's include
+    // names every .ts, claiming gen/g.ts across the config exclude); b.py scoped out by include
     expect(rows.filter((l) => l.startsWith("* ")).map((l) => l.slice(2))).toEqual([
       "typescript function L2-L2 alpha a.ts",
       "typescript binding L3-L3 b a.ts",
       "typescript class L4-L4 K a.ts",
       "typescript method L4-L4 m a.ts",
+      "typescript function L1-L1 genfn gen/g.ts",
     ]);
 
     const json = await runCli(["capture", "--rule", "probe_all", "--json"], { cwd: dir });
     expect(json.code).toBe(0);
     const parsed = JSON.parse(json.stdout) as { elements: CapturedElement[] };
-    expect(parsed.elements.filter((e) => e.matches === true).length).toBe(4);
+    expect(parsed.elements.filter((e) => e.matches === true).length).toBe(5);
     expect(parsed.elements.some((e) => e.matches === false)).toBe(false);
   });
 
