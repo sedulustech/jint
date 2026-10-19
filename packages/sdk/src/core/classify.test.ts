@@ -182,7 +182,7 @@ describe("classify", () => {
     expect(outcome.oversized).toHaveLength(1);
     expect(outcome.oversized[0]).toMatchObject({
       label: "d0",
-      role: "binding",
+      capture: "binding",
       chars: big.length,
     });
   });

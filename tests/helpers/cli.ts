@@ -15,9 +15,9 @@ export const CLI_SRC = "packages/cli/src/cli.ts";
 const ROOT = join(import.meta.dir, "..", "..");
 
 /**
- * The scratch runs store for this test process — the JINT_DIR the preload and this helper point at.
- * Pid-scoped so parallel workers never share one store (run dirs are unix timestamps; two writers
- * would collide).
+ * The scratch runs store for this test process — the JINT_RUNS_DIR the preload and this helper
+ * point at. Pid-scoped so parallel workers never share one store (run dirs are unix timestamps; two
+ * writers would collide).
  */
 export const RUNS_DIR = join(ROOT, "tmp", `jev-test-runs-${process.pid}`);
 
@@ -30,7 +30,7 @@ export interface RunCliResult {
 export type StdinPayload = string | Uint8Array | { file: string };
 
 export interface RunCliOptions {
-  /** Extra env on top of the inherited process env; wins over the JINT_DIR scratch default. */
+  /** Extra env on top of the inherited process env; wins over the JINT_RUNS_DIR scratch default. */
   env?: Record<string, string | undefined>;
   cwd?: string;
   bin?: string;
@@ -47,7 +47,7 @@ function stdinValue(payload: StdinPayload | undefined) {
 }
 
 function childEnv(extra?: Record<string, string | undefined>): Record<string, string | undefined> {
-  return { ...process.env, JINT_DIR: RUNS_DIR, ...extra };
+  return { ...process.env, JINT_RUNS_DIR: RUNS_DIR, ...extra };
 }
 
 export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<RunCliResult> {

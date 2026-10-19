@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
+import { knownLanguages } from "../grammars/walk.ts";
 import { SetupError } from "../types.ts";
 import { fileUnit } from "./file.ts";
-import { knownLanguages } from "./walk.ts";
 
 describe("fileUnit (explicit --file path)", () => {
   test("file with no grammar -> MISSING_GRAMMAR setup error, not silence", async () => {

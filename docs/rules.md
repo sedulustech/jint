@@ -9,9 +9,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_name_purposeful`
 
-| kind   | target      | handle                         |
-| ------ | ----------- | ------------------------------ |
-| choice | definitions | score map: pass → warn → error |
+| kind   | target                                       | handle                         |
+| ------ | -------------------------------------------- | ------------------------------ |
+| choice | functions, classes, methods, types, bindings | score map: pass → warn → error |
 
 **Instructions.** Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.
 
@@ -35,9 +35,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_naming_convention_consistent`
 
-| kind | target      | handle                                    |
-| ---- | ----------- | ----------------------------------------- |
-| noul | definitions | warn less than 0.75, error less than 0.65 |
+| kind | target                                       | handle                                    |
+| ---- | -------------------------------------------- | ----------------------------------------- |
+| noul | functions, classes, methods, types, bindings | warn less than 0.75, error less than 0.65 |
 
 **Instructions.** Do identifiers of the same kind in this unit follow a single casing convention?
 
@@ -71,9 +71,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_comment_narration`
 
-| kind | target   | handle                                         |
-| ---- | -------- | ---------------------------------------------- |
-| noul | comments | warn greater than 0.3, error greater than 0.45 |
+| kind | target   | handle                                        |
+| ---- | -------- | --------------------------------------------- |
+| noul | comments | warn greater than 0.6, error greater than 0.7 |
 
 **Instructions.** Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?
 
@@ -95,9 +95,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `will_comment_drift`
 
-| kind | target   | handle                                         |
-| ---- | -------- | ---------------------------------------------- |
-| noul | comments | warn greater than 0.55, error greater than 0.7 |
+| kind | target   | handle                                                                                            |
+| ---- | -------- | ------------------------------------------------------------------------------------------------- |
+| noul | comments | warn greater than 0.55, error greater than 0.7, "Remove the comment or comply with the criteria." |
 
 **Instructions.** Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?
 
@@ -119,9 +119,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_cognitively_complex`
 
-| kind   | target      | handle                         |
-| ------ | ----------- | ------------------------------ |
-| choice | definitions | score map: pass → warn → error |
+| kind   | target                                       | handle                         |
+| ------ | -------------------------------------------- | ------------------------------ |
+| choice | functions, classes, methods, types, bindings | score map: pass → warn → error |
 
 **Instructions.** How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.
 

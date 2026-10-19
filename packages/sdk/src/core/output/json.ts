@@ -56,6 +56,9 @@ export function renderJson(report: LintReport): string {
         // (review 396888e finding 1: visibility that stops at the human renderer is not
         // visibility). Deterministic order is established by collectReport.
         notes: report.notes,
+        // The self-description of every rule that ran: a report reads without the config (the
+        // criteria text and the compiled tiers ride along; instructions stay config provenance).
+        rules: report.rules,
       },
       null,
       2,

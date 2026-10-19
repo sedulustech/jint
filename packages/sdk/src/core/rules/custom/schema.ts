@@ -19,7 +19,9 @@ export interface CustomElement {
   /** The owning file: identity and wire naming derive from it. */
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
-  readonly role: import("../../types.ts").ElementRole;
+  readonly capture: import("../../types.ts").ElementCapture;
+  /** The grammar that extracted this element (the qualified capture address resolves against it). */
+  readonly grammar: string;
   readonly source: string;
   readonly span: {
     readonly start: { readonly line: number; readonly column: number };
@@ -29,6 +31,15 @@ export interface CustomElement {
   };
   /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
   readonly attachedComment?: readonly string[];
+  /** Non-empty comments inside this element's body (target grammar: "comments"). */
+  readonly internalCommentCount?: number;
+  /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+  readonly docstringCount?: number;
+  /**
+   * For a comment element a definition owns (a docstring): who it documents. Its presence is what
+   * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
+   */
+  readonly docstringOf?: import("../../types.ts").DocstringOwner;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
 }
@@ -79,8 +90,13 @@ export interface CustomRule {
   readonly kind?: "noul";
   readonly target:
     | "functions"
+    | "classes"
+    | "methods"
+    | "types"
+    | "bindings"
     | "definitions"
     | "comments"
+    | "loose-comments"
     | "imports"
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
@@ -121,11 +137,16 @@ export interface TsConfig {
   readonly timeout?: number;
 }
 
-/** The element roles a custom rule may target in v1 (unit-level targets stay JSON-tier). */
+/** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
 export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
   "functions",
+  "classes",
+  "methods",
+  "types",
+  "bindings",
   "definitions",
   "comments",
+  "loose-comments",
   "imports",
 ];
 
@@ -207,14 +228,22 @@ function isRole(t: unknown): boolean {
   return typeof t === "string" && (CUSTOM_TARGET_ROLES as readonly string[]).includes(t);
 }
 
+// THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
+// autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
+// themselves are validated at lint startup (assertCaptureAddress, merged registry) - this check is shape-only.
+const QUALIFIED_ADDRESS = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
+
+function isTargetable(t: unknown): boolean {
+  return typeof t === "string" && (isRole(t) || QUALIFIED_ADDRESS.test(t));
+}
+
 function validTarget(target: CustomRule["target"]): boolean {
   return (
     typeof target === "function" ||
-    isRole(target) ||
-    (Array.isArray(target) && target.length > 0 && target.every((t) => isRole(t)))
+    isTargetable(target) ||
+    (Array.isArray(target) && target.length > 0 && target.every((t) => isTargetable(t)))
   );
 }
-
 /** Fatal at load: a rejected custom rule never reaches the engine. */
 export function validateCustomRule(rule: unknown, file: string): CustomRule {
   const fail = (message: string): never => {

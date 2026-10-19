@@ -63,18 +63,27 @@ export TYPESAFE_API_KEY=...   # required
 ```
 
 ```bash
-jint src/                                # a directory tree
-jint src/a.ts src/b.ts                   # explicit files
-cat snippet.ts | jint str -              # piped stdin, one str unit (the only str form)
-jint paths - < list.txt                  # a path LIST from a file, piped
-git diff --name-only HEAD~1 | jint paths -   # a path LIST from your git pipeline
-jint                                     # no positional: input comes from auto-discovered config
+jint run src/                             # a directory tree
+jint run src/a.ts src/b.ts                # explicit files
+cat snippet.ts | jint run str -           # piped stdin, one str unit (the only str form)
+jint run paths - < list.txt               # a path LIST from a file, piped
+git diff --name-only HEAD~1 | jint run paths -  # a path LIST from your git pipeline
+jint run                                  # no operand: input comes from auto-discovered config
+
+jint capture src/a.ts                     # extraction only: grammar, kind, span, name - one line per element
+jint capture src/ --queries wip.scm       # your own .scm drives extraction (--grammar <dir>: your own grammar)
+jint capture src/a.ts --json              # the element array as one JSON document
+jint serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
+
+The first positional is the verb: `run`, `serve`, or `capture`. There is no implicit verb -
+`jint src/` is a usage error telling you to write `jint run src/`.
 
 `jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory.
 `--config <path>` overrides discovery.
 
-Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_DIR`).
+Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_RUNS_DIR`).
+The custom grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.
 
 ### Rules
 
@@ -102,17 +111,43 @@ export default {
 
 `target` names what the rule judges, as one value or a list:
 
-| target        | what it judges                                        |
-| ------------- | ----------------------------------------------------- |
-| `files`       | the whole file as one unit                            |
-| `functions`   | each function or method                               |
-| `definitions` | every declaration except comments and imports         |
-| `comments`    | each comment, including one attached to a declaration |
-| `imports`     | the file's imports as one merged unit                 |
+| target           | what it judges                                                                |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `files`          | the whole file as one unit                                                    |
+| `functions`      | each function or method                                                       |
+| `classes`        | each class-like unit                                                          |
+| `methods`        | each member function                                                          |
+| `types`          | interfaces, structs, enums, aliases                                           |
+| `bindings`       | each name bound to a non-callable, non-type value                             |
+| `definitions`    | every declaration except comments and imports                                 |
+| `comments`       | the comment pair frame (a definition judged together with its owned comments) |
+| `loose-comments` | comments with no definition frame                                             |
+| `imports`        | the file's imports as one merged unit                                         |
+
+Beyond the shared targets, a grammar-scoped capture address `<lang>:<capture>` reaches a
+grammar's own emitted captures (e.g. `markdown:section` - the grammar's queries.scm is
+the single source; unknown grammar or unemitted capture is a setup error).
+
+Full table: docs/targets.md (generated from the live resolution).
+
+Handles carry an optional per-tier `message` - an instruction to the caller fixing the finding:
+severity says whether, message says how. In the declarative form it sits beside the threshold; it
+renders beneath the finding line and rides the report as `finding.message`.
+
+```jsonc
+// a noul rule's handle with author guidance on the error tier only
+"handle": {
+  "warn":  { "greater_than": 0.55 },
+  "error": {
+    "greater_than": 0.7,
+    "message": "Delete the comment if it only pins a name. Keep it only if it teaches something the code cannot."
+  }
+}
+```
 
 A TS config rule may also carry a callback `handle: (results, ctx) => decisions`, called once after
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
-`null` severity is silent (measurement only). The optional `message` is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as `finding.message`.
+`null` severity is silent (measurement only).
 
 #### Default rules
 
@@ -125,9 +160,19 @@ Treat default rules as a starting point and tune once you understand how `jint` 
 
 The authoritative list of default rules lives in [`packages/defaults/src/index.ts`](packages/defaults/src/index.ts).
 
+### Custom grammars
+
+Any tree-sitter grammar works through the bring-your-own-grammar seam: one directory named
+for the grammar id, holding three artifacts - `<id>.wasm`, `extensions.json`, `queries.scm` - under
+`~/.jint/grammars` (or what `JINT_GRAMMAR_DIR` points to). The queries assign the shared capture
+vocabulary (`@function`, `@class`, `@type`, ...), so every rule target works on your language the
+moment the queries speak it. The full contract, validation errors, and a worked verilog example:
+docs/byog.md.
+
 ## UI
 
-`jint --ui` opens a local dashboard useful for rule calibrations.
+`jint serve` opens a local dashboard useful for rule calibrations, over the newest recorded
+run (the fix loop: measure with `jint run`, then look with `jint serve`).
 It polls the run directory for new runs and displays useful information to verify the applicability of a rule to a lexical unit. It shows, among other things:
 
 - tokens used

@@ -1,0 +1,17 @@
+# Documented parity deltas: css (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW comment - L11.17-L11.36
+REF binding - L10.2-L10.16
+REF binding - L11.2-L11.16
+REF binding - L15.2-L15.14
+REF binding - L20.4-L20.20
+REF binding - L26.4-L26.28
+REF binding - L29.4-L29.30
+REF binding - L5.2-L5.19
+REF binding - L6.2-L6.18
+REF import - L2.0-L2.25
+REF type - L14.0-L14.18
+REF type - L19.2-L19.7
+REF type - L24.0-L24.15
+REF type - L4.0-L4.5
+REF type - L9.0-L9.5

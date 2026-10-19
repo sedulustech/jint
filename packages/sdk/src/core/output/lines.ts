@@ -11,10 +11,11 @@
  * Path#id is the finding input (the run-scoped key the app pairs with; it does NOT print). The raw
  * line is the LOC form only:
  *
- * Path@L<line> rule level score
+ * Path@L<start> or Path@L<start>-L<end> (collapsed to the single line when start == end) rule level
+ * score - the range form pastes back into the element-scoped CLI noun.
  *
- * The chosen-level note stays json-side (it quotes the rule's own criterion, which the rubric block
- * already prints once); the run id is named once per run in the stderr requests notice.
+ * The finding note stays json-side (author messages ride the finding.message continuation line when
+ * present); the run id is named once per run in the stderr requests notice.
  */
 
 import { headCell, row, SEVERITY_WIDTH, tailCell, PATH_WIDTH, RULE_WIDTH } from "./format.ts";
@@ -33,7 +34,14 @@ export function renderLines(report: LintReport): LinesRender {
     // The element id is run-scoped (the report input stays path#id for the app to pair with); the
     // public line carries the LOC anchor only.
     const stem = f.input.split("#")[0]!;
-    const anchor = f.location !== undefined ? `@L${f.location.span.start.line}` : "";
+    // LOC anchor: bare @L<start> for a single-line element; @L<start>-L<end> (paste-backable
+    // into the element-scoped noun) when the element spans lines.
+    const anchor =
+      f.location === undefined
+        ? ""
+        : f.location.span.start.line === f.location.span.end.line
+          ? `@L${f.location.span.start.line}`
+          : `@L${f.location.span.start.line}-L${f.location.span.end.line}`;
     out.push(
       row(
         tailCell(stem + anchor, PATH_WIDTH),

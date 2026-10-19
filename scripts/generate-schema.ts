@@ -47,11 +47,18 @@ for (const spec of defaultSpecs) {
           const [opName, threshold] = Object.entries(op as Record<string, number>)[0]!;
           return `${level} ${opName.replace(/_/g, " ")} ${threshold}`;
         })
+        .concat(
+          // tier messages are author guidance for the finding consumer; quote them after thresholds
+          Object.entries(spec.handle)
+            .filter(([, op]) => typeof (op as { message?: string }).message === "string")
+            .map(([, op]) => `"${(op as { message: string }).message}"`),
+        )
         .join(", ");
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
     ["kind", isChoice ? "choice" : "noul"],
-    ["target", spec.target],
+    // targets render joined: the explicit list form (the defaults' union) is one cell
+    ["target", Array.isArray(spec.target) ? spec.target.join(", ") : String(spec.target)],
     ["handle", handle],
   ];
   const width = cells.map(([header, value]) => Math.max(header.length, value.length));
@@ -141,7 +148,7 @@ const block = [
 const afterRuleBlock =
   skill.slice(0, begin + BEGIN.length) + "\n" + block + "\n" + skill.slice(end);
 
-// SKILL.md's run-dir block: run-store literacy — the fix loop, the capture join, and the
+// SKILL.md's run-dir block: run-store literacy — the fix loop, the request-data join, and the
 // quoting rule. Generated so the workflow text cannot drift behind the report's run field.
 const RUN_BEGIN = "<!-- run-dir:begin (generated - do not edit; bun run schema) -->";
 const RUN_END = "<!-- run-dir:end -->";
@@ -155,38 +162,38 @@ const runDirBlock = [
   "",
   "### The fix loop",
   "",
-  "1. Take a finding. Re-query just that unit: `jint <path>@L<line> --rule <rule>`. One query,",
+  "1. Take a finding. Re-query just that unit: `jint run <path>@L<line> --rule <rule>`. One query,",
   "   one unit, one verdict. No full re-run.",
   "2. Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that exists now.",
   "3. After any edit, re-anchor at the CURRENT line. Grep the declaration. Then re-query.",
   "",
   "### Element inventory without the CLI",
   "",
-  "Every run records its captures in a run dir. Find it on stderr after a run, or read the",
+  "Every run writes a run dir. Find it on stderr after a run, or read the",
   "report's top-level `run` field: `run.dir` is the dir, `run.id` is its name. The dir holds",
-  "capture files named `<unixts>-elements-<file>.json` - one file per request, one request per",
+  "request dumps: files named `<unixts>-elements-<file>.json` - one file per request, one request per",
   "element. The envelope is `{request, response}`; the judged text is `request.state.source`,",
-  "with `request.state.id` and `request.state.path`. A capture carries no span: spans live in the",
+  "with `request.state.id` and `request.state.path`. A request dump carries no span: spans live in the",
   "report (`measurements[].element.span`, `findings[].location.span`), joined by input id. Read",
   "these instead of probing anchors with live queries.",
   "",
   "### The join: finding to judged text",
   "",
   "A report finding names its element in `findings[].input`. That string is `<path>#<id>`,",
-  "where `<id>` equals the capture's `state.id`. Split on `#` and match the tail. The match",
+  "where `<id>` equals the request's `state.id`. Split on `#` and match the tail. The match",
   "recovers the exact text the model judged.",
   "",
-  "### Quote source from the file, never from the capture",
+  "### Quote source from the file, never from the request dump",
   "",
   "Captures tell you WHAT was judged. The file tells you HOW it is written now. Capture JSON is",
-  "pretty-printed; its indentation is not source. Edit from the file. A pasted capture indent is",
+  "pretty-printed; its indentation is not source. Edit from the file. A pasted request dump indent is",
   "a wasted edit.",
   "",
   "### Paths and scoping",
   "",
   "An explicit path overrides config scoping. That is by design. A piped list must respect the",
   "config's `exclude`: filter before the pipe, e.g.",
-  "`git diff --name-only | grep -vE '\\.test\\.ts$|^tests/' | jint paths -`.",
+  "`git diff --name-only | grep -vE '\\.test\\.ts$|^tests/' | jint run paths -`.",
   "",
   "### The binary goes stale",
   "",
@@ -208,3 +215,202 @@ writeFileSync(
 // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
 Bun.spawnSync(["bunx", "oxfmt", skillOut]);
 process.stdout.write("wrote " + skillOut + "\n");
+
+import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
+// docs/targets.md: the rule-side target table, GENERATED from the live resolution and the
+// grammars' own patterns, so the doc can never drift from what a rule actually resolves.
+//
+// Columns per target: namespace, singular, resolves to, grammars emitting it (the per-grammar
+// keyword census read from each embedded/<lang>/queries.scm), frame carried (what state the
+// classifier sees), scope-coupled (whether the target participates in per-rule include/exclude).
+import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/grammars/query.ts";
+
+const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
+  .pathname;
+
+/** Per grammar: which element captures its .scm actually assigns (the keyword census). */
+function captureCensus(): Record<string, Set<string>> {
+  const census: Record<string, Set<string>> = {};
+  for (const language of knownLanguages()) {
+    let scm = "";
+    try {
+      scm = readFileSync(embeddedDir + language + "/queries.scm", "utf8");
+    } catch {
+      census[language] = new Set();
+      continue;
+    }
+    const found = new Set<string>();
+    for (const pattern of parseScmPatterns(scm)) {
+      if (pattern.capture !== null && ELEMENT_CAPTURES.includes(pattern.capture as never))
+        found.add(pattern.capture);
+    }
+    census[language] = found;
+  }
+  return census;
+}
+
+const census = captureCensus();
+const grammarOrder = knownLanguages();
+/** Grammars whose .scm assigns any of `captures`, in registration order. */
+const emitting = (...captures: string[]): string =>
+  grammarOrder.filter((language) => captures.some((c) => census[language]?.has(c))).join(", ") ||
+  "none";
+
+interface Row {
+  target: string;
+  namespace: string;
+  singular: string;
+  resolves: string;
+  grammars: string;
+  frame: string;
+  scope: string;
+}
+
+const CAPTURE = "CAPTURE";
+const FILE = "FILE";
+
+const rows: Row[] = [
+  {
+    target: "files",
+    namespace: FILE,
+    singular: "file",
+    resolves: "the whole unit as source text (no walk)",
+    grammars: "every format (no grammar needed)",
+    frame: "the unit's raw content under its path",
+    scope: "yes",
+  },
+  {
+    target: "functions",
+    namespace: CAPTURE,
+    singular: "function",
+    resolves: "elements captured as functions",
+    grammars: emitting("function"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "classes",
+    namespace: CAPTURE,
+    singular: "class",
+    resolves: "elements captured as classes (the @class capture: class-like units)",
+    grammars: emitting("class"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "methods",
+    namespace: CAPTURE,
+    singular: "method",
+    resolves: "elements captured as methods (the @method capture: member functions)",
+    grammars: emitting("method"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "types",
+    namespace: CAPTURE,
+    singular: "type",
+    resolves: "elements captured as types (interfaces, structs, enums, aliases)",
+    grammars: emitting("type"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "bindings",
+    namespace: CAPTURE,
+    singular: "binding",
+    resolves: "elements captured as bindings (a name bound to a value)",
+    grammars: emitting("binding"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "definitions",
+    namespace: CAPTURE,
+    singular: "definition (umbrella)",
+    resolves:
+      "SHORTHAND for every definition capture at once (functions, classes, methods, types, bindings) - the same measured set; prefer the specific targets in new rules",
+    grammars: emitting("function", "method", "class", "type", "binding"),
+    frame: "attached run + inline comments + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "comments",
+    namespace: CAPTURE,
+    singular: "definition (the pair frame)",
+    resolves:
+      "the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition",
+    grammars: emitting("comment", "docstring"),
+    frame: "attached run + inline comments + docstrings + code (the pair frame)",
+    scope: "yes",
+  },
+  {
+    target: "loose-comments",
+    namespace: CAPTURE,
+    singular: "comment (element)",
+    resolves:
+      "comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)",
+    grammars: emitting("comment", "docstring"),
+    frame: "the comment's own text under its path",
+    scope: "yes",
+  },
+  {
+    target: "imports",
+    namespace: CAPTURE,
+    singular: "import (element)",
+    resolves: "the one merged import-group element per file",
+    grammars: emitting("import"),
+    frame: "the merged import statements",
+    scope: "yes",
+  },
+];
+
+// Guard: the doc must have exactly one row per real target, no more, no fewer. A new target
+// without a row (or a row for a target that does not exist) fails generation loudly.
+const rowTargets = rows.map((r) => r.target).sort();
+const realTargets = [...ruleTargets].sort();
+if (JSON.stringify(rowTargets) !== JSON.stringify(realTargets)) {
+  throw new Error(
+    "targets doc drifted from the vocabulary: rows " +
+      JSON.stringify(rowTargets) +
+      " vs ruleTargets " +
+      JSON.stringify(realTargets),
+  );
+}
+
+const header = [
+  "---\n",
+  "title: Targets\n",
+  "description: The rule-side target table, generated from the live resolution and the grammars' patterns.\n",
+  "---\n\n",
+  "# Rule targets\n\n",
+  "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
+    "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
+    "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
+    "rule resolves what this table says or the generator fails.\n\n",
+  "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
+    "The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is\n" +
+    "addressed through the qualified `{grammar}:{capture}` form (`markdown:section`).\n\n",
+];
+
+const columns: [string, (r: Row) => string][] = [
+  ["target", (r) => "`" + r.target + "`"],
+  ["namespace", (r) => r.namespace],
+  ["singular", (r) => r.singular],
+  ["resolves to", (r) => r.resolves],
+  ["grammars emitting it", (r) => r.grammars],
+  ["frame carried", (r) => r.frame],
+  ["scope-coupled", (r) => r.scope],
+];
+
+const table = [
+  "| " + columns.map(([h]) => h).join(" | ") + " |\n",
+  "| " + columns.map(() => "---").join(" | ") + " |\n",
+  ...rows.map((r) => "| " + columns.map(([, v]) => v(r)).join(" | ") + " |\n"),
+];
+
+const out = new URL("../docs/targets.md", import.meta.url).pathname;
+writeFileSync(out, header.join("") + table.join(""));
+Bun.spawnSync(["bunx", "oxfmt", out]);
+process.stdout.write("wrote " + out + "\n");

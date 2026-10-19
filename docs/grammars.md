@@ -1,31 +1,53 @@
 # Grammars
 
-Parsing is tree-sitter; grammars ship embedded with the binary. Adding a language = adding its
-prebuilt grammar wasm + one role-table entry; the walker is written against roles, never node names.
+Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar is a directory
+NAMED for its id (nextjs-route semantics: the directory IS the grammar id, cross-checked at load
+against the wasm's own `tree_sitter_<name>` export) holding three artifacts: `<id>.wasm` (parse),
+`extensions.json` (routing: a bare JSON array like `[".md"]`), `queries.scm`
+(extraction patterns + shape directives). The walker holds no node-type names - the .scm assigns
+**captures**, and the runtime sees only captures. A user grammar dir
+(`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers through the same shape - each
+SUBDIRECTORY is one grammar, its id the directory name. docs/byog.md is the contract plus a full
+verilog worked example.
 
-| grammar id   | extensions            | role table highlights                                                                                                                                                                                                                                                             |
-| ------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `typescript` | `.ts`, `.mts`, `.cts` | function declarations, methods, lexical/variable declarations (refined: callable initializer -> function, otherwise binding), classes/interfaces/type aliases/enums -> type, comments, imports; `describe(...)`-style call expressions are composites (judged AND descended into) |
-| `tsx`        | `.tsx`                | shares the typescript table (JSX stays inside the declarations)                                                                                                                                                                                                                   |
-| `python`     | `.py`                 | functions, classes, comments, imports; docstrings are extracted structurally (`docstringOf`) so every docstring element carries its owner                                                                                                                                         |
-| `go`         | `.go`                 | functions and methods, `type_declaration` -> type, package-level const/var blocks -> binding, comments, imports                                                                                                                                                                   |
+| grammar id   | extensions                          | what it captures                                                                                                                                                                                                                                      |
+| ------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript` | `.ts`, `.mts`, `.cts`               | functions, methods (`@method`), callable-initializer declarations; classes (`@class`), interfaces/type aliases/enums (`@type`); bindings; imports; comments; test call composites (`describe`/`it` family with a callback)                            |
+| `tsx`        | `.tsx`                              | the typescript patterns (JSX stays inside the declarations)                                                                                                                                                                                           |
+| `python`     | `.py`                               | functions, classes (`@class`), methods (`@method`, the structural-context capture: a `function_definition` in a class body), decorated definitions (decorator absorbed), imports, comments, docstrings (`@docstring`: the string-in-block convention) |
+| `go`         | `.go`                               | functions, methods (`@method`, receiver functions), type declarations, package-level const/var blocks, imports, comments                                                                                                                              |
+| `c`          | `.c`, `.h`                          | function definitions and prototypes, struct/union/enum/typedef, declarations, includes, comments                                                                                                                                                      |
+| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` | c's captures plus classes (`@class`, templates absorbed), methods (`@method`: in-class prototypes/definitions and out-of-line `K::f` definitions)                                                                                                     |
+| `css`        | `.css`                              | comments only — the code captures have no honest css reading                                                                                                                                                                                          |
+| `markdown`   | `.md`                               | sections (`@section`, self-nesting per the .scm's #set! directive, addressed as `markdown:section`; heading text as name) and paragraphs (`@paragraph`, flat - paragraphs never nest; addressed as `markdown:paragraph`)                              |
+| `php`        | `.php`                              | functions (named + closures: `fn`/anonymous, an assigned closure keeping one element with the function capture), methods (`@method`), classes (`@class`)/interfaces/traits/enums, assignments, consts, imports, comments (anonymous classes unjudged) |
 
-## Walk output (roles)
+`.h` is claimed by both c and cpp; registration order wins, so cpp serves it (design:
+`grammar-loading` open question).
 
-The walk turns one parsed file into its inventory. Each element carries a role, a span, a
+## Walk output (captures)
+
+The walk turns one parsed file into its inventory. Each element carries a capture, a span, a
 positional label (`d0`, `c2`, `i0`), an optional declared name (render-only), its parent label,
-and its source. Roles:
+and its source. Captures:
 
-| role       | element                                                                                                                                    | target                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `function` | named functions, methods, call-expression composites; declarations refined to keep the function role only when the bound value is callable | `functions`                                                                              |
-| `type`     | classes, interfaces, type aliases, enums, Go type declarations                                                                             | `definitions`                                                                            |
-| `binding`  | a name bound to a non-callable, non-type value                                                                                             | `definitions` (definitions-target rules judge bindings; functions-target rules never do) |
-| `import`   | import statements/declarations                                                                                                             | `imports`                                                                                |
-| `comment`  | comments — top-level runs, docstrings, or comments inside a composite's descent                                                            | `comments`                                                                               |
+| capture     | element                                                                                                                                 | target                                                         |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `function`  | named free functions, prototypes, and test call composites                                                                              | `functions`                                                    |
+| `method`    | member functions (ts/tsx `method_definition`, python class-body functions, go/php/cpp receivers and member shapes)                      | `methods`                                                      |
+| `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                                             | `classes`                                                      |
+| `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs                                                                   | `types` (and the `definitions` umbrella)                       |
+| `binding`   | a name bound to a non-callable, non-type value (declarations, assignments)                                                              | `bindings` (and the `definitions` umbrella)                    |
+| `import`    | import statements/declarations (one merged element per file)                                                                            | `imports`                                                      |
+| `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                                       | `comments`                                                     |
+| `docstring` | python's docstring convention - PLUMBING, not a shared capture (projects into the comment element; grammar-side vocabulary, like @name) | `comments` (projected as a comment element with `docstringOf`) |
 
-Targets are rule-side vocabulary: a rule names a target, the walk lands it on elements. The
-`files` target skips the walk — the whole file (unit) is the judged subject.
+What a capture's interior yields is the per-capture policy table (`query.ts`); a grammar-level
+shape change is a #set! directive in its .scm. Targets are rule-side vocabulary: a rule names a target, the walk lands
+it on elements. The `files` target skips the walk — the whole file is the judged subject.
+
+Which constructs have no honest capture yet (prose, code blocks, struct fields) is recorded per grammar in `queries.scm` comments and in the design doc's
+vocabulary-growth ledger.
 
 ## Walk contract
 
@@ -33,7 +55,7 @@ Targets are rule-side vocabulary: a rule names a target, the walk lands it on el
   targets elements in scope for it; files-target rules read raw source with no parse.
 - **Sweep coverage.** Non-grammar files are units measured as raw source when a files-target rule
   is in scope; otherwise they are sweep coverage — one run-wide note, never an error:
-  `parsing ts, tsx, py, go · not parsed (no grammar): .md, .sql`.
+  `parsing ts, tsx, py, …, css · not parsed (no grammar): .json, .sql`.
 - **Explicit + unparseable is loud.** An explicit file path plus an element-target rule plus no
   grammar is a `MISSING_GRAMMAR` setup error naming the supported grammars (silence would read
   as "nothing wrong").

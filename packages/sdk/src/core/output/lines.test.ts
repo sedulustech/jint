@@ -13,7 +13,6 @@ const report: LintReport = {
       input: "src/b.ts#uuid-1",
       value: 2,
       severity: "warn",
-      note: "Moderate: the reader must pause once or twice",
       location: {
         input: "src/b.ts#uuid-1",
         span: {
@@ -28,6 +27,7 @@ const report: LintReport = {
   ],
   errors: [],
   notes: [],
+  rules: [],
 };
 
 describe("renderLines", () => {
@@ -47,7 +47,7 @@ describe("renderLines", () => {
       "                            src/a.ts  is_name_purposeful               warn   0.53",
     );
     expect(lines[1]).toBe(
-      "                         src/b.ts@L8  is_cognitively_complex           warn   2.00",
+      "                     src/b.ts@L8-L20  is_cognitively_complex           warn   2.00",
     );
     expect(lines[2]).toBe(
       "                            src/c.ts  is_function_srp                  error  1.00",
@@ -108,6 +108,7 @@ describe("renderLines", () => {
       findings: [],
       errors: [],
       notes: [],
+      rules: [],
     });
     expect(stdout).toBe("");
     expect(stderr).toContain("0 problems (0 errors, 0 warnings) - nothing was measured");
@@ -118,6 +119,7 @@ describe("renderLines", () => {
       measurements: [{ input: "src/x.ts#d0", rule: "r", value: 0.1 }],
       findings: [],
       errors: [],
+      rules: [],
       notes: [],
     });
     expect(stderr).toContain("0 problems (0 errors, 0 warnings)\n");

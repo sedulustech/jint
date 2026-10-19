@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
+import { knownLanguages, languageOf } from "../grammars/walk.ts";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
-import { knownLanguages, languageOf } from "./walk.ts";
 
 export async function fileUnit(
   path: string,
@@ -18,15 +18,16 @@ export async function fileUnit(
   if (info.isDirectory()) {
     throw new SetupError(
       "ENTRYPOINT_NOT_FOUND",
-      `not a file: ${path} is a directory (pass it as the only positional: jint ${path})`,
+      `not a file: ${path} is a directory - pass the directory itself; its files are walked`,
     );
   }
   // explicit path: the user asked for THIS file, so silence would read as "nothing wrong" —
-  // say plainly that it is not classifiable (walker skips non-source silently; explicit does not)
+  // say plainly that it is not classifiable (a dir walk skips unclaimable files with a coverage
+  // note; an explicit file fails loud)
   if (languageOf(path) === null && options.requireGrammar !== false) {
     throw new SetupError(
       "MISSING_GRAMMAR",
-      "unknown extension, missing grammar - walk sources by passing a directory, or classify raw text with the str noun",
+      `no loaded grammar claims the extension of ${path} - routing comes from each grammar's extensions.json`,
       { detail: { kind: "unknown-language", valid: knownLanguages() } },
     );
   }

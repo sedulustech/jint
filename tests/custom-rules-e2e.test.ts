@@ -11,7 +11,10 @@ import { startMockJev } from "./helpers/mock-jev.ts";
 
 const DIR = scratchDir("jint-custom-e2e");
 
+// The fixture exercises the comment-target pair: alpha is documented (its leading run is the pair
+// frame -> target "comments"), the trailing run is unowned (-> "loose-comments").
 const FIXTURE = [
+  "// alpha reads the config once.",
   "export function alpha() {",
   "  return 1;",
   "}",
@@ -104,7 +107,7 @@ afterAll(() => {
 });
 
 async function runIn(dir: string, env: Record<string, string | undefined> = {}) {
-  return runCli(["--config", "jint.config.ts", "--json"], {
+  return runCli(["run", "--config", "jint.config.ts", "--json"], {
     cwd: dir,
     env: { ...MOCK_ENV, ...env },
   });
@@ -119,13 +122,19 @@ describe("cli: custom rules end-to-end", () => {
       (m: Record<string, unknown>) => m.rule === "will_ts_rule_fire",
     );
     expect(measurement).toBeDefined();
-    expect(measurement?.element?.kind).toBe("comment");
+    expect(measurement?.element?.kind).toBe("function");
     const finding = report.findings.find(
       (f: Record<string, unknown>) => f.rule === "will_ts_rule_fire",
     );
     expect(finding?.severity).toBe("warn");
     expect(finding?.location?.input).toBe(finding?.input);
-    expect(finding?.location?.span.start.line).toBe(8);
+    // the pair frame fires ONCE, on alpha (line 2): narration fires exactly once per documented
+    // function - the owned comment element never matches separately
+    const lines = report.findings
+      .filter((f: Record<string, unknown>) => f.rule === "will_ts_rule_fire")
+      .map((f: Record<string, any>) => f.location?.span.start.line)
+      .sort((a: number, b: number) => a - b);
+    expect(lines).toEqual([2]);
   });
 
   test("callback handle decisions ride their message on the finding and the rendered line", async () => {
@@ -142,13 +151,14 @@ describe("cli: custom rules end-to-end", () => {
     expect(finding?.message).toBe(
       "keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
     );
-    expect(finding?.location?.span.start.line).toBe(8);
+    // the only policy finding is the pair frame alpha (line 2)
+    expect(finding?.location?.span.start.line).toBe(2);
     // the rendered message is the report's message, byte-identical under --json (one truth)
     expect(r.stdout).toContain(
       "keep the sentence, drop the file-name cross-reference (reading 0.8 of 1 target)",
     );
     // default stdout: the message renders as an indented continuation line beneath the finding
-    const raw = await runCli(["--config", "jint.config.ts"], {
+    const raw = await runCli(["run", "--config", "jint.config.ts"], {
       cwd: dir,
       env: { ...MOCK_ENV },
     });
@@ -163,26 +173,28 @@ describe("cli: custom rules end-to-end", () => {
   test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
     const dir = setup("dumps", GOOD_CONFIG);
     const dumps = DIR + "/dump-captures";
-    const r = await runIn(dir, { JINT_DIR: dumps });
+    const r = await runIn(dir, { JINT_RUNS_DIR: dumps });
     expectContract(r, { exit: 0, stdout: "json" });
-    const runDirs = readdirSync(dumps + "/runs").map((d) => dumps + "/runs/" + d);
+    // JINT_RUNS_DIR IS the runs root: run dirs sit directly under the override
+    const runDirs = readdirSync(dumps).map((d) => dumps + "/" + d);
     // report.json + manifest.json (the run's persisted metadata, not captures) are excluded
     const files = runDirs
       .flatMap((d) => readdirSync(d).map((f) => d + "/" + f))
       .filter((f) => !f.endsWith("report.json") && !f.endsWith("manifest.json"));
-    // Exact contract: this fixture run makes exactly ONE classifier call (the custom rule's single
-    // comment target; no JSON rules) — a manifest or second capture would break that claim.
+    // Exact contract: this fixture run makes exactly ONE classifier call - the comments pair
+    // frame (alpha alone; the owned comment element never matches separately).
     expect(files).toHaveLength(1);
     // The TS state is a free composition (no "source" key), so the tap kinds it "files-state".
-    expect(files[0]).toMatch(/-files-state\.json$/);
-    const capture = JSON.parse(readFileSync(files[0]!, "utf8"));
-    // The composed state reached the wire verbatim — the observability guarantee.
-    expect(capture.request.state).toEqual({
-      comment: "// a standalone comment",
-      targets: 1,
-      composed: { free: true },
-    });
-    expect(capture.request.questions["will_ts_rule_fire"].instructions).toContain(
+    for (const file of files) expect(file).toMatch(/-files-state\.json$/);
+    const captures = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
+    // The composed state reached the wire verbatim (the frame sees the resolved count of 1).
+    for (const capture of captures) {
+      expect(capture.request.state.targets).toBe(1);
+      expect(capture.request.state.composed).toEqual({ free: true });
+    }
+    const sources = captures.map((c) => c.request.state.comment).sort();
+    expect(sources).toEqual(["export function alpha() {\n  return 1;\n}"]);
+    expect(captures[0]!.request.questions["will_ts_rule_fire"].instructions).toContain(
       "Judge the comment.",
     );
   });
@@ -203,6 +215,7 @@ describe("cli: custom rules end-to-end", () => {
     const dir = setup("badspec", BAD_SPEC_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 4, stdout: "json" });
+    // comments resolves the frame alone, and its failing call streams its own RULE_FAILED
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]?.code).toBe("RULE_FAILED");
     expect(report.errors[0]?.message).toContain("will_break_contract");

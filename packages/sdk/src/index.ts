@@ -22,7 +22,7 @@ export {
   type LintReport,
   type RunPointer,
 } from "./core/lint.ts";
-export { knownLanguages } from "./core/input/walk.ts";
+export { knownLanguages } from "./core/grammars/walk.ts";
 export {
   recordSummary,
   recordRunManifest,
@@ -56,7 +56,9 @@ export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint
 export { validateCustomRule } from "./core/rules/custom/schema.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
-export type { Inventory, WalkElement, NodeRole } from "./core/input/walk.ts";
+// capture (verb): extraction without the classifier - the BYOG iterate-on-a-known-language loop
+export { capture, type CapturedElement } from "./core/grammars/capture.ts";
+export type { Inventory, InventoryElement, Capture } from "./core/grammars/walk.ts";
 export type {
   Element,
   FileElement,

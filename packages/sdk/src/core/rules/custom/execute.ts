@@ -9,12 +9,13 @@
  * bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../input/walk.ts";
+import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../grammars/walk.ts";
 import { ruleInScope } from "../../scope.ts";
 import {
   ClassifyError,
   type AnyState,
   type Classifier,
+  type Element,
   type Finding,
   type LintEvent,
   type RuleResult,
@@ -29,17 +30,20 @@ import {
   type CustomElement,
   type CustomRule,
 } from "./schema.ts";
-import type { WalkElement } from "../../input/walk.ts";
+import type { InventoryElement } from "../../grammars/walk.ts";
 
 /**
  * One unit's TS-facing element view: the walk inventory materialized for rules. Invariants are
  * carried, not dropped: oversized elements are excluded (the JSON tier never judges them), and a
  * dangling parent label is an inventory inconsistency — it throws, never silently nulls.
  */
-export function tsElementsOf(inventory: readonly WalkElement[], path: string): CustomElement[] {
+export function tsElementsOf(
+  inventory: readonly InventoryElement[],
+  path: string,
+): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
-  const convert = (e: WalkElement): CustomElement => {
+  const convert = (e: InventoryElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
     const parentLabel = e.parent;
@@ -56,7 +60,8 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): C
     const element: CustomElement = {
       id: e.label,
       path,
-      role: e.role,
+      capture: e.capture,
+      grammar: e.grammar,
       source: e.content,
       span: {
         start: e.span.start,
@@ -65,6 +70,9 @@ export function tsElementsOf(inventory: readonly WalkElement[], path: string): C
         endByte: e.span.endByte,
       },
       attachedComment: e.attachedComment,
+      internalCommentCount: e.internalCommentCount,
+      docstringCount: e.docstringCount,
+      docstringOf: e.docstringOf,
       parent: parent ? convert(parent) : null,
     };
     cache.set(e.label, element);
@@ -85,13 +93,13 @@ export type ResolvedCustomTarget =
 export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 
 /**
- * Resolves every rule ONCE per run over the completed walk: role strings filter the full inventory;
- * the function form receives the FULL walk inventory — not the rule's context — and is pure
- * selection. Errors resolve to a per-unit failure for that rule.
+ * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
+ * inventory; the function form receives the FULL walk inventory — not the rule's context — and is
+ * pure selection. Errors resolve to a per-unit failure for that rule.
  */
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
-  inventoryByPath: ReadonlyMap<string, readonly WalkElement[]>,
+  inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
 ): ResolvedCustomTargets {
   const elementsByPath = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
@@ -285,7 +293,7 @@ export async function runCustomRules(
           input,
           value,
           element: {
-            kind: element.role,
+            kind: element.capture as Element["kind"],
             span: element.span,
             label: element.id,
             parent: element.parent !== null ? element.parent.id : undefined,

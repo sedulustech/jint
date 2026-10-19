@@ -56,7 +56,7 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(options: ApiOptions = {}): string {
-  // the SDK's runsDir logic (config.runsDir / JINT_DIR / homedir store) is the one default;
+  // the SDK's runsBase resolution (JINT_RUNS_DIR / homedir store) is the one default;
   // options.root overrides (tests, embedded servers)
   return resolve(options.root ?? runsBase());
 }
@@ -211,6 +211,11 @@ function errorCode(err: unknown): string {
 /** True when the error is a missing file — the one case absence is the answer, not a failure. */
 function isMissingFileError(err: unknown): boolean {
   return errorCode(err) === MISSING_ERRNO;
+}
+
+/** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -370,13 +375,8 @@ function cellSeverity(
 }
 
 /**
- * Parse every request file in the run dir into a summary row. seq is the stable order of requests
- * (by ts, then filename); duration is approximated as file mtime - request ts (the tap writes the
- * file right after the response lands; not a measured latency).
- */
-/**
- * The manifest's handle snapshot: the exact semantics the engine compiled, shipped as data. A
- * missing or unreadable manifest means no projection - rows keep report verdicts only.
+ * The manifest's handle snapshot: the exact semantics the SDK compiled, shipped as data. A missing
+ * or unreadable manifest means no projection - rows keep report verdicts only.
  */
 async function readManifestHandles(
   dir: string,
@@ -391,7 +391,12 @@ async function readManifestHandles(
         manifest.handles && Object.keys(manifest.handles).length > 0 ? manifest.handles : null,
       legacy: manifest.legacy === true,
     };
-  } catch {
+  } catch (err) {
+    // A missing manifest is a normal legacy run, not a defect; only a present-but-unreadable file
+    // warns, so serving a pre-store run never drags the server log with it.
+    if (!isMissingFileError(err)) {
+      process.emitWarning(`jint: unreadable manifest in ${dir}: ${errorMessage(err)}`);
+    }
     return { handles: null, legacy: false };
   }
 }
@@ -451,155 +456,192 @@ async function readReportFacts(dir: string): Promise<{
         else pathValues.set(m.input, [entry]);
       }
     }
-  } catch {
-    // unreadable report: fall back to question-key parsing
+  } catch (err) {
+    // Unreadable report: fall back to question-key parsing. The caller marks the run degraded;
+    // the cause goes to the log so a truly broken report is never silently rebuilt from request keys.
+    process.emitWarning(`jint: unreadable report in ${dir}: ${errorMessage(err)}`);
     return { findingSev, pathRules: null, pathValues: null, measurementCount: 0 };
   }
   return { findingSev, pathRules, pathValues, measurementCount };
+}
+
+/**
+ * The report facts the run view needs, already guarded. A missing report file means no facts at
+ * all; a present-but-torn report falls back to question-key parsing and reports itself degraded,
+ * which is the caller's signal that the report is a fragment, not an authority.
+ */
+async function reportFactsFor(
+  dir: string,
+  reportFile: boolean,
+  requestCount: number,
+): Promise<{
+  pathRules: Map<string, string[]> | null;
+  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null;
+  findingSev: Map<string, Map<string, Severity>>;
+  degraded: boolean;
+}> {
+  const noFacts = {
+    pathRules: null,
+    pathValues: null,
+    findingSev: new Map<string, Map<string, Severity>>(),
+    degraded: false,
+  };
+  if (!reportFile) return noFacts;
+  const facts = await readReportFacts(dir);
+  // Torn-write guard: the engine writes report.json atomically, but an old or mid-copy report can
+  // still be a fragment. A report with fewer measurements than requests is not authoritative -
+  // fall back to question-key parsing and say so. The specific failure this catches: a
+  // 6-measurement fragment shadowing every row's rule as the bare-path file measurement.
+  if (facts.pathRules === null || facts.measurementCount < requestCount * 0.5) {
+    return { ...noFacts, degraded: true };
+  }
+  return {
+    pathRules: facts.pathRules,
+    pathValues: facts.pathValues,
+    findingSev: facts.findingSev,
+    degraded: false,
+  };
+}
+
+/**
+ * One request file to one summary row, or null when the file is unreadable. seq stays 0 here: the
+ * caller numbers rows after sorting them into ts order.
+ */
+async function readRequestRow(
+  dir: string,
+  file: string,
+  pathRules: Map<string, string[]> | null,
+  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null,
+  findingSev: Map<string, Map<string, Severity>>,
+  handles: Record<string, HandlerData> | null,
+): Promise<RequestItem | null> {
+  try {
+    const [text, st] = await Promise.all([
+      readFile(join(dir, file), READ_ENCODING),
+      stat(join(dir, file)),
+    ]);
+    const requestFile = JSON.parse(text) as RequestFile;
+    const questions = requestFile.request?.questions ?? {};
+    const answers = requestFile.response?.answers ?? {};
+    const probs = Object.values(answers)
+      .map((a) => {
+        if (typeof a?.noul === "number") return a.noul;
+        // score answers join the p-space summary normalized to 0..1 so a score-only request
+        // (or a request whose score is the only answer) is visible in max-p and the strip
+        if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
+          return a.score / (Object.keys(a.legend).length - 1);
+        }
+        return null;
+      })
+      .filter((n): n is number => n !== null);
+    const state = requestFile.request?.state ?? {};
+    const rules: string[] = [];
+    let elementId: string | null = typeof state.id === "string" ? state.id : null;
+    for (const key of Object.keys(questions)) {
+      const m = key.match(/^(.+?) in (.+)$/);
+      if (m) {
+        rules.push(m[1]!);
+        if (elementId === null) elementId = m[2]!;
+      } else {
+        rules.push(key);
+      }
+    }
+    const canonical =
+      pathRules !== null && typeof state.path === "string" ? pathRules.get(state.path) : undefined;
+
+    // severity per rule = finding join first (the report's own verdict, matched by FULL input
+    // identity: path#span for elements, bare path for files), else the handle snapshot
+    // projected onto that same input's measurement. Null = no provable verdict - the UI
+    // never invents "clean" from absence, and a sibling element's verdict never leaks.
+    const SEV_RANK: Record<Severity, number> = { warn: 1, error: 2 };
+    const keys =
+      typeof state.path === "string"
+        ? elementId !== null
+          ? [`${state.path}#${elementId}`, state.path]
+          : [state.path]
+        : [];
+    const joinSeverity = (rule: string): Severity | null => {
+      for (const key of keys) {
+        const sev = findingSev.get(key)?.get(rule);
+        if (sev !== undefined) return sev;
+      }
+      return null;
+    };
+    const projectSeverity = (rule: string): Severity | null => {
+      if (handles === null) return null;
+      for (const key of keys) {
+        for (const { rule: measuredRule, value } of pathValues?.get(key) ?? []) {
+          if (measuredRule !== rule) continue;
+          const handle = handles[rule];
+          if (handle === undefined) continue;
+          const s = handleSeverity(value, handle);
+          if (s !== null) return s;
+        }
+      }
+      return null;
+    };
+    const severities: Record<string, Severity | null> = {};
+    let severity: Severity | null = null;
+    for (const rule of canonical ?? [...new Set(rules)]) {
+      const s = joinSeverity(rule) ?? projectSeverity(rule);
+      severities[rule] = s;
+      if (s !== null && (severity === null || SEV_RANK[s] > SEV_RANK[severity])) severity = s;
+    }
+    return {
+      file,
+      seq: 0,
+      ts: requestFile.ts ?? "",
+      element: typeof state.source === "string",
+      path: typeof state.path === "string" ? state.path : null,
+      elementId,
+      rules: canonical ?? [...new Set(rules)],
+      questionCount: Object.keys(questions).length,
+      durationMs:
+        typeof requestFile.durationMs === "number"
+          ? requestFile.durationMs
+          : Number.isFinite(st.mtimeMs) &&
+              requestFile.ts !== undefined &&
+              !Number.isNaN(Date.parse(requestFile.ts))
+            ? (() => {
+                const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
+                // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
+                // >60s for one call is never real - report unknown rather than a 21-minute lie
+                return ms > 60_000 ? null : ms;
+              })()
+            : null,
+      maxProb: probs.length ? Math.max(...probs) : null,
+      minProb: probs.length ? Math.min(...probs) : null,
+      answers: probs.sort((a, b) => a - b),
+      severity,
+      severities,
+    };
+  } catch (err) {
+    // An unreadable request file drops its row: the run view shows the rows it can prove, and the
+    // cause goes to the log rather than a silent hole in the table.
+    process.emitWarning(`jint: unreadable request file ${file} in ${dir}: ${errorMessage(err)}`);
+    return null;
+  }
 }
 
 export async function getRun(root: string, dir: string, id: string): Promise<object> {
   const files = (await readdir(dir)).filter((f) => f.endsWith(JSON_SUFFIX));
   const reportFile = files.includes(REPORT_FILE);
   const requestFiles = files.filter((f) => f !== REPORT_FILE && f !== MANIFEST_FILE);
-  let pathRules: Map<string, string[]> | null = null;
-  let reportMeasurementCount = 0;
-  // per-path measurements, for handle projection of rows without findings
-  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
-
   const { handles, legacy: manifestLegacy } = await readManifestHandles(dir);
-  const findingSev = new Map<string, Map<string, Severity>>();
-  if (reportFile) {
-    const facts = await readReportFacts(dir);
-    findingSev.clear();
-    for (const [input, byRule] of facts.findingSev) findingSev.set(input, byRule);
-    pathRules = facts.pathRules;
-    pathValues = facts.pathValues;
-    reportMeasurementCount = facts.measurementCount;
-  }
-  // Torn-write guard: the engine now writes report.json atomically, but an old or mid-copy
-  // report can still be a fragment. A report with fewer measurements than requests is not
-  // authoritative - fall back to question-key parsing and say so (degraded flag). The specific
-  // failure this catches: a 6-measurement fragment shadowing every row's rule as the bare-path
-  // file measurement with no signal.
-  const reportDegraded = pathRules !== null && reportMeasurementCount < requestFiles.length * 0.5;
-  if (reportDegraded) {
-    pathRules = null;
-    pathValues = null;
-    findingSev.clear();
-  }
+  const {
+    pathRules,
+    pathValues,
+    findingSev,
+    degraded: reportDegraded,
+  } = await reportFactsFor(dir, reportFile, requestFiles.length);
   const rows = await Promise.all(
-    requestFiles.map(async (file): Promise<RequestItem | null> => {
-      try {
-        const [text, st] = await Promise.all([
-          readFile(join(dir, file), READ_ENCODING),
-          stat(join(dir, file)),
-        ]);
-        const requestFile = JSON.parse(text) as RequestFile;
-        const questions = requestFile.request?.questions ?? {};
-        const answers = requestFile.response?.answers ?? {};
-        const probs = Object.values(answers)
-          .map((a) => {
-            if (typeof a?.noul === "number") return a.noul;
-            // score answers join the p-space summary normalized to 0..1 so a score-only request
-            // (or a request whose score is the only answer) is visible in max-p and the strip
-            if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
-              return a.score / (Object.keys(a.legend).length - 1);
-            }
-            return null;
-          })
-          .filter((n): n is number => n !== null);
-        const state = requestFile.request?.state ?? {};
-        const rules: string[] = [];
-        let elementId: string | null = typeof state.id === "string" ? state.id : null;
-        for (const key of Object.keys(questions)) {
-          const m = key.match(/^(.+?) in (.+)$/);
-          if (m) {
-            rules.push(m[1]!);
-            if (elementId === null) elementId = m[2]!;
-          } else {
-            rules.push(key);
-          }
-        }
-        const canonical =
-          pathRules !== null && typeof state.path === "string"
-            ? pathRules.get(state.path)
-            : undefined;
-
-        // severity per rule = finding join first (the report's own verdict, matched by FULL input
-        // identity: path#span for elements, bare path for files), else the handle snapshot
-        // projected onto that same input's measurement. Null = no provable verdict - the UI
-        // never invents "clean" from absence, and a sibling element's verdict never leaks.
-        const SEV_RANK: Record<Severity, number> = { warn: 1, error: 2 };
-        const keys =
-          typeof state.path === "string"
-            ? elementId !== null
-              ? [`${state.path}#${elementId}`, state.path]
-              : [state.path]
-            : [];
-        const joinSeverity = (rule: string): Severity | null => {
-          for (const key of keys) {
-            const sev = findingSev.get(key)?.get(rule);
-            if (sev !== undefined) return sev;
-          }
-          return null;
-        };
-        const projectSeverity = (rule: string): Severity | null => {
-          if (handles === null) return null;
-          for (const k of keys) {
-            for (const { rule: r, value } of pathValues?.get(k) ?? []) {
-              if (r !== rule) continue;
-              const handle = handles[rule];
-              if (handle === undefined) continue;
-              const s = handleSeverity(value, handle);
-              if (s !== null) return s;
-            }
-          }
-          return null;
-        };
-        const severities: Record<string, Severity | null> = {};
-        let severity: Severity | null = null;
-        for (const rule of canonical ?? [...new Set(rules)]) {
-          const s = joinSeverity(rule) ?? projectSeverity(rule);
-          severities[rule] = s;
-          if (s !== null && (severity === null || SEV_RANK[s] > SEV_RANK[severity])) severity = s;
-        }
-        return {
-          file,
-          seq: 0,
-          ts: requestFile.ts ?? "",
-          element: typeof state.source === "string",
-          path: typeof state.path === "string" ? state.path : null,
-          elementId,
-          rules: canonical ?? [...new Set(rules)],
-          questionCount: Object.keys(questions).length,
-          durationMs:
-            typeof requestFile.durationMs === "number"
-              ? requestFile.durationMs
-              : Number.isFinite(st.mtimeMs) &&
-                  requestFile.ts !== undefined &&
-                  !Number.isNaN(Date.parse(requestFile.ts))
-                ? (() => {
-                    const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
-                    // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
-                    // >60s for one call is never real - report unknown rather than a 21-minute lie
-                    return ms > 60_000 ? null : ms;
-                  })()
-                : null,
-          maxProb: probs.length ? Math.max(...probs) : null,
-          minProb: probs.length ? Math.min(...probs) : null,
-          answers: probs.sort((a, b) => a - b),
-          severity,
-          severities,
-        };
-      } catch {
-        return null;
-      }
-    }),
+    requestFiles.map((file) =>
+      readRequestRow(dir, file, pathRules, pathValues, findingSev, handles),
+    ),
   );
-  const parsed = rows.filter((r): r is RequestItem => r !== null);
-  parsed.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
-  parsed.forEach((r, i) => (r.seq = i + 1));
+  const resultRows = rows.filter((row): row is RequestItem => row !== null);
+  resultRows.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
+  resultRows.forEach((row, i) => (row.seq = i + 1));
   // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
   // by the FULL input (path#span), so element identity survives; severity = span-aware join.
   // requestFile joins each measurement back to its request: element cells by the request's
@@ -607,10 +649,10 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   // bare path (kind disambiguates a stray element request without an id).
   const elementRequestFile = new Map<string, string>();
   const fileRequestFile = new Map<string, string>();
-  for (const r of parsed) {
-    if (r.path === null) continue;
-    if (r.element) elementRequestFile.set(`${r.path}#${r.elementId}`, r.file);
-    else fileRequestFile.set(r.path, r.file);
+  for (const row of resultRows) {
+    if (row.path === null) continue;
+    if (row.element) elementRequestFile.set(`${row.path}#${row.elementId}`, row.file);
+    else fileRequestFile.set(row.path, row.file);
   }
   const cells: ApiCell[] = [];
   if (pathValues !== null) {
@@ -634,9 +676,9 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   }
   return {
     id,
-    requestCount: parsed.length,
+    requestCount: resultRows.length,
     hasReport: reportFile,
-    results: parsed,
+    results: resultRows,
     handles: handles ?? {},
     cells,
     reportDegraded,

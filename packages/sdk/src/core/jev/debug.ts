@@ -1,8 +1,8 @@
 /**
- * Run recording for the jev adapter: always on, every run. Captures the exact bytes the vendor SDK
- * serializes — not our pre-SDK question objects — plus the manifest and the machine report, so any
- * run can be replayed, inspected, or judged from real payloads. There is no off switch — consumers
- * must always be able to debug; JINT_DIR only moves WHERE the run dir lands.
+ * Run recording for the jev adapter: every run, on by default. Captures the exact bytes the vendor
+ * SDK serializes — not our pre-SDK question objects — plus the manifest and the machine report, so
+ * any run can be replayed, inspected, or judged from real payloads. Only the in-process test seam
+ * stops it; JINT_RUNS_DIR moves WHERE the run dir lands, never WHETHER one is written.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -13,12 +13,11 @@ import type { ClassifierConfig } from "./client.ts";
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
  * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
- * <base>/<runid>/ (base = config.runsDir, else $JINT_DIR/runs, else <homedir>/.jint/runs; runid =
- * unix timestamp of the run's first request; past runs are never overwritten). The kind (elements /
- * files) is derived from the request's state shape. Recording is unconditional — there is no off
- * switch.
+ * <base>/<runId>/ (base = $JINT_RUNS_DIR, else <homedir>/.jint/runs; runId = unix timestamp of the
+ * run's first request; past runs are never overwritten). The kind (elements / files) is derived
+ * from the request's state shape.
  */
-/** What this run recorded, for the end-of-run stderr notice. Null when recording is disabled. */
+/** What this run recorded. Null before the recorder starts (never in a run that classifies). */
 export interface RequestRecordSummary {
   dir: string;
   count: number;
@@ -29,23 +28,29 @@ let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
 let usageTotals = { input: 0, output: 0 };
 
-/** This run's recording summary (null when recording is disabled). */
+/** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** This run's recording summary; null before the recorder starts. */
 export function recordSummary(): RequestRecordSummary | null {
   return runSummary;
 }
 
 /**
- * The run-store base directory: config.runsDir / $JINT_DIR/runs / <homedir>/.jint/runs — the same
- * resolution recordRequests applies, exported so the UI server serves the SAME store the recorder
- * writes (no second homedir constant in the SDK).
+ * The run-store base directory: $JINT_RUNS_DIR, else <homedir>/.jint/runs — ONE var, one root, no
+ * precedence chain. The same resolution recordRequests applies, exported so the UI server serves
+ * the SAME store the recorder writes (no second homedir constant in the SDK).
+ *
+ * Deliberation note (recorded, not implemented): if a container one-knob need ever materializes,
+ * the future shape is a JINT_HOME base the specific vars DEFAULT FROM (JINT_GRAMMAR_DIR,
+ * JINT_RUNS_DIR; specific always wins) — never an umbrella tier.
  */
-export function runsBase(configRunsDir?: string): string {
-  return (
-    configRunsDir ??
-    (process.env.JINT_DIR !== undefined
-      ? resolve(process.env.JINT_DIR, "runs")
-      : `${homedir()}/.jint/runs`)
-  );
+export function runsBase(): string {
+  return process.env.JINT_RUNS_DIR !== undefined
+    ? resolve(process.env.JINT_RUNS_DIR)
+    : `${homedir()}/.jint/runs`;
 }
 
 /**
@@ -77,8 +82,11 @@ export function recordRunManifest(manifest: {
       usage: { ...usageTotals },
     };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
-  } catch {
-    // recording never breaks the run it observes
+  } catch (err) {
+    // Recording never breaks the run it observes: the dropped manifest IS the warning.
+    process.emitWarning(
+      `jint: could not record the run manifest in ${runSummary.dir}: ${errorMessage(err)}`,
+    );
   }
 }
 
@@ -92,36 +100,43 @@ export function recordRunReport(json: string): void {
   try {
     mkdirSync(runSummary.dir, { recursive: true });
     writeFileSync(`${runSummary.dir}/report.json`, json);
-  } catch {
-    // recording never breaks the run it observes
+  } catch (err) {
+    process.emitWarning(
+      `jint: could not record the run report in ${runSummary.dir}: ${errorMessage(err)}`,
+    );
   }
 }
 
 /**
- * Wrap the classifier's fetch so every call records. Recording is unconditional: there is no off
- * switch. JINT_DIR never changes WHETHER — only WHERE the run dir lands.
+ * Wrap the classifier's fetch so every call records. Calling this IS the start of a recorded run.
+ * JINT_RUNS_DIR never changes WHETHER — only WHERE the run dir lands.
  */
 export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
-  const runid = Date.now();
-  runStartedAt = runid;
+  // The run id IS the run's start, and the run dir's name - one timestamp, one identity.
+  const runId = Date.now();
+  runStartedAt = runId;
   usageTotals = { input: 0, output: 0 };
-  const base = runsBase(config?.runsDir);
-  const dir = `${base}/${runid}`;
+  const base = runsBase();
+  const dir = `${base}/${runId}`;
   runSummary = {
     dir,
     count: 0,
-    override: config?.runsDir !== undefined || process.env.JINT_DIR !== undefined,
+    override: process.env.JINT_RUNS_DIR !== undefined,
   };
-  const inner = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
-  const logged: (input: string, init?: RequestInit) => Promise<Response> = async (input, init) => {
+  const baseFetch = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  const recordingFetch: (input: string, init?: RequestInit) => Promise<Response> = async (
+    input,
+    init,
+  ) => {
     const startedAt = Date.now();
-    const response = await inner(input, init);
+    const response = await baseFetch(input, init);
     try {
       const requestInit = init ?? {};
       const request = new Request(input, requestInit);
       const requestText = await request.text();
-      const responseClone = response.clone();
-      const responseText = await responseClone.text();
+      const responseText = await response.clone().text();
+      // Parsed when it parses, else stored verbatim: a non-JSON payload (a proxy's HTML error
+      // page, say) is evidence, and dropping it for a throw would lose the only copy.
       const asJson = (text: string): unknown => {
         try {
           return JSON.parse(text);
@@ -159,10 +174,12 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
       for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
       writeFileSync(file, JSON.stringify(record, null, 2));
       runSummary!.count += 1;
-    } catch {
-      // recording never breaks the call it observes
+    } catch (err) {
+      // Recording never breaks the call it observes: the call's own bytes are still stored
+      // verbatim, so a failed write costs only the pretty-printed copy.
+      process.emitWarning(`jint: could not record a request in ${dir}: ${errorMessage(err)}`);
     }
     return response;
   };
-  return { ...config, fetch: logged };
+  return { ...config, fetch: recordingFetch };
 }

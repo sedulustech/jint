@@ -5,6 +5,14 @@
  * same declarative-compile seam the JSON config tier uses. Calibration comments are the calibration
  * record: thresholds are anchored to readings taken under the rule text, so moving a threshold or
  * editing a criteria line is a recalibration event.
+ *
+ * THE THRESHOLD GUARDRAIL: there is no automated calibration replay - calibration is a measurement
+ * ritual, not a test (recorded readings go stale and testify only to the model version that
+ * produced them). Changing a default threshold requires a manual calibration probe: a healthy
+ * corpus plus defective fixtures, on TWO languages (see AGENTS.md, "Adding defaults"), with the
+ * measured healthy-max / defective-min bands recorded beside the handle, dated, with the model
+ * version. The tests in defaults-handles.test.ts pin only what the fixtures cannot: handle math,
+ * polarity, and recorded gap rows.
  */
 
 import type { NoulHandlerData, RuleTarget, ScoreHandlerData } from "@jint/contract";
@@ -17,7 +25,7 @@ export interface NoulRuleSchema {
   readonly kind?: "noul";
   readonly instructions: string;
   readonly criteria: { readonly true: string; readonly false: string };
-  readonly target: RuleTarget;
+  readonly target: RuleTarget | readonly RuleTarget[];
   readonly handle: NoulHandlerData;
   /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
@@ -30,7 +38,7 @@ export interface ChoiceRuleSchema {
   readonly kind: "choice";
   readonly instructions: string;
   readonly criteria: readonly string[];
-  readonly target: RuleTarget;
+  readonly target: RuleTarget | readonly RuleTarget[];
   readonly handle: ScoreHandlerData;
   /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
@@ -59,7 +67,9 @@ export const isNamePurposeful: ChoiceRuleSchema = {
     "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
     "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds.",
   ],
-  target: "definitions",
+  // Explicit union, not the definitions shorthand (owner decision: new rules prefer specific
+  // targets) - the SAME measured set, pinned identical by the defaults-parity test.
+  target: ["functions", "classes", "methods", "types", "bindings"],
   // Score, not probability: the old noul form asked for P(no bad name) and hedged near 0.5 on
   // healthy code (walker dogfood, 2026-10-12: identical names scored 0.23-0.43 run to run),
   // while the criteria itself counts violations. Levels are bounded 0..2; the map makes one
@@ -124,7 +134,8 @@ export const isNamingConventionConsistent: NoulRuleSchema = {
     false:
       "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
   },
-  target: "definitions",
+  // Explicit union, not the definitions shorthand - same measured set (see is_name_purposeful).
+  target: ["functions", "classes", "methods", "types", "bindings"],
   // Defect pole "false" (casing conventions mixed). The self-corpus gap between the blatant
   // convention mixers and the consistent files (P(good) 0.56 -> 0.67, i.e. P(bad) 0.44 -> 0.33)
   // puts error_at 0.35 above the healthy p5 (P(bad) 0.28) and m1_bad_names (P(bad) 0.39)
@@ -174,7 +185,7 @@ export const is_comment_narration: NoulRuleSchema = {
       "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap.",
   },
   target: "comments",
-  handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
+  handle: { warn: { greater_than: 0.6 }, error: { greater_than: 0.7 } },
 };
 
 export const is_comment_patching_readability: NoulRuleSchema = {
@@ -203,7 +214,13 @@ export const will_comment_drift: NoulRuleSchema = {
   // Anchored above the healthy distribution on purpose: comments that pin
   // artifact names are common in healthy code, so the bar sits at strong
   // assertions only.
-  handle: { warn: { greater_than: 0.55 }, error: { greater_than: 0.7 } },
+  handle: {
+    warn: { greater_than: 0.55 },
+    error: {
+      greater_than: 0.7,
+      message: "Remove the comment or comply with the criteria.",
+    },
+  },
 };
 
 // provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
@@ -218,7 +235,8 @@ export const isCognitivelyComplex: ChoiceRuleSchema = {
     "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
     "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
   ],
-  target: "definitions",
+  // Explicit union, not the definitions shorthand - same measured set (see is_name_purposeful).
+  target: ["functions", "classes", "methods", "types", "bindings"],
   // Calibrated 2026-09-29 (two-language: app/src + cobra, healthy/defective fixtures):
   // scores are bounded 0..2; error at round>=2 (>=1.5) sits between cobra healthy-max 1.46
   // and defective stacked fixtures 1.95/1.97; warn at round>=1 (>=0.5) warns 5-13% of healthy.

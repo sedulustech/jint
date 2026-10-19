@@ -1,0 +1,23 @@
+# Documented parity deltas: cpp (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW comment - L10.0-L10.45
+NEW comment - L44.3-L44.20
+NEW comment - L46.0-L46.33
+NEW function box_value L31.0-L34.1
+NEW import - L1.0-L3.0
+NEW type RetryPolicy L20.0-L22.1
+NEW type retry_policy_t L24.0-L24.42
+REF binding MAX_RETRIES L4.0-L5.0
+REF function - L17.2-L17.40
+REF function SQUARE L5.0-L6.0
+REF function box_value L32.0-L34.1
+REF import - L1.0-L8.30
+REF type - L11.0-L11.21
+REF type - L20.0-L20.18
+REF type - L24.0-L24.42
+REF type - L27.0-L27.9
+REF type - L36.0-L36.14
+NEW class - L26.0-L29.2
+NEW class ProtocolHandler L11.0-L18.1
+NEW method handle L14.2-L14.24
+NEW method reset L17.2-L17.40

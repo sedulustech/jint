@@ -76,7 +76,7 @@ export interface StartUiOptions {
   port?: number;
   /** Built static dir to serve; default JINT_UI_DIST, else the dev checkout's app dist. */
   distDir?: string;
-  /** Absolute runs root to serve; default the SDK's runsDir resolution (runsBase). */
+  /** Absolute runs root to serve; default the SDK's runsBase resolution (JINT_RUNS_DIR / homedir). */
   root?: string;
 }
 

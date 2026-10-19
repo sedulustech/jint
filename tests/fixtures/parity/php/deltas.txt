@@ -1,0 +1,21 @@
+# Documented parity deltas: php (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW binding TAX_RATE L28.0-L28.20
+NEW function maker L26.0-L26.34
+NEW function pricer L25.0-L25.42
+NEW comment - L13.8-L13.45
+NEW comment - L8.0-L8.42
+NEW function total L21.0-L23.1
+NEW type Named L30.0-L32.1
+REF binding - L10.4-L10.27
+REF binding - L28.0-L28.20
+REF function - L12.4-L18.5
+REF function - L21.0-L23.1
+REF function - L25.10-L25.42
+REF function - L26.9-L26.34
+REF function - L31.4-L31.35
+REF type - L30.0-L30.15
+REF type - L9.0-L9.10
+NEW class Item L9.0-L19.1
+NEW method name L31.4-L31.35
+NEW method restock L12.4-L18.5

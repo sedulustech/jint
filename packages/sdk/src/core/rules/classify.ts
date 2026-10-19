@@ -5,16 +5,19 @@
  */
 
 import {
+  charsToTokens,
   decompose,
   fileElement,
   languageOf,
+  MAX_ELEMENT_TOKENS,
   projectElement,
   type Inventory,
-  type WalkElement,
-} from "../input/walk.ts";
+  type InventoryElement,
+} from "../grammars/walk.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
+  InternalError,
   type AnyState,
   type ClassifiedAnswer,
   type Element,
@@ -25,6 +28,7 @@ import {
   type Span,
   type Unit,
   type UnitKind,
+  type RuleTarget,
 } from "../types.ts";
 
 /** Which rule and block (block wire id or unit id) a question id belongs to. */
@@ -46,29 +50,6 @@ export function questionKey(ruleName: string, blockId: string): string {
   return `${ruleName} in ${blockId}`;
 }
 
-/**
- * States what kind of object the judged state is. Prepended to every question's instructions so the
- * model never has to infer it from the payload.
- */
-export function kindSentence(noun: string): string {
-  return `This unit is a ${noun}.`;
-}
-
-/**
- * The noun for a whole-unit state. Every kind that reaches this seam (file, piped string) is judged
- * as source text, so one noun serves all; the kind parameter stays on the signature so call sites
- * declare which kind they are judging.
- */
-export function unitKindNoun(_kind: UnitKind): string {
-  return "source file";
-}
-
-export function elementKindNoun(role: string): string {
-  if (role === "function") return "function definition";
-  if (role === "type") return "type definition";
-  return role;
-}
-
 function questionSpec(rule: Rule, instructions: string): QuestionSchema {
   return rule.kind === "choice"
     ? { type: "score", instructions, criteria: rule.criteria }
@@ -76,23 +57,17 @@ function questionSpec(rule: Rule, instructions: string): QuestionSchema {
 }
 
 /**
- * Compile rules to questions for ONE unit state, criteria-as-rule: the rule's criteria pass
- * straight through; only the instructions gain the kind-sentence prefix. Question ids (record keys)
- * are never sent — the attribution map correlates answers.
+ * Compile rules to questions for ONE unit state, criteria-as-rule: the rule's criteria and
+ * instructions pass straight through (no engine-added prefix - the state's path and extension say
+ * what the unit is, and rule authors self-describe). Question ids (record keys) are never sent —
+ * the attribution map correlates answers.
  */
-export function compileRuleQuestions(
-  rules: readonly Rule[],
-  unitId: string,
-  unitKind: UnitKind = "file",
-): QuestionBatch {
+export function compileRuleQuestions(rules: readonly Rule[], unitId: string): QuestionBatch {
   const questions: Record<string, QuestionSchema> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const rule of rules) {
     const questionId = questionKey(rule.name, unitId);
-    questions[questionId] = questionSpec(
-      rule,
-      `${kindSentence(unitKindNoun(unitKind))} ${rule.instructions}`,
-    );
+    questions[questionId] = questionSpec(rule, rule.instructions);
     attribution.set(questionId, { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
@@ -104,12 +79,11 @@ export function compileRuleQuestions(
  */
 export function compileElementQuestions(
   rules: readonly Rule[],
-  role: string,
+  _capture: string,
 ): Record<string, QuestionSchema> {
-  const kindPrefix = `${kindSentence(elementKindNoun(role))} `;
   const questions: Record<string, QuestionSchema> = {};
   for (const rule of rules) {
-    questions[rule.name] = questionSpec(rule, kindPrefix + rule.instructions);
+    questions[rule.name] = questionSpec(rule, rule.instructions);
   }
   return questions;
 }
@@ -166,7 +140,7 @@ export async function* classifyUnit(
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
-  const questionBatch = compileRuleQuestions(rules, unitId, unit.kind);
+  const questionBatch = compileRuleQuestions(rules, unitId);
   let answers: Record<string, ClassifiedAnswer>;
   try {
     answers = await classifier(unit.state, questionBatch.questions);
@@ -212,7 +186,7 @@ export interface ClassifyEvent {
 export interface OversizedElement {
   /** The stable positional walk label ("d5"). */
   readonly label: string;
-  readonly role: string;
+  readonly capture: string;
   readonly span: Span;
   /** Source size in UTF-16 code units (content.length), as the note reports it. */
   readonly chars: number;
@@ -238,52 +212,123 @@ export interface ClassifyResult {
 export const DEFAULT_CONCURRENCY = 16;
 
 /**
- * The minimal element shape the target grammar reads; both tiers' element views satisfy it (the TS
- * view carries attachedComment through precisely so this one predicate serves both).
+ * THE target grammar - the routes from a rule's target to elements. One implementation serves BOTH
+ * selection tiers, so a target's element mapping can never drift between them. Oversized elements
+ * are never judged - the size backstop trades their readings for the run's reliability; every skip
+ * is named in-band.
+ *
+ * The comment targets are a PAIR split (round-8 naming): `comments` is the documentation unit - a
+ * definition judged together with the comments it owns (the pair frame: attached run + inline
+ * comments + docstrings + code). Owned comment elements never match separately - that would judge
+ * the same text twice; a module-level docstring has no definition frame, so its element speaks for
+ * it. `loose-comments` is the complement: comments no definition owns (standalone runs and inline
+ * comments outside any definition). The two are disjoint and jointly exhaustive over comment text,
+ * so a rule measures every comment under exactly one target and narration fires once per frame.
  */
 export interface TargetableElement {
-  readonly role: string;
+  readonly capture: string;
+  /** The grammar that extracted the element; a qualified capture address resolves against it. */
+  readonly grammar?: string;
   readonly oversized?: boolean;
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
   readonly internalCommentCount?: number;
+  /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+  readonly docstringCount?: number;
+  /**
+   * Set on a comment element with an owner: a definition-owned comment is spoken for by its
+   * definition's pair frame (never judged as a separate comments match); a module docstring has no
+   * frame, so the element itself addresses comments-target rules.
+   */
+  readonly docstringOf?: import("@jint/contract").DocstringOwner;
 }
 
-/**
- * THE target grammar — the routes from a rule's target to elements. One implementation serves BOTH
- * selection tiers, so a target's element mapping can never drift between them. Oversized elements
- * are never judged — the size backstop trades their readings for the run's reliability; every skip
- * is named in-band.
- */
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
-  const carriesComment =
-    element.role === "comment" ||
+  const isCommentElement = element.capture === "comment";
+  // "owns documentation" is about CONTENT, not field presence: every definition carries
+  // internalCommentCount (often 0) and attachedComment may be absent, so the check counts real
+  // comments - otherwise every bare definition would read as a comments match
+  const ownsComments =
     (element.attachedComment?.length ?? 0) > 0 ||
-    (element.internalCommentCount ?? 0) > 0;
+    (element.internalCommentCount ?? 0) > 0 ||
+    (element.docstringCount ?? 0) > 0;
   switch (target) {
     case "comments":
-      return carriesComment;
+      // the PAIR frame: a definition judged together with the comments it owns (attached run,
+      // internal notes, docstrings - the frame carries code + comment). Owned comment ELEMENTS
+      // never match separately - that would judge the same comment twice (narration fires once
+      // per documented definition).
+      return ownsComments;
+    case "loose-comments":
+      // the complement: a comment element NO definition owns (standalone runs, inline comments
+      // outside any definition, and the module docstring - no definition owns it either).
+      // Disjoint from comments and jointly exhaustive over comment text.
+      return (
+        isCommentElement &&
+        (element.docstringOf === undefined || element.docstringOf.kind === "module")
+      );
     case "functions":
-      return element.role === "function";
+      return element.capture === "function";
+    case "classes":
+      return element.capture === "class";
+    case "methods":
+      return element.capture === "method";
+    case "types":
+      return element.capture === "type";
+    case "bindings":
+      return element.capture === "binding";
     case "definitions":
-      return element.role !== "comment" && element.role !== "import";
+      // the umbrella shorthand: the SHARED definition captures at once. New rules prefer the
+      // specific targets - the shorthand stays for old rules. Grammar-autonomous captures
+      // (markdown's @section) are NOT definitions: no code-calibrated default measures them.
+      return (
+        element.capture === "function" ||
+        element.capture === "method" ||
+        element.capture === "class" ||
+        element.capture === "type" ||
+        element.capture === "binding"
+      );
     case "imports":
-      return element.role === "import";
-    default:
+      return element.capture === "import";
+    case "files":
+      // whole-unit target: never element-addressable (explicit, not drift - files-target rules
+      // route through wholeUnitRules; this case only sees a validated target that slipped in)
       return false;
+    default: {
+      // THE QUALIFIED CAPTURE ADDRESS (the targeting backdoor): {grammar}:{capture} grammar-scoped
+      // - the element must come from THAT grammar AND carry THAT capture. Validation is the loud
+      // gate (schema rejects bare unknowns; load rejects bad addresses), so an unknown name HERE
+      // is an invariant break, never a silent no-match.
+      const qualified = target.match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/);
+      if (qualified === null) {
+        throw new InternalError("unvalidated rule target reached the evaluator: " + target);
+      }
+      return element.grammar === qualified[1] && element.capture === qualified[2];
+    }
   }
 }
 
 /** Per-rule scoping (issue 008): a scoped-out rule/element pair costs zero classifier calls. */
+/** One rule's targets, list or shorthand, as a list. */
+export const targetsOf = (rule: {
+  readonly target: RuleTarget | readonly RuleTarget[];
+}): readonly RuleTarget[] => {
+  const target = rule.target;
+  // not Array.isArray: TS7 does not narrow readonly-array unions through it
+  if (typeof target === "string") return [target];
+  return target;
+};
+
 export const rulesForElement = (
   rules: readonly Rule[],
-  element: WalkElement,
+  element: InventoryElement,
   path?: string,
 ): Rule[] =>
   rules.filter(
     (rule) =>
-      matchesTarget(rule.target, element) && (path === undefined || ruleInScope(rule, path)),
+      targetsOf(rule).some((target) => matchesTarget(target, element)) &&
+      (path === undefined || ruleInScope(rule, path)),
   );
 
 export interface ClassifyFileOptions {
@@ -297,7 +342,7 @@ export interface ClassifyFileOptions {
  * nothing ever re-walks.
  */
 export interface WalkedUnit {
-  readonly inventory: WalkElement[];
+  readonly inventory: InventoryElement[];
   readonly derived?: Inventory;
   /** Why the unit could not be mapped to elements (file units only); streamed as an error. */
   readonly failed: string | null;
@@ -342,7 +387,7 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   }
 }
 
-function elementContent(element: WalkElement): string {
+function elementContent(element: InventoryElement): string {
   // A docstring out of context always reads like narration; naming what it documents restores the
   // reading "as written".
   const docstringLead = element.docstringOf
@@ -417,7 +462,7 @@ function wholeUnitRules(rules: readonly Rule[], path: string, kind: UnitKind): R
  */
 function scopeNotesFor(
   rules: readonly Rule[],
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   path: string,
   kind: UnitKind,
 ): string[] {
@@ -429,7 +474,10 @@ function scopeNotesFor(
       noteParts.push(`rule '${rule.name}' scope excluded the whole unit`);
       continue;
     }
-    const scopedOut = inventory.filter((element) => matchesTarget(rule.target, element)).length;
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    const scopedOut = inventory.filter((element) =>
+      targets.some((target) => matchesTarget(target, element)),
+    ).length;
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
   }
   if (noteParts.length === 0) return [];
@@ -443,9 +491,9 @@ function scopeNotesFor(
  * selector — the only public query is the line.)
  */
 export function selectElement(
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   selector: { readonly line: number },
-): WalkElement | undefined {
+): InventoryElement | undefined {
   return inventory.find(
     (e) => e.span.start.line <= selector.line && selector.line <= e.span.end.line,
   );
@@ -459,9 +507,9 @@ export function selectElement(
  * in-band, never silence. (Element ids are run-scoped internals, never a selector.)
  */
 export function selectElements(
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   range: { readonly start: number; readonly end: number },
-): WalkElement[] {
+): InventoryElement[] {
   return inventory.filter((e) => e.span.start.line >= range.start && e.span.end.line <= range.end);
 }
 
@@ -479,7 +527,7 @@ interface ElementJob {
  */
 function elementJobsFor(
   rules: readonly Rule[],
-  inventory: readonly WalkElement[],
+  inventory: readonly InventoryElement[],
   path: string,
 ): ElementJob[] {
   const jobs: ElementJob[] = [];
@@ -567,7 +615,7 @@ async function classifyWholeUnit(
   const fileId = state.id;
   const unitReply = await askClassifier(
     state,
-    compileRuleQuestions(wholeRules, fileId, unit.kind).questions,
+    compileRuleQuestions(wholeRules, fileId).questions,
     classifier,
     state.path,
   );
@@ -620,7 +668,7 @@ function oversizedElements(inventory: Inventory | undefined): OversizedElement[]
   if (inventory === undefined) return [];
   return [...inventory.definitions, ...inventory.comments, ...inventory.imports]
     .filter((e) => e.oversized === true)
-    .map((e) => ({ label: e.label, role: e.role, span: e.span, chars: e.content.length }));
+    .map((e) => ({ label: e.label, capture: e.capture, span: e.span, chars: e.content.length }));
 }
 
 /**
@@ -646,7 +694,23 @@ export async function classifyFile(
   const state = unit.state;
   const events: ClassifyEvent[] = [];
 
-  if (await classifyWholeUnit(unit, rules, classifier, events))
+  // The FILE unit needs the same token backstop the elements have: file-scope rules send the
+  // whole content, and jev rejects over-budget requests with a 400 (the only red errors in the
+  // verilator-cpp sweep). One constant serves both sides - a token is a token to jev, and the
+  // criteria reserve the margin protects is the same shape for a files-rule batch as an element
+  // batch - so the file unit reuses MAX_ELEMENT_TOKENS rather than growing a second constant.
+  // Skips are a coverage note, never a 400; element rules still measure the file.
+  const fileOversized =
+    "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;
+  const fileOversizedNote =
+    fileOversized && wholeUnitRules(rules, state.path, unit.kind).length > 0
+      ? [
+          `file too large for file-scope rules - ${state.content.length} chars over the ${MAX_ELEMENT_TOKENS}-token backstop`,
+        ]
+      : [];
+  // the oversized-file note rides the same channel as the other coverage notes; the file-scope
+  // call is skipped entirely - no request is ever attempted for an over-cap file unit
+  if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events)))
     return { events, fatal: true, oversized: [], notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
@@ -659,7 +723,10 @@ export async function classifyFile(
   );
   collectWalkFailure(unit, walkedUnit, events, needsInventory);
 
-  const notes = scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind);
+  const notes = [
+    ...scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind),
+    ...fileOversizedNote,
+  ];
   const oversized = oversizedElements(walkedUnit.derived);
   if (isAborted()) return { events, fatal: false, oversized, notes };
   const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path);

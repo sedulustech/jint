@@ -5,7 +5,7 @@
  * module is where they meet the terminal.)
  */
 
-import { describeRules, type Rule } from "@jint/sdk";
+import { describeRules, type CapturedElement, type Rule } from "@jint/sdk";
 
 /**
  * The one stderr emitter: every stderr line jint prints routes through here, and the `jint: `
@@ -63,6 +63,45 @@ export function printRulesStdout(effective: readonly Rule[], customCount: number
   process.stdout.write(
     `${JINT_PREFIX}${measuringLine(effective, customCount)}\n\n` + describeRules(effective),
   );
+}
+
+/**
+ * --dry-run --json's payload: the effective rule set as ONE JSON document on stdout (the rules'
+ * declared shape - name, kind, target, criteria, handle - what the run WILL load), byte-clean for
+ * the documented --json promise; the banner stays on stderr.
+ */
+export function printRulesJson(effective: readonly Rule[], customCount: number): void {
+  emit({ message: measuringLine(effective, customCount) });
+  process.stdout.write(JSON.stringify({ rules: effective, customRules: customCount }, null, 2));
+}
+
+/**
+ * Capture's stdout payload: one line per element - grammar, kind, span (L<start>-L<end>, both lines
+ * always, for a stable column), name or '-' (comment/import/paragraph carry none). The input path
+ * joins ONLY when the run covered more than one file - single-file runs read shorter, and the input
+ * is the invocation's own argument. Space-joined, no padding, no color: pipe-clean. Exact machine
+ * reads are --json's job (names carry spaces; the line is display).
+ */
+export function captureLines(elements: readonly CapturedElement[]): string {
+  const multiInput = new Set(elements.map((element) => element.input)).size > 1;
+  const lines = elements.map((element) =>
+    [
+      element.grammar,
+      element.kind,
+      `L${element.span.start.line}-L${element.span.end.line}`,
+      "name" in element ? (element.name ?? "-") : "-",
+      ...(multiInput ? [element.input] : []),
+    ].join(" "),
+  );
+  return lines.length > 0 ? lines.join("\n") + "\n" : "";
+}
+
+/**
+ * Capture --json's payload: the element array as ONE JSON document (the flag-product convention -
+ * dry-run's --json shape), stdout-clean; errors and notes stay on stderr through emit.
+ */
+export function captureJson(elements: readonly CapturedElement[]): string {
+  return JSON.stringify({ elements }, null, 2) + "\n";
 }
 
 /** A usage error: the emitter's bare-error shape (message leads, no code - nothing to code yet). */

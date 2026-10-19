@@ -1,7 +1,13 @@
 import { afterAll, describe, test, expect } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
+import { grammar } from "../core/grammars/grammars.ts";
+import { ELEMENT_CAPTURES } from "../core/grammars/query.ts";
+import { emittedCaptures } from "./grammars/query.ts";
+import { assertCaptureAddress, scmCode } from "./grammars/query.ts";
 import { lint, collectReport } from "./lint.ts";
 import { renderJson } from "./output/json.ts";
 import {
@@ -58,14 +64,66 @@ const probeComments = mkRule("noul", {
   handle: { warn: { greater_than: 0.7 } },
 });
 const probeImports = mkRule("noul", { name: "probe_imports", target: "imports" });
+const probeLooseComments = mkRule("noul", {
+  name: "probe_loose_comments",
+  target: "loose-comments",
+  handle: { warn: { greater_than: 0.7 } },
+});
+// the split definition nouns: classes, methods, types, bindings (each silent at rest)
+const probeClasses = mkRule("noul", { name: "probe_classes", target: "classes" });
+const probeMethods = mkRule("noul", { name: "probe_methods", target: "methods" });
+const probeTypes = mkRule("noul", { name: "probe_types", target: "types" });
+const probeBindings = mkRule("noul", { name: "probe_bindings", target: "bindings" });
 
 const baseConfig = {
   input: "",
   include: [] as string[],
   exclude: [] as string[],
   customRules: [] as never[],
-  rules: [probeFiles, probeFunctions, probeDefinitions, probeComments, probeImports],
+  rules: [
+    probeFiles,
+    probeFunctions,
+    probeClasses,
+    probeMethods,
+    probeTypes,
+    probeBindings,
+    probeDefinitions,
+    probeComments,
+    probeLooseComments,
+    probeImports,
+  ],
 };
+
+describe("barrel files measure clean (real-jev dogfood defect)", () => {
+  test("a re-export-only file yields an import element and no WALK_FAILED", async () => {
+    const dir = "tmp/barrel-test";
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      `${dir}/index.ts`,
+      ["export * from './a.ts';", "export { b } from './b.ts';", ""].join("\n"),
+    );
+    const events = await drain(
+      lint({
+        config: baseConfig,
+        input: `${dir}/index.ts`,
+        classifier: classifierWith({ probe_imports: 0.5 }),
+      }),
+    );
+    const measurements = events.filter((e) => e.type === "measurement");
+    // the import lane carries the file: the whole-unit files rule plus the element measurement
+    // for the merged re-export element
+    expect(measurements.map((m) => m.measurement.rule)).toEqual(["probe_files", "probe_imports"]);
+    const elementMeasurement = measurements.find((m) => m.measurement.rule === "probe_imports")!;
+    expect(elementMeasurement.measurement.input).toMatch(/#[0-9a-f-]{36}$/);
+    // the zero-elements failure that dogfood hit must not fire on a legal barrel file
+    const failures = events.filter(
+      (e) =>
+        e.type === "error" &&
+        /no definitions, comments, or imports found/.test(String(e.error.message ?? e.error.code)),
+    );
+    expect(failures).toEqual([]);
+  });
+});
 
 describe("synthetic coverage", () => {
   test("the synthetic rule set exercises every RuleTarget and both kinds", () => {
@@ -199,10 +257,14 @@ test("oversized element: skipped with one named note per skip, siblings still ju
     const report = await collectReport(
       lint({ config: baseConfig, input: file, classifier: loggingClassifier({}, log) }),
     );
-    // named the way every element is named (path@L<line>, the finding anchor convention), with
-    // role + label + size; "skipped:" is the machine-matchable marker (notes are plain strings)
-    expect(report.notes).toHaveLength(1);
-    expect(report.notes[0]).toMatch(
+    // two notes: the oversized ELEMENT skip, plus the file-unit backstop note (the file carrying
+    // a >120k element is itself over the file backstop, so its file-scope rules skip too)
+    expect(report.notes).toHaveLength(2);
+    expect(report.notes.some((n) => n.startsWith("file too large for file-scope rules"))).toBe(
+      true,
+    );
+    const elementNote = report.notes.find((n) => !n.startsWith("file too large"))!;
+    expect(elementNote).toMatch(
       new RegExp(
         "^" + file + "@L1 skipped: function 'd0' — \\d+ chars \\(over the 30000-token cap\\)$",
       ),
@@ -289,16 +351,19 @@ describe("lint — classification shape", () => {
     await drain(lint({ config: baseConfig, input: FILE, classifier: loggingClassifier({}, log) }));
     // one call per element, state = {path, source} - the array matrix state is banned (averages)
     const elementCalls = log.calls.filter((c) => isElementCall(c.state));
-    expect(elementCalls).toHaveLength(2); // two definitions: addSeconds, formatDuration
+    // two definitions; the file's one comment is owned (attached to addSeconds), so under the
+    // pair split the FRAME speaks for it and the comment element matches neither comment target
+    expect(elementCalls).toHaveLength(2);
     const sources = elementCalls.map((c) => (c.state as { path: string; source: string }).source);
     expect(sources[0]).toContain("addSeconds");
     expect(sources[1]).toContain("formatDuration");
     for (const c of elementCalls) {
       expect((c.state as { path: string }).path).toBe(FILE);
     }
-    // per (element, target-matched rule): the docblock-carrying d0 (functions + definitions +
-    // comments via its attached comment) draws 3 questions, the bare d1 draws 2; question keys
-    // inside a call are bare rule names (one element per call, no ambiguity)
+    // per (element, target-matched rule): the file's one comment is now its own element (the
+    // pair split: the docblock-carrying d0 draws 3 questions (functions, definitions, comments)
+    // and the bare d1 draws 2; question keys inside a call are bare rule names (one element per
+    // call, no ambiguity)
     const counts = elementCalls.map((c) => c.questions.length).sort((a, b) => a - b);
     expect(counts).toEqual([2, 3]);
     const withFunctions = elementCalls.find((c) => c.questions.includes("probe_functions"));
@@ -597,7 +662,8 @@ describe("lint", () => {
     const measurements = events.filter((e) => e.type === "measurement");
     const findings = events.filter((e) => e.type === "finding");
     // the whole-file call (probe_files) + the docblock-carrying d0 (functions + definitions +
-    // comments) + the bare d1 (functions + definitions)
+    // comments - the pair frame, ONE comments match) + the bare d1 (functions + definitions).
+    // The attached comment element matches NEITHER comment target: the frame speaks for it.
     expect(measurements).toHaveLength(6);
     // functions level 1 (warn) fires on BOTH elements - no aggregation, no candidacy
     expect(findings).toHaveLength(2);
@@ -610,10 +676,240 @@ describe("lint", () => {
         input: s.finding.input,
         value: 1,
         severity: "warn",
-        note: CHOICE_DATA.criteria[1],
+        note: undefined, // no author message on the fired tier: a bare finding (no legend echo)
         location: { input: s.finding.input, span: expect.any(Object) },
       });
     }
+  });
+
+  test("finding note: absent by default; an author tier message becomes the note", async () => {
+    // the legend echo is gone: a bare tier fires a note-less finding, whatever the criteria say
+    const bare = await drain(
+      lint({ config: baseConfig, input: FILE, classifier: classifierWith({ probe_functions: 1 }) }),
+    );
+    for (const e of bare.filter((e) => e.type === "finding")) {
+      expect(e.finding.note).toBeUndefined();
+    }
+    // an author message on the fired tier rides the outcome as the finding's note
+    const messaged = mkRule("choice", {
+      name: "probe_messaged",
+      handle: {
+        map: [
+          "pass",
+          { level: "warn", message: "Split this function - one pause is the limit." },
+          "error",
+        ],
+      },
+    });
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [messaged] },
+        input: FILE,
+        classifier: classifierWith({ probe_messaged: 1 }),
+      }),
+    );
+    const findings = events.filter((e) => e.type === "finding");
+    expect(findings.length).toBeGreaterThan(0);
+    for (const e of findings) {
+      expect(e.finding.note).toBe("Split this function - one pause is the limit.");
+    }
+    // the noul form too: the fired condition's message becomes the note
+    const noulMessaged = mkRule("noul", {
+      name: "probe_noul_msg",
+      target: "files",
+      handle: {
+        warn: { greater_than: 0.5, message: "File-scope smell - see the rubric docs." },
+      },
+    });
+    const noulEvents = await drain(
+      lint({
+        config: { ...baseConfig, rules: [noulMessaged] },
+        input: FILE,
+        classifier: classifierWith({ probe_noul_msg: 0.9 }),
+      }),
+    );
+    const noulFindings = noulEvents.filter((e) => e.type === "finding");
+    expect(noulFindings).toHaveLength(1);
+    expect(noulFindings[0]!.finding.note).toBe("File-scope smell - see the rubric docs.");
+  });
+
+  test("the capture address: target 'section' judges a README section; shared targets do not", async () => {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-section-test.md";
+    await Bun.write(file, "# Head\n\nsome prose under the heading\n");
+    try {
+      const sectionRule = mkRule("noul", {
+        name: "probe_section",
+        target: "markdown:section" as never, // the qualified capture address: grammar-scoped
+        handle: { warn: { greater_than: 0.9 } },
+      });
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [sectionRule], input: file },
+          classifier: loggingClassifier({ probe_section: 0.95 }, { calls: [] }),
+        }),
+      );
+      // the section element was selected, judged, and carries the section kind
+      expect(report.measurements).toHaveLength(1);
+      expect(report.measurements[0]!.element?.kind).toBe("section");
+      expect(report.findings).toHaveLength(1);
+      expect(report.findings[0]!.rule).toBe("probe_section");
+      // the shared captures stay addressable when the grammar emits them (typescript emits @comment)
+      expect(() =>
+        compileRule(
+          {
+            ...NOUL_DATA,
+            name: "probe_ts_comments",
+            target: "typescript:comment",
+          } as never,
+          "lint.test.ts",
+        ),
+      ).not.toThrow();
+      try {
+        mkRule("noul", {
+          name: "probe_md_function",
+          target: "markdown:function" as never,
+          handle: { warn: { greater_than: 0.9 } },
+        });
+        throw new Error("markdown:function must not compile - not a declared export");
+      } catch (thrown) {
+        expect((thrown as { code?: string }).code ?? "CONFIG_INVALID").toBe("CONFIG_INVALID");
+      }
+      // the second md-only capture addresses flat prose (never nests - no #set! directive)
+      const paragraphRule = mkRule("noul", {
+        name: "probe_paragraph",
+        target: "markdown:paragraph" as never,
+        handle: { warn: { greater_than: 0.9 } },
+      });
+      const prose = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [paragraphRule], input: file },
+          classifier: loggingClassifier({ probe_paragraph: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(prose.measurements.length).toBe(1);
+      expect(prose.measurements[0]!.element?.kind).toBe("paragraph");
+      // the shared nouns do not reach it: 'types' matches nothing on this file now
+      const typeProbe = mkRule("noul", { name: "probe_types", target: "types" });
+      const empty = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [typeProbe], input: file },
+          classifier: loggingClassifier({ probe_types: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(empty.measurements).toHaveLength(0);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  test("qualified capture addresses reject loudly at the merged-registry gate: bare form, unknown grammar, unknown capture", () => {
+    // The gate lives at LINT STARTUP now (core/lint.ts, after loadUserGrammars): addresses are
+    // checked against the MERGED registry - the emitted set of an id is its registered grammar's,
+    // whatever its origin. This pin exercises the validator directly (the embedded registry is
+    // the merged one here - no user dir in play); the shadow-set ordering is e2e-pinned in
+    // tests/byog-markdown.test.ts.
+    for (const [target, detail] of [
+      ["nosuch:section", "unknown grammar"],
+      ["markdown:nosuch", "unknown capture in a loaded grammar"],
+      ["funtions", "a typo: neither shared target nor qualified address"],
+      ["markdown:name", "@name is not an element capture - not rule-facing"],
+      ["markdown:function", "markdown emits no function capture"],
+    ] as const) {
+      try {
+        assertCaptureAddress(target);
+        throw new Error("expected CONFIG_INVALID for " + detail);
+      } catch (thrown) {
+        expect(thrown).toBeInstanceOf(SetupError);
+        expect((thrown as { code: string }).code).toBe("CONFIG_INVALID");
+        expect((thrown as { message: string }).message).toContain(target);
+      }
+    }
+  });
+
+  test("emittedCaptures is syntactic over the .scm - predicates do not unemit", () => {
+    // a capture bound under a predicate still counts: the .scm names it; predicates gate
+    // matching, not vocabulary. Pin: every element capture named on a predicate line of the
+    // typescript .scm is in the derived emitted set.
+    const scm = grammar("typescript").queries;
+    const predicateLines = scmCode(scm)
+      .split("\n")
+      .filter((l) => l.includes("(#"));
+    expect(predicateLines.length).toBeGreaterThan(0);
+    const emitted = new Set(emittedCaptures("typescript"));
+    for (const line of predicateLines) {
+      for (const m of line.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)) {
+        const name = m[1]!;
+        if ((ELEMENT_CAPTURES as readonly string[]).includes(name)) {
+          expect(emitted.has(name)).toBe(true);
+        }
+      }
+    }
+    // the derivation is element captures only: markdown's @name never becomes addressable
+    expect(emittedCaptures("markdown")).toEqual(["section", "paragraph"]);
+  });
+
+  test("module docstrings are loose comments - no definition owns them", async () => {
+    const pyRule = mkRule("noul", {
+      name: "probe_py_loose",
+      target: "loose-comments",
+      handle: { warn: { greater_than: 0.9 } },
+    });
+    const modDoc = "tmp/lint-mod-doc-test.py";
+    await Bun.write(modDoc, '"""Module docs."""\n\ndef f():\n    pass\n');
+    try {
+      const report = await collectReport(
+        lint({
+          config: { ...baseConfig, rules: [pyRule], input: modDoc },
+          classifier: loggingClassifier({ probe_py_loose: 0.95 }, { calls: [] }),
+        }),
+      );
+      // the module docstring fires the loose-comments rule (it used to route to 'comments')
+      expect(report.findings).toHaveLength(1);
+      expect(report.findings[0]!.rule).toBe("probe_py_loose");
+    } finally {
+      rmSync(modDoc, { force: true });
+    }
+  });
+
+  test("report.rules: every rule that ran, self-described (criteria + compiled tiers)", async () => {
+    // a config-authored custom rule runs alongside the JSON-tier probe set
+    const custom = {
+      name: "probe_custom",
+      target: "functions" as const,
+      classify: (self: { content: string }) => ({
+        instructions: "Is this function tiny?",
+        criteria: { true: "Tiny.", false: "Not tiny." },
+        state: { source: self.content },
+      }),
+      handle: { warn: { greater_than: 0.9 } },
+    };
+    const report = await collectReport(
+      lint({
+        config: {
+          ...baseConfig,
+          rules: [probeFiles, probeFunctions],
+          customRules: [custom as never],
+        },
+        input: FILE,
+        classifier: classifierWith({ probe_files: 0.2, probe_functions: 1 }),
+      }),
+    );
+    const names = report.rules!.map((r) => r.name);
+    expect(names).toContain("probe_files");
+    expect(names).toContain("probe_functions");
+    expect(names).toContain("probe_custom");
+    // criteria text matches the compiled rule; handle carries the compiled tiers (+ message field)
+    const files = report.rules!.find((r) => r.name === "probe_files")!;
+    expect(files.criteria).toEqual(probeFiles.criteria);
+    expect(files.handle).toEqual(probeFiles.handleData ?? null);
+    const choice = report.rules!.find((r) => r.name === "probe_functions")!;
+    expect(choice.criteria).toEqual(probeFunctions.criteria);
+    expect(choice.handle).toEqual(probeFunctions.handleData ?? null);
+    // the custom callback rule is code policy: no declarative criteria or tier form
+    const digest = report.rules!.find((r) => r.name === "probe_custom")!;
+    expect(digest.criteria).toBeNull();
+    expect(digest.handle).toBeNull();
   });
 
   test("single pass: every measurement runs its handle, each finding follows its measurement", async () => {
@@ -629,11 +925,11 @@ describe("lint", () => {
       // no aggregation: a finding directly follows its own measurement
       if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
     }
-    // functions level 2 (error) fires on both elements; comments warn (>0.7) fires on the
-    // docblock-carrying d0 only
+    // functions level 2 (error) fires on both definitions; comments warn (>0.7) fires ONCE, on
+    // the pair frame d0 - narration fires exactly once per documented function (2 + 1)
     expect(events.filter((e) => e.type === "finding")).toHaveLength(3);
     // every classified unit was measured against every in-scope rule (the files rule judged the
-    // whole unit once; both elements drew their target-matched questions)
+    // whole unit once; the three definitions drew their target-matched questions)
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
     // findings and measurements name the same rule, adjacent in the stream
     for (let i = 0; i < events.length; i++) {
@@ -655,13 +951,15 @@ describe("lint", () => {
         classifier: loggingClassifier({}, log),
       }),
     );
-    // probe_functions (functions-target) survives: one classification call per element, no
-    // whole-content call
+    // probe_functions (functions-target) survives; probe_loose_comments resolves NOTHING here -
+    // sample-file.ts's one comment is owned by addSeconds, so it is comments, not loose
     expect(log.calls).toHaveLength(2);
-    for (const c of log.calls) {
-      expect(c.questions).toEqual(["probe_functions"]); // bare rule-name keys, one element per call
-    }
-    // 2 function elements x 1 remaining rule
+    const questionKeys = log.calls
+      .map((c) => c.questions.join(","))
+      .sort((a, b) => a.localeCompare(b));
+    // bare rule-name keys, one element per call
+    expect(questionKeys).toEqual(["probe_functions", "probe_functions"]);
+    // 2 function elements
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
   });
 
@@ -737,12 +1035,13 @@ describe("lint", () => {
     const errors = events.filter(
       (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
-    // the failed file's calls (whole-content + one call per element) surface an error
+    // the failed file's calls (whole-content + one call per element: two definitions - the
+    // attached comment rides d0's frame) surface an error each
     expect(errors).toHaveLength(3);
     expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
-    // second unit: 1 whole-file + 2 element questions batches (the comment-carrying binding
-    // draws definitions + comments; the bare function draws functions + definitions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(5);
+    // second unit: 1 whole-file + 2 element question batches (the comment-carrying binding
+    // draws bindings + definitions + comments; the bare function draws functions + definitions)
+    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
   });
 
   test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -765,8 +1064,9 @@ describe("lint", () => {
     // the wave bound (4) caps in-flight probes: each of the 3 files calls exactly once before
     // the abort flag stops everything further
     expect(calls).toBe(3);
-    expect(events).toHaveLength(3);
-    for (const e of events) {
+    // 3 errors + the rules digest event (the report is self-describing about its rules)
+    expect(events.filter((e) => e.type === "error")).toHaveLength(3);
+    for (const e of events.filter((e) => e.type !== "rules")) {
       expect(e.type).toBe("error");
       if (e.type === "error") expect(e.error.code).toBe("JEV_AUTH");
     }
@@ -778,6 +1078,44 @@ describe("lint", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
+    }
+  });
+
+  test("the config secretDenylist knob overrides the walk denylist; notes surface once per class", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "jint-denylist-"));
+    try {
+      writeFileSync(join(dir, ".env"), "SECRET=1\n");
+      writeFileSync(join(dir, ".env.example"), "HOST=\n");
+      writeFileSync(join(dir, "a.ts"), "export const a = 1;\n");
+      const drain2 = async (secretDenylist?: readonly string[]) => {
+        const events = await drain(
+          lint({
+            config: { ...baseConfig, input: dir, inputType: "dir", secretDenylist },
+            classifier: classifierWith({}),
+          }),
+        );
+        return {
+          measured: events.some(
+            (e) => e.type === "measurement" && (e.measurement.input as string) === ".env.example",
+          ),
+          notes: events
+            .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
+            .map((e) => e.note)
+            .filter((n) => n.startsWith("secret denylist")),
+        };
+      };
+      // default: both .env shapes skipped, ONE note per class
+      const denied = await drain2();
+      expect(denied.measured).toBe(false);
+      expect(denied.notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+      expect(denied.notes).toContain("secret denylist skipped 1 path(s) matching '.env.*'");
+      // override drops the .env.* class: .env.example measures
+      const allowed = await drain2([".env"]);
+      expect(allowed.measured).toBe(true);
+      expect(allowed.notes).toContain("secret denylist skipped 1 path(s) matching '.env'");
+      expect(allowed.notes).not.toContain("secret denylist skipped 1 path(s) matching '.env.*'");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 
@@ -805,15 +1143,21 @@ describe("lint", () => {
         ...[...inputs].filter((i) => i.includes("#")),
       ]),
     );
+    // good.ts contributes its binding/function AND its documented binding (the attached comment
+    // rides the pair frame, one identity). README.md's section is @section - no shared target
+    // addresses it, so no default probe measures it (the capture backdoor is the only road).
     expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
     for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+        e.type === "note" &&
+        e.note.startsWith(
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+        ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
   });
 
@@ -848,14 +1192,49 @@ describe("lint", () => {
     );
     const coverage = events.find(
       (e): e is Extract<LintEvent, { type: "note" }> =>
-        e.type === "note" && e.note.startsWith("parsing ts, tsx, py, go"),
+        e.type === "note" &&
+        e.note.startsWith(
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css",
+        ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, tsx, py, go · not parsed (no grammar): (extensionless), .json, .md",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, css · not parsed (no grammar): (extensionless), .json",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
 
+  test("a TS custom rule targets the qualified capture lane: markdown:section measures sections", async () => {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-ts-section-test.md";
+    await Bun.write(file, "# Head\n\nprose under it\n");
+    try {
+      const sectionRule = {
+        name: "custom_md_section",
+        target: "markdown:section",
+        classify: (self: { source: string }) => ({
+          instructions: "i",
+          criteria: { true: "t", false: "f" },
+          state: { source: self.source },
+        }),
+        handle: { warn: { greater_than: 0.9 } },
+      };
+      const report = await collectReport(
+        lint({
+          config: {
+            ...baseConfig,
+            input: file,
+            rules: [],
+            customRules: [sectionRule as never],
+          },
+          classifier: loggingClassifier({ custom_md_section: 0.95 }, { calls: [] }),
+        }),
+      );
+      expect(report.measurements).toHaveLength(1);
+      expect(report.measurements[0]!.element?.kind).toBe("section");
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
   test("custom rule set (selection = the rule list itself)", async () => {
     const only: Rule[] = [probeDefinitions];
     const config = { ...baseConfig, input: "", rules: only };
@@ -1055,7 +1434,9 @@ describe("lint — inline callback rules (content retention, the logical content
     const tsMeasurements = events.filter(
       (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
     );
-    expect(tsMeasurements).toHaveLength(2);
+    // the custom rule's targets in good.ts: the binding-carrying element, the function, and the
+    // comment element (three-dimension model)
+    expect(tsMeasurements).toHaveLength(3);
     expect(
       tsMeasurements.every(
         (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),

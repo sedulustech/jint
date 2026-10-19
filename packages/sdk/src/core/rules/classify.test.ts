@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { ruleTargets, type RuleTarget } from "@jint/contract";
 import { validateConfig } from "../../config/load.ts";
 import {
   ClassifyError,
@@ -9,7 +10,7 @@ import {
   type Unit,
   type UnitState,
 } from "../types.ts";
-import { selectElement, selectElements } from "./classify.ts";
+import { matchesTarget, selectElement, selectElements } from "./classify.ts";
 import {
   elementWireId,
   compileRuleQuestions,
@@ -93,11 +94,11 @@ describe("compileRuleQuestions", () => {
     const { questions, attribution } = compileRuleQuestions(sensors, FILE_ID);
     const noulQ = questions[`probe_noul in ${FILE_ID}`]!;
     expect(noulQ.type).toBe("noul");
-    expect(noulQ.instructions).toBe("This unit is a source file. " + NOUL_DATA.instructions);
+    expect(noulQ.instructions).toBe(NOUL_DATA.instructions);
     expect(noulQ.criteria).toBe(NOUL_DATA.criteria); // the rule's own criteria object, untouched
     const scoreQ = questions[`probe_choice in ${FILE_ID}`]!;
     expect(scoreQ.type).toBe("score");
-    expect(scoreQ.instructions).toBe("This unit is a source file. " + CHOICE_DATA.instructions);
+    expect(scoreQ.instructions).toBe(CHOICE_DATA.instructions);
     expect(scoreQ.criteria).toBe(CHOICE_DATA.criteria);
     expect(attribution.get(`probe_noul in ${FILE_ID}`)).toEqual({
       rule: "probe_noul",
@@ -228,16 +229,16 @@ describe("compileRuleQuestions — composite keys", () => {
 });
 
 describe("compileElementQuestions", () => {
-  test("one element per call: question keys are bare rule names, type follows kind", () => {
+  test("one element per call: question keys are bare rule names, type follows kind, instructions pass through unprefixed", () => {
     const questions = compileElementQuestions([noulFile, choiceFn], "comment");
     expect(Object.keys(questions).sort()).toEqual(["probe_choice", "probe_noul"]);
     expect(questions.probe_noul!.type).toBe("noul");
     expect(questions.probe_noul!.instructions).toBe(
-      "This unit is a comment. " + (noulFile as { instructions: string }).instructions,
+      (noulFile as { instructions: string }).instructions,
     );
     expect(questions.probe_choice!.type).toBe("score");
     expect(questions.probe_choice!.instructions).toBe(
-      "This unit is a comment. " + (choiceFn as { instructions: string }).instructions,
+      (choiceFn as { instructions: string }).instructions,
     );
   });
 
@@ -508,5 +509,96 @@ describe("selectElements - RANGE resolution: fully-enclosed only", () => {
 
   test("a range enclosing nothing selects nothing (caller reports the miss)", () => {
     expect(selectElements(inventory, { start: 8, end: 90 })).toEqual([]);
+  });
+});
+
+describe("classifyFile — the file-unit token backstop", () => {
+  test("a file over the cap skips its file-scope calls with a note; element rules still measure", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    // a line of padding that stays over the 120k-char (30k estimated tokens) backstop
+    const filler = "const pad = [" + "0,".repeat(60_000) + "];\n";
+    const elementRule = noulDefs; // definitions-target: still measures the file's elements
+    const calls: Unit[] = [];
+    const classifier = classifierWith({ probe_noul: 0.5 }, calls);
+    const { events, notes } = await classifyFile(
+      {
+        kind: "file",
+        state: {
+          path: "src/huge.ts",
+          content: filler + "export const tiny = 1;\n",
+          id: FILE_ID,
+        },
+      },
+      [noulFile, elementRule],
+      classifier,
+    );
+    // no request ever carried the file unit (file state = {content}); the one call out is the
+    // ELEMENT call - the file-scope call is skipped, not 400'd
+    expect(calls.filter((c) => "content" in c.state)).toHaveLength(0);
+    expect(calls).toHaveLength(1);
+    expect(notes).toContain(
+      `file too large for file-scope rules - ${filler.length + 23} chars over the 30000-token backstop`,
+    );
+    const classified = events.filter((e) => !(e.event instanceof ClassifyError));
+    expect(classified.length).toBeGreaterThan(0); // element rules still measured
+    expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
+  });
+
+  test("a file over the cap with NO file-scope rules measures normally, no note", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const filler = "const pad = [" + "0,".repeat(60_000) + "];\n";
+    const calls: Unit[] = [];
+    const classifier = classifierWith({ probe_defs: 0.5 }, calls);
+    const { notes } = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/huge2.ts", content: filler + "export const tiny = 1;\n", id: FILE_ID },
+      },
+      [noulDefs],
+      classifier,
+    );
+    expect(notes).not.toContain(expect.stringContaining("file too large for file-scope rules"));
+    expect(calls.length).toBeGreaterThan(0); // element calls went out
+  });
+});
+
+describe("THE TARGET CHAIN (single source, exhaustively pinned)", () => {
+  // every shared target resolves to a NON-DEGENERATE predicate: given an element of the right
+  // shape, matchesTarget answers true. A target that can never fire (always-false) is drift.
+  const singular: Partial<Record<RuleTarget, string>> = {
+    functions: "function",
+    classes: "class",
+    methods: "method",
+    types: "type",
+    bindings: "binding",
+    imports: "import",
+  };
+  test("every ruleTarget resolves true on its element shape (files is whole-unit, skipped)", () => {
+    for (const target of ruleTargets) {
+      if (target === "files") continue; // whole-unit: never element-addressable, by design
+      if (target in singular) {
+        expect(matchesTarget(target, { capture: singular[target]!, grammar: "typescript" })).toBe(
+          true,
+        );
+      }
+    }
+    // the umbrella catches each definition capture; the comment pair covers both buckets
+    expect(matchesTarget("definitions", { capture: "function", grammar: "typescript" })).toBe(true);
+    expect(
+      matchesTarget("comments", {
+        capture: "comment",
+        grammar: "typescript",
+        attachedComment: ["docs"],
+      }),
+    ).toBe(true);
+    expect(matchesTarget("loose-comments", { capture: "comment", grammar: "typescript" })).toBe(
+      true,
+    );
+  });
+
+  test("an unknown bare target cannot reach the evaluator silently (invariant, not behavior)", () => {
+    expect(() => matchesTarget("funtions", { capture: "function", grammar: "typescript" })).toThrow(
+      /unvalidated rule target/,
+    );
   });
 });

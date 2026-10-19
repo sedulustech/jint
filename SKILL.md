@@ -38,15 +38,15 @@ Install (either):
 Then `TYPESAFE_API_KEY` in the environment (used as-is).
 
 - Recording is always on: the exact wire bytes per question land under
-  `~/.jint/runs/` (or wherever `JINT_DIR` points).
+  `~/.jint/runs/` (or wherever `JINT_RUNS_DIR` points).
   Read the recorded request files when you need to see precisely what the model saw. Every run
   also persists `report.json` (the canonical output — the same bytes `--json` prints) and is
   browsable in the measurement UI - see "Give the user the link" below.
 
 ## Output
 
-- Env summary: recording is always on (there is no off switch); `JINT_DIR` moves where
-  run dirs land (default `~/.jint/runs`).
+- Env summary: recording is always on (there is no off switch); `JINT_RUNS_DIR` moves where
+  run dirs land (default `~/.jint/runs`); `JINT_GRAMMAR_DIR` moves the user grammar dir (default `~/.jint/grammars`).
 
 ## Span anchors are pre-edit
 
@@ -65,38 +65,38 @@ The run dir is the record of what the model saw. Read it before you probe.
 
 ### The fix loop
 
-1. Take a finding. Re-query just that unit: `jint <path>@L<line> --rule <rule>`. One query,
+1. Take a finding. Re-query just that unit: `jint run <path>@L<line> --rule <rule>`. One query,
    one unit, one verdict. No full re-run.
 2. Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that exists now.
 3. After any edit, re-anchor at the CURRENT line. Grep the declaration. Then re-query.
 
 ### Element inventory without the CLI
 
-Every run records its captures in a run dir. Find it on stderr after a run, or read the
+Every run writes a run dir. Find it on stderr after a run, or read the
 report's top-level `run` field: `run.dir` is the dir, `run.id` is its name. The dir holds
-capture files named `<unixts>-elements-<file>.json` - one file per request, one request per
+request dumps: files named `<unixts>-elements-<file>.json` - one file per request, one request per
 element. The envelope is `{request, response}`; the judged text is `request.state.source`,
-with `request.state.id` and `request.state.path`. A capture carries no span: spans live in the
+with `request.state.id` and `request.state.path`. A request dump carries no span: spans live in the
 report (`measurements[].element.span`, `findings[].location.span`), joined by input id. Read
 these instead of probing anchors with live queries.
 
 ### The join: finding to judged text
 
 A report finding names its element in `findings[].input`. That string is `<path>#<id>`,
-where `<id>` equals the capture's `state.id`. Split on `#` and match the tail. The match
+where `<id>` equals the request's `state.id`. Split on `#` and match the tail. The match
 recovers the exact text the model judged.
 
-### Quote source from the file, never from the capture
+### Quote source from the file, never from the request dump
 
 Captures tell you WHAT was judged. The file tells you HOW it is written now. Capture JSON is
-pretty-printed; its indentation is not source. Edit from the file. A pasted capture indent is
+pretty-printed; its indentation is not source. Edit from the file. A pasted request dump indent is
 a wasted edit.
 
 ### Paths and scoping
 
 An explicit path overrides config scoping. That is by design. A piped list must respect the
 config's `exclude`: filter before the pipe, e.g.
-`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint paths -`.
+`git diff --name-only | grep -vE '\.test\.ts$|^tests/' | jint run paths -`.
 
 ### The binary goes stale
 
@@ -173,7 +173,7 @@ A live config example, serialized from real default specs (always the current wi
         "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
         "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
       ],
-      "target": "definitions",
+      "target": ["functions", "classes", "methods", "types", "bindings"],
       "handle": {
         "map": ["pass", "warn", "error"]
       }

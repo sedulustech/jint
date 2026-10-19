@@ -21,6 +21,8 @@ export type { RuleTarget };
  */
 export interface HandleOutcome {
   readonly severity: Severity;
+  /** The rule author's message attached at the fired tier; the finding's note. Absent = bare. */
+  readonly message?: string;
 }
 /** Null is a deliberate silent verdict: the reading happened, nothing surfaces. */
 export type HandleResult = HandleOutcome | null;
@@ -56,7 +58,7 @@ export type SetupErrorCode =
 export type SetupDetail =
   | { kind: "unknown-rule"; valid: readonly string[]; suggest?: string }
   | { kind: "unknown-language"; valid: readonly string[] }
-  | { kind: "invalid-rule"; ruleIndex: number; field: string };
+  | { kind: "invalid-rule"; ruleIndex: number; field: string; present: boolean };
 
 /**
  * Codes a streamed per-unit failure carries: request-layer causes (auth, availability, request and
@@ -137,8 +139,11 @@ export type RuleKind = "noul" | "choice";
 
 interface RuleBase {
   readonly name: string;
-  /** Which unit instances this rule judges; the funnel routes on it (design.md §7.1). */
-  readonly target: RuleTarget;
+  /**
+   * Which unit instances this rule judges; the funnel routes on it (design.md §7.1). A list is the
+   * explicit form (the defaults use it); a single name is the one-target shorthand.
+   */
+  readonly target: RuleTarget | readonly RuleTarget[];
   /** Reads the full answer, decides whether it matters. */
   readonly handle: (answer: import("@jint/contract").ClassifiedAnswer) => HandleResult;
   /**
@@ -233,9 +238,8 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only: the report is self-contained, so a
-   * renderer never reaches into criteria or recorded requests for display. Absent for yes/no
-   * readings and policy findings.
+   * The rule author's message attached at the fired handle tier; absent = a bare finding. The
+   * criteria legend echo is gone: rubric prose never reaches findings.
    */
   readonly note?: string;
 }
@@ -244,8 +248,13 @@ export interface Finding {
 export type Span = import("@jint/contract").Span;
 /** The typed subject of a measurement: the closed element union. */
 export type Element = import("@jint/contract").Element;
-/** The element-kind vocabulary minus the whole-unit "file" kind: what a grammar node abstracts to. */
-export type ElementRole = Exclude<Element["kind"], "file">;
+/**
+ * The element-kind vocabulary minus the whole-unit "file" kind. One vocabulary, two views: it is
+ * the wire `kind` on a measurement's element AND the `capture` a custom rule sees - a capture name
+ * is the element's identity, never a label. Derived from the contract's union, so the compiler
+ * rejects a kind the contract drops (no hand-copied mirror).
+ */
+export type ElementCapture = Exclude<Element["kind"], "file">;
 export type FileElement = import("@jint/contract").FileElement;
 export type FunctionElement = import("@jint/contract").FunctionElement;
 export type TypeElement = import("@jint/contract").TypeElement;
@@ -333,4 +342,6 @@ export type LintEvent =
   | { type: "finding"; finding: Finding }
   | { type: "error"; error: ClassifyError }
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
-  | { type: "note"; note: string };
+  | { type: "note"; note: string }
+  /** The run's rule self-descriptions: one digest per rule that ran, emitted once at run start. */
+  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] };

@@ -8,8 +8,11 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ruleTargets } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import {} from "../core/grammars/grammars.ts";
+import {} from "../core/grammars/query.ts";
 import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
@@ -33,12 +36,23 @@ export function findConfigFile(cwd = process.cwd()): string | null {
 
 const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
+// A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
+// grammar-autonomous vocabulary (markdown's markdown:section). Validated at lint
+// startup against the merged registry (assertCaptureAddress in core/grammars/query.ts).
+const CAPTURE_ADDRESS_SCHEMA = Type.String({
+  pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+  description:
+    "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
+});
+
 const TARGET_SCHEMA = Type.Union([
-  Type.Literal("files"),
-  Type.Literal("functions"),
-  Type.Literal("definitions"),
-  Type.Literal("comments"),
-  Type.Literal("imports"),
+  // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
+  // joining the union there; a literal copy here would be the drift this pass kills
+  ...ruleTargets.map((target) => Type.Literal(target)),
+  CAPTURE_ADDRESS_SCHEMA,
+  Type.Array(
+    Type.Union([...ruleTargets.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
+  ),
 ]);
 
 // Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents
@@ -94,6 +108,7 @@ const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
  * generation script keeps them identical). Additional top-level keys (e.g. "$schema", consumers'
  * own metadata) are allowed and ignored.
  */
+
 export const CONFIG_SCHEMA = Type.Object({
   $schema: Type.Optional(Type.String()),
   // Optional: rules-only probe configs are valid when the CLI supplies a path positional;
@@ -105,6 +120,10 @@ export const CONFIG_SCHEMA = Type.Object({
   // filter; per-rule include narrows further). Symmetrical with exclude, same glob semantics.
   include: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
+  // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
+  // negations allowed; default = the frozen SECRET_DENYLIST in input/dir.ts). For repos that
+  // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
+  secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
@@ -132,6 +151,8 @@ export interface ResolvedConfig {
   readonly customRules?: readonly CustomRule[];
   readonly include: readonly string[];
   readonly exclude: readonly string[];
+  /** The walk's secret-shaped denylist (config override; default = SECRET_DENYLIST). */
+  readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
@@ -250,19 +271,10 @@ function isCallbackRule(entry: unknown): boolean {
 }
 
 /**
- * The boundary failed: name the exact field. A bad rule entry collapses into the schema union's
- * generic message, so the dive re-validates each rule entry against its kind's branch and surfaces
- * the closer branch's field errors — the branch that failed on fewer fields is the shape the author
- * intended (a rule missing only its question, not a different shape entirely). The FIRST rule-path
- * error also becomes the invalid-rule detail; a path outside a rule index (top-level schema
- * problems) throws without one. String#match, not the RegExp method - the no-git guard forbids that
- * token under src/.
- */
-/**
- * Per-entry rule-schema errors, best branch per entry: the two rule schemas are tried and the
- * branch that failed on fewer fields is the shape the author intended (a rule missing only its
- * question, not a different shape entirely). Entries that are not objects contribute nothing (the
- * generic schema errors cover them).
+ * Per-entry rule-schema errors, best branch per entry: a rule entry that fails the schema union
+ * collapses into one generic message, so each entry is re-validated against its kind's branch here
+ * and the branch that failed on fewer fields is the shape the author intended. Entries that are not
+ * objects contribute nothing (the generic schema errors cover them).
  */
 function ruleFieldErrors(raw: unknown): string[] {
   if (!Array.isArray((raw as { rules?: unknown }).rules)) return [];
@@ -282,6 +294,11 @@ function ruleFieldErrors(raw: unknown): string[] {
     .flat();
 }
 
+/**
+ * The boundary failed: name the exact field. The FIRST rule-path error becomes the invalid-rule
+ * detail; a path outside a rule index (top-level schema problems) throws without one. String#match,
+ * not the RegExp method - the no-git guard forbids that token under src/.
+ */
 function throwConfigInvalid(raw: unknown, source: string): never {
   const messages = [...Value.Errors(CONFIG_SCHEMA, raw)].map((err) =>
     err.path === "" ? "/ " + err.message : `${err.path} ${err.message}`,
@@ -289,20 +306,28 @@ function throwConfigInvalid(raw: unknown, source: string): never {
   const ruleErrors = ruleFieldErrors(raw);
   const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
   const field = rulePath?.[2];
+  // present-vs-missing: a field the entry HAS but that failed validation is an INVALID field,
+  // not a missing one - the CLI words the two differently (owner ruling: no more missing-target
+  // for a target that is present and malformed)
+  const ruleIndex = rulePath !== null ? Number(rulePath[1]) : -1;
+  const entry = ruleIndex >= 0 ? (raw as { rules: unknown[] }).rules[ruleIndex] : undefined;
+  const present =
+    entry !== undefined &&
+    field !== undefined &&
+    typeof entry === "object" &&
+    entry !== null &&
+    field in (entry as Record<string, unknown>);
+  // A present-but-undefined detail is read the same as an absent one downstream, so the field is
+  // set only when both halves of the path are known.
+  const detail =
+    rulePath !== null && field !== undefined
+      ? ({ kind: "invalid-rule", ruleIndex: Number(rulePath[1]), field, present } as const)
+      : undefined;
   throw new SetupError(
     "CONFIG_INVALID",
     `invalid config ${source}: ${[...ruleErrors, ...messages].join("; ")}`,
     {
-      // Branched whole literal: a SetupError detail is read with !== undefined downstream,
-      // identical for absent and present-undefined, but the shape must be exact.
-      detail:
-        rulePath !== null && field !== undefined
-          ? {
-              kind: "invalid-rule",
-              ruleIndex: Number(rulePath?.[1]),
-              field,
-            }
-          : undefined,
+      detail,
     },
   );
 }
@@ -401,6 +426,7 @@ export function validateConfig(
     customRules: readonly CustomRule[];
     include: string[];
     exclude: string[];
+    secretDenylist?: string[];
     apiKey?: string;
     concurrency?: number;
     timeout?: number;
@@ -412,6 +438,7 @@ export function validateConfig(
     include: parsed.include ?? [],
     exclude: parsed.exclude ?? [],
   };
+  if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.
@@ -433,6 +460,8 @@ export function validateConfig(
  * once.
  */
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
+  // capture-address validation happens at LINT STARTUP against the merged registry (the user
+  // grammar dir is not scanned at config load; see lint() in core/lint.ts)
   const isChoice = entry.kind === "choice";
   const handle = compileDataHandle(
     entry.handle,
@@ -453,7 +482,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
       name: entry.name,
       instructions: entry.instructions,
       criteria: entry.criteria,
-      target: entry.target,
+      target: entry.target as Rule["target"],
       handle,
       handleData: handleSnapshot,
       ...scope,
@@ -464,7 +493,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     kind: "choice",
     criteria: entry.criteria as [string, string, ...string[]],
     instructions: (entry as { instructions: string }).instructions,
-    target: entry.target,
+    target: entry.target as Rule["target"],
     handle,
     handleData: handleSnapshot,
     ...scope,

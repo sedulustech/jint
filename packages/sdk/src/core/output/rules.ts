@@ -24,7 +24,13 @@ function handleLine(rule: Rule): string {
   const parts = ["warn " + opText(h.warn)];
   if (h.error !== undefined) parts.push("error " + opText(h.error));
   if (h.silent_band !== undefined) parts.push("silent [" + h.silent_band.join(", ") + "]");
-  return parts.join(" · ");
+  const line = parts.join(" · ");
+  // a tier message is author guidance for the finding consumer, not a threshold -
+  // it renders beneath the thresholds it fires on, quoted
+  const messages = [h.warn?.message, h.error?.message].filter(
+    (m): m is string => typeof m === "string",
+  );
+  return messages.length > 0 ? line + " · " + messages.map((m) => '"' + m + '"').join(" · ") : line;
 }
 
 /**
@@ -34,7 +40,9 @@ function handleLine(rule: Rule): string {
  */
 export function describeRule(rule: Rule): string {
   const lines: string[] = [];
-  lines.push(rule.name + "  [" + rule.target + "]");
+  lines.push(
+    rule.name + "  [" + (Array.isArray(rule.target) ? rule.target.join(",") : rule.target) + "]",
+  );
   const h = handleLine(rule);
   lines.push("  " + h);
   if ("instructions" in rule && rule.instructions !== undefined) {

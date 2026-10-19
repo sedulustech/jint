@@ -109,8 +109,13 @@ describe("ruleTargets - the runtime face of the RuleTarget union", () => {
   const _exhaustive: Record<RuleTarget, true> = {
     files: true,
     functions: true,
+    classes: true,
+    methods: true,
+    types: true,
+    bindings: true,
     definitions: true,
     comments: true,
+    "loose-comments": true,
     imports: true,
   };
   // Same pin in assignment form: ruleTargets' element type must stay exactly RuleTarget.

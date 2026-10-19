@@ -46,7 +46,8 @@ function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
  * written twice in classify.ts).
  */
 export function judgesWholeUnit(rule: Pick<Rule, "target">, unitKind: UnitKind): boolean {
-  return unitKind === "str" || rule.target === "files";
+  const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+  return unitKind === "str" || targets.includes("files");
 }
 
 export interface ScopeKeys {

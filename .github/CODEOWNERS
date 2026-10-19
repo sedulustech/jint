@@ -1,0 +1,2 @@
+# The defaults are calibration-gated data: a threshold move is a measurement event, not an edit.
+/packages/defaults/ @crjm

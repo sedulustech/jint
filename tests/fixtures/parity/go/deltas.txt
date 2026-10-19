@@ -1,0 +1,8 @@
+# Documented parity deltas: go (see ../README.md for the verdicts).
+# Regenerate only after re-recording a verdict.
+NEW comment - L11.1-L11.17
+NEW comment - L5.0-L5.19
+NEW type Handler L6.0-L8.1
+REF function - L10.0-L13.1
+REF type - L6.0-L8.1
+NEW method Render L10.0-L13.1

@@ -11,9 +11,16 @@
  * throws for per-unit failures (design §1, §7).
  */
 
+import { loadUserGrammars } from "./grammars/grammars.ts";
+import { assertCaptureAddress } from "./grammars/query.ts";
+import {
+  grammarExtensions,
+  MAX_ELEMENT_TOKENS,
+  unclaimedExtension,
+  type InventoryElement,
+} from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
-import { grammarExtensions, MAX_ELEMENT_TOKENS, type WalkElement } from "./input/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import { recordSummary } from "./jev/debug.ts";
 import {
@@ -53,6 +60,7 @@ import {
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
+import type { RuleDigest } from "@jint/contract";
 
 /** Max files with an in-flight classifier pipeline at once (fan-out bound, design §7.4). */
 const FILE_CONCURRENCY = 4;
@@ -95,11 +103,11 @@ export interface LintOptions {
    */
   timeout?: number;
   /**
-   * Config-scope basis for dir inputs: the walk root's path relative to the config's directory.
-   * Walked paths and scope patterns (config exclude + per-rule include/exclude) share this basis,
-   * so a config pattern naming the tests subtree excludes the walk even when the walk root is the
-   * tests dir itself. Empty or undefined = walk-root basis. The CLI derives it from the config
-   * location; SDK callers walking arbitrary trees leave it unset.
+   * Config-scope basis for dir inputs: the dir-walk root's path relative to the config's directory.
+   * Dir-walked paths and scope patterns (config exclude + per-rule include/exclude) share this
+   * basis, so a config pattern naming the tests subtree excludes the dir walk even when its root is
+   * the tests dir itself. Empty or undefined = dir-walk-root basis. The CLI derives it from the
+   * config location; SDK callers walking arbitrary trees leave it unset.
    */
   scopeBase?: string;
   /**
@@ -113,12 +121,12 @@ export interface LintOptions {
    */
   paths?: { readonly content: string };
   /**
-   * Element-scoped run (CLI `<file>@L<line>`): judge ONE walker element of ONE file. The input is
-   * exactly that file; the walked inventory narrows to the selected element, so element jobs fan
-   * out to a single classifier call (all of the element's rules batched — fewer with --rule).
-   * Whole-unit (files-target) rules never run element-scoped: their claim is about the file, not
-   * the element — an explicit --rule naming one is a caller contradiction and fails setup. Dir
-   * nouns and str units are incompatible by construction.
+   * Element-scoped run (CLI `<file>@L<line>`): judge ONE inventory element of ONE file. The input
+   * is exactly that file; the inventory narrows to the selected element, so element jobs fan out to
+   * a single classifier call (all of the element's rules batched — fewer with --rule). Whole-unit
+   * (files-target) rules never run element-scoped: their claim is about the file, not the element —
+   * an explicit --rule naming one is a caller contradiction and fails setup. Dir nouns and str
+   * units are incompatible by construction.
    */
   element?: {
     readonly path: string;
@@ -131,20 +139,20 @@ export interface LintOptions {
  * Why one target does not apply to one element. The reason is per (target, element) pair, so the
  * skip note can say precisely why no requested rule matched - never a generic parenthetical.
  */
-function scopeSkipReason(target: string, element: WalkElement): string {
+function scopeSkipReason(target: string, element: InventoryElement): string {
   if (element.oversized === true) return "exceeds the size backstop";
   if (target === "comments") return "carries none";
-  return `is a ${element.role}`;
+  return `is a ${element.capture}`;
 }
 
 /** The honest skip line: element identity, per-requested-rule mismatch, zero calls spent. */
-function scopeSkipNote(path: string, element: WalkElement, rules: readonly Rule[]): string {
+function scopeSkipNote(path: string, element: InventoryElement, rules: readonly Rule[]): string {
   const span = `L${element.span.start.line}-L${element.span.end.line}`;
   const mismatches = rules
-    .map(
-      (rule) =>
-        `${rule.name} measures ${rule.target} (${element.label} ${scopeSkipReason(rule.target, element)})`,
-    )
+    .map((rule) => {
+      const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+      return `${rule.name} measures ${targets.join(",")} (${element.label} ${scopeSkipReason(targets[0]!, element)})`;
+    })
     .join(", ");
   return `${path}: ${element.label} (${span}) not measured - no requested rule applies: ${mismatches}; zero classifier calls were made for this selection`;
 }
@@ -159,11 +167,11 @@ function selectScopedElements(
   w: WalkedUnit,
   element: NonNullable<LintOptions["element"]>,
   scopedRules: readonly Rule[],
-): { selected: WalkElement[]; skipped: WalkElement[] } {
+): { selected: InventoryElement[]; skipped: InventoryElement[] } {
   if (w.failed !== null)
     throw new SetupError("ELEMENT_NOT_FOUND", `cannot resolve element: ${w.failed}`);
   const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
-  let selected: WalkElement[];
+  let selected: InventoryElement[];
   if (element.anchor !== undefined) {
     // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
     const anchor = selectElement(w.inventory, { line: element.anchor });
@@ -193,6 +201,30 @@ function selectScopedElements(
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
+  // The grammar dir registers before anything parses: user grammars win over embedded, a manifest
+  // + .scm without a wasm shadows an embedded grammar's extraction. Scan coverage (subdirs
+  // ignored) surfaces as a note, like the dir-walk coverage notes.
+  const grammarNotes: string[] = [];
+  await loadUserGrammars(undefined, (note) => grammarNotes.push(note));
+  for (const note of grammarNotes) {
+    yield { type: "note", note };
+  }
+  // THE CAPTURE-ADDRESS GATE runs HERE, after registration and before any file walks: addresses
+  // validate against the MERGED registry as it stands - a shadow grammar REPLACES its embedded
+  // extraction, so the emitted set for an id is the shadow's once registered. Config load stays
+  // grammar-blind (the dir is not scanned there); the loudness point in the user's experience is
+  // identical: CONFIG_INVALID, nothing measured.
+  for (const rule of options.config.rules) {
+    for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
+      assertCaptureAddress(t);
+    }
+  }
+  for (const rule of options.config.customRules ?? []) {
+    const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
+    for (const t of targets) {
+      if (typeof t === "string") assertCaptureAddress(t);
+    }
+  }
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
   // list IS the input when nothing else selected one.
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
@@ -211,11 +243,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass a path (jint src/), declare piped stdin (jint str - / jint paths - for a path list), or set input in jint.config.json",
+      "no input: pass an input path, declare piped stdin (str for one source, paths for a path list), or set input in the config",
     );
   }
-  const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
   // Inline callback rules come from the config boundary, already validated (load-time duplicates
@@ -235,23 +265,18 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       "callback rules run on file inputs only - a str unit has no element inventory, so every callback rule would resolve zero targets (drop them or use a file input)",
     );
   }
-  // Element scope: files-target rules are claims about the FILE, never one element — they cannot
-  // run scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are
-  // silently out of the scoped set, like any rule whose target misses the subject.
-  let scopedRules = rules;
-  if (options.element !== undefined) {
-    const whole = rules.filter((rule) => judgesWholeUnit(rule, "file"));
-    if (whole.length > 0) {
-      const demanded = new Set(whole.map((rule) => rule.name));
-      const named = (options.only ?? []).find((name) => demanded.has(name));
-      if (named !== undefined)
-        throw new SetupError(
-          "ELEMENT_NOT_FOUND",
-          `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
-        );
-      scopedRules = rules.filter((rule) => !judgesWholeUnit(rule, "file"));
-    }
-  }
+  const scopedRules = scopeElementRules(rules, options);
+  // The report is self-describing about its rules: one digest per rule that ran (defaults +
+  // config-authored custom rules; handle null for callback policies - no declarative tiers).
+  yield {
+    type: "rules",
+    rules: [...rules, ...customRules].map((rule) => ({
+      name: rule.name,
+      // a custom callback rule is code policy: no declarative criteria or tier form to publish
+      criteria: "criteria" in rule ? rule.criteria : null,
+      handle: ("handleData" in rule ? rule.handleData : undefined) ?? null,
+    })),
+  };
   // Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would
   // stream the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
   if (
@@ -288,52 +313,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // The changeset selection: every listed path is the file's identity verbatim. Entries that
   // resolve to no walked unit (missing, unreadable, non-source) are SIGNAL — a note names them
   // below, never silence.
-  const units =
-    options.str !== undefined
-      ? [strUnit(options.str.content, options.str.path)]
-      : pathsList !== undefined && (input === undefined || input === "")
-        ? await (async () => {
-            // The changeset form: the list IS the judged subject, one entry at a time so a
-            // missing or non-source entry degrades to the not-in-the-walk note, never fatal.
-            // (An empty list never reaches here: the guard above the auth gate threw LIST_EMPTY.)
-            const resolved: Unit[] = [];
-            for (const entry of pathsList) {
-              try {
-                for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
-                  resolved.push(unit);
-                }
-              } catch (thrown) {
-                // missing / unreadable / non-source entries take the note path below, never fatal
-                if (
-                  thrown instanceof SetupError &&
-                  ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(
-                    thrown.code,
-                  )
-                ) {
-                  continue;
-                }
-                throw thrown;
-              }
-            }
-            return resolved;
-          })()
-        : await collectUnits(
-            resolveInput({
-              // the empty-input guard above established non-empty; element scope pins the
-              // input to exactly the selector file (dir/config input is ignored)
-              input: (options.element !== undefined ? options.element.path : input) as
-                | string
-                | string[],
-              inputType: options.inputType ?? options.config.inputType,
-              exclude,
-              include,
-              scopeBase: options.scopeBase,
-              // explicit file selection measures raw when only files-target rules are in scope
-              requireGrammarFor: (p) =>
-                customRules.some((rule) => ruleInScope(rule, p)) ||
-                rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
-            }),
-          );
+  // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
+  const walkerNotes: string[] = [];
+  const units = await resolveRunUnits(options, pathsList, input, rules, customRules, (note) =>
+    walkerNotes.push(note),
+  );
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
   // SIGNAL, never silence: one note names each, the run continues around them.
   const unitPaths = new Set(
@@ -343,6 +327,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (const missing of pathsList.filter((p) => !unitPaths.has(p))) {
       yield { type: "note", note: `path list entry not found in the walk: ${missing}` };
     }
+  }
+  // the walk's denylist coverage notes (one per class), in walk order - signal, not silence
+  for (const note of walkerNotes) {
+    yield { type: "note", note };
   }
   const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;
@@ -375,9 +363,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
         // the coverage note; the unit still classifies whole (files-target rules read raw source)
         if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
-          const p = unit.state.path;
-          const dot = p.lastIndexOf(".");
-          skippedExtensions.add(dot === -1 ? "(extensionless)" : p.slice(dot));
+          skippedExtensions.add(unclaimedExtension(unit.state.path));
         }
         walked.set(i + j, w);
       }),
@@ -386,12 +372,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
   // union of what is parsed and what was seen-but-skipped is the run's honesty line.
   if (skippedExtensions.size > 0) {
-    yield {
-      type: "note",
-      note:
-        `parsing ${grammarExtensions().join(", ")} · not parsed (no grammar): ` +
-        [...skippedExtensions].sort().join(", "),
-    };
+    yield { type: "note", note: sweepCoverageNote(skippedExtensions) };
   }
   // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
   // selected element, so element jobs fan out to ONE classifier call.
@@ -419,7 +400,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // JSON rule needs every file's text.
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
-    const elementsByPath = new Map<string, readonly WalkElement[]>();
+    const elementsByPath = new Map<string, readonly InventoryElement[]>();
     for (let i = 0; i < units.length; i++) {
       const w = walked.get(i);
       if (w !== undefined) elementsByPath.set(units[i]!.state.path, w.inventory);
@@ -472,7 +453,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
           type: "note",
           note:
             `${path}@L${skipped.span.start.line}` +
-            ` skipped: ${skipped.role} '${skipped.label}'` +
+            ` skipped: ${skipped.capture} '${skipped.label}'` +
             ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`,
         };
       }
@@ -494,11 +475,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // carries probabilities/confidence for future reads
         const outcome = handle(event);
         if (outcome !== null) {
-          // Findings carry no free-form message: consumers join by rule id to the config. Score
-          // rules embed the chosen rubric level's legend text (v1.3), so the report displays
-          // self-contained; noul findings stay bare.
-          const criteria = byName.get(event.rule)?.criteria;
-          const note = Array.isArray(criteria) ? criteria[Math.round(event.value)] : undefined;
+          // The criteria legend echo is gone (owner contract change): classifier-adjacent rubric
+          // prose never reaches findings. The note is the rule AUTHOR's message attached at the
+          // fired handle tier, or nothing - default rules carry no messages (authoring them is a
+          // separate calibration pass).
           yield {
             type: "finding",
             // Literal ternary branches, NOT conditional spreads: the LintEvent context type puts
@@ -508,7 +488,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               input: event.input,
               value: event.value,
               severity: outcome.severity,
-              note: note !== undefined ? note : undefined,
+              note: outcome.message,
               location:
                 element !== undefined ? { input: event.input, span: element.span } : undefined,
             },
@@ -525,6 +505,25 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (const event of phase.events) yield event;
     if (phase.fatal) aborted = true;
   }
+}
+
+/**
+ * Element scope: files-target rules are claims about the FILE, never one element — they cannot run
+ * scoped. An explicitly-named one is a caller contradiction (say so); otherwise they are silently
+ * out of the scoped set, like any rule whose target misses the subject.
+ */
+function scopeElementRules(rules: readonly Rule[], options: LintOptions): readonly Rule[] {
+  if (options.element === undefined) return rules;
+  const whole = rules.filter((rule) => judgesWholeUnit(rule, "file"));
+  if (whole.length === 0) return rules;
+  const demanded = new Set(whole.map((rule) => rule.name));
+  const named = (options.only ?? []).find((name) => demanded.has(name));
+  if (named !== undefined)
+    throw new SetupError(
+      "ELEMENT_NOT_FOUND",
+      `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
+    );
+  return rules.filter((rule) => !judgesWholeUnit(rule, "file"));
 }
 
 /** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
@@ -607,6 +606,78 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
   return out;
 }
 
+/**
+ * The sweep-coverage line, lint's own rendering of a walk's unclaimed files: what parses, then what
+ * was seen and skipped - ONE note, extensions not paths, sorted (capture() instead emits one raw
+ * onSkip event per skipped file; its callers fold).
+ */
+function sweepCoverageNote(unclaimed: Iterable<string>): string {
+  const skipped = [...new Set(unclaimed)].sort();
+  return (
+    "parsing " +
+    grammarExtensions().join(", ") +
+    " · not parsed (no grammar): " +
+    skipped.join(", ")
+  );
+}
+
+/**
+ * The run's units, from whichever input form selected them. The changeset form defers per entry:
+ * the list IS the judged subject, so a missing or non-source entry degrades to a not-in-the-walk
+ * note instead of failing the run. (An empty list never reaches here: the guard above the auth gate
+ * threw LIST_EMPTY.)
+ */
+async function resolveRunUnits(
+  options: LintOptions,
+  pathsList: readonly string[] | undefined,
+  input: string | string[] | undefined,
+  rules: readonly Rule[],
+  customRules: readonly CustomRule[],
+  onWalkNote: (note: string) => void,
+): Promise<Unit[]> {
+  if (options.str !== undefined) return [strUnit(options.str.content, options.str.path)];
+  if (pathsList !== undefined && (input === undefined || input === "")) {
+    const resolved: Unit[] = [];
+    for (const entry of pathsList) {
+      try {
+        for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+          resolved.push(unit);
+        }
+      } catch (thrown) {
+        // missing / unreadable / non-source entries take the note path below, never fatal
+        if (
+          thrown instanceof SetupError &&
+          ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
+        ) {
+          continue;
+        }
+        throw thrown;
+      }
+    }
+    return resolved;
+  }
+  const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
+  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
+  return collectUnits(
+    resolveInput({
+      // the empty-input guard above established non-empty; element scope pins the
+      // input to exactly the selector file (dir/config input is ignored)
+      input: (options.element !== undefined ? options.element.path : input) as string | string[],
+      inputType: options.inputType ?? options.config.inputType,
+      exclude,
+      include,
+      scopeBase: options.scopeBase,
+      // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
+      secretDenylist: options.config.secretDenylist,
+      onNote: onWalkNote,
+      // explicit file selection measures raw when only files-target rules are in scope
+      requireGrammarFor: (p) =>
+        customRules.some((rule) => ruleInScope(rule, p)) ||
+        rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+    }),
+  );
+}
+
 /** Cheap edit distance for close-match suggestions over rule names. */
 function editDistance(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [
@@ -657,10 +728,6 @@ function unknownRuleError(name: string, known: ReadonlySet<string>): SetupError 
 }
 
 /**
- * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
- * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
- */
-/**
  * The pure selection half of partitionRules: disable/only set membership, nothing more. No
  * validation, no throw — shared by lint() (after it validates) and the CLI's rules pre-print, so
  * the block always shows exactly the set the run will classify.
@@ -678,10 +745,6 @@ export function selectRules(
   return { json: jsonRules.filter(keep), custom: customRules.filter(keep) };
 }
 
-/**
- * Applies disable/only across BOTH tiers with one shared name space: unknown rule names are a usage
- * error, never a silent empty run (design: setup failures throw, per-unit failures don't).
- */
 function partitionRules(
   jsonRules: readonly Rule[],
   customRules: readonly CustomRule[],
@@ -720,6 +783,8 @@ export interface LintReport {
   errors: ClassifyError[];
   /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
   notes: string[];
+  /** The self-description of every rule that ran (defaults + config-authored). */
+  rules: RuleDigest[];
   /**
    * The run pointer (recording is always on; absent only when no classifier call started a run — a
    * report without captures). Consumers join findings to judged text via run.dir's captures
@@ -730,12 +795,13 @@ export interface LintReport {
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [] };
+  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [], rules: [] };
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
+    else if (event.type === "rules") report.rules = event.rules;
   }
   // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
   // array sorts on a total key over the data (never completion order, never stable-sort tie

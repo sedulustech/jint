@@ -46,7 +46,7 @@ async function writeProbeConfig(config: Record<string, unknown>): Promise<string
 
 describe("cli: the declared path-list read (jint paths -) fails loud, with named codes", () => {
   test("binary stdin (invalid UTF-8) is LIST_UNREADABLE, exit 2 — never sniffed, never silent", async () => {
-    const proc = await runCli(["paths", "-"], {
+    const proc = await runCli(["run", "paths", "-"], {
       stdin: new Uint8Array([115, 114, 99, 47, 97, 46, 116, 115, 10, 255, 254]),
     });
     expect(proc.code).toBe(2);
@@ -55,7 +55,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   });
 
   test("NUL bytes (git -z output) are LIST_UNREADABLE, exit 2", async () => {
-    const proc = await runCli(["paths", "-"], {
+    const proc = await runCli(["run", "paths", "-"], {
       stdin: new TextEncoder().encode("src/a.ts\0src/b.ts"),
     });
     expect(proc.code).toBe(2);
@@ -64,14 +64,14 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   });
 
   test("an EMPTY list is LIST_EMPTY, exit 2 — distinguishable from an unreadable one", async () => {
-    const proc = await runCli(["paths", "-"], { stdin: "" });
+    const proc = await runCli(["run", "paths", "-"], { stdin: "" });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_EMPTY");
     expect(proc.stderr).toContain("empty list");
   });
 
   test("an entry that would need interpreting is LIST_ENTRY_INVALID, exit 2", async () => {
-    const proc = await runCli(["paths", "-"], { stdin: "src/\n" });
+    const proc = await runCli(["run", "paths", "-"], { stdin: "src/\n" });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_ENTRY_INVALID");
     expect(proc.stderr).toContain("a list names files");
@@ -80,7 +80,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
 
 describe("cli: piped stdin str unit", async () => {
   test("snippet | jint --json: parses, measurements present", async () => {
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--json"]);
+    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json"]);
     expect([0, 1]).toContain(r.code); // findings decide; the run itself classified
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0);
@@ -90,6 +90,7 @@ describe("cli: piped stdin str unit", async () => {
   test("an element-target rule still judges the str unit whole: no grammar, no elements", async () => {
     const before = jev.requests.length;
     const r = await runWithStdin(SNIPPET, [
+      "run",
       "--json",
       "--language",
       "typescript",
@@ -118,12 +119,12 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("default raw-line stdout: clean run prints nothing on stdout, totals on stderr", async () => {
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--rule", "is_greppable"]);
+    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--rule", "is_greppable"]);
     // the str unit is its own inventory: classified whole, nothing failed, mock reading clean
     expectContract(r, { exit: 0, stdout: "lines" });
     expect(r.stdout).toBe(""); // clean run: no findings, no lines
     expect(r.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
-    // recording is always on; JINT_DIR points at the harness scratch store, so the notice is present
+    // recording is always on; JINT_RUNS_DIR points at the harness scratch store, so the notice is present
     expect(r.stderr).toContain("requests ->");
     expect(r.stdout + r.stderr).not.toContain("WALK_FAILED");
   });
@@ -131,7 +132,14 @@ describe("cli: piped stdin str unit", async () => {
   test("config-only non-TTY: empty piped stdin falls through to config.input (no stdin read)", async () => {
     const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
     // stdin is piped but EMPTY: must not hard-error, must classify config.input
-    const r = await runWithStdin("", ["--config", configPath, "--json", "--rule", "is_greppable"]);
+    const r = await runWithStdin("", [
+      "run",
+      "--config",
+      configPath,
+      "--json",
+      "--rule",
+      "is_greppable",
+    ]);
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
     const inputs = report.measurements.map((m: { input: string }) => m.input);
@@ -142,6 +150,7 @@ describe("cli: piped stdin str unit", async () => {
   test("flags override config.input", async () => {
     const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
     const r = await runWithStdin("", [
+      "run",
       "--config",
       configPath,
       "--json",
@@ -161,6 +170,7 @@ describe("cli: piped stdin str unit", async () => {
   test("stdin beats config.input: piped snippet classifies as the str unit, config ignored", async () => {
     const configPath = await writeProbeConfig({ input: "tests/fixtures/sample-file.ts" });
     const r = await runWithStdin(SNIPPET, [
+      "run",
       "str",
       "-",
       "--config",
@@ -175,14 +185,9 @@ describe("cli: piped stdin str unit", async () => {
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
   });
 
-  test("the diff noun is removed: 'jint diff -' is a mistyped-flag usage error", async () => {
-    const r = await runWithStdin("not a diff at all", ["diff", "-", "--json"]);
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("unknown option or missing path '-'");
-  });
-
   test("jint paths - reads the stdin path list (never a str snippet)", async () => {
     const r = await runWithStdin("tests/fixtures/sample-file.ts\n", [
+      "run",
       "paths",
       "-",
       "--json",
@@ -201,14 +206,14 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("unknown --language: usage error, exit 2, names the language and the remedy", async () => {
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--language", "klingon"]);
+    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json", "--language", "klingon"]);
     // exit-code contract: unknown language is usage/config, before any input is touched
     expectContract(r, {
       exit: 2,
       // same shape as the SDK's unknown-language throws: message, capped valid list, code
       stderr: [
         "unknown language 'klingon'",
-        "valid: typescript, tsx, python, go",
+        "valid: typescript, tsx, python, markdown, php, go ...",
         "[MISSING_GRAMMAR]",
       ],
       stdout: "empty",
@@ -217,6 +222,7 @@ describe("cli: piped stdin str unit", async () => {
 
   test("jint str <existing-path> is rejected: the payload is always '-', never a path", async () => {
     const r = await runWithStdin("", [
+      "run",
       "str",
       "tests/fixtures/sample-file.ts",
       "--json",
@@ -225,7 +231,7 @@ describe("cli: piped stdin str unit", async () => {
     ]);
     expectContract(r, {
       exit: 2,
-      stderr: ["is not a payload", "jint str -"],
+      stderr: ["is not a payload", "jint run str -"],
       stdout: "empty",
     });
   });
@@ -233,6 +239,7 @@ describe("cli: piped stdin str unit", async () => {
   test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
     const before = jev.requests.length;
     const r = await runWithStdin(SNIPPET, [
+      "run",
       "str",
       "-",
       "--json",
@@ -257,7 +264,7 @@ describe("cli: piped stdin str unit", async () => {
   test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
     // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
     // handle (warn 0.75 / error 0.6); the old grammar race would add a WALK_FAILED and exit 4
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"]);
+    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.measurements.length).toBeGreaterThan(0); // it classified
     expect(
@@ -289,7 +296,7 @@ describe("cli: piped stdin str unit", async () => {
     const MSG = "- **noul** - the number the model returns per question";
     const runs = await Promise.all(
       Array.from({ length: 20 }, () =>
-        runWithStdin(MSG, ["str", "-", "--config", configPath, "--json"]),
+        runWithStdin(MSG, ["run", "str", "-", "--config", configPath, "--json"]),
       ),
     ); // concurrent: 20 identical spawns must ALL measure; order on the wire is irrelevant
     for (const r of runs) {
@@ -310,10 +317,10 @@ describe("cli: piped stdin str unit", async () => {
     }
   });
 
-  test("JINT_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
+  test("JINT_RUNS_DIR points the always-on recording at the override dir for the str path, with the notice", async () => {
     const dumpDir = `/tmp/jint-dump-e2e-${Date.now()}`;
-    const r = await runWithStdin(SNIPPET, ["str", "-", "--json", "--rule", "is_greppable"], {
-      JINT_DIR: dumpDir,
+    const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json", "--rule", "is_greppable"], {
+      JINT_RUNS_DIR: dumpDir,
     });
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const captures = [...new Bun.Glob("**/*.json").scanSync({ cwd: dumpDir })].filter(

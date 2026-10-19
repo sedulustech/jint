@@ -9,13 +9,23 @@
 
 declare module "jint:sdk" {
   /**
-   * The element a rule sees: identity, role, source, span, and its parent (hierarchy rides on the
-   * element).
+   * The element a rule sees: identity, capture, source, span, and its parent (hierarchy rides on
+   * the element).
    */
   export interface CustomElement {
     readonly id: string;
     readonly path: string;
-    readonly role: "function" | "type" | "binding" | "import" | "comment";
+    readonly grammar: string;
+    readonly capture:
+      | "function"
+      | "method"
+      | "class"
+      | "type"
+      | "binding"
+      | "import"
+      | "comment"
+      | "section"
+      | "paragraph";
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };
@@ -25,6 +35,18 @@ declare module "jint:sdk" {
     };
     /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
     readonly attachedComment?: readonly string[];
+    /** Non-empty comments inside this element's body (target grammar: "comments"). */
+    readonly internalCommentCount?: number;
+    /** Docstrings this definition owns (the pair split): documentation the frame carries. */
+    readonly docstringCount?: number;
+    /**
+     * For a comment element a definition owns (a docstring): who it documents. Its presence is what
+     * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
+     */
+    readonly docstringOf?: {
+      readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
+      readonly name: string;
+    };
     readonly parent: CustomElement | null;
   }
 
@@ -64,8 +86,13 @@ declare module "jint:sdk" {
     readonly kind?: "noul";
     readonly target:
       | "functions"
+      | "classes"
+      | "methods"
+      | "types"
+      | "bindings"
       | "definitions"
       | "comments"
+      | "loose-comments"
       | "imports"
       | readonly string[]
       | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
@@ -106,4 +133,38 @@ declare module "jint:sdk" {
 
   /** The typed TS-config entry. */
   export function defineConfig(config: TsConfig): TsConfig;
+
+  /**
+   * One extracted element: the contract Element extended with input + grammar provenance - NOT
+   * redeclared (the runtime type is Element & { input, grammar }; the phantom fields the hand-copy
+   * invented are gone, so completions show exactly what capture() returns). The contract type rides
+   * on an inline import() - a top-level import would make this FILE a module, and `declare module
+   * "jint:sdk"` an augmentation that no longer declares the virtual module (probe-verified: "Cannot
+   * find module 'jint:sdk'").
+   */
+  export type CapturedElement = import("@jint/contract").Element & {
+    /** Which input file the element was extracted from. */
+    readonly input: string;
+    /** The grammar (by id) that extracted the element. */
+    readonly grammar: string;
+    /**
+     * The element's own source (span-sliced), truncated at 200 chars with one ellipsis when longer;
+     * the span stays the authority for the full content.
+     */
+    readonly text: string;
+  };
+
+  /**
+   * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
+   * elements; the classifier stays unplugged. Precedence: grammarDir (custom) > registered >
+   * extension routing. queryPath, when given, replaces the grammar's own .scm for extraction (full
+   * loud checks apply). A dir's unclaimable files never fail the call: each skip is one onSkip
+   * event carrying the file and its extension token (".json", or "(extensionless)").
+   */
+  export function capture(
+    targetPath: string,
+    queryPath?: string,
+    grammarPath?: string,
+    onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
+  ): Promise<CapturedElement[]>;
 }

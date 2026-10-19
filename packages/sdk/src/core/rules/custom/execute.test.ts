@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decompose, type WalkElement } from "../../input/walk.ts";
+import { decompose, type InventoryElement } from "../../grammars/walk.ts";
 import { rulesForElement } from "../classify.ts";
 import {
   resolveAllCustomTargets,
@@ -15,12 +15,15 @@ import type { CustomElement, CustomRule } from "./schema.ts";
 async function oneFile(
   source: string,
   path = "src/fixture.ts",
-): Promise<Map<string, readonly WalkElement[]>> {
+): Promise<Map<string, readonly InventoryElement[]>> {
   const inv = await decompose(source, "typescript");
   return new Map([[path, [...inv.definitions, ...inv.comments, ...inv.imports]]]);
 }
 
+// The fixture exercises the comment-target pair split: alpha is DOCUMENTED (its leading run is
+// the pair frame -> target "comments"), the trailing run is unowned (-> "loose-comments").
 const SOURCE = [
+  "// alpha reads the config once.",
   "export function alpha() {",
   "  return 1;",
   "}",
@@ -61,7 +64,7 @@ const spec = (state: Record<string, unknown>) => ({
 
 async function run(
   rule: CustomRule,
-  inventory: Map<string, readonly WalkElement[]>,
+  inventory: Map<string, readonly InventoryElement[]>,
   classifier: Classifier,
 ): Promise<Awaited<ReturnType<typeof runCustomRules>>> {
   const resolved: ResolvedCustomTargets = resolveAllCustomTargets([rule], inventory);
@@ -93,16 +96,23 @@ describe("cross-tier target consistency (the drift killer)", () => {
   test("JSON-tier rulesForElement and custom-tier selection return the SAME element set for every element target", async () => {
     const inv = await decompose(COMMENTED, "typescript");
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
-    // alpha carries the leading comment: target "comments" must match it in BOTH tiers.
+    // the pair split: alpha (documented) is a "comments" match, the standalone run is
+    // "loose-comments", and both tiers must pick the same set for each
     expect(inventory.some((e) => (e.attachedComment?.length ?? 0) > 0)).toBe(true);
-    expect(inventory.some((e) => e.role === "comment")).toBe(true);
+    expect(inventory.some((e) => e.capture === "comment")).toBe(true);
     const fakeRule = (target: string) =>
       ({
         name: "consistency_probe",
         target,
         classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),
       }) as never;
-    for (const target of ["comments", "functions", "definitions", "imports"] as const) {
+    for (const target of [
+      "comments",
+      "loose-comments",
+      "functions",
+      "definitions",
+      "imports",
+    ] as const) {
       const jsonPicked = inventory.filter((e) => rulesForElement([fakeRule(target)], e).length > 0);
       const resolved = resolveAllCustomTargets(
         [fakeRule(target)],
@@ -115,24 +125,42 @@ describe("cross-tier target consistency (the drift killer)", () => {
 });
 
 describe("resolveAllCustomTargets", () => {
-  test("a string target filters the full inventory by role", async () => {
+  test("a string target filters the full inventory by capture", async () => {
     const inventory = await oneFile(SOURCE);
     const resolved = resolveAllCustomTargets([ruleOf({})], inventory);
     const resolvedRule = [...resolved.values()][0]!;
-    expect("targets" in resolvedRule && resolvedRule.targets).toHaveLength(1);
-    expect("targets" in resolvedRule && resolvedRule.targets[0]?.id).toBe("c0");
-    expect("targets" in resolvedRule && resolvedRule.targets[0]?.role).toBe("comment");
+    // the comments pair: the documented definition (d0) ALONE - its owned comment element (c0)
+    // never matches separately (narration fires once per frame); the loose standalone run (c1)
+    // is loose-comments, not comments
+    if (!("targets" in resolvedRule)) throw new Error("expected a resolved target list");
+    expect(resolvedRule.targets.map((t) => t.id)).toEqual(["d0"]);
+    expect(resolvedRule.targets.map((t) => t.capture)).toEqual(["function"]);
+  });
+
+  test("the loose-comments target picks only the unowned run", async () => {
+    const inventory = await oneFile(SOURCE);
+    const resolved = resolveAllCustomTargets([ruleOf({ target: "loose-comments" })], inventory);
+    const resolvedRule = [...resolved.values()][0]!;
+    if (!("targets" in resolvedRule)) throw new Error("expected a resolved target list");
+    expect(resolvedRule.targets.map((t) => t.id)).toEqual(["c1"]);
+    expect(resolvedRule.targets.every((t) => t.capture === "comment")).toBe(true);
   });
 
   test("oversized elements never enter TS targets (same backstop as the JSON tier)", async () => {
     const inv = await oneFile(SOURCE);
-    const oversized: WalkElement = {
+    const oversized: InventoryElement = {
       ...[...inv.get("src/fixture.ts")!][0]!,
       label: "d9",
       oversized: true,
     };
     const inventory = [...inv.get("src/fixture.ts")!, oversized];
-    for (const target of ["comments", "functions", "definitions", "imports"] as const) {
+    for (const target of [
+      "comments",
+      "loose-comments",
+      "functions",
+      "definitions",
+      "imports",
+    ] as const) {
       const resolved = resolveAllCustomTargets(
         [ruleOf({ target })],
         new Map([["src/fixture.ts", inventory]]),
@@ -160,10 +188,10 @@ describe("resolveAllCustomTargets", () => {
       },
       content: "x",
       nodeType: "function_declaration",
-      role: "function",
+      capture: "function",
       internalCommentCount: 0,
       parent: "d99",
-    } as WalkElement;
+    } as InventoryElement;
     expect(() => tsElementsOf([dangling], "src/fixture.ts")).toThrow(/d99/);
   });
 
@@ -175,13 +203,14 @@ describe("resolveAllCustomTargets", () => {
       target: (elements) => {
         evaluations++;
         seen = elements;
-        return elements.filter((e) => e.role === "function");
+        return elements.filter((e) => e.capture === "function");
       },
     });
     const resolved = resolveAllCustomTargets([rule], inventory);
     const resolvedRule = [...resolved.values()][0]!;
     expect(evaluations).toBe(1);
-    expect(seen).toHaveLength(3); // 2 functions + 1 standalone comment = full walk inventory
+    // the full walk inventory: alpha + its owned comment element + beta + the loose run
+    expect(seen).toHaveLength(4);
     expect("targets" in resolvedRule && resolvedRule.targets).toHaveLength(2);
   });
 
@@ -208,8 +237,8 @@ describe("tsElementsOf — materialized parent view", () => {
     );
     const inventory = [...inv.definitions, ...inv.comments, ...inv.imports];
     const elements = tsElementsOf(inventory, "src/w.ts");
-    const klass = elements.find((e) => e.role === "type")!;
-    const method = elements.find((e) => e.role === "function")!;
+    const klass = elements.find((e) => e.capture === "class")!;
+    const method = elements.find((e) => e.capture === "method")!;
     expect(klass.parent).toBeNull();
     expect(method.parent?.id).toBe(klass.id);
     // The parent chain materializes the SAME view (shared element identity).
@@ -245,6 +274,7 @@ describe("per-rule scoping on the custom tier", () => {
     const notes = phase.events.filter((e) => e.type === "note");
     expect(notes).toHaveLength(1);
     expect(notes[0]?.type === "note" && notes[0].note).toBe(
+      // comments resolves the documented definition alone - the frame speaks for its comment
       'custom rule "is_test_rule": scope excluded 1 element(s)',
     );
   });
@@ -274,6 +304,7 @@ describe("per-rule scoping on the custom tier", () => {
       inventory,
       fakeClassifier(0.8, calls),
     );
+    // comments resolves ONE target: the pair frame (the owned element never matches separately)
     expect(calls).toHaveLength(1);
     expect(phase.events.some((e) => e.type === "note")).toBe(false);
   });
@@ -283,6 +314,7 @@ describe("runCustomRules — JEV_RESPONSE_INVALID guard", () => {
   test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async () => ({}));
+    // comments resolves the frame alone; the call fails the guard, no measurement results
     expect(phase.events).toHaveLength(1);
     expect(phase.events[0]?.type).toBe("error");
     expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe(
@@ -311,14 +343,15 @@ describe("walk-first resolution (multi-file)", () => {
     const rule = ruleOf({
       target: (elements) => {
         seenPaths = [...new Set(elements.map((e) => e.path))];
-        return elements.filter((e) => e.role === "comment");
+        return elements.filter((e) => e.capture === "comment");
       },
     });
     const resolved = resolveAllCustomTargets([rule], inventory);
     const targets = targetsOf([...resolved.values()][0]!);
     // Both files were fully walked BEFORE resolution: one comment per file, both visible.
     expect(seenPaths.sort()).toEqual(["src/a.ts", "src/b.ts"]);
-    expect(targets.map((t) => t.path).sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    // each file contributes two comments targets (its documented definition + owned comment)
+    expect([...new Set(targets.map((t) => t.path))].sort()).toEqual(["src/a.ts", "src/b.ts"]);
   });
 });
 
@@ -331,13 +364,13 @@ describe("runCustomRules — classification", () => {
       inventory,
       fakeClassifier(0.8, calls),
     );
-    expect(calls).toHaveLength(3); // 2 functions + 1 comment
+    expect(calls).toHaveLength(2); // 2 functions; the comment rides alpha's frame
     for (const call of calls) {
       expect(Object.keys(call.questions)).toEqual(["is_test_rule"]);
       expect(call.questions["is_test_rule"]?.type).toBe("noul");
     }
     const measurements = phase.events.filter((e) => e.type === "measurement");
-    expect(measurements).toHaveLength(3);
+    expect(measurements).toHaveLength(2);
   });
 
   test("state synthesis is free: the composed state reaches the classifier verbatim", async () => {
@@ -355,8 +388,11 @@ describe("runCustomRules — classification", () => {
       inventory,
       fakeClassifier(0.8, calls),
     );
+    // the documented definition is the ONLY target (the frame speaks for its comment);
+    // CustomElement.source is the element's own text - the attached run travels on
+    // attachedComment, never folded into source
     expect(calls[0]?.state as unknown as Record<string, unknown>).toEqual({
-      comment: "// a standalone comment (two blank lines keep it standalone)",
+      comment: "export function alpha() {\n  return 1;\n}",
       total: 1,
       made_up: { a: 1 },
     });
@@ -392,7 +428,7 @@ describe("runCustomRules — classification", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]?.type === "error" && errors[0].error.code).toBe("RULE_FAILED");
     expect(errors[0]?.type === "error" && errors[0].error.message).toContain("rule bug");
-    expect(calls).toHaveLength(2); // the other two elements still classified
+    expect(calls).toHaveLength(1); // the other element still classified
   });
 
   test("a Promise from sync-only classify is a contract violation (RULE_FAILED)", async () => {
@@ -451,12 +487,14 @@ describe("runCustomRules — policy", () => {
   test("declarative handle: findings bind to the target's span", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, fakeClassifier(0.8));
+    // ONE comments target fires: the pair frame (narration fires once per documented function)
     const findings = phase.events.filter((e) => e.type === "finding");
     expect(findings).toHaveLength(1);
     const finding = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(finding?.severity).toBe("warn");
     expect(finding?.location?.input).toBe(finding?.input);
-    expect(finding?.location?.span.start.line).toBe(8);
+    // target[0] is the documented definition (line 2); the owned comment element is second
+    expect(finding?.location?.span.start.line).toBe(2);
   });
 
   test("declarative handle below warn_at stays silent (measurement only)", async () => {
@@ -467,6 +505,7 @@ describe("runCustomRules — policy", () => {
       fakeClassifier(0.8),
     );
     expect(phase.events.filter((e) => e.type === "finding")).toHaveLength(0);
+    // one comments target measured (the frame), silent under the higher thresholds
     expect(phase.events.filter((e) => e.type === "measurement")).toHaveLength(1);
   });
 
@@ -488,9 +527,9 @@ describe("runCustomRules — policy", () => {
       fakeClassifier(0.8),
     );
     expect(calls).toHaveLength(1); // ONCE, not per element
-    expect(calls[0]?.results).toHaveLength(3);
+    expect(calls[0]?.results).toHaveLength(2); // 2 functions; the comment rides alpha's frame
     const findings = phase.events.filter((e) => e.type === "finding");
-    expect(findings).toHaveLength(3);
+    expect(findings).toHaveLength(2);
     const first = findings[0]?.type === "finding" ? findings[0].finding : null;
     expect(first?.severity).toBe("error");
     expect(first?.message).toBe("fix why #0 first");

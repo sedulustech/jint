@@ -16,10 +16,35 @@ export interface Span {
 
 /** The construct a docstring documents; name is empty for the module. */
 export interface DocstringOwner {
-  readonly kind: "module" | "function" | "class";
+  readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
   readonly name: string;
 }
 
+/**
+ * THE element-kind vocabulary, runtime face: one entry per Element union member, in union order.
+ * The union below stays the compile-time face; the two pins (compile-time at the union, runtime in
+ * the sdk) make adding a kind without touching both a loud failure, not drift.
+ */
+export const elementKinds = [
+  "file",
+  "function",
+  "method",
+  "class",
+  "type",
+  "binding",
+  "comment",
+  "import",
+  "section",
+  "paragraph",
+] as const;
+export type ElementKind = (typeof elementKinds)[number];
+// COMPILE-TIME PIN: the union and the runtime array are the same set, both directions.
+type _KindsMatch = [Element["kind"]] extends [ElementKind]
+  ? [ElementKind] extends [Element["kind"]]
+    ? true
+    : never
+  : never;
+const _kindsPin: _KindsMatch = true;
 /** Shared projection shape of every element: where it is, its label, its parent. */
 interface ElementBase {
   readonly span: Span;
@@ -45,6 +70,18 @@ export interface TypeElement extends ElementBase {
   readonly name?: string;
 }
 
+/** A class-like unit (the @class capture): classes judged as classes. */
+export interface ClassElement extends ElementBase {
+  readonly kind: "class";
+  readonly name?: string;
+}
+
+/** A member function (the @method capture): a method of its class. */
+export interface MethodElement extends ElementBase {
+  readonly kind: "method";
+  readonly name?: string;
+}
+
 /** A name bound to a non-callable, non-type value. */
 export interface BindingElement extends ElementBase {
   readonly kind: "binding";
@@ -53,6 +90,17 @@ export interface BindingElement extends ElementBase {
 
 export interface ImportElement extends ElementBase {
   readonly kind: "import";
+}
+
+/** A markdown section (the grammar-autonomous @section capture): a heading plus its body. */
+export interface SectionElement extends ElementBase {
+  readonly kind: "section";
+  readonly name?: string;
+}
+
+/** A markdown paragraph (the grammar-autonomous @paragraph capture): flat prose. */
+export interface ParagraphElement extends ElementBase {
+  readonly kind: "paragraph";
 }
 
 export interface CommentElement extends ElementBase {
@@ -69,10 +117,14 @@ export interface CommentElement extends ElementBase {
 export type Element =
   | FileElement
   | FunctionElement
+  | ClassElement
+  | MethodElement
   | TypeElement
   | BindingElement
   | ImportElement
-  | CommentElement;
+  | CommentElement
+  | SectionElement
+  | ParagraphElement;
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score
@@ -105,8 +157,9 @@ export interface Measurement {
 }
 
 /**
- * A reading that crossed its handle's threshold: the actionable output. Score findings carry the
- * chosen rubric level's legend text as note (score rules only) so the report is self-contained.
+ * A reading that crossed its handle's threshold: the actionable output. The note is the rule
+ * author's message attached at the fired handle tier (any handle form); absent = a bare finding -
+ * classifier-adjacent rubric prose never reaches findings.
  */
 export interface Finding {
   readonly rule: string;
@@ -124,10 +177,26 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The chosen rubric level's legend text, score rules only: the report is self-contained. Absent
-   * for noul findings and policy findings.
+   * The rule author's message attached at the fired handle tier. Absent by default - default rules
+   * carry no messages (authoring them is a deliberate, calibration-gated pass).
    */
   readonly note?: string;
+}
+
+/**
+ * The run's self-description of one rule that ran: its name, its criteria text, and the compiled
+ * handle tiers (thresholds / score map, including any author message). NOT instructions - criteria
+ * plus tiers suffice to read a finding; instructions stay provenance-of-the-config. handle is null
+ * for a custom-tier callback rule (a code policy has no declarative tier form).
+ */
+export interface RuleDigest {
+  readonly name: string;
+  /**
+   * Null for a custom-tier callback rule: its policy is code, not text - the criteria live in the
+   * config source, which is the provenance for these rules.
+   */
+  readonly criteria: readonly string[] | { readonly true: string; readonly false: string } | null;
+  readonly handle: import("./handlers.ts").HandlerData | null;
 }
 
 /** A reading that could not happen: acquisition or classification failed for one input. */
