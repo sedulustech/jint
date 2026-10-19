@@ -1,0 +1,17 @@
+{
+  "$schema": "../jint.schema.json",
+  "include": ["**/*.rs"],
+  "exclude": ["**/tests/**", "**/*_tests.rs"],
+  "rules": [
+    {
+      "name": "is_comment_narration",
+      "instructions": "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
+      "criteria": {
+        "true": "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
+        "false": "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap."
+      },
+      "target": "comments",
+      "handle": { "warn": { "greater_than": 0.6 }, "error": { "greater_than": 0.7 } }
+    }
+  ]
+}
