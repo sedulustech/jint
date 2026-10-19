@@ -340,14 +340,11 @@ const NOUN_FORMS = Object.entries(NOUNS)
 
 /**
  * ONE dash-positional vocabulary, used by BOTH doorways (the first-positional check in runCli and
- * the operand scan in resolveCliInput): '--ui' names its replacement (serve); a bare '-' names the
- * input-noun forms (a dash is a payload, a payload needs its noun); anything else dash-leading and
- * unresolvable is a mistyped flag - name the token.
+ * the operand scan in resolveCliInput): a bare '-' names the input-noun forms (a dash is a payload,
+ * a payload needs its noun); anything else dash-leading and unresolvable is a mistyped flag - name
+ * the token.
  */
 function dashPositionalError(token: string): string {
-  if (token === "--ui") {
-    return "'--ui' was removed  - serve replaces it: jint run records the run, jint serve opens it (see jint --help)";
-  }
   if (token === "-") return `bare '-' is undeclared - name the noun: ${NOUN_FORMS}`;
   return `unknown option or missing path '${token}' - see jint --help`;
 }
@@ -678,9 +675,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     return 0;
   }
   // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
-  // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a retired flag names
-  // its replacement; a bare '-' names the input-noun forms. An existing dash-leading path stays
-  // a path (run reaches it after `--`).
+  // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a bare '-' names the
+  // input-noun forms. An existing dash-leading path stays a path (run reaches it after `--`).
   const firstPositional = parsedCliArgs.positionals[0];
   if (
     firstPositional !== undefined &&

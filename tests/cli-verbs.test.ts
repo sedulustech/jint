@@ -38,14 +38,6 @@ describe("cli verbs e2e — resolution: the first positional IS the command", ()
     expect(r.stderr).toContain("--disable does not apply to capture");
   });
 
-  test("'--ui' is rejected with the serve pointer", async () => {
-    const r = await runCli(["run", FIXTURE, "--ui"], { timeout: 60_000 });
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("'--ui' was removed");
-    expect(r.stderr).toContain("serve replaces it");
-    expect(r.stderr).toContain("jint serve");
-  });
-
   test("a bare '-' anywhere in run's operands names the input-noun forms", async () => {
     const r = await runCli(["run", "diff", "-"], { timeout: 60_000 });
     expect(r.code).toBe(2);
