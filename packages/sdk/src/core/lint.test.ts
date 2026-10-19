@@ -1584,7 +1584,7 @@ describe("lint — str unit is its own inventory", () => {
 });
 describe("walk-union discovery (config include ∪ rule includes)", () => {
   // the doors: a file is walked when the config include OR any rule's include matches; each rule
-  // then measures only files its own scope admits - unscoped rules ride the config door and never
+  // then measures only files its own scope admits - unscoped rules follow the config door and never
   // measure a file only a rule include claimed.
   const mdRule = mkRule("choice", {
     name: "probe_md_only",
@@ -1683,7 +1683,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     ]);
   });
 
-  test("a rule-admitted file notes its config-door riders once, never per rule", async () => {
+  test("a rule-admitted file notes unscoped rules once, never per rule", async () => {
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [probeFiles, mdRule], include: ["**/*.ts"] },
@@ -1697,7 +1697,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     );
     expect(scopeNotes).toHaveLength(1);
     expect(scopeNotes[0]!.note).toBe(
-      "wu-notes.md: scope excluded - 1 rule(s) ride the config include and skip this rule-admitted file",
+      "wu-notes.md: scope excluded - 1 unscoped rule(s) follow the config include and skip this rule-admitted file",
     );
   });
 });

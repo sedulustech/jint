@@ -520,12 +520,15 @@ function scopeNotesFor(
     ).length;
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
   }
-  // A file only a RULE door admitted: every include-less rule (the config door's riders) is
-  // out too - ONE aggregate line, not one per rule (review 396888e finding 4's noise lesson).
+  // A file only a RULE door admitted: every unscoped rule (no include of its own - it
+  // follows the config include) is out too - ONE aggregate line, not one per rule (review
+  // 396888e finding 4's noise lesson).
   if (!configAdmits) {
-    const riders = rules.filter((rule) => rule.include === undefined).length;
-    if (riders > 0)
-      noteParts.push(`${riders} rule(s) ride the config include and skip this rule-admitted file`);
+    const unscopedRules = rules.filter((rule) => rule.include === undefined).length;
+    if (unscopedRules > 0)
+      noteParts.push(
+        `${unscopedRules} unscoped rule(s) follow the config include and skip this rule-admitted file`,
+      );
   }
   if (noteParts.length === 0) return [];
   return [`${path}: scope excluded - ${noteParts.join("; ")}`];

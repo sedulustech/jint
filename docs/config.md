@@ -29,7 +29,8 @@ include is a warning, never an error).
 matches. A rule that names a file claims jurisdiction over it: the rule door admits the file
 even where the config `exclude` would drop it (the more specific scope wins, gitignore style —
 the denylist and gitignore doors are safety doors and never yield). Each rule then measures only
-files its own scope admits: rules WITHOUT an `include` ride the config door and never measure a
+files its own scope admits: unscoped rules (no `include` of their own) follow the config
+door and never measure a
 file only a rule include claimed. `run.input.admitted` in the report attributes every included
 file to its door (`config` or `rule:<name>`). An explicitly passed single FILE bypasses the
 include/exclude walk entirely (a dir target never does).

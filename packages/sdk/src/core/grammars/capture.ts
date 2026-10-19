@@ -271,7 +271,7 @@ function markPreviewPopulation(
       for (const element of file.elements) {
         if (
           targetsOf(rule).some((target) => matchesTarget(target, element)) &&
-          // preview == run population: unscoped rules ride the config door too
+          // preview == run population: unscoped rules follow the config door too
           ruleInScope(rule, file.path) &&
           (rule.include !== undefined || configDoorAdmits(file.path))
         ) {
@@ -343,7 +343,7 @@ export function captureFor(
       queryPath,
       onSkip,
     );
-    // preview == run population (walk-union): unscoped rules ride the config door, so the
+    // preview == run population (walk-union): unscoped rules follow the config door, so the
     // marker applies the same gate the run's rule selection applies
     const configDoorAdmits = configDoorPredicate(config.include);
     if (rule !== undefined) markPreviewPopulation(rule, captured, files, configDoorAdmits);

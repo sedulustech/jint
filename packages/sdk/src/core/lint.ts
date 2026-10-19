@@ -336,7 +336,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     stats,
   );
   const units = admission.units;
-  // THE config-door gate for rule selection: unscoped rules ride the config include, so they
+  // THE config-door gate for rule selection: unscoped rules follow the config include, so they
   // measure exactly the files that door admits - never files only a rule door claimed. Scoped
   // rules (include declared) follow their OWN include; bypass inputs (file operand, str, paths
   // list) admit everything, preserving the documented bypass.
@@ -618,7 +618,7 @@ async function runUnit(
     {
       language,
       registry,
-      // the walk-union gate: unscoped rules ride the config door (see Admission)
+      // the walk-union gate: unscoped rules follow the config door (see Admission)
       configAdmits,
     },
     walked,
@@ -669,7 +669,7 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 
 /**
  * One run's input resolution: the units, the walk's admission doors (config + rule includes -
- * run.input attribution), and the config-door predicate unscoped rules ride. `configAdmits` is
+ * run.input attribution), and the config-door predicate unscoped rules follow. `configAdmits` is
  * always-true for bypass inputs (str, paths list, file operand, element scope): those never went
  * through the include walk, so the config door admits everything they produced.
  */

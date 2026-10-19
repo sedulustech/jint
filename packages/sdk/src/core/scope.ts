@@ -121,9 +121,9 @@ export function ruleMeasuresNothing(rule: ScopeKeys): boolean {
 /**
  * The walk's admission doors (walk-union): the config door PLUS one door per rule that declares an
  * include - a rule that names a file claims jurisdiction over it even where the config exclude
- * would drop it. Rules WITHOUT an include never open a door: they ride the config door (an unscoped
- * rule measuring everything would make the config include meaningless). Order is attribution:
- * config first, then rules in config order (first admitting door owns the file).
+ * would drop it. Rules WITHOUT an include never open a door: they follow the config door (an
+ * unscoped rule measuring everything would make the config include meaningless). Order is
+ * attribution: config first, then rules in config order (first admitting door owns the file).
  */
 export function walkDoors(
   configInclude: readonly string[],
@@ -138,8 +138,8 @@ export function walkDoors(
 }
 
 /**
- * Whether the CONFIG door admits a path (the door unscoped rules ride). File-operand inputs and str
- * units bypass the include walk entirely: callers pass a predicate that always returns true for
+ * Whether the CONFIG door admits a path (the door unscoped rules follow). File-operand inputs and
+ * str units bypass the include walk entirely: callers pass a predicate that always returns true for
  * those, so every consumer of this gate stays honest about which units were bypassed.
  */
 export function configDoorPredicate(configInclude: readonly string[]): (path: string) => boolean {
