@@ -18,6 +18,7 @@ import { readdir, open, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
+import { inputStats, SKIP_REASONS, type InputStats } from "./stats.ts";
 import type { Dirent } from "node:fs";
 
 const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
@@ -107,6 +108,7 @@ export async function* walkDir(
   include?: readonly string[],
   secretDenylist?: readonly string[],
   onNote?: (note: string) => void,
+  stats: InputStats = inputStats(),
 ): AsyncGenerator<Unit> {
   const rootStat = await stat(root).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT")
@@ -133,9 +135,11 @@ export async function* walkDir(
     "",
     [deny.scope, ...ancestorScopes],
     excludeRules,
+    exclude ?? [],
     prefix,
     includeRules,
     deny,
+    stats,
   );
   flushDenyNotes(deny);
 }
@@ -179,9 +183,11 @@ async function* walkDirectory(
   relDir: string,
   inheritedScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  excludeGlobs: readonly string[],
   pathPrefix: string,
   includeRules: IgnoreRule[],
   deny: DenyState,
+  stats?: InputStats,
 ): AsyncGenerator<Unit> {
   const currentScopes = await withGitignore(absDir, relDir, inheritedScopes);
   const entries = (
@@ -205,9 +211,11 @@ async function* walkDirectory(
         inheritedScopes,
         currentScopes,
         excludeRules,
+        excludeGlobs,
         pathPrefix,
         includeRules,
         deny,
+        stats,
       );
     } else if (entry.isFile()) {
       const unit = await readFileUnit(
@@ -216,9 +224,11 @@ async function* walkDirectory(
         relativePath,
         currentScopes,
         excludeRules,
+        excludeGlobs,
         pathPrefix,
         includeRules,
         deny,
+        stats,
       );
       if (unit !== null) yield unit;
     }
@@ -233,25 +243,40 @@ async function* descendIntoDirectory(
   inheritedScopes: IgnoreScope[],
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  excludeGlobs: readonly string[],
   pathPrefix: string,
-
   includeRules: IgnoreRule[],
   deny: DenyState,
+  stats?: InputStats,
 ): AsyncGenerator<Unit> {
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
   if (DEFAULT_SKIP_DIRS.has(entry.name)) return;
-  if (matchesAnyExcludeRule(excludeRules, scopePath, true)) return;
+  // a pruned DIRECTORY owns one excluded tally (its glob, first match); the files within were
+  // never discovered, so they are counted nowhere else
+  const dirExcludeMatch = firstExcludeMatch(excludeRules, scopePath, true);
+  if (dirExcludeMatch !== -1) {
+    stats?.tallyExclude(excludeGlobs[dirExcludeMatch] ?? "");
+    return;
+  }
   // the denylist scope rides the inherited scopes: a secret-shaped DIRECTORY prunes too
-  if (isSecretShaped(relativePath, true, inheritedScopes, deny)) return;
-  if (isGitignored(relativePath, true, inheritedScopes)) return;
+  if (isSecretShaped(relativePath, true, inheritedScopes, deny)) {
+    stats?.tallySkip(SKIP_REASONS.denylist);
+    return;
+  }
+  if (isGitignored(relativePath, true, inheritedScopes)) {
+    stats?.tallySkip(SKIP_REASONS.gitignore);
+    return;
+  }
   yield* walkDirectory(
     absolutePath,
     relativePath,
     currentScopes,
     excludeRules,
+    excludeGlobs,
     pathPrefix,
     includeRules,
     deny,
+    stats,
   );
 }
 
@@ -262,26 +287,51 @@ async function readFileUnit(
   relativePath: string,
   currentScopes: IgnoreScope[],
   excludeRules: IgnoreRule[],
+  excludeGlobs: readonly string[],
   pathPrefix: string,
   includeRules: IgnoreRule[],
   deny: DenyState,
+  stats?: InputStats,
 ): Promise<Unit | null> {
   // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
+  // discovered: the walker opened this file's doors - every drop below is accounted
+  stats?.markDiscovered();
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
-  if (matchesAnyExcludeRule(excludeRules, scopePath, false)) return null;
-  if (includeRules.length > 0 && !matchesAnyIncludeRule(includeRules, scopePath)) return null;
-  if (isSecretShaped(relativePath, false, currentScopes, deny)) return null;
-  if (isGitignored(relativePath, false, currentScopes)) return null;
-  if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) return null;
+  const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
+  if (excludeMatch !== -1) {
+    stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
+    return null;
+  }
+  if (includeRules.length > 0 && !matchesAnyIncludeRule(includeRules, scopePath)) {
+    stats?.tallySkip(SKIP_REASONS.notInInclude);
+    return null;
+  }
+  if (isSecretShaped(relativePath, false, currentScopes, deny)) {
+    stats?.tallySkip(SKIP_REASONS.denylist);
+    return null;
+  }
+  if (isGitignored(relativePath, false, currentScopes)) {
+    stats?.tallySkip(SKIP_REASONS.gitignore);
+    return null;
+  }
+  if (BINARY_EXTENSIONS.has(fileExtension(entry.name))) {
+    stats?.tallySkip(SKIP_REASONS.binary);
+    return null;
+  }
   const sniff = await sniffHead(absolutePath);
   // null head = a null byte in the first SNIFF_BYTES: binary, reading text later is wasted
-  if (sniff === null) return null;
+  if (sniff === null) {
+    stats?.tallySkip(SKIP_REASONS.binary);
+    return null;
+  }
   // PEM content backstop: overrides even a re-admitting negation - the bytes are the secret
   if (sniff.startsWith(PEM_HEADER)) {
+    stats?.tallySkip(SKIP_REASONS.denylist);
     deny.pem += 1;
     return null;
   }
+  stats?.markIncluded();
   const content = await readTextFile(absolutePath);
   return {
     kind: "file",
@@ -425,13 +475,13 @@ function matchesAnyIncludeRule(rules: IgnoreRule[], scopePath: string): boolean 
   return rules.some((rule) => !rule.dirOnly && rule.re.test(scopePath));
 }
 
-/** True when any non-negated exclude rule matches (config/CLI patterns, not gitignore scopes). */
-function matchesAnyExcludeRule(
+/** Index of the FIRST non-negated exclude rule matching (first-match attribution), -1 when none. */
+function firstExcludeMatch(
   rules: IgnoreRule[],
   relativePath: string,
   isDirectory: boolean,
-): boolean {
-  return rules.some(
+): number {
+  return rules.findIndex(
     (rule) => !rule.negated && !(rule.dirOnly && !isDirectory) && rule.re.test(relativePath),
   );
 }

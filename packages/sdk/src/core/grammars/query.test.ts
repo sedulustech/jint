@@ -99,13 +99,13 @@ describe("validatePatternOrder", () => {
   test("an unstated same-root different-capture pair fails", () => {
     expect(() =>
       validatePatternOrder("probe", conflict(["function", "binding"], [false, false])),
-    ).toThrow(/probe: patterns .*foo_declaration.*load-bearing/);
+    ).toThrow(/probe: patterns .*foo_declaration/);
   });
 
   test("the boundary is per pattern: one directive does not cover the pair", () => {
     expect(() =>
       validatePatternOrder("probe", conflict(["function", "binding"], [false, true])),
-    ).toThrow(/pattern 0: @function on foo_declaration \(unstated\)/);
+    ).toThrow(/pattern 0: @function \(unstated\)/);
   });
 
   test("both patterns stated passes", () => {
@@ -123,7 +123,9 @@ describe("validatePatternOrder", () => {
   test("a multi-line pattern's root is its own head node, not a continuation token", () => {
     const scm =
       "(long_declaration\n  name: (identifier) @name) @function\n(long_declaration) @binding\n";
-    expect(() => validatePatternOrder("probe", scm)).toThrow(/root node type "long_declaration"/);
+    expect(() => validatePatternOrder("probe", scm)).toThrow(
+      /root at node type "long_declaration"/,
+    );
   });
 
   test("a predicate string mentioning @priority does NOT fake the directive", () => {

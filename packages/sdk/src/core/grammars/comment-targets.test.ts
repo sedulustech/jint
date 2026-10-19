@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { matchesTarget } from "../rules/classify.ts";
+import { elementContent, matchesTarget } from "../rules/classify.ts";
 import { knownLanguages } from "./grammars.ts";
 import { decompose } from "./walk.ts";
 
@@ -47,7 +47,10 @@ describe("comment-target pair split across all nine grammars", () => {
       const texts = inv.comments.map((c) => c.content);
       for (const text of texts) {
         const inFrame = commentsPicks.filter(
-          (e) => e.attachedComment?.includes(text) || e.content.includes(text),
+          (e) =>
+            e.attachedComment?.includes(text) ||
+            e.docstrings?.includes(text) ||
+            e.content.includes(text),
         ).length;
         const loose = loosePicks.filter((e) => e.content === text).length;
         expect(inFrame + loose, "comment not covered exactly once: " + text).toBe(1);
@@ -102,5 +105,77 @@ describe("comment-target pair split across all nine grammars", () => {
       expect(matchesTarget("loose-comments", e)).toBe(true);
       expect(matchesTarget("comments", e)).toBe(false);
     }
+  });
+});
+describe("the docstring pair frame (BYOG field trial regression)", () => {
+  // The rust-convention shape, on an embedded grammar: a LEADING doc comment the .scm may capture
+  // either as a plain attached run or as @docstring with owner next. Both captures must compose
+  // the SAME measured frame - the field trial measured them diverging (0.16 vs 0.32 on
+  // codex-rs/ansi-escape): the docstring counted for the definition while its text never reached
+  // the classifier.
+  const LEADING_DOC_SRC = [
+    "/** Expands tabs for transcript rendering.",
+    " * Tabs interact poorly with gutter prefixes.",
+    " */",
+    "export function expandTabs(s: string): string {",
+    "  // fixed substitution: no tab-stop math",
+    '  return s.replace("\\t", "    ");',
+    "}",
+    "",
+  ].join("\n");
+
+  const SCM_AS_RUN = [
+    "(function_declaration name: (identifier) @name) @function",
+    "(comment) @comment",
+    "",
+  ].join("\n");
+
+  const SCM_AS_DOCSTRING = [
+    "(function_declaration name: (identifier) @name) @function",
+    '((comment) @docstring (#set! "docstring.owner" "next"))',
+    "",
+  ].join("\n");
+
+  test("a leading doc as @docstring composes the same frame as the same doc as an attached run", async () => {
+    const asRun = await decompose(LEADING_DOC_SRC, "typescript", { queries: SCM_AS_RUN });
+    const asDocstring = await decompose(LEADING_DOC_SRC, "typescript", {
+      queries: SCM_AS_DOCSTRING,
+    });
+    const fnRun = asRun.definitions.find((d) => d.name === "expandTabs");
+    const fnDoc = asDocstring.definitions.find((d) => d.name === "expandTabs");
+    expect(fnRun).toBeDefined();
+    expect(fnDoc).toBeDefined();
+    // both captures make the definition a comments-target match
+    expect(matchesTarget("comments", fnRun!)).toBe(true);
+    expect(matchesTarget("comments", fnDoc!)).toBe(true);
+    // and both compose the IDENTICAL measured frame - the doc text is no longer silent
+    expect(elementContent(fnDoc!)).toBe(elementContent(fnRun!));
+    expect(elementContent(fnDoc!)).toContain("Expands tabs for transcript rendering.");
+  });
+
+  test("run lines join with single newlines (no blank line between run lines)", async () => {
+    const src = [
+      "// first run line",
+      "// second run line",
+      "export function add(a: number): number {",
+      "  return a;",
+      "}",
+      "",
+    ].join("\n");
+    const inv = await decompose(src, "typescript", { queries: SCM_AS_RUN });
+    const fn = inv.definitions.find((d) => d.name === "add")!;
+    const frame = elementContent(fn);
+    expect(frame).not.toContain("\n\n");
+    expect(frame.startsWith("// first run line\n// second run line\nfunction")).toBe(true);
+  });
+
+  test("python: a body docstring rides content exactly once (never the docstrings texts)", async () => {
+    const inv = await decompose(SOURCES.python!, "python");
+    const fn = inv.definitions.find((d) => d.name === "add")!;
+    expect(fn.docstrings).toBeUndefined();
+    expect(fn.docstringCount).toBe(1);
+    expect(matchesTarget("comments", fn)).toBe(true);
+    const frame = elementContent(fn);
+    expect(frame.match(/Adds a\./g)).toHaveLength(1);
   });
 });

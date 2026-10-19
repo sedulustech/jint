@@ -233,6 +233,8 @@ export interface TargetableElement {
   readonly grammar?: string;
   readonly oversized?: boolean;
   readonly attachedComment?: readonly string[];
+  /** Owned docstring texts sitting OUTSIDE the span (owner=next); a body docstring rides content. */
+  readonly docstrings?: readonly string[];
   /** Non-empty comments inside the body slice; they stay in place, never duplicated into the run. */
   readonly internalCommentCount?: number;
   /** Docstrings this definition owns (the pair split): documentation the frame carries. */
@@ -392,7 +394,13 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   }
 }
 
-function elementContent(element: InventoryElement): string {
+/**
+ * The measured pair frame of one element: owned documentation, then code, joined by single
+ * newlines. Exported because it IS the seam's frame contract - the tests that pin what the
+ * classifier sees (docstring texts, run-line joining) compose frames through it, not through a copy
+ * that could drift.
+ */
+export function elementContent(element: InventoryElement): string {
   // A docstring out of context always reads like narration; naming what it documents restores the
   // reading "as written".
   const docstringLead = element.docstringOf
@@ -400,7 +408,14 @@ function elementContent(element: InventoryElement): string {
         `docstring of ${element.docstringOf.kind}${element.docstringOf.name ? ` ${element.docstringOf.name}` : ""}:`,
       ]
     : [];
-  return [...docstringLead, ...(element.attachedComment ?? []), element.content].join("\n");
+  // The measured documentation, in document order: owned docstring texts (an owner=next
+  // docstring sits BEFORE the definition, outside its span - it flows here), then the attached
+  // run. Each text loses its trailing newline before joining: comment spans reach the next
+  // line's start, so raw texts joined with "\n" would put a blank line between run lines.
+  const documentation = [...(element.docstrings ?? []), ...(element.attachedComment ?? [])].map(
+    (text) => text.replace(/\n+$/, ""),
+  );
+  return [...docstringLead, ...documentation, element.content].join("\n");
 }
 
 interface ClassifierReply {

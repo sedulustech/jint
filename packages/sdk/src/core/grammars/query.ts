@@ -474,15 +474,14 @@ export function validatePatternOrder(language: string, scm: string): void {
     const unstated = group.filter((p) => !p.intentional);
     if (unstated.length === 0) continue;
     const detail = group
-      .map(
-        (p) =>
-          `pattern ${p.pattern}: @${p.capture} on ${p.rootType}${p.intentional ? "" : " (unstated)"}`,
-      )
+      .map((p) => `pattern ${p.pattern}: @${p.capture}${p.intentional ? "" : " (unstated)"}`)
       .join("; ");
+    const winner = group[0]!;
     throw new SetupError(
       "CONFIG_INVALID",
-      `${language}: patterns ${detail} share root node type "${rootType}" with different captures - ` +
-        `the order between them is load-bearing; every pattern in the group needs an "; @priority" comment`,
+      `${language}: patterns ${detail} root at node type "${rootType}" and can match the same node with different captures - ` +
+        `when two of them match one node, the EARLIER pattern's capture wins (${winner.capture} from pattern ${winner.pattern}) and the later one never fires for it; ` +
+        `an "; @priority" comment on EVERY pattern in the group states this order is deliberate - add it, or reorder the patterns`,
     );
   }
 }

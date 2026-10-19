@@ -120,7 +120,22 @@ export const REPORT_SCHEMA = Type.Object({
   // Additive: the run pointer into the run store (captures live in run.dir; the findings ->
   // judged-text join is finding.input == capture state.id). Optional: pre-pointer reports and
   // capture-less runs (no classifier call started) still parse.
-  run: Type.Optional(Type.Object({ id: Type.String(), dir: Type.String() })),
+  run: Type.Optional(
+    Type.Object({
+      // id/dir present exactly when a classifier call started a run; run.input rides whenever a
+      // walk happened (the input accounting: how many files, and why not all were measured)
+      id: Type.Optional(Type.String()),
+      dir: Type.Optional(Type.String()),
+      input: Type.Optional(
+        Type.Object({
+          discovered: Type.Integer(),
+          included: Type.Integer(),
+          excluded: Type.Array(Type.Object({ glob: Type.String(), count: Type.Integer() })),
+          skipped: Type.Array(Type.Object({ reason: Type.String(), count: Type.Integer() })),
+        }),
+      ),
+    }),
+  ),
   measurements: Type.Array(MEASUREMENT_SCHEMA),
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),

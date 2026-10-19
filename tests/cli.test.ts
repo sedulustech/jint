@@ -501,8 +501,13 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     ).readFile(`${runDir}/report.json`, "utf8");
     expect(reportBytes).toBe(r.stdout);
     expect(report).toEqual(JSON.parse(r.stdout));
-    // The run pointer rides the same bytes: run.dir names THIS run's store dir, run.id its id.
-    expect(report.run).toEqual({ id: runDir!.split("/").pop(), dir: runDir });
+    // The run pointer rides the same bytes: run.dir names THIS run's store dir, run.id its id;
+    // run.input is the accounting (a single explicit file: discovered, included, no drops).
+    expect(report.run).toEqual({
+      id: runDir!.split("/").pop(),
+      dir: runDir,
+      input: { discovered: 1, included: 1, excluded: [], skipped: [] },
+    });
   });
 
   test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {

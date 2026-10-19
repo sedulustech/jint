@@ -344,4 +344,6 @@ export type LintEvent =
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
   | { type: "note"; note: string }
   /** The run's rule self-descriptions: one digest per rule that ran, emitted once at run start. */
-  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] };
+  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] }
+  /** The input accounting, emitted once after the walk resolves (run.input; the stderr line). */
+  | { type: "input"; summary: import("./input/stats.ts").InputSummary };

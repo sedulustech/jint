@@ -1066,7 +1066,7 @@ describe("lint", () => {
     expect(calls).toBe(3);
     // 3 errors + the rules digest event (the report is self-describing about its rules)
     expect(events.filter((e) => e.type === "error")).toHaveLength(3);
-    for (const e of events.filter((e) => e.type !== "rules")) {
+    for (const e of events.filter((e) => e.type !== "rules" && e.type !== "input")) {
       expect(e.type).toBe("error");
       if (e.type === "error") expect(e.error.code).toBe("JEV_AUTH");
     }

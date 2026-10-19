@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { walkDir, parseGitignore, compilePattern } from "./dir.ts";
 import { resolveInput } from "./infer.ts";
+import { inputStats } from "./stats.ts";
 
 async function collect(root: string, exclude?: readonly string[]): Promise<string[]> {
   const paths: string[] = [];
@@ -56,6 +57,49 @@ describe("walkDir", () => {
   test("config exclude patterns prune on top of defaults", async () => {
     const paths = await collect("tests/fixtures/sample-dir", ["**/more.ts"]);
     expect(paths).toEqual(["Makefile", "README.md", "data.json", "good.ts"]);
+  });
+
+  test("the input accounting: every door counts, first-match attribution per glob", async () => {
+    // include only .ts, one exclude glob: good.ts included; more.ts excluded BY GLOB (the exclude
+    // door fires before include); the other five files fall outside include (include precedes
+    // gitignore/binary: NOT_IN_INCLUDE owns them)
+    const stats = inputStats();
+    for await (const _unit of walkDir(
+      "tests/fixtures/sample-dir",
+      ["**/more.ts"],
+      undefined,
+      ["**/*.ts"],
+      undefined,
+      undefined,
+      stats,
+    )) {
+      // drain
+    }
+    expect(stats.summary()).toEqual({
+      discovered: 7,
+      included: 1,
+      excluded: [{ glob: "**/more.ts", count: 1 }],
+      skipped: [{ reason: "NOT_IN_INCLUDE", count: 5 }],
+    });
+  });
+
+  test("first-match attribution: a file counts against the FIRST glob that drops it", async () => {
+    const stats = inputStats();
+    for await (const _unit of walkDir(
+      "tests/fixtures/sample-dir",
+      ["**/*.ts", "**/more.ts"],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      stats,
+    )) {
+      // drain
+    }
+    // both .ts files match the FIRST glob; the second owns nothing and is omitted
+    expect(stats.summary().excluded).toEqual([{ glob: "**/*.ts", count: 2 }]);
+    // the remaining doors: two binaries (blob.bin sniff, photo.png extension) own their reason
+    expect(stats.summary().skipped).toEqual([{ reason: "BINARY", count: 2 }]);
   });
 
   test("missing directory -> ENTRYPOINT_NOT_FOUND", async () => {
