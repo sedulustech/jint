@@ -244,7 +244,6 @@ function validTarget(target: CustomRule["target"]): boolean {
     (Array.isArray(target) && target.length > 0 && target.every((t) => isTargetable(t)))
   );
 }
-/** Fatal at load: a rejected custom rule never reaches the engine. */
 export function validateCustomRule(rule: unknown, file: string): CustomRule {
   const fail = (message: string): never => {
     throw new SetupError("RULE_INVALID", "custom rule in " + file + ": " + message);

@@ -19,6 +19,16 @@ export function renderJson(report: LintReport): string {
         // this object feeds JSON.stringify only, which drops undefined - absent and
         // present-undefined serialize to the same bytes.
         run: report.run,
+        // The element-scoped selection (path@L): WHICH element each selector captured, so a
+        // consumer never trusts a score against the wrong unit. Absent when unscoped.
+        selected: report.selected?.map((s) => ({
+          id: s.id,
+          path: s.path,
+          kind: s.kind,
+          name: s.name,
+          span: { start: s.spanStart, end: s.spanEnd },
+          content: s.content,
+        })),
         measurements: report.measurements.map((m) => ({
           rule: m.rule,
           input: m.input,

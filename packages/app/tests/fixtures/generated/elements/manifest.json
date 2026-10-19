@@ -1,8 +1,8 @@
 {
   "configPath": "fixtures/sources/elements",
-  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/byog-fixes/packages/app",
+  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/comment-drift-repass/packages/app",
   "argv": ["bun", "fixtures:gen"],
-  "ts": "2026-10-19T15:56:34.556Z",
+  "ts": "2026-10-19T23:27:21.724Z",
   "handles": {
     "is_name_purposeful": {
       "map": ["pass", "warn", "error"]
@@ -44,7 +44,8 @@
         "greater_than": 0.6
       },
       "error": {
-        "greater_than": 0.7
+        "greater_than": 0.7,
+        "message": "Remove this comment."
       }
     },
     "is_comment_patching_readability": {
@@ -61,7 +62,7 @@
       },
       "error": {
         "greater_than": 0.7,
-        "message": "Remove the comment or comply with the criteria."
+        "message": "Remove this comment."
       }
     },
     "will_error_lose_cause": {
@@ -73,7 +74,14 @@
       }
     },
     "is_cognitively_complex": {
-      "map": ["pass", "warn", "error"]
+      "map": [
+        "pass",
+        "warn",
+        {
+          "level": "error",
+          "message": "Decompose this function: extract readable named steps so the main body reads easily."
+        }
+      ]
     },
     "is_function_srp": {
       "warn": {
@@ -84,7 +92,7 @@
       }
     }
   },
-  "durationMs": 7,
+  "durationMs": 9,
   "usage": {
     "input": 1000,
     "output": 100

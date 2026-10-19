@@ -40,10 +40,12 @@ import {
   recordRunReport,
   findConfigFile,
   selectionEcho,
+  selectedElements,
   startUi,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
+  type SelectedElement,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -54,6 +56,7 @@ import {
   captureJson,
   captureLines,
   emit,
+  printSelection,
   emitLines,
   jevLog,
   printRules,
@@ -827,6 +830,14 @@ export async function runCli(cliArgv: string[]): Promise<number> {
       const base = configScopeBase(configPath, lintInput.input);
       if (base !== undefined) lintInputOptions.scopeBase = base;
     }
+    // The element-scoped echo: WHICH element each selector captured, printed BEFORE any
+    // measurement - a line that drifted after edits selects a different unit silently, and
+    // nothing in a bare score contradicts the wrong assumption. The SDK resolves the fact
+    // (selectedElements); the CLI owns the rendering. --json keeps stdout a single document:
+    // the same fact rides the report as `selected`.
+    const selected: SelectedElement[] =
+      elementScope !== undefined ? await selectedElements(elementScope) : [];
+    if (elementScope !== undefined && cliArgs.json !== true) printSelection(selected);
     const lintReport = await collectReport(
       lint({
         config: resolvedConfig,
@@ -852,6 +863,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // default stdout is the raw-line projection of the same report (findings only); totals and
     // run errors stay on stderr. Persistence is NEVER gated on --json — the flag is a stdout
     // format choice (output-architecture design).
+    if (selected.length > 0) lintReport.selected = selected;
     const reportJson = renderJson(lintReport);
     const rendered =
       cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport);

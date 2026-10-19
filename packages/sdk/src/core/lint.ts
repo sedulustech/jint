@@ -74,6 +74,7 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
+import type { SelectedElement } from "./output/echo.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
 import type { RuleDigest } from "@jint/contract";
 
@@ -252,10 +253,6 @@ function assertInputSelected(
   }
 }
 
-/**
- * Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would stream
- * the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
- */
 function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
   if (
     ruleCount > 0 &&
@@ -1069,6 +1066,11 @@ export interface LintReport {
    * (finding.input == capture state.id); identity itself comes from the URL/dir, never this field.
    */
   run?: RunPointer;
+  /**
+   * The element-scoped selection's resolved units (path@L runs): WHICH element each selector
+   * captured, wire-shaped. Absent on unscoped runs - a walk judges many units, none "selected".
+   */
+  selected?: SelectedElement[];
 }
 
 /** Drain the stream into the stable report shape both reporters render. */

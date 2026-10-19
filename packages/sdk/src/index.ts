@@ -47,7 +47,8 @@ export {
 } from "./ui/serve.ts";
 export { renderJson } from "./core/output/json.ts";
 export { renderLines } from "./core/output/lines.ts";
-export { selectionEcho } from "./core/output/echo.ts";
+export { selectionEcho, selectedElements } from "./core/output/echo.ts";
+export type { EchoSelection, SelectedElement } from "./core/output/echo.ts";
 export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { compileRule } from "./config/load.ts";

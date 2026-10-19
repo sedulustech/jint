@@ -221,7 +221,7 @@ export const will_comment_drift: NoulRuleSchema = {
     warn: { greater_than: 0.55 },
     error: {
       greater_than: 0.7,
-      message: "Remove the comment or comply with the criteria.",
+      message: "Remove this comment.",
     },
   },
 };

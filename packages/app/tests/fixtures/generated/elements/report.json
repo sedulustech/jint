@@ -2,13 +2,19 @@
   "tool": "jint",
   "version": "0.1.0",
   "run": {
-    "id": "1792425394549",
-    "dir": "/home/crjm/dev/sedulus/worktrees/jint/byog-fixes/tmp/fixtures-gen/1792425394549",
+    "id": "1792452441715",
+    "dir": "/home/crjm/dev/sedulus/worktrees/jint/comment-drift-repass/tmp/fixtures-gen/1792452441715",
     "input": {
       "discovered": 2,
       "included": 2,
       "excluded": [],
-      "skipped": []
+      "skipped": [],
+      "admitted": [
+        {
+          "by": "config",
+          "count": 2
+        }
+      ]
     }
   },
   "measurements": [
@@ -56,7 +62,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -84,7 +90,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -106,7 +112,7 @@
     },
     {
       "rule": "is_greppable",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -128,7 +134,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -157,7 +163,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -179,7 +185,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -201,7 +207,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -230,7 +236,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -253,7 +259,7 @@
     },
     {
       "rule": "is_greppable",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -276,7 +282,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -306,7 +312,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -329,7 +335,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -352,7 +358,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#c7c1985b-ecfa-4b33-8a84-ab3b07581599",
+      "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -380,7 +386,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#c7c1985b-ecfa-4b33-8a84-ab3b07581599",
+      "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -409,7 +415,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#c7c1985b-ecfa-4b33-8a84-ab3b07581599",
+      "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
       "value": 0.9,
       "element": {
         "kind": "class",
@@ -431,7 +437,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#94177ad3-7fad-45e7-964d-eea47256201b",
+      "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -460,7 +466,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#94177ad3-7fad-45e7-964d-eea47256201b",
+      "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -490,7 +496,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#94177ad3-7fad-45e7-964d-eea47256201b",
+      "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
       "value": 0.9,
       "element": {
         "kind": "method",
@@ -513,7 +519,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -541,7 +547,7 @@
     },
     {
       "rule": "is_comment_narration",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -563,7 +569,7 @@
     },
     {
       "rule": "is_comment_patching_readability",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -585,7 +591,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -614,7 +620,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 0.9,
       "element": {
         "kind": "binding",
@@ -636,7 +642,7 @@
     },
     {
       "rule": "will_comment_drift",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 0.1,
       "element": {
         "kind": "binding",
@@ -700,7 +706,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#3d3be28a-d1f4-4fd0-997b-36f017ebdee0",
+      "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -728,7 +734,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#3d3be28a-d1f4-4fd0-997b-36f017ebdee0",
+      "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -757,7 +763,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#3d3be28a-d1f4-4fd0-997b-36f017ebdee0",
+      "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -779,7 +785,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#54d8d46a-d463-4bba-ae8a-7970a7a32d2a",
+      "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -807,7 +813,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#54d8d46a-d463-4bba-ae8a-7970a7a32d2a",
+      "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -836,7 +842,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#54d8d46a-d463-4bba-ae8a-7970a7a32d2a",
+      "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
       "value": 0.9,
       "element": {
         "kind": "type",
@@ -858,7 +864,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 2,
       "probabilities": {
         "0": 0.45,
@@ -886,7 +892,7 @@
     },
     {
       "rule": "is_function_srp",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -908,7 +914,7 @@
     },
     {
       "rule": "is_greppable",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -930,7 +936,7 @@
     },
     {
       "rule": "is_name_purposeful",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.25,
       "probabilities": {
         "0": 0.8,
@@ -959,7 +965,7 @@
     },
     {
       "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.9,
       "element": {
         "kind": "function",
@@ -981,7 +987,7 @@
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.5,
       "element": {
         "kind": "function",
@@ -1005,7 +1011,7 @@
   "findings": [
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1015,7 +1021,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+        "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
         "span": {
           "start": {
             "line": 4,
@@ -1028,15 +1034,16 @@
           "startByte": 180,
           "endByte": 499
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+      "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#a5153061-85ac-422b-bc33-5578ea45bf1e",
+        "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
         "span": {
           "start": {
             "line": 4,
@@ -1053,7 +1060,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1063,7 +1070,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+        "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
         "span": {
           "start": {
             "line": 6,
@@ -1076,15 +1083,16 @@
           "startByte": 356,
           "endByte": 448
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+      "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "complex.ts#7de3658c-6491-43cd-9fca-ea0b80a1eebf",
+        "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
         "span": {
           "start": {
             "line": 6,
@@ -1101,7 +1109,7 @@
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#c7c1985b-ecfa-4b33-8a84-ab3b07581599",
+      "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1111,7 +1119,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "complex.ts#c7c1985b-ecfa-4b33-8a84-ab3b07581599",
+        "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
         "span": {
           "start": {
             "line": 12,
@@ -1124,11 +1132,12 @@
           "startByte": 501,
           "endByte": 842
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#94177ad3-7fad-45e7-964d-eea47256201b",
+      "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1138,7 +1147,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "complex.ts#94177ad3-7fad-45e7-964d-eea47256201b",
+        "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
         "span": {
           "start": {
             "line": 15,
@@ -1151,11 +1160,12 @@
           "startByte": 556,
           "endByte": 840
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+      "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1165,7 +1175,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "complex.ts#cd8474fd-c78f-4f3d-9088-e576d8c4b40f",
+        "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
         "span": {
           "start": {
             "line": 24,
@@ -1178,11 +1188,12 @@
           "startByte": 940,
           "endByte": 977
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#3d3be28a-d1f4-4fd0-997b-36f017ebdee0",
+      "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1192,7 +1203,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "helpers.ts#3d3be28a-d1f4-4fd0-997b-36f017ebdee0",
+        "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
         "span": {
           "start": {
             "line": 1,
@@ -1205,11 +1216,12 @@
           "startByte": 0,
           "endByte": 59
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#54d8d46a-d463-4bba-ae8a-7970a7a32d2a",
+      "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1219,7 +1231,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "helpers.ts#54d8d46a-d463-4bba-ae8a-7970a7a32d2a",
+        "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
         "span": {
           "start": {
             "line": 2,
@@ -1232,11 +1244,12 @@
           "startByte": 60,
           "endByte": 141
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "is_cognitively_complex",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 2,
       "severity": "error",
       "confidence": 0,
@@ -1246,7 +1259,7 @@
         "2": 0.45
       },
       "location": {
-        "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+        "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
         "span": {
           "start": {
             "line": 4,
@@ -1259,15 +1272,16 @@
           "startByte": 143,
           "endByte": 278
         }
-      }
+      },
+      "note": "Decompose this function: extract readable named steps so the main body reads easily."
     },
     {
       "rule": "will_error_lose_cause",
-      "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+      "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 0.5,
       "severity": "warn",
       "location": {
-        "input": "helpers.ts#fa83df20-fcbb-4d46-ba0e-ed37389bc4fe",
+        "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
         "span": {
           "start": {
             "line": 4,
@@ -1368,7 +1382,8 @@
           "greater_than": 0.6
         },
         "error": {
-          "greater_than": 0.7
+          "greater_than": 0.7,
+          "message": "Remove this comment."
         }
       }
     },
@@ -1399,7 +1414,7 @@
         },
         "error": {
           "greater_than": 0.7,
-          "message": "Remove the comment or comply with the criteria."
+          "message": "Remove this comment."
         }
       }
     },
@@ -1426,7 +1441,14 @@
         "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
       ],
       "handle": {
-        "map": ["pass", "warn", "error"]
+        "map": [
+          "pass",
+          "warn",
+          {
+            "level": "error",
+            "message": "Decompose this function: extract readable named steps so the main body reads easily."
+          }
+        ]
       }
     },
     {
