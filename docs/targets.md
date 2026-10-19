@@ -12,7 +12,7 @@ rule resolves what this table says or the generator fails.
 
 The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).
 The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is
-addressed through the qualified `{grammar}:{capture}` form (`markdown:section`).
+addressed through the qualified `{grammar}:{capture}` form - markdown's four: `markdown:section`, `markdown:paragraph`, `markdown:list_item`, `markdown:list`.
 
 | target           | namespace | singular                    | resolves to                                                                                                                                                                                                                                                                                                       | grammars emitting it                          | frame carried                                                       | scope-coupled |
 | ---------------- | --------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------- | ------------- |

@@ -37,9 +37,9 @@ const is_literal_shared: RuleSchema = {
 const is_doc_stateful: RuleSchema = {
   name: "is_doc_stateful",
   kind: "noul",
-  target: "markdown:paragraph",
+  target: "markdown:list_item",
   instructions:
-    "This unit is one definition in a project glossary. Does this definition depend on when or where it is read, or on facts about the system that a code change can alter?",
+    "This unit is one definition in a project glossary (one list entry). Does this definition depend on when or where it is read, or on facts about the system that a code change can alter?",
   criteria: {
     true: "This definition is stateful: it depends on when or where it is read. It says currently, recently, we just, or otherwise refers to session history (a rename, a past state, the old X), or it uses a pronoun whose antecedent lives outside this entry. The definition also pins a mutable fact about the system - a count, an inventory, a default, a current implementation convention - that a change to the code would silently falsify.",
     false:
@@ -66,13 +66,13 @@ const is_doc_stateful: RuleSchema = {
 const is_headword_consistent: RuleSchema = {
   name: "is_headword_consistent",
   kind: "noul",
-  target: "files",
+  target: "markdown:list",
   instructions:
-    "This unit is a glossary file whose entries are list items: each entry is a dash, a bolded headword, an em dash, then the definition. Headwords are the bolded phrases before the em dashes - the terms the entries define. Do all the headwords of this file share one format?",
+    "This unit is one list of glossary entries: each entry is a dash, a bolded headword, an em dash, then the definition. Headwords are the bolded phrases before the em dashes - the terms the entries define. Do all the headwords in this list share one format?",
   criteria: {
-    true: "At least one headword does not match the format of the other headwords: a different casing style, a multi-word or qualified phrase among single words, a slash-joined pair among plain words, or some other entry whose bolded term is shaped unlike the rest.",
+    true: "At least one headword in this list does not match the format of the other headwords: a different casing style, a multi-word or qualified phrase among single words, a slash-joined pair among plain words, or some other entry whose bolded term is shaped unlike the rest.",
     false:
-      "Every headword in this file shares the same format: same casing style, same shape (single word, phrase, or pair), so the term list reads as one vocabulary.",
+      "Every headword in this list shares the same format: same casing style, same shape (single word, phrase, or pair), so the term list reads as one vocabulary.",
   },
   include: ["GLOSSARY.md"],
   handle: {

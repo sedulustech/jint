@@ -391,7 +391,8 @@ const header = [
     "rule resolves what this table says or the generator fails.\n\n",
   "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
     "The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is\n" +
-    "addressed through the qualified `{grammar}:{capture}` form (`markdown:section`).\n\n",
+    "addressed through the qualified `{grammar}:{capture}` form - markdown's four: " +
+    "`markdown:section`, `markdown:paragraph`, `markdown:list_item`, `markdown:list`.\n\n",
 ];
 
 const columns: [string, (r: Row) => string][] = [

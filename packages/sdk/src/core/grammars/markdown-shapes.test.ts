@@ -24,7 +24,7 @@ interface Row {
 
 // The whole inventory, document order. Line/column pairs are 1-based line, 0-based column - the
 // span's own wire shape. parent references labels (d1 = "Top section", d4 = "Nested section",
-// d16 = "Sibling section") so nesting is pinned too.
+// d19 = "Sibling section") so nesting is pinned too.
 const INVENTORY: readonly Row[] = [
   // the headingless preamble: its PARAGRAPH captures, its section never does (queries.scm: the
   // section carrier requires an atx_heading) - so this paragraph has no parent
@@ -37,19 +37,28 @@ const INVENTORY: readonly Row[] = [
   { kind: "paragraph", start: [7, 0], end: [10, 0], parent: "d1" },
   // sections nest (selfNesting): the ## section is an element INSIDE the # section
   { kind: "section", start: [11, 0], end: [50, 0], name: "Nested section", parent: "d1" },
-  // list items capture as paragraphs, marker stripped (col 3 = after "1. "), one element per item
-  { kind: "paragraph", start: [13, 3], end: [14, 0], parent: "d4" },
+  // a list is ONE element per bullet/ordered list, markers KEPT in its text; its span runs
+  // through the trailing blank lines to the next block's start (ends [18,0] = the dash list)
+  { kind: "list", start: [13, 0], end: [18, 0], parent: "d4" },
+  // list_item: the paragraph inside the entry, marker stripped (col 3 = after "1. "), one per item
+  { kind: "list_item", start: [13, 3], end: [14, 0], parent: "d5" },
   // the indented continuation rides the item's element (span through L17, text keeps the indent)
-  { kind: "paragraph", start: [15, 3], end: [17, 0], parent: "d4" },
+  { kind: "list_item", start: [15, 3], end: [17, 0], parent: "d5" },
+  // the outer dash list: one element spanning all its items AND the nested list, ending at the
+  // fence line (L27) - trailing blanks belong to the list that precedes them
+  { kind: "list", start: [18, 0], end: [27, 0], parent: "d4" },
   // consecutive dash items with NO blank line: still one element each, marker stripped (col 2)
-  { kind: "paragraph", start: [18, 2], end: [19, 0], parent: "d4" },
+  { kind: "list_item", start: [18, 2], end: [19, 0], parent: "d8" },
   // dash two's tail continuation (L20) rides dash two - it never becomes dash three's prefix
-  { kind: "paragraph", start: [19, 2], end: [21, 0], parent: "d4" },
-  { kind: "paragraph", start: [21, 2], end: [22, 0], parent: "d4" },
-  // nested list: outer item ends at the inner list's first line (col 2), inner items start col 4
-  { kind: "paragraph", start: [23, 2], end: [24, 2], parent: "d4" },
-  { kind: "paragraph", start: [24, 4], end: [25, 2], parent: "d4" },
-  { kind: "paragraph", start: [25, 4], end: [26, 0], parent: "d4" },
+  { kind: "list_item", start: [19, 2], end: [21, 0], parent: "d8" },
+  { kind: "list_item", start: [21, 2], end: [22, 0], parent: "d8" },
+  // the outer item's text ends where the inner list begins (col 2); the inner list is an
+  // element of its OWN (lists nest legitimately), boundary-coincident with its outer list's
+  // end [27,0] - the selfNesting case sections already pinned, now for lists too
+  { kind: "list_item", start: [23, 2], end: [24, 2], parent: "d8" },
+  { kind: "list", start: [24, 2], end: [27, 0], parent: "d8" },
+  { kind: "list_item", start: [24, 4], end: [25, 2], parent: "d13" },
+  { kind: "list_item", start: [25, 4], end: [26, 0], parent: "d13" },
   // blockquotes: the paragraph inside captures, FIRST "> " marker stripped (col 2) - a
   // continuation line's "> " stays in the TEXT (only the opening marker belongs to the wrapper)
   { kind: "paragraph", start: [41, 2], end: [42, 0], parent: "d4" },
@@ -59,7 +68,7 @@ const INVENTORY: readonly Row[] = [
   // the LAST sibling section is boundary-coincident with its parent's tail: it starts exactly
   // where the nested section ended (L50 col 0) and runs to EOF - the selfNesting case
   { kind: "section", start: [50, 0], end: [53, 0], name: "Sibling section", parent: "d1" },
-  { kind: "paragraph", start: [52, 0], end: [53, 0], parent: "d16" },
+  { kind: "paragraph", start: [52, 0], end: [53, 0], parent: "d19" },
 ];
 
 describe("markdown shape corpus: the element contract, both ways", () => {
@@ -79,8 +88,13 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     }
   });
 
-  test("markdown emits exactly two kinds - the grammar's own section and paragraph", () => {
-    expect([...new Set(captured.map((e) => e.kind))].sort()).toEqual(["paragraph", "section"]);
+  test("markdown emits exactly four kinds - section, paragraph, list, list_item", () => {
+    expect([...new Set(captured.map((e) => e.kind))].sort()).toEqual([
+      "list",
+      "list_item",
+      "paragraph",
+      "section",
+    ]);
   });
 
   test("a section's name is its heading text with the marker stripped", () => {
@@ -98,6 +112,23 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     const dashTwo = captured.find((e) => e.span.start.line === 19)!;
     expect(dashTwo.text.startsWith("dash two")).toBe(true); // "- " gone
     expect(dashTwo.text).toContain("\n  continuation under dash two");
+  });
+
+  test("a list keeps its markers and owns one element per list; items never double-capture", () => {
+    const lists = captured.filter((e) => e.kind === "list");
+    expect(lists.map((e) => e.span.start.line)).toEqual([13, 18, 24]);
+    // the list's TEXT keeps the markers ("- dash one" opens the outer list); only the item's
+    // own element strips them - the container shows the shape, the entry shows the prose
+    expect(lists[1]!.text.startsWith("- dash one")).toBe(true);
+    // in-list paragraphs are list_item, NEVER paragraph: the loose prose pattern enumerates its
+    // parents (section-direct, block_quote) and the list_item parent belongs to the entry capture
+    const inList = captured.filter((e) => e.span.start.line >= 13 && e.span.start.line <= 25);
+    expect(inList.every((e) => e.kind === "list" || e.kind === "list_item")).toBe(true);
+    // the nested list is an element of its own, parented by the OUTER LIST (the outer item's
+    // element is its paragraph, which does not contain the inner list)
+    const inner = lists[2]!;
+    expect([inner.span.start.line, inner.span.end.line]).toEqual([24, 27]);
+    expect(inner.parent).toBe("d8");
   });
 
   test("a blockquote strips only the opening marker; later markers stay in the text", () => {
