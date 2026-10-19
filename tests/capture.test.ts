@@ -43,7 +43,10 @@ describe("capture() e2e — the exported sdk surface", () => {
   });
 
   test("capture(file, wip.scm): the query override drives extraction against an embedded grammar", async () => {
-    const dir = setup("query", { "doc.md": DOC, "wip.scm": "(paragraph) @section\n" });
+    const dir = setup("query", {
+      "doc.md": DOC,
+      "wip.scm": '(paragraph) @section (#set! "capture.section.definition" "true")\n',
+    });
     const file = join(dir, "doc.md");
     const elements = await capture(file, join(dir, "wip.scm"));
     // the WIP .scm makes the two prose runs the section elements - not the heading sections
@@ -72,7 +75,10 @@ describe("capture() e2e — the exported sdk surface", () => {
     // the junk grammar dir lives in the scratch tree - never inside the repo fixtures
     const bad = join(dir, "grammars", "notmarkdown");
     mkdirSync(bad, { recursive: true });
-    writeFileSync(join(bad, "queries.scm"), "(paragraph) @section\n");
+    writeFileSync(
+      join(bad, "queries.scm"),
+      '(paragraph) @section (#set! "capture.section.definition" "true")\n',
+    );
     writeFileSync(join(bad, "extensions.json"), JSON.stringify([".md"]));
     writeFileSync(join(bad, "notmarkdown.wasm"), "not a wasm");
     // the wasm cross-check: the export must agree with the directory name
@@ -81,7 +87,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     );
     // the .scm goes through the full loud compile checks - a capture outside the vocabulary fails
     expect(capture(join(dir, "doc.md"), join(dir, "wip.scm"))).rejects.toThrow(
-      /captures outside the vocabulary/,
+      /captures undeclared names/,
     );
     // routing: no registered grammar claims .rst (the SDK truth, naming extensions.json)
     expect(capture(join(dir, "doc.rst"))).rejects.toThrow(
@@ -207,7 +213,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     // makes the leak impossible by construction.
     const dir = setup("poison", { "doc.md": DOC });
     const wip = join(dir, "wip.scm");
-    writeFileSync(wip, "(paragraph) @section\n");
+    writeFileSync(wip, '(paragraph) @section (#set! "capture.section.definition" "true")\n');
     const file = join(dir, "doc.md");
     // the overlay governed ITS call: the wip .scm's paragraph-sections, not the embedded's
     const overlaid = await capture(file, wip, join(SHADOW, "markdown"));
@@ -219,7 +225,10 @@ describe("capture() e2e — the exported sdk surface", () => {
   });
 
   test("a grammar dir whose queries.scm is absent-but-invalid is skipped, not read (override supplies extraction)", async () => {
-    const dir = setup("skip", { "doc.md": DOC, "mine.scm": "(paragraph) @section\n" });
+    const dir = setup("skip", {
+      "doc.md": DOC,
+      "mine.scm": '(paragraph) @section (#set! "capture.section.definition" "true")\n',
+    });
     const bad = join(dir, "grammars", "markdown");
     mkdirSync(bad, { recursive: true });
     writeFileSync(join(bad, "extensions.json"), JSON.stringify([".md"]));

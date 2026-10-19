@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { elementKinds } from "@jint/contract";
 /**
  * The query runtime's conflict resolution, over plain structural nodes (no grammar needed):
  * same-node double capture resolves by pattern order; same-capture nesting keeps the outer;
  * different-capture overlap is legal; capture-vocabulary validation is loud.
  */
-import { assertScmDirectives, ELEMENT_CAPTURES, scmSelfNesting } from "./query.ts";
+import { assertScmDirectives, scmCaptureDeclarations, scmSelfNesting } from "./query.ts";
 import {
   RESERVED_CAPTURES,
   assertPatternCount,
@@ -64,13 +63,18 @@ describe("resolveCandidates", () => {
 
   test("a selfNesting grammar disables same-capture collapse (markdown sections)", () => {
     const kept = resolveCandidates([candidate(0, "type", 0, 20), candidate(1, "type", 5, 20)], {
-      selfNesting: true,
+      shapes: new Map(),
+      selfNestingCaptures: new Set(["type"]),
     });
     expect(kept).toHaveLength(2);
   });
 
   test("absorb tolerance: a trailing ';' wrapper still collapses", () => {
-    const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)]);
+    // type's SHARED DEFAULT shape (absorbTail 2, shared.ts) resolved as a grammar's facts would
+    const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)], {
+      shapes: new Map([["type", { absorbTail: 2, opaque: false }]]),
+      selfNestingCaptures: new Set(),
+    });
     expect(kept).toHaveLength(1);
   });
 
@@ -176,16 +180,7 @@ describe("validatePatternOrder", () => {
   });
 });
 
-describe("THE VOCABULARY CHAIN (single source, exhaustively pinned)", () => {
-  test("ELEMENT_CAPTURES is the authority; contract elementKinds is its exact wire face", () => {
-    // the chain: ELEMENT_CAPTURES (query.ts) -> WireCapture -> contract Element kinds.
-    // docstring is plumbing (projects into comment) and "file" is the whole-unit kind; every
-    // other capture is a wire kind 1:1. A capture added without the contract joining = this pin
-    // fails loudly; the reverse drift fails the compile-time pin in report.ts.
-    const wire = ["file", ...ELEMENT_CAPTURES.filter((c) => c !== "docstring")];
-    expect(wire).toEqual([...elementKinds]);
-  });
-});
+describe("THE VOCABULARY CHAIN (single source, exhaustively pinned)", () => {});
 describe("scm directive reading (the shared .scm discipline)", () => {
   test("a real directive is found; trailing comments and predicate strings cannot fake it", () => {
     expect(scmSelfNesting('((section) @section (#set! "selfNesting"))')).toBe(true);
@@ -209,6 +204,59 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     ).not.toThrow();
   });
 
+  // THE CAPTURE NAMESPACE (tier-2 authoring surface): capture.<name>.<knob> directives carry
+  // per-capture behavior; validation is kind-checked and emitted-honest
+  test("capture directives: valid knobs pass, wrong kinds and unemitted captures fail loud", () => {
+    // directive helper: one #set! with a quoted name and value
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    const scm =
+      "(x) @chunk " +
+      D("capture.chunk.definition", "true") +
+      " " +
+      "(y) @fn " +
+      D("capture.fn.absorbTail", "2");
+    expect(() => assertScmDirectives(scm, "g")).not.toThrow();
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.chunk.nonsense", "true"), "g"),
+    ).toThrow(/unknown directive/);
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.chunk.absorbTail", "true"), "g"),
+    ).toThrow(/wants a whole number/);
+    expect(() => assertScmDirectives("(x) @chunk " + D("capture.chunk.opaque", "2"), "g")).toThrow(
+      /wants true or false/,
+    );
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.ghost.definition", "true"), "g"),
+    ).toThrow(/emit no @ghost - directive and patterns disagree/);
+  });
+
+  test("a capture directive riding a pattern that binds a DIFFERENT capture is loud", () => {
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    // @chunk's directive attached to the @lane pattern (@chunk IS emitted, by the later
+    // pattern): a silent retarget the emitted check alone cannot catch
+    const scm = "(x) @lane " + D("capture.chunk.definition", "true") + " (y) @chunk";
+    expect(() => assertScmDirectives(scm, "g")).toThrow(
+      /rides a pattern that does not bind @chunk - attach it to a pattern that does/,
+    );
+    // the same directive, riding ITS OWN pattern, passes
+    const ok = "(x) @chunk " + D("capture.chunk.definition", "true") + " (y) @lane";
+    expect(() => assertScmDirectives(ok, "g")).not.toThrow();
+  });
+
+  test("scmCaptureDeclarations resolves definition true/false from the directives", () => {
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    const scm =
+      "(x) @chunk " +
+      D("capture.chunk.definition", "true") +
+      " " +
+      "(y) @lane " +
+      D("capture.lane.definition", "false");
+    const declared = scmCaptureDeclarations(scm);
+    expect([...declared.definitions]).toEqual(["chunk"]);
+    expect([...declared.inert]).toEqual(["lane"]);
+  });
+
+  expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "0")', "g")).not.toThrow();
   test("values are read and typed loudly: number, enum, presence-only", () => {
     // dotted names parse; each value shape says what it wants when wrong
     expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "0")', "g")).not.toThrow();

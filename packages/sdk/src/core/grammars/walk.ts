@@ -13,13 +13,7 @@
  * flag; the yielded elements are exact for what parsed.
  */
 
-import {
-  InternalError,
-  SetupError,
-  type DocstringOwner,
-  type Element,
-  type Span,
-} from "../types.ts";
+import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
 import {
   grammar,
   grammarExtensions,
@@ -42,9 +36,20 @@ import {
   type Capture,
   type QueryNode,
   compileQuery,
+  scmCaptureDeclarations,
+  scmCapturePolicy,
+  scmEmittedNames,
+  scmSelfNestingCaptures,
+  type SuppressionOptions,
+  type SuppressionShape,
   scmSelfNesting,
-  ELEMENT_CAPTURES,
 } from "./query.ts";
+import {
+  SHARED_ELEMENT_CAPTURES,
+  SHARED_PROJECTION,
+  sharedDefinitionDefault,
+  sharedPolicyDefault,
+} from "./shared.ts";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -154,21 +159,57 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
   );
 }
 
-export const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
-  "function",
-  "method",
-  "class",
-  "type",
-  "binding",
-  // markdown's grammar-autonomous container-with-body (the @section capture)
-  "section",
-  // markdown's flat prose (the @paragraph capture)
-  "paragraph",
-  // markdown's list entry text (the @list_item capture - the paragraph inside a list entry)
-  "list_item",
-  // markdown's whole list (the @list capture - one element per bullet/ordered list)
-  "list",
-]);
+/**
+ * Is a captured candidate an ELEMENT? The OWNING grammar's `capture.<name>.definition` directives
+ * resolve it (scmCaptureDeclarations) over the tier-1 shared defaults (shared.ts - the lingua
+ * franca's shape, the only capture-keyed behavior the engine holds): a shared definition capture is
+ * an element unless its grammar overrides to false; an AUTONOMOUS capture must declare true or it
+ * is inert (captured, never materialized - the .scm said so, not an engine table).
+ */
+/**
+ * One grammar's suppression facts: per-capture shapes (directive overrides over the tier-1 shared
+ * defaults; an undeclared autonomous capture hides and absorbs nothing) and the nesting flags
+ * (per-capture `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` - the grammar-wide
+ * form every capture of the grammar inherits).
+ */
+/**
+ * The captures this grammar's walk yields candidates for: the shared lingua franca plus its own
+ * declared autonomous captures.
+ */
+/**
+ * The captures this grammar's walk yields candidates for: the shared lingua franca plus its
+ * declared autonomous ELEMENT captures - the SAME set emittedCaptures exposes to target validation
+ * (a definition-false capture produces no elements, so neither side admits it).
+ */
+function resolveAddressable(scm: string): ReadonlySet<string> {
+  const declared = scmCaptureDeclarations(scm);
+  const addressable = new Set<string>(SHARED_ELEMENT_CAPTURES);
+  for (const capture of declared.definitions) addressable.add(capture);
+  return addressable;
+}
+
+function resolveSuppression(scm: string): SuppressionOptions {
+  const declared = scmCapturePolicy(scm);
+  const shapes = new Map<string, SuppressionShape>();
+  for (const capture of scmEmittedNames(scm)) {
+    shapes.set(capture, { ...sharedPolicyDefault(capture), ...declared.get(capture) });
+  }
+  const selfNestingCaptures = new Set<string>(scmSelfNestingCaptures(scm));
+  if (scmSelfNesting(scm))
+    for (const capture of scmEmittedNames(scm)) selfNestingCaptures.add(capture);
+  return { shapes, selfNestingCaptures };
+}
+
+function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
+  const declared = scmCaptureDeclarations(scm);
+  const resolved = new Set<string>();
+  for (const capture of scmEmittedNames(scm)) {
+    if (declared.inert.has(capture)) continue;
+    if (declared.definitions.has(capture) || sharedDefinitionDefault(capture))
+      resolved.add(capture);
+  }
+  return resolved;
+}
 
 /**
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
@@ -184,12 +225,13 @@ function materialize(
   candidates: readonly Candidate[],
   grammarId: string,
   source: string,
+  definitionCaptures: ReadonlySet<string>,
 ): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
   imports: InventoryElement[];
 } {
-  const definitions = candidates.filter((c) => DEFINITION_CAPTURES.has(c.capture));
+  const definitions = candidates.filter((c) => definitionCaptures.has(c.capture));
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
@@ -246,7 +288,7 @@ function materialize(
       return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
     return {
       // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
-      // a definition capture only (ownerOf scans DEFINITION_CAPTURES); the lane captures cannot own
+      // a definition capture only (ownerOf scans the grammar's resolved definition set); the lane captures cannot own
       kind: innermost.capture as DocstringOwner["kind"],
       name: innermost.name ?? "",
     };
@@ -512,12 +554,20 @@ export async function decompose(
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
   // SHAPE DIRECTIVES: read syntactically from the .scm through the SHARED reader (strings blanked,
-  // then comments cut - a trailing comment or a predicate string cannot fake a directive). #set!
-  // "selfNesting" lets same-capture candidates nest (markdown's sections); absence keeps the
-  // tail-absorb default.
-  const selfNesting = scmSelfNesting(scm);
-  const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
-  const { definitions, comments, imports } = materialize(candidates, language, source);
+  // then comments cut - a trailing comment or a predicate string cannot fake a directive). The
+  // grammar's own facts - definitions, suppression shapes, nesting - resolve HERE from its
+  // directives over the tier-1 shared defaults; the engine holds no per-capture table.
+  const candidates = resolveCandidates(
+    runQuery(query, tree.rootNode, resolveAddressable(scm)),
+    resolveSuppression(scm),
+  );
+  const definitionCaptures = resolveDefinitionCaptures(scm);
+  const { definitions, comments, imports } = materialize(
+    candidates,
+    language,
+    source,
+    definitionCaptures,
+  );
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,
@@ -539,45 +589,24 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
-// THE PROJECTION: one entry per capture, typed exhaustively over Capture - adding a capture
-// without a projection is a compile error here, never a runtime surprise mid-walk.
-const PROJECTION: Readonly<
-  Record<Capture, (element: InventoryElement, base: ProjectionBase) => Element>
-> = {
-  comment: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
-  docstring: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
-  type: (e, base) => ({ kind: "type", ...base, name: e.name }),
-  binding: (e, base) => ({ kind: "binding", ...base, name: e.name }),
-  import: (_e, base) => ({ kind: "import", ...base }),
-  function: (e, base) => ({ kind: "function", ...base, name: e.name }),
-  method: (e, base) => ({ kind: "method", ...base, name: e.name }),
-  class: (e, base) => ({ kind: "class", ...base, name: e.name }),
-  section: (e, base) => ({ kind: "section", ...base, name: e.name }),
-  paragraph: (_e, base) => ({ kind: "paragraph", ...base }),
-  list_item: (_e, base) => ({ kind: "list_item", ...base }),
-  list: (_e, base) => ({ kind: "list", ...base }),
-};
-
+/**
+ * Project one inventory element to the wire. SHARED captures carry their typed shapes; an
+ * AUTONOMOUS capture rides the generic element shape - its kind is its capture name, its name rides
+ * when a pattern binds @name (markdown's section names from its heading text). No engine list
+ * enumerates the autonomous names; the .scm that declares the capture defines its wire face.
+ */
 export function projectElement(element: InventoryElement): Element {
-  const project = PROJECTION[element.capture];
-  if (project === undefined) {
-    // unreachable through the typed table (a Record over Capture); a data-level intruder still
-    // fails LOUD at the walk boundary naming the vocabulary, never a silent drop
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "element capture outside the vocabulary: " +
-        String((element as { capture: string }).capture) +
-        " (the vocabulary is " +
-        ELEMENT_CAPTURES.join(", ") +
-        ")",
-    );
-  }
-  return project(element, {
+  const base: ProjectionBase = {
     span: element.span,
     label: element.label,
     parent: element.parent,
-  });
+  };
+  const project = SHARED_PROJECTION[element.capture];
+  if (project !== undefined) return project(element, base);
+  if (element.name === undefined) return { kind: element.capture, ...base };
+  return { kind: element.capture, ...base, name: element.name };
 }
+
 export function fileElement(id: string, content: string): Element {
   const lines = content.split("\n").length;
   return {

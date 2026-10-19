@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
 import { EMBEDDED, grammar } from "../core/grammars/grammars.ts";
-import { ELEMENT_CAPTURES } from "../core/grammars/query.ts";
+import { SHARED_ELEMENT_CAPTURES } from "../core/grammars/shared.ts";
 import { emittedCaptures } from "./grammars/query.ts";
 import { assertCaptureAddress, scmCode } from "./grammars/query.ts";
 import { lint, collectReport } from "./lint.ts";
@@ -896,17 +896,18 @@ describe("lint", () => {
     for (const line of predicateLines) {
       for (const m of line.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)) {
         const name = m[1]!;
-        if ((ELEMENT_CAPTURES as readonly string[]).includes(name)) {
+        if ((SHARED_ELEMENT_CAPTURES as readonly string[]).includes(name)) {
           expect(emitted.has(name)).toBe(true);
         }
       }
     }
     // the derivation is element captures only: markdown's @name never becomes addressable
+    // sorted: the open namespace has no registry order to preserve
     expect(emittedCaptures(EMBEDDED, "markdown")).toEqual([
-      "section",
-      "paragraph",
-      "list_item",
       "list",
+      "list_item",
+      "paragraph",
+      "section",
     ]);
   });
 

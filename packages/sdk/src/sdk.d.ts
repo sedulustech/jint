@@ -16,18 +16,8 @@ declare module "jint:sdk" {
     readonly id: string;
     readonly path: string;
     readonly grammar: string;
-    readonly capture:
-      | "function"
-      | "method"
-      | "class"
-      | "type"
-      | "binding"
-      | "import"
-      | "comment"
-      | "section"
-      | "paragraph"
-      | "list_item"
-      | "list";
+    /** The capture name: a shared capture or the grammar-declared autonomous one. */
+    readonly capture: import("./core/types.ts").ElementCapture;
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };
@@ -45,10 +35,7 @@ declare module "jint:sdk" {
      * For a comment element a definition owns (a docstring): who it documents. Its presence is what
      * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
      */
-    readonly docstringOf?: {
-      readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
-      readonly name: string;
-    };
+    readonly docstringOf?: import("@jint/contract").DocstringOwner;
     readonly parent: CustomElement | null;
   }
 

@@ -15,6 +15,17 @@ A rule is not promoted to the default set from one corpus: single-language calib
 - Validate that the rule's claim survives each language's conventions (naming style, file/package layout) rather than only its syntax.
 - Precedent: is_filename_fitting (issue 006) — TS probe 0.36/0.88, Go probe 0.25/0.72 (cobra + lying-name fixtures), verb-name and package-per-dir conventions checked before promotion.
 
+## Capture behavior
+
+Capture behavior lives in grammars, never in the engine: a capture's facts (is it an element,
+what it hides, how it nests) are `#set! "capture.<name>.<knob>"` directives in the owning
+grammar's queries.scm. The engine holds per-capture facts in exactly one place - the shared
+capture contract (packages/sdk/src/core/grammars/shared.ts), the lingua franca's defaults - and
+promoting a word into the shared tier is the only ceremony; a grammar's own capture needs one
+.scm line. The guard test (capture-facts.guard.test.ts) fails the suite if a capture-keyed
+table appears anywhere else, and tests/capture-directives-e2e.test.ts keeps the open path
+proven - edit a .scm before you edit the engine.
+
 ## UI
 
 Styles are declared at the component (Tailwind, shadcn): declaration, behavior, and state live

@@ -4,4 +4,4 @@
 ; patterns are a deliberate inversion of the embedded mapping — @section is assigned to paragraph
 ; nodes (the embedded .scm assigns it to heading sections) — so a run's measured spans prove WHICH
 ; .scm governed extraction. See docs/byog.md for the seam contract.
-(paragraph) @section
+(paragraph) @section (#set! "capture.section.definition" "true")

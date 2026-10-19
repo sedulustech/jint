@@ -14,9 +14,14 @@ export interface Span {
   readonly endByte: number;
 }
 
-/** The construct a docstring documents; name is empty for the module. */
+/**
+ * The construct a docstring documents; name is empty for the module. kind is the OWNER CAPTURE,
+ * open: the six shared definition kinds are the common values, but an autonomous capture may own a
+ * comment in its grammar (its capture name arrives here losslessly) - the wire never crashes a BYOG
+ * grammar on a closed enum.
+ */
 export interface DocstringOwner {
-  readonly kind: "module" | "function" | "class" | "method" | "type" | "binding";
+  readonly kind: string;
   readonly name: string;
 }
 
@@ -34,21 +39,20 @@ export const elementKinds = [
   "binding",
   "comment",
   "import",
-  "section",
-  "paragraph",
-  "list_item",
-  "list",
 ] as const;
 export type ElementKind = (typeof elementKinds)[number];
-// COMPILE-TIME PIN: the union and the runtime array are the same set, both directions.
-type _KindsMatch = [Element["kind"]] extends [ElementKind]
-  ? [ElementKind] extends [Element["kind"]]
-    ? true
-    : never
-  : never;
+// COMPILE-TIME PIN, one direction: every runtime kind names a valid element kind. The reverse
+// stays open by design - an autonomous capture's kind is its capture name (a string), so the
+// union cannot enumerate it; the .scm that declares the capture owns its wire face.
+type _KindsMatch = [ElementKind] extends [Element["kind"]] ? true : never;
 const _kindsPin: _KindsMatch = true;
 /** Shared projection shape of every element: where it is, its label, its parent. */
 interface ElementBase {
+  /**
+   * The element's name when its grammar binds one (@name): a definition's identifier, a section's
+   * heading text. Absent for unnamed shapes (a paragraph, an import run).
+   */
+  readonly name?: string;
   readonly span: Span;
   /** Stable positional walk label ("d0", "c0", "i0"); render-only, never a join key. */
   readonly label: string;
@@ -94,31 +98,15 @@ export interface ImportElement extends ElementBase {
   readonly kind: "import";
 }
 
-/** A markdown section (the grammar-autonomous @section capture): a heading plus its body. */
-export interface SectionElement extends ElementBase {
-  readonly kind: "section";
+/**
+ * A GRAMMAR-AUTONOMOUS element (the open capture namespace): any capture a grammar's own .scm
+ * declares - its kind is its capture name, its name rides when a pattern binds @name (markdown's
+ * section, paragraph, list, list_item ride this shape today). One generic member, never a
+ * per-capture type: the .scm that declares the capture defines its wire face.
+ */
+export interface AutonomousElement extends ElementBase {
+  readonly kind: string & {};
   readonly name?: string;
-}
-
-/** A markdown paragraph (the grammar-autonomous @paragraph capture): flat prose. */
-export interface ParagraphElement extends ElementBase {
-  readonly kind: "paragraph";
-}
-
-/**
- * A markdown list entry's text (the grammar-autonomous @list_item capture): the paragraph inside a
- * bullet/numbered item, marker stripped, continuations folded in.
- */
-export interface ListItemElement extends ElementBase {
-  readonly kind: "list_item";
-}
-
-/**
- * A markdown list (the grammar-autonomous @list capture): one element per bullet/ordered list,
- * spanning all its items.
- */
-export interface ListElement extends ElementBase {
-  readonly kind: "list";
 }
 
 export interface CommentElement extends ElementBase {
@@ -141,10 +129,7 @@ export type Element =
   | BindingElement
   | ImportElement
   | CommentElement
-  | SectionElement
-  | ParagraphElement
-  | ListItemElement
-  | ListElement;
+  | AutonomousElement;
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score
