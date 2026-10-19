@@ -175,7 +175,14 @@ A live config example, serialized from real default specs (always the current wi
       ],
       "target": ["functions", "classes", "methods", "types", "bindings"],
       "handle": {
-        "map": ["pass", "warn", "error"]
+        "map": [
+          "pass",
+          "warn",
+          {
+            "level": "error",
+            "message": "Decompose this function: extract readable named steps so the main body reads easily."
+          }
+        ]
       }
     }
   ]
