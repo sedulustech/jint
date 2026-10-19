@@ -81,7 +81,8 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
 
   // promoted from the deleted capture-output unit describe: the input column appears exactly
   // when the run covers more than one file. A scratch tree (the fixture dirs hold uncovered
-  // extensions - Makefile, .txt - and capture over them is a loud MISSING_GRAMMAR by design).
+  // extensions - Makefile, .txt - which a DIR run skips with the coverage note; an explicit FILE
+  // still fails loud MISSING_GRAMMAR).
   test("capture over a dir covering more than one file: every line carries the input column", async () => {
     const dir = scratchDir("jint-capture-multi");
     writeFileSync(join(dir, "one.ts"), "function one() {}\n");
@@ -99,6 +100,44 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
       inputs.add(cols[4]!);
     }
     expect([...inputs].sort()).toEqual(["one.ts", "two.ts"]);
+  });
+
+  test("capture over a dir holding an unclaimable file: exit 0, elements on stdout, one note on stderr", async () => {
+    const dir = scratchDir("jint-capture-sweep");
+    writeFileSync(join(dir, "one.ts"), "function one() {}\n");
+    writeFileSync(join(dir, "data.json"), '{"a":1}\n');
+    const r = await runCli(["capture", dir], { timeout: 60_000 });
+    // the strays never kill the run: the claimed file's elements are the payload (exit 0)
+    expect(r.code).toBe(0);
+    // one CLAIMED file only (the stray never reaches extraction), so the line keeps the
+    // single-file shape - no input column
+    expect(r.stdout.trimEnd()).toBe("typescript function L1-L1 one");
+    // the folded skip line rides stderr in the emitter's note voice; stdout stays pipe-clean
+    expect(r.stderr).toBe("jint: note: not parsed (no grammar): .json\n");
+  });
+
+  test("capture --queries with a foreign grammar's .scm: loud exit 2 naming both grammars", async () => {
+    const dir = scratchDir("jint-capture-cross");
+    writeFileSync(join(dir, "code.ts"), "// one comment\nfunction f() {}\n");
+    const cssScm = join(
+      import.meta.dir,
+      "..",
+      "packages",
+      "sdk",
+      "src",
+      "core",
+      "grammars",
+      "embedded",
+      "css",
+      "queries.scm",
+    );
+    const r = await runCli(["capture", join(dir, "code.ts"), "--queries", cssScm], {
+      timeout: 60_000,
+    });
+    expect(r.code).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("is the queries.scm of css");
+    expect(r.stderr).toContain("not typescript");
   });
 });
 

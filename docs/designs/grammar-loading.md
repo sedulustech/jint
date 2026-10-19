@@ -123,7 +123,7 @@ these two candidates: a class judged as a class reads differently from a generic
 (show-through interiors, member surfaces), and a method reads differently from a free function
 (its contract lives against its class). Every other candidate stays WAITING with reasons in the
 vocabulary-growth ledger. DECIDED AND FINAL: capture and target names are FLAT CAPTURE NAMES - no dotted
-names at either layer (the lang:node_type lane already owns grammar-local addressing).
+names at either layer (the qualified capture address owns grammar-local addressing).
 
 `definitions` is DEMOTED TO SHORTHAND: the umbrella for functions+classes+methods+types+
 bindings, kept for old rules; new rules prefer the specific targets. The DEFAULTS were rewritten
@@ -243,22 +243,25 @@ Ratified ownership decisions (2026-10-16, one line each):
   loose-comments rules) is INTENDED: the comment documents class content and is judged with the
   class - the pair-frame model working, not a leak.
 
-#### The three target namespaces
+#### The two target namespaces
 
-A rule's target resolves over three namespaces, in order of breadth:
+A rule's target resolves over two namespaces, in order of breadth:
 
 1. **file** - the whole file as one judgment unit. Exists for every file walked; grammar-
    independent. Target: `files`.
 2. **capture** - the shared vocabulary. Singular names what one element IS (`function`);
    plural addresses the group a rule targets (`functions`, `definitions`, `comments`,
-   `imports`). One implementation (`matchesTarget`) serves both selection tiers.
-3. **node type** - one grammar's raw tree-sitter type, grammar-local, written `lang:node_type`
-   when addressed, with no shared meaning across grammars. For rules that only ever judge one
-   format.
+   `imports`). One implementation (`matchesTarget`) serves both selection tiers. The qualified
+   `{grammar}:{capture}` address is capture's grammar-scoped form - the ONLY grammar-local
+   targeting: `markdown:section`, `verilog:covergroup`.
 
 Examples: `files` judges every file; `functions` resolves to every @function element across
-all nine languages; a css-only rule addresses `css:rule_set` without forcing the node into the
-shared vocabulary.
+all nine languages; a markdown-only rule addresses `markdown:section` without forcing the
+capture into the shared vocabulary.
+
+2026-10-15, recorded 2026-10-18: the `lang:node_type` lane was CANCELLED with the verilog
+removal (verilog was its only forcing case). The docs that taught it as live survived the
+cancellation - removed now.
 
 ### Per-grammar summary
 

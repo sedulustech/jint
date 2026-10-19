@@ -118,7 +118,7 @@ export const FLAGS = {
     type: "string",
     arg: "<dir>",
     blurb:
-      "capture only: a grammar dir (<id>.wasm + extensions.json [+ queries.scm]) registered ad hoc for this call",
+      "capture only: a grammar dir (<id>.wasm + extensions.json [+ queries.scm]) registered custom for this call",
     verbs: ["capture"],
   },
   "--json": {
@@ -956,7 +956,16 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     return 2;
   }
   try {
-    const elements = await capture(rest[0]!, cliArgs.queries, cliArgs.grammar);
+    // a dir's unclaimable files: one onSkip event each, folded here into ONE stderr note (the
+    // extension set - lint's sweep-coverage words); stdout stays the one payload document
+    const skips: { file: string; extension: string }[] = [];
+    const elements = await capture(rest[0]!, cliArgs.queries, cliArgs.grammar, (skip) =>
+      skips.push(skip),
+    );
+    const skipped = [...new Set(skips.map((s) => s.extension))].sort();
+    if (skipped.length > 0) {
+      emit({ message: "not parsed (no grammar): " + skipped.join(", "), kind: "note" });
+    }
     process.stdout.write(cliArgs.json === true ? captureJson(elements) : captureLines(elements));
     return 0;
   } catch (thrown) {

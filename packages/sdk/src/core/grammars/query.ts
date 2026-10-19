@@ -17,9 +17,11 @@
  *     bare-pattern match dies under the wrapper match); different-capture overlap is legal
  *     (a method inside its class).
  *   - per-capture descent defaults: a @type element's interior surfaces (a method is an element of
- *     its own); a @function or @binding interior is OPAQUE - captures inside a function body
- *     (local bindings, nested functions) are implementation, never elements. This is the query
- *     shape of the old composite-descent limit, settled by the typescript parity run.
+ *     its own); a @function or @binding interior is OPAQUE to DIFFERENT captures - a local binding
+ *     inside a function body is implementation - while a SAME-capture nest surfaces as a child of
+ *     its own unless it is absorb-shaped (nested function declarations; the it/beforeEach calls
+ *     inside a describe composite). This is the query shape of the old composite-descent limit,
+ *     settled by the typescript parity run.
  *   - unlisted nodes passthrough: a node no pattern captures yields nothing and blocks nothing.
  *
  * Static analysis of the .scm over-approximates under predicates (a captured node may be filtered
@@ -486,16 +488,44 @@ export function validatePatternOrder(language: string, scm: string): void {
 }
 
 /**
+ * Every node type an .scm names in a named-node position - real syntax only (strings blanked,
+ * comments cut through the SHARED readers): a node type mentioned in a predicate string or prose is
+ * a mention, not a fact. Wildcards (_), anchors (. ^) and predicates (#...) never match.
+ */
+function scmNodeTypes(scm: string): string[] {
+  return [...scmCode(scm).matchAll(/\(([A-Za-z][A-Za-z0-9_-]*)/g)].map((m) => m[1]!);
+}
+
+/**
  * Compile + fully validate one .scm against its language (vocabulary, #set! directives,
  * pattern-order conflicts - the loud checks every extraction source goes through). UNCACHED: the
- * ad-hoc path (capture() with a query file) may compile several .scm against one language in a
- * process; the embedded path caches per language below.
+ * custom-query path (capture() with a query file) may compile several .scm against one language in
+ * a process; the embedded path caches per language below.
+ *
+ * NODE-VOCABULARY GUARD: every node type the .scm names must exist in the grammar it is compiled
+ * against - an .scm authored for another grammar is a cross-grammar handoff and fails loud, naming
+ * every unknown type in one error (tree-sitter's own compile error names one at a time in its
+ * voice; the pre-check precedes it). The loaded language object is the authority, so embedded and
+ * custom grammars get the identical check with no mirrored node-types file.
  */
 export async function compileQuery(
   language: string,
   scm: string,
   lang: import("web-tree-sitter").Language,
 ): Promise<Query> {
+  const unknownNodeTypes = [
+    ...new Set(scmNodeTypes(scm).filter((type) => lang.idForNodeType(type, true) === null)),
+  ].sort();
+  if (unknownNodeTypes.length > 0) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "query for " +
+        language +
+        " names node types the grammar does not have: " +
+        unknownNodeTypes.join(", ") +
+        " - the .scm is authored for another grammar",
+    );
+  }
   let query: Query;
   try {
     query = new Query(lang, scm);
@@ -596,7 +626,24 @@ function candidateOf(match: QueryMatch): Candidate | null {
   const capture = elementCaptureOf(match);
   if (capture === null) return null;
   const elementNode = match.captures.find((c) => c.name === capture)!.node;
-  const name = match.captures.find((c) => c.name === NAME_CAPTURE)?.node.text;
+  // THE CONTAINER-BINDING TRAP, loud: a pattern like (enum_body (property_identifier) @name)
+  // @binding binds @name on EVERY member of the container while the element is the whole
+  // container - any one member's text as its name is arbitrary. One element carries one name;
+  // the honest shapes are a single @name binding or one element per member.
+  const nameCaptures = match.captures.filter((c) => c.name === NAME_CAPTURE);
+  if (nameCaptures.length > 1) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "query pattern " +
+        String(match.patternIndex + 1) +
+        " binds @name on " +
+        String(nameCaptures.length) +
+        " nodes in one match (" +
+        [...new Set(nameCaptures.map((c) => c.node.type))].join(", ") +
+        ") - one element carries one name; bind @name to a single node or capture each member as its own element",
+    );
+  }
+  const name = nameCaptures[0]?.node.text;
   const properties =
     match.setProperties !== undefined && Object.keys(match.setProperties).length > 0
       ? match.setProperties
@@ -637,6 +684,25 @@ export function resolveCandidates(
   for (const candidate of candidates) {
     const key = candidate.node.startIndex + ":" + candidate.node.endIndex;
     const existing = byNode.get(key);
+    // THE CONTAINER-BINDING TRAP, the multi-match half: a container pattern like
+    // (enum_body (property_identifier) @name) @binding matches ONCE PER member - each match
+    // carries a different member's @name onto the SAME node. One element carries one name; the
+    // first match must not silently win the naming. (candidateOf guards the one-match half: a
+    // single match binding @name on several nodes.)
+    if (
+      existing !== undefined &&
+      existing.pattern === candidate.pattern &&
+      existing.name !== candidate.name
+    ) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        "query pattern " +
+          String(existing.pattern + 1) +
+          " names one node twice (" +
+          [existing.name ?? "-", candidate.name ?? "-"].join(", ") +
+          ") - one element carries one name; bind @name to a single node or capture each member as its own element",
+      );
+    }
     if (existing === undefined || candidate.pattern < existing.pattern) byNode.set(key, candidate);
   }
   const ordered = [...byNode.values()].sort(

@@ -203,6 +203,15 @@ export function languageOf(path: string): string | null {
 }
 
 /**
+ * The sweep-coverage token for one path no grammar claims: its extension, "(extensionless)". SHARED
+ * by lint() (its one coverage note) and capture() (its per-file onSkip events).
+ */
+export function unclaimedExtension(path: string): string {
+  const dot = path.lastIndexOf(".");
+  return dot === -1 ? "(extensionless)" : path.slice(dot);
+}
+
+/**
  * The query source + provenance view the walker parses with; unknown language is an invariant
  * breach.
  */
@@ -411,12 +420,12 @@ export async function loadUserGrammars(
   await loadPromise;
 }
 /**
- * Ad-hoc registration for ONE capture() call: a grammar DIRECTORY (wasm + extensions.json [+
+ * Custom registration for ONE capture() call: a grammar DIRECTORY (wasm + extensions.json [+
  * queries.scm]) registered under its directory name with every BYOG loud validation - wasm
  * cross-check, extensions.json routing, .scm compile when present. Nothing is installed: the
  * registry is process-local memory, exactly what a JINT_GRAMMAR_DIR scan produces.
  */
-export async function registerAdhocGrammar(
+export async function registerCustomGrammar(
   dir: string,
   options: { readonly queriesOptional?: boolean } = {},
 ): Promise<void> {

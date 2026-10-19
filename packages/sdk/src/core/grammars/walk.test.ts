@@ -15,8 +15,11 @@ import {
 
 const TS_LANG = "typescript";
 
-function decomposeTS(source: string): Promise<Inventory> {
-  return decompose(source, TS_LANG);
+function decomposeTS(
+  source: string,
+  options: { readonly queries?: string } = {},
+): Promise<Inventory> {
+  return decompose(source, TS_LANG, options);
 }
 
 /** One line per element: label, capture, name, span - the shape assertions read. */
@@ -145,6 +148,47 @@ compute(2);
       "d1 function it L3-L3 in d0",
       "d2 binding plain L5-L5",
     ]);
+  });
+
+  test("wrapper-call composites: test.each(...)() and skipIf are ONE function, callback absorbed", async () => {
+    const inv = await decomposeTS(`
+describe("store", () => {
+  test.each([1, 2])("case %i", (n) => { expect(n).toBe(n); });
+  test.skipIf(!hasBin)("bin", async () => { await run(); });
+});
+make.each([1])("not a family object", () => {});
+`);
+    // ONE element per wrapper call, named by the call (the callee family object); the inner
+    // callback is an argument of the outer call and surfaces nowhere; a non-family object
+    // (make.each) is not a composite at all - the name test holds for wrappers too
+    expect(summary(inv)).toEqual([
+      "d0 function describe L2-L5",
+      "d1 function test L3-L3 in d0",
+      "d2 function test L4-L4 in d0",
+    ]);
+    expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "test", "test"]);
+  });
+
+  test("wrapper-first priority: a table OF callbacks cannot fork the element - the outer call wins", async () => {
+    const inv = await decomposeTS(`
+test.each([() => 1, () => 2])("case", (fn) => { fn(); });
+`);
+    // the inner test.each([...]) call matches the member pattern (its arguments hold arrows) and
+    // the outer call matches the wrapper pattern; same-capture nesting keeps the OUTER element -
+    // the php assigned-closure discipline, one logical element per call
+    expect(summary(inv)).toEqual(["d0 function test L2-L2"]);
+    expect(inv.definitions[0]!.content.startsWith("test.each")).toBe(true);
+  });
+
+  test("the @name container-binding trap is loud: one element carries one name", async () => {
+    // (enum_body (property_identifier) @name) @binding matches once PER member - every match
+    // carries a different member's name onto the SAME enum_body node; the guard names both and
+    // the honest shapes (bind @name once, or one element per member)
+    await expect(
+      decomposeTS("enum Color { Red, Green }\n", {
+        queries: "(enum_body (property_identifier) @name) @binding",
+      }),
+    ).rejects.toThrow(/query pattern 1 names one node twice \(Red, Green\)/);
   });
 
   test("call composites: name collisions without a callback are NOT functions", async () => {

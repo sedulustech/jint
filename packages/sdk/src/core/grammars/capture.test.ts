@@ -76,13 +76,14 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     writeFileSync(join(dir, "bad.scm"), "(paragraph) @section\n(paragraph) @paragraph\n");
     expect(capture(join(dir, "doc.md"), join(dir, "bad.scm"))).rejects.toThrow(/@priority/);
     writeFileSync(join(dir, "unk.scm"), "(no_such_node_type) @section\n");
+    // the node-vocabulary guard fires BEFORE the engine compile and names every unknown type
     expect(capture(join(dir, "doc.md"), join(dir, "unk.scm"))).rejects.toThrow(
-      /query compilation failed/,
+      /names node types the grammar does not have: no_such_node_type/,
     );
   });
 
-  test("grammarPath registers ad hoc: the shadow dir governs extraction for this call", async () => {
-    const dir = scratch("adhoc", { "doc.md": MARKDOWN });
+  test("grammarPath registers custom: the shadow dir governs extraction for this call", async () => {
+    const dir = scratch("custom", { "doc.md": MARKDOWN });
     const shadow = join(
       new URL("../../../../../tests/fixtures/grammars", import.meta.url).pathname,
       "markdown",
@@ -117,9 +118,53 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     );
   });
 
-  test("an extension no registered grammar claims is a loud routing error", () => {
+  test("an extension no registered grammar claims is a loud routing error (explicit file)", () => {
     const _dir = scratch("route", { "doc.rst": "title\n=====\n\nbody\n" });
-    expect(capture(join(_dir, "doc.rst"))).rejects.toThrow(/missing grammar/);
+    // explicit file = the user asked for THIS file: fileUnit fails it loud, naming the routing truth
+    expect(capture(join(_dir, "doc.rst"))).rejects.toThrow(
+      /no loaded grammar claims the extension of .*doc\.rst - routing comes from/,
+    );
+  });
+
+  test("a DIR survives files no grammar claims: ONE onSkip event per file, no aggregate", async () => {
+    const dir = scratch("mixed-claim", {
+      "a.md": MARKDOWN,
+      "data.json": '{"a":1}\n',
+      Makefile: "all:\n\techo hi\n",
+    });
+    const skips: { file: string; extension: string }[] = [];
+    const elements = await capture(dir, undefined, undefined, (skip) => skips.push(skip));
+    // every element still comes from the claimable file; the walk never died on the strays
+    expect(new Set(elements.map((e) => e.input))).toEqual(new Set(["a.md"]));
+    // raw events, walk order (Makefile sorts before lowercase names): file + extension token;
+    // nothing parsed, nothing folded - the caller owns aggregation (the CLI folds)
+    expect(skips).toEqual([
+      { file: "Makefile", extension: "(extensionless)" },
+      { file: "data.json", extension: ".json" },
+    ]);
+    // a fully claimable dir reports nothing - the events are signal about skips, not noise
+    const clean = scratch("clean-claim", { "a.md": MARKDOWN });
+    const cleanSkips: { file: string; extension: string }[] = [];
+    await capture(clean, undefined, undefined, (skip) => cleanSkips.push(skip));
+    expect(cleanSkips).toEqual([]);
+  });
+
+  test("a foreign grammar's queries.scm over another language is a LOUD cross-grammar error", () => {
+    // css's mapping is comments-only: its node vocabulary exists in typescript, so compileQuery's
+    // guard cannot see the handoff - the identity check does, before extraction
+    const cssScm = join(new URL("./embedded/css/queries.scm", import.meta.url).pathname);
+    const dir = scratch("cross", { "code.ts": "// one comment\nfunction f() {}\n" });
+    expect(capture(join(dir, "code.ts"), cssScm)).rejects.toThrow(
+      /is the queries\.scm of css - it maps css nodes, not typescript/,
+    );
+  });
+
+  test("a blank queryPath fails loud, quoting the value (no double spaces)", () => {
+    const dir = scratch("blank", { "doc.md": MARKDOWN });
+    expect(capture(join(dir, "doc.md"), "")).rejects.toThrow(
+      /queryPath must be a path to an \.scm file, got ""/,
+    );
+    expect(capture(join(dir, "doc.md"), "  ")).rejects.toThrow(/got "  "/);
   });
 
   test("a query file that does not exist is a loud setup error", () => {
@@ -127,7 +172,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     expect(capture(join(dir, "doc.md"), join(dir, "nope.scm"))).rejects.toThrow(/unreadable/);
   });
 
-  test("ad-hoc registration does not survive as an installed grammar for other ids", async () => {
+  test("custom registration does not survive as an installed grammar for other ids", async () => {
     // nothing installed: after the resets, the registry is back to the embedded set
     const dir = scratch("scope", { "doc.md": MARKDOWN });
     const shadow = join(

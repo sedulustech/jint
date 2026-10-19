@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { resetGrammarsForTest } from "../packages/sdk/src/core/grammars/grammars.ts";
+import { resetQueriesForTest } from "../packages/sdk/src/core/grammars/query.ts";
 import { capture } from "../packages/sdk/src/index.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 
@@ -14,6 +16,10 @@ const SHADOW = join(import.meta.dir, "fixtures", "grammars");
 
 afterEach(() => {
   rmScratchTree(ROOT);
+  // the custom-grammar test registers a shadow grammar in-process; without the reset it
+  // governs every LATER capture in this file (embedded-behavior tests would use the shadow)
+  resetGrammarsForTest();
+  resetQueriesForTest();
 });
 
 /** One run dir with the given files; returns the dir. */
@@ -53,8 +59,8 @@ describe("capture() e2e — the exported sdk surface", () => {
     }
   });
 
-  test("capture(file, undefined, grammarDir): ad-hoc BYOG - the shadow dir governs extraction", async () => {
-    const dir = setup("adhoc", { "doc.md": DOC });
+  test("capture(file, undefined, grammarDir): custom BYOG - the shadow dir governs extraction", async () => {
+    const dir = setup("custom", { "doc.md": DOC });
     const elements = await capture(join(dir, "doc.md"), undefined, join(SHADOW, "markdown"));
     // the shadow .scm assigns @section to paragraph nodes: the two prose runs, nothing else
     expect(elements.map((e) => e.span.start.line).sort()).toEqual([3, 7]);
@@ -81,8 +87,49 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(capture(join(dir, "doc.md"), join(dir, "wip.scm"))).rejects.toThrow(
       /captures outside the vocabulary/,
     );
-    // routing: no registered grammar claims .rst
-    expect(capture(join(dir, "doc.rst"))).rejects.toThrow(/missing grammar/);
+    // routing: no registered grammar claims .rst (the SDK truth, naming extensions.json)
+    expect(capture(join(dir, "doc.rst"))).rejects.toThrow(
+      /no loaded grammar claims the extension of .*doc\.rst - routing comes from/,
+    );
+  });
+
+  test("a dir with files no grammar claims succeeds: elements from the claimable, one event per skip", async () => {
+    const dir = setup("sweep", {
+      "a.md": DOC,
+      "data.json": '{"a":1}\n',
+      Makefile: "all:\n\techo hi\n",
+    });
+    const skips: { file: string; extension: string }[] = [];
+    const elements = await capture(dir, undefined, undefined, (skip) => skips.push(skip));
+    // the walk survived the strays; every element comes from the claimable file
+    expect(new Set(elements.map((e) => e.input))).toEqual(new Set(["a.md"]));
+    // ONE raw event per skipped file (walk order: Makefile sorts before lowercase names):
+    // file + extension token, no aggregate, no parsed list
+    expect(skips).toEqual([
+      { file: "Makefile", extension: "(extensionless)" },
+      { file: "data.json", extension: ".json" },
+    ]);
+  });
+
+  test("a foreign grammar's queries.scm is a loud cross-grammar rejection (colliding vocabulary)", () => {
+    // css's mapping is comments-only: its node types all exist in typescript, so the vocabulary
+    // guard passes and the silent mis-extraction is the danger - the identity guard rejects it
+    const cssScm = join(
+      import.meta.dir,
+      "..",
+      "packages",
+      "sdk",
+      "src",
+      "core",
+      "grammars",
+      "embedded",
+      "css",
+      "queries.scm",
+    );
+    const dir = setup("cross", { "code.ts": "// one comment\nfunction f() {}\n" });
+    expect(capture(join(dir, "code.ts"), cssScm)).rejects.toThrow(
+      /is the queries\.scm of css - it maps css nodes, not typescript/,
+    );
   });
 
   test("a mixed-grammar dir yields elements from BOTH grammars, attribution exact", async () => {

@@ -31,6 +31,21 @@
   function: (identifier) @name
   arguments: (arguments [(arrow_function) (function_expression)])
   (#any-of? @name "describe" "it" "test" "beforeEach" "afterEach" "beforeAll" "afterAll")) @function
+
+; WRAPPER-CALL composites - the data-driven and conditional families: test.each(table)('title',
+; fn), describe.each(...)('title', fn), test.skipIf(cond)('title', fn) (and runIf, only, skip -
+; every .modifier of the family). The outer call's CALLEE is the inner test.each(...) call, so the
+; plain patterns above cannot see it: without this pattern the whole wrapper vanishes (the inner
+; call's arguments hold the table, never a callback; the callback is an argument of the OUTER
+; call). Wrapper-first, the php assigned-closure discipline: the OUTER call is THE one @function -
+; span carries the title line, @name the callee family object ("test") - and the inner callback is
+; absorbed (a same-capture nest under the wrapper, when anything captures it at all). The shape
+; test rides here too: the outer arguments must hold the callback.
+(call_expression
+  function: (call_expression
+    function: (member_expression object: (identifier) @name))
+  arguments: (arguments [(arrow_function) (function_expression)])
+  (#any-of? @name "describe" "it" "test")) @function
 (call_expression
   function: (member_expression object: (identifier) @name)
   arguments: (arguments [(arrow_function) (function_expression)])

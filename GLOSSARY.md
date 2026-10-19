@@ -44,15 +44,17 @@ measurement its handle judged actionable and is the only output that demands act
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
 - **descent default** — the per-capture policy for what a captured element's interior yields: a
   @type interior surfaces (a method is an element of its own); a @function or @binding interior
-  is opaque (a body's captures are implementation, never elements).
+  is opaque to different captures (a local binding in a body is implementation), while a
+  same-capture nest surfaces as a child of its own unless it is absorb-shaped (nested functions).
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
   union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
   the walk-time form additionally carries the element's source. Targets stay rule-side: a rule
   resolves targets, an element is what they land on.
 - **node type** — one grammar's raw tree-sitter node type (node-types.json); grammar-local,
-  written lang:node_type when addressed, with no shared meaning across grammars. The middle of
-  the three rule-target namespaces: FILE / NODE TYPE / CAPTURE.
+  with no shared meaning across grammars. Never a rule target (the lang:node_type lane was
+  cancelled 2026-10-15 with the verilog removal); the qualified capture address is the only
+  grammar-local targeting.
 - **qualified capture address** — the grammar-scoped targeting form `{grammar}:{capture}` (e.g.
   `markdown:section`, `markdown:paragraph`): the only road to a grammar-autonomous capture. Validated against the
   captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
@@ -142,8 +144,8 @@ measurement its handle judged actionable and is the only output that demands act
   method_definition, python class-body function_definitions — the structural-context capture —,
   go/php receivers and member shapes, cpp in-class and out-of-line K::f definitions). Split from
   @function so a rule can judge members as members.
-- **rule target** — which unit instances a rule judges; resolves over the three namespaces
-  (FILE / NODE TYPE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
+- **rule target** — which unit instances a rule judges; resolves over the two namespaces
+  (FILE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
   types, bindings, definitions, comments, loose-comments, imports). Declarative: a name or an
   explicit list; the defaults use the list form. 'noun' stays CLI-owned - it names a declared
   input read, never a capture.

@@ -156,13 +156,15 @@ declare module "jint:sdk" {
 
   /**
    * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
-   * elements; the classifier stays unplugged. Precedence: grammarDir (ad hoc) > registered >
+   * elements; the classifier stays unplugged. Precedence: grammarDir (custom) > registered >
    * extension routing. queryPath, when given, replaces the grammar's own .scm for extraction (full
-   * loud checks apply).
+   * loud checks apply). A dir's unclaimable files never fail the call: each skip is one onSkip
+   * event carrying the file and its extension token (".json", or "(extensionless)").
    */
   export function capture(
     targetPath: string,
     queryPath?: string,
     grammarPath?: string,
+    onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
   ): Promise<CapturedElement[]>;
 }

@@ -224,7 +224,6 @@ import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
 // Columns per target: namespace, singular, resolves to, grammars emitting it (the per-grammar
 // keyword census read from each embedded/<lang>/queries.scm), frame carried (what state the
 // classifier sees), scope-coupled (whether the target participates in per-rule include/exclude).
-// The lang:node_type lane is a section of its own (it is not a fixed member of the vocabulary).
 import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/grammars/query.ts";
 
 const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
@@ -257,16 +256,6 @@ const grammarOrder = knownLanguages();
 const emitting = (...captures: string[]): string =>
   grammarOrder.filter((language) => captures.some((c) => census[language]?.has(c))).join(", ") ||
   "none";
-
-const EXT_TABLE = grammarOrder
-  .map((language) => language + " (" + grammarExtensionsFor(language) + ")")
-  .join("; ");
-function grammarExtensionsFor(language: string): string {
-  const extensions = JSON.parse(
-    readFileSync(embeddedDir + language + "/extensions.json", "utf8"),
-  ) as string[];
-  return extensions.join(", ");
-}
 
 interface Row {
   target: string;
@@ -400,9 +389,9 @@ const header = [
     "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
     "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
     "rule resolves what this table says or the generator fails.\n\n",
-  "The three rule-target namespaces are FILE / NODE TYPE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
-    "The table below covers the CAPTURE namespace's fixed targets; the NODE TYPE lane is its own\n" +
-    "section.\n\n",
+  "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
+    "The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is\n" +
+    "addressed through the qualified `{grammar}:{capture}` form (`markdown:section`).\n\n",
 ];
 
 const columns: [string, (r: Row) => string][] = [
@@ -421,17 +410,7 @@ const table = [
   ...rows.map((r) => "| " + columns.map(([, v]) => v(r)).join(" | ") + " |\n"),
 ];
 
-const lane = [
-  "\n## The `lang:node_type` lane\n\n",
-  'A rule may target one grammar\'s raw tree-sitter node type directly (`target: "typescript:class_declaration"`)\n' +
-    "for the format-specific tail. Node types are grammar-local (no shared meaning across grammars),\n" +
-    "so they are never a fixed row in the table above — they are read from the grammar at load and\n" +
-    "resolve like any other target. Use the CAPTURE targets for rules that must run across grammars;\n" +
-    "use this lane only when the rule is honestly about that one format.\n\n",
-  "Registered grammars: " + EXT_TABLE + ".\n",
-];
-
 const out = new URL("../docs/targets.md", import.meta.url).pathname;
-writeFileSync(out, header.join("") + table.join("") + lane.join(""));
+writeFileSync(out, header.join("") + table.join(""));
 Bun.spawnSync(["bunx", "oxfmt", out]);
 process.stdout.write("wrote " + out + "\n");

@@ -27,6 +27,7 @@ import {
   languageOf,
   loadLanguage,
   parserFor,
+  unclaimedExtension,
   type GrammarProvenance,
 } from "./grammars.ts";
 import {
@@ -43,7 +44,7 @@ import {
   ELEMENT_CAPTURES,
 } from "./query.ts";
 
-export { grammarExtensions, knownLanguages, languageOf };
+export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension };
 export { isEmptyComment };
 /** The wire captures: a docstring projects into the comment kind (it IS a comment element). */
 export type WireCapture = Exclude<Capture, "docstring">;

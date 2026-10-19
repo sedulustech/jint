@@ -13,7 +13,12 @@
 
 import { loadUserGrammars } from "./grammars/grammars.ts";
 import { assertCaptureAddress } from "./grammars/query.ts";
-import { grammarExtensions, MAX_ELEMENT_TOKENS, type InventoryElement } from "./grammars/walk.ts";
+import {
+  grammarExtensions,
+  MAX_ELEMENT_TOKENS,
+  unclaimedExtension,
+  type InventoryElement,
+} from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import { createClassifier } from "./jev/client.ts";
@@ -238,7 +243,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   ) {
     throw new SetupError(
       "CONFIG_INVALID",
-      "no input: pass a path (jint src/), declare piped stdin (jint str - / jint paths - for a path list), or set input in jint.config.json",
+      "no input: pass an input path, declare piped stdin (str for one source, paths for a path list), or set input in the config",
     );
   }
   // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
@@ -358,9 +363,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
         // the coverage note; the unit still classifies whole (files-target rules read raw source)
         if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
-          const p = unit.state.path;
-          const dot = p.lastIndexOf(".");
-          skippedExtensions.add(dot === -1 ? "(extensionless)" : p.slice(dot));
+          skippedExtensions.add(unclaimedExtension(unit.state.path));
         }
         walked.set(i + j, w);
       }),
@@ -369,12 +372,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
   // union of what is parsed and what was seen-but-skipped is the run's honesty line.
   if (skippedExtensions.size > 0) {
-    yield {
-      type: "note",
-      note:
-        `parsing ${grammarExtensions().join(", ")} · not parsed (no grammar): ` +
-        [...skippedExtensions].sort().join(", "),
-    };
+    yield { type: "note", note: sweepCoverageNote(skippedExtensions) };
   }
   // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
   // selected element, so element jobs fan out to ONE classifier call.
@@ -606,6 +604,21 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
   const out: T[] = [];
   for await (const u of units) out.push(u);
   return out;
+}
+
+/**
+ * The sweep-coverage line, lint's own rendering of a walk's unclaimed files: what parses, then what
+ * was seen and skipped - ONE note, extensions not paths, sorted (capture() instead emits one raw
+ * onSkip event per skipped file; its callers fold).
+ */
+function sweepCoverageNote(unclaimed: Iterable<string>): string {
+  const skipped = [...new Set(unclaimed)].sort();
+  return (
+    "parsing " +
+    grammarExtensions().join(", ") +
+    " · not parsed (no grammar): " +
+    skipped.join(", ")
+  );
 }
 
 /**
