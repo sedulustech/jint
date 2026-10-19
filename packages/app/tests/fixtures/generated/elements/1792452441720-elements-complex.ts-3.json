@@ -1,12 +1,12 @@
 {
-  "ts": "2026-10-19T15:56:34.553Z",
+  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 0,
+  "durationMs": 1,
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }",
-      "id": "94177ad3-7fad-45e7-964d-eea47256201b"
+      "id": "b1193246-c3f1-45eb-8187-89ed31b5747c"
     },
     "questions": {
       "is_name_purposeful": {

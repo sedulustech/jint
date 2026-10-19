@@ -95,9 +95,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `will_comment_drift`
 
-| kind | target   | handle                                                                                            |
-| ---- | -------- | ------------------------------------------------------------------------------------------------- |
-| noul | comments | warn greater than 0.55, error greater than 0.7, "Remove the comment or comply with the criteria." |
+| kind | target   | handle                                                                 |
+| ---- | -------- | ---------------------------------------------------------------------- |
+| noul | comments | warn greater than 0.55, error greater than 0.7, "Remove this comment." |
 
 **Instructions.** Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?
 
