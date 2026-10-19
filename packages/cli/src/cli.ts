@@ -33,6 +33,7 @@ import {
   loadConfig,
   renderJson,
   renderInputSummary,
+  walkDoors,
   renderLines,
   recordSummary,
   recordRunManifest,
@@ -1024,7 +1025,10 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       (summary) => {
         // the input accounting's human mirror, stderr-only (stdout stays the element payload):
         // one line when anything was dropped, a second naming the door when NOTHING was measured
-        for (const line of renderInputSummary(summary, resolvedConfig.include)) {
+        for (const line of renderInputSummary(
+          summary,
+          walkDoors(resolvedConfig.include, resolvedConfig.rules),
+        )) {
           emit({ message: line, kind: "note" });
         }
       },

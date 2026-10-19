@@ -101,11 +101,52 @@ interface IgnoreScope {
   rules: IgnoreRule[];
 }
 
+/**
+ * One admission door: a named owner of include patterns. The CONFIG door (by: "config") is the
+ * include whitelist run/capture always had; every RULE door (by: "rule:<name>") is one rule's
+ * declared include - the walk-union contract (a rule that names a file claims jurisdiction over it,
+ * even where the config exclude would drop it: the more specific scope wins, gitignore style). A
+ * file is walked when ANY door admits it; each rule then measures only files its own scope admits.
+ */
+export interface IncludeDoor {
+  /** Door owner: "config" or "rule:<rule name>" (attribution for run.input.admitted). */
+  readonly by: string;
+  /** Include patterns; the config door with ZERO patterns admits everything (include = []). */
+  readonly patterns: readonly string[];
+}
+
+interface CompiledDoor {
+  readonly by: string;
+  readonly rules: readonly IgnoreRule[];
+  /** The config door only: zero patterns = match everything. */
+  readonly matchAll: boolean;
+}
+
+function compileDoors(doors: readonly IncludeDoor[]): CompiledDoor[] {
+  return doors.map((door) => ({
+    by: door.by,
+    rules: door.patterns.map(compilePattern),
+    matchAll: door.by === "config" && door.patterns.length === 0,
+  }));
+}
+
+/** First door whose patterns admit the file (config door first in the list wins ties). */
+function firstAdmittingDoor(
+  doors: readonly CompiledDoor[],
+  scopePath: string,
+): CompiledDoor | null {
+  for (const door of doors) {
+    if (door.matchAll) return door;
+    if (door.rules.some((rule) => patternMatchesFile(rule, scopePath))) return door;
+  }
+  return null;
+}
+
 export async function* walkDir(
   root: string,
   exclude?: readonly string[],
   pathPrefix?: string,
-  include?: readonly string[],
+  include?: readonly IncludeDoor[],
   secretDenylist?: readonly string[],
   onNote?: (note: string) => void,
   stats: InputStats = inputStats(),
@@ -126,7 +167,7 @@ export async function* walkDir(
   const excludeRules = (exclude ?? []).map(compilePattern);
   const ancestorScopes = await ancestorGitignoreScopes(normalizedRoot);
   const prefix = pathPrefix === undefined ? "" : pathPrefix.replace(/\/+$/, "");
-  const includeRules = (include ?? []).map(compilePattern);
+  const doors = include === undefined ? [] : compileDoors(include);
   const deny = denyState(secretDenylist ?? SECRET_DENYLIST, onNote);
   // the denylist is the SHALLOWEST scope: deeper .gitignore scopes (and the list's own
   // negations) compose with ordinary last-match-wins semantics
@@ -137,7 +178,7 @@ export async function* walkDir(
     excludeRules,
     exclude ?? [],
     prefix,
-    includeRules,
+    doors,
     deny,
     stats,
   );
@@ -185,7 +226,7 @@ async function* walkDirectory(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  includeRules: IgnoreRule[],
+  doors: readonly CompiledDoor[],
   deny: DenyState,
   stats?: InputStats,
 ): AsyncGenerator<Unit> {
@@ -213,7 +254,7 @@ async function* walkDirectory(
         excludeRules,
         excludeGlobs,
         pathPrefix,
-        includeRules,
+        doors,
         deny,
         stats,
       );
@@ -226,7 +267,7 @@ async function* walkDirectory(
         excludeRules,
         excludeGlobs,
         pathPrefix,
-        includeRules,
+        doors,
         deny,
         stats,
       );
@@ -245,7 +286,7 @@ async function* descendIntoDirectory(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  includeRules: IgnoreRule[],
+  doors: readonly CompiledDoor[],
   deny: DenyState,
   stats?: InputStats,
 ): AsyncGenerator<Unit> {
@@ -274,7 +315,7 @@ async function* descendIntoDirectory(
     excludeRules,
     excludeGlobs,
     pathPrefix,
-    includeRules,
+    doors,
     deny,
     stats,
   );
@@ -289,7 +330,7 @@ async function readFileUnit(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  includeRules: IgnoreRule[],
+  doors: readonly CompiledDoor[],
   deny: DenyState,
   stats?: InputStats,
 ): Promise<Unit | null> {
@@ -298,15 +339,25 @@ async function readFileUnit(
   // discovered: the walker opened this file's doors - every drop below is accounted
   stats?.markDiscovered();
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
-  const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
-  if (excludeMatch !== -1) {
-    stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
-    return null;
+  // WALK-UNION admission: a RULE door that admits the file claims jurisdiction over it - even
+  // where the config exclude would drop it (the more specific scope wins; the denylist and
+  // gitignore doors below are SAFETY doors and never yield). The config door is the ordinary
+  // whitelist: exclude subtracts first, include admits what remains.
+  const admittingDoor = firstAdmittingDoor(doors, scopePath);
+  const ruleDoorAdmits = admittingDoor !== null && admittingDoor.by !== "config";
+  if (!ruleDoorAdmits) {
+    const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
+    if (excludeMatch !== -1) {
+      stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
+      return null;
+    }
+    // doors exist but none admits: outside every include list
+    if (doors.length > 0 && admittingDoor === null) {
+      stats?.tallySkip(SKIP_REASONS.notInInclude);
+      return null;
+    }
   }
-  if (includeRules.length > 0 && !matchesAnyIncludeRule(includeRules, scopePath)) {
-    stats?.tallySkip(SKIP_REASONS.notInInclude);
-    return null;
-  }
+  stats?.tallyAdmit(admittingDoor === null ? "config" : admittingDoor.by);
   if (isSecretShaped(relativePath, false, currentScopes, deny)) {
     stats?.tallySkip(SKIP_REASONS.denylist);
     return null;
@@ -470,9 +521,20 @@ function isSecretShaped(
   return true;
 }
 
-/** True when any include rule matches; an empty list matches everything. */
-function matchesAnyIncludeRule(rules: IgnoreRule[], scopePath: string): boolean {
-  return rules.some((rule) => !rule.dirOnly && rule.re.test(scopePath));
+/**
+ * THE one file/pattern matcher (walk-union collapse): dirOnly semantics live here, consumed by the
+ * walker's include doors AND scope.ts's per-rule scoping - one semantics, two callers, no second
+ * derivation to drift (review 396888e finding 2 was exactly that drift). A non-dirOnly pattern
+ * tests the path itself; a dirOnly pattern (trailing slash - "tests/") names a directory, so it
+ * matches a file when ANY ancestor directory of the path satisfies the pattern's regex.
+ */
+export function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
+  if (!rule.dirOnly) return rule.re.test(path);
+  const parts = path.split("/");
+  for (let i = 1; i < parts.length; i++) {
+    if (rule.re.test(parts.slice(0, i).join("/"))) return true;
+  }
+  return false;
 }
 
 /** Index of the FIRST non-negated exclude rule matching (first-match attribution), -1 when none. */

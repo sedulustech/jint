@@ -17,6 +17,8 @@
  *   (counted once as above).
  */
 
+import type { IncludeDoor } from "./dir.ts";
+
 /** One exclude glob and how many drops it owns (first-match attribution). */
 export interface ExcludeTally {
   readonly glob: string;
@@ -29,12 +31,24 @@ export interface SkipTally {
   readonly count: number;
 }
 
+/**
+ * One admission door and how many files it admitted (first-match attribution: a file counts against
+ * the FIRST door that admits it - the config door ahead of every rule door, so a rule door's count
+ * is exactly the files ONLY it claims). `by` is "config" or "rule:<name>".
+ */
+export interface AdmitTally {
+  readonly by: string;
+  readonly count: number;
+}
+
 /** The decided report shape (run.input): flat, every key at one level. */
 export interface InputSummary {
   readonly discovered: number;
   readonly included: number;
   readonly excluded: readonly ExcludeTally[];
   readonly skipped: readonly SkipTally[];
+  /** Which door admitted each included file (decomposes `included`; walk-union). */
+  readonly admitted: readonly AdmitTally[];
 }
 
 /** The mutable accumulator the walker feeds; summary() freezes it into the report shape. */
@@ -49,6 +63,8 @@ export interface InputStats {
   retractIncluded(): void;
   tallyExclude(glob: string): void;
   tallySkip(reason: string): void;
+  /** Attribute one admitted file to its door ("config" or "rule:<name>"). */
+  tallyAdmit(by: string): void;
   summary(): InputSummary;
 }
 
@@ -58,6 +74,7 @@ export function inputStats(): InputStats {
   let included = 0;
   const excluded = new Map<string, number>();
   const skipped = new Map<string, number>();
+  const admitted = new Map<string, number>();
   return {
     markDiscovered: () => {
       discovered += 1;
@@ -74,11 +91,19 @@ export function inputStats(): InputStats {
     tallySkip: (reason) => {
       skipped.set(reason, (skipped.get(reason) ?? 0) + 1);
     },
+    tallyAdmit: (by) => {
+      admitted.set(by, (admitted.get(by) ?? 0) + 1);
+    },
     summary: () => ({
       discovered,
       included,
       excluded: [...excluded.entries()].map(([glob, count]) => ({ glob, count })),
       skipped: [...skipped.entries()].map(([reason, count]) => ({ reason, count })),
+      // deterministic order: the config door first, then rule doors alphabetically
+      // (insertion order would be walk order - a readdir accident, not a contract)
+      admitted: [...admitted.entries()]
+        .sort((x, y) => (x[0] === "config" ? -1 : y[0] === "config" ? 1 : x[0].localeCompare(y[0])))
+        .map(([by, count]) => ({ by, count })),
     }),
   };
 }
@@ -92,21 +117,34 @@ export const SKIP_REASONS = {
   missingGrammar: "MISSING_GRAMMAR",
 } as const;
 
+/** Door list for the naming line: config patterns plain, rule doors attributed. */
+function doorsLabel(doors: readonly IncludeDoor[]): string {
+  const parts: string[] = [];
+  for (const door of doors) {
+    if (door.by === "config") {
+      if (door.patterns.length > 0) parts.push(door.patterns.join(", "));
+    } else {
+      parts.push(door.patterns.join(", ") + " (" + door.by + ")");
+    }
+  }
+  return parts.join("; ");
+}
+
 /**
  * The human mirror, 1-2 stderr lines. Prints ONLY when something was dropped - the same policy for
  * run and capture: a clean walk adds no line, a dropped-file walk never reads as clean. Line one is
  * the ruling's shape ("34 of 120 files (...)"); line two exists only when NOTHING was measured and
  * names the door that dropped everything.
  */
-export function renderInputSummary(
-  summary: InputSummary,
-  includePatterns: readonly string[],
-): string[] {
+export function renderInputSummary(summary: InputSummary, doors: readonly IncludeDoor[]): string[] {
   const excludedTotal = summary.excluded.reduce((n, e) => n + e.count, 0);
   const skippedDetail = [...summary.skipped]
     .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
     .map((s) => s.reason + " " + String(s.count));
+  const ruleAdmitted = summary.admitted.filter((t) => t.by !== "config");
+  const ruleAdmittedTotal = ruleAdmitted.reduce((n, t) => n + t.count, 0);
   const parts: string[] = [];
+  if (ruleAdmittedTotal > 0) parts.push(String(ruleAdmittedTotal) + " admitted by rule include");
   if (excludedTotal > 0) parts.push(String(excludedTotal) + " excluded by config");
   if (skippedDetail.length > 0) parts.push("skipped: " + skippedDetail.join(", "));
   const dropped = excludedTotal + summary.skipped.reduce((n, s) => n + s.count, 0);
@@ -122,11 +160,11 @@ export function renderInputSummary(
   const notIncluded = summary.skipped.find(
     (s) => s.reason === SKIP_REASONS.notInInclude && s.count >= summary.discovered - excludedTotal,
   );
-  if (notIncluded !== undefined && includePatterns.length > 0) {
+  if (notIncluded !== undefined && doors.length > 0) {
     return [
       head,
-      "input: every discovered file fell outside the config include [" +
-        includePatterns.join(", ") +
+      "input: every discovered file fell outside every include door [" +
+        doorsLabel(doors) +
         "] - widen the include patterns or point the walk at files they cover",
     ];
   }

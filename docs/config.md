@@ -25,6 +25,16 @@ A rule object is a [default-rule-shaped spec](rules.md): `name`, `instructions`,
 per-rule `include`/`exclude` globs (exclude always wins; a rule whose exclude cancels its
 include is a warning, never an error).
 
+**Walk-union discovery.** A file is walked when the config `include` OR any rule's `include`
+matches. A rule that names a file claims jurisdiction over it: the rule door admits the file
+even where the config `exclude` would drop it (the more specific scope wins, gitignore style —
+the denylist and gitignore doors are safety doors and never yield). Each rule then measures only
+files its own scope admits: unscoped rules (no `include` of their own) follow the config
+door and never measure a
+file only a rule include claimed. `run.input.admitted` in the report attributes every included
+file to its door (`config` or `rule:<name>`). An explicitly passed single FILE bypasses the
+include/exclude walk entirely (a dir target never does).
+
 ## Tier 2: `jint.config.ts` — imperative composition
 
 A TS module default-exporting `defineConfig({ ... })` from `"jint:sdk"`, loaded by `loadTsConfig`
@@ -99,4 +109,6 @@ classification with one decision per reading: `{ severity: "error" | "warn" | nu
   name (or vice versa) is a fatal `RULE_INVALID`, not an override.
 - `disable` removes by name after composition; `rules: []` alone is `CONFIG_NO_RULES` (a run that
   would measure nothing is a config error).
-- Scoping is per rule: each entry's own `include`/`exclude` globs (exclude always wins).
+- Scoping is per rule: each entry's own `include`/`exclude` globs (exclude always wins). A rule
+  `include` is also a DISCOVERY door (walk-union, above) - a rule wanting a file type the config
+  `include` excludes admits it by naming it; no global carve-out is ever needed.
