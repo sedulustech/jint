@@ -257,12 +257,6 @@ export type Span = import("@jint/contract").Span;
 /** The typed subject of a measurement: the closed element union. */
 export type Element = import("@jint/contract").Element;
 /**
- * The element-kind vocabulary minus the whole-unit "file" kind. One vocabulary, two views: it is
- * the wire `kind` on a measurement's element AND the `capture` a custom rule sees - a capture name
- * is the element's identity, never a label. Derived from the contract's union, so the compiler
- * rejects a kind the contract drops (no hand-copied mirror).
- */
-/**
  * An element's capture name: THE OPEN NAMESPACE - a shared capture (the lingua franca) or a
  * grammar-declared autonomous one (its kind on the wire). Cannot derive from Element["kind"]
  * anymore: the union's open string member swallows every literal under Exclude. "file" is not a
@@ -321,7 +315,6 @@ export interface NoulQuestionSchema {
   readonly criteria?: { readonly true: string; readonly false: string };
 }
 
-/** A scored question; structurally compatible with the SDK's ScoreQuestion. */
 export interface ScoreQuestionSchema {
   readonly type: "score";
   readonly instructions: string;

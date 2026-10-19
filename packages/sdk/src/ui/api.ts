@@ -56,8 +56,6 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(options: ApiOptions = {}): string {
-  // the runs store's resolution (JINT_RUNS_DIR, else the homedir store) is the one default;
-  // options.root overrides (tests, embedded servers)
   return resolve(options.root ?? runsBase());
 }
 

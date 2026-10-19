@@ -253,10 +253,6 @@ function assertInputSelected(
   }
 }
 
-/**
- * Auth is global, not per-unit: with rules to classify and no key anywhere, every unit would stream
- * the same JEV_AUTH failure. Fail fast as a setup error, before any input is walked.
- */
 function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
   if (
     ruleCount > 0 &&
