@@ -129,15 +129,25 @@ describe("VERBS — the verb table and one-level resolution", () => {
     expect(verbFlagProblem("run", { queries: "w.scm" })).toBe(
       "--queries is a capture flag - see jint --help",
     );
-    expect(verbFlagProblem("capture", { rule: ["x"] })).toBe(
-      "--rule does not apply to capture - see jint --help",
+    expect(verbFlagProblem("capture", { disable: ["x"] })).toBe(
+      "--disable does not apply to capture - see jint --help",
     );
     expect(verbFlagProblem("serve", { json: true })).toBe(
       "--json does not apply to serve - see jint --help",
     );
-    // globals pass everywhere; capture's own three pass; run takes every unmarked flag
+    // globals pass everywhere; capture's own three plus the shared config door pass; run takes
+    // every unmarked flag
     expect(verbFlagProblem("serve", { debug: true })).toBeNull();
-    expect(verbFlagProblem("capture", { json: true, queries: "w.scm", grammar: "g/" })).toBeNull();
+    expect(
+      verbFlagProblem("capture", {
+        json: true,
+        queries: "w.scm",
+        grammar: "g/",
+        config: "c.json",
+        exclude: ["x"],
+        rule: ["y"],
+      }),
+    ).toBeNull();
     expect(verbFlagProblem("run", { rule: ["x"], json: true })).toBeNull();
   });
 });

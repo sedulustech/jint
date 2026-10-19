@@ -28,6 +28,9 @@ measurement its handle judged actionable and is the only output that demands act
   the SDK function `capture()` is lint's pipeline with the classifier unplugged, and the CLI
   verb `jint capture` is a thin print of that function. Its elements carry `text` - the span
   content truncated at 200 chars (one ellipsis); the span stays the authority for full content.
+  The config door (`captureFor`, the CLI's default) loads the config like run does, so capture
+  previews the population a rule will judge; capture with --rule marks that population and
+  nothing is classified.
 - **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED CAPTURES
   (function, method, class, type, binding, comment, import) that every grammar addresses and the
   target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
