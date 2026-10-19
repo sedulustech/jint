@@ -19,6 +19,79 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 }
 
 describe("cli: dir walk ignores", () => {
+  // The input accounting (run.input): the flat decided shape, over a config that owns every
+  // door - include, exclude, and the walker's own skips. No reachable jev: the run still walks,
+  // the report still carries the accounting (transport failures abort measurements, not input).
+  test.concurrent("run.input: flat shape, per-glob exclusion, reason-keyed skips", async () => {
+    const tmpRoot = scratchDir("jint-input-summary");
+    try {
+      await mkdir(join(tmpRoot, "src"), { recursive: true });
+      await Bun.write(join(tmpRoot, "src", "good.ts"), "export const x = 1;\n");
+      await Bun.write(join(tmpRoot, "src", "more.ts"), "export const y = 2;\n");
+      await Bun.write(join(tmpRoot, "src", "note.md"), "# md\n");
+      await Bun.write(
+        join(tmpRoot, "jint.config.json"),
+        JSON.stringify({
+          rules: ["is_greppable"],
+          include: ["**/*.ts"],
+          exclude: ["**/more.ts"],
+        }),
+      );
+      const r = await runCli(
+        ["run", join(tmpRoot, "src"), "--json", "--config", join(tmpRoot, "jint.config.json")],
+        {
+          env: NO_SERVICE,
+        },
+      );
+      const report = JSON.parse(r.stdout);
+      expect(report.run.input).toEqual({
+        discovered: 3,
+        included: 1,
+        excluded: [{ glob: "**/more.ts", count: 1 }],
+        skipped: [{ reason: "NOT_IN_INCLUDE", count: 1 }],
+      });
+      // the human mirror rides stderr exactly when something was dropped (non-json mode; the
+      // --json document carries the structured run.input instead - one artifact, two projections)
+      const human = await runCli(
+        ["run", join(tmpRoot, "src"), "--config", join(tmpRoot, "jint.config.json")],
+        {
+          env: NO_SERVICE,
+        },
+      );
+      expect(human.stderr).toContain(
+        "input: 1 of 3 files (1 excluded by config, skipped: NOT_IN_INCLUDE 1)",
+      );
+    } finally {
+      await rmScratchTree(tmpRoot);
+    }
+  }, 30000);
+
+  // The field trial's silent-empty papercut, regressed at the CLI: a config include that filters
+  // EVERY file must be LOUD on stderr (the accounting names the door), never a bare exit 0.
+  test.concurrent("capture <dir> with an include that matches nothing: loud, naming the door", async () => {
+    const tmpRoot = scratchDir("jint-capture-empty");
+    try {
+      await mkdir(join(tmpRoot, "src"), { recursive: true });
+      await Bun.write(join(tmpRoot, "src", "lib.rs"), "fn a() -> u32 { 1 }\n");
+      await Bun.write(join(tmpRoot, "src", "main.rs"), "fn b() -> u32 { 2 }\n");
+      await Bun.write(
+        join(tmpRoot, "jint.config.json"),
+        JSON.stringify({ rules: ["is_greppable"], include: ["**/*.py"] }),
+      );
+      const r = await runCli([
+        "capture",
+        join(tmpRoot, "src"),
+        "--config",
+        join(tmpRoot, "jint.config.json"),
+      ]);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toBe("");
+      expect(r.stderr).toContain("input: 0 of 2 files (skipped: NOT_IN_INCLUDE 2)");
+      expect(r.stderr).toContain("outside the config include [**/*.py]");
+    } finally {
+      await rmScratchTree(tmpRoot);
+    }
+  }, 30000);
   test.concurrent("ignored files never reach the report; resolver excludes them pre-jev", async () => {
     // No reachable jev: transport errors abort before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.

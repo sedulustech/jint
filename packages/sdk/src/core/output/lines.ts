@@ -28,6 +28,14 @@ export interface LinesRender {
   readonly stderr: string;
 }
 
+/**
+ * The CONFIDENCE VISIBILITY FLOOR (human print only; --json always carries the number): a finding
+ * whose answer was torn (confidence below the floor - in practice 0, bimodal between distant
+ * levels) self-announces as `(confidence 0.00)` on its line. Clean findings stay clean; the floor
+ * affects the human projection, never the data.
+ */
+const CONFIDENCE_FLOOR = 0.25;
+
 export function renderLines(report: LintReport): LinesRender {
   const out: string[] = [];
   for (const f of report.findings) {
@@ -47,7 +55,10 @@ export function renderLines(report: LintReport): LinesRender {
         tailCell(stem + anchor, PATH_WIDTH),
         headCell(f.rule, RULE_WIDTH),
         headCell(f.severity, SEVERITY_WIDTH),
-        f.value.toFixed(2),
+        f.value.toFixed(2) +
+          (f.confidence !== undefined && f.confidence < CONFIDENCE_FLOOR
+            ? `  (confidence ${f.confidence.toFixed(2)})`
+            : ""),
       ),
     );
     // A callback decision's message is an instruction to the caller (how to remediate — severity

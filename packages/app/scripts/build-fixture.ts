@@ -40,10 +40,10 @@ const outDir = resolve(appRoot, "tests/fixtures/generated/elements");
 const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
 
 /**
- * Deterministic per-rule answers (p-space noul values; is_readable and is_cognitively_complex are
- * scores — 0-3 and 0-2 rubrics). Chosen to exercise severity variety against the default handle
- * thresholds: one error (is_name_purposeful 0.25 < error_at 0.3), one warn (will_error_lose_cause
- * 0.5 > warn_at 0.4, is_readable score 2), the rest inside their healthy band.
+ * Deterministic per-rule answers (p-space noul values; the score-kind set moves with the defaults,
+ * so the stub derives distributions generically - only the DESIGNED shapes are named below). Chosen
+ * to exercise severity variety: errors (is_cognitively_complex 2, and every torn finding it
+ * produces), warns (will_error_lose_cause 0.5 > warn_at 0.4), the rest in-band.
  */
 const VALUES: Record<string, number> = {
   // is_name_purposeful 0.25 -> error (less_than 0.3); the defect-pole noul: low P(good) is bad.
@@ -59,16 +59,36 @@ const VALUES: Record<string, number> = {
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
-  // scored rubric since the 2026-09-29 swap: 0 = Easy, inside the healthy band (level 0 pass)
-  is_cognitively_complex: 0,
+  // scored rubric: 2 = warn (score map 0,1 pass; 2 warn) - AND the deliberately TORN answer, so
+  // the fixture carries warn findings that are coin-flips (see SCORE_PROBABILITIES below)
+  is_cognitively_complex: 2,
   is_readable: 2,
 };
 
-/** Per-score-rule answer distributions: mass on the answered level, strict wire shape. */
+/**
+ * Per-score-rule answer distributions, strict wire shape. is_cognitively_complex is the
+ * deliberately TORN one: mass split between the distant levels 0 and 2 while answering 2 - the
+ * bimodal coin-flip the UI's torn frame and the report's finding-level confidence surface
+ * (is_readable is no longer measured on these elements; its row stays for the designed shape).
+ */
 const SCORE_PROBABILITIES: Record<string, Record<string, number>> = {
-  is_cognitively_complex: { "0": 0.9, "1": 0.05, "2": 0.05 },
+  is_cognitively_complex: { "0": 0.45, "1": 0.1, "2": 0.45 },
   is_readable: { "0": 0.05, "1": 0.1, "2": 0.8, "3": 0.05 },
 };
+
+/** Per-rule confidence: 0.8 concentrated everywhere except the deliberately torn rule. */
+const CONFIDENCE: Record<string, number> = { is_cognitively_complex: 0 };
+
+/**
+ * Generic fallback distribution for a score rule the table does not name: 4 levels, mass 0.8 on the
+ * answered level, the rest split - the wire requires the full record (SCORE_ANSWER_SCHEMA)
+ * whichever rule asks, and the defaults' score-kind set moves.
+ */
+function centeredScore(value: number): Record<string, number> {
+  const answered = Math.min(3, Math.max(0, Math.round(value)));
+  const rest = Number(((1 - 0.8) / 3).toFixed(3));
+  return { "0": rest, "1": rest, "2": rest, "3": rest, [String(answered)]: 0.8 };
+}
 
 /** Fake transport: answers the way POST /v1/systemone would, with fixed per-rule values. */
 function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
@@ -86,9 +106,10 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
           ? {
               type: "score",
               score: value,
-              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); mass on the answered level
-              probabilities: SCORE_PROBABILITIES[rule]!,
-              confidence: 0.8,
+              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); the table names the
+              // designed shapes, the fallback covers score rules the table has not met yet
+              probabilities: SCORE_PROBABILITIES[rule] ?? centeredScore(value),
+              confidence: CONFIDENCE[rule] ?? 0.8,
             }
           : { type: "noul", noul: value };
     }
@@ -153,13 +174,15 @@ async function main(): Promise<void> {
   const summary = recordSummary();
   if (summary === null || summary.count === 0)
     throw new Error("recording wrote no captures; generator is broken");
-  const runDirs = readdirSync(join(stagingDir, "runs")).filter((n) => /^\d+$/.test(n));
+  // JINT_RUNS_DIR names the runs dir ITSELF (741b1dd's split): captures land at
+  // <stagingDir>/<runId>, not <stagingDir>/runs/<runId>
+  const runDirs = readdirSync(stagingDir).filter((n) => /^\d+$/.test(n));
   if (runDirs.length === 0) throw new Error(`no record run dir under ${stagingDir}`);
   const newest = runDirs.map((n) => Number(n)).sort((a, b) => b - a)[0]!;
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  for (const f of readdirSync(join(stagingDir, "runs", String(newest)))) {
-    renameSync(join(stagingDir, "runs", String(newest), f), join(outDir, f));
+  for (const f of readdirSync(join(stagingDir, String(newest)))) {
+    renameSync(join(stagingDir, String(newest), f), join(outDir, f));
   }
   rmSync(join(stagingDir, "runs", String(newest)), { recursive: true, force: true });
 

@@ -359,7 +359,7 @@ test("generated fixture: an element cell click resolves to the element capture b
     { timeout: 20_000 },
   );
   modeButton("rule").click();
-  await ruleGroupsReady(12);
+  await ruleGroupsReady(11);
   // is_name_purposeful targets definitions: expanding it reveals ONLY element cells.
   // Rule-mode children name the FILE (complex.ts / helpers.ts) with the SPAN in the
   // location cell - the span label from Element.span, never the uuid.
@@ -385,7 +385,9 @@ test("generated fixture: an element cell click resolves to the element capture b
     },
     { timeout: 2_000 },
   );
-  // the addressed element's OWN answer is present (deterministic stub: 0.25 in the element capture)
+  // the addressed element's OWN answer is present. is_name_purposeful became a SCORE rule in
+  // the defaults: the protagonist renders the rounded level INDEX (0), the caption carries the
+  // raw score (0.25) - both come from the same deterministic stub
   let answer: string | null = null;
   await waitFor(
     () => {
@@ -394,11 +396,63 @@ test("generated fixture: an element cell click resolves to the element capture b
     },
     { timeout: 2_000 },
   );
-  expect(answer).toBe("0.25");
+  expect(answer).toBe("0");
+  expect(q(".detail-pane")?.textContent).toContain("0.25");
   // the pane title names the element's file + its span label (Element.span), proving the
   // element capture won - the uuid stays a key, never a display string
   const loc = all(".detail-pane span")
     .map((s) => s.textContent ?? "")
     .find((t) => /^@ (complex|helpers)\.ts · L\d+(-L\d+)?$/.test(t));
   expect(loc).toBeTruthy();
+});
+
+test("a torn score answer renders its distribution + the torn frame (confidence 0)", async () => {
+  mount();
+  await page.getByTestId("run-picker").click();
+  await page.getByTestId("run-option-generated/elements").click();
+  await waitFor(
+    () => {
+      if (q('[data-testid="run-marker"]') === null) throw new Error("run not open");
+    },
+    { timeout: 20_000 },
+  );
+  modeButton("rule").click();
+  await ruleGroupsReady(11);
+  // the fixture's deliberately torn rule: score 2 (error fires) with mass split between the
+  // distant levels 0 and 2, confidence 0 - the bimodal coin-flip finding
+  groupRow("rule:is_cognitively_complex").click();
+  await waitFor(
+    () => {
+      if (cellRows("is_cognitively_complex@").length === 0)
+        throw new Error("torn rule cells not expanded");
+    },
+    { timeout: 2_000 },
+  );
+  cellRows("is_cognitively_complex@")[0]!.click();
+  await waitFor(
+    () => {
+      if (q('[data-testid="answer-distribution"]') === null)
+        throw new Error("distribution strip not rendered");
+    },
+    { timeout: 2_000 },
+  );
+  // ONE bar per criterion option, structurally addressed: option key + its probability
+  const bars = all('[data-testid="answer-distribution"] > li');
+  expect(bars.length).toBe(3);
+  const byOption = new Map(
+    bars.map((b) => [b.getAttribute("data-option"), Number(b.getAttribute("data-probability"))]),
+  );
+  expect(byOption.get("0")).toBeCloseTo(0.45);
+  expect(byOption.get("1")).toBeCloseTo(0.1);
+  expect(byOption.get("2")).toBeCloseTo(0.45);
+  // the answered level (2) is the emphasized one - its bar element carries the darker class
+  const answered = q('[data-testid="answer-distribution"] li[data-option="2"] span span');
+  expect(answered?.className).toContain("bg-foreground/70");
+  // the card frames the coin-flip: the torn marker + the caption naming confidence 0.00
+  await waitFor(() => {
+    const header = q("[data-torn-answer]");
+    if (header?.getAttribute("data-torn-answer") !== "true")
+      throw new Error("torn frame not on the answer header");
+  });
+  expect(q(".detail-pane")?.textContent).toContain("confidence 0.00");
 });

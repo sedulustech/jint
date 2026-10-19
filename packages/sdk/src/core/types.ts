@@ -228,7 +228,15 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (custom tier): a policy callback's remediation instruction for the caller
+   * The answer's certainty, copied from the finding's measurement when the answer carried one
+   * (score answers): 1 = concentrated, 0 = torn between distant levels (bimodal). Absent when the
+   * answer had none (noul answers, callback tiers).
+   */
+  readonly confidence?: number;
+  /** The full distribution the value summarizes: one probability per criterion option. */
+  readonly probabilities?: Record<string, number>;
+  /**
+   * Additive (custom tier): a policy callback's remediation instruction to the caller
    * (schema-validated at the callback boundary). Absent for threshold-derived findings.
    */
   readonly message?: string;
@@ -344,4 +352,6 @@ export type LintEvent =
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */
   | { type: "note"; note: string }
   /** The run's rule self-descriptions: one digest per rule that ran, emitted once at run start. */
-  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] };
+  | { type: "rules"; rules: import("@jint/contract").RuleDigest[] }
+  /** The input accounting, emitted once after the walk resolves (run.input; the stderr line). */
+  | { type: "input"; summary: import("./input/stats.ts").InputSummary };

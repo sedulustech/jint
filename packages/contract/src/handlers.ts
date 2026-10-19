@@ -57,7 +57,7 @@ export interface NoulHandlerData {
  * merged import element — and the target selects which of them the rule's question runs over. The
  * vocabulary lives here (contract owns it); the engine and the defaults package import it.
  */
-export type RuleTarget =
+export type SharedRuleTarget =
   | "files"
   | "functions"
   | "classes"
@@ -70,13 +70,23 @@ export type RuleTarget =
   | "imports";
 
 /**
- * The runtime face of RuleTarget: one entry per union member, in union order. The type stays the
- * compile-time face (its exhaustive Record pin in handlers.test.ts fails to typecheck when a member
- * is added without a registration here); this array is what coverage checks iterate — a test set
- * that claims to exercise every target reads its list from here, not from a hand-copied literal
- * that can drift.
+ * A grammar-local target: {grammar}:{capture}, validated against the grammar's emitted captures at
+ * lint startup (after custom-grammar registration). The TS face of the runtime's qualified capture
+ * addresses; runtime-valid before this type existed - JSON configs used them already.
  */
-export const ruleTargets: readonly RuleTarget[] = [
+export type QualifiedRuleTarget = `${string}:${string}`;
+
+/**
+ * The runtime face of SharedRuleTarget: one entry per union member, in union order. The type stays
+ * the compile-time face (its exhaustive Record pin in handlers.test.ts fails to typecheck when a
+ * member is added without a registration here); this array is what coverage checks iterate — a test
+ * set that claims to exercise every target reads its list from here, not from a hand-copied literal
+ * that can drift. Qualified targets are grammar-local and cannot be enumerated here; they join via
+ * RuleTarget.
+ */
+export type RuleTarget = SharedRuleTarget | QualifiedRuleTarget;
+
+export const ruleTargets: readonly SharedRuleTarget[] = [
   "files",
   "functions",
   "classes",

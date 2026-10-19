@@ -13,7 +13,14 @@ const report: LintReport = {
     { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
   findings: [
-    { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" },
+    {
+      rule: "is_name_purposeful",
+      input: "src/a.ts",
+      value: 0.5347219,
+      severity: "warn",
+      confidence: 0,
+      probabilities: { "0": 0.5, "1": 0, "2": 0.5 },
+    },
     {
       rule: "is_cognitively_complex",
       input: "src/b.ts#uuid",
@@ -83,6 +90,16 @@ describe("renderJson", () => {
     expect(parsed.notes).toEqual(noted.notes);
     const keys = Object.keys(parsed);
     expect(keys.indexOf("notes")).toBeGreaterThan(keys.indexOf("errors"));
+  });
+
+  // The finding's certainty rides the wire: copied from the measurement when present, omitted
+  // (key absent, not null) when the answer had none - an agent reads findings alone.
+  test("findings carry confidence + probabilities when the answer had them; keys omit otherwise", () => {
+    const parsed = JSON.parse(renderJson(report));
+    expect(parsed.findings[0]!.confidence).toBe(0);
+    expect(parsed.findings[0]!.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
+    expect(parsed.findings[1]).not.toHaveProperty("confidence");
+    expect(parsed.findings[1]).not.toHaveProperty("probabilities");
   });
 
   test("output contains no ANSI escape codes", () => {

@@ -22,6 +22,12 @@ import {
 } from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
+import {
+  inputStats,
+  renderInputSummary,
+  type InputStats,
+  type InputSummary,
+} from "./input/stats.ts";
 import { createClassifier } from "./jev/client.ts";
 import { recordSummary } from "./jev/debug.ts";
 import {
@@ -317,6 +323,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // below, never silence.
   // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
   const walkerNotes: string[] = [];
+  const stats = inputStats();
   const units = await resolveRunUnits(
     options,
     pathsList,
@@ -325,7 +332,15 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     customRules,
     registry,
     (note) => walkerNotes.push(note),
+    stats,
   );
+  // The input accounting (run.input): how many files, and why not all measured. Emitted as an
+  // event so the report (collectReport) reads ONE source of truth; the human stderr line rides the
+  // notes channel (same doctrine as the denylist coverage notes) whenever anything was dropped.
+  yield { type: "input", summary: stats.summary() };
+  for (const line of renderInputSummary(stats.summary(), options.config.include)) {
+    yield { type: "note", note: line };
+  }
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
   // SIGNAL, never silence: one note names each, the run continues around them.
   const unitPaths = new Set(
@@ -498,6 +513,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               value: event.value,
               severity: outcome.severity,
               note: outcome.message,
+              // the answer's certainty rides the finding (absent when the answer had none: noul
+              // answers, callback tiers) - findings are the actionable output; a coin-flip must
+              // be discoverable from them, not only from the measurement
+              confidence: event.confidence,
+              probabilities: event.probabilities,
               location:
                 element !== undefined ? { input: event.input, span: element.span } : undefined,
             },
@@ -646,6 +666,7 @@ async function resolveRunUnits(
   customRules: readonly CustomRule[],
   registry: GrammarRegistry,
   onWalkNote: (note: string) => void,
+  stats: InputStats,
 ): Promise<Unit[]> {
   if (options.str !== undefined) return [strUnit(options.str.content, options.str.path)];
   if (pathsList !== undefined && (input === undefined || input === "")) {
@@ -688,6 +709,7 @@ async function resolveRunUnits(
       requireGrammarFor: (p) =>
         customRules.some((rule) => ruleInScope(rule, p)) ||
         rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+      stats,
     }),
   );
 }
@@ -784,10 +806,16 @@ export function validateRuleSelection(
   for (const name of only ?? []) if (!known.has(name)) throw unknownRuleError(name, known);
 }
 
-/** The run pointer: the run-store dir this run's captures landed in, and its id (the dir name). */
+/**
+ * The run pointer: the run-store dir this run's captures landed in, and its id (the dir name).
+ * id/dir are present exactly when a classifier call started a run; run.input (the input accounting)
+ * rides whenever a walk happened - a capture-less run reports input alone.
+ */
 export interface RunPointer {
-  id: string;
-  dir: string;
+  id?: string;
+  dir?: string;
+  /** The input accounting (run.input): how many files, and why not all were measured. */
+  input?: InputSummary;
 }
 
 export interface LintReport {
@@ -810,12 +838,14 @@ export interface LintReport {
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
   const report: LintReport = { measurements: [], findings: [], errors: [], notes: [], rules: [] };
+  let inputSummary: InputSummary | null = null;
   for await (const event of events) {
     if (event.type === "measurement") report.measurements.push(event.measurement);
     else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
     else if (event.type === "rules") report.rules = event.rules;
+    else if (event.type === "input") inputSummary = event.summary;
   }
   // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
   // array sorts on a total key over the data (never completion order, never stable-sort tie
@@ -860,5 +890,11 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   // happens inside the drained events — reading it before would see null on every run.
   const summary = recordSummary();
   if (summary !== null) report.run = { id: summary.dir.split("/").pop()!, dir: summary.dir };
+  // The input accounting rides the run pointer when one exists; a capture-less run still reports
+  // it (id/dir absent, input present) - the accounting is about the input, not the classifier.
+  if (inputSummary !== null) {
+    report.run =
+      summary !== null ? { ...report.run!, input: inputSummary } : { input: inputSummary };
+  }
   return report;
 }

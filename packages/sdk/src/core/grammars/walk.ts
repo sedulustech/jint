@@ -79,6 +79,14 @@ export interface InventoryElement {
    * only comment is internal is still a comment unit via the count below.
    */
   readonly attachedComment?: readonly string[];
+  /**
+   * Docstring TEXTS this definition owns OUTSIDE its span: an owner=next docstring preceding it (a
+   * leading `///`-style doc). The pair frame joins these into the measured documentation - without
+   * them, a leading doc would count for the definition (docstringCount) yet never reach the
+   * classifier. A BODY docstring (owner=enclosing, python's shape) sits inside the span and rides
+   * content instead, so it never appears here - no text is measured twice.
+   */
+  readonly docstrings?: readonly string[];
   /** For a docstring element: what it documents; an orphan docstring never exists. */
   readonly docstringOf?: DocstringOwner;
   /** Non-empty comments fully inside this element's span (including nested elements' bodies). */
@@ -322,14 +330,21 @@ function materialize(
   // never a replacement for presence.
   // Docstring ownership (the pair split): the count per definition that contains one, so the
   // frame knows it carries documentation even when no comment attaches and none is internal.
-  // A "next" docstring counts for the definition AFTER it instead (its declared owner).
+  // A "next" docstring counts for the definition AFTER it instead (its declared owner) - and its
+  // TEXT rides that definition's frame (docstrings): a leading doc sits outside every span, so
+  // the count alone would gate the comments target while the classifier never saw the words.
+  // An enclosing-owned docstring (python's body shape) counts only - its text is inside the
+  // definition's span already, and content carries it.
   const docstringCounts = new Map<Candidate, number>();
+  const docstringTexts = new Map<Candidate, readonly string[]>();
   for (const docstring of candidates) {
     if (!isDocstring(docstring) || isEmptyComment(docstring.node.text)) continue;
     if (docstring.properties?.["docstring.owner"] === "next") {
       const next = orderedDefinitions.find((d) => d.node.startIndex >= docstring.node.endIndex);
       if (next !== undefined) {
         docstringCounts.set(next, (docstringCounts.get(next) ?? 0) + 1);
+        const owned = [...(docstringTexts.get(next) ?? []), docstring.node.text];
+        docstringTexts.set(next, owned);
       }
       continue;
     }
@@ -381,6 +396,7 @@ function materialize(
     grammar: grammarId,
     name: d.name,
     attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
+    docstrings: docstringTexts.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
     docstringCount: docstringCounts.get(d) ?? 0,
     parent: parentOf(d),

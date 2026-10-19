@@ -30,6 +30,14 @@ function thresholdText(threshold: Threshold | undefined): string | null {
   return null;
 }
 
+/**
+ * The CONFIDENCE VISIBILITY FLOOR (same 0.25 as the CLI's human print): below it the answer was
+ * torn between distant levels (in practice 0, bimodal) and the card says so structurally - a dashed
+ * amber frame on the answer header - not just as a number. The request's raw confidence always
+ * prints in the caption; the floor only adds the frame.
+ */
+const CONFIDENCE_FLOOR = 0.25;
+
 export function AnswerCard({
   qa,
   sev,
@@ -47,9 +55,20 @@ export function AnswerCard({
   const probabilities = isScore ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
+  // torn: the distribution is split between distant levels; the header frames itself so a
+  // coin-flip never reads as a settled verdict
+  const torn = qa.answer?.confidence !== undefined && qa.answer.confidence < CONFIDENCE_FLOOR;
+  const options = Object.keys({ ...legend, ...probabilities }).sort(
+    (x, y) => Number(x) - Number(y),
+  );
   return (
     <div className="pt-siblings">
-      <div className="flex items-center gap-sections border-b border-border px-rail pb-siblings">
+      <div
+        data-torn-answer={torn ? "true" : undefined}
+        className={`flex items-center gap-sections border-b border-border px-rail pb-siblings ${
+          torn ? "border-dashed border-amber-400/70 bg-amber-400/[0.05]" : ""
+        }`}
+      >
         {noul !== undefined && (
           <span className="flex items-baseline gap-siblings">
             <span
@@ -83,8 +102,12 @@ export function AnswerCard({
             </span>
             <span className="text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
-              {qa.answer?.confidence !== undefined &&
-                ` · confidence ${qa.answer.confidence.toFixed(2)}`}
+              {qa.answer?.confidence !== undefined && (
+                <span className={torn ? "text-sev-warn" : undefined}>
+                  {` · confidence ${qa.answer.confidence.toFixed(2)}`}
+                  {torn ? " · torn between levels" : ""}
+                </span>
+              )}
             </span>
           </span>
         )}
@@ -94,7 +117,43 @@ export function AnswerCard({
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
-          {/* the probability strip is omitted for score answers: the legend is the information */}
+          {/* the distribution is the BAR strip: one bar per criterion option, labeled by its
+              index, height = its probability, the answered level emphasized. The legend list
+              below stays prose - the numbers moved into the bars */}
+          <ul
+            data-testid="answer-distribution"
+            aria-label="answer distribution"
+            className="mt-related flex items-end gap-chip-x"
+          >
+            {options.map((k) => {
+              const prob = probabilities[k] ?? 0;
+              const answered = Number(k) === index;
+              return (
+                <li
+                  key={k}
+                  data-option={k}
+                  data-probability={prob}
+                  className="flex w-8 flex-col items-center gap-chip-y"
+                >
+                  <span
+                    className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-muted"
+                    aria-hidden="true"
+                  >
+                    <span
+                      className={`w-full rounded-xs ${answered ? "bg-foreground/70" : "bg-foreground/30"}`}
+                      style={{ height: `${Math.max(prob * 100, prob > 0 ? 8 : 0)}%` }}
+                    />
+                  </span>
+                  <span
+                    className={`text-caption ${answered ? "text-foreground" : "text-muted-foreground"}`}
+                    title={legend[k] !== undefined ? legend[k] : undefined}
+                  >
+                    {k}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
           <ul className="mt-related space-y-related">
             {Object.keys(legend)
               .sort((a, b) => Number(a) - Number(b))
@@ -106,7 +165,6 @@ export function AnswerCard({
                   }`}
                 >
                   {k}: {legend[k]}
-                  {probabilities[k] !== undefined && ` (${probabilities[k]})`}
                 </li>
               ))}
           </ul>

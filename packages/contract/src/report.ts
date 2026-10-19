@@ -167,6 +167,14 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
+   * The answer's certainty (jev's score answers; 1 = concentrated, 0 = torn between distant
+   * levels). Copied from the finding's measurement whenever the answer carried one; absent when the
+   * answer had none (noul answers, callback tiers).
+   */
+  readonly confidence?: number;
+  /** The full distribution the value summarizes (one probability per criterion option). */
+  readonly probabilities?: Record<string, number>;
+  /**
    * The custom-tier callback's remediation instruction to the caller fixing the finding: severity
    * says whether, message says how. Absent for noul and score (threshold-derived) findings.
    */

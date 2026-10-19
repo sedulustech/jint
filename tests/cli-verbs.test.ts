@@ -115,8 +115,13 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
     // one CLAIMED file only (the stray never reaches extraction), so the line keeps the
     // single-file shape - no input column
     expect(r.stdout.trimEnd()).toBe("typescript function L1-L1 one");
-    // the folded skip line rides stderr in the emitter's note voice; stdout stays pipe-clean
-    expect(r.stderr).toBe("jint: note: not parsed (no grammar): .json\n");
+    // the folded skip line rides stderr in the emitter's note voice; stdout stays pipe-clean.
+    // The input accounting's human mirror rides the SAME stderr (the MISSING_GRAMMAR drop is
+    // counted there): two notes, one per concern - coverage vocabulary, file accounting.
+    expect(r.stderr).toBe(
+      "jint: note: input: 1 of 2 files (skipped: MISSING_GRAMMAR 1)\n" +
+        "jint: note: not parsed (no grammar): .json\n",
+    );
   });
 
   test("capture --queries with a foreign grammar's .scm: loud exit 2 naming both grammars", async () => {

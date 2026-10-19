@@ -32,6 +32,7 @@ import {
   lint,
   loadConfig,
   renderJson,
+  renderInputSummary,
   renderLines,
   recordSummary,
   recordRunManifest,
@@ -251,7 +252,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb:
-      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always)",
+      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does)",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
 } as const;
@@ -1015,8 +1016,18 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       scopeBase: rest[0] !== undefined ? configScopeBase(configPath, rest[0]) : undefined,
       onNote: (note) => notes.push(note),
     });
-    const elements = await walk(rest[0], cliArgs.queries, cliArgs.grammar, (skip) =>
-      skips.push(skip),
+    const elements = await walk(
+      rest[0],
+      cliArgs.queries,
+      cliArgs.grammar,
+      (skip) => skips.push(skip),
+      (summary) => {
+        // the input accounting's human mirror, stderr-only (stdout stays the element payload):
+        // one line when anything was dropped, a second naming the door when NOTHING was measured
+        for (const line of renderInputSummary(summary, resolvedConfig.include)) {
+          emit({ message: line, kind: "note" });
+        }
+      },
     );
     const skipped = [...new Set(skips.map((s) => s.extension))].sort();
     if (skipped.length > 0) {

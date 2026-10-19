@@ -20,11 +20,11 @@ Each grammar is ONE DIRECTORY under the grammar dir (`$JINT_GRAMMAR_DIR`, defaul
 at load against the wasm's own `tree_sitter_<name>` export - a copied wasm under the wrong dir
 is a loud setup error naming both. The three artifacts sit flat inside the dir:
 
-| file              | what it is                                                                                                                                                                                                                                                |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<id>.wasm`       | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`); its export MUST be `tree_sitter_<id>` - the cross-check. Absent: an embedded grammar of the same id is shadowed for extraction only. |
-| `extensions.json` | routing: a bare JSON array of dot-prefixed extensions, e.g. `[".v", ".sv"]`. There is no version key - git owns versioning (the grammar dir IS a checkout).                                                                                               |
-| `queries.scm`     | tree-sitter query patterns assigning **jint captures** — the extraction half. Shape directives (`#set! "selfNesting"`) live here too, beside the pattern whose shape they change.                                                                         |
+| file              | what it is                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<id>.wasm`       | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`); its export MUST be `tree_sitter_<id>` - the cross-check. Absent: an embedded grammar of the same id is shadowed for extraction only.                                                                                                                                     |
+| `extensions.json` | routing: a bare JSON array of dot-prefixed extensions, e.g. `[".v", ".sv"]`. There is no version key - git owns versioning (the grammar dir IS a checkout).                                                                                                                                                                                                                                   |
+| `queries.scm`     | tree-sitter query patterns assigning **jint captures** — the extraction half. Shape directives (`#set! "selfNesting"`) live here too, FILE-scoped - one name, one value per file. Write the directive beside the pattern that motivated it; a second pattern wanting a different value for the same name is a load error naming both lines (the directive is read per file, not per pattern). |
 
 **The .scm IS the interface.** A capture your queries emit is rule-facing - addressable through
 the qualified capture address `<lang>:<capture>` (e.g. `markdown:section`) - by the fact of being
@@ -59,6 +59,14 @@ Everything fails loud, at setup, before any file is measured — never into sile
   `attach.gap N` (comment attaches only across N or fewer blank rows; default 1),
   `docstring.owner next|enclosing` (who the docstring documents; default enclosing),
   `import.merge contiguous|none` (adjacent imports merge per contiguous run; default contiguous).
+  Every directive is FILE-scoped: one name, one setting per file - `docstring.owner` cannot be
+  `next` for one pattern and `enclosing` for another (the rust `///`-vs-`//!` split is not
+  expressible today; a real grammar needing per-pattern values reopens the design).
+- **Docstring texts are measured**: a definition's pair frame carries the TEXT of the docstrings
+  it owns. An owner=next docstring (a leading `///`-style doc, outside the definition's span)
+  flows into the frame beside the attached run; a body docstring (python's string-in-block)
+  rides the code slice. Either doc convention maps to `@docstring` without the text going
+  silent - the docstring capture is safe for leading-doc languages.
   Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business.
 - **Pattern-order conflicts**: two patterns assigning different captures to the same root node
   type. Pattern order is priority (the earlier pattern wins), so the validator requires every

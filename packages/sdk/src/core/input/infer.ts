@@ -17,6 +17,7 @@ import { knownLanguages, EMBEDDED, type GrammarRegistry } from "../grammars/walk
 import { SetupError, type InputKind, type Unit } from "../types.ts";
 import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
+import type { InputStats } from "./stats.ts";
 
 export interface InputOptions {
   input: string | string[];
@@ -31,6 +32,13 @@ export interface InputOptions {
   secretDenylist?: readonly string[];
   /** Walk coverage notes (the denylist's one-note-per-class skips); absent = silent. */
   onNote?: (note: string) => void;
+  /**
+   * The input accounting accumulator the dir walk feeds (run.input; the stderr human line). Absent
+   * = walkDir keeps its own (counting nothing for the caller). Explicit single files count
+   * discovered+included on success; a file input that FAILS (MISSING_GRAMMAR et al.) throws before
+   * any counting - the run fails loud, the accounting rides the failure.
+   */
+  stats?: InputStats;
   /**
    * The registry the input's grammar routing reads: fileUnit's unknown-language check and its
    * "valid" detail come from HERE, not from any module state. Absent = the embedded base (no run in
@@ -59,19 +67,25 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
     // explicit file paths bypass exclude
     if (Array.isArray(input)) {
       for (const path of input) {
-        yield await fileUnit(path, {
+        const unit = await fileUnit(path, {
           requireGrammar: options.requireGrammarFor?.(path) ?? true,
           registry: options.registry,
         });
+        options.stats?.markDiscovered();
+        options.stats?.markIncluded();
+        yield unit;
       }
       return;
     }
     const kind = inputType ?? (await inferKind(input));
     if (kind === "file") {
-      yield await fileUnit(input, {
+      const unit = await fileUnit(input, {
         requireGrammar: options.requireGrammarFor?.(input) ?? true,
         registry: options.registry,
       });
+      options.stats?.markDiscovered();
+      options.stats?.markIncluded();
+      yield unit;
       return;
     }
     if (kind === "dir") {
@@ -82,6 +96,7 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
         include,
         options.secretDenylist,
         options.onNote,
+        options.stats,
       );
       return;
     }

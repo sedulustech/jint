@@ -1,24 +1,26 @@
 {
-  "ts": "2026-09-29T22:07:18.452Z",
+  "ts": "2026-10-19T15:56:34.554Z",
   "url": "https://api.typesafe.ai/v1/systemone",
+  "durationMs": 1,
   "request": {
     "state": {
       "path": "helpers.ts",
       "source": "export function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}",
-      "id": "d19d8f30-a12c-4ece-9855-41a993f34298"
+      "id": "fa83df20-fcbb-4d46-ba0e-ed37389bc4fe"
     },
     "questions": {
       "is_name_purposeful": {
-        "type": "noul",
-        "instructions": "This unit is a function definition. Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
-        "criteria": {
-          "true": "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
-          "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
-        }
+        "type": "score",
+        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
+        "criteria": [
+          "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
+          "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+          "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+        ]
       },
       "is_naming_convention_consistent": {
         "type": "noul",
-        "instructions": "This unit is a function definition. Do identifiers of the same kind in this unit follow a single casing convention?",
+        "instructions": "Do identifiers of the same kind in this unit follow a single casing convention?",
         "criteria": {
           "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
           "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
@@ -26,7 +28,7 @@
       },
       "is_greppable": {
         "type": "noul",
-        "instructions": "This unit is a function definition. Are the identifiers in this function searchable with terms a developer would use to find this code?",
+        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
         "criteria": {
           "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
           "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
@@ -34,7 +36,7 @@
       },
       "will_error_lose_cause": {
         "type": "noul",
-        "instructions": "This unit is a function definition. Does this function's error handling lose information about the original failure?",
+        "instructions": "Does this function's error handling lose information about the original failure?",
         "criteria": {
           "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
           "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
@@ -42,7 +44,7 @@
       },
       "is_cognitively_complex": {
         "type": "score",
-        "instructions": "This unit is a function definition. How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
         "criteria": [
           "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
           "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
@@ -51,21 +53,11 @@
       },
       "is_function_srp": {
         "type": "noul",
-        "instructions": "This unit is a function definition. Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
+        "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
         "criteria": {
           "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
           "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
         }
-      },
-      "is_readable": {
-        "type": "score",
-        "instructions": "This unit is a function definition. How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
-        "criteria": [
-          "Names, structure, and types make the story obvious.",
-          "Mostly clear; a few opaque names or a slightly awkward shape.",
-          "Reader must reconstruct intent from implementation details.",
-          "Dense, misleading names, or structure that fights the problem."
-        ]
       }
     },
     "model": "jev-latest"
@@ -75,8 +67,15 @@
     "model": "jev-fixture",
     "answers": {
       "is_name_purposeful": {
-        "type": "noul",
-        "noul": 0.25
+        "type": "score",
+        "score": 0.25,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.067,
+          "2": 0.067,
+          "3": 0.067
+        },
+        "confidence": 0.8
       },
       "is_naming_convention_consistent": {
         "type": "noul",
@@ -92,28 +91,17 @@
       },
       "is_cognitively_complex": {
         "type": "score",
-        "score": 0,
+        "score": 2,
         "probabilities": {
-          "0": 0.9,
-          "1": 0.05,
-          "2": 0.05
+          "0": 0.45,
+          "1": 0.1,
+          "2": 0.45
         },
-        "confidence": 0.8
+        "confidence": 0
       },
       "is_function_srp": {
         "type": "noul",
         "noul": 0.5
-      },
-      "is_readable": {
-        "type": "score",
-        "score": 2,
-        "probabilities": {
-          "0": 0.05,
-          "1": 0.1,
-          "2": 0.8,
-          "3": 0.05
-        },
-        "confidence": 0.8
       }
     },
     "usage": {

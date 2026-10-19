@@ -1,4 +1,5 @@
 import { resolveInput, type InputOptions } from "../input/infer.ts";
+import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
@@ -118,6 +119,7 @@ export async function capture(
   queryPath?: string,
   grammarPath?: string,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
+  onStats?: (summary: InputSummary) => void,
 ): Promise<CapturedElement[]> {
   // THIS CALL's registry value: the embedded base, plus the grammarPath overlay when given. The
   // value dies with the call - a custom registration can never outlive the capture that asked for
@@ -132,12 +134,14 @@ export async function capture(
     registry = { ...EMBEDDED, [entry.language]: entry };
   }
   const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
+  const stats = inputStats();
   const { captured } = await walkAndExtract(
-    { input: targetPath, registry },
+    { input: targetPath, registry, stats },
     queries,
     queryPath,
     onSkip,
   );
+  onStats?.(stats.summary());
   return captured;
 }
 
@@ -179,6 +183,8 @@ async function walkAndExtract(
       // a dir-walked file no grammar claims: lint's sweep-coverage policy (shared, not repeated) -
       // skip it and emit ONE event carrying the file and its extension token (".json", or
       // "(extensionless)"); an explicit file never reaches here (fileUnit already failed it loud)
+      input.stats?.retractIncluded();
+      input.stats?.tallySkip(SKIP_REASONS.missingGrammar);
       onSkip?.({ file: unit.state.path, extension: unclaimedExtension(unit.state.path) });
       continue;
     }
@@ -206,6 +212,7 @@ export type ConfiguredCapture = (
   queryPath?: string,
   grammarPath?: string,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
+  onStats?: (summary: InputSummary) => void,
 ) => Promise<CapturedElement[]>;
 
 export interface CaptureForOptions {
@@ -295,7 +302,7 @@ export function captureFor(
     options.rule === undefined
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
-  return async (targetPath, queryPath, grammarPath, onSkip) => {
+  return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
     // THIS CALL's registry value, built in lint()'s registration order: the grammar dir first (a
     // run measures through it), then the call's own grammarPath (the BYOG door wins last). The
     // value dies with the call.
@@ -314,6 +321,7 @@ export function captureFor(
         "no input: pass a target path or set input in the config",
       );
     }
+    const stats = inputStats();
     const { captured, files } = await walkAndExtract(
       {
         input,
@@ -324,12 +332,14 @@ export function captureFor(
         secretDenylist: config.secretDenylist,
         onNote: options.onNote,
         registry,
+        stats,
       },
       queries,
       queryPath,
       onSkip,
     );
     if (rule !== undefined) markPreviewPopulation(rule, captured, files);
+    onStats?.(stats.summary());
     return captured;
   };
 }
