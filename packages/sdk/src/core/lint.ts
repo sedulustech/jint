@@ -54,7 +54,13 @@ import {
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
-import { configDoorAdmits, judgesWholeUnit, ruleInScope, walkDoors } from "./scope.ts";
+import {
+  configDoorAdmits,
+  judgesWholeUnit,
+  ruleDoorClaims,
+  ruleInScope,
+  walkDoors,
+} from "./scope.ts";
 import {
   ClassifyError,
   SetupError,
@@ -336,10 +342,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     stats,
   );
   const units = admission.units;
-  // THE config-door gate for rule selection: unscoped rules follow the config include, so they
-  // measure exactly the files that door admits - never files only a rule door claimed. Scoped
-  // rules (include declared) follow their OWN include; bypass inputs (file operand, str, paths
-  // list) admit everything, preserving the documented bypass.
+  // THE config-door gate for rule selection: unscoped rules follow the config doors
+  // (include whitelist AND not excluded), so they measure exactly the files that door admits -
+  // never files only a rule door claimed. Scoped rules (include declared) follow their OWN
+  // include, claiming across the config exclude; the always-true inputs are str and the paths
+  // list only (no path semantics) - file operands and element scope evaluate the real predicate.
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
     ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   // The input accounting (run.input): how many files, and why not all measured. Emitted as an
@@ -670,8 +677,8 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 /**
  * One run's input resolution: the units, the walk's admission doors (config + rule includes -
  * run.input attribution), and the config-door predicate unscoped rules follow. `configAdmits` is
- * always-true for bypass inputs (str, paths list, file operand, element scope): those never went
- * through the include walk, so the config door admits everything they produced.
+ * always-true ONLY for str and the paths list (no path semantics to evaluate); dir walks and file
+ * operands (including element scope) evaluate the one predicate on their paths.
  */
 interface Admission {
   readonly units: Unit[];
@@ -767,8 +774,11 @@ async function resolveRunUnits(
     const named = Array.isArray(input)
       ? [...input]
       : [elementPinned ? options.element!.path : (input as string)];
-    const claimsRuleDoor = (p: string): boolean =>
-      [...rules, ...customRules].some((rule) => rule.include !== undefined && ruleInScope(rule, p));
+    // the ONE claim test (ruleDoorClaims over the same doors the walk uses - never a second
+    // predicate): a rule claims the file when its include names it AND its own exclude does not
+    // subtract it. Attribution rides the same answer: the claiming door is the admitting door.
+    const claimingDoor = (p: string): IncludeDoor | undefined =>
+      doors.find((door) => ruleDoorClaims(door, p));
     const kept: string[] = [];
     for (const path of named) {
       const denied = denylistMatch(path, options.config.secretDenylist ?? SECRET_DENYLIST);
@@ -778,13 +788,18 @@ async function resolveRunUnits(
         );
         continue;
       }
-      // the no-claim note names the emptiness; the operand still RESOLVES below - existence and
-      // grammar failures stay the caller's error, the doors only decide which rules may measure
-      if (!configAdmits(path) && !claimsRuleDoor(path)) {
+      const claim = claimingDoor(path);
+      if (!configAdmits(path) && claim === undefined) {
+        // the no-claim note names the emptiness; the operand still RESOLVES below - existence
+        // and grammar failures stay the caller's error, the doors only decide which rules may
+        // measure (a resolve failure REPLACES this note: explicit consent, one hard error)
         onWalkNote(
-          `${path}: no rule measures this file - outside the config doors and no rule include names it`,
+          `${path}: no rule measures this file - outside the config doors and no rule claims it`,
         );
       }
+      // door attribution for operands (run.input.admitted decomposes `included`): the config
+      // door when it admits, else the claiming rule door - the same first-match order as the walk
+      stats.tallyAdmit(configAdmits(path) ? "config" : (claim?.by ?? "config"));
       kept.push(path);
     }
     const units = kept.length === 0 ? [] : await resolve(kept, "file");

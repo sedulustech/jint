@@ -344,9 +344,12 @@ export function captureFor(
       onSkip,
     );
     // preview == run population (walk-union): unscoped rules follow the config door, so the
-    // marker applies the SAME one predicate the run's rule selection applies (include ∧ ¬exclude
-    // - the walk's own exclude, not the CLI --exclude extra, which run applies to the walk too)
-    const configAdmits = configDoorAdmits(config.include, config.exclude);
+    // marker applies the SAME one predicate the run's rule selection applies - over the COMPOSED
+    // exclude (config + the --exclude extra), exactly what the walk below and run compose
+    const configAdmits = configDoorAdmits(config.include, [
+      ...config.exclude,
+      ...(options.exclude ?? []),
+    ]);
     if (rule !== undefined) markPreviewPopulation(rule, captured, files, configAdmits);
     onStats?.(stats.summary());
     return captured;

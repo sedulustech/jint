@@ -8,9 +8,10 @@
  * is the SHALLOWEST ignore scope, so gitignore/config negations compose like ordinary rules (a
  * `!keep.pem` deeper scope re-admits). EXCEPT the PEM sniff: a file whose first bytes are
  * `-----BEGIN ` is skipped even when a negation re-admitted it. Skips are signal: ONE coverage note
- * per denylist class per walk (same doctrine as the other walker exclusions). Explicitly passed
- * single files bypass the denylist entirely (explicit path = consent; resolveInput's file path
- * never enters walkDir).
+ * per denylist class per walk (same doctrine as the other walker exclusions). The walker itself
+ * only sees walked directories - a NAMED operand never enters walkDir; lint applies the same
+ * denylist to named operands at admission (safety door, not selector: pattern-level there, with
+ * this walk's PEM sniff staying walk-only).
  */
 
 import { existsSync } from "node:fs";
@@ -113,21 +114,40 @@ export interface IncludeDoor {
   readonly by: string;
   /** Include patterns; the config door with ZERO patterns admits everything (include = []). */
   readonly patterns: readonly string[];
+  /** Rule doors only: the rule's own exclude - a rule that excludes a file does not claim it. */
+  readonly exclude?: readonly string[];
 }
 
 interface CompiledDoor {
   readonly by: string;
   readonly rules: readonly IgnoreRule[];
+  /** Rule doors only: the rule's own compiled exclude. */
+  readonly excludeRules: readonly IgnoreRule[];
   /** The config door only: zero patterns = match everything. */
   readonly matchAll: boolean;
+  /**
+   * The ONE claim test (scope.ts ruleDoorClaims' semantics, precompiled): include match AND the
+   * rule's own exclude does not subtract.
+   */
+  claims(path: string): boolean;
 }
 
 function compileDoors(doors: readonly IncludeDoor[]): CompiledDoor[] {
-  return doors.map((door) => ({
-    by: door.by,
-    rules: door.patterns.map(compilePattern),
-    matchAll: door.by === "config" && door.patterns.length === 0,
-  }));
+  return doors.map((door) => {
+    const excludeRules = (door.exclude ?? []).map(compilePattern);
+    return {
+      by: door.by,
+      rules: door.patterns.map(compilePattern),
+      excludeRules,
+      matchAll: door.by === "config" && door.patterns.length === 0,
+      claims:
+        door.by === "config"
+          ? () => false
+          : (path) =>
+              door.patterns.some((p) => patternMatchesFile(compilePattern(p), path)) &&
+              !excludeRules.some((r) => patternMatchesFile(r, path)),
+    };
+  });
 }
 
 /** First door whose patterns admit the file (config door first in the list wins ties). */
@@ -345,9 +365,9 @@ async function readFileUnit(
   // the config door: a rule claims its file whether or not the config include also matches, so
   // the claim test runs on the rule doors alone. Attribution stays first-match (config first)
   // EXCEPT where the claim SAVED the file from the exclude - then the saving door owns it.
-  const claim = doors.find(
-    (door) => door.by !== "config" && door.rules.some((r) => patternMatchesFile(r, scopePath)),
-  );
+  // the claim test is ruleDoorClaims' semantics (scope.ts) inlined over the compiled doors:
+  // include match AND the rule's own exclude does not subtract - one semantics, both consumers
+  const claim = doors.find((door) => door.claims(scopePath));
   const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
   if (claim === undefined || excludeMatch === -1) {
     if (excludeMatch !== -1) {

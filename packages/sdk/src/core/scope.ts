@@ -127,14 +127,35 @@ export function ruleMeasuresNothing(rule: ScopeKeys): boolean {
  */
 export function walkDoors(
   configInclude: readonly string[],
-  rules: readonly { readonly name: string; readonly include?: readonly string[] }[],
+  rules: readonly {
+    readonly name: string;
+    readonly include?: readonly string[];
+    readonly exclude?: readonly string[];
+  }[],
 ): readonly IncludeDoor[] {
   const doors: IncludeDoor[] = [{ by: "config", patterns: configInclude }];
   for (const rule of rules) {
     if (rule.include === undefined || rule.include.length === 0) continue;
-    doors.push({ by: "rule:" + rule.name, patterns: rule.include });
+    doors.push({ by: "rule:" + rule.name, patterns: rule.include, exclude: rule.exclude });
   }
   return doors;
+}
+
+/**
+ * THE rule-door claim test (one semantics, both consumers - walk admission and the file-operand
+ * door check): a rule door claims a file when one of its include patterns matches AND its own
+ * exclude does not subtract it. A rule that excludes a file from its scope does not claim it - the
+ * include naming the file is not a claim when the rule's own exclude says otherwise (the operand
+ * note 'no rule include names it' must never lie about a rule that names-and-drops).
+ */
+export function ruleDoorClaims(door: IncludeDoor, path: string): boolean {
+  if (door.by === "config" || !includePatternsMatch(door, path)) return false;
+  const exclude = door.exclude ?? [];
+  return exclude.length === 0 || !exclude.some((p) => patternMatchesFile(compilePattern(p), path));
+}
+
+function includePatternsMatch(door: IncludeDoor, path: string): boolean {
+  return door.patterns.some((p) => patternMatchesFile(compilePattern(p), path));
 }
 
 /**
