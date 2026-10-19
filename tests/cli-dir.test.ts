@@ -20,7 +20,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 
 describe("cli: dir walk ignores", () => {
   // The input accounting (run.input): the flat decided shape, over a config that owns every
-  // door - include, exclude, and the walker's own skips. No reachable jev: the run still walks,
+  // scope - include, exclude, and the walker's own skips. No reachable jev: the run still walks,
   // the report still carries the accounting (transport failures abort measurements, not input).
   test.concurrent("run.input: flat shape, per-glob exclusion, reason-keyed skips", async () => {
     const tmpRoot = scratchDir("jint-input-summary");
@@ -68,8 +68,8 @@ describe("cli: dir walk ignores", () => {
   }, 30000);
 
   // The field trial's silent-empty papercut, regressed at the CLI: a config include that filters
-  // EVERY file must be LOUD on stderr (the accounting names the door), never a bare exit 0.
-  test.concurrent("capture <dir> with an include that matches nothing: loud, naming the door", async () => {
+  // EVERY file must be LOUD on stderr (the accounting names the scope), never a bare exit 0.
+  test.concurrent("capture <dir> with an include that matches nothing: loud, naming the scope", async () => {
     const tmpRoot = scratchDir("jint-capture-empty");
     try {
       await mkdir(join(tmpRoot, "src"), { recursive: true });
@@ -88,7 +88,7 @@ describe("cli: dir walk ignores", () => {
       expect(r.code).toBe(0);
       expect(r.stdout).toBe("");
       expect(r.stderr).toContain("input: 0 of 2 files (skipped: NOT_IN_INCLUDE 2)");
-      expect(r.stderr).toContain("outside every include door [**/*.py]");
+      expect(r.stderr).toContain("outside every scope [**/*.py]");
     } finally {
       await rmScratchTree(tmpRoot);
     }

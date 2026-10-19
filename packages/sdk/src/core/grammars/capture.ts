@@ -3,7 +3,7 @@ import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
-import { configDoorAdmits, ruleInScope, walkDoors } from "../scope.ts";
+import { configScopeAdmits, ruleInScope, walkScopes } from "../scope.ts";
 import { SetupError, type Rule } from "../types.ts";
 import {
   grammar,
@@ -92,7 +92,7 @@ function assertQueriesAuthoredFor(
  * input resolution, grammar registration, walk, inventory - no rules, no jev, no config, no
  * handles. The CLI verb `jint capture` is a thin print of this function (one word, two layers: the
  * SDK function and the CLI verb share the name by design). captureFor() below is the config-aware
- * door over the same walk: run's resolution seams, still no classifier.
+ * layer over the same walk: run's resolution seams, still no classifier.
  *
  * - TargetPath: a file or dir, through the SAME input resolution lint uses - no new input logic. An
  *   explicit FILE no grammar claims fails loud at resolution (fileUnit); a DIR's unclaimable files
@@ -110,7 +110,7 @@ function assertQueriesAuthoredFor(
  *   registry, which dies with the call.
  *
  * Grammar resolution precedence: grammarPath (custom) > embedded. (The JINT_GRAMMAR_DIR scan is the
- * CONFIG door - captureFor below - exactly as it is lint's.)
+ * CONFIG scope - captureFor below - exactly as it is lint's.)
  *
  * No filters, no options bag: callers filter the returned array.
  */
@@ -158,11 +158,11 @@ interface WalkOutcome {
 }
 
 /**
- * The walk both capture doors share: resolve the input lint's way, extract each file's inventory,
- * project to CapturedElements. Also records each file's elements in emission order (the exact flat
- * order the captured array is built in), so a rule preview can mark population indices without
- * re-walking - the inventory metadata (comment counts, ownership) that targeting reads lives on the
- * walk-time elements and does not survive projection.
+ * The walk both capture entry points share: resolve the input lint's way, extract each file's
+ * inventory, project to CapturedElements. Also records each file's elements in emission order (the
+ * exact flat order the captured array is built in), so a rule preview can mark population indices
+ * without re-walking - the inventory metadata (comment counts, ownership) that targeting reads
+ * lives on the walk-time elements and does not survive projection.
  */
 async function walkAndExtract(
   input: InputOptions,
@@ -271,7 +271,7 @@ function markPreviewPopulation(
       for (const element of file.elements) {
         if (
           targetsOf(rule).some((target) => matchesTarget(target, element)) &&
-          // preview == run population: unscoped rules follow the config door too
+          // preview == run population: unscoped rules follow the config scope too
           ruleInScope(rule, file.path) &&
           (rule.include !== undefined || configAdmits(file.path))
         ) {
@@ -285,14 +285,14 @@ function markPreviewPopulation(
 }
 
 /**
- * The config-aware capture door: captureFor(config) returns capture's own four-param walker with
+ * The config-aware capture scope: captureFor(config) returns capture's own four-param walker with
  * run's resolution seams applied - the SAME loader output (the config arrives resolved, baseline
  * included, because the sdk cannot resolve default rule names itself), the same input fallback
  * (target > config.input), the same walk scoping (config include/exclude/secretDenylist + extra
  * excludes + scopeBase), the same registry build order (the grammar dir's customs first, then the
  * call's own grammarPath). What never crosses: criteria, handles, question shapes, jev, severity.
  * The classifier stays unplugged - captureFor measures the population a run would classify, nothing
- * else. An unknown rule name fails through validateRuleSelection, run's own --rule door.
+ * else. An unknown rule name fails through validateRuleSelection, run's own --rule scope.
  */
 export function captureFor(
   config: ResolvedConfig,
@@ -307,7 +307,7 @@ export function captureFor(
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
   return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
     // THIS CALL's registry value, built in lint()'s registration order: the grammar dir first (a
-    // run measures through it), then the call's own grammarPath (the BYOG door wins last). The
+    // run measures through it), then the call's own grammarPath (the BYOG path wins last). The
     // value dies with the call.
     let registry = await loadCustomGrammars(undefined, options.onNote);
     if (grammarPath !== undefined) {
@@ -330,9 +330,9 @@ export function captureFor(
         input,
         inputType: config.inputType,
         exclude: [...config.exclude, ...(options.exclude ?? [])],
-        // walk-union: the config door + one door per rule include - capture measures the SAME
+        // walk-union: the config scope + one scope per rule include - capture measures the SAME
         // population a run will classify
-        include: walkDoors(config.include, config.rules),
+        include: walkScopes(config.include, config.rules),
         scopeBase: options.scopeBase,
         secretDenylist: config.secretDenylist,
         onNote: options.onNote,
@@ -343,10 +343,10 @@ export function captureFor(
       queryPath,
       onSkip,
     );
-    // preview == run population (walk-union): unscoped rules follow the config door, so the
+    // preview == run population (walk-union): unscoped rules follow the config scope, so the
     // marker applies the SAME one predicate the run's rule selection applies - over the COMPOSED
     // exclude (config + the --exclude extra), exactly what the walk below and run compose
-    const configAdmits = configDoorAdmits(config.include, [
+    const configAdmits = configScopeAdmits(config.include, [
       ...config.exclude,
       ...(options.exclude ?? []),
     ]);

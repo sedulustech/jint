@@ -68,7 +68,7 @@ describe("renderInputSummary (the human mirror)", () => {
     ).toEqual(["input: 4 of 5 files (skipped: BINARY 1)"]);
   });
 
-  test("the silent-empty case: include dropped EVERYTHING - line two names the include door", () => {
+  test("the silent-empty case: include dropped EVERYTHING - line two names the scope", () => {
     const lines = renderInputSummary(
       summary({
         discovered: 2,
@@ -79,10 +79,10 @@ describe("renderInputSummary (the human mirror)", () => {
     );
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe("input: 0 of 2 files (skipped: NOT_IN_INCLUDE 2)");
-    expect(lines[1]).toContain("outside every include door [**/*.rs]");
+    expect(lines[1]).toContain("outside every scope [**/*.rs]");
   });
 
-  test("empty by exclude globs names the generic door, not the include door", () => {
+  test("empty by exclude globs names the generic scope, not the scope", () => {
     const lines = renderInputSummary(
       summary({ discovered: 2, included: 0, excluded: [{ glob: "**/*", count: 2 }] }),
       [{ by: "config", patterns: ["**/*.rs"] }],

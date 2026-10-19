@@ -20,7 +20,7 @@ import {
   type GrammarRegistry,
   type InventoryElement,
 } from "./grammars/walk.ts";
-import { denylistMatch, SECRET_DENYLIST, type IncludeDoor } from "./input/dir.ts";
+import { denylistMatch, SECRET_DENYLIST, type OwnedScope } from "./input/dir.ts";
 import { inferKind, resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import {
@@ -55,11 +55,11 @@ import {
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
 import {
-  configDoorAdmits,
+  configScopeAdmits,
   judgesWholeUnit,
-  ruleDoorClaims,
+  ruleScopeClaims,
   ruleInScope,
-  walkDoors,
+  walkScopes,
 } from "./scope.ts";
 import {
   ClassifyError,
@@ -342,9 +342,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     stats,
   );
   const units = admission.units;
-  // THE config-door gate for rule selection: unscoped rules follow the config doors
-  // (include whitelist AND not excluded), so they measure exactly the files that door admits -
-  // never files only a rule door claimed. Scoped rules (include declared) follow their OWN
+  // THE config-scope gate for rule selection: unscoped rules follow the config scope
+  // (include whitelist AND not excluded), so they measure exactly the files that scope admits -
+  // never files only a rule scope claimed. Scoped rules (include declared) follow their OWN
   // include, claiming across the config exclude; the always-true inputs are str and the paths
   // list only (no path semantics) - file operands and element scope evaluate the real predicate.
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
@@ -353,7 +353,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // event so the report (collectReport) reads ONE source of truth; the human stderr line rides the
   // notes channel (same doctrine as the denylist coverage notes) whenever anything was dropped.
   yield { type: "input", summary: stats.summary() };
-  for (const line of renderInputSummary(stats.summary(), admission.doors)) {
+  for (const line of renderInputSummary(stats.summary(), admission.scopes)) {
     yield { type: "note", note: line };
   }
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
@@ -625,7 +625,7 @@ async function runUnit(
     {
       language,
       registry,
-      // the walk-union gate: unscoped rules follow the config door (see Admission)
+      // the walk-union gate: unscoped rules follow the config scope (see Admission)
       configAdmits,
     },
     walked,
@@ -675,15 +675,15 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 }
 
 /**
- * One run's input resolution: the units, the walk's admission doors (config + rule includes -
- * run.input attribution), and the config-door predicate unscoped rules follow. `configAdmits` is
+ * One run's input resolution: the units, the walk's admission scopes (config + rule includes -
+ * run.input attribution), and the config-scope predicate unscoped rules follow. `configAdmits` is
  * always-true ONLY for str and the paths list (no path semantics to evaluate); dir walks and file
  * operands (including element scope) evaluate the one predicate on their paths.
  */
 interface Admission {
   readonly units: Unit[];
   readonly configAdmits: (path: string) => boolean;
-  readonly doors: readonly IncludeDoor[];
+  readonly scopes: readonly OwnedScope[];
 }
 
 /**
@@ -706,7 +706,7 @@ async function resolveRunUnits(
     return {
       units: [strUnit(options.str.content, options.str.path)],
       configAdmits: () => true,
-      doors: [],
+      scopes: [],
     };
   if (pathsList !== undefined && (input === undefined || input === "")) {
     const resolved: Unit[] = [];
@@ -726,26 +726,26 @@ async function resolveRunUnits(
         throw thrown;
       }
     }
-    return { units: resolved, configAdmits: () => true, doors: [] };
+    return { units: resolved, configAdmits: () => true, scopes: [] };
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
-  // (walkDoors builds the doors; the config door is first, so attribution names a rule door only
-  // when the config door did not admit). Each rule still measures only files its own scope admits.
-  const doors = walkDoors(options.config.include, [...rules, ...customRules]);
-  // THE ONE config-door test (configDoorAdmits - include ∧ ¬exclude), the same predicate for
+  // (walkScopes builds the scopes; the config scope is first, so attribution names a rule scope only
+  // when the config scope did not admit). Each rule still measures only files its own scope admits.
+  const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
+  // THE ONE config-scope test (configScopeAdmits - include ∧ ¬exclude), the same predicate for
   // every input kind below. str and paths-list inputs returned above with always-true (no path
   // semantics to evaluate: the paths list is caller-curated selection, str has no real path);
   // dir walks and file operands both use THIS one - the input kind decides where the predicate
   // runs (the walker enforces it mid-walk for dirs; the operand branch evaluates it on the
   // named path), never what it means.
-  const configAdmits = configDoorAdmits(options.config.include, exclude);
+  const configAdmits = configScopeAdmits(options.config.include, exclude);
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
       ? "file"
       : (options.inputType ?? options.config.inputType ?? (await inferKind(input as string)));
-  // one resolveInput plumbing: the doors/exclude params ride along (inert on file operands -
+  // one resolveInput plumbing: the scopes/exclude params ride along (inert on file operands -
   // fileUnit never walks), load-bearing on the dir walk
   const resolve = (inp: string | string[], inputType: InputKind | undefined) =>
     collectUnits(
@@ -753,7 +753,7 @@ async function resolveRunUnits(
         input: inp,
         inputType,
         exclude,
-        include: doors,
+        include: scopes,
         scopeBase: options.scopeBase,
         secretDenylist: options.config.secretDenylist,
         onNote: onWalkNote,
@@ -765,20 +765,20 @@ async function resolveRunUnits(
       }),
     );
   if (resolvedKind === "file") {
-    // FILE-OPERAND DOORS: the same one predicate, evaluated on the named path instead of by
-    // the walker. A named file behind the config doors is measured by unscoped rules exactly
-    // as a walked file is; a rule door claims its files across the config exclude, as in the
-    // walk. The denylist is a SAFETY door, not a selector: naming a secret-shaped path does
+    // FILE-OPERAND SCOPES: the same one predicate, evaluated on the named path instead of by
+    // the walker. A named file behind the config scope is measured by unscoped rules exactly
+    // as a walked file is; a rule scope claims its files across the config exclude, as in the
+    // walk. The denylist is a SAFETY scope, not a selector: naming a secret-shaped path does
     // not hand its contents to the classifier (pattern-level test; the PEM sniff stays
     // walk-only - a named file with an innocent name is explicit consent, like piped source).
     const named = Array.isArray(input)
       ? [...input]
       : [elementPinned ? options.element!.path : (input as string)];
-    // the ONE claim test (ruleDoorClaims over the same doors the walk uses - never a second
+    // the ONE claim test (ruleScopeClaims over the same scopes the walk uses - never a second
     // predicate): a rule claims the file when its include names it AND its own exclude does not
-    // subtract it. Attribution rides the same answer: the claiming door is the admitting door.
-    const claimingDoor = (p: string): IncludeDoor | undefined =>
-      doors.find((door) => ruleDoorClaims(door, p));
+    // subtract it. Attribution rides the same answer: the claiming scope is the admitting scope.
+    const claimingScope = (p: string): OwnedScope | undefined =>
+      scopes.find((scope) => ruleScopeClaims(scope, p));
     const kept: string[] = [];
     for (const path of named) {
       const denied = denylistMatch(path, options.config.secretDenylist ?? SECRET_DENYLIST);
@@ -788,30 +788,30 @@ async function resolveRunUnits(
         );
         continue;
       }
-      const claim = claimingDoor(path);
+      const claim = claimingScope(path);
       if (!configAdmits(path) && claim === undefined) {
         // the no-claim note names the emptiness; the operand still RESOLVES below - existence
-        // and grammar failures stay the caller's error, the doors only decide which rules may
+        // and grammar failures stay the caller's error, the scopes only decide which rules may
         // measure (a resolve failure REPLACES this note: explicit consent, one hard error)
         onWalkNote(
-          `${path}: no rule measures this file - outside the config doors and no rule claims it`,
+          `${path}: no rule measures this file - outside the config scope and no rule claims it`,
         );
       }
-      // door attribution for operands (run.input.admitted decomposes `included`): the config
-      // door when it admits, else the claiming rule door - the same first-match order as the walk
+      // scope attribution for operands (run.input.admitted decomposes `included`): the config
+      // scope when it admits, else the claiming rule scope - the same first-match order as the walk
       stats.tallyAdmit(configAdmits(path) ? "config" : (claim?.by ?? "config"));
       kept.push(path);
     }
     const units = kept.length === 0 ? [] : await resolve(kept, "file");
-    return { units, configAdmits, doors };
+    return { units, configAdmits, scopes };
   }
-  // the dir walk: the walker enforces the same doors mid-walk (admitting through any door);
+  // the dir walk: the walker enforces the same scopes mid-walk (admitting through any scope);
   // configAdmits here is what unscoped rules ride during rule selection
   const units = await resolve(
     input as string | string[],
     options.inputType ?? options.config.inputType,
   );
-  return { units, configAdmits, doors };
+  return { units, configAdmits, scopes };
 }
 
 /** Cheap edit distance for close-match suggestions over rule names. */

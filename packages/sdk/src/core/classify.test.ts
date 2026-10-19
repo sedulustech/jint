@@ -74,7 +74,7 @@ describe("classify", () => {
     // one state: the whole source, nothing array-shaped
     expect(states).toHaveLength(1);
     expect(states[0]).toEqual({ path: "input", content: SOURCE, id: "L1-L7" });
-    // measurement-only door: no severity, no finding, no handle application anywhere
+    // measurement-only scope: no severity, no finding, no handle application anywhere
     const json = JSON.stringify(outcome);
     expect(json).not.toContain("severity");
     expect(outcome.errors).toEqual([]);

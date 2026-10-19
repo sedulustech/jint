@@ -135,7 +135,7 @@ describe("VERBS — the verb table and one-level resolution", () => {
     expect(verbFlagProblem("serve", { json: true })).toBe(
       "--json does not apply to serve - see jint --help",
     );
-    // globals pass everywhere; capture's own three plus the shared config door pass; run takes
+    // globals pass everywhere; capture's own three plus the shared config scope pass; run takes
     // every unmarked flag
     expect(verbFlagProblem("serve", { debug: true })).toBeNull();
     expect(

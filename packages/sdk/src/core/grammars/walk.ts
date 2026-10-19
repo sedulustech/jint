@@ -489,7 +489,7 @@ export async function decompose(
   language: string,
   options: { readonly queries?: string; readonly registry?: GrammarRegistry } = {},
 ): Promise<Inventory> {
-  // the registry the walk reads: handed by the door that owns the run/call (embedded base when a
+  // the registry the walk reads: handed by the scope that owns the run/call (embedded base when a
   // direct caller names none)
   const registry = options.registry ?? EMBEDDED;
   const entry = grammar(registry, language);

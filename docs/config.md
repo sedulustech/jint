@@ -25,31 +25,32 @@ A rule object is a [default-rule-shaped spec](rules.md): `name`, `instructions`,
 per-rule `include`/`exclude` globs (exclude always wins; a rule whose exclude cancels its
 include is a warning, never an error).
 
-**Walk-union discovery.** A file is walked when the config `include` OR any rule's `include`
-matches. A rule claims a file when its `include` names it AND its own `exclude` does not
-subtract it: the claim carries across the config `exclude` (the more specific scope wins,
-gitignore style). Consequence: a BROAD rule `include` makes the config exclude soft for what it
-names — only the denylist (and gitignore) stay walls; narrow the rule `include` where the
-exclude must win. Each rule then measures only files its own scope admits: unscoped rules (no
-`include` of their own) follow the config doors and never measure a file only a rule include
-claimed. `run.input.admitted` attributes every included file to its door (`config` or
+**Walk-union discovery: scopes and admission.** A file is walked when the config `include`
+OR any rule's `include` matches. A rule claims a file when its `include` names it AND its own
+`exclude` does not subtract it: the claim carries across the config `exclude` (the more specific
+scope wins, gitignore style). Consequence: a BROAD rule `include` makes the config exclude soft
+for what it names — only the denylist (and gitignore) stay walls; narrow the rule `include`
+where the exclude must win. Each rule then measures only files its own scope admits: unscoped
+rules (no `include` of their own) follow the config scope and never measure a file only a rule
+include claimed. `run.input.admitted` attributes every included file to its scope (`config` or
 `rule:<name>`) — for walked discovery AND named operands alike.
 
-**File operands honor the same doors.** `jint run <file>` evaluates the one config-door
-test (include whitelist AND not excluded) on the named path: a named file behind the doors
-is measured by unscoped rules exactly as a walked file is; a named file the doors exclude is
-skipped by every unscoped rule, and a rule `include` claims it across the config exclude as
-in the walk. A named file nothing claims measures nothing, with a note saying so — never
-silence. A door-excluded operand that also fails to RESOLVE throws its hard error (missing
-path, no grammar) instead of printing the note: naming a broken file is explicit consent to
-hear about the break, and the doors only decide which rules may measure. The secret denylist is a safety door, not a selector: it applies to named operands
+**File operands honor the same scopes.** `jint run <file>` evaluates the one config-scope
+test (include whitelist AND not excluded) on the named path: a named file inside the config
+scope is measured by unscoped rules exactly as a walked file is; a named file the config
+scope excludes is skipped by every unscoped rule, and a rule `include` claims it across the
+config exclude as in the walk. A named file nothing claims measures nothing, with a note
+saying so — never silence. A scope-excluded operand that also fails to RESOLVE throws its hard
+error (missing path, no grammar) instead of printing the note: naming a broken file is explicit
+consent to hear about the break, and the scopes only decide which rules may measure. The
+secret denylist is not a scope — it is an always-win exclusion and applies to named operands
 too (naming a secret-shaped path does not hand its contents to the classifier; pattern-level
 — the PEM content sniff stays walk-only, an innocent-named operand is explicit consent like
 piped source). The `str` and `paths` nouns keep always-true (no path semantics to evaluate:
 the paths list is caller-curated selection; str has no real path); an element-scope run pins
-its selector file, which door-checks like any operand. Capture's explicit FILE target still
+its selector file, which scope-checks like any operand. Capture's explicit FILE target still
 bypasses the walk scoping (it prints structure, no classifier) — but its `--rule` preview
-marker applies the same door predicate.
+marker applies the same scope predicate.
 
 ## Tier 2: `jint.config.ts` — imperative composition
 
@@ -126,5 +127,5 @@ classification with one decision per reading: `{ severity: "error" | "warn" | nu
 - `disable` removes by name after composition; `rules: []` alone is `CONFIG_NO_RULES` (a run that
   would measure nothing is a config error).
 - Scoping is per rule: each entry's own `include`/`exclude` globs (exclude always wins). A rule
-  `include` is also a DISCOVERY door (walk-union, above) - a rule wanting a file type the config
+  `include` is also a DISCOVERY scope (walk-union, above) - a rule wanting a file type the config
   `include` excludes admits it by naming it; no global carve-out is ever needed.

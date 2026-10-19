@@ -1,5 +1,5 @@
 /**
- * Classify — the one-shot, one-state measurement door (SDK surface, design §2): call jint with ANY
+ * Classify — the one-shot, one-state measurement scope (SDK surface, design §2): call jint with ANY
  * str and ANY rules, get measurements. No files, no config.
  *
  * The state IS the thing judged: the whole source is one unit, and the REGRESSION BAN holds here
@@ -7,7 +7,7 @@
  * is forbidden, because jev answers every question from the file's average, not the element. One
  * element per call, that element's rules batched inside the call.
  *
- * This is the MEASUREMENT-ONLY door: handles are never applied here. Interpretation — thresholds,
+ * This is the MEASUREMENT-ONLY lane: handles are never applied here. Interpretation — thresholds,
  * severities, findings — is lint's job (design §4.5); classify() returns raw readings and in-band
  * ClassifyErrors, and never throws for per-unit failures.
  *
@@ -35,7 +35,7 @@ import {
 } from "./types.ts";
 import type { Inventory } from "./grammars/walk.ts";
 
-/** Options for the one-shot classify door. */
+/** Options for the one-shot classify scope. */
 export interface ClassifyOptions {
   /** Identity + grammar detection; default "input". */
   readonly path?: string;
@@ -80,8 +80,8 @@ export async function classify(
   const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
-  // classify() has no config door, so its registry is the embedded base alone - the grammar-dir
-  // scan is lint()'s and captureFor()'s seam, never this one-shot door's
+  // classify() has no config scope, so its registry is the embedded base alone - the grammar-dir
+  // scan is lint()'s and captureFor()'s seam, never this one-shot call's
   const registry = EMBEDDED;
   // an element-target rule needs a parsed inventory; when neither the path nor the language
   // option resolves a grammar there is none - fail at setup, never as a silent empty run
