@@ -77,11 +77,13 @@ table:
   same-capture element reads as a wrapper's payload and collapses into it, unless the tail
   distance is real (a nested function with a body surfaces as a child). A selfNesting grammar
   (.scm #set! fact; markdown) disables the collapse entirely - sections nest legitimately.
-- **Per-capture descent is a POLICY table**, keyed by the outer capture, in `query.ts` - no
-  per-grammar overrides. The one grammar that needed a shape change (markdown, sections nest)
-  expresses it IN the .scm as a `#set! "selfNesting"` directive beside the section pattern -
-  shape directives are per-pattern facts, so they live per-pattern. Every other grammar ships
-  zero-config.
+- **Per-capture descent is DIRECTIVE-RESOLVED** (the capture-directives migration): the owning
+  grammar's .scm declares its facts - `capture.<name>.definition`, `capture.<name>.opaque`,
+  `capture.<name>.absorbTail`, `capture.<name>.selfNesting` (#set! directives, file-scoped reads,
+  pattern-attached syntax) - and the engine resolves them per grammar over the tier-1 shared
+  defaults (shared.ts). No engine table holds a capture key outside that one contract file (the
+  capture-facts guard test enforces it); the code stays one suppression pass, the data lives in
+  grammars. Every code grammar ships zero directives - shared defaults carry the lingua franca.
 - **Honest absence over stretch.** A node type with no honest home in the vocabulary is not
   force-mapped; it is recorded as WAITING in the .scm comments and the parity README. Stretches
   poison the classifier frame.
@@ -90,7 +92,7 @@ table:
 flowchart LR
   F["source file"] --> P["parse (grammar wasm)"]
   P --> Q["run queries.scm -> captures"]
-  Q --> R["policy table (descent, absorb, suppression)"]
+  Q --> R["capture directives + shared defaults (descent, absorb, suppression)"]
   R --> I["inventory (elements: spans, names, parents)"]
   I --> T["rule target resolution"]
   T --> C["classifier"]
@@ -181,20 +183,23 @@ SEVEN homes respectively - runtime arrays, schema unions, type unions, mirrors, 
 default-returns. The fix is DERIVE, DON'T MIRROR: one authority per vocabulary, everything else
 derived or loudly pinned.
 
-- ELEMENT CAPTURES: `query.ts` ELEMENT_CAPTURES is THE authority. Contract elementKinds is its
-  wire face (compile-time bidirectional pin in report.ts, runtime pin in query.test.ts); the
-  wire projection is a Record over Capture (adding a capture without a projection is a compile
-  error at the walk, not a mid-walk InternalError); POLICY is Record-typed the same way.
+- ELEMENT CAPTURES: the OPEN NAMESPACE (the capture-directives migration). The SHARED eight
+  (shared.ts - closed, promoted by ceremony) plus any capture a grammar's .scm DECLARES
+  (`capture.<name>.definition`); the load gate fails a capture that is neither shared nor
+  declared, naming the directive to add. Contract elementKinds enumerates the shared kinds and
+  the union carries ONE generic AutonomousElement (kind = capture name) - no per-capture types
+  mint per grammar anymore. The wire projection is SHARED_PROJECTION (shared.ts) + the generic
+  autonomous shape.
 - RULE TARGETS: contract `ruleTargets` is THE authority; the config schema's target enum is
   DERIVED from it (no literal copy); matchesTarget's evaluator throws InternalError on an
   unvalidated name (validation is the loud gate - a silent always-false return was the drift),
   and an exhaustive test resolves every target on its element shape.
-- THE NEW-CAPTURE RITUAL: touch ELEMENT_CAPTURES + the grammar's .scm; everything else is
-  derived or pinned (measured: 2-3 places, all loud). DocstringOwner.kind reuses the owner's
-  capture losslessly (the class/function collapse is gone).
-- DEFINITION_CAPTURES kept sections/paragraphs OUT? No - deliberately NOT moved: the inventory
-  has three buckets (definitions/comments/imports) and prose needs a fourth name if it leaves
-  the definition bucket; that name is owner-gated via GLOSSARY (reported back, not invented).
+- THE NEW-CAPTURE RITUAL, retired by the capture-directives migration: a grammar's own capture
+  is ONE .scm directive line (tests/capture-directives-e2e.test.ts proves it end to end);
+  promoting a word into the SHARED tier keeps a ceremony (shared.ts + the contract shapes).
+  DocstringOwner.kind reuses the owner's capture losslessly (the class/function collapse is
+  gone). DEFINITION_CAPTURES, the closed ELEMENT_CAPTURES list, and POLICY are DELETED - not
+  emptied; the capture-facts guard test fails any new engine-side capture-keyed container.
 - TS custom rules gained the qualified capture lane (markdown:section) - validated identically
   at config compile; the seam parity the declarative tier already had.
 

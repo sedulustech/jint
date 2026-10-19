@@ -20,28 +20,47 @@ Each grammar is ONE DIRECTORY under the grammar dir (`$JINT_GRAMMAR_DIR`, defaul
 at load against the wasm's own `tree_sitter_<name>` export - a copied wasm under the wrong dir
 is a loud setup error naming both. The three artifacts sit flat inside the dir:
 
-| file              | what it is                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<id>.wasm`       | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`); its export MUST be `tree_sitter_<id>` - the cross-check. Absent: an embedded grammar of the same id is shadowed for extraction only.                                                                                                                                     |
-| `extensions.json` | routing: a bare JSON array of dot-prefixed extensions, e.g. `[".v", ".sv"]`. There is no version key - git owns versioning (the grammar dir IS a checkout).                                                                                                                                                                                                                                   |
-| `queries.scm`     | tree-sitter query patterns assigning **jint captures** — the extraction half. Shape directives (`#set! "selfNesting"`) live here too, FILE-scoped - one name, one value per file. Write the directive beside the pattern that motivated it; a second pattern wanting a different value for the same name is a load error naming both lines (the directive is read per file, not per pattern). |
+| file              | what it is                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<id>.wasm`       | the compiled tree-sitter grammar (compile the grammar repo with `tree-sitter generate && tree-sitter build --wasm`); its export MUST be `tree_sitter_<id>` - the cross-check. Absent: an embedded grammar of the same id is shadowed for extraction only.                                                                                                                       |
+| `extensions.json` | routing: a bare JSON array of dot-prefixed extensions, e.g. `[".v", ".sv"]`. There is no version key - git owns versioning (the grammar dir IS a checkout).                                                                                                                                                                                                                     |
+| `queries.scm`     | tree-sitter query patterns assigning **jint captures** — the extraction half. Shape directives (`#set!`) live here too, FILE-scoped - one name, one value per file. Write the directive beside the pattern that motivated it; a second pattern wanting a different value for the same name is a load error naming both lines (the directive is read per file, not per pattern). |
 
 **The .scm IS the interface.** A capture your queries emit is rule-facing - addressable through
-the qualified capture address `<lang>:<capture>` (e.g. `markdown:section`) - by the fact of being
-emitted, derived from the .scm at load. No second list to maintain: there is no manifest export
-declaration and no registry; the derivation is syntactic (a capture bound only under a predicate
-still counts; `;` comment lines naming a capture do not). Element captures only: @name and
-reserved tokens are never rule-facing, and a capture outside jint's frozen vocabulary fails the
-grammar at registration. Validation is loud at load - an address naming an unknown grammar, or a
-capture a loaded grammar does not emit, is a setup error naming the loaded grammars or the
-emitted set (e.g. `markdown emits: section`), even when that grammar's files never walk the run.
+the qualified capture address `<lang>:<capture>` (e.g. `markdown:section`) - once your .scm
+DECLARES it. There are two tiers:
+
+- **Shared captures** - `function, method, class, type, binding, comment, import, docstring` -
+  the cross-grammar lingua franca. Emitting one needs no declaration: it carries the shared
+  engine defaults (a definition among them; comment/import/docstring are lanes). Promoting a NEW
+  word into this tier is a ceremony - it is a cross-grammar promise, documented in
+  docs/designs/grammar-loading.md; do not do it for one grammar.
+- **Autonomous captures** - any name your grammar owns (`section`, `list`, yours). Declare it
+  with ONE directive line and it is an element the same hour: `(#set! "capture.<name>.definition" "true")`
+  attached to one of its patterns. Optional knobs carry the rest of the shape:
+  `capture.<name>.selfNesting "true"` (same-capture candidates nest - a nested block is an element
+  of its own), `capture.<name>.opaque "true|false"` (a different-capture candidate strictly
+  inside is implementation), `capture.<name>.absorbTail <bytes>` (the largest same-capture wrapper
+  tail that still reads as prefix-absorb). Undeclared defaults for an autonomous capture: hide
+  nothing, absorb nothing. This is the whole authoring surface - ZERO engine edits; the standing
+  proof is tests/capture-directives-e2e.test.ts, a fixture grammar that mints a new capture and
+  measures it through a rule end to end.
+
+No second list to maintain: there is no manifest export declaration and no registry; the
+derivation is syntactic (a capture bound only under a predicate still counts; `;` comment lines
+naming a capture do not). Element captures only: @name and reserved tokens are never rule-facing.
+A capture that is neither shared nor declared fails the grammar at load naming both doors and the
+exact directive to add - a typo'd shared name cannot silently become an autonomous capture.
+Validation is loud at load - an address naming an unknown grammar, or a capture a loaded grammar
+does not emit, is a setup error naming the loaded grammars or the emitted set (e.g.
+`markdown emits: section`), even when that grammar's files never walk the run.
 
 Registration happens at lint start. A user wasm wins over an embedded grammar of the same
-language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The frozen
-capture vocabulary is the contract: the seam accepts ANY grammar, but only jint's ontology —
-`function, method, class, type, binding, comment, import, docstring`, plus the grammar-autonomous captures a grammar's own .scm declares (markdown: section, paragraph, list_item, list). Your .scm decides which of
-your grammar's node types speak as which capture; the rules, the target table
-(docs/targets.md), and every default rule then work on your language unchanged.
+language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The
+SHARED capture vocabulary is the contract: the seam accepts ANY grammar, and a shared capture
+brings the whole ontology with it - the rules, the target table (docs/targets.md), and every
+default rule work on your language unchanged. Your own captures need only their declaration
+directives. Your .scm decides which of your grammar's node types speak as which capture.
 
 ### What you will meet when validation fails
 
@@ -49,14 +68,17 @@ Everything fails loud, at setup, before any file is measured — never into sile
 
 - **Unknown node types**: `queries.scm` names a node type the grammar does not have. Query
   compilation rejects it; the error quotes the compiler message verbatim.
-- **Unknown captures**: a capture outside the vocabulary. The run refuses to start and prints
-  your captures next to the seven code captures plus docstring — an .scm that captures outside the ontology would
-  parse into elements no rule can address, so it is a config error by name.
+- **Undeclared captures**: a capture that is neither SHARED nor declared by a
+  `capture.<name>.definition` directive. The run refuses to start, prints your captures next to
+  the shared eight, and names the exact directive to add - an undeclared capture would parse
+  into elements no rule can address, so it is a config error by name. A capture directive naming
+  a capture the .scm does not emit is the same loudness (directive and patterns disagree).
 - **Malformed or unknown #set! directives**: a `#set` without the bang, a `#set!` with no quoted
   name, or a `#set! "unknown"` naming no known directive is a setup error naming the line - a
   directive that silently no-ops is a false belief about your own extraction. Known today:
-  `selfNesting` (same-capture candidates nest legitimately - markdown sections),
-  `attach.gap N` (comment attaches only across N or fewer blank rows; default 1),
+  `capture.<name>.definition|opaque|selfNesting|absorbTail` (your capture's facts - the tier-2
+  authoring surface above), the file-wide `selfNesting` (EVERY capture's same-capture candidates
+  nest), `attach.gap N` (comment attaches only across N or fewer blank rows; default 1),
   `docstring.owner next|enclosing` (who the docstring documents; default enclosing),
   `import.merge contiguous|none` (adjacent imports merge per contiguous run; default contiguous).
   Every directive is FILE-scoped: one name, one setting per file - `docstring.owner` cannot be

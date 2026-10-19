@@ -83,3 +83,28 @@ export const AUTONOMOUS_POLICY_DEFAULT: SuppressionShape = { absorbTail: 0, opaq
 export function sharedPolicyDefault(capture: string): SuppressionShape {
   return SHARED_POLICY_DEFAULTS[capture] ?? AUTONOMOUS_POLICY_DEFAULT;
 }
+
+/**
+ * The shared kinds' wire shapes (tier-1): how each lingua-franca capture projects to the contract
+ * Element. Autonomous captures never appear here - walk.ts projects them through the generic
+ * element shape (kind = capture name) - so this table stays CLOSED over the shared names; the
+ * structural guard fails if a capture-keyed behavior container appears anywhere else.
+ */
+export type ProjectionEntry = (
+  element: {
+    readonly name?: string;
+    readonly docstringOf?: import("@jint/contract").DocstringOwner;
+  },
+  base: Omit<import("@jint/contract").Element, "kind">,
+) => import("@jint/contract").Element;
+
+export const SHARED_PROJECTION: Readonly<Record<string, ProjectionEntry>> = {
+  comment: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
+  docstring: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
+  type: (e, base) => ({ kind: "type", ...base, name: e.name }),
+  binding: (e, base) => ({ kind: "binding", ...base, name: e.name }),
+  import: (_e, base) => ({ kind: "import", ...base }),
+  function: (e, base) => ({ kind: "function", ...base, name: e.name }),
+  method: (e, base) => ({ kind: "method", ...base, name: e.name }),
+  class: (e, base) => ({ kind: "class", ...base, name: e.name }),
+};

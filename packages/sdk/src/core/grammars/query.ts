@@ -101,9 +101,6 @@ export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
   return nested;
 }
 
-/** Lane captures (shared.ts - the tier-1 contract): exempt from every suppression rule. */
-const LANES: ReadonlySet<string> = SHARED_LANES;
-
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
 

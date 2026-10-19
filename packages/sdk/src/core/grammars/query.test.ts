@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { elementKinds } from "@jint/contract";
 /**
  * The query runtime's conflict resolution, over plain structural nodes (no grammar needed):
  * same-node double capture resolves by pattern order; same-capture nesting keeps the outer;

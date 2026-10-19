@@ -31,17 +31,18 @@ measurement its handle judged actionable and is the only output that demands act
   The config-loading variant (`captureFor`, the CLI's default) loads the config like run does, so capture
   previews the population a rule will judge; capture with --rule marks that population and
   nothing is classified.
-- **capture vocabulary** — the frozen set of captures the runtime knows: SEVEN SHARED CAPTURES
-  (function, method, class, type, binding, comment, import) that every grammar addresses and the
-  target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
-  docstring convention (a comment-kind capture: owned by its enclosing definition) and markdown's
-  four (section, paragraph, list, list_item; the BYOG precedent) — and the @name capture that
-  renders a definition's name. A query capturing outside the set fails the run at setup. `test` is
-  RESERVED (a valid token no grammar emits yet, held for the test capture).
+- **capture vocabulary** — the two tiers the runtime knows: the SHARED CAPTURES (function,
+  method, class, type, binding, comment, import, docstring) every grammar may address, closed and
+  promoted by ceremony, plus the OPEN NAMESPACE of GRAMMAR-AUTONOMOUS captures a grammar's own
+  .scm declares with a `capture.<name>.definition` directive (markdown's section, paragraph,
+  list, list_item; any BYOG future) - no engine registration. A capture that is neither shared
+  nor declared fails the run at setup naming the directive to add. The @name capture renders a
+  definition's name; `test` is RESERVED (a valid token no grammar emits yet, held for the test
+  capture).
 - **directive** — a #set! fact in a queries.scm attached to one pattern declaring how the engine treats what that pattern extracts; validated at load. Naming principle: the prefix names the grouper, the suffix the knob, the value the setting; names never name the node — the pattern is the target.
 - **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
   (markdown's sections). Absent: a same-capture match inside an existing same-capture
-  element reads as a wrapper's payload and collapses into it unless the tail distance is real (the policy table in query.ts).
+  element reads as a wrapper's payload and collapses into it unless the tail distance is real (the per-grammar capture directives over the shared defaults).
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **scope** — a path selection with an owner: include/exclude patterns that select which files

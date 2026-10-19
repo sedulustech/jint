@@ -13,13 +13,7 @@
  * flag; the yielded elements are exact for what parsed.
  */
 
-import {
-  InternalError,
-  SetupError,
-  type DocstringOwner,
-  type Element,
-  type Span,
-} from "../types.ts";
+import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
 import {
   grammar,
   grammarExtensions,
@@ -615,11 +609,8 @@ export function projectElement(element: InventoryElement): Element {
   };
   const project = PROJECTION[element.capture];
   if (project !== undefined) return project(element, base);
-  return {
-    kind: element.capture,
-    ...base,
-    ...(element.name !== undefined ? { name: element.name } : {}),
-  };
+  if (element.name === undefined) return { kind: element.capture, ...base };
+  return { kind: element.capture, ...base, name: element.name };
 }
 
 export function fileElement(id: string, content: string): Element {
