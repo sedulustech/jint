@@ -281,7 +281,7 @@ export type DocstringOwner = import("@jint/contract").DocstringOwner;
 export interface FileState {
   readonly path: string;
   readonly content: string;
-  /** Wire id for a whole file: its full LOC interval (see blockWireId). */
+  /** Wire id for a whole file: its full LOC interval (the same wire-id form elements use). */
   readonly id: string;
 }
 
@@ -340,7 +340,7 @@ export type ScoreResult = { readonly type: "score"; readonly score: number };
 export type RuleResult = NoulResult | ScoreResult;
 
 /**
- * The swappable backend seam: answers keyed by question name. Implemented by jev/client.ts; faked
+ * The swappable backend seam: answers keyed by question name. Implemented by the jev adapter; faked
  * in tests.
  */
 export type Classifier = (

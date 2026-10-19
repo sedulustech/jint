@@ -56,7 +56,7 @@ export interface ApiOptions {
 }
 
 export function requestsRoot(options: ApiOptions = {}): string {
-  // the SDK's runsBase resolution (JINT_RUNS_DIR / homedir store) is the one default;
+  // the runs store's resolution (JINT_RUNS_DIR, else the homedir store) is the one default;
   // options.root overrides (tests, embedded servers)
   return resolve(options.root ?? runsBase());
 }
@@ -642,11 +642,11 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   const resultRows = rows.filter((row): row is RequestItem => row !== null);
   resultRows.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
   resultRows.forEach((row, i) => (row.seq = i + 1));
-  // flat cell index for the grouped table: one entry per report measurement. pathValues is keyed
-  // by the FULL input (path#span), so element identity survives; severity = span-aware join.
-  // requestFile joins each measurement back to its request: element cells by the request's
-  // elementId (state.id — the uuid the measurement input suffix carries), file-tier cells by the
-  // bare path (kind disambiguates a stray element request without an id).
+  // one cell per report measurement. pathValues is keyed by the FULL input (path#span), so
+  // element identity survives; severity = span-aware join. requestFile joins each measurement
+  // back to its request: element cells by the request's elementId (state.id — the uuid the
+  // measurement input suffix carries), file-tier cells by the bare path (kind disambiguates a
+  // stray element request without an id).
   const elementRequestFile = new Map<string, string>();
   const fileRequestFile = new Map<string, string>();
   for (const row of resultRows) {

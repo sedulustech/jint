@@ -41,11 +41,11 @@ export interface ClassifyOptions {
   readonly path?: string;
   /** Explicit tree-sitter grammar (e.g. "typescript") for extensionless sources. */
   readonly language?: string;
-  /** Swappable classifier; defaults to the TypeSafe System One adapter (same seam as lint). */
+  /** Swappable classifier; defaults to the TypeSafe System One adapter. */
   readonly classifier?: Classifier;
-  /** Cap on in-flight per-element classifier calls (default DEFAULT_CONCURRENCY). */
+  /** Cap on in-flight per-element classifier calls (default 16, the shared run-wide ceiling). */
   readonly concurrency?: number;
-  /** Per-call timeout in seconds (default DEFAULT_TIMEOUT): a hung call becomes JEV_TIMEOUT. */
+  /** Per-call timeout in seconds (default 30): a hung call becomes JEV_TIMEOUT. */
   readonly timeout?: number;
 }
 
@@ -61,8 +61,8 @@ export interface ClassifyOutcome {
 
 /**
  * Classify one str against rules: unit-scoped rules judge the whole str in one call;
- * inventory-scoped rules have the inventory derived internally (via decompose, shared with
- * classifyFile) and judge each element in its own one-element call.
+ * inventory-scoped rules have the inventory derived internally, the same derivation the file
+ * pipeline uses, and judge each element in its own one-element call.
  *
  * Decompose failure (no language resolvable, unparseable) is an in-band WALK_FAILED ClassifyError
  * in errors — never thrown — and inventory is omitted; unit-scoped rules still classify.
@@ -81,7 +81,7 @@ export async function classify(
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
   // classify() has no config scope, so its registry is the embedded base alone - the grammar-dir
-  // scan is lint()'s and captureFor()'s seam, never this one-shot call's
+  // scan belongs to the config-aware seams, never this one-shot call's
   const registry = EMBEDDED;
   // an element-target rule needs a parsed inventory; when neither the path nor the language
   // option resolves a grammar there is none - fail at setup, never as a silent empty run

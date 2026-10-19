@@ -165,7 +165,7 @@ const HANDLE_SCHEMA = Type.Object(
     silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
   },
   // No extra keys: a { warn, map } hybrid must be rejected here exactly like the JSON tier
-  // rejects it (cross-tier parity — see the shared checkNoulHandler invariants).
+  // rejects it (cross-tier parity: the same handler invariants both tiers enforce).
   { additionalProperties: false },
 );
 
@@ -230,7 +230,7 @@ function isRole(t: unknown): boolean {
 
 // THE QUALIFIED CAPTURE ADDRESS shape ({grammar}:{capture}): TS custom rules reach grammar-
 // autonomous captures exactly like declarative ones (owner-ruled). The grammar id and capture
-// themselves are validated at lint startup (assertCaptureAddress, merged registry) - this check is shape-only.
+// themselves are validated at lint startup against the merged registry - this check is shape-only.
 const QUALIFIED_ADDRESS = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
 
 function isTargetable(t: unknown): boolean {

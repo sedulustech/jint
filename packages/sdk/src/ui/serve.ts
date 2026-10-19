@@ -46,7 +46,7 @@ export function resolveDistDir(distDir?: string): string {
   const candidates = [
     distDir,
     process.env.JINT_UI_DIST,
-    // the binary's embedded UI (scripts/build.ts compile assets; readable under $bunfs root)
+    // the binary's embedded UI assets (readable under $bunfs root)
     (Bun.embeddedFiles ?? []).some(
       (file) => (file as Blob & { name: string }).name === "dist/index.html",
     )
@@ -76,7 +76,7 @@ export interface StartUiOptions {
   port?: number;
   /** Built static dir to serve; default JINT_UI_DIST, else the dev checkout's app dist. */
   distDir?: string;
-  /** Absolute runs root to serve; default the SDK's runsBase resolution (JINT_RUNS_DIR / homedir). */
+  /** Absolute runs root to serve; default the runs store's resolution (JINT_RUNS_DIR / homedir). */
   root?: string;
 }
 
