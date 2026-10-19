@@ -253,7 +253,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb:
-      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does)",
+      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config doors for unscoped rules",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
 } as const;

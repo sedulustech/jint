@@ -20,6 +20,7 @@ import {
   type GrammarRegistry,
   type InventoryElement,
 } from "./grammars/walk.ts";
+import { denylistMatch, SECRET_DENYLIST, type IncludeDoor } from "./input/dir.ts";
 import { inferKind, resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import {
@@ -53,7 +54,7 @@ import {
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
-import { configDoorPredicate, judgesWholeUnit, ruleInScope, walkDoors } from "./scope.ts";
+import { configDoorAdmits, judgesWholeUnit, ruleInScope, walkDoors } from "./scope.ts";
 import {
   ClassifyError,
   SetupError,
@@ -66,7 +67,6 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
-import type { IncludeDoor } from "./input/dir.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
 import type { RuleDigest } from "@jint/contract";
 
@@ -724,38 +724,77 @@ async function resolveRunUnits(
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
   // (walkDoors builds the doors; the config door is first, so attribution names a rule door only
-  // when the config door did not admit). Each rule still measures only files its own scope admits
-  // - configAdmits below is that gate for the rules riding the config door.
+  // when the config door did not admit). Each rule still measures only files its own scope admits.
   const doors = walkDoors(options.config.include, [...rules, ...customRules]);
-  const configDoor = configDoorPredicate(options.config.include);
-  // file-operand, element-scope, and list inputs bypass the include walk (documented): every
-  // unit they produce is config-admitted for rule selection
+  // THE ONE config-door test (configDoorAdmits - include ∧ ¬exclude), the same predicate for
+  // every input kind below. str and paths-list inputs returned above with always-true (no path
+  // semantics to evaluate: the paths list is caller-curated selection, str has no real path);
+  // dir walks and file operands both use THIS one - the input kind decides where the predicate
+  // runs (the walker enforces it mid-walk for dirs; the operand branch evaluates it on the
+  // named path), never what it means.
+  const configAdmits = configDoorAdmits(options.config.include, exclude);
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
       ? "file"
       : (options.inputType ?? options.config.inputType ?? (await inferKind(input as string)));
-  const configAdmits = resolvedKind === "dir" ? configDoor : () => true;
-  const units = await collectUnits(
-    resolveInput({
-      // the empty-input guard above established non-empty; element scope pins the
-      // input to exactly the selector file (dir/config input is ignored)
-      input: (elementPinned ? options.element!.path : input) as string | string[],
-      inputType: options.inputType ?? options.config.inputType,
-      exclude,
-      include: doors,
-      scopeBase: options.scopeBase,
-      // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
-      secretDenylist: options.config.secretDenylist,
-      onNote: onWalkNote,
-      // the run's registry: explicit-file routing reads it (fileUnit)
-      registry,
-      // explicit file selection measures raw when only files-target rules are in scope
-      requireGrammarFor: (p) =>
-        customRules.some((rule) => ruleInScope(rule, p)) ||
-        rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
-      stats,
-    }),
+  // one resolveInput plumbing: the doors/exclude params ride along (inert on file operands -
+  // fileUnit never walks), load-bearing on the dir walk
+  const resolve = (inp: string | string[], inputType: InputKind | undefined) =>
+    collectUnits(
+      resolveInput({
+        input: inp,
+        inputType,
+        exclude,
+        include: doors,
+        scopeBase: options.scopeBase,
+        secretDenylist: options.config.secretDenylist,
+        onNote: onWalkNote,
+        registry,
+        requireGrammarFor: (p) =>
+          customRules.some((rule) => ruleInScope(rule, p)) ||
+          rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+        stats,
+      }),
+    );
+  if (resolvedKind === "file") {
+    // FILE-OPERAND DOORS: the same one predicate, evaluated on the named path instead of by
+    // the walker. A named file behind the config doors is measured by unscoped rules exactly
+    // as a walked file is; a rule door claims its files across the config exclude, as in the
+    // walk. The denylist is a SAFETY door, not a selector: naming a secret-shaped path does
+    // not hand its contents to the classifier (pattern-level test; the PEM sniff stays
+    // walk-only - a named file with an innocent name is explicit consent, like piped source).
+    const named = Array.isArray(input)
+      ? [...input]
+      : [elementPinned ? options.element!.path : (input as string)];
+    const claimsRuleDoor = (p: string): boolean =>
+      [...rules, ...customRules].some((rule) => rule.include !== undefined && ruleInScope(rule, p));
+    const kept: string[] = [];
+    for (const path of named) {
+      const denied = denylistMatch(path, options.config.secretDenylist ?? SECRET_DENYLIST);
+      if (denied !== null) {
+        onWalkNote(
+          `secret denylist skipped '${path}' (named operand; pattern '${denied}') - naming a secret-shaped path does not hand its contents to the classifier`,
+        );
+        continue;
+      }
+      // the no-claim note names the emptiness; the operand still RESOLVES below - existence and
+      // grammar failures stay the caller's error, the doors only decide which rules may measure
+      if (!configAdmits(path) && !claimsRuleDoor(path)) {
+        onWalkNote(
+          `${path}: no rule measures this file - outside the config doors and no rule include names it`,
+        );
+      }
+      kept.push(path);
+    }
+    const units = kept.length === 0 ? [] : await resolve(kept, "file");
+    return { units, configAdmits, doors };
+  }
+  // the dir walk: the walker enforces the same doors mid-walk (admitting through any door);
+  // configAdmits here is what unscoped rules ride during rule selection
+  const units = await resolve(
+    input as string | string[],
+    options.inputType ?? options.config.inputType,
   );
   return { units, configAdmits, doors };
 }

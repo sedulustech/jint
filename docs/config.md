@@ -30,10 +30,22 @@ matches. A rule that names a file claims jurisdiction over it: the rule door adm
 even where the config `exclude` would drop it (the more specific scope wins, gitignore style —
 the denylist and gitignore doors are safety doors and never yield). Each rule then measures only
 files its own scope admits: unscoped rules (no `include` of their own) follow the config
-door and never measure a
-file only a rule include claimed. `run.input.admitted` in the report attributes every included
-file to its door (`config` or `rule:<name>`). An explicitly passed single FILE bypasses the
-include/exclude walk entirely (a dir target never does).
+door and never measure a file only a rule include claimed. `run.input.admitted` in the report attributes every included
+file to its door (`config` or `rule:<name>`).
+
+**File operands honor the same doors.** `jint run <file>` evaluates the one config-door
+test (include whitelist AND not excluded) on the named path: a named file behind the doors
+is measured by unscoped rules exactly as a walked file is; a named file the doors exclude is
+skipped by every unscoped rule, and a rule `include` claims it across the config exclude as
+in the walk. A named file nothing claims measures nothing, with a note saying so — never
+silence. The secret denylist is a safety door, not a selector: it applies to named operands
+too (naming a secret-shaped path does not hand its contents to the classifier; pattern-level
+— the PEM content sniff stays walk-only, an innocent-named operand is explicit consent like
+piped source). The `str` and `paths` nouns keep always-true (no path semantics to evaluate:
+the paths list is caller-curated selection; str has no real path); an element-scope run pins
+its selector file, which door-checks like any operand. Capture's explicit FILE target still
+bypasses the walk scoping (it prints structure, no classifier) — but its `--rule` preview
+marker applies the same door predicate.
 
 ## Tier 2: `jint.config.ts` — imperative composition
 

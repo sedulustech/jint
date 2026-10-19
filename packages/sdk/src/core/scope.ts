@@ -138,12 +138,21 @@ export function walkDoors(
 }
 
 /**
- * Whether the CONFIG door admits a path (the door unscoped rules follow). File-operand inputs and
- * str units bypass the include walk entirely: callers pass a predicate that always returns true for
- * those, so every consumer of this gate stays honest about which units were bypassed.
+ * THE config-door admission test (one logic, every input kind - the walk-union contract): a path is
+ * behind the config doors when the include whitelist admits it (an empty list admits everything)
+ * AND no exclude pattern drops it. Dir walks enforce the same doors inside the walker, file
+ * operands evaluate the same predicate on the named path - never a second definition. Rule doors
+ * are not consulted here: a rule that names a file claims it across the config exclude (that
+ * composition lives in rule selection, once, at every consumer: ruleInScope(rule, path) &&
+ * (rule.include !== undefined || configDoorAdmits(path))).
  */
-export function configDoorPredicate(configInclude: readonly string[]): (path: string) => boolean {
-  if (configInclude.length === 0) return () => true;
-  const rules = configInclude.map(compilePattern);
-  return (path) => rules.some((rule) => patternMatchesFile(rule, path));
+export function configDoorAdmits(
+  configInclude: readonly string[],
+  exclude: readonly string[],
+): (path: string) => boolean {
+  const includeRules = configInclude.map(compilePattern);
+  const excludeRules = exclude.map(compilePattern);
+  return (path) =>
+    (includeRules.length === 0 || includeRules.some((r) => patternMatchesFile(r, path))) &&
+    !excludeRules.some((r) => patternMatchesFile(r, path));
 }

@@ -527,7 +527,7 @@ function scopeNotesFor(
     const unscopedRules = rules.filter((rule) => rule.include === undefined).length;
     if (unscopedRules > 0)
       noteParts.push(
-        `${unscopedRules} unscoped rule(s) follow the config include and skip this rule-admitted file`,
+        `${unscopedRules} unscoped rule(s) follow the config include and skip this file`,
       );
   }
   if (noteParts.length === 0) return [];
