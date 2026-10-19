@@ -235,11 +235,6 @@ function assertTargetsAddressable(config: ResolvedConfig, registry: GrammarRegis
   }
 }
 
-/**
- * Backstop for optional config.input: no input at all is a setup failure (the CLI resolves flags >
- * stdin > config before getting here). The changeset form counts as input: its list IS the
- * selection.
- */
 function assertInputSelected(
   options: LintOptions,
   pathsList: readonly string[] | undefined,
