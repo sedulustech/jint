@@ -5,7 +5,7 @@
  * module is where they meet the terminal.)
  */
 
-import { describeRules, type CapturedElement, type Rule } from "@jint/sdk";
+import { describeRules, type CapturedElement, type Rule, type SelectedElement } from "@jint/sdk";
 
 /**
  * The one stderr emitter: every stderr line jint prints routes through here, and the `jint: `
@@ -113,4 +113,33 @@ export function captureJson(elements: readonly CapturedElement[]): string {
 /** A usage error: the emitter's bare-error shape (message leads, no code - nothing to code yet). */
 export function usageError(usageMessage: string): void {
   emit({ message: usageMessage, kind: "error" });
+}
+
+/**
+ * The element-scoped run's stdout pre-print: WHICH element the selector captured - id, kind, name,
+ * span - plus the first three lines of its exact captured text, before any measurement. A line that
+ * drifted after edits selects a different unit silently; this header is the run's own contradiction
+ * of a wrong-unit assumption. Banner voice (the JINT_PREFIX), stdout, human mode only: --json keeps
+ * stdout a single document and carries the same fact as the report's `selected` object.
+ */
+export function printSelection(selected: readonly SelectedElement[]): void {
+  for (const s of selected) {
+    const label = s.kind + (s.name !== undefined ? " " + s.name : "");
+    process.stdout.write(
+      JINT_PREFIX +
+        s.path +
+        "@" +
+        s.id +
+        " -> " +
+        label +
+        " (L" +
+        s.spanStart +
+        "-L" +
+        s.spanEnd +
+        ")\n",
+    );
+    for (const line of s.content.split("\n").slice(0, 3)) {
+      process.stdout.write(JINT_PREFIX + "  " + line + "\n");
+    }
+  }
 }

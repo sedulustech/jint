@@ -100,6 +100,41 @@ describe("cli: element-scoped runs (mocked jev)", () => {
     expect(r.stderr).toContain("bad line span");
   });
 
+  test("human mode echoes WHICH element was captured on stdout BEFORE the findings", async () => {
+    jev.requests.length = 0;
+    const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable"]);
+    expect(r.code).toBe(0);
+    const echoAt = r.stdout.indexOf("jint: " + FIXTURE + "@L");
+    expect(echoAt).toBeGreaterThanOrEqual(0);
+    const header = r.stdout.split("\n").find((l) => l.startsWith("jint: " + FIXTURE + "@L"));
+    expect(header).toContain(" -> function addSeconds (L");
+    // the captured text preview: the element's own first line, under the header
+    const headerIdx = r.stdout.split("\n").indexOf(header!);
+    expect(r.stdout.split("\n")[headerIdx + 1]).toContain("addSeconds");
+  });
+
+  test("--json keeps stdout a single JSON document with the selected object inside", async () => {
+    jev.requests.length = 0;
+    const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable", "--json"]);
+    expect(r.code).toBe(0);
+    const doc = JSON.parse(r.stdout);
+    expect(doc.tool).toBe("jint");
+    expect(doc.selected).toHaveLength(1);
+    expect(doc.selected[0].path).toBe(FIXTURE);
+    expect(doc.selected[0].kind).toBe("function");
+    expect(doc.selected[0].name).toBe("addSeconds");
+    expect(doc.selected[0].span.start).toBeLessThanOrEqual(3);
+    expect(doc.selected[0].span.end).toBeGreaterThanOrEqual(3);
+    expect(doc.selected[0].content).toContain("addSeconds");
+  });
+
+  test("an unscoped run carries no selected object (a walk has no selection)", async () => {
+    jev.requests.length = 0;
+    const r = await runMock(["run", FIXTURE, "--rule", "is_greppable", "--json"]);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout).selected).toBeUndefined();
+  });
+
   test("an unknown --rule on a scoped run is the usual unknown-rule usage error", async () => {
     const r = await runMock(["run", FIXTURE + "@L3", "--rule", "no_such_rule"]);
     expect(r.code).toBe(2);
