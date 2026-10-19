@@ -1,16 +1,11 @@
 {
   "configPath": "fixtures/sources/elements",
-  "cwd": "/home/crjm/dev/sedulus/jint/packages/app",
+  "cwd": "/home/crjm/dev/sedulus/worktrees/jint/byog-fixes/packages/app",
   "argv": ["bun", "fixtures:gen"],
-  "ts": "2026-09-29T22:07:18.454Z",
+  "ts": "2026-10-19T15:56:34.556Z",
   "handles": {
     "is_name_purposeful": {
-      "warn": {
-        "less_than": 0.4
-      },
-      "error": {
-        "less_than": 0.3
-      }
+      "map": ["pass", "warn", "error"]
     },
     "is_vocabulary_consistent": {
       "warn": {
@@ -46,10 +41,10 @@
     },
     "is_comment_narration": {
       "warn": {
-        "greater_than": 0.3
+        "greater_than": 0.6
       },
       "error": {
-        "greater_than": 0.45
+        "greater_than": 0.7
       }
     },
     "is_comment_patching_readability": {
@@ -65,7 +60,8 @@
         "greater_than": 0.55
       },
       "error": {
-        "greater_than": 0.7
+        "greater_than": 0.7,
+        "message": "Remove the comment or comply with the criteria."
       }
     },
     "will_error_lose_cause": {
@@ -86,9 +82,11 @@
       "error": {
         "less_than": 0.3
       }
-    },
-    "is_readable": {
-      "map": ["pass", "pass", "warn", "error"]
     }
+  },
+  "durationMs": 7,
+  "usage": {
+    "input": 1000,
+    "output": 100
   }
 }

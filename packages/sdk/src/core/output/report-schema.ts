@@ -104,8 +104,11 @@ export const FINDING_SCHEMA = Type.Object({
 export const LINE_SCHEMA = Type.String({
   // path(@L<start>) or path(@L<start>-L<end>)  rule  level  score — two-space separators,
   // parseable. The element id never prints (run-scoped internal); files-target findings have no
-  // anchor. The run id stays stderr-side: it prints once per run.
-  pattern: "^\\s*\\S+(@L\\d+(-L\\d+)?)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}$",
+  // anchor. The run id stays stderr-side: it prints once per run. An OPTIONAL trailing
+  // `(confidence 0.00)` cell rides a torn answer's line (human print only; --json always carries
+  // the field).
+  pattern:
+    "^\\s*\\S+(@L\\d+(-L\\d+)?)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}(?:\\s{2}\\(confidence \\d+\\.\\d{2}\\))?$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({

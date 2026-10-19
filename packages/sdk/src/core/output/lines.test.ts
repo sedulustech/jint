@@ -57,6 +57,28 @@ describe("renderLines", () => {
     expect(stdout).not.toContain("[");
   });
 
+  // The confidence visibility floor, human print only: a torn answer (confidence < 0.25 - in
+  // practice 0, bimodal) self-announces; a confident or absent confidence stays clean.
+  test("a torn finding self-announces `(confidence 0.00)`; confident findings stay clean", () => {
+    const torn: LintReport = {
+      measurements: [],
+      rules: [],
+      notes: [],
+      errors: [],
+      findings: [
+        { rule: "probe", input: "src/x.ts", value: 0.9, severity: "warn", confidence: 0 },
+        { rule: "probe", input: "src/y.ts", value: 0.9, severity: "warn", confidence: 0.7 },
+        { rule: "probe", input: "src/z.ts", value: 0.9, severity: "warn" },
+      ],
+    };
+    const { stdout } = renderLines(torn);
+    const lines = stdout.trimEnd().split("\n");
+    expect(lines[0]!.endsWith("  (confidence 0.00)")).toBe(true);
+    expect(lines[1]!.includes("confidence")).toBe(false);
+    expect(lines[2]!.includes("confidence")).toBe(false);
+    for (const line of lines) expect(Value.Check(LINE_SCHEMA, line)).toBe(true);
+  });
+
   test("a finding's message renders as an indented continuation line beneath it", () => {
     const { stdout } = renderLines({
       ...report,

@@ -1,24 +1,26 @@
 {
-  "ts": "2026-09-29T22:07:18.452Z",
+  "ts": "2026-10-19T15:56:34.554Z",
   "url": "https://api.typesafe.ai/v1/systemone",
+  "durationMs": 1,
   "request": {
     "state": {
       "path": "helpers.ts",
       "source": "export type InvoiceLine = { unitPrice: number; quantity: number; label: string };",
-      "id": "48cae896-9592-4df4-9d42-b1341e2f6636"
+      "id": "54d8d46a-d463-4bba-ae8a-7970a7a32d2a"
     },
     "questions": {
       "is_name_purposeful": {
-        "type": "noul",
-        "instructions": "This unit is a type definition. Does every identifier's name in this unit state what it does or holds, so a reader can infer its purpose from the name alone?",
-        "criteria": {
-          "true": "Every identifier's name in this code states what it does or holds: a reader can infer the thing's purpose from the name alone, without reading the surrounding code. Casing and convention style are not part of this judgment.",
-          "false": "At least one name reveals implementation instead of purpose (naming how it works, not what it is for), is a bare generic word that could label anything (data, handler, util, temp), or misleads by promising behavior or a kind the thing does not have."
-        }
+        "type": "score",
+        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
+        "criteria": [
+          "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
+          "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+          "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+        ]
       },
       "is_naming_convention_consistent": {
         "type": "noul",
-        "instructions": "This unit is a type definition. Do identifiers of the same kind in this unit follow a single casing convention?",
+        "instructions": "Do identifiers of the same kind in this unit follow a single casing convention?",
         "criteria": {
           "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
           "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
@@ -26,21 +28,11 @@
       },
       "is_cognitively_complex": {
         "type": "score",
-        "instructions": "This unit is a type definition. How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
         "criteria": [
           "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
           "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
           "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-        ]
-      },
-      "is_readable": {
-        "type": "score",
-        "instructions": "This unit is a type definition. How easy is `source` to read at the identifier/structure level? Do not score algorithmic hardness. Do not score comments here.",
-        "criteria": [
-          "Names, structure, and types make the story obvious.",
-          "Mostly clear; a few opaque names or a slightly awkward shape.",
-          "Reader must reconstruct intent from implementation details.",
-          "Dense, misleading names, or structure that fights the problem."
         ]
       }
     },
@@ -51,8 +43,15 @@
     "model": "jev-fixture",
     "answers": {
       "is_name_purposeful": {
-        "type": "noul",
-        "noul": 0.25
+        "type": "score",
+        "score": 0.25,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.067,
+          "2": 0.067,
+          "3": 0.067
+        },
+        "confidence": 0.8
       },
       "is_naming_convention_consistent": {
         "type": "noul",
@@ -60,24 +59,13 @@
       },
       "is_cognitively_complex": {
         "type": "score",
-        "score": 0,
-        "probabilities": {
-          "0": 0.9,
-          "1": 0.05,
-          "2": 0.05
-        },
-        "confidence": 0.8
-      },
-      "is_readable": {
-        "type": "score",
         "score": 2,
         "probabilities": {
-          "0": 0.05,
+          "0": 0.45,
           "1": 0.1,
-          "2": 0.8,
-          "3": 0.05
+          "2": 0.45
         },
-        "confidence": 0.8
+        "confidence": 0
       }
     },
     "usage": {

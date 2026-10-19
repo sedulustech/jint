@@ -228,7 +228,15 @@ export interface Finding {
   readonly value: number;
   readonly severity: Severity;
   /**
-   * Additive (custom tier): a policy callback's remediation instruction for the caller
+   * The answer's certainty, copied from the finding's measurement when the answer carried one
+   * (score answers): 1 = concentrated, 0 = torn between distant levels (bimodal). Absent when the
+   * answer had none (noul answers, callback tiers).
+   */
+  readonly confidence?: number;
+  /** The full distribution the value summarizes: one probability per criterion option. */
+  readonly probabilities?: Record<string, number>;
+  /**
+   * Additive (custom tier): a policy callback's remediation instruction to the caller
    * (schema-validated at the callback boundary). Absent for threshold-derived findings.
    */
   readonly message?: string;

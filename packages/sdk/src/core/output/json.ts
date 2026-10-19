@@ -38,6 +38,10 @@ export function renderJson(report: LintReport): string {
             input: s.input,
             value: s.value,
             severity: s.severity,
+            // the measurement's certainty rides the finding: an agent reading findings alone sees
+            // a coin-flip without fetching the measurement (undefined drops, the key omits)
+            confidence: s.confidence !== undefined ? s.confidence : undefined,
+            probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
             message: s.message !== undefined ? s.message : undefined,
             location:
               s.location !== undefined

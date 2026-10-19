@@ -1,24 +1,25 @@
 {
-  "ts": "2026-09-29T22:07:18.444Z",
+  "ts": "2026-10-19T15:56:34.551Z",
   "url": "https://api.typesafe.ai/v1/systemone",
+  "durationMs": 0,
   "request": {
     "state": {
-      "path": "complex.ts",
-      "content": "// A deliberately mixed file: nested functions, a class, varied naming — the walker has real\n// structure to descend into and the classifier has real per-element states to judge.\n\nexport function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}\n\nexport class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}\n\n// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;\n",
-      "id": "L1-L25"
+      "path": "helpers.ts",
+      "content": "export type Invoice = { id: string; lines: InvoiceLine[] };\nexport type InvoiceLine = { unitPrice: number; quantity: number; label: string };\n\nexport function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}\n",
+      "id": "L1-L7"
     },
     "questions": {
-      "is_vocabulary_consistent in L1-L25": {
+      "is_vocabulary_consistent in L1-L7": {
         "type": "noul",
-        "instructions": "This unit is a source file. Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
+        "instructions": "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
         "criteria": {
           "true": "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
           "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
         }
       },
-      "is_filename_fitting in L1-L25": {
+      "is_filename_fitting in L1-L7": {
         "type": "noul",
-        "instructions": "This unit is a source file. Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
+        "instructions": "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
         "criteria": {
           "true": "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
           "false": "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
@@ -31,11 +32,11 @@
   "response": {
     "model": "jev-fixture",
     "answers": {
-      "is_vocabulary_consistent in L1-L25": {
+      "is_vocabulary_consistent in L1-L7": {
         "type": "noul",
         "noul": 0.9
       },
-      "is_filename_fitting in L1-L25": {
+      "is_filename_fitting in L1-L7": {
         "type": "noul",
         "noul": 0.3
       }

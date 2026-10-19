@@ -513,6 +513,11 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
               value: event.value,
               severity: outcome.severity,
               note: outcome.message,
+              // the answer's certainty rides the finding (absent when the answer had none: noul
+              // answers, callback tiers) - findings are the actionable output; a coin-flip must
+              // be discoverable from them, not only from the measurement
+              confidence: event.confidence,
+              probabilities: event.probabilities,
               location:
                 element !== undefined ? { input: event.input, span: element.span } : undefined,
             },
