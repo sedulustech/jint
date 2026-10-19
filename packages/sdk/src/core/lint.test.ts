@@ -692,7 +692,7 @@ describe("lint", () => {
       }),
     );
     expect(report.measurements).toHaveLength(0);
-    // layer 1 (global config exclude) closes the CONFIG door, never the claiming rule's: a
+    // layer 1 (global config exclude) closes the CONFIG scope, never the claiming rule's: a
     // rule include claims its file across the exclude (jurisdiction, walk-union) - the claiming
     // rule measures it; an unscoped rule on the same file measures nothing
     const claimed = await calls({
@@ -1201,7 +1201,7 @@ describe("lint", () => {
     );
     // good.ts contributes its binding/function AND its documented binding (the attached comment
     // rides the pair frame, one identity). README.md's section is @section - no shared target
-    // addresses it, so no default probe measures it (the capture backdoor is the only road).
+    // addresses it, so no default probe measures it (the capture address is the only road).
     expect([...inputs].filter((i) => i.includes("#"))).toHaveLength(2);
     for (const i of inputs) if (i.includes("#")) expect(i).toMatch(/^good\.ts#[0-9a-f-]{36}$/);
     // Makefile is extensionless; more.ts was excluded, so it never appears as seen
@@ -1583,8 +1583,8 @@ describe("lint — str unit is its own inventory", () => {
   });
 });
 describe("walk-union discovery (config include ∪ rule includes)", () => {
-  // the doors: a file is walked when the config include OR any rule's include matches; each rule
-  // then measures only files its own scope admits - unscoped rules follow the config door and never
+  // the scopes: a file is walked when the config include OR any rule's include matches; each rule
+  // then measures only files its own scope admits - unscoped rules follow the config scope and never
   // measure a file only a rule include claimed.
   const mdRule = mkRule("choice", {
     name: "probe_md_only",
@@ -1611,7 +1611,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     );
     // the md file IS measured - by the rule whose include claimed it
     expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
-    // the unscoped files rule NEVER measures the rule-admitted file (it rides the config door) -
+    // the unscoped files rule NEVER measures the rule-admitted file (it rides the config scope) -
     // it measures only the ts file the config include admitted
     const files = events.filter(
       (e): e is Extract<LintEvent, { type: "measurement" }> =>
@@ -1665,7 +1665,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
   });
 
-  test("run.input attributes each admitted file to its door (flat, config first)", async () => {
+  test("run.input attributes each admitted file to its scope (flat, config first)", async () => {
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [probeFiles, mdRule], include: ["**/*.ts"] },
@@ -1676,7 +1676,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     const summary = events.find(
       (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
     );
-    // flat decomposition: the config door owns the ts, the rule door owns the md
+    // flat decomposition: the config scope owns the ts, the rule scope owns the md
     expect(summary?.summary.admitted).toEqual([
       { by: "config", count: 1 },
       { by: "rule:probe_md_only", count: 1 },
@@ -1697,11 +1697,11 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
     );
     expect(scopeNotes).toHaveLength(1);
     expect(scopeNotes[0]!.note).toBe(
-      "wu-notes.md: scope excluded - 1 unscoped rule(s) follow the config include and skip this file",
+      "wu-notes.md: scope excluded - 1 unscoped rule(s) follow the config scope and skip this scope-claimed file",
     );
   });
 });
-describe("file-operand doors (the one config-door test, evaluated on the named path)", () => {
+describe("file-operand scopes (the one config-scope test, evaluated on the named path)", () => {
   const mdRule = mkRule("choice", {
     name: "probe_md_only",
     target: "files",
@@ -1709,7 +1709,7 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
     handle: { map: ["pass", "pass", "error"] },
   });
 
-  test("a door-excluded operand measures ONLY the rules whose include claims it (the GLOSSARY shape)", async () => {
+  test("a scope-excluded operand measures ONLY the rules whose include claims it (the GLOSSARY shape)", async () => {
     mkdirSync("tmp", { recursive: true });
     await Bun.write("tmp/fo-notes.md", "# notes\n\nprose only\n");
     const events = await drain(
@@ -1728,23 +1728,23 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
       (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
     );
     // the regression: is_filename_fitting-shaped unscoped files rule measures NOTHING on the
-    // door-excluded operand (run 1792428499081 measured it before the fix)
+    // scope-excluded operand (run 1792428499081 measured it before the fix)
     expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
     // one line, the unscoped-rule note vocabulary - never silence
     const notes = events.filter(
       (e): e is Extract<LintEvent, { type: "note" }> => e.type === "note",
     );
     expect(notes.map((n) => n.note)).toContain(
-      "tmp/fo-notes.md: scope excluded - 1 unscoped rule(s) follow the config include and skip this file",
+      "tmp/fo-notes.md: scope excluded - 1 unscoped rule(s) follow the config scope and skip this scope-claimed file",
     );
-    // operands attribute their door too (run.input.admitted decomposes `included` for every kind)
+    // operands attribute their scope too (run.input.admitted decomposes `included` for every kind)
     const summary = events.find(
       (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
     );
     expect(summary?.summary.admitted).toEqual([{ by: "rule:probe_md_only", count: 1 }]);
   });
 
-  test("an operand behind the config doors measures unscoped rules as before", async () => {
+  test("an operand behind the config scope measures unscoped rules as before", async () => {
     mkdirSync("tmp", { recursive: true });
     await Bun.write("tmp/fo-code.ts", "export const one = 1;\n");
     const events = await drain(
@@ -1762,7 +1762,7 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
     ]);
   });
 
-  test("a door-excluded operand nothing claims measures nothing, with the one saying-so note", async () => {
+  test("a scope-excluded operand nothing claims measures nothing, with the one saying-so note", async () => {
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [probeFiles], include: ["**/*.ts"], exclude: ["**/*.md"] },
@@ -1776,11 +1776,11 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
       (e): e is Extract<LintEvent, { type: "note" }> => e.type === "note",
     );
     expect(notes.map((n) => n.note)).toContain(
-      "tmp/fo-notes.md: no rule measures this file - outside the config doors and no rule claims it",
+      "tmp/fo-notes.md: no rule measures this file - outside the config scope and no rule claims it",
     );
   });
 
-  test("a secret-shaped named operand is blocked by the denylist (safety door, not selector)", async () => {
+  test("a secret-shaped named operand is blocked by the denylist (always-win exclusion, not a selector)", async () => {
     await Bun.write("tmp/fo-secret.env", "TOKEN=1\n");
     const events = await drain(
       lint({
@@ -1824,9 +1824,9 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
       (e): e is Extract<LintEvent, { type: "measurement" }> =>
         e.type === "measurement" && e.measurement.input.endsWith("fo-gen/special.ts"),
     );
-    // fo-gen/special.ts matches the config include AND the config exclude, and the rule door
+    // fo-gen/special.ts matches the config include AND the config exclude, and the rule scope
     // claims it: the claim saves it from the exclude, the one predicate says NOT behind the
-    // config doors, so only the claiming rule measures it - and run.input credits the savior
+    // config scope, so only the claiming rule measures it - and run.input credits the savior
     expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_gen_only"]);
     const summary = events.find(
       (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
@@ -1836,7 +1836,7 @@ describe("file-operand doors (the one config-door test, evaluated on the named p
     ).toBe(true);
   });
 });
-describe("review fixes: one claim test, the operand door knobs", () => {
+describe("review fixes: one claim test, the operand scope knobs", () => {
   test("a rule that names-and-drops a file does not claim it (include AND not-own-excluded, both sides)", async () => {
     mkdirSync("tmp/rv1", { recursive: true });
     await Bun.write("tmp/rv1/rv-notes.md", "# notes\n\nprose\n");
@@ -1867,7 +1867,7 @@ describe("review fixes: one claim test, the operand door knobs", () => {
         (e): e is Extract<LintEvent, { type: "note" }> =>
           e.type === "note" &&
           e.note ===
-            "tmp/rv1/rv-notes.md: no rule measures this file - outside the config doors and no rule claims it",
+            "tmp/rv1/rv-notes.md: no rule measures this file - outside the config scope and no rule claims it",
       ),
     ).toBe(true);
     // walk side: same rule, same config, dir walk - the unclaimed md falls to the config exclude
@@ -1892,9 +1892,9 @@ describe("review fixes: one claim test, the operand door knobs", () => {
     expect(summary?.summary.excluded.some((e) => e.glob === "**/*.md" && e.count === 1)).toBe(true);
   });
 
-  test("--exclude closes the operand door: the composed exclude, not just the config's", async () => {
+  test("--exclude closes the operand scope: the composed exclude, not just the config's", async () => {
     // config include admits md; the CLI --exclude extra drops it again - the run's exclude is the
-    // composition, and the operand door must evaluate the same composition
+    // composition, and the operand scope must evaluate the same composition
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [probeFiles], include: ["**/*.md"] },
@@ -1912,7 +1912,7 @@ describe("review fixes: one claim test, the operand door knobs", () => {
     ).toBe(true);
   });
 
-  test("an element-scope run door-checks its selector file like any operand", async () => {
+  test("an element-scope run scope-checks its selector file like any operand", async () => {
     const proseRule = mkRule("choice", {
       name: "probe_md_section",
       target: "markdown:section",
@@ -1936,10 +1936,10 @@ describe("review fixes: one claim test, the operand door knobs", () => {
       (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
     );
     // the element run measures ONLY the claiming rule's paragraph; the unscoped files rule
-    // (which on main measured such a file) follows the config doors and stays out
+    // (which on main measured such a file) follows the config scope and stays out
     expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_md_section"]);
     // no unscoped note here BY DESIGN: element selection drops the files-target rule before
-    // classification (files-target rules cannot run element-scoped), so the door check's proof
+    // classification (files-target rules cannot run element-scoped), so the scope check's proof
     // is the measurement set itself - probe_files is absent, probe_md_section measured
     expect(
       events.some(

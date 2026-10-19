@@ -13,7 +13,7 @@ import {
 import { runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 
-// capture's config door, e2e-first: the behavior matrix from the design - config-input parity with
+// capture's config scope, e2e-first: the behavior matrix from the design - config-input parity with
 // run (element-for-element), config excludes applied to an explicit target, --rule preview marking
 // exactly what a real lint run measures, unknown-rule loud, config-error parity. The SDK-level
 // claims run in-process through the PUBLIC surface (loadConfig + lint with a stub transport +
@@ -103,7 +103,7 @@ async function withCwd<T>(dir: string, body: () => Promise<T>): Promise<T> {
   }
 }
 
-describe("captureFor - the config door, run parity (sdk surface)", () => {
+describe("captureFor - the config scope, run parity (sdk surface)", () => {
   test("no target walks the config's input: element-for-element with a real lint run", async () => {
     const dir = join(ROOT_DIR, "parity");
     rmScratchTree(dir);
@@ -176,7 +176,7 @@ describe("captureFor - the config door, run parity (sdk surface)", () => {
       const config = await loadConfig(join(dir, "jint.config.json"));
       const marked = await captureFor(config, { rule: "probe_all" })();
       // the rule's include claims every .ts across the config exclude (jurisdiction: a rule
-      // door beats the config exclude for the files it names, walk-union); b.py is scoped out
+      // scope beats the config exclude for the files it names, walk-union); b.py is scoped out
       // by the include. So gen/g.ts enters the walk AND is marked - the exclude alone cannot
       // stop a rule that names the file.
       expect(marked.filter((e) => e.matches === true).map((e) => e.input)).toEqual([
@@ -252,7 +252,7 @@ describe("captureFor - the config door, run parity (sdk surface)", () => {
   });
 });
 
-describe("jint capture - the config door through the spawned binary", () => {
+describe("jint capture - the config scope through the spawned binary", () => {
   test("no target, config input: same element set the config declares, gen pruned, exit 0", async () => {
     const dir = join(ROOT_DIR, "cli-parity");
     rmScratchTree(dir);
@@ -352,7 +352,7 @@ describe("jint capture - the config door through the spawned binary", () => {
     expect(r.stderr).toContain("jint capture previews one rule at a time");
   });
 
-  test("config-error parity: capture fails with run's exact error, same door, same message", async () => {
+  test("config-error parity: capture fails with run's exact error, same scope, same message", async () => {
     const dir = join(ROOT_DIR, "cli-broken");
     rmScratchTree(dir);
     writeTree(dir);
@@ -365,7 +365,7 @@ describe("jint capture - the config door through the spawned binary", () => {
     expect(cap.stderr).toContain("config file is not valid JSON");
   });
 
-  test("no config, no target: the existing usage error, now naming the config door too", async () => {
+  test("no config, no target: the existing usage error, now naming the config scope too", async () => {
     const dir = join(ROOT_DIR, "cli-bare");
     rmScratchTree(dir);
     writeTree(dir);
@@ -375,7 +375,7 @@ describe("jint capture - the config door through the spawned binary", () => {
     expect(r.stderr).toContain("or set input in the config");
   });
 
-  test("no config file: the built-in defaults door - its fixtures exclude prunes the walk (run parity)", async () => {
+  test("no config file: the built-in defaults scope - its fixtures exclude prunes the walk (run parity)", async () => {
     const dir = join(ROOT_DIR, "cli-defaults");
     rmScratchTree(dir);
     mkdirSync(join(dir, "fixtures"), { recursive: true });

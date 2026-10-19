@@ -12,9 +12,9 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
-    // doors-open config: the fixture lives under tests/, which the repo config excludes -
-    // these tests exercise ELEMENT SELECTION, not door semantics
-    return runCli([...args, "--config", "tests/fixtures/configs/doors-open.json"], {
+    // scopes-open config: the fixture lives under tests/, which the repo config excludes -
+    // these tests exercise ELEMENT SELECTION, not scope semantics
+    return runCli([...args, "--config", "tests/fixtures/configs/scopes-open.json"], {
       env: { ...MOCK_ENV, ...env },
     });
   }

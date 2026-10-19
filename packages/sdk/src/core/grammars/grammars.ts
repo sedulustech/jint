@@ -3,8 +3,8 @@
  * tree into elements. Embedded grammars are NOT special: each embedded/<id>/ directory carries the
  * same three artifacts a custom grammar dir holds — <id>.wasm (parse), extensions.json (routing:
  * queries.scm (extraction + shape directives) — and registers through the same shape a custom
- * grammar uses at runtime. The registry is a VALUE, not a table: every door builds one per run or
- * call (the embedded base merged with whatever customs that door sees) and threads it explicitly
+ * grammar uses at runtime. The registry is a VALUE, not a table: every scope builds one per run or
+ * call (the embedded base merged with whatever customs that scope sees) and threads it explicitly
  * through walk/query entry points — no module-level mutable state, so a custom registration can
  * never outlive the call that asked for it. A custom grammar dir ($JINT_GRAMMAR_DIR, default
  * ~/.jint/grammars) merges at lint start: a custom wasm wins over embedded for the same language,
@@ -83,7 +83,7 @@ export type GrammarRegistry = Readonly<Record<string, GrammarEntry>>;
 // ---------------------------------------------------------------------------
 // Embedded grammars: compiled-in registrations through the custom-facing shape.
 // One line per grammar; each embedded/<lang>/ dir owns its data. Static data: the immutable base
-// every registry value starts from, and the default when a door has no custom grammars.
+// every registry value starts from, and the default when a scope has no custom grammars.
 // ---------------------------------------------------------------------------
 
 export const EMBEDDED: GrammarRegistry = {
@@ -365,7 +365,7 @@ async function readCustomGrammar(
   const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
   // queriesOptional = an explicit .scm override supplies extraction for THIS call; the dir's own
   // queries.scm - present or not - is NOT read (it would be unused, and reading it unvalidated
-  // would license a bad .scm through the side door). The entry carries the empty marker; that
+  // would license a bad .scm through the side path). The entry carries the empty marker; that
   // marker can never be walked override-less, because the entry lives only in the registry value
   // the call holding the override builds - the unwind is by construction (2026-10-19: the interim
   // walker guard for the marker died with the mutable global it papered over).

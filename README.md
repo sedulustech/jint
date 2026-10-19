@@ -84,7 +84,7 @@ The first positional is the verb: `run`, `serve`, or `capture`. There is no impl
 `jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory.
 `--config <path>` overrides discovery.
 
-`capture` loads the config through the same door `run` does, so it measures the same population
+`capture` loads the config through the same scope `run` does, so it measures the same population
 a run will classify: with no target it walks the config's `input`; with a target it walks that
 path under the config's still-applicable scoping (`exclude`, `include`, `secretDenylist`; the
 `--exclude` flag unions on top, as in `run`). A config `run` cannot load, `capture` cannot

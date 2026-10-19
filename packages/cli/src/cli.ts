@@ -33,7 +33,7 @@ import {
   loadConfig,
   renderJson,
   renderInputSummary,
-  walkDoors,
+  walkScopes,
   renderLines,
   recordSummary,
   recordRunManifest,
@@ -253,7 +253,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb:
-      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config doors for unscoped rules",
+      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
 } as const;
@@ -339,7 +339,7 @@ const NOUN_FORMS = Object.entries(NOUNS)
   .join(" or ");
 
 /**
- * ONE dash-positional vocabulary, used by BOTH doorways (the first-positional check in runCli and
+ * ONE dash-positional vocabulary, used by BOTH scan sites (the first-positional check in runCli and
  * the operand scan in resolveCliInput): a bare '-' names the input-noun forms (a dash is a payload,
  * a payload needs its noun); anything else dash-leading and unresolvable is a mistyped flag - name
  * the token.
@@ -622,7 +622,7 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
 }
 
 /**
- * The CLI's ONE config door, shared by run and capture: --config > discovered jint.config.* >
+ * The CLI's ONE config scope, shared by run and capture: --config > discovered jint.config.* >
  * built-in defaults, loaded through the SDK loader with the bundled baseline (string rule names
  * resolve), so both verbs see the same rules, input, and excludes - and a config that cannot load
  * fails identically through either verb. configPath is the file that ran (absolute); null when the
@@ -720,7 +720,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   }
 
   // config discovery: TS preferred, JSON fallback; --config overrides discovery - run and
-  // capture share this door (capture measures the population run will classify)
+  // capture share this path (capture measures the population run will classify)
   let resolvedConfig: ResolvedConfig;
   let configPath: string | null;
   try {
@@ -960,7 +960,7 @@ async function serveVerb(rest: readonly string[]): Promise<number> {
 
 /**
  * Capture [<target>] [--queries <file.scm>] [--grammar <dir>] [--rule <name>]: a thin print of the
- * SDK's capture door - input resolution, grammar routing, extraction; no rules run, no classifier,
+ * SDK's capture scope - input resolution, grammar routing, extraction; no rules run, no classifier,
  * no stdin (a dash target is run's str noun, not capture's). The CONFIG loads exactly like run's
  * (--config > discovered jint.config.* > built-in defaults), so capture measures the same
  * population a run will classify: no target walks the config's input; a target walks it under the
@@ -993,7 +993,7 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
   try {
     ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
   } catch (thrown) {
-    // the same door, the same message: a config run cannot load, capture cannot either
+    // the same scope, the same message: a config run cannot load, capture cannot either
     return exitForThrown(thrown);
   }
   if (rest.length === 0 && resolvedConfig.input === "") {
@@ -1020,10 +1020,10 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       (skip) => skips.push(skip),
       (summary) => {
         // the input accounting's human mirror, stderr-only (stdout stays the element payload):
-        // one line when anything was dropped, a second naming the door when NOTHING was measured
+        // one line when anything was dropped, a second naming the scope when NOTHING was measured
         for (const line of renderInputSummary(
           summary,
-          walkDoors(resolvedConfig.include, resolvedConfig.rules),
+          walkScopes(resolvedConfig.include, resolvedConfig.rules),
         )) {
           emit({ message: line, kind: "note" });
         }

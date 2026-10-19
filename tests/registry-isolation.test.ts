@@ -1,9 +1,9 @@
 /**
  * THE POLLUTION PROOF, committed (2026-10-19, registry encapsulation): ONE process, one custom
- * registration, then the SDK doors WITHOUT the custom dir - asserting the custom grammar is ABSENT.
- * The old module-level registry failed this three separate times in test history (a capture's
- * grammarPath overlay governed every later call); the per-call registry value makes the leak
- * impossible by construction. Proven in three observable forms:
+ * registration, then the SDK scopes WITHOUT the custom dir - asserting the custom grammar is
+ * ABSENT. The old module-level registry failed this three separate times in test history (a
+ * capture's grammarPath overlay governed every later call); the per-call registry value makes the
+ * leak impossible by construction. Proven in three observable forms:
  *
  * 1. Extraction: a later capture() extracts with the EMBEDDED .scm, not the shadow's
  * 2. Routing: an extension only the custom grammar claimed is unclaimed by a later call

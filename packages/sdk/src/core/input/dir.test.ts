@@ -59,9 +59,9 @@ describe("walkDir", () => {
     expect(paths).toEqual(["Makefile", "README.md", "data.json", "good.ts"]);
   });
 
-  test("the input accounting: every door counts, first-match attribution per glob", async () => {
+  test("the input accounting: every scope counts, first-match attribution per glob", async () => {
     // include only .ts, one exclude glob: good.ts included; more.ts excluded BY GLOB (the exclude
-    // door fires before include); the other five files fall outside include (include precedes
+    // scope fires before include); the other five files fall outside include (include precedes
     // gitignore/binary: NOT_IN_INCLUDE owns them)
     const stats = inputStats();
     for await (const _unit of walkDir(
@@ -85,7 +85,7 @@ describe("walkDir", () => {
   });
 
   test("walk-union: a dirOnly include pattern (trailing slash) admits the subtree - the ONE matcher's ancestor semantics", async () => {
-    // the collapsed dirOnly matcher (patternMatchesFile) serves the walker's include doors too:
+    // the collapsed dirOnly matcher (patternMatchesFile) serves the walker's scopes too:
     // "sub/" names a directory, so sub/more.ts is admitted through any ancestor match - exactly
     // what rule scopes have always done (review 396888e finding 2's drift, now one matcher)
     const stats = inputStats();
@@ -105,7 +105,7 @@ describe("walkDir", () => {
     expect(stats.summary().admitted).toEqual([{ by: "config", count: 1 }]);
   });
 
-  test("walk-union: a rule door admits a file the config exclude drops (deeper scope wins); safety doors never yield", async () => {
+  test("walk-union: a rule scope admits a file the config exclude drops (deeper scope wins); always-win exclusions never yield", async () => {
     const stats = inputStats();
     const paths: string[] = [];
     for await (const unit of walkDir(
@@ -122,7 +122,7 @@ describe("walkDir", () => {
     )) {
       paths.push(unit.state.path);
     }
-    // README.md: excluded by config, claimed by the rule door - admitted, attributed to the rule
+    // README.md: excluded by config, claimed by the rule scope - admitted, attributed to the rule
     expect(paths).toContain("README.md");
     expect(stats.summary().admitted).toEqual([
       { by: "config", count: 2 },
@@ -145,7 +145,7 @@ describe("walkDir", () => {
     }
     // both .ts files match the FIRST glob; the second owns nothing and is omitted
     expect(stats.summary().excluded).toEqual([{ glob: "**/*.ts", count: 2 }]);
-    // the remaining doors: two binaries (blob.bin sniff, photo.png extension) own their reason
+    // the remaining scopes: two binaries (blob.bin sniff, photo.png extension) own their reason
     expect(stats.summary().skipped).toEqual([{ reason: "BINARY", count: 2 }]);
   });
 

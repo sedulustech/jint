@@ -54,12 +54,12 @@ export { compileRule } from "./config/load.ts";
 export { registerCustomRuleLoader } from "./core/rules/custom/loader.ts";
 export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint.ts";
 export { renderInputSummary, type InputSummary, type InputStats } from "./core/input/stats.ts";
-export { walkDoors, configDoorAdmits, type IncludeDoor } from "./core/scope.ts";
+export { walkScopes, configScopeAdmits, type OwnedScope } from "./core/scope.ts";
 export { validateCustomRule } from "./core/rules/custom/schema.ts";
 export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
 // capture (verb): extraction without the classifier - the BYOG iterate-on-a-known-language loop
-// captureFor: the config-aware door over the same walk (run's resolution seams, still no classifier)
+// captureFor: the config-aware scope over the same walk (run's resolution seams, still no classifier)
 export {
   capture,
   captureFor,

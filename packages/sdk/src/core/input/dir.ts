@@ -10,8 +10,8 @@
  * `-----BEGIN ` is skipped even when a negation re-admitted it. Skips are signal: ONE coverage note
  * per denylist class per walk (same doctrine as the other walker exclusions). The walker itself
  * only sees walked directories - a NAMED operand never enters walkDir; lint applies the same
- * denylist to named operands at admission (safety door, not selector: pattern-level there, with
- * this walk's PEM sniff staying walk-only).
+ * denylist to named operands at admission (an always-win exclusion, not a selector: pattern-level
+ * there, with this walk's PEM sniff staying walk-only).
  */
 
 import { existsSync } from "node:fs";
@@ -103,61 +103,61 @@ interface IgnoreScope {
 }
 
 /**
- * One admission door: a named owner of include patterns. The CONFIG door (by: "config") is the
- * include whitelist run/capture always had; every RULE door (by: "rule:<name>") is one rule's
- * declared include - the walk-union contract (a rule that names a file claims jurisdiction over it,
- * even where the config exclude would drop it: the more specific scope wins, gitignore style). A
- * file is walked when ANY door admits it; each rule then measures only files its own scope admits.
+ * One scope: a named owner of include patterns. The CONFIG scope (by: "config") is the include
+ * whitelist run/capture always had; every RULE scope (by: "rule:<name>") is one rule's declared
+ * include - the walk-union contract (a rule that names a file claims jurisdiction over it, even
+ * where the config exclude would drop it: the more specific scope wins, gitignore style). A file is
+ * walked when ANY scope admits it; each rule then measures only files its own scope admits.
  */
-export interface IncludeDoor {
-  /** Door owner: "config" or "rule:<rule name>" (attribution for run.input.admitted). */
+export interface OwnedScope {
+  /** Scope owner: "config" or "rule:<rule name>" (attribution for run.input.admitted). */
   readonly by: string;
-  /** Include patterns; the config door with ZERO patterns admits everything (include = []). */
+  /** Include patterns; the config scope with ZERO patterns admits everything (include = []). */
   readonly patterns: readonly string[];
-  /** Rule doors only: the rule's own exclude - a rule that excludes a file does not claim it. */
+  /** Rule scopes only: the rule's own exclude - a rule that excludes a file does not claim it. */
   readonly exclude?: readonly string[];
 }
 
-interface CompiledDoor {
+interface CompiledScope {
   readonly by: string;
   readonly rules: readonly IgnoreRule[];
-  /** Rule doors only: the rule's own compiled exclude. */
+  /** Rule scopes only: the rule's own compiled exclude. */
   readonly excludeRules: readonly IgnoreRule[];
-  /** The config door only: zero patterns = match everything. */
+  /** The config scope only: zero patterns = match everything. */
   readonly matchAll: boolean;
   /**
-   * The ONE claim test (scope.ts ruleDoorClaims' semantics, precompiled): include match AND the
+   * The ONE claim test (scope.ts ruleScopeClaims' semantics, precompiled): include match AND the
    * rule's own exclude does not subtract.
    */
   claims(path: string): boolean;
 }
 
-function compileDoors(doors: readonly IncludeDoor[]): CompiledDoor[] {
-  return doors.map((door) => {
-    const excludeRules = (door.exclude ?? []).map(compilePattern);
+function compileScopes(scopes: readonly OwnedScope[]): CompiledScope[] {
+  return scopes.map((scope) => {
+    const excludeRules = (scope.exclude ?? []).map(compilePattern);
     return {
-      by: door.by,
-      rules: door.patterns.map(compilePattern),
+      by: scope.by,
+      rules: scope.patterns.map(compilePattern),
       excludeRules,
-      matchAll: door.by === "config" && door.patterns.length === 0,
+      matchAll: scope.by === "config" && scope.patterns.length === 0,
       claims:
-        door.by === "config"
+        scope.by === "config"
           ? () => false
           : (path) =>
-              door.patterns.some((p) => patternMatchesFile(compilePattern(p), path)) &&
+              scope.patterns.some((p) => patternMatchesFile(compilePattern(p), path)) &&
               !excludeRules.some((r) => patternMatchesFile(r, path)),
     };
   });
 }
 
-/** First door whose patterns admit the file (config door first in the list wins ties). */
-function firstAdmittingDoor(
-  doors: readonly CompiledDoor[],
+/** First scope whose patterns admit the file (config scope first in the list wins ties). */
+function firstAdmittingScope(
+  scopes: readonly CompiledScope[],
   scopePath: string,
-): CompiledDoor | null {
-  for (const door of doors) {
-    if (door.matchAll) return door;
-    if (door.rules.some((rule) => patternMatchesFile(rule, scopePath))) return door;
+): CompiledScope | null {
+  for (const scope of scopes) {
+    if (scope.matchAll) return scope;
+    if (scope.rules.some((rule) => patternMatchesFile(rule, scopePath))) return scope;
   }
   return null;
 }
@@ -166,7 +166,7 @@ export async function* walkDir(
   root: string,
   exclude?: readonly string[],
   pathPrefix?: string,
-  include?: readonly IncludeDoor[],
+  include?: readonly OwnedScope[],
   secretDenylist?: readonly string[],
   onNote?: (note: string) => void,
   stats: InputStats = inputStats(),
@@ -187,7 +187,7 @@ export async function* walkDir(
   const excludeRules = (exclude ?? []).map(compilePattern);
   const ancestorScopes = await ancestorGitignoreScopes(normalizedRoot);
   const prefix = pathPrefix === undefined ? "" : pathPrefix.replace(/\/+$/, "");
-  const doors = include === undefined ? [] : compileDoors(include);
+  const scopes = include === undefined ? [] : compileScopes(include);
   const deny = denyState(secretDenylist ?? SECRET_DENYLIST, onNote);
   // the denylist is the SHALLOWEST scope: deeper .gitignore scopes (and the list's own
   // negations) compose with ordinary last-match-wins semantics
@@ -198,7 +198,7 @@ export async function* walkDir(
     excludeRules,
     exclude ?? [],
     prefix,
-    doors,
+    scopes,
     deny,
     stats,
   );
@@ -246,7 +246,7 @@ async function* walkDirectory(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  doors: readonly CompiledDoor[],
+  scopes: readonly CompiledScope[],
   deny: DenyState,
   stats?: InputStats,
 ): AsyncGenerator<Unit> {
@@ -274,7 +274,7 @@ async function* walkDirectory(
         excludeRules,
         excludeGlobs,
         pathPrefix,
-        doors,
+        scopes,
         deny,
         stats,
       );
@@ -287,7 +287,7 @@ async function* walkDirectory(
         excludeRules,
         excludeGlobs,
         pathPrefix,
-        doors,
+        scopes,
         deny,
         stats,
       );
@@ -306,7 +306,7 @@ async function* descendIntoDirectory(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  doors: readonly CompiledDoor[],
+  scopes: readonly CompiledScope[],
   deny: DenyState,
   stats?: InputStats,
 ): AsyncGenerator<Unit> {
@@ -335,7 +335,7 @@ async function* descendIntoDirectory(
     excludeRules,
     excludeGlobs,
     pathPrefix,
-    doors,
+    scopes,
     deny,
     stats,
   );
@@ -350,39 +350,39 @@ async function readFileUnit(
   excludeRules: IgnoreRule[],
   excludeGlobs: readonly string[],
   pathPrefix: string,
-  doors: readonly CompiledDoor[],
+  scopes: readonly CompiledScope[],
   deny: DenyState,
   stats?: InputStats,
 ): Promise<Unit | null> {
   // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
-  // discovered: the walker opened this file's doors - every drop below is accounted
+  // discovered: the walker opened this file's scopes - every drop below is accounted
   stats?.markDiscovered();
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
-  // WALK-UNION admission: a rule door that matches the file CLAIMS JURISDICTION over it -
+  // WALK-UNION admission: a rule scope that matches the file CLAIMS JURISDICTION over it -
   // even where the config exclude would drop it (the more specific scope wins; the denylist
-  // and gitignore doors below are SAFETY doors and never yield). Jurisdiction is independent of
-  // the config door: a rule claims its file whether or not the config include also matches, so
-  // the claim test runs on the rule doors alone. Attribution stays first-match (config first)
-  // EXCEPT where the claim SAVED the file from the exclude - then the saving door owns it.
-  // the claim test is ruleDoorClaims' semantics (scope.ts) inlined over the compiled doors:
+  // and gitignore scopes below are SAFETY scopes and never yield). Jurisdiction is independent of
+  // the config scope: a rule claims its file whether or not the config include also matches, so
+  // the claim test runs on the rule scopes alone. Attribution stays first-match (config first)
+  // EXCEPT where the claim SAVED the file from the exclude - then the saving scope owns it.
+  // the claim test is ruleScopeClaims' semantics (scope.ts) inlined over the compiled scopes:
   // include match AND the rule's own exclude does not subtract - one semantics, both consumers
-  const claim = doors.find((door) => door.claims(scopePath));
+  const claim = scopes.find((scope) => scope.claims(scopePath));
   const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
   if (claim === undefined || excludeMatch === -1) {
     if (excludeMatch !== -1) {
       stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
       return null;
     }
-    // doors exist but none admits: outside every include list
-    const admittingDoor = firstAdmittingDoor(doors, scopePath);
-    if (doors.length > 0 && admittingDoor === null) {
+    // scopes exist but none admits: outside every include list
+    const admittingScope = firstAdmittingScope(scopes, scopePath);
+    if (scopes.length > 0 && admittingScope === null) {
       stats?.tallySkip(SKIP_REASONS.notInInclude);
       return null;
     }
-    stats?.tallyAdmit(admittingDoor === null ? "config" : admittingDoor.by);
+    stats?.tallyAdmit(admittingScope === null ? "config" : admittingScope.by);
   } else {
-    // the rule door saved this file from the config exclude: it is the admitting door
+    // the rule scope saved this file from the config exclude: it is the admitting scope
     stats?.tallyAdmit(claim.by);
   }
   if (isSecretShaped(relativePath, false, currentScopes, deny)) {
@@ -553,7 +553,7 @@ function isSecretShaped(
  * scope with negations; the operand case is a pattern-level test - the named path either is
  * secret-shaped or it is not). Returns the matched pattern, null when the path is clean. The PEM
  * content sniff stays walk-only: a name under an innocent name is explicit consent the same way
- * piped source is; the pattern door covers the leak audit's threat (secret-shaped NAMES).
+ * piped source is; the pattern check covers the leak audit's threat (secret-shaped NAMES).
  */
 export function denylistMatch(
   path: string,
@@ -568,7 +568,7 @@ export function denylistMatch(
 
 /**
  * THE one file/pattern matcher (walk-union collapse): dirOnly semantics live here, consumed by the
- * walker's include doors AND scope.ts's per-rule scoping - one semantics, two callers, no second
+ * walker's scopes AND scope.ts's per-rule scoping - one semantics, two callers, no second
  * derivation to drift (review 396888e finding 2 was exactly that drift). A non-dirOnly pattern
  * tests the path itself; a dirOnly pattern (trailing slash - "tests/") names a directory, so it
  * matches a file when ANY ancestor directory of the path satisfies the pattern's regex.

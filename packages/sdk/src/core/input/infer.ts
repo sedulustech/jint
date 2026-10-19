@@ -15,7 +15,7 @@
 import { stat } from "node:fs/promises";
 import { knownLanguages, EMBEDDED, type GrammarRegistry } from "../grammars/walk.ts";
 import { SetupError, type InputKind, type Unit } from "../types.ts";
-import { walkDir, type IncludeDoor } from "./dir.ts";
+import { walkDir, type OwnedScope } from "./dir.ts";
 import { fileUnit } from "./file.ts";
 import type { InputStats } from "./stats.ts";
 
@@ -25,10 +25,10 @@ export interface InputOptions {
   /** Extra input exclusions (config exclude + CLI --exclude union). */
   exclude?: readonly string[];
   /**
-   * The walk's admission doors (walk-union): config door + one door per rule include. Only matching
-   * paths yield; the config door with zero patterns = everything not excluded.
+   * The walk's scopes (walk-union): config scope + one scope per rule include. Only matching paths
+   * yield; the config scope with zero patterns = everything not excluded.
    */
-  include?: readonly IncludeDoor[];
+  include?: readonly OwnedScope[];
   /** Config-scope basis: the input's path relative to the config dir (walkDir pathPrefix). */
   scopeBase?: string;
   /** The walk's secret-shaped denylist (config secretDenylist; default = SECRET_DENYLIST). */

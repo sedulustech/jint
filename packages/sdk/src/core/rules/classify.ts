@@ -300,7 +300,7 @@ export function matchesTarget(target: string, element: TargetableElement): boole
       // route through wholeUnitRules; this case only sees a validated target that slipped in)
       return false;
     default: {
-      // THE QUALIFIED CAPTURE ADDRESS (the targeting backdoor): {grammar}:{capture} grammar-scoped
+      // THE QUALIFIED CAPTURE ADDRESS (the direct-targeting road): {grammar}:{capture} grammar-scoped
       // - the element must come from THAT grammar AND carry THAT capture. Validation is the loud
       // gate (schema rejects bare unknowns; load rejects bad addresses), so an unknown name HERE
       // is an invariant break, never a silent no-match.
@@ -343,10 +343,10 @@ export interface ClassifyFileOptions {
   /** The run's registry value; absent = the embedded base. */
   readonly registry?: GrammarRegistry;
   /**
-   * Whether the CONFIG include door admitted this unit's path (walk-union). False for files only a
-   * RULE include claimed: unscoped rules then do not measure them - the rule that named the file
-   * owns it. Absent = true (the bypass inputs: file operand, str, paths list - and the one-shot
-   * door below, which has no walk at all).
+   * Whether the CONFIG scope admitted this unit's path (walk-union). False for files only a RULE
+   * include claimed: unscoped rules then do not measure them - the rule that named the file owns
+   * it. Absent = true (the bypass inputs: file operand, str, paths list - and the one-shot scope
+   * below, which has no walk at all).
    */
   readonly configAdmits?: boolean;
 }
@@ -520,14 +520,14 @@ function scopeNotesFor(
     ).length;
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
   }
-  // A file only a RULE door admitted: every unscoped rule (no include of its own - it
+  // A file only a RULE scope admitted: every unscoped rule (no include of its own - it
   // follows the config include) is out too - ONE aggregate line, not one per rule (review
   // 396888e finding 4's noise lesson).
   if (!configAdmits) {
     const unscopedRules = rules.filter((rule) => rule.include === undefined).length;
     if (unscopedRules > 0)
       noteParts.push(
-        `${unscopedRules} unscoped rule(s) follow the config include and skip this file`,
+        `${unscopedRules} unscoped rule(s) follow the config scope and skip this scope-claimed file`,
       );
   }
   if (noteParts.length === 0) return [];
@@ -745,7 +745,7 @@ export async function classifyFile(
 ): Promise<ClassifyResult> {
   const state = unit.state;
   const events: ClassifyEvent[] = [];
-  // the walk-union gate for rules riding the config door (absent = bypass input, admitted)
+  // the walk-union gate for rules riding the config scope (absent = bypass input, admitted)
   const configAdmits = options.configAdmits ?? true;
 
   // The FILE unit needs the same token backstop the elements have: file-scope rules send the
@@ -768,7 +768,7 @@ export async function classifyFile(
     return { events, fatal: true, oversized: [], notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
-  // (the one-shot door), walk now. Only file units stream the failure — a str unit has no
+  // (the one-shot call), walk now. Only file units stream the failure — a str unit has no
   // grammar to fail on by construction.
   const walkedUnit = walked ?? (await walkUnit(unit, options));
   // the walk is only load-bearing for inventory-scoped rules; files-tier units measure without it

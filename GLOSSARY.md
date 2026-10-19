@@ -44,9 +44,10 @@ measurement its handle judged actionable and is the only output that demands act
   element reads as a wrapper's payload and collapses into it unless the tail distance is real (the policy table in query.ts).
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
-- **door** — an admission decision with an owner: a set of patterns that admits files into
-  discovery, attributed to its declarer (the config, or a rule by name). Admission doors admit;
-  safety doors (denylist, gitignore) subtract and never yield to another door.
+- **scope** — a path selection with an owner: include/exclude patterns that select which files
+  a rule may measure. The config's scope is its include/exclude; a rule's scope is its own
+  include/exclude and claims across the config exclude. The denylist and gitignore are not
+  scopes: they exclude, and always win.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
 - **descent default** — the per-capture policy for what a captured element's interior yields: a
   @type interior surfaces (a method is an element of its own); a @function or @binding interior

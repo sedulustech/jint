@@ -1,9 +1,9 @@
 /**
  * The run's input accounting: how many files the walk saw, and why not all of them were measured.
  * One summary per run (run.input in the report; the human line on stderr), fed by the dir walker
- * (per-file doors) and the capture walk (MISSING_GRAMMAR).
+ * (per-file scopes) and the capture walk (MISSING_GRAMMAR).
  *
- * The doors, and what they count:
+ * The scopes, and what they count:
  *
  * - Excluded[]: config/CLI exclude GLOBS, first-match attribution - a dropped file counts against the
  *   FIRST glob that drops it; a glob that dropped nothing is omitted. A glob that prunes a
@@ -11,13 +11,13 @@
  * - Skipped[]: walk-time drops keyed by reason. Reasons are the walk's own vocabulary: NOT_IN_INCLUDE
  *   (include patterns exist and none matched), BINARY, DENYLIST (incl. PEM), GITIGNORE,
  *   MISSING_GRAMMAR (the capture walk; lint measures such files as raw source).
- * - Discovered counts files the walker opened a door on; .gitignore files and pruned directory trees
- *   (denylist, DEFAULT_SKIP_DIRS) are outside the universe - never discovered. included + every
+ * - Discovered counts files the walker saw; .gitignore files and pruned directory trees (denylist,
+ *   DEFAULT_SKIP_DIRS) are outside the universe - never discovered. included + every
  *   excluded/skipped count decomposes discovered, except where a directory prune swallowed a tree
  *   (counted once as above).
  */
 
-import type { IncludeDoor } from "./dir.ts";
+import type { OwnedScope } from "./dir.ts";
 
 /** One exclude glob and how many drops it owns (first-match attribution). */
 export interface ExcludeTally {
@@ -32,9 +32,9 @@ export interface SkipTally {
 }
 
 /**
- * One admission door and how many files it admitted (first-match attribution: a file counts against
- * the FIRST door that admits it - the config door ahead of every rule door, so a rule door's count
- * is exactly the files ONLY it claims). `by` is "config" or "rule:<name>".
+ * One admission scope and how many files it admitted (first-match attribution: a file counts
+ * against the FIRST scope that admits it - the config scope ahead of every rule scope, so a rule
+ * scope's count is exactly the files ONLY it claims). `by` is "config" or "rule:<name>".
  */
 export interface AdmitTally {
   readonly by: string;
@@ -47,7 +47,7 @@ export interface InputSummary {
   readonly included: number;
   readonly excluded: readonly ExcludeTally[];
   readonly skipped: readonly SkipTally[];
-  /** Which door admitted each included file (decomposes `included`; walk-union). */
+  /** Which scope admitted each included file (decomposes `included`; walk-union). */
   readonly admitted: readonly AdmitTally[];
 }
 
@@ -56,14 +56,14 @@ export interface InputStats {
   markDiscovered(): void;
   markIncluded(): void;
   /**
-   * Take back one inclusion: the walker counts a yielded unit as included, and a door that drops
+   * Take back one inclusion: the walker counts a yielded unit as included, and a scope that drops
    * the unit AFTER the walk (capture's no-grammar skip) retracts it - `included` means MEASURED by
-   * this door, not merely yielded by the walker.
+   * this scope, not merely yielded by the walker.
    */
   retractIncluded(): void;
   tallyExclude(glob: string): void;
   tallySkip(reason: string): void;
-  /** Attribute one admitted file to its door ("config" or "rule:<name>"). */
+  /** Attribute one admitted file to its scope ("config" or "rule:<name>"). */
   tallyAdmit(by: string): void;
   summary(): InputSummary;
 }
@@ -99,7 +99,7 @@ export function inputStats(): InputStats {
       included,
       excluded: [...excluded.entries()].map(([glob, count]) => ({ glob, count })),
       skipped: [...skipped.entries()].map(([reason, count]) => ({ reason, count })),
-      // deterministic order: the config door first, then rule doors alphabetically
+      // deterministic order: the config scope first, then rule scopes alphabetically
       // (insertion order would be walk order - a readdir accident, not a contract)
       admitted: [...admitted.entries()]
         .sort((x, y) => (x[0] === "config" ? -1 : y[0] === "config" ? 1 : x[0].localeCompare(y[0])))
@@ -117,14 +117,14 @@ export const SKIP_REASONS = {
   missingGrammar: "MISSING_GRAMMAR",
 } as const;
 
-/** Door list for the naming line: config patterns plain, rule doors attributed. */
-function doorsLabel(doors: readonly IncludeDoor[]): string {
+/** Scope list for the naming line: config patterns plain, rule scopes attributed. */
+function scopesLabel(scopes: readonly OwnedScope[]): string {
   const parts: string[] = [];
-  for (const door of doors) {
-    if (door.by === "config") {
-      if (door.patterns.length > 0) parts.push(door.patterns.join(", "));
+  for (const scope of scopes) {
+    if (scope.by === "config") {
+      if (scope.patterns.length > 0) parts.push(scope.patterns.join(", "));
     } else {
-      parts.push(door.patterns.join(", ") + " (" + door.by + ")");
+      parts.push(scope.patterns.join(", ") + " (" + scope.by + ")");
     }
   }
   return parts.join("; ");
@@ -134,9 +134,9 @@ function doorsLabel(doors: readonly IncludeDoor[]): string {
  * The human mirror, 1-2 stderr lines. Prints ONLY when something was dropped - the same policy for
  * run and capture: a clean walk adds no line, a dropped-file walk never reads as clean. Line one is
  * the ruling's shape ("34 of 120 files (...)"); line two exists only when NOTHING was measured and
- * names the door that dropped everything.
+ * names the scope that dropped everything.
  */
-export function renderInputSummary(summary: InputSummary, doors: readonly IncludeDoor[]): string[] {
+export function renderInputSummary(summary: InputSummary, scopes: readonly OwnedScope[]): string[] {
   const excludedTotal = summary.excluded.reduce((n, e) => n + e.count, 0);
   const skippedDetail = [...summary.skipped]
     .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
@@ -160,11 +160,11 @@ export function renderInputSummary(summary: InputSummary, doors: readonly Includ
   const notIncluded = summary.skipped.find(
     (s) => s.reason === SKIP_REASONS.notInInclude && s.count >= summary.discovered - excludedTotal,
   );
-  if (notIncluded !== undefined && doors.length > 0) {
+  if (notIncluded !== undefined && scopes.length > 0) {
     return [
       head,
-      "input: every discovered file fell outside every include door [" +
-        doorsLabel(doors) +
+      "input: every discovered file fell outside every scope [" +
+        scopesLabel(scopes) +
         "] - widen the include patterns or point the walk at files they cover",
     ];
   }

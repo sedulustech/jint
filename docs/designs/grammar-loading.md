@@ -145,7 +145,7 @@ qualified definitions). Interfaces, structs, enums, aliases, modules, sections s
   a code capture lying about prose is worse than grammar-autonomous vocabulary. Sections capture
   @section, a markdown-only ELEMENT CAPTURE: the seven shared captures stay seven, the shared target
   union is untouched, and sections are reachable only through the qualified capture address
-  (target "markdown:section" - the targeting backdoor, now real in matchesTarget). Consequence: code-calibrated
+  (target "markdown:section" - direct targeting, now real in matchesTarget). Consequence: code-calibrated
   default rules stop measuring markdown prose; only file-scope rules and comments remain for md.
 - MODULE DOCSTRINGS: routed to loose-comments - no definition owns them, so they are commentary
   like any other unowned run (the "speaks for itself" special case is deleted).
@@ -239,7 +239,7 @@ Ratified ownership decisions (2026-10-16, one line each):
 
 - Header/license comments before the first definition stay loose-comments - a file-level frame is
   unrequested surface; the escape valve is config-level rules scoping loose-comments, and
-  capture-based targeting remains the backdoor.
+  capture-based targeting remains the direct road.
 - Comments interior to a @class counting into the class's internalCommentCount (invisible to
   loose-comments rules) is INTENDED: the comment documents class content and is judged with the
   class - the pair-frame model working, not a leak.
@@ -350,7 +350,7 @@ of internalCommentCount.
 ### The registry is a per-run value; the mutable global dies (2026-10-19, registry encapsulation)
 
 The registry stopped being a module-level table. Registration is a VALUE: `grammars.ts` holds the
-immutable embedded base, and every door builds its own registry value and threads it explicitly
+immutable embedded base, and every scope builds its own registry value and threads it explicitly
 through the walk/query entry points - `lint()` builds one per run (embedded base + the
 JINT_GRAMMAR_DIR scan), `captureFor`/`capture` build one per call (plus the grammarPath overlay).
 Nothing module-level and mutable remains, so a custom registration cannot outlive the call that
