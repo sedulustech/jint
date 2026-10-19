@@ -164,6 +164,10 @@ export const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
   "section",
   // markdown's flat prose (the @paragraph capture)
   "paragraph",
+  // markdown's list entry text (the @list_item capture - the paragraph inside a list entry)
+  "list_item",
+  // markdown's whole list (the @list capture - one element per bullet/ordered list)
+  "list",
 ]);
 
 /**
@@ -550,6 +554,8 @@ const PROJECTION: Readonly<
   class: (e, base) => ({ kind: "class", ...base, name: e.name }),
   section: (e, base) => ({ kind: "section", ...base, name: e.name }),
   paragraph: (_e, base) => ({ kind: "paragraph", ...base }),
+  list_item: (_e, base) => ({ kind: "list_item", ...base }),
+  list: (_e, base) => ({ kind: "list", ...base }),
 };
 
 export function projectElement(element: InventoryElement): Element {

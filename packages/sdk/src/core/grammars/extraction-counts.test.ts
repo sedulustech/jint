@@ -62,7 +62,12 @@ const PINNED: Readonly<
     imports: { import: 1 },
   },
   css: { ext: "css", definitions: {}, comments: { comment: 2 }, imports: {} },
-  markdown: { ext: "md", definitions: { section: 2, paragraph: 6 }, comments: {}, imports: {} },
+  markdown: {
+    ext: "md",
+    definitions: { section: 2, paragraph: 4, list_item: 2, list: 1 },
+    comments: {},
+    imports: {},
+  },
   c: {
     ext: "c",
     definitions: { type: 3, binding: 1, function: 3 },

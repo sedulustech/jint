@@ -35,8 +35,8 @@ measurement its handle judged actionable and is the only output that demands act
   (function, method, class, type, binding, comment, import) that every grammar addresses and the
   target union covers, plus GRAMMAR-AUTONOMOUS captures no shared target addresses — python's
   docstring convention (a comment-kind capture: owned by its enclosing definition) and markdown's
-  section (prose's container-with-body; the BYOG precedent) — and the @name capture that renders a
-  definition's name. A query capturing outside the set fails the run at setup. `test` is
+  four (section, paragraph, list, list_item; the BYOG precedent) — and the @name capture that
+  renders a definition's name. A query capturing outside the set fails the run at setup. `test` is
   RESERVED (a valid token no grammar emits yet, held for the test capture).
 - **directive** — a #set! fact in a queries.scm attached to one pattern declaring how the engine treats what that pattern extracts; validated at load. Naming principle: the prefix names the grouper, the suffix the knob, the value the setting; names never name the node — the pattern is the target.
 - **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
@@ -67,6 +67,13 @@ measurement its handle judged actionable and is the only output that demands act
   captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
   source, no manifest involvement); an unknown grammar or an unemitted capture is a setup error,
   never a silent no-match. The bare form drifted from the design and is schema-rejected.
+- **list** — markdown's whole-list capture (@list, md-only): one element per bullet or ordered
+  list, spanning every item, markers kept in its text. Lists nest - a nested list is an element
+  of its own (the selfNesting fact) - and a rule judging the list whole sees every sibling
+  entry (`markdown:list`).
+- **list_item** — markdown's list-entry capture (@list_item, md-only): the paragraph inside a
+  bullet or numbered item - marker stripped, continuations folded in, one element per entry; an
+  in-list paragraph is a list_item, never a paragraph (`markdown:list_item`).
 - **paragraph** — markdown's flat prose capture (@paragraph, md-only): a run of body text with
   no heading and no interior structure worth judging alone. Flat by construction - paragraphs
   never nest, so it needs no shape directive - and addressed through the qualified lane

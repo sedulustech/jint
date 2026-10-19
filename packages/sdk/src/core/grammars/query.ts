@@ -53,8 +53,12 @@ export const ELEMENT_CAPTURES = [
   // markdown-only element captures (the BYOG precedent for grammar-autonomous vocabulary) -
   // never a code capture, no shared target addresses them. section: prose's container-with-body,
   // self-nesting per the .scm's #set! directive. paragraph: flat prose - paragraphs never nest.
+  // list_item: one list entry's text - the paragraph inside a bullet/numbered item, marker
+  // stripped, continuations folded in; in-list paragraphs are list_item, never paragraph.
   "section",
   "paragraph",
+  "list_item",
+  "list",
 ] as const;
 export type Capture = (typeof ELEMENT_CAPTURES)[number];
 
@@ -91,6 +95,12 @@ const POLICY: Readonly<Record<Capture, { readonly absorbTail: number; readonly o
     section: { absorbTail: 2, opaque: false },
     // paragraph: markdown's flat prose - paragraphs never nest, nothing nests inside them
     paragraph: { absorbTail: 0, opaque: false },
+    // list_item: paragraph's shape (the paragraph inside a list entry, marker stripped) - flat,
+    // nothing nests inside it; nested entries are disjoint sibling paragraphs, never children
+    list_item: { absorbTail: 0, opaque: false },
+    // list: section's shape (markdown's container; show-through interior - the items surface as
+    // list_item elements of their own) - nests legitimately via the .scm's selfNesting flag
+    list: { absorbTail: 2, opaque: false },
     binding: { absorbTail: 2, opaque: true },
     // lanes: never containers of elements; the lanes themselves never hide
     comment: { absorbTail: 0, opaque: false },

@@ -902,7 +902,12 @@ describe("lint", () => {
       }
     }
     // the derivation is element captures only: markdown's @name never becomes addressable
-    expect(emittedCaptures(EMBEDDED, "markdown")).toEqual(["section", "paragraph"]);
+    expect(emittedCaptures(EMBEDDED, "markdown")).toEqual([
+      "section",
+      "paragraph",
+      "list_item",
+      "list",
+    ]);
   });
 
   test("module docstrings are loose comments - no definition owns them", async () => {

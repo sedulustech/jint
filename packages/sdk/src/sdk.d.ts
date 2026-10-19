@@ -25,7 +25,9 @@ declare module "jint:sdk" {
       | "import"
       | "comment"
       | "section"
-      | "paragraph";
+      | "paragraph"
+      | "list_item"
+      | "list";
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };

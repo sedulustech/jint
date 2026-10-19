@@ -36,6 +36,8 @@ export const elementKinds = [
   "import",
   "section",
   "paragraph",
+  "list_item",
+  "list",
 ] as const;
 export type ElementKind = (typeof elementKinds)[number];
 // COMPILE-TIME PIN: the union and the runtime array are the same set, both directions.
@@ -103,6 +105,22 @@ export interface ParagraphElement extends ElementBase {
   readonly kind: "paragraph";
 }
 
+/**
+ * A markdown list entry's text (the grammar-autonomous @list_item capture): the paragraph inside a
+ * bullet/numbered item, marker stripped, continuations folded in.
+ */
+export interface ListItemElement extends ElementBase {
+  readonly kind: "list_item";
+}
+
+/**
+ * A markdown list (the grammar-autonomous @list capture): one element per bullet/ordered list,
+ * spanning all its items.
+ */
+export interface ListElement extends ElementBase {
+  readonly kind: "list";
+}
+
 export interface CommentElement extends ElementBase {
   readonly kind: "comment";
   /** For a docstring element: the module/class/function it documents. */
@@ -124,7 +142,9 @@ export type Element =
   | ImportElement
   | CommentElement
   | SectionElement
-  | ParagraphElement;
+  | ParagraphElement
+  | ListItemElement
+  | ListElement;
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score

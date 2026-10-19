@@ -39,7 +39,7 @@ emitted set (e.g. `markdown emits: section`), even when that grammar's files nev
 Registration happens at lint start. A user wasm wins over an embedded grammar of the same
 language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The frozen
 capture vocabulary is the contract: the seam accepts ANY grammar, but only jint's ontology —
-`function, method, class, type, binding, comment, import, docstring`, plus the grammar-autonomous captures a grammar's own .scm declares (markdown: section, paragraph). Your .scm decides which of
+`function, method, class, type, binding, comment, import, docstring`, plus the grammar-autonomous captures a grammar's own .scm declares (markdown: section, paragraph, list_item, list). Your .scm decides which of
 your grammar's node types speak as which capture; the rules, the target table
 (docs/targets.md), and every default rule then work on your language unchanged.
 

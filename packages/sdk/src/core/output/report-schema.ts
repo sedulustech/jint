@@ -45,6 +45,8 @@ export const ELEMENT_SCHEMA = Type.Union([
     name: Type.Optional(Type.String()),
   }),
   Type.Object({ kind: Type.Literal("paragraph"), ...ELEMENT_BASE }),
+  Type.Object({ kind: Type.Literal("list_item"), ...ELEMENT_BASE }),
+  Type.Object({ kind: Type.Literal("list"), ...ELEMENT_BASE }),
   Type.Object({
     kind: Type.Literal("comment"),
     ...ELEMENT_BASE,
