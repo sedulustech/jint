@@ -63,13 +63,13 @@ async function loadQueryFile(queryPath: string): Promise<string> {
 }
 
 /**
- * The colliding half of the cross-grammar guard: compileQuery's vocabulary check cannot catch an
- * .scm whose node types all exist in the routed grammar - css's comments-only mapping compiles
- * clean over typescript. Identity can: a query file byte-equal to a registered grammar's OWN
- * queries.scm IS that grammar's mapping, and handing it to another language is a setup error naming
- * both, before extraction - a BYTE-IDENTITY check, not a node-mapping claim. (A grammar whose own
- * .scm is passed back - or a sibling with a byte-identical .scm, ts/tsx - extracts as itself and
- * stays legal.)
+ * The colliding half of the cross-grammar guard: the compile-time node-vocabulary check cannot
+ * catch an .scm whose node types all exist in the routed grammar - css's comments-only mapping
+ * compiles clean over typescript. Identity can: a query file byte-equal to a registered grammar's
+ * OWN queries.scm IS that grammar's mapping, and handing it to another language is a setup error
+ * naming both, before extraction - a BYTE-IDENTITY check, not a node-mapping claim. (A grammar
+ * whose own .scm is passed back - or a sibling with a byte-identical .scm, ts/tsx - extracts as
+ * itself and stays legal.)
  */
 function assertQueriesAuthoredFor(
   registry: GrammarRegistry,
@@ -91,18 +91,18 @@ function assertQueriesAuthoredFor(
  * elements; the classifier stays unplugged. It is lint's pipeline with the classifier unplugged:
  * input resolution, grammar registration, walk, inventory - no rules, no jev, no config, no
  * handles. The CLI verb `jint capture` is a thin print of this function (one word, two layers: the
- * SDK function and the CLI verb share the name by design). captureFor() below is the config-aware
- * layer over the same walk: run's resolution seams, still no classifier.
+ * SDK function and the CLI verb share the name by design). The config-aware layer below wraps the
+ * same walk: run's resolution seams, still no classifier.
  *
  * - TargetPath: a file or dir, through the SAME input resolution lint uses - no new input logic. An
- *   explicit FILE no grammar claims fails loud at resolution (fileUnit); a DIR's unclaimable files
- *   are skipped under lint's sweep-coverage policy, and each skip is ONE onSkip event carrying the
- *   file and its extension token - raw events, no aggregate (what parses is derivable from the
- *   returned elements; the caller folds the events into its own reporting).
+ *   explicit FILE no grammar claims fails loud at resolution; a DIR's unclaimable files are skipped
+ *   under lint's sweep-coverage policy, and each skip is ONE onSkip event carrying the file and its
+ *   extension token - raw events, no aggregate (what parses is derivable from the returned
+ *   elements; the caller folds the events into its own reporting).
  * - QueryPath: an .scm FILE that becomes the extraction source, ALWAYS through the full loud compile
  *   checks (vocabulary, #set! directives, pattern-order conflicts) plus the cross-grammar guard
- *   (unknown node types fail compileQuery; a byte-equal foreign queries.scm fails here). When both
- *   are given, the query file WINS; grammarPath's own queries.scm is ignored for extraction
+ *   (unknown node types fail the loud compile; a byte-equal foreign queries.scm fails here). When
+ *   both are given, the query file WINS; grammarPath's own queries.scm is ignored for extraction
  *   (grammarPath is still validated for routing and wasm).
  * - GrammarPath: a grammar DIRECTORY (wasm + extensions.json [+ queries.scm]) registered custom for
  *   this call - id from the dir name, wasm tree_sitter_<id> cross-check, extensions.json routing,
@@ -110,7 +110,7 @@ function assertQueriesAuthoredFor(
  *   registry, which dies with the call.
  *
  * Grammar resolution precedence: grammarPath (custom) > embedded. (The JINT_GRAMMAR_DIR scan is the
- * CONFIG scope - captureFor below - exactly as it is lint's.)
+ * CONFIG scope, exactly as it is lint's.)
  *
  * No filters, no options bag: callers filter the returned array.
  */
@@ -216,7 +216,7 @@ export type ConfiguredCapture = (
 ) => Promise<CapturedElement[]>;
 
 export interface CaptureForOptions {
-  /** Extra input exclusions (CLI --exclude), unioned with config.exclude - lint()'s seam. */
+  /** Extra input exclusions (CLI --exclude), unioned with config.exclude. */
   readonly exclude?: readonly string[];
   /**
    * Population preview: ONE rule name, resolved against the config's rules (defaults + custom). The
@@ -225,11 +225,11 @@ export interface CaptureForOptions {
    */
   readonly rule?: string;
   /**
-   * Config-scope basis for dir inputs (lint()'s scopeBase): the walk root's path relative to the
+   * Config-scope basis for dir inputs (the run's scopeBase): the walk root's path relative to the
    * config's directory, so config patterns apply wherever the walk starts.
    */
   readonly scopeBase?: string;
-  /** Walk coverage notes (grammar-dir and secret-denylist skips) - lint()'s note channel. */
+  /** Walk coverage notes (grammar-dir and secret-denylist skips) - the run's note channel. */
   readonly onNote?: (note: string) => void;
 }
 
@@ -239,10 +239,10 @@ const isCustomRule = (rule: Rule | CustomRule): rule is CustomRule =>
 
 /**
  * Mark one rule's population on the walked elements: JSON-tier rules evaluate the shared target
- * grammar per element (targetsOf + matchesTarget + ruleInScope - the same selectors rulesForElement
- * applies); custom rules go through run's own resolver, resolveTargets, over the whole walk (a
- * function target is arbitrary selection; reusing the seam is the only way the preview cannot drift
- * from what the run would measure). Marks ride the flat index captured was built in.
+ * grammar per element (the same selectors the run applies per element); custom rules go through the
+ * run's own whole-walk resolver (a function target is arbitrary selection; reusing the seam is the
+ * only way the preview cannot drift from what the run would measure). Marks ride the flat index
+ * captured was built in.
  */
 function markPreviewPopulation(
   rule: Rule | CustomRule,
@@ -292,7 +292,7 @@ function markPreviewPopulation(
  * excludes + scopeBase), the same registry build order (the grammar dir's customs first, then the
  * call's own grammarPath). What never crosses: criteria, handles, question shapes, jev, severity.
  * The classifier stays unplugged - captureFor measures the population a run would classify, nothing
- * else. An unknown rule name fails through validateRuleSelection, run's own --rule scope.
+ * else. An unknown rule name fails through the run's own rule-selection scope.
  */
 export function captureFor(
   config: ResolvedConfig,
@@ -306,7 +306,7 @@ export function captureFor(
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
   return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
-    // THIS CALL's registry value, built in lint()'s registration order: the grammar dir first (a
+    // THIS CALL's registry value, built in the run's registration order: the grammar dir first (a
     // run measures through it), then the call's own grammarPath (the BYOG path wins last). The
     // value dies with the call.
     let registry = await loadCustomGrammars(undefined, options.onNote);

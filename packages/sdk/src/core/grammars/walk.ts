@@ -161,10 +161,10 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
 
 /**
  * Is a captured candidate an ELEMENT? The OWNING grammar's `capture.<name>.definition` directives
- * resolve it (scmCaptureDeclarations) over the tier-1 shared defaults (shared.ts - the lingua
- * franca's shape, the only capture-keyed behavior the engine holds): a shared definition capture is
- * an element unless its grammar overrides to false; an AUTONOMOUS capture must declare true or it
- * is inert (captured, never materialized - the .scm said so, not an engine table).
+ * resolve it over the tier-1 shared defaults (the lingua franca's shape, the only capture-keyed
+ * behavior the engine holds): a shared definition capture is an element unless its grammar
+ * overrides to false; an AUTONOMOUS capture must declare true or it is inert (captured, never
+ * materialized - the .scm said so, not an engine table).
  */
 /**
  * One grammar's suppression facts: per-capture shapes (directive overrides over the tier-1 shared
@@ -173,13 +173,9 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
  * form every capture of the grammar inherits).
  */
 /**
- * The captures this grammar's walk yields candidates for: the shared lingua franca plus its own
- * declared autonomous captures.
- */
-/**
  * The captures this grammar's walk yields candidates for: the shared lingua franca plus its
- * declared autonomous ELEMENT captures - the SAME set emittedCaptures exposes to target validation
- * (a definition-false capture produces no elements, so neither side admits it).
+ * declared autonomous ELEMENT captures - the SAME set target validation admits (a definition-false
+ * capture produces no elements, so neither side admits it).
  */
 function resolveAddressable(scm: string): ReadonlySet<string> {
   const declared = scmCaptureDeclarations(scm);

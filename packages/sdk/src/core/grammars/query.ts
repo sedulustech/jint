@@ -51,10 +51,10 @@ import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
  * seam is the ONE authority for what a docstring is; the decompose runtime holds no node-type names.
  */
 /**
- * A capture name. THE OPEN NAMESPACE: the shared lingua franca (shared.ts - validated, closed) plus
- * any grammar-autonomous capture the OWNING .scm declares with a capture.<name>.definition
- * directive (validated at load: a capture neither shared nor declared is a typo or a missing
- * declaration, and fails loud naming the fix). No engine list enumerates the autonomous names.
+ * A capture name. THE OPEN NAMESPACE: the shared lingua franca (validated, closed) plus any
+ * grammar-autonomous capture the OWNING .scm declares with a capture.<name>.definition directive
+ * (validated at load: a capture neither shared nor declared is a typo or a missing declaration, and
+ * fails loud naming the fix). No engine list enumerates the autonomous names.
  */
 export type Capture = string;
 
@@ -67,10 +67,10 @@ export const RESERVED_CAPTURES = ["test"] as const;
 
 /**
  * ONE CANDIDATE'S SUPPRESSION SHAPE, resolved from the OWNING grammar's .scm directives over the
- * tier-1 shared defaults (shared.ts): a capture's `capture.<name>.opaque` /
- * `capture.<name>.absorbTail` lines OVERRIDE; an undeclared shared capture carries the lingua
- * franca's default shape; an undeclared AUTONOMOUS capture carries the conservative default (hide
- * nothing, absorb nothing - everything surfaces). No engine table survives here.
+ * tier-1 shared defaults: a capture's `capture.<name>.opaque` / `capture.<name>.absorbTail` lines
+ * OVERRIDE; an undeclared shared capture carries the lingua franca's default shape; an undeclared
+ * AUTONOMOUS capture carries the conservative default (hide nothing, absorb nothing - everything
+ * surfaces). No engine table survives here.
  */
 
 /** Per-capture suppression shapes declared by one grammar's .scm (the overrides only). */
@@ -533,10 +533,9 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
   return splitPatterns(scm).map((pattern, index) => {
     const startLine = lineOf(pattern.at);
     const lastLine = startLine + pattern.text.split("\n").length - 1;
-    // comments and string literals both go: only real syntax names a root, a capture or a
-    // directive (a predicate string mentioning @priority must not fake one)
-    // text with string literals blanked but COMMENTS INTACT: the directive is a comment, so it
-    // must survive here while a predicate string cannot fake it
+    // two views of the pattern text: strings blanked on both (a predicate string naming a
+    // capture must not fake one); comments kept in `unquoted` - the directive IS a comment - and
+    // cut in `code`, where only real syntax may name a root or capture
     const unquoted = withoutStrings(pattern.text);
     const code = unquoted.replace(/;.*$/gm, "");
     const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
@@ -614,8 +613,8 @@ function scmNodeTypes(scm: string): string[] {
 /**
  * Compile + fully validate one .scm against its language (vocabulary, #set! directives,
  * pattern-order conflicts - the loud checks every extraction source goes through). UNCACHED: the
- * custom-query path (capture() with a query file) may compile several .scm against one language in
- * a process; the embedded path caches per language below.
+ * custom-query path (a capture call with a query file) may compile several .scm against one
+ * language in a process; the embedded path caches per language below.
  *
  * NODE-VOCABULARY GUARD: every node type the .scm names must exist in the grammar it is compiled
  * against - an .scm authored for another grammar is a cross-grammar handoff and fails loud, naming
@@ -659,7 +658,7 @@ export async function compileQuery(
   // THE OPEN-NAMESPACE GATE: every element capture must be EITHER shared (the lingua franca,
   // spelled right by construction) OR declared by this .scm (capture.<name>.definition, true or
   // false - the declaration is the intent). Anything else is a typo'd shared name or a forgotten
-  // declaration; the error names both doors.
+  // declaration; the error names both paths.
   const declared = scmCaptureDeclarations(scm);
   const undeclared = query.captureNames.filter(
     (name) =>
@@ -726,8 +725,8 @@ export interface Candidate {
   readonly name?: string;
   /**
    * The pattern's #set! facts as the ENGINE parsed them (QueryMatch.setProperties), keyed by
-   * directive name - the walker's grouping knobs travel here, validated separately at load
-   * (assertScmDirectives) and read with code defaults when absent.
+   * directive name - the walker's grouping knobs travel here, validated separately at load and read
+   * with code defaults when absent.
    */
   readonly properties?: Readonly<Record<string, string | null>>;
 }
@@ -816,8 +815,8 @@ export function resolveCandidates(
     // THE CONTAINER-BINDING TRAP, the multi-match half: a container pattern like
     // (enum_body (property_identifier) @name) @binding matches ONCE PER member - each match
     // carries a different member's @name onto the SAME node. One element carries one name; the
-    // first match must not silently win the naming. (candidateOf guards the one-match half: a
-    // single match binding @name on several nodes.)
+    // first match must not silently win the naming. (the one-match half is guarded where
+    // candidates resolve: a single match binding @name on several nodes.)
     if (
       existing !== undefined &&
       existing.pattern === candidate.pattern &&
@@ -851,7 +850,7 @@ export function resolveCandidates(
  * `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` for every capture).
  */
 export interface SuppressionOptions {
-  /** The grammar's resolved shapes (built by resolveSuppression in walk.ts). */
+  /** The grammar's resolved shapes (built by the walk over the grammar's directives). */
   readonly shapes: ReadonlyMap<string, SuppressionShape>;
   /** Captures whose same-capture candidates nest legitimately. */
   readonly selfNestingCaptures: ReadonlySet<string>;
@@ -922,11 +921,11 @@ const DEFAULT_ADDRESSABLE: ReadonlySet<string> = new Set(SHARED_ELEMENT_CAPTURES
  * first: prose naming a capture does not emit it.
  */
 export function emittedCaptures(registry: GrammarRegistry, grammarId: string): readonly string[] {
-  // TWO VIEWS OF ONE FILE, deliberately (the boundary): the CODE view (scmEmittedNames - strings
-  // blanked, comments cut) for what the queries EMIT, and the RAW text for what they DECLARE
+  // TWO VIEWS OF ONE FILE, deliberately (the boundary): the CODE view (strings blanked,
+  // comments cut) for what the queries EMIT, and the RAW text for what they DECLARE
   // (a directive's name is a string literal; the code view erases it). The views share this
-  // seam; merging them into one scanner would reshape three load-bearing readers
-  // (scmDirectives, scmEmittedNames, assertScmDirectives) for no new fact.
+  // seam; merging them into one scanner would reshape the three load-bearing readers of these
+  // views for no new fact.
   const raw = grammar(registry, grammarId).queries;
   const named = scmEmittedNames(raw);
   // addressable = SHARED (the lingua franca) or declared by THIS grammar's .scm (autonomous)

@@ -11,7 +11,7 @@ let defaultsProvider: readonly unknown[] | undefined;
  * config-composition/03). build.module intercepts both before any disk lookup, so they resolve
  * inside compiled binaries too, and external users need no install. The scheme specifier is the
  * PORTABLE config-facing spelling; bare @jint/* stays a workspace package form and is NOT
- * intercepted — see docs/designs/default-rule-specifiers.md.
+ * intercepted — the design doc on default-rule specifiers records the deliberation.
  */
 export function registerCustomRuleLoader(virtuals: { defaults?: readonly unknown[] } = {}): void {
   if (virtuals.defaults !== undefined) defaultsProvider = virtuals.defaults;

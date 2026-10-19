@@ -2,12 +2,12 @@
  * TIER 1 - THE SHARED CAPTURE CONTRACT. The cross-grammar lingua franca: the eight capture names
  * every grammar may address, their typed element shapes (the contract's Element union), and the
  * DEFAULTS that carry the shared vocabulary's meaning. This file is the ONLY engine source allowed
- * to hold capture-keyed behavior (the structural guard test enforces that - see
- * grammars.guard.test.ts): everything else is a #set! directive in the owning grammar's .scm.
+ * to hold capture-keyed behavior (the structural guard test enforces that): everything else is a
+ * #set! directive in the owning grammar's .scm.
  *
- * Promoting a word INTO this tier is a ceremony (a cross-grammar promise, documented in
- * docs/byog.md); a grammar-autonomous capture needs NO registration here - its .scm declares its
- * facts with capture.<name>.<knob> directives and the engine resolves them at walk time.
+ * Promoting a word INTO this tier is a ceremony (a cross-grammar promise); a grammar-autonomous
+ * capture needs NO registration here - its .scm declares its facts with capture.<name>.<knob>
+ * directives and the engine resolves them at walk time.
  */
 
 /** The shared element captures: the closed lingua franca every grammar may address. */
@@ -53,7 +53,7 @@ export function sharedDefinitionDefault(capture: string): boolean {
   return SHARED_DEFINITION_DEFAULTS[capture];
 }
 
-/** One capture's suppression shape, resolved per grammar (see query.ts's suppression pass). */
+/** One capture's suppression shape, resolved per grammar by the suppression pass. */
 export interface SuppressionShape {
   readonly absorbTail: number;
   readonly opaque: boolean;

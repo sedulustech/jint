@@ -31,14 +31,14 @@ import {
 export type { OwnedScope };
 import type { Rule, UnitKind } from "./types.ts";
 
-// patternMatchesFile lives in input/dir.ts (the walk-union collapse: ONE matcher, both consumers
+// patternMatchesFile lives in the dir walker (the walk-union collapse: ONE matcher, both consumers
 // - the walker's scopes here and the per-rule scoping below). Import, never re-derive.
 
 /**
  * Whether a rule judges the WHOLE unit in one call (its target routes the unit itself, not
  * inventory elements) versus element-by-element. Shared by the classify funnel's quick path and the
- * scope-note accounting so the two cannot drift (review 396888e finding 4: the predicate was
- * written twice in classify.ts).
+ * scope-note accounting so the two cannot drift (a review finding: the predicate was once written
+ * in two places).
  */
 export function judgesWholeUnit(rule: Pick<Rule, "target">, unitKind: UnitKind): boolean {
   const targets = Array.isArray(rule.target) ? rule.target : [rule.target];

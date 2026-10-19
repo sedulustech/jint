@@ -69,12 +69,12 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   // no separate distribution field.
   probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
   confidence: Type.Optional(Type.Number()),
-  // The measured subject, fully typed (tmp/designs/element.md). Absent only from the bare
-  // classifyUnit generator (no source, no span); every report path attaches it.
+  // The measured subject, fully typed. Absent only from the bare whole-source generator (no
+  // source, no span); every report path attaches it.
   element: Type.Optional(ELEMENT_SCHEMA),
 });
 
-// The severity vocabulary has one home: contract's Severity (handlers.ts). The schema spells the
+// The severity vocabulary has one home: the contract's Severity type. The schema spells the
 // same union for the wire; the identity pin below makes any drift a typecheck failure.
 const SEVERITY_SCHEMA = Type.Union([Type.Literal("error"), Type.Literal("warn")]);
 

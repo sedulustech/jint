@@ -287,10 +287,10 @@ function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: 
 }
 
 /**
- * The classifier seam carries all three knobs - composition order is load-bearing (pacer.ts): the
- * limit caps in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a paced
- * caller never holds a slot), the timeout frees a slot when a call hangs. The pacer is the ONLY
- * rate layer - the typesafe SDK already retries with backoff and honors Retry-After.
+ * The classifier seam carries all three knobs - composition order is load-bearing: the limit caps
+ * in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a paced caller never
+ * holds a slot), the timeout frees a slot when a call hangs. The pacer is the ONLY rate layer - the
+ * typesafe SDK already retries with backoff and honors Retry-After.
  */
 function pacedClassifier(
   options: LintOptions,
@@ -389,7 +389,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
     ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   // The input accounting (run.input): how many files, and why not all measured. Emitted as an
-  // event so the report (collectReport) reads ONE source of truth; the human stderr line rides the
+  // event so the report reads ONE source of truth; the human stderr line rides the
   // notes channel (same doctrine as the denylist coverage notes) whenever anything was dropped.
   yield { type: "input", summary: stats.summary() };
   for (const line of renderInputSummary(stats.summary(), admission.scopes)) {
@@ -405,8 +405,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;
 
-  // WALK-FIRST (design rules-context/03): see walkedInventories - one walk over every file unit
-  // BEFORE any classification, taken only where a consumer exists.
+  // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any
+  // classification, taken only where a consumer exists.
   const { walked, skippedExtensions } = await walkedInventories(
     units,
     options,
@@ -452,8 +452,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     }
   }
 
-  // the JSON-rule waves: FILE_CONCURRENCY units classify at a time, each wave's results
-  // streamed as they land (measurements before findings)
+  // the JSON-rule waves: files classify in bounded waves, each wave's results streamed as they
+  // land (measurements before findings)
   for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
     const results = await Promise.all(
       units
@@ -779,9 +779,9 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
 
 /**
  * The sweep-coverage line, lint's own rendering of a walk's unclaimed files: what parses, then what
- * was seen and skipped - ONE note, extensions not paths, sorted (capture() instead emits one raw
- * onSkip event per skipped file; its callers fold). The "parses" side is the RUN's registry: what a
- * run can parse is what its registry claims.
+ * was seen and skipped - ONE note, extensions not paths, sorted (the capture verb instead emits one
+ * raw skip event per skipped file; its callers fold). The "parses" side is the RUN's registry: what
+ * a run can parse is what its registry claims.
  */
 function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistry): string {
   const skipped = [...new Set(unclaimed)].sort();
@@ -846,7 +846,7 @@ function admittedOperands(
   stats: InputStats,
   onWalkNote: (note: string) => void,
 ): string[] {
-  // the ONE claim test (ruleScopeClaims over the same scopes the walk uses - never a second
+  // the ONE claim test (the same claim predicate the walk uses - never a second
   // predicate): a rule claims the file when its include names it AND its own exclude does not
   // subtract it. Attribution rides the same answer: the claiming scope is the admitting scope.
   const claimingScope = (p: string): OwnedScope | undefined =>
@@ -904,10 +904,10 @@ async function resolveRunUnits(
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
-  // (walkScopes builds the scopes; the config scope is first, so attribution names a rule scope only
+  // (the walk-union scope build puts the config scope first, so attribution names a rule scope only
   // when the config scope did not admit). Each rule still measures only files its own scope admits.
   const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
-  // THE ONE config-scope test (configScopeAdmits - include ∧ ¬exclude), the same predicate for
+  // THE ONE config-scope test (include ∧ ¬exclude), the same predicate for
   // every input kind below. str and paths-list inputs returned above with always-true (no path
   // semantics to evaluate: the paths list is caller-curated selection, str has no real path);
   // dir walks and file operands both use THIS one - the input kind decides where the predicate
@@ -919,8 +919,8 @@ async function resolveRunUnits(
     Array.isArray(input) || elementPinned
       ? "file"
       : (options.inputType ?? options.config.inputType ?? (await inferKind(input as string)));
-  // one resolveInput plumbing: the scopes/exclude params ride along (inert on file operands -
-  // fileUnit never walks), load-bearing on the dir walk
+  // one resolution plumbing: the scopes/exclude params ride along (inert on file operands -
+  // a named file never walks), load-bearing on the dir walk
   const resolve = (inp: string | string[], inputType: InputKind | undefined) =>
     collectUnits(
       resolveInput({
@@ -1005,8 +1005,8 @@ function unknownRuleError(name: string, known: ReadonlySet<string>): SetupError 
 }
 
 /**
- * The pure selection half of partitionRules: disable/only set membership, nothing more. No
- * validation, no throw — shared by lint() (after it validates) and the CLI's rules pre-print, so
+ * The pure selection half of rule partitioning: disable/only set membership, nothing more. No
+ * validation, no throw — shared by the run (after it validates) and the CLI's rules pre-print, so
  * the block always shows exactly the set the run will classify.
  */
 export function selectRules(

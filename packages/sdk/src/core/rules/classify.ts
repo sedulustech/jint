@@ -380,8 +380,8 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   const language = options.language ?? languageOf(registry, state.path);
   if (language === null)
     return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
-  // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
-  // retention pass) — a typed read, no union discriminator and no fallback to parse around.
+  // FileState.content is required and every unit constructor carries it — a typed read, no
+  // union discriminator and no fallback to parse around.
   const source = state.content;
   try {
     const parsedSource = await decompose(source, language, { registry });
@@ -752,7 +752,7 @@ export async function classifyFile(
   // whole content, and jev rejects over-budget requests with a 400 (the only red errors in the
   // verilator-cpp sweep). One constant serves both sides - a token is a token to jev, and the
   // criteria reserve the margin protects is the same shape for a files-rule batch as an element
-  // batch - so the file unit reuses MAX_ELEMENT_TOKENS rather than growing a second constant.
+  // batch - so the file unit reuses the element cap rather than growing a second constant.
   // Skips are a coverage note, never a 400; element rules still measure the file.
   const fileOversized =
     "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;

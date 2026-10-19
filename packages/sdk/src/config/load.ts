@@ -38,7 +38,7 @@ const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
 
 // A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
 // grammar-autonomous vocabulary (markdown's markdown:section). Validated at lint
-// startup against the merged registry (assertCaptureAddress in core/grammars/query.ts).
+// startup against the merged registry, never at config load.
 const CAPTURE_ADDRESS_SCHEMA = Type.String({
   pattern: "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
   description:
@@ -56,7 +56,7 @@ const TARGET_SCHEMA = Type.Union([
 ]);
 
 // Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents
-// validated by checkRuleScope so the error names the exact field.
+// validated eagerly so the error names the exact field.
 const SCOPE_SCHEMA = Type.Array(Type.String());
 
 // Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
@@ -121,7 +121,7 @@ export const CONFIG_SCHEMA = Type.Object({
   include: Type.Optional(Type.Array(Type.String())),
   exclude: Type.Optional(Type.Array(Type.String())),
   // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
-  // negations allowed; default = the frozen SECRET_DENYLIST in input/dir.ts). For repos that
+  // negations allowed; default = the built-in frozen denylist). For repos that
   // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
   secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
@@ -151,7 +151,7 @@ export interface ResolvedConfig {
   readonly customRules?: readonly CustomRule[];
   readonly include: readonly string[];
   readonly exclude: readonly string[];
-  /** The walk's secret-shaped denylist (config override; default = SECRET_DENYLIST). */
+  /** The walk's secret-shaped denylist (config override; default = the built-in denylist). */
   readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
@@ -460,8 +460,8 @@ export function validateConfig(
  * once.
  */
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
-  // capture-address validation happens at LINT STARTUP against the merged registry (the user
-  // grammar dir is not scanned at config load; see lint() in core/lint.ts)
+  // capture-address validation happens at LINT STARTUP against the merged registry - the user
+  // grammar dir is not scanned at config load
   const isChoice = entry.kind === "choice";
   const handle = compileDataHandle(
     entry.handle,
@@ -470,8 +470,8 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     isChoice,
     isChoice ? (entry.criteria as readonly string[]) : [],
   );
-  // Direct optional properties: scope consumers gate on !== undefined, identical for absent and
-  // present-undefined (ruleInScope), and the manifest snapshot drops undefined under JSON.
+  // Direct optional properties: scope consumers gate on !== undefined, so absent and
+  // present-undefined behave identically, and the manifest snapshot drops undefined under JSON.
   const scope = {
     include: entry.include,
     exclude: entry.exclude,

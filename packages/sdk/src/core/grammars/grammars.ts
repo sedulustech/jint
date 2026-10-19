@@ -68,7 +68,7 @@ export interface GrammarEntry {
   readonly extensions: readonly string[];
   /** Bun.file-readable wasm path: a bundled asset path or an on-disk user path. */
   readonly wasmPath: string;
-  /** The grammar's query patterns (the extraction half); compiled per language in query.ts. */
+  /** The grammar's query patterns (the extraction half); compiled and cached per language. */
   readonly queries: string;
   readonly provenance: GrammarProvenance;
 }
@@ -210,7 +210,7 @@ export function languageOf(registry: GrammarRegistry, path: string): string | nu
 
 /**
  * The sweep-coverage token for one path no grammar claims: its extension, "(extensionless)". SHARED
- * by lint() (its one coverage note) and capture() (its per-file onSkip events).
+ * by the run (its one coverage note) and the capture verb (its per-file skip events).
  */
 export function unclaimedExtension(path: string): string {
   const dot = path.lastIndexOf(".");
@@ -444,7 +444,7 @@ export async function loadCustomGrammars(
   return { ...EMBEDDED, ...customs };
 }
 /**
- * ONE capture() call's custom registration: a grammar DIRECTORY (wasm + extensions.json [+
+ * ONE capture call's custom registration: a grammar DIRECTORY (wasm + extensions.json [+
  * queries.scm]) read under its directory name with every BYOG loud validation - wasm cross-check,
  * extensions.json routing, .scm compile when present. Returns the entry for the CALL's registry
  * value; nothing is installed and no global state exists to install into - the registration IS the

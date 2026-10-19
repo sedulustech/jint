@@ -29,9 +29,9 @@ export interface InputOptions {
    * yield; the config scope with zero patterns = everything not excluded.
    */
   include?: readonly OwnedScope[];
-  /** Config-scope basis: the input's path relative to the config dir (walkDir pathPrefix). */
+  /** Config-scope basis: the input's path relative to the config dir (the walk's path prefix). */
   scopeBase?: string;
-  /** The walk's secret-shaped denylist (config secretDenylist; default = SECRET_DENYLIST). */
+  /** The walk's secret-shaped denylist (config secretDenylist; default = the built-in denylist). */
   secretDenylist?: readonly string[];
   /** Walk coverage notes (the denylist's one-note-per-class skips); absent = silent. */
   onNote?: (note: string) => void;
@@ -43,7 +43,7 @@ export interface InputOptions {
    */
   stats?: InputStats;
   /**
-   * The registry the input's grammar routing reads: fileUnit's unknown-language check and its
+   * The registry the input's grammar routing reads: the file unit's unknown-language check and its
    * "valid" detail come from HERE, not from any module state. Absent = the embedded base (no run in
    * hand).
    */

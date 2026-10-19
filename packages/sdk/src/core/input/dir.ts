@@ -125,10 +125,7 @@ interface CompiledScope {
   readonly excludeRules: readonly IgnoreRule[];
   /** The config scope only: zero patterns = match everything. */
   readonly matchAll: boolean;
-  /**
-   * The ONE claim test (scope.ts ruleScopeClaims' semantics, precompiled): include match AND the
-   * rule's own exclude does not subtract.
-   */
+  /** The ONE claim test, precompiled: include match AND the rule's own exclude does not subtract. */
   claims(path: string): boolean;
 }
 
@@ -365,7 +362,7 @@ async function readFileUnit(
   // the config scope: a rule claims its file whether or not the config include also matches, so
   // the claim test runs on the rule scopes alone. Attribution stays first-match (config first)
   // EXCEPT where the claim SAVED the file from the exclude - then the saving scope owns it.
-  // the claim test is ruleScopeClaims' semantics (scope.ts) inlined over the compiled scopes:
+  // the claim test is the rule-scope claim semantics inlined over the compiled scopes:
   // include match AND the rule's own exclude does not subtract - one semantics, both consumers
   const claim = scopes.find((scope) => scope.claims(scopePath));
   const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
@@ -374,7 +371,6 @@ async function readFileUnit(
       stats?.tallyExclude(excludeGlobs[excludeMatch] ?? "");
       return null;
     }
-    // scopes exist but none admits: outside every include list
     const admittingScope = firstAdmittingScope(scopes, scopePath);
     if (scopes.length > 0 && admittingScope === null) {
       stats?.tallySkip(SKIP_REASONS.notInInclude);
@@ -398,7 +394,6 @@ async function readFileUnit(
     return null;
   }
   const sniff = await sniffHead(absolutePath);
-  // null head = a null byte in the first SNIFF_BYTES: binary, reading text later is wasted
   if (sniff === null) {
     stats?.tallySkip(SKIP_REASONS.binary);
     return null;

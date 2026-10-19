@@ -40,8 +40,8 @@ export function recordSummary(): RequestRecordSummary | null {
 
 /**
  * The run-store base directory: $JINT_RUNS_DIR, else <homedir>/.jint/runs — ONE var, one root, no
- * precedence chain. The same resolution recordRequests applies, exported so the UI server serves
- * the SAME store the recorder writes (no second homedir constant in the SDK).
+ * precedence chain. The same resolution the recorder applies, exported so the UI server serves the
+ * SAME store the recorder writes (no second homedir constant in the SDK).
  *
  * Deliberation note (recorded, not implemented): if a container one-knob need ever materializes,
  * the future shape is a JINT_HOME base the specific vars DEFAULT FROM (JINT_GRAMMAR_DIR,
