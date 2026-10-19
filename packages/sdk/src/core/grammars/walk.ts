@@ -279,7 +279,7 @@ function materialize(
       return isDocstring(comment) ? { kind: "module", name: "" } : undefined;
     return {
       // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
-      // a definition capture only (ownerOf scans DEFINITION_CAPTURES); the lane captures cannot own
+      // a definition capture only (ownerOf scans the grammar's resolved definition set); the lane captures cannot own
       kind: innermost.capture as DocstringOwner["kind"],
       name: innermost.name ?? "",
     };
