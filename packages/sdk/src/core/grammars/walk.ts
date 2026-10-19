@@ -42,9 +42,12 @@ import {
   type Capture,
   type QueryNode,
   compileQuery,
+  scmCaptureDeclarations,
+  scmEmittedNames,
   scmSelfNesting,
   ELEMENT_CAPTURES,
 } from "./query.ts";
+import { sharedDefinitionDefault } from "./shared.ts";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -154,21 +157,23 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
   );
 }
 
-export const DEFINITION_CAPTURES: ReadonlySet<Capture> = new Set([
-  "function",
-  "method",
-  "class",
-  "type",
-  "binding",
-  // markdown's grammar-autonomous container-with-body (the @section capture)
-  "section",
-  // markdown's flat prose (the @paragraph capture)
-  "paragraph",
-  // markdown's list entry text (the @list_item capture - the paragraph inside a list entry)
-  "list_item",
-  // markdown's whole list (the @list capture - one element per bullet/ordered list)
-  "list",
-]);
+/**
+ * Is a captured candidate an ELEMENT? The OWNING grammar's `capture.<name>.definition` directives
+ * resolve it (scmCaptureDeclarations) over the tier-1 shared defaults (shared.ts - the lingua
+ * franca's shape, the only capture-keyed behavior the engine holds): a shared definition capture is
+ * an element unless its grammar overrides to false; an AUTONOMOUS capture must declare true or it
+ * is inert (captured, never materialized - the .scm said so, not an engine table).
+ */
+function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
+  const declared = scmCaptureDeclarations(scm);
+  const resolved = new Set<string>();
+  for (const capture of scmEmittedNames(scm)) {
+    if (declared.inert.has(capture)) continue;
+    if (declared.definitions.has(capture) || sharedDefinitionDefault(capture))
+      resolved.add(capture);
+  }
+  return resolved;
+}
 
 /**
  * Materialize candidates into the inventory: comment attachment (leading runs join the directly
@@ -184,12 +189,13 @@ function materialize(
   candidates: readonly Candidate[],
   grammarId: string,
   source: string,
+  definitionCaptures: ReadonlySet<string>,
 ): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
   imports: InventoryElement[];
 } {
-  const definitions = candidates.filter((c) => DEFINITION_CAPTURES.has(c.capture));
+  const definitions = candidates.filter((c) => definitionCaptures.has(c.capture));
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
@@ -517,7 +523,13 @@ export async function decompose(
   // tail-absorb default.
   const selfNesting = scmSelfNesting(scm);
   const candidates = resolveCandidates(runQuery(query, tree.rootNode), { selfNesting });
-  const { definitions, comments, imports } = materialize(candidates, language, source);
+  const definitionCaptures = resolveDefinitionCaptures(scm);
+  const { definitions, comments, imports } = materialize(
+    candidates,
+    language,
+    source,
+    definitionCaptures,
+  );
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,

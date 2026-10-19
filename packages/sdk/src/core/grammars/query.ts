@@ -299,6 +299,57 @@ const DIRECTIVES = {
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
 
+/**
+ * THE CAPTURE NAMESPACE - capture behavior as .scm data (the tier-2 authoring surface): every
+ * per-capture fact the engine acts on is a `(#set! "capture.<name>.<knob>" "<value>")` line in the
+ * OWNING grammar's .scm, never an engine table (the structural guard test enforces that). Naming
+ * principle (the directive vocabulary's own): prefix = capture (the grouper), suffix = knob, value
+ * = setting; the node type never appears.
+ *
+ * Knobs: `definition` (is the capture an ELEMENT - an autonomous capture MUST declare it), `opaque`
+ * (a different-capture candidate strictly inside is implementation and dies), `absorbTail` (the
+ * largest same-capture wrapper tail in BYTES that still reads as prefix-absorb), `selfNesting`
+ * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
+ * the grammar-wide form).
+ */
+const CAPTURE_DIRECTIVE =
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail)/;
+const CAPTURE_KNOBS: Readonly<Record<string, "boolean" | "number">> = {
+  definition: "boolean",
+  opaque: "boolean",
+  selfNesting: "boolean",
+  absorbTail: "number",
+};
+
+/** The capture names a .scm actually emits (any @token that is not @name or a reserved word). */
+export function scmEmittedNames(scm: string): ReadonlySet<string> {
+  const code = scmCode(scm);
+  const named = new Set([...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
+  named.delete(NAME_CAPTURE);
+  for (const reserved of RESERVED_CAPTURES) named.delete(reserved);
+  return named;
+}
+
+/** One grammar's declared capture facts, resolved from its .scm directives. */
+export interface CaptureDeclarations {
+  /** Captures explicitly declared definitions ("true") - an autonomous capture's element-hood. */
+  readonly definitions: ReadonlySet<string>;
+  /** Captures explicitly declared NOT definitions ("false") - captured, inert, load-noted. */
+  readonly inert: ReadonlySet<string>;
+}
+
+export function scmCaptureDeclarations(scm: string): CaptureDeclarations {
+  const definitions = new Set<string>();
+  const inert = new Set<string>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null || match[2] !== "definition") continue;
+    if (directive.value === "true") definitions.add(match[1]!);
+    else if (directive.value === "false") inert.add(match[1]!);
+  }
+  return { definitions, inert };
+}
+
 /** One #set! occurrence that is real syntax: outside strings, outside comments. */
 interface ScmDirective {
   readonly name: string;
@@ -385,35 +436,61 @@ export function scmDirectives(scm: string): ScmDirective[] {
 export function assertScmDirectives(scm: string, grammarId: string): void {
   const known = Object.keys(DIRECTIVES) as DirectiveName[];
   const seen = new Map<string, { readonly value: string | undefined; readonly line: number }>();
+  const emitted = scmEmittedNames(scm);
   for (const directive of scmDirectives(scm)) {
-    const shape = DIRECTIVES[directive.name as DirectiveName];
-    if (shape === undefined) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `grammar ${grammarId} queries.scm line ${directive.line}: unknown directive "${directive.name}" (known: ${known.join(", ")})`,
-      );
-    }
-    const wants =
-      shape.kind === "presence"
-        ? `${directive.name} is presence-only - it takes no value`
-        : shape.kind === "number"
-          ? `${directive.name} wants a whole number`
-          : `${directive.name} wants one of: ${shape.values.join(", ")}`;
-    if (shape.kind === "presence" && directive.value !== undefined) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got "${directive.value}")`,
-      );
-    }
-    if (
-      (shape.kind === "number" && !/^\d+$/.test(directive.value ?? "")) ||
-      (shape.kind === "enum" &&
-        !(shape.values as readonly string[]).includes(directive.value ?? ""))
-    ) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
-      );
+    const captureKnob = directive.name.match(CAPTURE_DIRECTIVE);
+    if (captureKnob !== null) {
+      // the capture namespace: kind-checked value + REGISTERED-WITHOUT-QUERIES honesty (a
+      // directive naming a capture this .scm does not emit is a false belief about its extraction)
+      const capture = captureKnob[1]!;
+      const knob = captureKnob[2]! as keyof typeof CAPTURE_KNOBS;
+      if (!emitted.has(capture)) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" names capture '${capture}' but the queries emit no @${capture} - directive and patterns disagree`,
+        );
+      }
+      const booleanOk = directive.value === "true" || directive.value === "false";
+      const numberOk = /^\d+$/.test(directive.value ?? "");
+      if (
+        (CAPTURE_KNOBS[knob] === "boolean" && !booleanOk) ||
+        (CAPTURE_KNOBS[knob] === "number" && !numberOk)
+      ) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" wants ${CAPTURE_KNOBS[knob] === "number" ? "a whole number" : "true or false"} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+        );
+      }
+    } else {
+      const shape = DIRECTIVES[directive.name as DirectiveName];
+      if (shape === undefined) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: unknown directive "${directive.name}" (known: ${known.join(", ")})`,
+        );
+      }
+      const wants =
+        shape.kind === "presence"
+          ? `${directive.name} is presence-only - it takes no value`
+          : shape.kind === "number"
+            ? `${directive.name} wants a whole number`
+            : `${directive.name} wants one of: ${shape.values.join(", ")}`;
+      if (shape.kind === "presence" && directive.value !== undefined) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got "${directive.value}")`,
+        );
+      }
+      if (
+        (shape.kind === "number" && !/^\d+$/.test(directive.value ?? "")) ||
+        (shape.kind === "enum" &&
+          !(shape.values as readonly string[]).includes(directive.value ?? ""))
+      ) {
+        throw new SetupError(
+          "CONFIG_INVALID",
+          `grammar ${grammarId} queries.scm line ${directive.line}: ${wants} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+        );
+      }
     }
     const prior = seen.get(directive.name);
     if (prior !== undefined && prior.value !== directive.value) {

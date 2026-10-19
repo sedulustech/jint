@@ -5,7 +5,12 @@ import { elementKinds } from "@jint/contract";
  * same-node double capture resolves by pattern order; same-capture nesting keeps the outer;
  * different-capture overlap is legal; capture-vocabulary validation is loud.
  */
-import { assertScmDirectives, ELEMENT_CAPTURES, scmSelfNesting } from "./query.ts";
+import {
+  assertScmDirectives,
+  ELEMENT_CAPTURES,
+  scmCaptureDeclarations,
+  scmSelfNesting,
+} from "./query.ts";
 import {
   RESERVED_CAPTURES,
   assertPatternCount,
@@ -209,6 +214,46 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     ).not.toThrow();
   });
 
+  // THE CAPTURE NAMESPACE (tier-2 authoring surface): capture.<name>.<knob> directives carry
+  // per-capture behavior; validation is kind-checked and emitted-honest
+  test("capture directives: valid knobs pass, wrong kinds and unemitted captures fail loud", () => {
+    // directive helper: one #set! with a quoted name and value
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    const scm =
+      "(x) @chunk " +
+      D("capture.chunk.definition", "true") +
+      " " +
+      "(y) @fn " +
+      D("capture.fn.absorbTail", "2");
+    expect(() => assertScmDirectives(scm, "g")).not.toThrow();
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.chunk.nonsense", "true"), "g"),
+    ).toThrow(/unknown directive/);
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.chunk.absorbTail", "true"), "g"),
+    ).toThrow(/wants a whole number/);
+    expect(() => assertScmDirectives("(x) @chunk " + D("capture.chunk.opaque", "2"), "g")).toThrow(
+      /wants true or false/,
+    );
+    expect(() =>
+      assertScmDirectives("(x) @chunk " + D("capture.ghost.definition", "true"), "g"),
+    ).toThrow(/emit no @ghost - directive and patterns disagree/);
+  });
+
+  test("scmCaptureDeclarations resolves definition true/false from the directives", () => {
+    const D = (name: string, value: string): string => `(#set! "${name}" "${value}")`;
+    const scm =
+      "(x) @chunk " +
+      D("capture.chunk.definition", "true") +
+      " " +
+      "(y) @lane " +
+      D("capture.lane.definition", "false");
+    const declared = scmCaptureDeclarations(scm);
+    expect([...declared.definitions]).toEqual(["chunk"]);
+    expect([...declared.inert]).toEqual(["lane"]);
+  });
+
+  expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "0")', "g")).not.toThrow();
   test("values are read and typed loudly: number, enum, presence-only", () => {
     // dotted names parse; each value shape says what it wants when wrong
     expect(() => assertScmDirectives('(a) @a (#set! "attach.gap" "0")', "g")).not.toThrow();

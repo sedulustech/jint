@@ -36,7 +36,7 @@
 
 ; @priority section over the prose captures it carries: the outer element wins (the .scm's
 ; own order statement - see the pattern-order validator)
-(section (atx_heading (inline) @name)) @section ; @priority
+(section (atx_heading (inline) @name)) @section (#set! "capture.section.definition" "true") ; @priority
 
 ((section . (atx_heading) .) @section ; @priority
   (#set! "selfNesting"))
@@ -44,15 +44,15 @@
 ; list_item: the paragraph INSIDE a bullet/numbered entry, marker stripped - one per entry,
 ; continuations folded in (the nested form: a nested entry's paragraph is a direct child of the
 ; NESTED list_item, so it belongs to the nested item; the loose prose patterns below never see it)
-(list_item (paragraph) @list_item)
+(list_item (paragraph) @list_item (#set! "capture.list_item.definition" "true"))
 
 ; list: the WHOLE list as one element - one per bullet/ordered list, spanning every item. A
 ; nested list is a list node of its own and nests legitimately (the selfNesting fact below rides
 ; the grammar-wide flag the sections already declare: sections and lists both nest)
-(list) @list
+(list) @list (#set! "capture.list.definition" "true")
 
 ; PROSE, loose: paragraphs NOT inside a list entry. Parents are enumerated honestly (the grammar
 ; allows paragraph under section, list_item, block_quote): the list_item parent is claimed above,
 ; so loose prose is the section-direct and quoted forms - the loose-in-list stretch is gone.
-(section (paragraph) @paragraph) ; @priority
+(section (paragraph) @paragraph (#set! "capture.paragraph.definition" "true")) ; @priority
 (block_quote (paragraph) @paragraph)

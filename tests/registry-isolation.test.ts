@@ -69,7 +69,10 @@ describe("custom registration is a value per call - the impossible leak", () => 
     mkdirSync(custom, { recursive: true });
     cpSync(EMBEDDED_MD_WASM, join(custom, "markdown.wasm"));
     writeFileSync(join(custom, "extensions.json"), JSON.stringify([".md", ".mylang"]));
-    writeFileSync(join(custom, "queries.scm"), "(paragraph) @section\n");
+    writeFileSync(
+      join(custom, "queries.scm"),
+      '(paragraph) @section (#set! "capture.section.definition" "true")\n',
+    );
     // the custom call: .mylang routes and extracts
     const claimed = await capture(join(dir, "note.mylang"), undefined, custom);
     expect(claimed.length).toBeGreaterThan(0);

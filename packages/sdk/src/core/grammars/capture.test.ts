@@ -23,7 +23,10 @@ function scratch(name: string, files: Record<string, string>): string {
 function badCrossCheckDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "jint-capture-badwasm-"));
   mkdirSync(join(dir, "notmarkdown"), { recursive: true });
-  writeFileSync(join(dir, "notmarkdown", "queries.scm"), "(paragraph) @section\n");
+  writeFileSync(
+    join(dir, "notmarkdown", "queries.scm"),
+    '(paragraph) @section (#set! "capture.section.definition" "true")\n',
+  );
   writeFileSync(join(dir, "notmarkdown", "extensions.json"), JSON.stringify([".md"]));
   // a junk wasm: registration must reach the export cross-check and fail it loudly
   writeFileSync(join(dir, "notmarkdown", "notmarkdown.wasm"), "not a wasm");
@@ -52,7 +55,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     const file = join(dir, "doc.md");
     const wip = join(dir, "wip.scm");
     // the WIP query inverts the embedded mapping: paragraphs are the section elements
-    writeFileSync(wip, "(paragraph) @section\n");
+    writeFileSync(wip, '(paragraph) @section (#set! "capture.section.definition" "true")\n');
     const embedded = await capture(file);
     expect(embedded.some((e) => e.kind === "section" && e.name === "Head")).toBe(true);
     const overridden = await capture(file, wip);
@@ -68,9 +71,15 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     );
     // two patterns sharing one root node type with different captures: the order between them
     // is load-bearing, the missing "; @priority" is the loud error
-    writeFileSync(join(dir, "bad.scm"), "(paragraph) @section\n(paragraph) @paragraph\n");
+    writeFileSync(
+      join(dir, "bad.scm"),
+      '(paragraph) @section (#set! "capture.section.definition" "true")\n(paragraph) @paragraph (#set! "capture.paragraph.definition" "true")\n',
+    );
     expect(capture(join(dir, "doc.md"), join(dir, "bad.scm"))).rejects.toThrow(/@priority/);
-    writeFileSync(join(dir, "unk.scm"), "(no_such_node_type) @section\n");
+    writeFileSync(
+      join(dir, "unk.scm"),
+      '(no_such_node_type) @section (#set! "capture.section.definition" "true")\n',
+    );
     // the node-vocabulary guard fires BEFORE the engine compile and names every unknown type
     expect(capture(join(dir, "doc.md"), join(dir, "unk.scm"))).rejects.toThrow(
       /names node types the grammar does not have: no_such_node_type/,
@@ -95,7 +104,10 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
   });
 
   test("queryPath WINS over the grammar dir's own queries.scm; the dir is still validated", async () => {
-    const dir = scratch("both", { "doc.md": MARKDOWN, "mine.scm": "(paragraph) @paragraph\n" });
+    const dir = scratch("both", {
+      "doc.md": MARKDOWN,
+      "mine.scm": '(paragraph) @paragraph (#set! "capture.paragraph.definition" "true")\n',
+    });
     const shadow = join(
       new URL("../../../../../tests/fixtures/grammars", import.meta.url).pathname,
       "markdown",
