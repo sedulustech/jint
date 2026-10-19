@@ -21,23 +21,18 @@
  * as-given for file inputs); it is not span-granular.
  */
 
-import { compilePattern, type IgnoreRule } from "./input/dir.ts";
+import {
+  compilePattern,
+  patternMatchesFile,
+  type IncludeDoor,
+  type IgnoreRule,
+} from "./input/dir.ts";
+
+export type { IncludeDoor };
 import type { Rule, UnitKind } from "./types.ts";
 
-/**
- * Whether one compiled pattern matches a FILE path, honoring dirOnly exactly as the global exclude
- * does at its call sites: a non-dirOnly pattern tests the path itself; a dirOnly pattern names a
- * directory, so it matches when ANY ancestor directory of the path satisfies the pattern's regex
- * (the walk prunes that directory, so in the global exclude no file under it is ever yielded).
- */
-function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
-  if (!rule.dirOnly) return rule.re.test(path);
-  const parts = path.split("/");
-  for (let i = 1; i < parts.length; i++) {
-    if (rule.re.test(parts.slice(0, i).join("/"))) return true;
-  }
-  return false;
-}
+// patternMatchesFile lives in input/dir.ts (the walk-union collapse: ONE matcher, both consumers
+// - the walker's include doors here and the per-rule scoping below). Import, never re-derive.
 
 /**
  * Whether a rule judges the WHOLE unit in one call (its target routes the unit itself, not
@@ -121,4 +116,34 @@ export function ruleInScope(rule: ScopeKeys, path: string): boolean {
 /** True when the rule's exclude list cancels its include list (legal; notes, never errors). */
 export function ruleMeasuresNothing(rule: ScopeKeys): boolean {
   return compileRuleScope(rule)?.measuresNothing ?? false;
+}
+
+/**
+ * The walk's admission doors (walk-union): the config door PLUS one door per rule that declares an
+ * include - a rule that names a file claims jurisdiction over it even where the config exclude
+ * would drop it. Rules WITHOUT an include never open a door: they ride the config door (an unscoped
+ * rule measuring everything would make the config include meaningless). Order is attribution:
+ * config first, then rules in config order (first admitting door owns the file).
+ */
+export function walkDoors(
+  configInclude: readonly string[],
+  rules: readonly { readonly name: string; readonly include?: readonly string[] }[],
+): readonly IncludeDoor[] {
+  const doors: IncludeDoor[] = [{ by: "config", patterns: configInclude }];
+  for (const rule of rules) {
+    if (rule.include === undefined || rule.include.length === 0) continue;
+    doors.push({ by: "rule:" + rule.name, patterns: rule.include });
+  }
+  return doors;
+}
+
+/**
+ * Whether the CONFIG door admits a path (the door unscoped rules ride). File-operand inputs and str
+ * units bypass the include walk entirely: callers pass a predicate that always returns true for
+ * those, so every consumer of this gate stays honest about which units were bypassed.
+ */
+export function configDoorPredicate(configInclude: readonly string[]): (path: string) => boolean {
+  if (configInclude.length === 0) return () => true;
+  const rules = configInclude.map(compilePattern);
+  return (path) => rules.some((rule) => patternMatchesFile(rule, path));
 }

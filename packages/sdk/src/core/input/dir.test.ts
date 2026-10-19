@@ -68,7 +68,7 @@ describe("walkDir", () => {
       "tests/fixtures/sample-dir",
       ["**/more.ts"],
       undefined,
-      ["**/*.ts"],
+      [{ by: "config", patterns: ["**/*.ts"] }],
       undefined,
       undefined,
       stats,
@@ -80,7 +80,54 @@ describe("walkDir", () => {
       included: 1,
       excluded: [{ glob: "**/more.ts", count: 1 }],
       skipped: [{ reason: "NOT_IN_INCLUDE", count: 5 }],
+      admitted: [{ by: "config", count: 1 }],
     });
+  });
+
+  test("walk-union: a dirOnly include pattern (trailing slash) admits the subtree - the ONE matcher's ancestor semantics", async () => {
+    // the collapsed dirOnly matcher (patternMatchesFile) serves the walker's include doors too:
+    // "sub/" names a directory, so sub/more.ts is admitted through any ancestor match - exactly
+    // what rule scopes have always done (review 396888e finding 2's drift, now one matcher)
+    const stats = inputStats();
+    const paths: string[] = [];
+    for await (const unit of walkDir(
+      "tests/fixtures/sample-dir",
+      undefined,
+      undefined,
+      [{ by: "config", patterns: ["sub/"] }],
+      undefined,
+      undefined,
+      stats,
+    )) {
+      paths.push(unit.state.path);
+    }
+    expect(paths).toEqual(["sub/more.ts"]);
+    expect(stats.summary().admitted).toEqual([{ by: "config", count: 1 }]);
+  });
+
+  test("walk-union: a rule door admits a file the config exclude drops (deeper scope wins); safety doors never yield", async () => {
+    const stats = inputStats();
+    const paths: string[] = [];
+    for await (const unit of walkDir(
+      "tests/fixtures/sample-dir",
+      ["**/*.md"],
+      undefined,
+      [
+        { by: "config", patterns: ["**/*.ts"] },
+        { by: "rule:prose", patterns: ["README.md"] },
+      ],
+      undefined,
+      undefined,
+      stats,
+    )) {
+      paths.push(unit.state.path);
+    }
+    // README.md: excluded by config, claimed by the rule door - admitted, attributed to the rule
+    expect(paths).toContain("README.md");
+    expect(stats.summary().admitted).toEqual([
+      { by: "config", count: 2 },
+      { by: "rule:prose", count: 1 },
+    ]);
   });
 
   test("first-match attribution: a file counts against the FIRST glob that drops it", async () => {

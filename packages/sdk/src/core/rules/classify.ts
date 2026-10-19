@@ -328,11 +328,13 @@ export const rulesForElement = (
   rules: readonly Rule[],
   element: InventoryElement,
   path?: string,
+  configAdmits = true,
 ): Rule[] =>
   rules.filter(
     (rule) =>
       targetsOf(rule).some((target) => matchesTarget(target, element)) &&
-      (path === undefined || ruleInScope(rule, path)),
+      (path === undefined ||
+        (ruleInScope(rule, path) && (rule.include !== undefined || configAdmits))),
   );
 
 export interface ClassifyFileOptions {
@@ -340,6 +342,13 @@ export interface ClassifyFileOptions {
   readonly language?: string;
   /** The run's registry value; absent = the embedded base. */
   readonly registry?: GrammarRegistry;
+  /**
+   * Whether the CONFIG include door admitted this unit's path (walk-union). False for files only a
+   * RULE include claimed: unscoped rules then do not measure them - the rule that named the file
+   * owns it. Absent = true (the bypass inputs: file operand, str, paths list - and the one-shot
+   * door below, which has no walk at all).
+   */
+  readonly configAdmits?: boolean;
 }
 
 /**
@@ -469,8 +478,18 @@ function emitWholeUnitMeasurements(
  * whole; a target routes elements of a parsed inventory, and a piped-string unit has none by
  * design. No grammar is ever inferred for it.
  */
-function wholeUnitRules(rules: readonly Rule[], path: string, kind: UnitKind): Rule[] {
-  return rules.filter((rule) => ruleInScope(rule, path) && judgesWholeUnit(rule, kind));
+function wholeUnitRules(
+  rules: readonly Rule[],
+  path: string,
+  kind: UnitKind,
+  configAdmits: boolean,
+): Rule[] {
+  return rules.filter(
+    (rule) =>
+      ruleInScope(rule, path) &&
+      (rule.include !== undefined || configAdmits) &&
+      judgesWholeUnit(rule, kind),
+  );
 }
 
 /**
@@ -485,11 +504,12 @@ function scopeNotesFor(
   inventory: readonly InventoryElement[],
   path: string,
   kind: UnitKind,
+  configAdmits: boolean,
 ): string[] {
   const noteParts: string[] = [];
   for (const rule of rules) {
     if (rule.include === undefined && rule.exclude === undefined) continue;
-    if (ruleInScope(rule, path)) continue;
+    if (ruleInScope(rule, path) && (rule.include !== undefined || configAdmits)) continue;
     if (judgesWholeUnit(rule, kind)) {
       noteParts.push(`rule '${rule.name}' scope excluded the whole unit`);
       continue;
@@ -499,6 +519,13 @@ function scopeNotesFor(
       targets.some((target) => matchesTarget(target, element)),
     ).length;
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
+  }
+  // A file only a RULE door admitted: every include-less rule (the config door's riders) is
+  // out too - ONE aggregate line, not one per rule (review 396888e finding 4's noise lesson).
+  if (!configAdmits) {
+    const riders = rules.filter((rule) => rule.include === undefined).length;
+    if (riders > 0)
+      noteParts.push(`${riders} rule(s) ride the config include and skip this rule-admitted file`);
   }
   if (noteParts.length === 0) return [];
   return [`${path}: scope excluded - ${noteParts.join("; ")}`];
@@ -549,10 +576,11 @@ function elementJobsFor(
   rules: readonly Rule[],
   inventory: readonly InventoryElement[],
   path: string,
+  configAdmits: boolean,
 ): ElementJob[] {
   const jobs: ElementJob[] = [];
   for (const element of inventory) {
-    const scoped = rulesForElement(rules, element, path);
+    const scoped = rulesForElement(rules, element, path, configAdmits);
     if (scoped.length === 0) continue;
     jobs.push({
       id: crypto.randomUUID(),
@@ -628,9 +656,10 @@ async function classifyWholeUnit(
   rules: readonly Rule[],
   classifier: Classifier,
   events: ClassifyEvent[],
+  configAdmits: boolean,
 ): Promise<boolean> {
   const state = unit.state;
-  const wholeRules = wholeUnitRules(rules, state.path, unit.kind);
+  const wholeRules = wholeUnitRules(rules, state.path, unit.kind, configAdmits);
   if (wholeRules.length === 0) return false;
   const fileId = state.id;
   const unitReply = await askClassifier(
@@ -713,6 +742,8 @@ export async function classifyFile(
 ): Promise<ClassifyResult> {
   const state = unit.state;
   const events: ClassifyEvent[] = [];
+  // the walk-union gate for rules riding the config door (absent = bypass input, admitted)
+  const configAdmits = options.configAdmits ?? true;
 
   // The FILE unit needs the same token backstop the elements have: file-scope rules send the
   // whole content, and jev rejects over-budget requests with a 400 (the only red errors in the
@@ -723,14 +754,14 @@ export async function classifyFile(
   const fileOversized =
     "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;
   const fileOversizedNote =
-    fileOversized && wholeUnitRules(rules, state.path, unit.kind).length > 0
+    fileOversized && wholeUnitRules(rules, state.path, unit.kind, configAdmits).length > 0
       ? [
           `file too large for file-scope rules - ${state.content.length} chars over the ${MAX_ELEMENT_TOKENS}-token backstop`,
         ]
       : [];
   // the oversized-file note rides the same channel as the other coverage notes; the file-scope
   // call is skipped entirely - no request is ever attempted for an over-cap file unit
-  if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events)))
+  if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events, configAdmits)))
     return { events, fatal: true, oversized: [], notes: [] };
 
   // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
@@ -739,17 +770,20 @@ export async function classifyFile(
   const walkedUnit = walked ?? (await walkUnit(unit, options));
   // the walk is only load-bearing for inventory-scoped rules; files-tier units measure without it
   const needsInventory = rules.some(
-    (rule) => ruleInScope(rule, state.path) && !judgesWholeUnit(rule, unit.kind),
+    (rule) =>
+      ruleInScope(rule, state.path) &&
+      (rule.include !== undefined || configAdmits) &&
+      !judgesWholeUnit(rule, unit.kind),
   );
   collectWalkFailure(unit, walkedUnit, events, needsInventory);
 
   const notes = [
-    ...scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind),
+    ...scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind, configAdmits),
     ...fileOversizedNote,
   ];
   const oversized = oversizedElements(walkedUnit.derived);
   if (isAborted()) return { events, fatal: false, oversized, notes };
-  const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path);
+  const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path, configAdmits);
   if (elementJobs.length === 0) return { events, fatal: false, oversized, notes };
 
   const authAborted = await runElementJobs(elementJobs, state.path, classifier, isAborted, events);

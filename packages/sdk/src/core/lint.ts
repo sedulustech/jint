@@ -20,7 +20,7 @@ import {
   type GrammarRegistry,
   type InventoryElement,
 } from "./grammars/walk.ts";
-import { resolveInput } from "./input/infer.ts";
+import { inferKind, resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
 import {
   inputStats,
@@ -53,7 +53,7 @@ import {
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
-import { judgesWholeUnit, ruleInScope } from "./scope.ts";
+import { configDoorPredicate, judgesWholeUnit, ruleInScope, walkDoors } from "./scope.ts";
 import {
   ClassifyError,
   SetupError,
@@ -66,6 +66,7 @@ import {
   type Unit,
 } from "./types.ts";
 import type { ResolvedConfig } from "../config/load.ts";
+import type { IncludeDoor } from "./input/dir.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
 import type { RuleDigest } from "@jint/contract";
 
@@ -324,7 +325,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
   const walkerNotes: string[] = [];
   const stats = inputStats();
-  const units = await resolveRunUnits(
+  const admission = await resolveRunUnits(
     options,
     pathsList,
     input,
@@ -334,11 +335,18 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     (note) => walkerNotes.push(note),
     stats,
   );
+  const units = admission.units;
+  // THE config-door gate for rule selection: unscoped rules ride the config include, so they
+  // measure exactly the files that door admits - never files only a rule door claimed. Scoped
+  // rules (include declared) follow their OWN include; bypass inputs (file operand, str, paths
+  // list) admit everything, preserving the documented bypass.
+  const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
+    ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   // The input accounting (run.input): how many files, and why not all measured. Emitted as an
   // event so the report (collectReport) reads ONE source of truth; the human stderr line rides the
   // notes channel (same doctrine as the denylist coverage notes) whenever anything was dropped.
   yield { type: "input", summary: stats.summary() };
-  for (const line of renderInputSummary(stats.summary(), options.config.include)) {
+  for (const line of renderInputSummary(stats.summary(), admission.doors)) {
     yield { type: "note", note: line };
   }
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
@@ -376,8 +384,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         // in-scope custom rule needs the walk just like a json-tier element rule
         const needsWalk =
           rules.some(
-            (rule) => ruleInScope(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
-          ) || customRules.some((rule) => ruleInScope(rule, unit.state.path));
+            (rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
+          ) || customRules.some((rule) => inScopeFor(rule, unit.state.path));
         if (!needsWalk) return;
         const w = await walkUnit(
           unit,
@@ -460,6 +468,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             options.language,
             registry,
             walked.get(i + j),
+            admission.configAdmits(unit.state.path),
           ),
         ),
     );
@@ -598,14 +607,20 @@ async function runUnit(
   isAborted: () => boolean,
   language: string | undefined,
   registry: GrammarRegistry,
-  walked?: WalkedUnit,
+  walked: WalkedUnit | undefined,
+  configAdmits: boolean,
 ): Promise<UnitResult> {
   const result = await classifyFile(
     unit,
     rules,
     classifier,
     isAborted,
-    language !== undefined ? { language, registry } : { registry },
+    {
+      language,
+      registry,
+      // the walk-union gate: unscoped rules ride the config door (see Admission)
+      configAdmits,
+    },
     walked,
   );
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
@@ -653,6 +668,18 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 }
 
 /**
+ * One run's input resolution: the units, the walk's admission doors (config + rule includes -
+ * run.input attribution), and the config-door predicate unscoped rules ride. `configAdmits` is
+ * always-true for bypass inputs (str, paths list, file operand, element scope): those never went
+ * through the include walk, so the config door admits everything they produced.
+ */
+interface Admission {
+  readonly units: Unit[];
+  readonly configAdmits: (path: string) => boolean;
+  readonly doors: readonly IncludeDoor[];
+}
+
+/**
  * The run's units, from whichever input form selected them. The changeset form defers per entry:
  * the list IS the judged subject, so a missing or non-source entry degrades to a not-in-the-walk
  * note instead of failing the run. (An empty list never reaches here: the guard above the auth gate
@@ -667,8 +694,13 @@ async function resolveRunUnits(
   registry: GrammarRegistry,
   onWalkNote: (note: string) => void,
   stats: InputStats,
-): Promise<Unit[]> {
-  if (options.str !== undefined) return [strUnit(options.str.content, options.str.path)];
+): Promise<Admission> {
+  if (options.str !== undefined)
+    return {
+      units: [strUnit(options.str.content, options.str.path)],
+      configAdmits: () => true,
+      doors: [],
+    };
   if (pathsList !== undefined && (input === undefined || input === "")) {
     const resolved: Unit[] = [];
     for (const entry of pathsList) {
@@ -687,18 +719,31 @@ async function resolveRunUnits(
         throw thrown;
       }
     }
-    return resolved;
+    return { units: resolved, configAdmits: () => true, doors: [] };
   }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const include = options.config.include.length > 0 ? [...options.config.include] : undefined;
-  return collectUnits(
+  // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
+  // (walkDoors builds the doors; the config door is first, so attribution names a rule door only
+  // when the config door did not admit). Each rule still measures only files its own scope admits
+  // - configAdmits below is that gate for the rules riding the config door.
+  const doors = walkDoors(options.config.include, [...rules, ...customRules]);
+  const configDoor = configDoorPredicate(options.config.include);
+  // file-operand, element-scope, and list inputs bypass the include walk (documented): every
+  // unit they produce is config-admitted for rule selection
+  const elementPinned = options.element !== undefined;
+  const resolvedKind =
+    Array.isArray(input) || elementPinned
+      ? "file"
+      : (options.inputType ?? options.config.inputType ?? (await inferKind(input as string)));
+  const configAdmits = resolvedKind === "dir" ? configDoor : () => true;
+  const units = await collectUnits(
     resolveInput({
       // the empty-input guard above established non-empty; element scope pins the
       // input to exactly the selector file (dir/config input is ignored)
-      input: (options.element !== undefined ? options.element.path : input) as string | string[],
+      input: (elementPinned ? options.element!.path : input) as string | string[],
       inputType: options.inputType ?? options.config.inputType,
       exclude,
-      include,
+      include: doors,
       scopeBase: options.scopeBase,
       // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
       secretDenylist: options.config.secretDenylist,
@@ -712,6 +757,7 @@ async function resolveRunUnits(
       stats,
     }),
   );
+  return { units, configAdmits, doors };
 }
 
 /** Cheap edit distance for close-match suggestions over rule names. */

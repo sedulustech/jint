@@ -506,7 +506,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     expect(report.run).toEqual({
       id: runDir!.split("/").pop(),
       dir: runDir,
-      input: { discovered: 1, included: 1, excluded: [], skipped: [] },
+      input: { discovered: 1, included: 1, excluded: [], skipped: [], admitted: [] },
     });
   });
 

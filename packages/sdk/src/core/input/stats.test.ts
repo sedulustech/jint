@@ -15,6 +15,7 @@ describe("input stats accumulator", () => {
       included: 1,
       excluded: [{ glob: "**/*.test.ts", count: 2 }],
       skipped: [{ reason: "BINARY", count: 1 }],
+      admitted: [],
     });
   });
 
@@ -32,11 +33,16 @@ describe("renderInputSummary (the human mirror)", () => {
     included: 0,
     excluded: [],
     skipped: [],
+    admitted: [],
     ...over,
   });
 
   test("nothing dropped: no line (run and capture stay quiet on a clean walk)", () => {
-    expect(renderInputSummary(summary({ discovered: 3, included: 3 }), ["**/*.ts"])).toEqual([]);
+    expect(
+      renderInputSummary(summary({ discovered: 3, included: 3 }), [
+        { by: "config", patterns: ["**/*.ts"] },
+      ]),
+    ).toEqual([]);
   });
 
   test("the ruling's line shape: counts at one level, skipped reasons named", () => {
@@ -69,17 +75,17 @@ describe("renderInputSummary (the human mirror)", () => {
         included: 0,
         skipped: [{ reason: "NOT_IN_INCLUDE", count: 2 }],
       }),
-      ["**/*.rs"],
+      [{ by: "config", patterns: ["**/*.rs"] }],
     );
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe("input: 0 of 2 files (skipped: NOT_IN_INCLUDE 2)");
-    expect(lines[1]).toContain("outside the config include [**/*.rs]");
+    expect(lines[1]).toContain("outside every include door [**/*.rs]");
   });
 
   test("empty by exclude globs names the generic door, not the include door", () => {
     const lines = renderInputSummary(
       summary({ discovered: 2, included: 0, excluded: [{ glob: "**/*", count: 2 }] }),
-      ["**/*.rs"],
+      [{ by: "config", patterns: ["**/*.rs"] }],
     );
     expect(lines[1]).toBe(
       "input: nothing was measured - every discovered file was excluded or skipped",

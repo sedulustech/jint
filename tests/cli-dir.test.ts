@@ -49,6 +49,7 @@ describe("cli: dir walk ignores", () => {
         included: 1,
         excluded: [{ glob: "**/more.ts", count: 1 }],
         skipped: [{ reason: "NOT_IN_INCLUDE", count: 1 }],
+        admitted: [{ by: "config", count: 1 }],
       });
       // the human mirror rides stderr exactly when something was dropped (non-json mode; the
       // --json document carries the structured run.input instead - one artifact, two projections)
@@ -87,7 +88,7 @@ describe("cli: dir walk ignores", () => {
       expect(r.code).toBe(0);
       expect(r.stdout).toBe("");
       expect(r.stderr).toContain("input: 0 of 2 files (skipped: NOT_IN_INCLUDE 2)");
-      expect(r.stderr).toContain("outside the config include [**/*.py]");
+      expect(r.stderr).toContain("outside every include door [**/*.py]");
     } finally {
       await rmScratchTree(tmpRoot);
     }

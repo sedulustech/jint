@@ -1582,3 +1582,122 @@ describe("lint — str unit is its own inventory", () => {
     ).rejects.toMatchObject({ name: "SetupError", code: "MISSING_GRAMMAR" });
   });
 });
+describe("walk-union discovery (config include ∪ rule includes)", () => {
+  // the doors: a file is walked when the config include OR any rule's include matches; each rule
+  // then measures only files its own scope admits - unscoped rules ride the config door and never
+  // measure a file only a rule include claimed.
+  const mdRule = mkRule("choice", {
+    name: "probe_md_only",
+    // files-target: the md file is judged whole (raw source - no grammar needed)
+    target: "files",
+    include: ["**/*.md"],
+    handle: { map: ["pass", "pass", "error"] },
+  });
+
+  test("a rule include alone admits a file the global include excludes", async () => {
+    mkdirSync("tmp/wu1", { recursive: true });
+    await Bun.write("tmp/wu1/wu-code.ts", "export const one = 1;\n");
+    await Bun.write("tmp/wu1/wu-notes.md", "# notes\n\nprose only\n");
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [probeFiles, mdRule], include: ["**/*.ts"] },
+        input: "tmp/wu1",
+        classifier: classifierWith({ probe_files: 0.5, probe_md_only: 2 }),
+      }),
+    );
+    const md = events.filter(
+      (e): e is Extract<LintEvent, { type: "measurement" }> =>
+        e.type === "measurement" && e.measurement.input.endsWith(".md"),
+    );
+    // the md file IS measured - by the rule whose include claimed it
+    expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
+    // the unscoped files rule NEVER measures the rule-admitted file (it rides the config door) -
+    // it measures only the ts file the config include admitted
+    const files = events.filter(
+      (e): e is Extract<LintEvent, { type: "measurement" }> =>
+        e.type === "measurement" && e.measurement.rule === "probe_files",
+    );
+    expect(files.map((f) => f.measurement.input)).toEqual(["wu-code.ts"]);
+    // the finding fires on the md file's whole-unit input
+    const finding = events.find(
+      (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
+    );
+    expect(finding?.finding.input).toBe("wu-notes.md");
+    expect(finding?.finding.severity).toBe("error");
+  });
+
+  test("a stray md no rule claims stays out of the walk (config include still gates)", async () => {
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [probeFiles], include: ["**/*.ts"] },
+        input: "tmp/wu1",
+        classifier: classifierWith({ probe_files: 0.5 }),
+      }),
+    );
+    const md = events.filter(
+      (e) => e.type === "measurement" && e.measurement.input.endsWith(".md"),
+    );
+    expect(md).toEqual([]);
+    // the accounting owns the drop: NOT_IN_INCLUDE, carried by the run's input summary event
+    const summary = events.find(
+      (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
+    );
+    expect(summary?.summary.skipped).toEqual([{ reason: "NOT_IN_INCLUDE", count: 1 }]);
+  });
+
+  test("a rule include beats the config exclude for its own files (deeper scope wins)", async () => {
+    const events = await drain(
+      lint({
+        config: {
+          ...baseConfig,
+          rules: [probeFiles, mdRule],
+          include: ["**/*.ts"],
+          exclude: ["**/*.md"],
+        },
+        input: "tmp/wu1",
+        classifier: classifierWith({ probe_files: 0.5, probe_md_only: 2 }),
+      }),
+    );
+    const md = events.filter(
+      (e): e is Extract<LintEvent, { type: "measurement" }> =>
+        e.type === "measurement" && e.measurement.input.endsWith(".md"),
+    );
+    expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
+  });
+
+  test("run.input attributes each admitted file to its door (flat, config first)", async () => {
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [probeFiles, mdRule], include: ["**/*.ts"] },
+        input: "tmp/wu1",
+        classifier: classifierWith({ probe_files: 0.5, probe_md_only: 2 }),
+      }),
+    );
+    const summary = events.find(
+      (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
+    );
+    // flat decomposition: the config door owns the ts, the rule door owns the md
+    expect(summary?.summary.admitted).toEqual([
+      { by: "config", count: 1 },
+      { by: "rule:probe_md_only", count: 1 },
+    ]);
+  });
+
+  test("a rule-admitted file notes its config-door riders once, never per rule", async () => {
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [probeFiles, mdRule], include: ["**/*.ts"] },
+        input: "tmp/wu1",
+        classifier: classifierWith({ probe_files: 0.5, probe_md_only: 2 }),
+      }),
+    );
+    const scopeNotes = events.filter(
+      (e): e is Extract<LintEvent, { type: "note" }> =>
+        e.type === "note" && e.note.includes("rule-admitted"),
+    );
+    expect(scopeNotes).toHaveLength(1);
+    expect(scopeNotes[0]!.note).toBe(
+      "wu-notes.md: scope excluded - 1 rule(s) ride the config include and skip this rule-admitted file",
+    );
+  });
+});

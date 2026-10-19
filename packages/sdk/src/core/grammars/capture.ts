@@ -3,7 +3,7 @@ import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
-import { ruleInScope } from "../scope.ts";
+import { configDoorPredicate, ruleInScope, walkDoors } from "../scope.ts";
 import { SetupError, type Rule } from "../types.ts";
 import {
   grammar,
@@ -248,6 +248,7 @@ function markPreviewPopulation(
   rule: Rule | CustomRule,
   captured: CapturedElement[],
   files: readonly WalkedFile[],
+  configDoorAdmits: (path: string) => boolean,
 ): void {
   const marked = new Set<number>();
   if (isCustomRule(rule)) {
@@ -270,7 +271,9 @@ function markPreviewPopulation(
       for (const element of file.elements) {
         if (
           targetsOf(rule).some((target) => matchesTarget(target, element)) &&
-          ruleInScope(rule, file.path)
+          // preview == run population: unscoped rules ride the config door too
+          ruleInScope(rule, file.path) &&
+          (rule.include !== undefined || configDoorAdmits(file.path))
         ) {
           marked.add(index);
         }
@@ -327,7 +330,9 @@ export function captureFor(
         input,
         inputType: config.inputType,
         exclude: [...config.exclude, ...(options.exclude ?? [])],
-        include: config.include.length > 0 ? [...config.include] : undefined,
+        // walk-union: the config door + one door per rule include - capture measures the SAME
+        // population a run will classify
+        include: walkDoors(config.include, config.rules),
         scopeBase: options.scopeBase,
         secretDenylist: config.secretDenylist,
         onNote: options.onNote,
@@ -338,7 +343,10 @@ export function captureFor(
       queryPath,
       onSkip,
     );
-    if (rule !== undefined) markPreviewPopulation(rule, captured, files);
+    // preview == run population (walk-union): unscoped rules ride the config door, so the
+    // marker applies the same gate the run's rule selection applies
+    const configDoorAdmits = configDoorPredicate(config.include);
+    if (rule !== undefined) markPreviewPopulation(rule, captured, files, configDoorAdmits);
     onStats?.(stats.summary());
     return captured;
   };
