@@ -75,6 +75,8 @@ measurement its handle judged actionable and is the only output that demands act
   shipped embedded, one directory per language, overridable per custom grammar dir.
 - **handle** — the rule's policy: thresholds (declarative) or a policy callback (TS tier) that
   turns measurements into findings.
+- **headword** — the term a glossary entry defines: the bolded phrase before the em dash.
+  The entry describes its headword and nothing outside it.
 - **input** — what a run classifies: where the bytes come from, nothing more.
 - **input kind** — how the CLI interprets an input: file, dir, diff, or str. CLI perspective;
   not to be confused with target (rule perspective).

@@ -1,4 +1,4 @@
-import { languageOf } from "../packages/sdk/src/core/grammars/grammars.ts";
+import { EMBEDDED, languageOf } from "../packages/sdk/src/core/grammars/grammars.ts";
 /**
  * EXPERIMENT PROBE (grouping-experiment branch; report-first - no source changes). Dumps the
  * walker's three GROUPERS' decisions per file and flags anomalies:
@@ -45,7 +45,7 @@ const targets = process.argv.slice(2).length
 
 for (const [lang, path] of targets) {
   const source = await Bun.file(path).text();
-  if (languageOf(path) !== lang) {
+  if (languageOf(EMBEDDED, path) !== lang) {
     console.log(`!! ${lang} routing mismatch for ${path}`);
     continue;
   }

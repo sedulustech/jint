@@ -11,6 +11,8 @@ import {
   languageOf,
   MAX_ELEMENT_TOKENS,
   projectElement,
+  EMBEDDED,
+  type GrammarRegistry,
   type Inventory,
   type InventoryElement,
 } from "../grammars/walk.ts";
@@ -334,6 +336,8 @@ export const rulesForElement = (
 export interface ClassifyFileOptions {
   /** Explicit grammar override; when absent the language comes from the state path's extension. */
   readonly language?: string;
+  /** The run's registry value; absent = the embedded base. */
+  readonly registry?: GrammarRegistry;
 }
 
 /**
@@ -361,14 +365,15 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   if (unit.kind !== "file")
     return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
   const state = unit.state;
-  const language = options.language ?? languageOf(state.path);
+  const registry = options.registry ?? EMBEDDED;
+  const language = options.language ?? languageOf(registry, state.path);
   if (language === null)
     return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
   // FileState.content is required and every unit carries it (file.ts, dir.ts, strUnit, the
   // retention pass) — a typed read, no union discriminator and no fallback to parse around.
   const source = state.content;
   try {
-    const parsedSource = await decompose(source, language);
+    const parsedSource = await decompose(source, language, { registry });
     const inventory = [
       ...parsedSource.definitions,
       ...parsedSource.comments,

@@ -32,7 +32,7 @@
 import { ruleTargets } from "@jint/contract";
 import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
-import { grammar, knownLanguages } from "./grammars.ts";
+import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
 
 /**
  * The element captures, frozen for v1. A query capturing anything else fails at load.
@@ -557,27 +557,24 @@ export async function compileQuery(
   return query;
 }
 
-/** Compile one grammar's .scm; cached per language (queries are immutable per process). */
+/** Compile one grammar's .scm; memoized per grammar content. */
 const compiled = new Map<string, Promise<Query>>();
 
 export function queryFor(
-  language: string,
+  entry: import("./grammars.ts").GrammarEntry,
   scm: string,
   lang: import("web-tree-sitter").Language,
 ): Promise<Query> {
-  // keyed by language AND .scm content: a re-registration (a shadow replacing the embedded .scm)
-  // must not be served the previous grammar's compiled query - the cache keys the SOURCE, not just
-  // the language, so identical content reuses and changed content recompiles
-  const key = language + "|" + scm;
+  // keyed by the SERVING WASM and the .scm content: registry values may serve different wasms
+  // under one language id (a custom grammar overriding an embedded one), so the language id alone
+  // could hand one grammar's compiled query to another's parse - the wasm path is the parse
+  // identity, the .scm content the extraction identity, and identical pairs reuse the compile
+  const key = entry.wasmPath + "|" + scm;
   let cached = compiled.get(key);
   if (cached) return cached;
-  const created = compileQuery(language, scm, lang);
+  const created = compileQuery(entry.language, scm, lang);
   compiled.set(key, created);
   return created;
-}
-/** Test seam: drop compiled queries (grammar re-registration replaces .scm content). */
-export function resetQueriesForTest(): void {
-  compiled.clear();
 }
 
 /** The shape of a syntax node the runtime reads (structural: tests can feed plain objects). */
@@ -781,11 +778,11 @@ export function runQuery(query: Query, rootNode: QueryMatchSource): Candidate[] 
  * Element captures only - @name and reserved tokens are not targets. `;` comment lines are stripped
  * first: prose naming a capture does not emit it.
  */
-export function emittedCaptures(grammarId: string): readonly string[] {
+export function emittedCaptures(registry: GrammarRegistry, grammarId: string): readonly string[] {
   // the SHARED .scm reader: strings blanked, then comments cut - a capture named in a trailing
   // comment or a predicate string is prose, not an emitted fact (an address must never validate
   // against a capture the grammar would not actually extract)
-  const scm = scmCode(grammar(grammarId).queries);
+  const scm = scmCode(grammar(registry, grammarId).queries);
   const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
   return ELEMENT_CAPTURES.filter((c) => named.has(c));
 }
@@ -794,16 +791,16 @@ const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
 
 /**
- * THE capture-address gate, run at LINT STARTUP (after loadUserGrammars, before any file walks): a
- * qualified address is checked against the MERGED registry as it stands - a shadow grammar REPLACES
- * its embedded extraction, so the emitted set for an id is the shadow's once registered. Two
+ * THE capture-address gate, run at LINT STARTUP (over the run's registry value, before any file
+ * walks): a qualified address is checked against the registry the run holds - a shadow grammar
+ * REPLACES its embedded extraction, so the emitted set for an id is the shadow's once merged. Two
  * distinguished failures: grammar not registered (named with the loaded ids) vs capture not emitted
  * (named with that grammar's ACTUAL emitted set - shadow-derived when a shadow exists). A bare name
  * that is neither a shared target nor an address is a typo and fails loudly too. Config load stays
- * grammar-blind (the dir is not scanned there); the loudness point in the user's experience is
+ * grammar-blind (no registry is built there); the loudness point in the user's experience is
  * identical: CONFIG_INVALID, nothing measured.
  */
-export function assertCaptureAddress(target: string): void {
+export function assertCaptureAddress(target: string, registry: GrammarRegistry): void {
   const match = target.match(QUALIFIED_ADDRESS);
   if (match === null) {
     if (SHARED_TARGETS.has(target)) return;
@@ -818,7 +815,7 @@ export function assertCaptureAddress(target: string): void {
   }
   const grammarId = match[1]!;
   const capture = match[2]!;
-  const loaded = knownLanguages();
+  const loaded = knownLanguages(registry);
   if (!loaded.includes(grammarId)) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -831,7 +828,7 @@ export function assertCaptureAddress(target: string): void {
         ")",
     );
   }
-  const emitted = emittedCaptures(grammarId);
+  const emitted = emittedCaptures(registry, grammarId);
   if (!emitted.includes(capture)) {
     throw new SetupError(
       "CONFIG_INVALID",

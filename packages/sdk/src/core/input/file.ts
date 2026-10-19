@@ -1,11 +1,11 @@
 import { stat } from "node:fs/promises";
-import { knownLanguages, languageOf } from "../grammars/walk.ts";
+import { knownLanguages, languageOf, EMBEDDED, type GrammarRegistry } from "../grammars/walk.ts";
 import { elementWireId } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 
 export async function fileUnit(
   path: string,
-  options: { requireGrammar?: boolean } = {},
+  options: { requireGrammar?: boolean; registry?: GrammarRegistry } = {},
 ): Promise<Unit> {
   const info = await stat(path).catch((e: NodeJS.ErrnoException) => {
     if (e.code === "ENOENT") {
@@ -24,11 +24,11 @@ export async function fileUnit(
   // explicit path: the user asked for THIS file, so silence would read as "nothing wrong" —
   // say plainly that it is not classifiable (a dir walk skips unclaimable files with a coverage
   // note; an explicit file fails loud)
-  if (languageOf(path) === null && options.requireGrammar !== false) {
+  if (languageOf(options.registry ?? EMBEDDED, path) === null && options.requireGrammar !== false) {
     throw new SetupError(
       "MISSING_GRAMMAR",
       `no loaded grammar claims the extension of ${path} - routing comes from each grammar's extensions.json`,
-      { detail: { kind: "unknown-language", valid: knownLanguages() } },
+      { detail: { kind: "unknown-language", valid: knownLanguages(options.registry ?? EMBEDDED) } },
     );
   }
   let content: string;

@@ -8,9 +8,11 @@ import {
   grammar,
   knownLanguages,
   languageOf,
-  loadUserGrammars,
+  loadCustomGrammars,
   registerCustomGrammar,
   unclaimedExtension,
+  EMBEDDED,
+  type GrammarRegistry,
 } from "./grammars.ts";
 import { decompose, projectElement, type InventoryElement } from "./walk.ts";
 import type { ResolvedConfig } from "../../config/load.ts";
@@ -68,8 +70,13 @@ async function loadQueryFile(queryPath: string): Promise<string> {
  * .scm is passed back - or a sibling with a byte-identical .scm, ts/tsx - extracts as itself and
  * stays legal.)
  */
-function assertQueriesAuthoredFor(queries: string, queryPath: string, language: string): void {
-  const owners = knownLanguages().filter((id) => grammar(id).queries === queries);
+function assertQueriesAuthoredFor(
+  registry: GrammarRegistry,
+  queries: string,
+  queryPath: string,
+  language: string,
+): void {
+  const owners = knownLanguages(registry).filter((id) => grammar(registry, id).queries === queries);
   if (owners.length > 0 && !owners.includes(language)) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -98,9 +105,11 @@ function assertQueriesAuthoredFor(queries: string, queryPath: string, language: 
  *   (grammarPath is still validated for routing and wasm).
  * - GrammarPath: a grammar DIRECTORY (wasm + extensions.json [+ queries.scm]) registered custom for
  *   this call - id from the dir name, wasm tree_sitter_<id> cross-check, extensions.json routing,
- *   every BYOG loud validation. Nothing is installed.
+ *   every BYOG loud validation. Nothing is installed: the registration is a VALUE in this call's
+ *   registry, which dies with the call.
  *
- * Grammar resolution precedence: grammarPath (custom) > registered (embedded + JINT_GRAMMAR_DIR)
+ * Grammar resolution precedence: grammarPath (custom) > embedded. (The JINT_GRAMMAR_DIR scan is the
+ * CONFIG door - captureFor below - exactly as it is lint's.)
  *
  * No filters, no options bag: callers filter the returned array.
  */
@@ -110,13 +119,25 @@ export async function capture(
   grammarPath?: string,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
 ): Promise<CapturedElement[]> {
+  // THIS CALL's registry value: the embedded base, plus the grammarPath overlay when given. The
+  // value dies with the call - a custom registration can never outlive the capture that asked for
+  // it, so the walk is side-effect-free by construction.
+  let registry: GrammarRegistry = EMBEDDED;
   if (grammarPath !== undefined) {
     // the query file, when present, replaces the dir's own .scm for extraction - registration
     // still requires routing + wasm, but may skip its queries.scm
-    await registerCustomGrammar(grammarPath, { queriesOptional: queryPath !== undefined });
+    const entry = await registerCustomGrammar(grammarPath, {
+      queriesOptional: queryPath !== undefined,
+    });
+    registry = { ...EMBEDDED, [entry.language]: entry };
   }
   const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
-  const { captured } = await walkAndExtract({ input: targetPath }, queries, queryPath, onSkip);
+  const { captured } = await walkAndExtract(
+    { input: targetPath, registry },
+    queries,
+    queryPath,
+    onSkip,
+  );
   return captured;
 }
 
@@ -145,12 +166,15 @@ async function walkAndExtract(
   queryPath: string | undefined,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
 ): Promise<WalkOutcome> {
+  // the CALL's registry rides the input options: fileUnit routes through it, and the walk below
+  // reads it back out for every file
+  const registry = input.registry ?? EMBEDDED;
   const captured: CapturedElement[] = [];
   const files: WalkedFile[] = [];
   for await (const unit of resolveInput(input)) {
     // file units only: capture() takes a file or a dir - str/diff forms are lint's callers
     if (unit.kind !== "file") continue;
-    const language = languageOf(unit.state.path);
+    const language = languageOf(registry, unit.state.path);
     if (language === null) {
       // a dir-walked file no grammar claims: lint's sweep-coverage policy (shared, not repeated) -
       // skip it and emit ONE event carrying the file and its extension token (".json", or
@@ -158,8 +182,8 @@ async function walkAndExtract(
       onSkip?.({ file: unit.state.path, extension: unclaimedExtension(unit.state.path) });
       continue;
     }
-    if (queries !== undefined) assertQueriesAuthoredFor(queries, queryPath!, language);
-    const inventory = await decompose(unit.state.content, language, { queries });
+    if (queries !== undefined) assertQueriesAuthoredFor(registry, queries, queryPath!, language);
+    const inventory = await decompose(unit.state.content, language, { queries, registry });
     const elements = [...inventory.definitions, ...inventory.comments, ...inventory.imports];
     files.push({ path: unit.state.path, elements });
     for (const element of elements) {
@@ -255,9 +279,9 @@ function markPreviewPopulation(
  * run's resolution seams applied - the SAME loader output (the config arrives resolved, baseline
  * included, because the sdk cannot resolve default rule names itself), the same input fallback
  * (target > config.input), the same walk scoping (config include/exclude/secretDenylist + extra
- * excludes + scopeBase), the same grammar registration order (user dir, then the call's own
- * grammarPath). What never crosses: criteria, handles, question shapes, jev, severity. The
- * classifier stays unplugged - captureFor measures the population a run would classify, nothing
+ * excludes + scopeBase), the same registry build order (the grammar dir's customs first, then the
+ * call's own grammarPath). What never crosses: criteria, handles, question shapes, jev, severity.
+ * The classifier stays unplugged - captureFor measures the population a run would classify, nothing
  * else. An unknown rule name fails through validateRuleSelection, run's own --rule door.
  */
 export function captureFor(
@@ -272,11 +296,15 @@ export function captureFor(
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
   return async (targetPath, queryPath, grammarPath, onSkip) => {
-    // lint()'s registration order: the user grammar dir first (a run measures through it), then
-    // the call's own grammarPath (the BYOG door wins last)
-    await loadUserGrammars(undefined, options.onNote);
+    // THIS CALL's registry value, built in lint()'s registration order: the grammar dir first (a
+    // run measures through it), then the call's own grammarPath (the BYOG door wins last). The
+    // value dies with the call.
+    let registry = await loadCustomGrammars(undefined, options.onNote);
     if (grammarPath !== undefined) {
-      await registerCustomGrammar(grammarPath, { queriesOptional: queryPath !== undefined });
+      const entry = await registerCustomGrammar(grammarPath, {
+        queriesOptional: queryPath !== undefined,
+      });
+      registry = { ...registry, [entry.language]: entry };
     }
     const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
     const input = targetPath ?? config.input;
@@ -295,6 +323,7 @@ export function captureFor(
         scopeBase: options.scopeBase,
         secretDenylist: config.secretDenylist,
         onNote: options.onNote,
+        registry,
       },
       queries,
       queryPath,

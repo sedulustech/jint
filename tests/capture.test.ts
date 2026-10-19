@@ -1,8 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resetGrammarsForTest } from "../packages/sdk/src/core/grammars/grammars.ts";
-import { resetQueriesForTest } from "../packages/sdk/src/core/grammars/query.ts";
 import { capture } from "../packages/sdk/src/index.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 
@@ -14,12 +12,10 @@ import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 const ROOT = scratchDir("jint-capture-e2e");
 const SHADOW = join(import.meta.dir, "fixtures", "grammars");
 
-afterEach(() => {
+// no resets: each capture() builds its own registry value - a registration cannot outlive its
+// call (tests/registry-isolation.test.ts proves the same over the walk and the address gate)
+afterAll(() => {
   rmScratchTree(ROOT);
-  // the custom-grammar test registers a shadow grammar in-process; without the reset it
-  // governs every LATER capture in this file (embedded-behavior tests would use the shadow)
-  resetGrammarsForTest();
-  resetQueriesForTest();
 });
 
 /** One run dir with the given files; returns the dir. */
@@ -204,18 +200,22 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(scattered.filter((e) => e.kind === "import")).toHaveLength(2);
   });
 
-  test("a query-override registration never poisons later override-less use: LOUD, not silent zero", async () => {
-    // registering the shadow dir WITH a query file stores the empty-queries marker; a LATER
-    // capture on that language without one is a LOUD setup error - never a silent zero (an empty
-    // .scm compiles clean and extracts nothing)
+  test("the grammarPath overlay dies with its call: the next capture is embedded, never poisoned", async () => {
+    // THE POLLUTION PROOF (this-process form): a custom registration inside one capture() must not
+    // govern a LATER capture. The old module-level registry failed this - the shadow stuck and the
+    // next call silently extracted with it (or hit its interim guard); the per-call registry value
+    // makes the leak impossible by construction.
     const dir = setup("poison", { "doc.md": DOC });
     const wip = join(dir, "wip.scm");
     writeFileSync(wip, "(paragraph) @section\n");
     const file = join(dir, "doc.md");
-    await capture(file, wip, join(SHADOW, "markdown"));
-    await expect(capture(file)).rejects.toThrow(
-      /grammar markdown registered without queries - supply a query file or add queries.scm to its dir/,
-    );
+    // the overlay governed ITS call: the wip .scm's paragraph-sections, not the embedded's
+    const overlaid = await capture(file, wip, join(SHADOW, "markdown"));
+    expect(overlaid.map((e) => e.span.start.line).sort()).toEqual([3, 7]);
+    // the next call, overlay-less: the EMBEDDED extraction - heading sections carry names
+    const after = await capture(file);
+    expect(after.filter((e) => e.kind === "section").map((e) => e.name)).toEqual(["Title", "Sub"]);
+    expect(after.some((e) => e.kind === "paragraph")).toBe(true);
   });
 
   test("a grammar dir whose queries.scm is absent-but-invalid is skipped, not read (override supplies extraction)", async () => {

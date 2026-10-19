@@ -15,7 +15,7 @@
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
  */
 
-import { knownLanguages, languageOf } from "./grammars/walk.ts";
+import { knownLanguages, languageOf, EMBEDDED } from "./grammars/walk.ts";
 import { createClassifier } from "./jev/client.ts";
 import {
   checkRunKnobs,
@@ -80,11 +80,14 @@ export async function classify(
   const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
+  // classify() has no config door, so its registry is the embedded base alone - the grammar-dir
+  // scan is lint()'s and captureFor()'s seam, never this one-shot door's
+  const registry = EMBEDDED;
   // an element-target rule needs a parsed inventory; when neither the path nor the language
   // option resolves a grammar there is none - fail at setup, never as a silent empty run
   if (
     options.language === undefined &&
-    languageOf(path) === null &&
+    languageOf(registry, path) === null &&
     rules.some(
       (rule) => !(Array.isArray(rule.target) ? rule.target : [rule.target]).includes("files"),
     )
@@ -92,7 +95,7 @@ export async function classify(
     throw new SetupError(
       "MISSING_GRAMMAR",
       "cannot infer a grammar for the given source - declare it with the language option",
-      { detail: { kind: "unknown-language", valid: knownLanguages() } },
+      { detail: { kind: "unknown-language", valid: knownLanguages(registry) } },
     );
   }
   const unit: Unit = {
@@ -108,7 +111,7 @@ export async function classify(
     rules,
     withLimit(withTimeout(options.classifier ?? createClassifier(), timeout), concurrency),
     () => false,
-    { language: options.language },
+    { language: options.language, registry },
   );
   const measurements: Measurement[] = [];
   const errors: ClassifyError[] = [];

@@ -1,12 +1,15 @@
 /**
  * The grammar registry: which languages exist, which wasm serves each parse, which .scm turns its
  * tree into elements. Embedded grammars are NOT special: each embedded/<id>/ directory carries the
- * same three artifacts a user grammar dir holds — <id>.wasm (parse), extensions.json (routing:
- * queries.scm (extraction + shape directives) — and registers through the same shape a user grammar
- * uses at runtime. A user grammar dir ($JINT_GRAMMAR_DIR, default ~/.jint/grammars) registers at
- * lint start: a user wasm wins over embedded for the same language, and a
- * queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override without a
- * parse override). The registry table is ONE LINE per grammar; the dirs stay pure data, so the
+ * same three artifacts a custom grammar dir holds — <id>.wasm (parse), extensions.json (routing:
+ * queries.scm (extraction + shape directives) — and registers through the same shape a custom
+ * grammar uses at runtime. The registry is a VALUE, not a table: every door builds one per run or
+ * call (the embedded base merged with whatever customs that door sees) and threads it explicitly
+ * through walk/query entry points — no module-level mutable state, so a custom registration can
+ * never outlive the call that asked for it. A custom grammar dir ($JINT_GRAMMAR_DIR, default
+ * ~/.jint/grammars) merges at lint start: a custom wasm wins over embedded for the same language,
+ * and a queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override
+ * without a parse override). The registry is one line per grammar; the dirs stay pure data, so the
  * custom-grammar seam and the embedded grammars are the same shape.
  *
  * Grammar dir shape: <lang>.wasm - the tree-sitter grammar (absent: shadow an embedded grammar)
@@ -70,12 +73,20 @@ export interface GrammarEntry {
   readonly provenance: GrammarProvenance;
 }
 
+/**
+ * A registry VALUE: the embedded base overlaid with custom grammars, one entry per language id.
+ * Built per run (lint) or per call (capture); never stored at module scope — the value dying with
+ * its run is what makes custom registration side-effect-free.
+ */
+export type GrammarRegistry = Readonly<Record<string, GrammarEntry>>;
+
 // ---------------------------------------------------------------------------
-// Embedded grammars: compiled-in registrations through the user-facing shape.
-// One line per grammar; each embedded/<lang>/ dir owns its data.
+// Embedded grammars: compiled-in registrations through the custom-facing shape.
+// One line per grammar; each embedded/<lang>/ dir owns its data. Static data: the immutable base
+// every registry value starts from, and the default when a door has no custom grammars.
 // ---------------------------------------------------------------------------
 
-const EMBEDDED: Record<string, GrammarEntry> = {
+export const EMBEDDED: GrammarRegistry = {
   typescript: {
     language: "typescript",
     extensions: typescriptExtensions,
@@ -142,12 +153,8 @@ const EMBEDDED: Record<string, GrammarEntry> = {
 };
 
 // ---------------------------------------------------------------------------
-// User grammars + merged view
+// Registry reads (every read takes the registry value it reads from)
 // ---------------------------------------------------------------------------
-
-/** User grammars registered by loadUserGrammars; null until the first lint start scanned the dir. */
-let userGrammars: Record<string, GrammarEntry> | null = null;
-let loadPromise: Promise<void> | null = null;
 
 /**
  * The grammar dir: $JINT_GRAMMAR_DIR, else <homedir>/.jint/grammars — ONE var, one root, no
@@ -160,22 +167,21 @@ export function grammarsDir(): string {
     : join(homedir(), ".jint", "grammars");
 }
 
-function entry(language: string): GrammarEntry {
-  const user = userGrammars?.[language];
-  return user ?? EMBEDDED[language]!;
-}
-
-/** All registered languages, embedded plus user (user registration replaces embedded by name). */
-export function knownLanguages(): string[] {
-  return [...new Set([...Object.keys(EMBEDDED), ...Object.keys(userGrammars ?? {})])];
+/**
+ * All languages a registry holds. The default is the embedded base — the static answer a caller
+ * with no run in hand means (the CLI's --language gate, schema generation); run code passes the
+ * registry it built.
+ */
+export function knownLanguages(registry: GrammarRegistry = EMBEDDED): string[] {
+  return Object.keys(registry);
 }
 
 /**
  * Every registered extension, in registration order — the "parsing" coverage note lists the ACTUAL
  * claim surface (c also parses .h, so the note says c, h, not just c).
  */
-export function grammarExtensions(): string[] {
-  return [...new Set(knownLanguages().flatMap((language) => [...entry(language).extensions]))].map(
+export function grammarExtensions(registry: GrammarRegistry): string[] {
+  return [...new Set(knownLanguages(registry).flatMap((l) => [...registry[l]!.extensions]))].map(
     (e) => e.replace(/^\./, ""),
   );
 }
@@ -186,20 +192,20 @@ export function grammarExtensions(): string[] {
  * to cpp today. That is a policy choice, not a fact of the languages: it is recorded in the design
  * doc's open questions (grammar-loading: extension conflicts are silent-wins).
  */
-function extensionToLanguage(): Record<string, string> {
+function extensionToLanguage(registry: GrammarRegistry): Record<string, string> {
   const map: Record<string, string> = {};
-  for (const language of knownLanguages()) {
-    for (const extension of entry(language).extensions) {
+  for (const [language, entry] of Object.entries(registry)) {
+    for (const extension of entry.extensions) {
       map[extension.replace(/^\./, "")] ??= language;
     }
   }
   return map;
 }
 
-/** The language for a path by registered extension, or null when no grammar claims it. */
-export function languageOf(path: string): string | null {
+/** The language for a path by the registry's registered extensions, or null when none claims it. */
+export function languageOf(registry: GrammarRegistry, path: string): string | null {
   const match = path.match(/\.([A-Za-z0-9]+)$/);
-  return match ? (extensionToLanguage()[match[1]!.toLowerCase()] ?? null) : null;
+  return match ? (extensionToLanguage(registry)[match[1]!.toLowerCase()] ?? null) : null;
 }
 
 /**
@@ -212,21 +218,28 @@ export function unclaimedExtension(path: string): string {
 }
 
 /**
- * The query source + provenance view the walker parses with; unknown language is an invariant
- * breach.
+ * The query source + provenance view the walker parses with; unknown language in the registry at
+ * hand is an invariant breach.
  */
-export function grammar(language: string): GrammarEntry {
-  if (!knownLanguages().includes(language)) {
+export function grammar(registry: GrammarRegistry, language: string): GrammarEntry {
+  const found = registry[language];
+  if (found === undefined) {
     throw new InternalError(`no tree-sitter grammar registered for language: ${language}`);
   }
-  return entry(language);
+  return found;
 }
 
 // ---------------------------------------------------------------------------
-// Parser/engine (single init; parser per language, cached)
+// Parser/engine (single init; parser per wasm, memoized)
 // ---------------------------------------------------------------------------
 
-/** Parser instances are cached per language; web-tree-sitter itself initializes once. */
+/**
+ * Parser instances are memoized per SERVING WASM (the wasm a registry entry names); web-tree-sitter
+ * itself initializes once. Keyed by wasmPath, never by language id: two registry values may serve
+ * different wasms under one id (a custom grammar overriding an embedded one), and each holds its
+ * own parse state. Pure memo - invisible to behavior; a path's content is stable within a process
+ * (grammar dirs are static artifacts).
+ */
 let initPromise: Promise<unknown> | null = null;
 const parsers = new Map<string, Promise<Parser>>();
 const languages = new Map<string, Promise<LanguageType>>();
@@ -240,24 +253,23 @@ function engineReady(): Promise<unknown> {
   return initPromise;
 }
 
-/** The loaded Language instance (parse, query compilation); cached per language. */
-export function loadLanguage(language: string): Promise<LanguageType> {
-  const cached = languages.get(language);
+/** The loaded Language instance (parse, query compilation); memoized per serving wasm. */
+export function loadLanguage(entry: GrammarEntry): Promise<LanguageType> {
+  const cached = languages.get(entry.wasmPath);
   if (cached) return cached;
   const created = (async () => {
     await engineReady();
-    const { wasmPath } = grammar(language);
-    return Language.load(new Uint8Array(await Bun.file(wasmPath).arrayBuffer()));
+    return Language.load(new Uint8Array(await Bun.file(entry.wasmPath).arrayBuffer()));
   })();
-  languages.set(language, created);
+  languages.set(entry.wasmPath, created);
   return created;
 }
 
-export async function parserFor(language: string): Promise<Parser> {
-  const cached = parsers.get(language);
+export function parserFor(entry: GrammarEntry): Promise<Parser> {
+  const cached = parsers.get(entry.wasmPath);
   if (cached) return cached;
-  const created = loadLanguage(language).then((lang) => new Parser().setLanguage(lang));
-  parsers.set(language, created);
+  const created = loadLanguage(entry).then((lang) => new Parser().setLanguage(lang));
+  parsers.set(entry.wasmPath, created);
   return created;
 }
 
@@ -326,11 +338,16 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
   }
 }
 
-async function registerUserGrammar(
+/**
+ * Read one custom grammar dir into a VALIDATED registry entry; loud on every artifact failure.
+ * Returns the entry - the caller composes its registry value; nothing is stored, nothing global is
+ * touched.
+ */
+async function readCustomGrammar(
   grammarId: string,
   dir: string,
   options: { readonly queriesOptional?: boolean } = {},
-): Promise<void> {
+): Promise<GrammarEntry> {
   const queriesPath = join(dir, "queries.scm");
   if (!(await Bun.file(queriesPath).exists()) && options.queriesOptional !== true) {
     throw new SetupError(
@@ -348,12 +365,22 @@ async function registerUserGrammar(
   const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
   // queriesOptional = an explicit .scm override supplies extraction for THIS call; the dir's own
   // queries.scm - present or not - is NOT read (it would be unused, and reading it unvalidated
-  // would license a bad .scm through the side door). The registry entry carries the empty marker;
-  // the walker turns any OVERRIDE-LESS use of that marker into a LOUD error - never silent zero.
-  const queries =
-    options.queriesOptional !== true && (await Bun.file(queriesPath).exists())
-      ? await Bun.file(queriesPath).text()
-      : "";
+  // would license a bad .scm through the side door). The entry carries the empty marker; that
+  // marker can never be walked override-less, because the entry lives only in the registry value
+  // the call holding the override builds - the unwind is by construction (2026-10-19: the interim
+  // walker guard for the marker died with the mutable global it papered over).
+  let queries = "";
+  if (options.queriesOptional !== true && (await Bun.file(queriesPath).exists())) {
+    queries = await Bun.file(queriesPath).text();
+    // an EMPTY .scm compiles clean and extracts nothing - the worst failure shape there is. Loud
+    // HERE, at the artifact read, where the dir's other artifact validations live.
+    if (queries.trim() === "") {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `grammar ${grammarId}: queries.scm is empty - it is the extraction half; an empty one compiles clean and extracts nothing`,
+      );
+    }
+  }
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
@@ -363,77 +390,70 @@ async function registerUserGrammar(
       `grammar ${grammarId}: no ${grammarId}.wasm in the dir and no embedded grammar of that name to shadow`,
     );
   }
-  // The wasm that will actually serve parses: the user's when present, else the shadowed
+  // The wasm that will actually serve parses: the custom's when present, else the shadowed
   // embedded asset. Either way the export must agree with the directory name.
   const servingWasmPath = hasWasm ? wasmPath : embeddedEntry!.wasmPath;
   await assertWasmMatchesDir(grammarId, servingWasmPath);
-  if (userGrammars?.[grammarId] !== undefined) {
-    // re-registration (a second lint start in-process): drop the cached parse state first
-    languages.delete(grammarId);
-    parsers.delete(grammarId);
-  }
-  userGrammars = {
-    ...userGrammars,
-    [grammarId]: {
-      language: grammarId,
-      extensions,
-      wasmPath: servingWasmPath,
-      queries,
-      provenance: { source: "user", path: servingWasmPath },
-    },
+  return {
+    language: grammarId,
+    extensions,
+    wasmPath: servingWasmPath,
+    queries,
+    provenance: { source: "user", path: servingWasmPath },
   };
 }
 
 /**
- * Lint-start scan: register the grammars under the grammar dir. THE SEAM IS ONE GRAMMAR PER DIR:
- * each SUBDIRECTORY is one grammar, its id the DIRECTORY NAME (nextjs-route semantics); a stray
- * file at the root is a coverage note (stale artifact of the flat layout - artifacts are flat
- * INSIDE a grammar dir, never at the root). Missing dir scans as zero grammars (the embedded set
- * alone). A missing artifact, a malformed extensions.json, an uncompilable .scm, or a wasm whose
- * export disagrees with the dir name throws CONFIG_INVALID - loud, at setup, before any file is
- * measured.
+ * The grammar-dir scan, returned as a REGISTRY VALUE: the custom grammars under the dir merged over
+ * the embedded base. THE SEAM IS ONE GRAMMAR PER DIR: each SUBDIRECTORY is one grammar, its id the
+ * DIRECTORY NAME (nextjs-route semantics); a stray file at the root is a coverage note (stale
+ * artifact of the flat layout - artifacts are flat INSIDE a grammar dir, never at the root).
+ * Missing dir scans as zero grammars (the embedded base alone). A missing artifact, a malformed
+ * extensions.json, an empty or uncompilable .scm, or a wasm whose export disagrees with the dir
+ * name throws CONFIG_INVALID - loud, at setup, before any file is measured. The caller owns the
+ * value's lifetime: it lives and dies with the run or call that asked for it.
  */
-export async function loadUserGrammars(
+export async function loadCustomGrammars(
   dir: string = grammarsDir(),
   onNote?: (note: string) => void,
-): Promise<void> {
-  loadPromise ??= (async () => {
-    let entries: import("node:fs").Dirent[];
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch (err) {
-      // No grammar dir is the common case: the embedded set alone needs no note. A dir that
-      // exists but cannot be read is not absence - say so, because the run silently loses it.
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code !== "ENOENT" && code !== "ENOTDIR") {
-        onNote?.(`grammar dir ${dir}: unreadable (${(err as Error).message}) - embedded set only`);
-      }
-      return;
+): Promise<GrammarRegistry> {
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    // No grammar dir is the common case: the embedded base alone needs no note. A dir that
+    // exists but cannot be read is not absence - say so, because the run silently loses it.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      onNote?.(`grammar dir ${dir}: unreadable (${(err as Error).message}) - embedded set only`);
     }
-    const strayFiles = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
-    if (strayFiles.length > 0 && onNote !== undefined) {
-      onNote(
-        `grammar dir ${dir}: ${strayFiles.length} loose file(s) (${strayFiles.join()}) ignored - each grammar is one directory named for its id`,
-      );
+    return EMBEDDED;
+  }
+  const strayFiles = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
+  if (strayFiles.length > 0 && onNote !== undefined) {
+    onNote(
+      `grammar dir ${dir}: ${strayFiles.length} loose file(s) (${strayFiles.join()}) ignored - each grammar is one directory named for its id`,
+    );
+  }
+  const customs: Record<string, GrammarEntry> = {};
+  for (const entry of entries) {
+    if (entry.isDirectory() && /^[A-Za-z0-9_-]+$/.test(entry.name)) {
+      customs[entry.name] = await readCustomGrammar(entry.name, join(dir, entry.name));
     }
-    for (const entry of entries) {
-      if (entry.isDirectory() && /^[A-Za-z0-9_-]+$/.test(entry.name)) {
-        await registerUserGrammar(entry.name, join(dir, entry.name));
-      }
-    }
-  })();
-  await loadPromise;
+  }
+  return { ...EMBEDDED, ...customs };
 }
 /**
- * Custom registration for ONE capture() call: a grammar DIRECTORY (wasm + extensions.json [+
- * queries.scm]) registered under its directory name with every BYOG loud validation - wasm
- * cross-check, extensions.json routing, .scm compile when present. Nothing is installed: the
- * registry is process-local memory, exactly what a JINT_GRAMMAR_DIR scan produces.
+ * ONE capture() call's custom registration: a grammar DIRECTORY (wasm + extensions.json [+
+ * queries.scm]) read under its directory name with every BYOG loud validation - wasm cross-check,
+ * extensions.json routing, .scm compile when present. Returns the entry for the CALL's registry
+ * value; nothing is installed and no global state exists to install into - the registration IS the
+ * returned value, exactly what a JINT_GRAMMAR_DIR scan reads per grammar.
  */
 export async function registerCustomGrammar(
   dir: string,
   options: { readonly queriesOptional?: boolean } = {},
-): Promise<void> {
+): Promise<GrammarEntry> {
   const id = dir.split(/[\\/]/).filter(Boolean).pop();
   if (id !== undefined && /[A-Z]/.test(id)) {
     throw new SetupError(
@@ -447,12 +467,5 @@ export async function registerCustomGrammar(
       "grammar dir " + dir + ": the directory name is the grammar id",
     );
   }
-  await registerUserGrammar(id, dir, options);
-}
-/** Test seam: reset registration state (cached parsers included) between scenarios. */
-export function resetGrammarsForTest(): void {
-  userGrammars = null;
-  loadPromise = null;
-  languages.clear();
-  parsers.clear();
+  return readCustomGrammar(id, dir, options);
 }
