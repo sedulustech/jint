@@ -26,6 +26,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src"],
-  "exclude": ["src/**/fixtures", "src/**/statements-grammar"]
+  "include": ["src"]
 }
