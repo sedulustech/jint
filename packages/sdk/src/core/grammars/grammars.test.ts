@@ -1,13 +1,14 @@
 /**
- * The grammar-dir seam: user registration over the new layout (grammar id = DIRECTORY name; the
+ * The grammar-dir seam: custom registration over the new layout (grammar id = DIRECTORY name; the
  * three artifacts are <id>.wasm, queries.scm, extensions.json - there is no manifest), and the loud
- * failures that keep a typo from parsing into silence.
+ * failures that keep a typo from parsing into silence. The scan RETURNS a registry value per call:
+ * nothing module-level exists to reset between tests - a value cannot leak.
  */
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knownLanguages, loadUserGrammars, resetGrammarsForTest } from "./grammars.ts";
+import { EMBEDDED, knownLanguages, loadCustomGrammars } from "./grammars.ts";
 import { assertCaptureAddress } from "./query.ts";
 
 /** A scratch grammar root; `dirs` maps grammar-dir name -> artifact name -> content. */
@@ -49,30 +50,26 @@ async function markdownDir(
   };
 }
 
-// The grammar scan memoizes per process, and bun runs the suite's files in one process: reset
-// BEFORE and after each test so a parallel file's lint run can never satisfy this one.
-beforeEach(() => {
-  resetGrammarsForTest();
-});
-afterEach(() => {
-  resetGrammarsForTest();
-});
-
-describe("loadUserGrammars", () => {
-  test("the minimal three-artifact dir registers; the id is the DIRECTORY name", async () => {
+describe("loadCustomGrammars", () => {
+  test("the minimal three-artifact dir returns a registry holding it; the id is the DIRECTORY name", async () => {
     const dir = scratchDir(await markdownDir("markdown"));
-    await loadUserGrammars(dir);
-    expect(knownLanguages()).toContain("markdown");
+    const registry = await loadCustomGrammars(dir);
+    expect(knownLanguages(registry)).toContain("markdown");
   });
 
   test("a dir without queries.scm is a setup error naming the missing extraction half", async () => {
     const dir = scratchDir({ python: { "extensions.json": EXT } });
-    await expect(loadUserGrammars(dir)).rejects.toThrow(/queries\.scm is missing/);
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(/queries\.scm is missing/);
+  });
+
+  test("a dir with an EMPTY queries.scm is rejected loud: it compiles clean and extracts nothing", async () => {
+    const dir = scratchDir({ python: { "extensions.json": EXT, "queries.scm": "\n" } });
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(/queries\.scm is empty/);
   });
 
   test("a dir without extensions.json is a setup error naming the routing artifact", async () => {
     const dir = scratchDir({ python: { "queries.scm": SCM } });
-    await expect(loadUserGrammars(dir)).rejects.toThrow(/extensions\.json is missing/);
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(/extensions\.json is missing/);
   });
 
   test("malformed extensions.json shapes are loud: not an array, empty, or not dot-prefixed", async () => {
@@ -89,14 +86,13 @@ describe("loadUserGrammars", () => {
           "markdown.wasm": await wasm(),
         },
       });
-      await expect(loadUserGrammars(dir)).rejects.toThrow(/invalid extensions\.json/);
-      resetGrammarsForTest();
+      await expect(loadCustomGrammars(dir)).rejects.toThrow(/invalid extensions\.json/);
     }
   });
 
   test("THE COPY-PASTE GUARD: a wasm whose export disagrees with the dir name errors naming both", async () => {
     const dir = scratchDir(await markdownDir("notmarkdown"));
-    await expect(loadUserGrammars(dir)).rejects.toThrow(
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(
       /grammar dir "notmarkdown" holds a wasm that does not export "tree_sitter_notmarkdown" \(it exports: tree_sitter_markdown\)/,
     );
   });
@@ -105,44 +101,42 @@ describe("loadUserGrammars", () => {
     const dir = scratchDir({
       probe: { "extensions.json": EXT, "queries.scm": SCM, "probe.wasm": "not a real wasm" },
     });
-    await expect(loadUserGrammars(dir)).rejects.toThrow(/is not a valid wasm module/);
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(/is not a valid wasm module/);
   });
 });
 
 describe("one grammar per dir", () => {
   test("each subdirectory is one grammar; a second dir holding the wrong wasm trips the guard", async () => {
     const dir = scratchDir({ ...(await markdownDir("markdown")), ...(await markdownDir("other")) });
-    // "other" holds the markdown wasm - the copy-paste guard fires on the second registration
-    await expect(loadUserGrammars(dir)).rejects.toThrow(/does not export "tree_sitter_other"/);
+    // "other" holds the markdown wasm - the copy-paste guard fires on the second read
+    await expect(loadCustomGrammars(dir)).rejects.toThrow(/does not export "tree_sitter_other"/);
   });
 
   test("a loose file at the grammar-dir root yields one coverage note, not silence", async () => {
     const dir = scratchDir(await markdownDir("markdown"));
     writeFileSync(join(dir, "probe.manifest.json"), '{ "stale": true }');
     const notes: string[] = [];
-    await loadUserGrammars(dir, (note) => notes.push(note));
+    const registry = await loadCustomGrammars(dir, (note) => notes.push(note));
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain("loose file(s) (probe.manifest.json) ignored");
-    expect(knownLanguages()).toContain("markdown");
+    expect(knownLanguages(registry)).toContain("markdown");
   });
 });
 
-describe("THE MERGED-REGISTRY ADDRESS GATE (ordering pin)", () => {
-  afterEach(() => {
-    resetGrammarsForTest();
-  });
-
-  test("a shadow registration re-scopes address validation: the emitted set is the shadow's", async () => {
-    // Before any user registration, markdown:paragraph validates (the embedded .scm emits it).
-    expect(() => assertCaptureAddress("markdown:paragraph")).not.toThrow();
-    // Register the shadow dir (section-only .scm, no wasm): validation must now read the
+describe("THE RUN-REGISTRY ADDRESS GATE (ordering pin)", () => {
+  test("a shadow grammar re-scopes address validation: the emitted set is the shadow's", async () => {
+    // Over the embedded base, markdown:paragraph validates (the embedded .scm emits it).
+    expect(() => assertCaptureAddress("markdown:paragraph", EMBEDDED)).not.toThrow();
+    // Scan the shadow dir (section-only .scm, no wasm): the returned registry must read the
     // SHADOW's emitted set - markdown:paragraph flips from valid to loud, markdown:section stays
     // valid. This is the ordering the e2e pins observably (tests/byog-markdown.test.ts).
     const shadow = join(
       new URL("../../../../../tests/fixtures/grammars", import.meta.url).pathname,
     );
-    await loadUserGrammars(shadow);
-    expect(() => assertCaptureAddress("markdown:section")).not.toThrow();
-    expect(() => assertCaptureAddress("markdown:paragraph")).toThrow(/markdown emits: section/);
+    const registry = await loadCustomGrammars(shadow);
+    expect(() => assertCaptureAddress("markdown:section", registry)).not.toThrow();
+    expect(() => assertCaptureAddress("markdown:paragraph", registry)).toThrow(
+      /markdown emits: section/,
+    );
   });
 });

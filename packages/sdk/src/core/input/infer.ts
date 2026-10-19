@@ -13,7 +13,7 @@
  */
 
 import { stat } from "node:fs/promises";
-import { knownLanguages } from "../grammars/walk.ts";
+import { knownLanguages, EMBEDDED, type GrammarRegistry } from "../grammars/walk.ts";
 import { SetupError, type InputKind, type Unit } from "../types.ts";
 import { walkDir } from "./dir.ts";
 import { fileUnit } from "./file.ts";
@@ -31,6 +31,12 @@ export interface InputOptions {
   secretDenylist?: readonly string[];
   /** Walk coverage notes (the denylist's one-note-per-class skips); absent = silent. */
   onNote?: (note: string) => void;
+  /**
+   * The registry the input's grammar routing reads: fileUnit's unknown-language check and its
+   * "valid" detail come from HERE, not from any module state. Absent = the embedded base (no run in
+   * hand).
+   */
+  registry?: GrammarRegistry;
   /**
    * Whether a file needs a grammar to be measured (an element-target rule is in scope for it).
    * Absent = every file requires a grammar. A grammar-less file with requireGrammar false measures
@@ -53,7 +59,10 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
     // explicit file paths bypass exclude
     if (Array.isArray(input)) {
       for (const path of input) {
-        yield await fileUnit(path, { requireGrammar: options.requireGrammarFor?.(path) ?? true });
+        yield await fileUnit(path, {
+          requireGrammar: options.requireGrammarFor?.(path) ?? true,
+          registry: options.registry,
+        });
       }
       return;
     }
@@ -61,6 +70,7 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
     if (kind === "file") {
       yield await fileUnit(input, {
         requireGrammar: options.requireGrammarFor?.(input) ?? true,
+        registry: options.registry,
       });
       return;
     }
@@ -77,7 +87,7 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
     }
     // Unreachable by the type; a guard against a future kind, not a branch.
     throw new SetupError("MISSING_GRAMMAR", `not a source-language file: ${input}`, {
-      detail: { kind: "unknown-language", valid: knownLanguages() },
+      detail: { kind: "unknown-language", valid: knownLanguages(options.registry ?? EMBEDDED) },
     });
   })();
 }

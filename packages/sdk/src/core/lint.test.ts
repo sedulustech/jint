@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ruleTargets } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
-import { grammar } from "../core/grammars/grammars.ts";
+import { EMBEDDED, grammar } from "../core/grammars/grammars.ts";
 import { ELEMENT_CAPTURES } from "../core/grammars/query.ts";
 import { emittedCaptures } from "./grammars/query.ts";
 import { assertCaptureAddress, scmCode } from "./grammars/query.ts";
@@ -804,11 +804,11 @@ describe("lint", () => {
   });
 
   test("qualified capture addresses reject loudly at the merged-registry gate: bare form, unknown grammar, unknown capture", () => {
-    // The gate lives at LINT STARTUP now (core/lint.ts, after loadUserGrammars): addresses are
-    // checked against the MERGED registry - the emitted set of an id is its registered grammar's,
-    // whatever its origin. This pin exercises the validator directly (the embedded registry is
-    // the merged one here - no user dir in play); the shadow-set ordering is e2e-pinned in
-    // tests/byog-markdown.test.ts.
+    // The gate runs at LINT STARTUP (core/lint.ts) over the run's registry value: addresses are
+    // checked against the registry the run holds - the emitted set of an id is its registered
+    // grammar's, whatever its origin. This pin exercises the validator directly (the embedded
+    // base is the run's registry here - no grammar dir in play); the shadow-set ordering is e2e-
+    // pinned in tests/byog-markdown.test.ts.
     for (const [target, detail] of [
       ["nosuch:section", "unknown grammar"],
       ["markdown:nosuch", "unknown capture in a loaded grammar"],
@@ -817,7 +817,7 @@ describe("lint", () => {
       ["markdown:function", "markdown emits no function capture"],
     ] as const) {
       try {
-        assertCaptureAddress(target);
+        assertCaptureAddress(target, EMBEDDED);
         throw new Error("expected CONFIG_INVALID for " + detail);
       } catch (thrown) {
         expect(thrown).toBeInstanceOf(SetupError);
@@ -831,12 +831,12 @@ describe("lint", () => {
     // a capture bound under a predicate still counts: the .scm names it; predicates gate
     // matching, not vocabulary. Pin: every element capture named on a predicate line of the
     // typescript .scm is in the derived emitted set.
-    const scm = grammar("typescript").queries;
+    const scm = grammar(EMBEDDED, "typescript").queries;
     const predicateLines = scmCode(scm)
       .split("\n")
       .filter((l) => l.includes("(#"));
     expect(predicateLines.length).toBeGreaterThan(0);
-    const emitted = new Set(emittedCaptures("typescript"));
+    const emitted = new Set(emittedCaptures(EMBEDDED, "typescript"));
     for (const line of predicateLines) {
       for (const m of line.matchAll(/@([A-Za-z_][A-Za-z0-9_-]*)/g)) {
         const name = m[1]!;
@@ -846,7 +846,7 @@ describe("lint", () => {
       }
     }
     // the derivation is element captures only: markdown's @name never becomes addressable
-    expect(emittedCaptures("markdown")).toEqual(["section", "paragraph"]);
+    expect(emittedCaptures(EMBEDDED, "markdown")).toEqual(["section", "paragraph"]);
   });
 
   test("module docstrings are loose comments - no definition owns them", async () => {

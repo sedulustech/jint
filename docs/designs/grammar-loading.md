@@ -1,7 +1,7 @@
 ---
 title: Grammar loading
 status: implemented
-modified: 2026-10-16
+modified: 2026-10-19
 ---
 
 ## What exists today
@@ -14,10 +14,11 @@ The walker (`walk.ts`) parses with web-tree-sitter, runs the grammar's compiled 
 (`query.ts`), and materializes the inventory. It holds no node-type names: the .scm assigns
 captures, the runtime sees only captures.
 
-A user grammar dir (`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) registers at lint start
-through the same shape - each SUBDIRECTORY is one grammar, its id the directory name; a user wasm wins over embedded for the same id, and a
-queries.scm + extensions.json dir without a wasm shadows an embedded grammar's extraction. The registry table
-(`grammars.ts`) is one line per grammar; the dirs stay pure data.
+A user grammar dir (`$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`) merges into the run's
+registry VALUE at lint start through the same shape - each SUBDIRECTORY is one grammar, its id
+the directory name; a user wasm wins over embedded for the same id, and a
+queries.scm + extensions.json dir without a wasm shadows an embedded grammar's extraction. The registry
+(grammars.ts) is one line per grammar; the dirs stay pure data.
 
 The parity corpora (`tests/fixtures/parity/`) pin the extraction per language; the ten-grammar
 port and the dogfood run against main are complete. This branch IS the implementation.
@@ -51,7 +52,7 @@ flowchart LR
     EE["extensions.json"]
     ES["queries.scm"]
   end
-  REG["registry (grammars.ts)"]
+  REG["registry value (per run/call)"]
   user -- "same shape, same code" --> REG
   emb -- "same shape, same code" --> REG
   REG -- "wasm + queries + extensions" --> W["walker"]
@@ -345,6 +346,37 @@ capture (attachment owns it), and a language whose doc node PRECEDES what it doc
 `docstring.owner "next"` instead of a new projection. `docstringCount` counts for every
 containing definition (a method's docstring documents its class too) - the deliberate mirror
 of internalCommentCount.
+
+### The registry is a per-run value; the mutable global dies (2026-10-19, registry encapsulation)
+
+The registry stopped being a module-level table. Registration is a VALUE: `grammars.ts` holds the
+immutable embedded base, and every door builds its own registry value and threads it explicitly
+through the walk/query entry points - `lint()` builds one per run (embedded base + the
+JINT_GRAMMAR_DIR scan), `captureFor`/`capture` build one per call (plus the grammarPath overlay).
+Nothing module-level and mutable remains, so a custom registration cannot outlive the call that
+asked for it. The leak was real, not hypothetical: it crossed tests three times, and any
+long-lived SDK caller (capture, then lint, in one process) inherited a shadow grammar it never
+asked for. The impossible-leak test (tests/registry-isolation.test.ts) pins all three observable
+forms - extraction, routing, address validation - and fails on the old code in all three.
+
+Consequences, each deliberate:
+
+- The interim walker guard ("grammar registered without queries") DIED. It papered over the one
+  leak symptom an override-registered empty-queries marker could cause in a LATER call; with the
+  marker's entry confined to the call's own registry value, the guarded state is unreachable by
+  construction. Its loudness survives where the artifact lives: a PRESENT-but-empty queries.scm
+  is rejected at the artifact read (registration), not at the walk.
+- The per-process scan memo died with the global it fed: each lint/captureFor call scans the
+  grammar dir again (a readdir plus per-grammar artifact reads - the CLI's one call per process
+  is unchanged).
+- Caches stay in-memory memos, nothing more. The compiled-query memo keeps its Map untouched;
+  its key was re-derived (serving wasm path + .scm content, from language id + .scm content)
+  because registry values may serve different wasms under one language id. The parser/language
+  memos re-keyed the same way (wasm path, not language id). DECISION RECORDED (owner): no cache
+  beyond these memos, nothing on disk (~/.jint or elsewhere), no caching infrastructure - it is a
+  rabbit hole and nothing needs it yet.
+- The public surface is unchanged (`knownLanguages()` answers the embedded base - the static
+  build truth; run code reads its own registry value).
 
 ## Rejections
 

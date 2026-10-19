@@ -1,17 +1,12 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { capture } from "./capture.ts";
-import { resetGrammarsForTest } from "./grammars.ts";
-import { resetQueriesForTest } from "./query.ts";
 
-// a shadow replaces a grammar's .scm: the compiled-query cache is per language and must drop
-// with the registry, or the shadow would extract with the embedded .scm
-afterEach(() => {
-  resetGrammarsForTest();
-  resetQueriesForTest();
-});
+// no resets: each capture() builds its own registry value, so a custom registration cannot
+// survive the call that asked for it (the pollution-proof test in tests/registry-isolation.test.ts
+// pins that observably end-to-end)
 
 const MARKDOWN = ["# Head\n", "\n", "prose body\n"].join("");
 
@@ -172,16 +167,14 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     expect(capture(join(dir, "doc.md"), join(dir, "nope.scm"))).rejects.toThrow(/unreadable/);
   });
 
-  test("custom registration does not survive as an installed grammar for other ids", async () => {
-    // nothing installed: after the resets, the registry is back to the embedded set
+  test("custom registration does not survive the call: the next capture sees the embedded base", async () => {
+    // no resets needed: the registration is a value inside the first call's registry
     const dir = scratch("scope", { "doc.md": MARKDOWN });
     const shadow = join(
       new URL("../../../../../tests/fixtures/grammars", import.meta.url).pathname,
       "markdown",
     );
     await capture(join(dir, "doc.md"), undefined, shadow);
-    resetGrammarsForTest();
-    resetQueriesForTest();
     // embedded .scm again: the section carries its heading name, not the shadow's inversion
     const elements = await capture(join(dir, "doc.md"));
     expect(elements.some((e) => e.kind === "section" && e.name === "Head")).toBe(true);

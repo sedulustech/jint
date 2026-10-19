@@ -11,12 +11,13 @@
  * throws for per-unit failures (design §1, §7).
  */
 
-import { loadUserGrammars } from "./grammars/grammars.ts";
+import { loadCustomGrammars } from "./grammars/grammars.ts";
 import { assertCaptureAddress } from "./grammars/query.ts";
 import {
   grammarExtensions,
   MAX_ELEMENT_TOKENS,
   unclaimedExtension,
+  type GrammarRegistry,
   type InventoryElement,
 } from "./grammars/walk.ts";
 import { resolveInput } from "./input/infer.ts";
@@ -201,28 +202,29 @@ function selectScopedElements(
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  // The grammar dir registers before anything parses: user grammars win over embedded, a manifest
-  // + .scm without a wasm shadows an embedded grammar's extraction. Scan coverage (subdirs
-  // ignored) surfaces as a note, like the dir-walk coverage notes.
+  // The run's registry VALUE, built once here and threaded through every walk/query entry point:
+  // the grammar dir's customs merge over the embedded base (a custom wasm wins over embedded for
+  // the same id; an .scm + extensions.json dir without a wasm shadows an embedded grammar's
+  // extraction). The value dies with the run - nothing module-level remains to leak between runs.
+  // Scan coverage (loose files, unreadable dirs) surfaces as a note, like the dir-walk notes.
   const grammarNotes: string[] = [];
-  await loadUserGrammars(undefined, (note) => grammarNotes.push(note));
+  const registry = await loadCustomGrammars(undefined, (note) => grammarNotes.push(note));
   for (const note of grammarNotes) {
     yield { type: "note", note };
   }
-  // THE CAPTURE-ADDRESS GATE runs HERE, after registration and before any file walks: addresses
-  // validate against the MERGED registry as it stands - a shadow grammar REPLACES its embedded
-  // extraction, so the emitted set for an id is the shadow's once registered. Config load stays
-  // grammar-blind (the dir is not scanned there); the loudness point in the user's experience is
-  // identical: CONFIG_INVALID, nothing measured.
+  // THE CAPTURE-ADDRESS GATE runs HERE, over the run's registry and before any file walks: a
+  // shadow grammar REPLACES its embedded extraction, so the emitted set for an id is the shadow's
+  // once merged. Config load stays grammar-blind (no registry is built there); the loudness point
+  // in the user's experience is identical: CONFIG_INVALID, nothing measured.
   for (const rule of options.config.rules) {
     for (const t of typeof rule.target === "string" ? [rule.target] : rule.target) {
-      assertCaptureAddress(t);
+      assertCaptureAddress(t, registry);
     }
   }
   for (const rule of options.config.customRules ?? []) {
     const targets = Array.isArray(rule.target) ? rule.target : [rule.target];
     for (const t of targets) {
-      if (typeof t === "string") assertCaptureAddress(t);
+      if (typeof t === "string") assertCaptureAddress(t, registry);
     }
   }
   // The path list (changeset selection): read and parsed ONCE, before the input guard — the
@@ -315,8 +317,14 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // below, never silence.
   // Walk coverage notes (the secret-shaped denylist's one-note-per-class skips) surface here.
   const walkerNotes: string[] = [];
-  const units = await resolveRunUnits(options, pathsList, input, rules, customRules, (note) =>
-    walkerNotes.push(note),
+  const units = await resolveRunUnits(
+    options,
+    pathsList,
+    input,
+    rules,
+    customRules,
+    registry,
+    (note) => walkerNotes.push(note),
   );
   // Path-list entries that produced no walked unit (missing, unreadable, non-source) are
   // SIGNAL, never silence: one note names each, the run continues around them.
@@ -358,7 +366,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
         if (!needsWalk) return;
         const w = await walkUnit(
           unit,
-          options.language !== undefined ? { language: options.language } : {},
+          options.language !== undefined ? { language: options.language, registry } : { registry },
         );
         // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
         // the coverage note; the unit still classifies whole (files-target rules read raw source)
@@ -372,7 +380,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
   // union of what is parsed and what was seen-but-skipped is the run's honesty line.
   if (skippedExtensions.size > 0) {
-    yield { type: "note", note: sweepCoverageNote(skippedExtensions) };
+    yield { type: "note", note: sweepCoverageNote(skippedExtensions, registry) };
   }
   // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
   // selected element, so element jobs fan out to ONE classifier call.
@@ -435,6 +443,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             classifier,
             () => aborted,
             options.language,
+            registry,
             walked.get(i + j),
           ),
         ),
@@ -567,7 +576,8 @@ async function runUnit(
   rules: readonly Rule[],
   classifier: Classifier,
   isAborted: () => boolean,
-  language?: string,
+  language: string | undefined,
+  registry: GrammarRegistry,
   walked?: WalkedUnit,
 ): Promise<UnitResult> {
   const result = await classifyFile(
@@ -575,7 +585,7 @@ async function runUnit(
     rules,
     classifier,
     isAborted,
-    language !== undefined ? { language } : {},
+    language !== undefined ? { language, registry } : { registry },
     walked,
   );
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
@@ -609,13 +619,14 @@ async function collectUnits<T>(units: AsyncIterable<T>): Promise<T[]> {
 /**
  * The sweep-coverage line, lint's own rendering of a walk's unclaimed files: what parses, then what
  * was seen and skipped - ONE note, extensions not paths, sorted (capture() instead emits one raw
- * onSkip event per skipped file; its callers fold).
+ * onSkip event per skipped file; its callers fold). The "parses" side is the RUN's registry: what a
+ * run can parse is what its registry claims.
  */
-function sweepCoverageNote(unclaimed: Iterable<string>): string {
+function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistry): string {
   const skipped = [...new Set(unclaimed)].sort();
   return (
     "parsing " +
-    grammarExtensions().join(", ") +
+    grammarExtensions(registry).join(", ") +
     " · not parsed (no grammar): " +
     skipped.join(", ")
   );
@@ -633,6 +644,7 @@ async function resolveRunUnits(
   input: string | string[] | undefined,
   rules: readonly Rule[],
   customRules: readonly CustomRule[],
+  registry: GrammarRegistry,
   onWalkNote: (note: string) => void,
 ): Promise<Unit[]> {
   if (options.str !== undefined) return [strUnit(options.str.content, options.str.path)];
@@ -670,6 +682,8 @@ async function resolveRunUnits(
       // the walk's secret-shaped denylist (explicit files never enter walkDir: bypass)
       secretDenylist: options.config.secretDenylist,
       onNote: onWalkNote,
+      // the run's registry: explicit-file routing reads it (fileUnit)
+      registry,
       // explicit file selection measures raw when only files-target rules are in scope
       requireGrammarFor: (p) =>
         customRules.some((rule) => ruleInScope(rule, p)) ||

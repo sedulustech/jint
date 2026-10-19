@@ -28,7 +28,9 @@ import {
   loadLanguage,
   parserFor,
   unclaimedExtension,
+  EMBEDDED,
   type GrammarProvenance,
+  type GrammarRegistry,
 } from "./grammars.ts";
 import {
   isEmptyComment,
@@ -44,7 +46,8 @@ import {
   ELEMENT_CAPTURES,
 } from "./query.ts";
 
-export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension };
+export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
+export type { GrammarRegistry } from "./grammars.ts";
 export { isEmptyComment };
 /** The wire captures: a docstring projects into the comment kind (it IS a comment element). */
 export type WireCapture = Exclude<Capture, "docstring">;
@@ -468,25 +471,21 @@ function containsSpan(outer: Candidate, inner: Candidate): boolean {
 export async function decompose(
   source: string,
   language: string,
-  options: { readonly queries?: string } = {},
+  options: { readonly queries?: string; readonly registry?: GrammarRegistry } = {},
 ): Promise<Inventory> {
-  const entry = grammar(language);
-  const [parser, lang] = await Promise.all([parserFor(language), loadLanguage(language)]);
+  // the registry the walk reads: handed by the door that owns the run/call (embedded base when a
+  // direct caller names none)
+  const registry = options.registry ?? EMBEDDED;
+  const entry = grammar(registry, language);
+  const [parser, lang] = await Promise.all([parserFor(entry), loadLanguage(entry)]);
   // an explicit .scm override (capture() with a query file) REPLACES the registered one for
-  // extraction and goes through the SAME loud compile checks, uncached (one call, one compile)
+  // extraction and goes through the SAME loud compile checks, uncached (one call, one compile).
+  // The one entry that may carry an empty-queries marker (registered alongside an override) can
+  // never reach here override-less: it exists only inside the call's own registry value.
   const scm = options.queries ?? entry.queries;
-  // THE EMPTY-QUERIES MARKER: a custom grammar registered with a query-file override carries no
-  // own .scm. An override-less use of that marker is a LOUD error - never a silent zero (an empty
-  // .scm compiles clean and extracts nothing, the worst failure shape there is).
-  if (scm === "" && options.queries === undefined) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      `grammar ${language} registered without queries - supply a query file or add queries.scm to its dir`,
-    );
-  }
   const query = options.queries
     ? await compileQuery(language, scm, lang)
-    : await queryFor(language, scm, lang);
+    : await queryFor(entry, scm, lang);
   const tree = parser.parse(source);
   // a null tree is an engine failure, not a parse error (those surface via hasError):
   // an empty inventory would report success on an unmeasured file
