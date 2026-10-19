@@ -67,7 +67,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
   test("an invalid .scm override is LOUD: vocabulary, pattern-order conflict, compile", async () => {
     const dir = scratch("badscm", { "doc.md": MARKDOWN, "wip.scm": "(paragraph) @bogus\n" });
     expect(capture(join(dir, "doc.md"), join(dir, "wip.scm"))).rejects.toThrow(
-      /captures outside the vocabulary/,
+      /captures undeclared names/,
     );
     // two patterns sharing one root node type with different captures: the order between them
     // is load-bearing, the missing "; @priority" is the loud error

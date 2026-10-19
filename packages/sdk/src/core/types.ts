@@ -262,7 +262,13 @@ export type Element = import("@jint/contract").Element;
  * is the element's identity, never a label. Derived from the contract's union, so the compiler
  * rejects a kind the contract drops (no hand-copied mirror).
  */
-export type ElementCapture = Exclude<Element["kind"], "file">;
+/**
+ * An element's capture name: THE OPEN NAMESPACE - a shared capture (the lingua franca) or a
+ * grammar-declared autonomous one (its kind on the wire). Cannot derive from Element["kind"]
+ * anymore: the union's open string member swallows every literal under Exclude. "file" is not a
+ * capture (files-target rules judge whole units, never walk elements).
+ */
+export type ElementCapture = string;
 export type FileElement = import("@jint/contract").FileElement;
 export type FunctionElement = import("@jint/contract").FunctionElement;
 export type TypeElement = import("@jint/contract").TypeElement;

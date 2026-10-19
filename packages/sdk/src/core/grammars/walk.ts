@@ -49,9 +49,8 @@ import {
   type SuppressionOptions,
   type SuppressionShape,
   scmSelfNesting,
-  ELEMENT_CAPTURES,
 } from "./query.ts";
-import { sharedDefinitionDefault, sharedPolicyDefault } from "./shared.ts";
+import { SHARED_ELEMENT_CAPTURES, sharedDefinitionDefault, sharedPolicyDefault } from "./shared.ts";
 
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
@@ -174,6 +173,18 @@ function applySizeBackstop<T extends { content: string }>(elements: readonly T[]
  * (per-capture `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` - the grammar-wide
  * form every capture of the grammar inherits).
  */
+/**
+ * The captures this grammar's walk yields candidates for: the shared lingua franca plus its own
+ * declared autonomous captures.
+ */
+function resolveAddressable(scm: string): ReadonlySet<string> {
+  const declared = scmCaptureDeclarations(scm);
+  const addressable = new Set<string>(SHARED_ELEMENT_CAPTURES);
+  for (const capture of declared.definitions) addressable.add(capture);
+  for (const capture of declared.inert) addressable.add(capture);
+  return addressable;
+}
+
 function resolveSuppression(scm: string): SuppressionOptions {
   const declared = scmCapturePolicy(scm);
   const shapes = new Map<string, SuppressionShape>();
@@ -543,7 +554,10 @@ export async function decompose(
   // then comments cut - a trailing comment or a predicate string cannot fake a directive). The
   // grammar's own facts - definitions, suppression shapes, nesting - resolve HERE from its
   // directives over the tier-1 shared defaults; the engine holds no per-capture table.
-  const candidates = resolveCandidates(runQuery(query, tree.rootNode), resolveSuppression(scm));
+  const candidates = resolveCandidates(
+    runQuery(query, tree.rootNode, resolveAddressable(scm)),
+    resolveSuppression(scm),
+  );
   const definitionCaptures = resolveDefinitionCaptures(scm);
   const { definitions, comments, imports } = materialize(
     candidates,
@@ -574,9 +588,9 @@ interface ProjectionBase {
 
 // THE PROJECTION: one entry per capture, typed exhaustively over Capture - adding a capture
 // without a projection is a compile error here, never a runtime surprise mid-walk.
-const PROJECTION: Readonly<
-  Record<Capture, (element: InventoryElement, base: ProjectionBase) => Element>
-> = {
+const PROJECTION: {
+  readonly [shared: string]: (element: InventoryElement, base: ProjectionBase) => Element;
+} = {
   comment: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
   docstring: (e, base) => ({ kind: "comment", ...base, docstringOf: e.docstringOf }),
   type: (e, base) => ({ kind: "type", ...base, name: e.name }),
@@ -585,32 +599,29 @@ const PROJECTION: Readonly<
   function: (e, base) => ({ kind: "function", ...base, name: e.name }),
   method: (e, base) => ({ kind: "method", ...base, name: e.name }),
   class: (e, base) => ({ kind: "class", ...base, name: e.name }),
-  section: (e, base) => ({ kind: "section", ...base, name: e.name }),
-  paragraph: (_e, base) => ({ kind: "paragraph", ...base }),
-  list_item: (_e, base) => ({ kind: "list_item", ...base }),
-  list: (_e, base) => ({ kind: "list", ...base }),
 };
 
+/**
+ * Project one inventory element to the wire. SHARED captures carry their typed shapes; an
+ * AUTONOMOUS capture rides the generic element shape - its kind is its capture name, its name rides
+ * when a pattern binds @name (markdown's section names from its heading text). No engine list
+ * enumerates the autonomous names; the .scm that declares the capture defines its wire face.
+ */
 export function projectElement(element: InventoryElement): Element {
-  const project = PROJECTION[element.capture];
-  if (project === undefined) {
-    // unreachable through the typed table (a Record over Capture); a data-level intruder still
-    // fails LOUD at the walk boundary naming the vocabulary, never a silent drop
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "element capture outside the vocabulary: " +
-        String((element as { capture: string }).capture) +
-        " (the vocabulary is " +
-        ELEMENT_CAPTURES.join(", ") +
-        ")",
-    );
-  }
-  return project(element, {
+  const base: ProjectionBase = {
     span: element.span,
     label: element.label,
     parent: element.parent,
-  });
+  };
+  const project = PROJECTION[element.capture];
+  if (project !== undefined) return project(element, base);
+  return {
+    kind: element.capture,
+    ...base,
+    ...(element.name !== undefined ? { name: element.name } : {}),
+  };
 }
+
 export function fileElement(id: string, content: string): Element {
   const lines = content.split("\n").length;
   return {

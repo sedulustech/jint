@@ -87,7 +87,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     );
     // the .scm goes through the full loud compile checks - a capture outside the vocabulary fails
     expect(capture(join(dir, "doc.md"), join(dir, "wip.scm"))).rejects.toThrow(
-      /captures outside the vocabulary/,
+      /captures undeclared names/,
     );
     // routing: no registered grammar claims .rst (the SDK truth, naming extensions.json)
     expect(capture(join(dir, "doc.rst"))).rejects.toThrow(

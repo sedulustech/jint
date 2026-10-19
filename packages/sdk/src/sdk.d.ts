@@ -16,18 +16,8 @@ declare module "jint:sdk" {
     readonly id: string;
     readonly path: string;
     readonly grammar: string;
-    readonly capture:
-      | "function"
-      | "method"
-      | "class"
-      | "type"
-      | "binding"
-      | "import"
-      | "comment"
-      | "section"
-      | "paragraph"
-      | "list_item"
-      | "list";
+    /** The capture name: a shared capture or the grammar-declared autonomous one. */
+    readonly capture: import("./core/types.ts").ElementCapture;
     readonly source: string;
     readonly span: {
       readonly start: { readonly line: number; readonly column: number };

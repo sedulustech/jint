@@ -224,7 +224,11 @@ import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
 // Columns per target: namespace, singular, resolves to, grammars emitting it (the per-grammar
 // keyword census read from each embedded/<lang>/queries.scm), frame carried (what state the
 // classifier sees), scope-coupled (whether the target participates in per-rule include/exclude).
-import { ELEMENT_CAPTURES, parseScmPatterns } from "../packages/sdk/src/core/grammars/query.ts";
+import {
+  parseScmPatterns,
+  scmCaptureDeclarations,
+} from "../packages/sdk/src/core/grammars/query.ts";
+import { isSharedCapture } from "../packages/sdk/src/core/grammars/shared.ts";
 
 const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
   .pathname;
@@ -241,8 +245,14 @@ function captureCensus(): Record<string, Set<string>> {
       continue;
     }
     const found = new Set<string>();
+    const declared = scmCaptureDeclarations(scm);
     for (const pattern of parseScmPatterns(scm)) {
-      if (pattern.capture !== null && ELEMENT_CAPTURES.includes(pattern.capture as never))
+      // addressable = shared (lingua franca) or declared autonomous (the open namespace):
+      // the census counts what a rule could ADDRESS, declared captures included
+      if (
+        pattern.capture !== null &&
+        (isSharedCapture(pattern.capture) || declared.definitions.has(pattern.capture))
+      )
         found.add(pattern.capture);
     }
     census[language] = found;

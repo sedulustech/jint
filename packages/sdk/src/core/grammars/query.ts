@@ -31,7 +31,12 @@
  */
 
 import { ruleTargets } from "@jint/contract";
-import { SHARED_LANES, type SuppressionShape } from "./shared.ts";
+import {
+  isSharedCapture,
+  SHARED_ELEMENT_CAPTURES,
+  SHARED_LANES,
+  type SuppressionShape,
+} from "./shared.ts";
 
 export type { SuppressionShape };
 import { Query, type QueryMatch } from "web-tree-sitter";
@@ -45,26 +50,13 @@ import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
  * (python's string-in-block) and owned by its enclosing definition (docstringOf) - the capture
  * seam is the ONE authority for what a docstring is; the decompose runtime holds no node-type names.
  */
-export const ELEMENT_CAPTURES = [
-  "function",
-  "method",
-  "class",
-  "type",
-  "binding",
-  "comment",
-  "import",
-  "docstring",
-  // markdown-only element captures (the BYOG precedent for grammar-autonomous vocabulary) -
-  // never a code capture, no shared target addresses them. section: prose's container-with-body,
-  // self-nesting per the .scm's #set! directive. paragraph: flat prose - paragraphs never nest.
-  // list_item: one list entry's text - the paragraph inside a bullet/numbered item, marker
-  // stripped, continuations folded in; in-list paragraphs are list_item, never paragraph.
-  "section",
-  "paragraph",
-  "list_item",
-  "list",
-] as const;
-export type Capture = (typeof ELEMENT_CAPTURES)[number];
+/**
+ * A capture name. THE OPEN NAMESPACE: the shared lingua franca (shared.ts - validated, closed) plus
+ * any grammar-autonomous capture the OWNING .scm declares with a capture.<name>.definition
+ * directive (validated at load: a capture neither shared nor declared is a typo or a missing
+ * declaration, and fails loud naming the fix). No engine list enumerates the autonomous names.
+ */
+export type Capture = string;
 
 /**
  * RESERVED capture tokens: valid in a query, validated, but emitted by no grammar today. `test` is
@@ -114,11 +106,6 @@ const LANES: ReadonlySet<string> = SHARED_LANES;
 
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
-const KNOWN_CAPTURES: ReadonlySet<string> = new Set([
-  ...ELEMENT_CAPTURES,
-  ...RESERVED_CAPTURES,
-  NAME_CAPTURE,
-]);
 
 /**
  * PATTERN-ORDER VALIDATION: when two patterns root on the same node type but assign DIFFERENT
@@ -519,8 +506,7 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
     const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
     const captures = [...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!);
     const capture =
-      captures.find((n): n is Capture => (ELEMENT_CAPTURES as readonly string[]).includes(n)) ??
-      null;
+      captures.find((n) => n !== NAME_CAPTURE && !RESERVED_CAPTURES.includes(n as never)) ?? null;
     return {
       pattern: index,
       rootType,
@@ -628,17 +614,29 @@ export async function compileQuery(
   assertPatternCount(language, scm, query.patternCount());
   assertScmDirectives(scm, language);
   validatePatternOrder(language, scm);
-  const unknown = query.captureNames.filter((name) => !KNOWN_CAPTURES.has(name));
-  if (unknown.length > 0) {
+  // THE OPEN-NAMESPACE GATE: every element capture must be EITHER shared (the lingua franca,
+  // spelled right by construction) OR declared by this .scm (capture.<name>.definition, true or
+  // false - the declaration is the intent). Anything else is a typo'd shared name or a forgotten
+  // declaration; the error names both doors.
+  const declared = scmCaptureDeclarations(scm);
+  const undeclared = query.captureNames.filter(
+    (name) =>
+      name !== NAME_CAPTURE &&
+      !RESERVED_CAPTURES.includes(name as never) &&
+      !isSharedCapture(name) &&
+      !declared.definitions.has(name) &&
+      !declared.inert.has(name),
+  );
+  if (undeclared.length > 0) {
     throw new SetupError(
       "CONFIG_INVALID",
       "query for " +
         language +
-        " captures outside the vocabulary: " +
-        unknown.join(", ") +
-        " (the vocabulary is " +
-        [...KNOWN_CAPTURES].join(", ") +
-        ")",
+        " captures undeclared names: " +
+        undeclared.join(", ") +
+        " - a capture is either SHARED (" +
+        SHARED_ELEMENT_CAPTURES.join(", ") +
+        ') or declared by its grammar: add (#set! "capture.<name>.definition" "true") to the owning .scm',
     );
   }
   return query;
@@ -696,18 +694,18 @@ export interface Candidate {
  * The element capture of one match (the first capture in the pattern), or null for name-only
  * patterns.
  */
-function elementCaptureOf(match: QueryMatch): Capture | null {
+function elementCaptureOf(match: QueryMatch, addressable: ReadonlySet<string>): Capture | null {
   for (const capture of match.captures) {
-    if ((ELEMENT_CAPTURES as readonly string[]).includes(capture.name)) {
-      return capture.name as Capture;
+    if (addressable.has(capture.name)) {
+      return capture.name;
     }
   }
   return null;
 }
 
 /** One query match -> a candidate element, or null when the pattern binds no element capture. */
-function candidateOf(match: QueryMatch): Candidate | null {
-  const capture = elementCaptureOf(match);
+function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candidate | null {
+  const capture = elementCaptureOf(match, addressable);
   if (capture === null) return null;
   const elementNode = match.captures.find((c) => c.name === capture)!.node;
   // THE CONTAINER-BINDING TRAP, loud: a pattern like (enum_body (property_identifier) @name)
@@ -858,14 +856,21 @@ export function isEmptyComment(text: string): boolean {
 }
 
 /** Run a compiled query over a tree and return its candidates in match (document) order. */
-export function runQuery(query: Query, rootNode: QueryMatchSource): Candidate[] {
+export function runQuery(
+  query: Query,
+  rootNode: QueryMatchSource,
+  addressable: ReadonlySet<string> = DEFAULT_ADDRESSABLE,
+): Candidate[] {
   const candidates: Candidate[] = [];
   for (const match of query.matches(rootNode as never)) {
-    const candidate = candidateOf(match);
+    const candidate = candidateOf(match, addressable);
     if (candidate !== null) candidates.push(candidate);
   }
   return candidates;
 }
+
+/** The shared lingua franca alone - a grammar's walk widens it with its declared captures. */
+const DEFAULT_ADDRESSABLE: ReadonlySet<string> = new Set(SHARED_ELEMENT_CAPTURES);
 
 /**
  * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
@@ -880,7 +885,18 @@ export function emittedCaptures(registry: GrammarRegistry, grammarId: string): r
   // against a capture the grammar would not actually extract)
   const scm = scmCode(grammar(registry, grammarId).queries);
   const named = new Set([...scm.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
-  return ELEMENT_CAPTURES.filter((c) => named.has(c));
+  // addressable = SHARED (the lingua franca) or declared by THIS grammar's .scm (autonomous).
+  // The RAW .scm feeds the declaration reader - the code-only text above has its strings blanked
+  // and a directive's name IS a string literal
+  const declared = scmCaptureDeclarations(grammar(registry, grammarId).queries);
+  return [...named]
+    .filter(
+      (c) =>
+        c !== NAME_CAPTURE &&
+        !RESERVED_CAPTURES.includes(c as never) &&
+        (isSharedCapture(c) || declared.definitions.has(c)),
+    )
+    .sort();
 }
 const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 
