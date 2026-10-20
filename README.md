@@ -52,7 +52,7 @@ export default { rules: [...defaultRules] };
 
 ### Skill
 
-Get the [skill file](SKILL.md) for the agent alongside the binary so it has clear instructions on how to behave.
+Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint-author (author and calibrate rules). Both are generated (bun run schema). Copy or symlink them into your platform skill directory yourself.
 
 ## How to use
 
