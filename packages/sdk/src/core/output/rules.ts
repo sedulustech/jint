@@ -24,11 +24,16 @@ function handleLine(rule: Rule): string {
   if ("choices" in h) {
     // one tier per option label: the levels inline, the messages after them
     const entries = Object.entries(h.choices);
+    const undecided =
+      h.undecided !== undefined
+        ? " / undecided < " + h.undecided.below + "x " + h.undecided.level
+        : "";
     const line =
       "choice map: " +
-      entries.map(([label, t]) => label + " " + (typeof t === "string" ? t : t.level)).join(" / ");
-    const messages = entries.flatMap(([, t]) =>
-      typeof t !== "string" && t.message !== undefined ? [t.message] : [],
+      entries.map(([label, t]) => label + " " + (typeof t === "string" ? t : t.level)).join(" / ") +
+      undecided;
+    const messages = [...entries.map(([, t]) => t), ...(h.undecided ? [h.undecided] : [])].flatMap(
+      (t) => (typeof t !== "string" && t.message !== undefined ? [t.message] : []),
     );
     return messages.length > 0
       ? line + " · " + messages.map((m) => '"' + m + '"').join(" · ")

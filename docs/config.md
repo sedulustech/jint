@@ -31,9 +31,11 @@ include is a warning, never an error).
 nearest level. Use `score` only when the levels sit on one axis, each worse than the one before.
 Unordered categories break that read: a reading split evenly between level 0 and level 8 rounds to
 level 4, a category the classifier did not choose, and the finding carries level 4's message. For
-unordered categories, use `choice`: the classifier selects one option, and the handle maps each
-option label to a tier (`{ "choices": { "<label>": "pass" | "warn" | "error" | { level, message } } }`),
-so the finding carries the selected option's message. A choice reports one option per unit. To
+unordered categories, use `choice`: the classifier spreads probability over the options, and the
+handle maps each option label to a tier (`{ "choices": { "<label>": "pass" | "warn" | "error" | { level, message } } }`).
+The tier holding the most probability is the verdict; its most probable option supplies the message.
+An optional `undecided: { below, level, message? }` fires when the top tier holds less than `below`
+times the runner-up tier: an undecided reading, acted on like any other tier. A choice reports one option per unit. To
 judge independent defects that can co-occur, write one noul rule per defect. Each rule is its own question with its own probability, threshold, and
 message, and one unit can fail several at once. The rules on one unit batch into one classifier
 call, so separate questions add no calls.

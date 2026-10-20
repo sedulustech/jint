@@ -93,7 +93,7 @@ export function compileChoiceHandler(data: ChoiceHandlerData): Handle {
         `choice ${JSON.stringify(answer.choice)} is not one of the options ${Object.keys(data.choices).join(", ")} - the classifier returned an unknown option`,
       );
     }
-    return handleTier(answer.value, data, answer.choice);
+    return handleTier(answer.value, data, answer.choice, answer.probabilities);
   };
 }
 
@@ -128,10 +128,17 @@ const SCORE_HANDLER_SCHEMA = Type.Object(
 const CHOICE_HANDLER_SCHEMA = Type.Object(
   {
     choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA),
+    undecided: Type.Optional(
+      Type.Object({
+        below: Type.Number(),
+        level: LEVEL_SCHEMA,
+        message: Type.Optional(Type.String()),
+      }),
+    ),
   },
   {
     description:
-      "Choice handler (choice rules only): one tier per option label, keyed by the label. The selected option's tier is the verdict - options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+      "Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { below, level, message? }: when the top tier holds less than `below` (> 1) times the runner-up tier's probability, this tier fires instead - an undecided reading the rule acts on like any other tier.",
   },
 );
 

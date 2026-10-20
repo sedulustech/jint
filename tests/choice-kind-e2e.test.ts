@@ -27,19 +27,20 @@ const CHOICE_RULE = {
   },
 };
 
-function writeFixture(): { config: string; source: string } {
-  const dir = scratchDir("jint-choice-kind");
+function writeFixture(rule: object = CHOICE_RULE): { config: string; source: string } {
+  // concurrent tests run in the same millisecond: a random suffix keeps their fixtures apart
+  const dir = scratchDir(`jint-choice-kind-${Math.random().toString(36).slice(2)}`);
   const config = join(dir, "jint.config.json");
   const source = join(dir, "unit.ts");
-  writeFileSync(config, JSON.stringify({ rules: [CHOICE_RULE] }));
+  writeFileSync(config, JSON.stringify({ rules: [rule] }));
   writeFileSync(source, "// returns two\nexport const one = 1;\n");
   return { config, source };
 }
 
-async function runAgainst(choice: string) {
+async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
   const jev = startMockJev({ choice });
   try {
-    const { config, source } = writeFixture();
+    const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
       env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
     });
@@ -69,6 +70,25 @@ describe("choice rules", () => {
       severity: "error",
       choice: "contradicted",
       note: "Rewrite the contradicted sentence.",
+    });
+  });
+
+  test.concurrent("a reading too close to call fires the rule's undecided tier", async () => {
+    // the mock puts 0.7 on the selected option and 0.3 on the other: 2.33x, below 3x
+    const undecidedRule = {
+      ...CHOICE_RULE,
+      handle: {
+        ...CHOICE_RULE.handle,
+        undecided: { below: 3, level: "warn", message: "Read it against the code." },
+      },
+    };
+    const { r, report } = await runAgainst("contradicted", undecidedRule);
+    expect(r.code).toBe(0);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]).toMatchObject({
+      severity: "warn",
+      undecided: true,
+      note: "Read it against the code.",
     });
   });
 

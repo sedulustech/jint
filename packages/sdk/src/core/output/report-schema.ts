@@ -87,6 +87,8 @@ export const FINDING_SCHEMA = Type.Object({
   severity: SEVERITY_SCHEMA,
   // Choice rules only: the selected option's label; value is that option's probability.
   choice: Type.Optional(Type.String()),
+  // The reading was too close to call and the rule's undecided tier fired.
+  undecided: Type.Optional(Type.Literal(true)),
   // Custom tier only: the callback's remediation instruction to the caller — severity says
   // whether, message says how. Absent for noul and score (threshold-derived) findings.
   message: Type.Optional(Type.String()),

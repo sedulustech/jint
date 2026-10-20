@@ -23,6 +23,8 @@ export interface HandleOutcome {
   readonly severity: Severity;
   /** The rule author's message attached at the fired tier; the finding's note. Absent = bare. */
   readonly message?: string;
+  /** The reading was too close to call and the rule's undecided tier fired. */
+  readonly undecided?: true;
 }
 /** Null is a deliberate silent verdict: the reading happened, nothing surfaces. */
 export type HandleResult = HandleOutcome | null;
@@ -257,6 +259,8 @@ export interface Finding {
   readonly probabilities?: Record<string, number>;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
+  /** The reading was too close to call and the rule's undecided tier fired. */
+  readonly undecided?: true;
   /**
    * Additive (custom tier): a policy callback's remediation instruction to the caller
    * (schema-validated at the callback boundary). Absent for threshold-derived findings.

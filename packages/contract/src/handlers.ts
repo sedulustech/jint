@@ -30,11 +30,22 @@ export interface ScoreHandlerData {
 }
 
 /**
- * The choice-type handler: one tier per named option, keyed by the option's label. The verdict is
- * the tier of the option the classifier selected - no averaging, no ordering between options.
+ * The tier for an undecided reading: it fires when the winning tier holds less than `below` times
+ * the probability of the runner-up tier (jev's top-to-second measure, over tiers). `below` > 1.
+ */
+export interface UndecidedTier extends ScoreTier {
+  readonly below: number;
+}
+
+/**
+ * The choice-type handler: one tier per named option, keyed by the option's label. The reading
+ * groups the option probabilities by tier; the tier holding the most probability is the verdict,
+ * and its most probable option supplies the message. Options are unordered - nothing is averaged.
+ * An optional undecided tier fires instead when the top two tiers are too close to call.
  */
 export interface ChoiceHandlerData {
   readonly choices: Readonly<Record<string, HandlerLevel | ScoreTier>>;
+  readonly undecided?: UndecidedTier;
 }
 
 /** Normalize a map entry to its tier object. */
@@ -145,11 +156,64 @@ export function conditionFires(value: number, condition: ThresholdCondition): bo
  * ENGINE fails loud on before this evaluator runs; here it degrades to silent (null), never a
  * fabricated verdict.
  *
- * Choice: the selected option's label picks its tier; the value (that option's probability) plays
- * no part. A missing or unknown label degrades to silent.
+ * Choice: the option probabilities, grouped by tier, pick the verdict (see readChoice); without
+ * probabilities the selected option's label picks its tier. A missing or unknown label degrades to
+ * silent.
  */
-export function handleSeverity(value: number, data: HandlerData, choice?: string): Severity | null {
-  return handleTier(value, data, choice)?.severity ?? null;
+export function handleSeverity(
+  value: number,
+  data: HandlerData,
+  choice?: string,
+  probabilities?: Readonly<Record<string, number>>,
+): Severity | null {
+  return handleTier(value, data, choice, probabilities)?.severity ?? null;
+}
+
+/** The fired tier: a severity, the author's message, and whether the reading was undecided. */
+export interface FiredTier {
+  readonly severity: Severity;
+  readonly message?: string;
+  readonly undecided?: true;
+}
+
+const TIER_ORDER: readonly HandlerLevel[] = ["pass", "warn", "error"];
+
+/**
+ * The choice read: probability mass per tier level. The top tier is the verdict (a tie goes to the
+ * selected option's tier); its most probable option supplies the message. With an undecided tier
+ * declared, a top tier holding less than `below` times the runner-up's mass fires the undecided
+ * tier instead. Null = pass.
+ */
+export function readChoice(
+  data: ChoiceHandlerData,
+  choice: string | undefined,
+  probabilities: Readonly<Record<string, number>>,
+): FiredTier | null {
+  const mass: Record<HandlerLevel, number> = { pass: 0, warn: 0, error: 0 };
+  for (const [label, entry] of Object.entries(data.choices)) {
+    mass[asTier(entry).level] += probabilities[label] ?? 0;
+  }
+  const selectedLevel =
+    choice !== undefined && data.choices[choice] !== undefined
+      ? asTier(data.choices[choice]).level
+      : undefined;
+  const ranked = [...TIER_ORDER].sort(
+    (a, b) => mass[b] - mass[a] || Number(b === selectedLevel) - Number(a === selectedLevel),
+  );
+  const [top, second] = [ranked[0]!, ranked[1]!];
+  if (data.undecided !== undefined && mass[top] < data.undecided.below * mass[second]) {
+    const tier = data.undecided;
+    return tier.level === "pass"
+      ? null
+      : { severity: tier.level, message: tier.message, undecided: true };
+  }
+  if (top === "pass") return null;
+  // the message: the most probable option within the winning tier
+  const options = Object.entries(data.choices).filter(([, e]) => asTier(e).level === top);
+  const [, entry] = options.reduce((best, cur) =>
+    (probabilities[cur[0]] ?? 0) > (probabilities[best[0]] ?? 0) ? cur : best,
+  );
+  return { severity: top, message: asTier(entry).message };
 }
 
 /**
@@ -162,8 +226,10 @@ export function handleTier(
   value: number,
   data: HandlerData,
   choice?: string,
-): { readonly severity: Severity; readonly message?: string } | null {
+  probabilities?: Readonly<Record<string, number>>,
+): FiredTier | null {
   if (isChoiceHandler(data)) {
+    if (probabilities !== undefined) return readChoice(data, choice, probabilities);
     const entry = choice === undefined ? undefined : data.choices[choice];
     if (entry === undefined) return null;
     const tier = asTier(entry);
@@ -232,6 +298,9 @@ export function checkChoiceHandler(
   if (unknown.length > 0) return `handle.choices: ${unknown.join(", ")} is not an option label`;
   if (Object.values(data.choices).every((entry) => asTier(entry).level === "pass")) {
     return "handle.choices: at least one tier must be non-pass";
+  }
+  if (data.undecided !== undefined && !(data.undecided.below > 1)) {
+    return `handle.undecided.below: must be greater than 1 (the top tier's mass over the runner-up's), got ${data.undecided.below}`;
   }
   return null;
 }

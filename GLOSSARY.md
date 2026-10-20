@@ -129,6 +129,8 @@ measurement its handle judged actionable and is the only output that demands act
 - **payload** — the positional after a noun: always `-`, declaring piped stdin as the read.
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
+- **undecided** — a reading too close to call: its top tier holds less than the rule's `below`
+  times the runner-up tier's probability. The rule maps it to a tier and message like any other.
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as

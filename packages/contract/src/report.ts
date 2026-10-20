@@ -189,6 +189,8 @@ export interface Finding {
   readonly probabilities?: Record<string, number>;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
+  /** The reading was too close to call and the rule's undecided tier fired. */
+  readonly undecided?: true;
   /**
    * The custom-tier callback's remediation instruction to the caller fixing the finding: severity
    * says whether, message says how. Absent for noul and score (threshold-derived) findings.

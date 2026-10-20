@@ -54,6 +54,7 @@ export function renderJson(report: LintReport): string {
             confidence: s.confidence !== undefined ? s.confidence : undefined,
             probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
             choice: s.choice !== undefined ? s.choice : undefined,
+            undecided: s.undecided !== undefined ? s.undecided : undefined,
             message: s.message !== undefined ? s.message : undefined,
             location:
               s.location !== undefined

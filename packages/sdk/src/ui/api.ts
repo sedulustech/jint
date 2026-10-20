@@ -357,7 +357,10 @@ function cellSeverity(
   measurementInput: string,
   ruleName: string,
   findingSeverity: Map<string, Map<string, Severity>>,
-  readingsByInput: Map<string, { rule: string; value: number; choice?: string }[]>,
+  readingsByInput: Map<
+    string,
+    { rule: string; value: number; choice?: string; probabilities?: Record<string, number> }[]
+  >,
   handlesByRule: Record<string, HandlerData> | null,
 ): Severity | null {
   // the report's own finding wins; otherwise the handle snapshot projects the reading
@@ -365,9 +368,11 @@ function cellSeverity(
   if (direct !== undefined) return direct;
   const handle = handlesByRule?.[ruleName];
   if (handle === undefined) return null;
-  for (const { rule: measuredRule, value, choice } of readingsByInput.get(measurementInput) ?? []) {
+  for (const { rule: measuredRule, value, choice, probabilities } of readingsByInput.get(
+    measurementInput,
+  ) ?? []) {
     if (measuredRule !== ruleName) continue;
-    const severity = handleSeverity(value, handle, choice);
+    const severity = handleSeverity(value, handle, choice, probabilities);
     if (severity !== null) return severity;
   }
   return null;
@@ -412,7 +417,13 @@ async function readReportFacts(dir: string): Promise<{
   pathRules: Map<string, string[]> | null;
   pathValues: Map<
     string,
-    { rule: string; value: number; choice?: string; element?: Element }[]
+    {
+      rule: string;
+      value: number;
+      choice?: string;
+      probabilities?: Record<string, number>;
+      element?: Element;
+    }[]
   > | null;
   measurementCount: number;
 }> {
@@ -423,7 +434,13 @@ async function readReportFacts(dir: string): Promise<{
   let pathRules: Map<string, string[]> | null = null;
   let pathValues: Map<
     string,
-    { rule: string; value: number; choice?: string; element?: Element }[]
+    {
+      rule: string;
+      value: number;
+      choice?: string;
+      probabilities?: Record<string, number>;
+      element?: Element;
+    }[]
   > | null = null;
   let measurementCount = 0;
   try {
@@ -433,6 +450,7 @@ async function readReportFacts(dir: string): Promise<{
         rule: string;
         value?: number;
         choice?: string;
+        probabilities?: Record<string, number>;
         element?: Element;
       }[];
       findings?: { input: string; rule: string; severity: Severity }[];
@@ -457,7 +475,13 @@ async function readReportFacts(dir: string): Promise<{
       } else pathRules.set(path, [m.rule]);
       if (typeof m.value === "number") {
         const vals = pathValues.get(m.input);
-        const entry = { rule: m.rule, value: m.value, choice: m.choice, element: m.element };
+        const entry = {
+          rule: m.rule,
+          value: m.value,
+          choice: m.choice,
+          probabilities: m.probabilities,
+          element: m.element,
+        };
         if (vals) vals.push(entry);
         else pathValues.set(m.input, [entry]);
       }
@@ -484,7 +508,13 @@ async function reportFactsFor(
   pathRules: Map<string, string[]> | null;
   pathValues: Map<
     string,
-    { rule: string; value: number; choice?: string; element?: Element }[]
+    {
+      rule: string;
+      value: number;
+      choice?: string;
+      probabilities?: Record<string, number>;
+      element?: Element;
+    }[]
   > | null;
   findingSev: Map<string, Map<string, Severity>>;
   degraded: boolean;
@@ -522,7 +552,13 @@ async function readRequestRow(
   pathRules: Map<string, string[]> | null,
   pathValues: Map<
     string,
-    { rule: string; value: number; choice?: string; element?: Element }[]
+    {
+      rule: string;
+      value: number;
+      choice?: string;
+      probabilities?: Record<string, number>;
+      element?: Element;
+    }[]
   > | null,
   findingSev: Map<string, Map<string, Severity>>,
   handles: Record<string, HandlerData> | null,
@@ -584,11 +620,12 @@ async function readRequestRow(
     const projectSeverity = (rule: string): Severity | null => {
       if (handles === null) return null;
       for (const key of keys) {
-        for (const { rule: measuredRule, value, choice } of pathValues?.get(key) ?? []) {
+        for (const { rule: measuredRule, value, choice, probabilities } of pathValues?.get(key) ??
+          []) {
           if (measuredRule !== rule) continue;
           const handle = handles[rule];
           if (handle === undefined) continue;
-          const s = handleSeverity(value, handle, choice);
+          const s = handleSeverity(value, handle, choice, probabilities);
           if (s !== null) return s;
         }
       }

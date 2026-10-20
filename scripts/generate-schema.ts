@@ -82,19 +82,22 @@ function renderThresholdHandle(handle: NoulRuleSchema["handle"]): string {
   return [...thresholds, ...messages].join(", ");
 }
 
-function renderChoiceHandle(choices: ChoiceRuleSchema["handle"]["choices"]): string {
-  const entries = Object.entries(choices);
+function renderChoiceHandle(handle: ChoiceRuleSchema["handle"]): string {
+  const entries = Object.entries(handle.choices);
+  const undecided = handle.undecided;
   const map = entries.map(
     ([label, tier]) => `${label} → ${typeof tier === "string" ? tier : tier.level}`,
   );
-  const messages = entries.flatMap(([, tier]) =>
+  if (undecided) map.push(`undecided (< ${undecided.below}x) → ${undecided.level}`);
+  const tiers = [...entries.map(([, tier]) => tier), ...(undecided ? [undecided] : [])];
+  const messages = tiers.flatMap((tier) =>
     typeof tier !== "string" && tier.message !== undefined ? [`"${tier.message}"`] : [],
   );
   return [`choice map: ${map.join(", ")}`, ...messages].join(", ");
 }
 
 export function renderHandleCell(spec: RuleSchema): string {
-  if (spec.kind === "choice") return renderChoiceHandle(spec.handle.choices);
+  if (spec.kind === "choice") return renderChoiceHandle(spec.handle);
   return spec.kind === "score"
     ? renderScoreHandle(spec.handle.map)
     : renderThresholdHandle(spec.handle as NoulRuleSchema["handle"]);
@@ -224,7 +227,11 @@ export function collectFixerMessages(specs: readonly RuleSchema[]): FixerMessage
   const messages: FixerMessage[] = [];
   for (const spec of specs) {
     if (spec.kind === "choice") {
-      for (const entry of Object.values(spec.handle.choices)) {
+      const undecided = spec.handle.undecided;
+      for (const entry of [
+        ...Object.values(spec.handle.choices),
+        ...(undecided ? [undecided] : []),
+      ]) {
         if (typeof entry !== "string" && typeof entry.message === "string") {
           messages.push({ rule: spec.name, severity: entry.level, message: entry.message });
         }
