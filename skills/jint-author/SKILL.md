@@ -92,6 +92,8 @@ wire shape):
 
 Worked examples and failure shapes: REFERENCE.md next to this file.
 
+`jint serve`: the run UI over the store's newest run; it prints its URL. A reading's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the reading's `input` from `--json`. URL-encode `input`: it contains `#`.
+
 ## Fixer messages are decisive
 
 A handle tier's `message` is the instruction the fixing agent executes. Write

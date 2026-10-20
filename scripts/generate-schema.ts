@@ -19,6 +19,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { defaultRules as defaultSpecs, type RuleSchema } from "@jint/defaults";
 import { CONFIG_SCHEMA } from "@jint/sdk";
+import { validateRunSearch } from "../packages/app/src/router.tsx";
+import { VERBS } from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
 import {
@@ -289,6 +291,22 @@ export function renderSkillFollow(specs: readonly RuleSchema[]): string {
   return follow.join("\n");
 }
 
+// The run UI and a reading's address in it: the verb and its description come from the CLI, the
+// params from the app router - if the router drops one, generation fails instead of the skill
+// teaching a dead link.
+export function renderRunAddress(): string {
+  const params = { rule: "<rule>", input: "<input>" };
+  const accepted = validateRunSearch(params);
+  for (const key of Object.keys(params)) {
+    if (!(key in accepted)) throw new Error(`the run UI no longer accepts the '${key}' param`);
+  }
+  const query = Object.keys(params)
+    .map((key) => `${key}=<${key}>`)
+    .join("&");
+  const serve = `\`${VERBS.serve.example}\`: ${VERBS.serve.blurb.split(" - ")[0]}; it prints its URL.`;
+  return `${serve} A reading's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the reading's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
+}
+
 // --- skills/jint-author/SKILL.md -------------------------------------------
 export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string): string {
   const author = [
@@ -327,6 +345,8 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
     "```",
     "",
     "Worked examples and failure shapes: REFERENCE.md next to this file.",
+    "",
+    renderRunAddress(),
     "",
     "## Fixer messages are decisive",
     "",
