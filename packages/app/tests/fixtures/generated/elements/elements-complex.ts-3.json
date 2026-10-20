@@ -1,12 +1,10 @@
 {
-  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 1,
   "request": {
     "state": {
-      "path": "helpers.ts",
-      "source": "export function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}",
-      "id": "adbb7410-b965-4f45-9b4a-3bb11d539418"
+      "path": "complex.ts",
+      "source": "function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }",
+      "id": "149046d5-405d-4221-870c-d1f86baeb866"
     },
     "questions": {
       "is_name_purposeful": {
@@ -108,5 +106,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }

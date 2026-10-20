@@ -34,8 +34,10 @@ New edge cases ship as GENERATED runs: the generator runs the real engine pipeli
   by the API as the nested run id `generated/elements`.
 
 Regenerate deliberately: `bun run fixtures:gen`. The only stub is the transport (fixed per-rule
-answers, like the engine's own lint tests); elements get fresh uuids per run, so tests assert
-shapes and relationships, never uuids.
+answers, like the engine's own lint tests). Regeneration is byte-identical: the builder seals the
+engine's per-run entropy (uuid minting, timestamps, run-id filename stamps) behind sentinels —
+tests/fixture-determinism.test.ts proves it. Tests still assert shapes and relationships, never
+uuids.
 
 ## Regenerate
 

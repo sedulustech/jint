@@ -1,12 +1,10 @@
 {
-  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 1,
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "export class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}",
-      "id": "3f4a259d-5332-4d53-94d3-867e3d1fe563"
+      "id": "14fae634-efa0-4298-8cf6-188858843779"
     },
     "questions": {
       "is_name_purposeful": {
@@ -72,5 +70,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }

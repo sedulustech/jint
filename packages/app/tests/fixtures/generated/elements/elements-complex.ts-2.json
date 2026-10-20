@@ -1,12 +1,10 @@
 {
-  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 1,
   "request": {
     "state": {
       "path": "complex.ts",
       "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}",
-      "id": "5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38"
+      "id": "056348f6-5f99-41f3-8efe-6888f986b7d0"
     },
     "questions": {
       "is_name_purposeful": {
@@ -108,5 +106,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }

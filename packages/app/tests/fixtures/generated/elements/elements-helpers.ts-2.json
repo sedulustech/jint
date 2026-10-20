@@ -1,12 +1,10 @@
 {
-  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 1,
   "request": {
     "state": {
       "path": "helpers.ts",
-      "source": "export type Invoice = { id: string; lines: InvoiceLine[] };",
-      "id": "83cdf821-28b7-46a7-856e-b1faf1cd6ba5"
+      "source": "export type InvoiceLine = { unitPrice: number; quantity: number; label: string };",
+      "id": "3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5"
     },
     "questions": {
       "is_name_purposeful": {
@@ -72,5 +70,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }
