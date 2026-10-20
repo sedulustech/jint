@@ -14,7 +14,7 @@
  * discarded.
  */
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, fstatSync, readdirSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -596,18 +596,16 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
           : { input: [...positionals], inputType: "file" };
     }
   }
-  // Piped stdin is never guessed: with no str unit (stdin already consumed) and no paths noun
-  // declaring the stdin list, a non-empty pipe is a usage error. An EMPTY pipe falls through so
-  // config.input can flow (a closed or /dev/null stdin is the config-only invocation shape); a
-  // TTY is never read.
+  // Undeclared stdin is never read: a pipe may never close (CI, editors, agents), so reading it
+  // would hang. A redirected file is checked without reading - a non-empty one is a usage error.
   if (
     stdinStr === undefined &&
     lintInput === undefined &&
     pathsContent === undefined &&
     !process.stdin.isTTY
   ) {
-    const content = await Bun.stdin.text();
-    if (content !== "") {
+    const stdin = fstatSync(0);
+    if (stdin.isFile() && stdin.size > 0) {
       usageError(
         "piped stdin needs a kind  - use: jint run str - (one source snippet) or jint run paths - (a path list: git diff --name-only HEAD~1 | jint run paths -)",
       );
@@ -736,8 +734,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
   // that); piped stdin is DECLARED by a noun (jint run str - for source, jint run paths - for a path
-  // list), never guessed. EMPTY piped stdin falls through so config.input can flow (a closed or
-  // /dev/null stdin is the config-only invocation shape). A TTY is never read; a TTY with the
+  // list), never guessed. Undeclared stdin is never read, so config.input flows whatever stdin
+  // is. A TTY is never read; a TTY with the
   // payload '-' dies here, not blocking on the terminal, and a TTY with no noun and no config
   // input dies in lint()'s empty-input backstop.
   let selection: Awaited<ReturnType<typeof resolveCliInput>>;

@@ -333,3 +333,22 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.stderr).toContain(dumpDir);
   });
 });
+
+// Undeclared stdin is never read: only the str and paths nouns read it. A pipe can stay open
+// forever (CI steps, editors, agents spawning jint), so a read there would hang the run.
+describe("cli: undeclared stdin is never read", () => {
+  test.concurrent("a held-open pipe does not block a config-only run", async () => {
+    // the kill ceiling turns a hang into a failure instead of a stuck suite
+    const r = await runCli(["run", "--dry-run"], { stdin: { open: true }, timeout: 10_000 });
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("jint: measuring with");
+  });
+
+  test.concurrent("a redirected non-empty file without a noun is a usage error", async () => {
+    const path = `/tmp/jint-undeclared-stdin-${process.pid}.ts`;
+    await Bun.write(path, SNIPPET);
+    const r = await runCli(["run", "--dry-run"], { stdin: { file: path }, timeout: 10_000 });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("jint run str -");
+  });
+});
