@@ -252,7 +252,7 @@ describe("validateConfig / defaultConfig", () => {
           rules: [
             {
               name: "r",
-              kind: "choice",
+              kind: "score",
               instructions: "score it",
               criteria: ["clear", "opaque"],
               target: "definitions",
@@ -262,7 +262,7 @@ describe("validateConfig / defaultConfig", () => {
         },
         "inline",
       ),
-    ).toThrow(/rule 'r' handle: a noul handler on a choice rule/);
+    ).toThrow(/rule 'r' handle: a noul handler on a score rule/);
   });
 
   test("handle-less rule is REJECTED (policy is not optional; probes ship real handles)", () => {
@@ -304,14 +304,14 @@ describe("validateConfig / defaultConfig", () => {
     expect(config.input).toBe("x");
   });
 
-  test("choice rules validate against the discriminated union", () => {
+  test("score rules validate against the discriminated union", () => {
     const config = validateConfig(
       {
         input: "x",
         rules: [
           {
             name: "r",
-            kind: "choice",
+            kind: "score",
             instructions: "score it",
             criteria: ["clear", "opaque"],
             target: "definitions",
@@ -336,7 +336,7 @@ describe("validateConfig / defaultConfig", () => {
       rules: [
         {
           name: "r",
-          kind: "choice",
+          kind: "score",
           instructions: "score it",
           criteria: ["clear", "opaque"],
           target: "definitions",

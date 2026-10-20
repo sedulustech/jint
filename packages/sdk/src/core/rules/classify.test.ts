@@ -31,9 +31,9 @@ const NOUL_DATA = {
   target: "files",
 } as const;
 
-const CHOICE_DATA = {
-  name: "probe_choice",
-  kind: "choice",
+const SCORE_DATA = {
+  name: "probe_score",
+  kind: "score",
   instructions: "Grade how clearly the unit reads.",
   criteria: [
     "Clear: reads without a pause.",
@@ -48,11 +48,11 @@ const noop = (): null => null;
 
 /** Compiled views of the schema data: the shape the seam consumes. */
 const noulFile: Rule = { ...NOUL_DATA, handle: noop };
-const choiceFn: Rule = { ...CHOICE_DATA, handle: noop };
+const scoreFn: Rule = { ...SCORE_DATA, handle: noop };
 /** Target variants restate only the differing field; routing tests swap these in. */
 const noulDefs: Rule = { ...NOUL_DATA, name: "probe_defs", target: "definitions", handle: noop };
-const choiceDefs: Rule = {
-  ...CHOICE_DATA,
+const scoreDefs: Rule = {
+  ...SCORE_DATA,
   name: "probe_defs",
   target: "definitions",
   handle: noop,
@@ -66,7 +66,7 @@ const fileUnit: Unit = {
     id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
   },
 };
-const sensors: readonly Rule[] = [noulFile, choiceFn];
+const sensors: readonly Rule[] = [noulFile, scoreFn];
 
 const FILE_ID = elementWireId({ start: { line: 1 }, end: { line: 2 } });
 
@@ -96,10 +96,10 @@ describe("compileRuleQuestions", () => {
     expect(noulQ.type).toBe("noul");
     expect(noulQ.instructions).toBe(NOUL_DATA.instructions);
     expect(noulQ.criteria).toBe(NOUL_DATA.criteria); // the rule's own criteria object, untouched
-    const scoreQ = questions[`probe_choice in ${FILE_ID}`]!;
+    const scoreQ = questions[`probe_score in ${FILE_ID}`]!;
     expect(scoreQ.type).toBe("score");
-    expect(scoreQ.instructions).toBe(CHOICE_DATA.instructions);
-    expect(scoreQ.criteria).toBe(CHOICE_DATA.criteria);
+    expect(scoreQ.instructions).toBe(SCORE_DATA.instructions);
+    expect(scoreQ.criteria).toBe(SCORE_DATA.criteria);
     expect(attribution.get(`probe_noul in ${FILE_ID}`)).toEqual({
       rule: "probe_noul",
       blockId: FILE_ID,
@@ -107,12 +107,12 @@ describe("compileRuleQuestions", () => {
   });
 
   test("block-scoped: '<rule> in <unitId>' ids, same kind mapping", () => {
-    const { questions, attribution } = compileRuleQuestions([noulFile, choiceFn], "block-3");
+    const { questions, attribution } = compileRuleQuestions([noulFile, scoreFn], "block-3");
     expect(questions["probe_noul in block-3"]!.type).toBe("noul");
-    expect(questions["probe_choice in block-3"]!.type).toBe("score");
+    expect(questions["probe_score in block-3"]!.type).toBe("score");
     expect(questions["probe_noul in block-3"]!.criteria).toBe(NOUL_DATA.criteria);
-    expect(attribution.get("probe_choice in block-3")).toEqual({
-      rule: "probe_choice",
+    expect(attribution.get("probe_score in block-3")).toEqual({
+      rule: "probe_score",
       blockId: "block-3",
     });
   });
@@ -127,12 +127,12 @@ describe("compileRuleQuestions", () => {
 describe("classifyUnit", () => {
   test("ONE batched classifier call per unit; one measurement per rule", async () => {
     const calls: Unit[] = [];
-    const classifier = classifierWith({ probe_noul: 0.7, probe_choice: 2 }, calls);
+    const classifier = classifierWith({ probe_noul: 0.7, probe_score: 2 }, calls);
     const events: (Measurement | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, sensors, classifier)) events.push(event);
     expect(events).toHaveLength(2);
     expect(events.every(isMeasurement)).toBe(true);
-    expect((events as Measurement[]).map((m) => m.rule)).toEqual(["probe_noul", "probe_choice"]);
+    expect((events as Measurement[]).map((m) => m.rule)).toEqual(["probe_noul", "probe_score"]);
     expect(calls).toHaveLength(1); // one batched call, not one per rule
   });
 
@@ -144,17 +144,17 @@ describe("classifyUnit", () => {
   });
 
   test("missing or non-finite answer -> JEV_RESPONSE_INVALID error, siblings continue", async () => {
-    const classifier = classifierWith({ probe_noul: 0.7, probe_choice: Number.NaN });
+    const classifier = classifierWith({ probe_noul: 0.7, probe_score: Number.NaN });
     const events: (Measurement | ClassifyError)[] = [];
-    for await (const event of classifyUnit(fileUnit, [noulFile, choiceFn, noulDefs], classifier)) {
+    for await (const event of classifyUnit(fileUnit, [noulFile, scoreFn, noulDefs], classifier)) {
       events.push(event);
     }
     const errors = events.filter((e): e is ClassifyError => !isMeasurement(e));
     const measurements = events.filter(isMeasurement);
     expect(measurements.map((m) => m.rule)).toEqual(["probe_noul"]);
-    expect(errors).toHaveLength(2); // NaN for probe_choice, missing probe_defs
+    expect(errors).toHaveLength(2); // NaN for probe_score, missing probe_defs
     expect(errors[0]!.code).toBe("JEV_RESPONSE_INVALID");
-    expect(errors[0]!.message).toContain("probe_choice");
+    expect(errors[0]!.message).toContain("probe_score");
     expect(errors[1]!.message).toContain("probe_defs");
   });
 
@@ -220,25 +220,25 @@ describe("toClassifyError", () => {
 
 describe("compileRuleQuestions — composite keys", () => {
   test("one state x many questions: keys stay '<rule> in <unitId>'", () => {
-    const { questions } = compileRuleQuestions([noulFile, choiceFn], "a1b2c3d4");
+    const { questions } = compileRuleQuestions([noulFile, scoreFn], "a1b2c3d4");
     expect(Object.keys(questions).sort()).toEqual([
-      "probe_choice in a1b2c3d4",
       "probe_noul in a1b2c3d4",
+      "probe_score in a1b2c3d4",
     ]);
   });
 });
 
 describe("compileElementQuestions", () => {
   test("one element per call: question keys are bare rule names, type follows kind, instructions pass through unprefixed", () => {
-    const questions = compileElementQuestions([noulFile, choiceFn], "comment");
-    expect(Object.keys(questions).sort()).toEqual(["probe_choice", "probe_noul"]);
+    const questions = compileElementQuestions([noulFile, scoreFn], "comment");
+    expect(Object.keys(questions).sort()).toEqual(["probe_noul", "probe_score"]);
     expect(questions.probe_noul!.type).toBe("noul");
     expect(questions.probe_noul!.instructions).toBe(
       (noulFile as { instructions: string }).instructions,
     );
-    expect(questions.probe_choice!.type).toBe("score");
-    expect(questions.probe_choice!.instructions).toBe(
-      (choiceFn as { instructions: string }).instructions,
+    expect(questions.probe_score!.type).toBe("score");
+    expect(questions.probe_score!.instructions).toBe(
+      (scoreFn as { instructions: string }).instructions,
     );
   });
 
@@ -286,7 +286,7 @@ describe("classifyFile — element fan-out", () => {
       expect("elements" in state).toBe(false);
       return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     };
-    const { measurements, errors } = await classify(content, [choiceDefs], {
+    const { measurements, errors } = await classify(content, [scoreDefs], {
       path: "src/gen.ts", // extension names the grammar; "input" (default) would WALK_FAILED
       classifier,
       concurrency: 4,
@@ -299,7 +299,7 @@ describe("classifyFile — element fan-out", () => {
 });
 
 describe("classifyFile — role routing", () => {
-  const fnRule = choiceFn; // functions-target: judges callables only
+  const fnRule = scoreFn; // functions-target: judges callables only
 
   test("a binding const gets a definitions-target measurement and zero functions-target ones", async () => {
     const { classifyFile } = await import("./classify.ts");
@@ -337,7 +337,7 @@ describe("classifyFile — role routing", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified).toHaveLength(1);
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_choice");
+    expect((classified[0]!.event as Measurement).rule).toBe("probe_score");
   });
 });
 
@@ -349,7 +349,7 @@ describe("classifyFile — imports routing", () => {
     criteria: { true: "pinned", false: "not pinned" },
     handle: () => null,
   };
-  const fnRule = choiceFn;
+  const fnRule = scoreFn;
   const withImports = [
     'import { configPlugin } from "./plugin.js";',
     'import type { Rule } from "../types.js";',
@@ -398,7 +398,7 @@ describe("classifyFile — imports routing", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified).toHaveLength(1);
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_choice");
+    expect((classified[0]!.event as Measurement).rule).toBe("probe_score");
   });
 
   test("an imports-target rule over code with no imports classifies nothing, no error", async () => {

@@ -15,7 +15,7 @@ import { defineConfig } from "jint:sdk";
 // prose and lock data are not code with values flowing between sites.
 const is_literal_shared: RuleSchema = {
   name: "is_literal_shared",
-  kind: "choice",
+  kind: "score",
   target: "files",
   instructions:
     "This unit is a source file. This file might contain literal values (string, number, etc) carrying the same value at two or more separate places. A shared value should be written once as a named constant in this file and referenced at each place: an identical raw literal at distinct sites is drift waiting to happen.",
@@ -31,7 +31,7 @@ const is_literal_shared: RuleSchema = {
 // is_doc_stateful: glossary discipline, calibrated in-repo on GLOSSARY.md (2026-10-19, one
 // language - NOT defaults-promoted; the two-language bar in AGENTS.md has not been met). The
 // defect has two species with one remedy: history/session narration, and pinned mutable facts
-// (counts, inventories, defaults) a code change silently falsifies. A choice split of the two
+// (counts, inventories, defaults) a code change silently falsifies. A score split of the two
 // was tried and reverted: not separable at definition granularity without paying precision,
 // and the fixer action is identical - see the handle message.
 const is_doc_stateful: RuleSchema = {

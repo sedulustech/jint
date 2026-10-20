@@ -21,7 +21,7 @@ the model answers the average for every cell. See tmp/design.md appendix B, "Mea
 | 6   | Batch-size ablations                   | batched vs 1q/call vs by-rule batches                                    | identical within a state shape; chunk size = cost lever                   |
 | 7   | Model swap (gemini flash-lite)         | same seam, different model                                               | rejected - quantized answers, 80% agreement; noul calibration is the moat |
 | 8   | Criteria-as-rule                       | criteria {true,false} replaces prose description                         | kept - 0.82+/-0.012 vs 0.77+/-0.019 on the calibration probe              |
-| 9   | Scored rubrics (choice kind)           | criteria = ordered 0..3 legend; answer = score                           | new - discriminates 0.19 vs 2.49; is_readable ships on it                 |
+| 9   | Scored rubrics (score kind)            | criteria = ordered 0..3 legend; answer = score                           | new - discriminates 0.19 vs 2.49; is_readable ships on it                 |
 | 10  | Per-file extreme aggregation           | max/min by polarity, one finding per (file, rule)                        | dead - hid the element distribution; per-element findings won             |
 | 11  | Content-hash wire ids -> LOC intervals | sha256/8hex -> L19-L28                                                   | LOC kept (grep-able reports); hash survives only for diffs                |
 

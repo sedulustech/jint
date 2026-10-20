@@ -281,8 +281,7 @@ function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: 
 /**
  * The classifier seam carries all three knobs - composition order is load-bearing: the limit caps
  * in-flight calls RUN-WIDE, the pacer spaces ARRIVALS (outside the limit, so a paced caller never
- * holds a slot), the timeout frees a slot when a call hangs. The pacer is the ONLY rate layer - the
- * typesafe SDK already retries with backoff and honors Retry-After.
+ * holds a slot), the timeout frees a slot when a call hangs.
  */
 function pacedClassifier(
   options: LintOptions,

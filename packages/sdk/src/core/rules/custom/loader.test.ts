@@ -219,7 +219,7 @@ describe("validateCustomRule (load-time, fatal)", () => {
     expect(rule.handle).toEqual({ error: { greater_than: 0.6 } });
   });
 
-  test("choice kind rejected as not-yet-supported", () => {
-    expect(() => validateCustomRule({ ...ok, kind: "choice" }, "f.ts")).toThrow(/noul/);
+  test("score kind rejected as not-yet-supported", () => {
+    expect(() => validateCustomRule({ ...ok, kind: "score" }, "f.ts")).toThrow(/noul/);
   });
 });

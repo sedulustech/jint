@@ -16,8 +16,8 @@ const noulRule: Rule = {
   handleData: { warn: { greater_than: 0.55 }, error: { greater_than: 0.7 } },
 };
 
-const choiceRule: Rule = {
-  kind: "choice",
+const scoreRule: Rule = {
+  kind: "score",
   name: "fixture_effort",
   target: "definitions",
   instructions: "How much effort does a reader need?",
@@ -44,8 +44,8 @@ describe("describeRule", () => {
     expect(block).toContain("0  No comment is coupled to identifiers.");
   });
 
-  test("choice: level map + ordered rubric, no 1/0", () => {
-    const block = describeRule(choiceRule);
+  test("score: level map + ordered rubric, no 1/0", () => {
+    const block = describeRule(scoreRule);
     expect(block).toContain("fixture_effort  [definitions]");
     expect(block).toContain("level map: pass / warn / error");
     expect(block).toContain("asks: How much effort does a reader need?");
@@ -68,8 +68,8 @@ describe("describeRule", () => {
 
 describe("describeRules", () => {
   test("deterministic: same input, byte-identical block", () => {
-    const a = describeRules([noulRule, choiceRule, bareRule]);
-    const b = describeRules([noulRule, choiceRule, bareRule]);
+    const a = describeRules([noulRule, scoreRule, bareRule]);
+    const b = describeRules([noulRule, scoreRule, bareRule]);
     expect(a).toBe(b);
   });
 

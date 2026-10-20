@@ -33,9 +33,9 @@ export interface NoulRuleSchema {
 }
 
 /** A graded rule: the ordered rubric is indexed by score 0..N; the handle is a score map. */
-export interface ChoiceRuleSchema {
+export interface ScoreRuleSchema {
   readonly name: string;
-  readonly kind: "choice";
+  readonly kind: "score";
   readonly instructions: string;
   readonly criteria: readonly string[];
   readonly target: RuleTarget | readonly RuleTarget[];
@@ -46,20 +46,20 @@ export interface ChoiceRuleSchema {
 }
 
 /** A declarative rule: exactly one of the two kinds. */
-export type RuleSchema = NoulRuleSchema | ChoiceRuleSchema;
+export type RuleSchema = NoulRuleSchema | ScoreRuleSchema;
 
 /**
  * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (each threshold names its own
- * direction and ceiling — see handle.ts) or, for choice rules, a ScoreHandler (one map level per
+ * direction and ceiling — see handle.ts) or, for score rules, a ScoreHandler (one map level per
  * criterion), compiled to the internal function form at module init. Recalibration is now editing
  * numbers in one place — and paste-able into jint.config.json. The declarative config surface
  * requires a real handle; probing is measuring - read the --json measurements and discard findings
  * (the handle only decides when readings surface), never a null handle.
  */
 
-export const isNamePurposeful: ChoiceRuleSchema = {
+export const isNamePurposeful: ScoreRuleSchema = {
   name: "is_name_purposeful",
-  kind: "choice",
+  kind: "score",
   instructions:
     "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
   criteria: [
@@ -226,11 +226,11 @@ export const will_comment_drift: NoulRuleSchema = {
   },
 };
 
-// provisional: first choice rule — scored rubric via the jev score primitive; unanchored until
+// provisional: first score rule — scored rubric via the jev score primitive; unanchored until
 // the self-lint corpus has score readings
-export const isCognitivelyComplex: ChoiceRuleSchema = {
+export const isCognitivelyComplex: ScoreRuleSchema = {
   name: "is_cognitively_complex",
-  kind: "choice",
+  kind: "score",
   instructions:
     "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
   criteria: [

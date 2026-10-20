@@ -162,7 +162,7 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
                         "type": "object",
                         "required": ["map"],
                         "properties": {
@@ -329,7 +329,7 @@
                     "type": "string"
                   },
                   "kind": {
-                    "const": "choice",
+                    "const": "score",
                     "type": "string"
                   },
                   "criteria": {
@@ -446,7 +446,7 @@
                   "handle": {
                     "anyOf": [
                       {
-                        "description": "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
                         "type": "object",
                         "required": ["map"],
                         "properties": {

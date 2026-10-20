@@ -22,7 +22,7 @@
     },
     {
       "name": "is_literal_shared",
-      "kind": "choice",
+      "kind": "score",
       "target": "files",
       "instructions": "This unit is a source file. This file might contain literal values (string, number, etc) carrying the same value at two or more separate places. A shared value should be written once as a named constant in this file and referenced at each place: an identical raw literal at distinct sites is drift waiting to happen.",
       "criteria": [
@@ -74,7 +74,7 @@
     },
     {
       "name": "is_token_role_declared",
-      "kind": "choice",
+      "kind": "score",
       "target": "files",
       "instructions": "A design token declares a role: the name states what it is for, the value inline states what it carries (--background: #fafafa). Judge this stylesheet's token declarations and their comments. Comments that only separate or label groups are fine. A comment that explains a token's meaning or visualizes its value is a patch: the declaration could carry that meaning itself.",
       "criteria": [

@@ -135,7 +135,7 @@ export class ClassifyError extends Error {
 /** The rule target vocabulary is defined beside the wire vocabulary it annotates, re-exported here. */
 
 /** The judgment primitive: a calibrated yes/no reading or an ordered rubric score. */
-export type RuleKind = "noul" | "choice";
+export type RuleKind = "noul" | "score";
 
 interface RuleBase {
   readonly name: string;
@@ -178,23 +178,23 @@ export interface NoulRule extends RuleBase {
 }
 
 /**
- * The rubric of a choice rule: at least two descriptions indexed by ordered score 0..N. The rubric
+ * The rubric of a score rule: at least two descriptions indexed by ordered score 0..N. The rubric
  * is ordered, so the scored question is the right primitive; the named-option question form stays
  * unused.
  */
-export type ChoiceRubric = readonly [string, string, ...string[]];
+export type ScoreRubric = readonly [string, string, ...string[]];
 
-/** A choice rule: one scored judgment over an ordered rubric; the value is the score (0..N). */
-export interface ChoiceRule extends RuleBase {
-  readonly kind: "choice";
+/** A score rule: one scored judgment over an ordered rubric; the value is the score (0..N). */
+export interface ScoreRule extends RuleBase {
+  readonly kind: "score";
   /** The ordered rubric; the question text lives in instructions. */
-  readonly criteria: ChoiceRubric;
+  readonly criteria: ScoreRubric;
   /** The question sentence, judged per unit; the compiler prepends the kind sentence to it. */
   readonly instructions: string;
 }
 
 /** A rule: one System One judgment over a state, plus a handle that reads the value. */
-export type Rule = NoulRule | ChoiceRule;
+export type Rule = NoulRule | ScoreRule;
 
 /**
  * The raw noul value for (rule, input). Values pass through untouched — near 0.5 means undecided,
@@ -318,7 +318,7 @@ export interface NoulQuestionSchema {
 export interface ScoreQuestionSchema {
   readonly type: "score";
   readonly instructions: string;
-  readonly criteria: ChoiceRubric;
+  readonly criteria: ScoreRubric;
 }
 
 export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema;

@@ -133,7 +133,7 @@ add("other-borderline.ts", "elements", "src/other-b.tsx", CODE_C, { [RULE_OTHER]
 add("score.ts", "files", "src/score.ts", CODE_A, { [RULE_SCORE]: 3 });
 // SIBLING-ELEMENT STATE: one file, two elements - the hot one fires (finding on its span), the
 // clean one must show NO verdict (the span-stripped join leaked the sibling's error here).
-// The real rule is choice-kind since the 2026-09-29 swap: score questions, map pass/warn/error.
+// The real rule is score-kind since the 2026-09-29 swap: score questions, map pass/warn/error.
 {
   const legend = { "0": "Easy", "1": "Moderate", "2": "Hard" };
   for (const [name, id, score] of [

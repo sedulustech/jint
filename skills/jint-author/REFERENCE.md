@@ -43,7 +43,7 @@ Note the shape: `true` names the exact observable condition for yes, `false`
 for no, and both sides are exhaustive. The defect side decides the handle
 direction.
 
-## Choice example: the scored rubric
+## Score example: the scored rubric
 
 Use a rubric when the property is graded, not yes/no. The instructions carry a
 scoping sentence ("do not score X here"); the ordered criteria are the score
@@ -53,7 +53,7 @@ legend; levels are descriptions, not true/false. Rendered from the live spec
 ```json
 {
   "name": "is_cognitively_complex",
-  "kind": "choice",
+  "kind": "score",
   "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
   "criteria": [
     "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",

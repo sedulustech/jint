@@ -1,7 +1,7 @@
 /**
  * The typed handler taxonomy. The question type decides which handler is valid:
  *
- * - ScoreHandler (choice questions, graded criteria levels): { map } — one level per criterion,
+ * - ScoreHandler (score questions, graded criteria levels): { map } — one level per criterion,
  *   direction expressed by the map itself (high-bad: ["pass","pass","warn","error"]; high-good:
  *   ["error","warn","pass","pass"]).
  * - NoulHandler (noul questions, the claim probability P(true)): { warn?, error?, silent_band? }, at
@@ -55,7 +55,7 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
 }
 
 /**
- * The single data -> function seam for choice rules: the map indexes the score axis (0..N). The
+ * The single data -> function seam for score rules: the map indexes the score axis (0..N). The
  * fired tier's message (if the author wrote one) rides the outcome as the finding's note.
  */
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
@@ -99,7 +99,7 @@ const SCORE_HANDLER_SCHEMA = Type.Object(
   },
   {
     description:
-      "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+      "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
   },
 );
 
@@ -149,7 +149,7 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
 export const HANDLER_SCHEMA = Type.Union([SCORE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA]);
 
 /**
- * The handler TYPE must match the question type (score map <-> choice, operators <-> noul) and its
+ * The handler TYPE must match the question type (score map <-> score, operators <-> noul) and its
  * internal invariants hold. Every failure names the rule id and the exact field. A rule without a
  * handle does not compile: the schema rejects it (policy is not optional).
  */
@@ -157,7 +157,7 @@ export function compileDataHandle(
   handle: HandlerData,
   name: string,
   source: string,
-  isChoice: boolean,
+  isScore: boolean,
   criteria: readonly string[],
 ): Handle {
   const fail = (field: string, detail: string): never => {
@@ -167,7 +167,7 @@ export function compileDataHandle(
     );
   };
   if ("map" in handle) {
-    if (!isChoice) {
+    if (!isScore) {
       fail(
         "handle.map",
         "a score handler on a noul rule (criteria {true, false}) — noul rules take a warn and/or error operator handler",
@@ -184,8 +184,8 @@ export function compileDataHandle(
     }
     return compileScoreHandler(handle);
   }
-  if (isChoice) {
-    fail("handle", "a noul handler on a choice rule — choice rules take a score handler ({ map })");
+  if (isScore) {
+    fail("handle", "a noul handler on a score rule — score rules take a score handler ({ map })");
   }
   const problem = checkNoulHandler(handle);
   if (problem !== null) {

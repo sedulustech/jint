@@ -24,9 +24,9 @@ const noulFileRule: Rule = {
   criteria: { true: "true side", false: "false side" },
 };
 
-const choiceFunctionRule: Rule = {
+const scoreFunctionRule: Rule = {
   name: "r_fn",
-  kind: "choice",
+  kind: "score",
   target: "functions",
   handle: loudHandle,
   instructions: "Score the function.",
@@ -80,9 +80,9 @@ describe("classify", () => {
     expect(outcome.errors).toEqual([]);
   });
 
-  test("choice rule over functions: one call per element, inventory derived from source", async () => {
+  test("score rule over functions: one call per element, inventory derived from source", async () => {
     const states: unknown[] = [];
-    const outcome = await classify(SOURCE, [choiceFunctionRule], {
+    const outcome = await classify(SOURCE, [scoreFunctionRule], {
       path: "src/maths.ts", // grammar detected from the extension
       classifier: fakeClassifier({ r_fn: 2 }, states),
     });
@@ -109,7 +109,7 @@ describe("classify", () => {
   });
 
   test("path option carries identity; language option overrides grammar detection", async () => {
-    const outcome = await classify(SOURCE, [choiceFunctionRule], {
+    const outcome = await classify(SOURCE, [scoreFunctionRule], {
       path: "snippet.txt",
       language: "typescript",
       classifier: fakeClassifier({ r_fn: 1 }),
@@ -122,7 +122,7 @@ describe("classify", () => {
   });
 
   test("no resolvable language with an element-target rule -> MISSING_GRAMMAR setup error", async () => {
-    const thrown = await classify("just some text", [noulFileRule, choiceFunctionRule], {
+    const thrown = await classify("just some text", [noulFileRule, scoreFunctionRule], {
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
     }).catch((e: unknown) => e);
     expect(thrown).toBeInstanceOf(SetupError);
@@ -131,7 +131,7 @@ describe("classify", () => {
   });
 
   test("unparseable source with explicit language: WALK_FAILED in-band, unit-scoped rules still classified", async () => {
-    const outcome = await classify("((( not code", [noulFileRule, choiceFunctionRule], {
+    const outcome = await classify("((( not code", [noulFileRule, scoreFunctionRule], {
       language: "typescript",
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
     });
@@ -160,7 +160,7 @@ describe("classify", () => {
     const states: unknown[] = [];
     const definitionsRule: Rule = {
       name: "r_def",
-      kind: "choice",
+      kind: "score",
       target: "definitions",
       handle: loudHandle,
       instructions: "Score the definition.",
