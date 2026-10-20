@@ -304,6 +304,52 @@ describe("validateConfig / defaultConfig", () => {
     expect(config.input).toBe("x");
   });
 
+  test("choice rules load: named options, a tier per label", () => {
+    const config = validateConfig(
+      {
+        input: "x",
+        rules: [
+          {
+            name: "r",
+            kind: "choice",
+            instructions: "which option?",
+            criteria: { sound: "fine", wrong: "contradicted" },
+            target: "comments",
+            handle: { choices: { sound: "pass", wrong: { level: "error", message: "Fix it." } } },
+          },
+        ],
+      },
+      "inline",
+    );
+    const rule = config.rules[0]!;
+    expect(rule.kind).toBe("choice");
+    expect(rule.handle({ value: 0.8, choice: "wrong" })).toEqual({
+      severity: "error",
+      message: "Fix it.",
+    });
+  });
+
+  test("a choice rule needs at least two options", () => {
+    expect(() =>
+      validateConfig(
+        {
+          input: "x",
+          rules: [
+            {
+              name: "r",
+              kind: "choice",
+              instructions: "which option?",
+              criteria: { only: "the one option" },
+              target: "comments",
+              handle: { choices: { only: "error" } },
+            },
+          ],
+        },
+        "inline",
+      ),
+    ).toThrow(/criteria Expected object to have at least 2 properties/);
+  });
+
   test("score rules validate against the discriminated union", () => {
     const config = validateConfig(
       {

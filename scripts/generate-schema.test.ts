@@ -8,7 +8,7 @@ import {
   renderRuleSection,
   renderTargetsDoc,
 } from "./generate-schema.ts";
-import type { ScoreRuleSchema, NoulRuleSchema } from "@jint/defaults";
+import type { ChoiceRuleSchema, NoulRuleSchema, ScoreRuleSchema } from "@jint/defaults";
 
 // Unit tests for the generator's pure renderers, fed SYNTHETIC specs. Freshness tests cannot
 // catch a wrong-but-deterministic renderer (it regenerates the same wrong text), so the shapes
@@ -162,5 +162,33 @@ describe("renderDirectivesDoc", () => {
     );
     expect(doc).toContain("| `attach.gap` | a whole number | Blank rows. | — |");
     expect(doc).toContain("GENERATED — do not edit.");
+  });
+});
+
+describe("choice rules", () => {
+  const choice: ChoiceRuleSchema = {
+    name: "synthetic_choice",
+    kind: "choice",
+    instructions: "Which option fits?",
+    criteria: { sound: "fine", wrong: "contradicted" },
+    target: "comments",
+    handle: { choices: { sound: "pass", wrong: { level: "error", message: "Rewrite it." } } },
+  };
+
+  test("the handle cell maps each option label to its level, then quotes the messages", () => {
+    expect(renderHandleCell(choice)).toBe('choice map: sound → pass, wrong → error, "Rewrite it."');
+  });
+
+  test("the section names the kind and lists each option with its meaning", () => {
+    const section = renderRuleSection(choice);
+    expect(section).toContain("| choice ");
+    expect(section).toContain("**Option `wrong`.** contradicted");
+    expect(section).not.toContain("[object Object]");
+  });
+
+  test("collectFixerMessages picks up choice tier messages", () => {
+    expect(collectFixerMessages([choice])).toEqual([
+      { rule: "synthetic_choice", severity: "error", message: "Rewrite it." },
+    ]);
   });
 });

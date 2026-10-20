@@ -219,6 +219,64 @@
                         }
                       },
                       {
+                        "description": "Choice handler (choice rules only): one tier per option label, keyed by the label. The selected option's tier is the verdict - options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "type": "object",
+                        "required": ["choices"],
+                        "properties": {
+                          "choices": {
+                            "type": "object",
+                            "patternProperties": {
+                              "^(.*)$": {
+                                "anyOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "const": "pass",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "warn",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "error",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": ["level"],
+                                    "properties": {
+                                      "level": {
+                                        "anyOf": [
+                                          {
+                                            "const": "pass",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "warn",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "error",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "message": {
+                                        "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
                         "description": "Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.",
                         "type": "object",
                         "properties": {
@@ -498,6 +556,409 @@
                                   }
                                 }
                               ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "description": "Choice handler (choice rules only): one tier per option label, keyed by the label. The selected option's tier is the verdict - options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "type": "object",
+                        "required": ["choices"],
+                        "properties": {
+                          "choices": {
+                            "type": "object",
+                            "patternProperties": {
+                              "^(.*)$": {
+                                "anyOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "const": "pass",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "warn",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "error",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": ["level"],
+                                    "properties": {
+                                      "level": {
+                                        "anyOf": [
+                                          {
+                                            "const": "pass",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "warn",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "error",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "message": {
+                                        "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "description": "Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.",
+                        "type": "object",
+                        "properties": {
+                          "warn": {
+                            "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                            "anyOf": [
+                              {
+                                "description": "Fires when the raw value is strictly greater.",
+                                "type": "object",
+                                "required": ["greater_than"],
+                                "properties": {
+                                  "greater_than": {
+                                    "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "description": "Fires when the raw value is strictly less.",
+                                "type": "object",
+                                "required": ["less_than"],
+                                "properties": {
+                                  "less_than": {
+                                    "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "error": {
+                            "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                            "anyOf": [
+                              {
+                                "description": "Fires when the raw value is strictly greater.",
+                                "type": "object",
+                                "required": ["greater_than"],
+                                "properties": {
+                                  "greater_than": {
+                                    "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "description": "Fires when the raw value is strictly less.",
+                                "type": "object",
+                                "required": ["less_than"],
+                                "properties": {
+                                  "less_than": {
+                                    "type": "number"
+                                  },
+                                  "message": {
+                                    "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "silent_band": {
+                            "type": "array",
+                            "items": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ],
+                            "additionalItems": false,
+                            "minItems": 2,
+                            "maxItems": 2
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "include": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "exclude": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": ["name", "kind", "criteria", "instructions", "target", "handle"],
+                "properties": {
+                  "name": {
+                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "choice",
+                    "type": "string"
+                  },
+                  "criteria": {
+                    "minProperties": 2,
+                    "description": "The named options: option label -> what selecting it means. Unordered; the model selects one.",
+                    "type": "object",
+                    "patternProperties": {
+                      "^(.*)$": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "instructions": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "anyOf": [
+                      {
+                        "const": "files",
+                        "type": "string"
+                      },
+                      {
+                        "const": "functions",
+                        "type": "string"
+                      },
+                      {
+                        "const": "classes",
+                        "type": "string"
+                      },
+                      {
+                        "const": "methods",
+                        "type": "string"
+                      },
+                      {
+                        "const": "types",
+                        "type": "string"
+                      },
+                      {
+                        "const": "bindings",
+                        "type": "string"
+                      },
+                      {
+                        "const": "definitions",
+                        "type": "string"
+                      },
+                      {
+                        "const": "comments",
+                        "type": "string"
+                      },
+                      {
+                        "const": "loose-comments",
+                        "type": "string"
+                      },
+                      {
+                        "const": "imports",
+                        "type": "string"
+                      },
+                      {
+                        "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                        "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
+                        "type": "string"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "files",
+                              "type": "string"
+                            },
+                            {
+                              "const": "functions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "classes",
+                              "type": "string"
+                            },
+                            {
+                              "const": "methods",
+                              "type": "string"
+                            },
+                            {
+                              "const": "types",
+                              "type": "string"
+                            },
+                            {
+                              "const": "bindings",
+                              "type": "string"
+                            },
+                            {
+                              "const": "definitions",
+                              "type": "string"
+                            },
+                            {
+                              "const": "comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "loose-comments",
+                              "type": "string"
+                            },
+                            {
+                              "const": "imports",
+                              "type": "string"
+                            },
+                            {
+                              "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$",
+                              "description": "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "handle": {
+                    "anyOf": [
+                      {
+                        "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "type": "object",
+                        "required": ["map"],
+                        "properties": {
+                          "map": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "const": "pass",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "warn",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "error",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "required": ["level"],
+                                  "properties": {
+                                    "level": {
+                                      "anyOf": [
+                                        {
+                                          "const": "pass",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "warn",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "error",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "message": {
+                                      "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "description": "Choice handler (choice rules only): one tier per option label, keyed by the label. The selected option's tier is the verdict - options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+                        "type": "object",
+                        "required": ["choices"],
+                        "properties": {
+                          "choices": {
+                            "type": "object",
+                            "patternProperties": {
+                              "^(.*)$": {
+                                "anyOf": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "const": "pass",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "warn",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "error",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": ["level"],
+                                    "properties": {
+                                      "level": {
+                                        "anyOf": [
+                                          {
+                                            "const": "pass",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "warn",
+                                            "type": "string"
+                                          },
+                                          {
+                                            "const": "error",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "message": {
+                                        "description": "The rule author's feedback; the finding's note when this tier fires.",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
                             }
                           }
                         }

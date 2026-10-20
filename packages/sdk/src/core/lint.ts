@@ -628,6 +628,7 @@ function findingFor(
     // discoverable from them, not only from the measurement
     confidence: event.confidence,
     probabilities: event.probabilities,
+    choice: event.choice,
     // Literal ternary branches, NOT conditional spreads: this literal sits under
     // excess-property checking — an undeclared field is a compile error.
     location: element !== undefined ? { input: event.input, span: element.span } : undefined,

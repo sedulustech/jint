@@ -87,7 +87,7 @@ describe("describeRules", () => {
           expect(block).toContain(rule.criteria.true);
           expect(block).toContain(rule.criteria.false);
         } else {
-          for (const level of rule.criteria) expect(block).toContain(level);
+          for (const level of Object.values(rule.criteria)) expect(block).toContain(level);
         }
       }
     }

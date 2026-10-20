@@ -121,7 +121,8 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
               sev={severity}
               handle={(() => {
                 const h = run.data?.handles?.[rule];
-                return h !== undefined && !("map" in h) ? h : undefined;
+                // noul thresholds only: score and choice verdicts read from their own tiers
+                return h !== undefined && !("map" in h) && !("choices" in h) ? h : undefined;
               })()}
             />
           </div>

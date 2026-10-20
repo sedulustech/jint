@@ -3,11 +3,13 @@ import { SEVERITY } from "./color";
 export interface QA {
   key: string;
   rule: string;
-  question: { type?: string; instructions?: string; criteria?: { true?: string; false?: string } };
+  /** Criteria: {true, false} for noul, option label -> meaning for choice. */
+  question: { type?: string; instructions?: string; criteria?: Record<string, string> };
   answer?: {
     type?: string;
     noul?: number;
     score?: number;
+    choice?: string;
     confidence?: number;
     legend?: Record<string, string>;
     probabilities?: Record<string, number>;
@@ -17,8 +19,9 @@ export interface QA {
 /**
  * One question = its criteria side by side + its LARGE answer. Score answers render the rounded
  * index as the protagonist plus the legend and the probability distribution (neutral bars - shape,
- * not verdict); verdict color comes only from the card's own span-aware severity, never from a
- * sibling element's.
+ * not verdict); choice answers render the selected option the same way, keyed by option label;
+ * verdict color comes only from the card's own span-aware severity, never from a sibling
+ * element's.
  */
 type Threshold = { greater_than?: number; less_than?: number };
 
@@ -51,16 +54,22 @@ export function AnswerCard({
   const score = qa.answer?.score;
   const isScore = qa.answer?.type === "score" || (noul === undefined && score !== undefined);
   const index = isScore && score !== undefined ? Math.round(score) : null;
-  const legend = isScore ? (qa.answer?.legend ?? {}) : {};
-  const probabilities = isScore ? (qa.answer?.probabilities ?? {}) : {};
+  const choice = qa.answer?.type === "choice" ? qa.answer.choice : undefined;
+  const isChoice = choice !== undefined;
+  // the answered option: a score's rounded level, or the selected choice label
+  const answeredKey = isChoice ? choice : index !== null ? String(index) : null;
+  const ranked = isScore || isChoice;
+  // a choice answer carries no legend: the options and their meanings live in the question
+  const legend = isChoice ? (qa.question.criteria ?? {}) : isScore ? (qa.answer?.legend ?? {}) : {};
+  const probabilities = ranked ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
   // torn: the distribution is split between distant levels; the header frames itself so a
   // coin-flip never reads as a settled verdict
   const torn = qa.answer?.confidence !== undefined && qa.answer.confidence < CONFIDENCE_FLOOR;
-  const options = Object.keys({ ...legend, ...probabilities }).sort(
-    (x, y) => Number(x) - Number(y),
-  );
+  // score levels sort numerically; choice options keep the question's own order
+  const options = Object.keys({ ...legend, ...probabilities });
+  if (isScore) options.sort((x, y) => Number(x) - Number(y));
   return (
     <div className="pt-siblings">
       <div
@@ -111,8 +120,28 @@ export function AnswerCard({
             </span>
           </span>
         )}
+        {isChoice && (
+          <span className="flex items-baseline gap-siblings">
+            <span
+              data-answer={choice}
+              className={`text-3xl font-bold leading-none ${color}`}
+              title={sev !== null ? `severity: ${sev}` : undefined}
+            >
+              {choice}
+            </span>
+            <span className="text-caption text-muted-foreground">
+              p {(probabilities[choice] ?? 0).toFixed(2)}
+              {qa.answer?.confidence !== undefined && (
+                <span className={torn ? "text-sev-warn" : undefined}>
+                  {` · confidence ${qa.answer.confidence.toFixed(2)}`}
+                  {torn ? " · torn between options" : ""}
+                </span>
+              )}
+            </span>
+          </span>
+        )}
       </div>
-      {isScore && index !== null && (
+      {answeredKey !== null && ranked && (
         <div className="border-b border-border px-rail pb-siblings">
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
@@ -123,17 +152,18 @@ export function AnswerCard({
           <ul
             data-testid="answer-distribution"
             aria-label="answer distribution"
-            className="mt-related flex items-end gap-chip-x"
+            className="mt-related flex flex-wrap items-end gap-chip-x"
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
-              const answered = Number(k) === index;
+              const answered = k === answeredKey;
               return (
                 <li
                   key={k}
                   data-option={k}
                   data-probability={prob}
-                  className="flex w-8 flex-col items-center gap-chip-y"
+                  // option labels are words, score levels are digits: a choice bar grows to its label
+                  className={`flex flex-col items-center gap-chip-y ${isChoice ? "min-w-8" : "w-8"}`}
                 >
                   <span
                     className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-muted"
@@ -155,13 +185,13 @@ export function AnswerCard({
             })}
           </ul>
           <ul className="mt-related space-y-related">
-            {Object.keys(legend)
-              .sort((a, b) => Number(a) - Number(b))
+            {options
+              .filter((k) => legend[k] !== undefined)
               .map((k) => (
                 <li
                   key={k}
                   className={`text-body leading-snug ${
-                    Number(k) === index ? "text-foreground" : "text-muted-foreground/70"
+                    k === answeredKey ? "text-foreground" : "text-muted-foreground/70"
                   }`}
                 >
                   {k}: {legend[k]}
@@ -178,7 +208,7 @@ export function AnswerCard({
           </p>
         </div>
       )}
-      {!isScore && (
+      {!ranked && (
         <div className="grid grid-cols-2 text-body leading-snug">
           <div className="bg-background px-rail py-related">
             <span className="text-caption text-sev-clean">true</span>

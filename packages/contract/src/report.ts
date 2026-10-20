@@ -140,6 +140,8 @@ export interface ClassifiedAnswer {
   readonly value: number;
   readonly probabilities?: Record<string, number>;
   readonly confidence?: number;
+  /** The selected option's label, choice rules only; value is that option's probability. */
+  readonly choice?: string;
 }
 
 /** One judged reading: a rule's value at one input (file or element). */
@@ -148,11 +150,17 @@ export interface Measurement {
   readonly input: string;
   readonly value: number;
   /**
-   * The score distribution, score rules only: the per-level probabilities and confidence the value
-   * summarizes. Noul has no separate distribution — its probability IS the value.
+   * The distribution the value summarizes, with its confidence: per level for score rules, per
+   * option label for choice rules. Noul has no separate distribution — its probability IS the
+   * value.
    */
   readonly probabilities?: Record<string, number>;
   readonly confidence?: number;
+  /**
+   * The selected option's label, choice rules only. The value is that option's probability and
+   * probabilities are keyed by option label.
+   */
+  readonly choice?: string;
   /**
    * The measured subject: what was classified, fully typed. Absent only from the bare classifyUnit
    * generator, which sees no source and so cannot span a FileElement — every report path (lint,
@@ -179,6 +187,8 @@ export interface Finding {
   readonly confidence?: number;
   /** The full distribution the value summarizes (one probability per criterion option). */
   readonly probabilities?: Record<string, number>;
+  /** The selected option's label, choice rules only; value is that option's probability. */
+  readonly choice?: string;
   /**
    * The custom-tier callback's remediation instruction to the caller fixing the finding: severity
    * says whether, message says how. Absent for noul and score (threshold-derived) findings.
@@ -208,7 +218,11 @@ export interface RuleDigest {
    * Null for a custom-tier callback rule: its policy is code, not text - the criteria live in the
    * config source, which is the provenance for these rules.
    */
-  readonly criteria: readonly string[] | { readonly true: string; readonly false: string } | null;
+  readonly criteria:
+    | readonly string[]
+    | { readonly true: string; readonly false: string }
+    | Readonly<Record<string, string>>
+    | null;
   readonly handle: import("./handlers.ts").HandlerData | null;
 }
 

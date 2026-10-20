@@ -24,8 +24,10 @@ import {
   TypeSafeClient,
   TypeSafeError,
   UnprocessableEntityError,
+  choice,
   noul,
   score,
+  type ChoiceQuestion,
   type EntryType,
   type NoulQuestion,
   type ScoreQuestion,
@@ -53,6 +55,30 @@ const SCORE_ANSWER_SCHEMA = Type.Object({
   probabilities: Type.Record(Type.String(), Type.Number()),
   confidence: Type.Number(),
 });
+
+/**
+ * The choice answer boundary: the selected option's label, its confidence, and the probability of
+ * every option (keyed by label) - required on the wire.
+ */
+const CHOICE_ANSWER_SCHEMA = Type.Object({
+  type: Type.Literal("choice"),
+  choice: Type.String(),
+  probabilities: Type.Record(Type.String(), Type.Number()),
+  confidence: Type.Number(),
+});
+
+/** The expected answer shape per question type, named in a shape-validation error. */
+const ANSWER_SHAPES = {
+  noul: { schema: NOUL_ANSWER_SCHEMA, text: '{ type: "noul", noul: number 0..1 }' },
+  score: {
+    schema: SCORE_ANSWER_SCHEMA,
+    text: '{ type: "score", score, probabilities, confidence }',
+  },
+  choice: {
+    schema: CHOICE_ANSWER_SCHEMA,
+    text: '{ type: "choice", choice, probabilities, confidence }',
+  },
+} as const;
 
 export interface ClassifierConfig {
   /** Overrides the environment key; tests inject a fake transport instead. */
@@ -121,13 +147,12 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
 }
 
 function compileQuestions(questions: Record<string, QuestionSchema>): Questions {
-  const out: Record<string, NoulQuestion | ScoreQuestion> = {};
+  const out: Record<string, NoulQuestion | ScoreQuestion | ChoiceQuestion> = {};
   for (const [name, spec] of Object.entries(questions)) {
     // instructions is the {unitId: task} map; the SDK's EntryType accepts JSON objects.
-    out[name] =
-      spec.type === "score"
-        ? score(spec.instructions, spec.criteria)
-        : noul(spec.instructions, spec.criteria);
+    if (spec.type === "score") out[name] = score(spec.instructions, spec.criteria);
+    else if (spec.type === "choice") out[name] = choice(spec.instructions, spec.criteria);
+    else out[name] = noul(spec.instructions, spec.criteria);
   }
   return out;
 }
@@ -140,21 +165,29 @@ function extractAnswers(
   const out: Record<string, ClassifiedAnswer> = {};
   for (const [name, spec] of Object.entries(questions)) {
     const answer: unknown = result.answers[name];
-    const schema = spec.type === "score" ? SCORE_ANSWER_SCHEMA : NOUL_ANSWER_SCHEMA;
-    if (!Value.Check(schema, answer)) {
+    const shape = ANSWER_SHAPES[spec.type];
+    if (!Value.Check(shape.schema, answer)) {
       throw new ClassifyError(
         "JEV_RESPONSE_INVALID",
         input,
-        `jev answer '${name}' failed shape validation: expected ${schema === SCORE_ANSWER_SCHEMA ? '{ type: "score", score, probabilities, confidence }' : '{ type: "noul", noul: number 0..1 }'}, got ${JSON.stringify(answer)}`,
+        `jev answer '${name}' failed shape validation: expected ${shape.text}, got ${JSON.stringify(answer)}`,
       );
     }
-    out[name] =
-      spec.type === "score"
-        ? (() => {
-            const s = answer as Static<typeof SCORE_ANSWER_SCHEMA>;
-            return { value: s.score, probabilities: s.probabilities, confidence: s.confidence };
-          })()
-        : { value: (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul };
+    if (spec.type === "score") {
+      const s = answer as Static<typeof SCORE_ANSWER_SCHEMA>;
+      out[name] = { value: s.score, probabilities: s.probabilities, confidence: s.confidence };
+    } else if (spec.type === "choice") {
+      // the value is the selected option's probability; the label carries the verdict
+      const c = answer as Static<typeof CHOICE_ANSWER_SCHEMA>;
+      out[name] = {
+        value: c.probabilities[c.choice] ?? c.confidence,
+        choice: c.choice,
+        probabilities: c.probabilities,
+        confidence: c.confidence,
+      };
+    } else {
+      out[name] = { value: (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul };
+    }
   }
   return out;
 }

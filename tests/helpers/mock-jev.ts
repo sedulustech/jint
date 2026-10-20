@@ -7,7 +7,8 @@
  *
  * The wire shape mirrors src/core/jev/client.ts: the request carries { state, questions } where
  * each question is a compiled { instructions, criteria } spec, and the response carries an answer
- * per question of shape { type: "noul", noul: 0..1 } or { type: "score", score: number }.
+ * per question of shape { type: "noul", noul: 0..1 }, { type: "score", score: number }, or { type:
+ * "choice", choice: label }.
  */
 
 export interface MockJevRequest {
@@ -22,6 +23,8 @@ export interface MockJevOptions {
   noul?: number;
   /** Default answer for score-type questions. Default 1. */
   score?: number;
+  /** Selected option for choice-type questions. Default: the question's first option label. */
+  choice?: string;
   /**
    * Per-question override: return a probability, or null to fall back to the defaults. Called with
    * the question name, the compiled question, and the whole request — a function of the incoming
@@ -40,6 +43,15 @@ export interface MockJev {
   stop: () => void;
   /** Every request the mock saw, in order. Assert the wire: state content, instructions, criteria. */
   requests: MockJevRequest[];
+}
+
+/** A choice answer: the selected option holds 0.7, the rest share 0.3 evenly. */
+function choiceAnswer(question: Record<string, unknown>, selected: string | undefined) {
+  const labels = Object.keys((question.criteria ?? {}) as Record<string, unknown>);
+  const choice = selected ?? labels[0]!;
+  const rest = labels.length > 1 ? 0.3 / (labels.length - 1) : 0;
+  const probabilities = Object.fromEntries(labels.map((l) => [l, l === choice ? 0.7 : rest]));
+  return { type: "choice", choice, probabilities, confidence: 0.7 };
 }
 
 export function startMockJev(opts: MockJevOptions = {}): MockJev {
@@ -71,7 +83,9 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
                 probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
                 confidence: 0.8,
               }
-            : { type: "noul", noul: override ?? opts.noul ?? 0.8 };
+            : question.type === "choice"
+              ? choiceAnswer(question, opts.choice)
+              : { type: "noul", noul: override ?? opts.noul ?? 0.8 };
       }
       return Response.json(
         { model: "jev-mock", answers, usage: { input_tokens: 1, output_tokens: 1 } },

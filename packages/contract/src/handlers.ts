@@ -29,6 +29,14 @@ export interface ScoreHandlerData {
   readonly map: readonly (HandlerLevel | ScoreTier)[];
 }
 
+/**
+ * The choice-type handler: one tier per named option, keyed by the option's label. The verdict is
+ * the tier of the option the classifier selected - no averaging, no ordering between options.
+ */
+export interface ChoiceHandlerData {
+  readonly choices: Readonly<Record<string, HandlerLevel | ScoreTier>>;
+}
+
 /** Normalize a map entry to its tier object. */
 export function asTier(entry: HandlerLevel | ScoreTier): ScoreTier {
   return typeof entry === "string" ? { level: entry } : entry;
@@ -100,8 +108,8 @@ export const ruleTargets: readonly SharedRuleTarget[] = [
   "imports",
 ];
 
-/** A declarative handler: exactly one of the two typed forms. */
-export type HandlerData = ScoreHandlerData | NoulHandlerData;
+/** A declarative handler: exactly one of the three typed forms. */
+export type HandlerData = ScoreHandlerData | ChoiceHandlerData | NoulHandlerData;
 
 /** Severity is the only verdict vocabulary: a finding fires error or warn, or stays silent. */
 export type Severity = "error" | "warn";
@@ -109,6 +117,11 @@ export type Severity = "error" | "warn";
 /** Type guard: is this handler data the score form? */
 export function isScoreHandler(data: HandlerData): data is ScoreHandlerData {
   return "map" in data;
+}
+
+/** Type guard: is this handler data the choice form? */
+export function isChoiceHandler(data: HandlerData): data is ChoiceHandlerData {
+  return "choices" in data;
 }
 
 /** Does one threshold condition fire at this value? Strict on the firing side. */
@@ -131,9 +144,12 @@ export function conditionFires(value: number, condition: ThresholdCondition): bo
  * Score: the value indexes the criteria map (rounded). Out-of-range is an impossible state the
  * ENGINE fails loud on before this evaluator runs; here it degrades to silent (null), never a
  * fabricated verdict.
+ *
+ * Choice: the selected option's label picks its tier; the value (that option's probability) plays
+ * no part. A missing or unknown label degrades to silent.
  */
-export function handleSeverity(value: number, data: HandlerData): Severity | null {
-  return handleTier(value, data)?.severity ?? null;
+export function handleSeverity(value: number, data: HandlerData, choice?: string): Severity | null {
+  return handleTier(value, data, choice)?.severity ?? null;
 }
 
 /**
@@ -145,7 +161,14 @@ export function handleSeverity(value: number, data: HandlerData): Severity | nul
 export function handleTier(
   value: number,
   data: HandlerData,
+  choice?: string,
 ): { readonly severity: Severity; readonly message?: string } | null {
+  if (isChoiceHandler(data)) {
+    const entry = choice === undefined ? undefined : data.choices[choice];
+    if (entry === undefined) return null;
+    const tier = asTier(entry);
+    return tier.level === "pass" ? null : { severity: tier.level, message: tier.message };
+  }
   if (isScoreHandler(data)) {
     const index = Math.round(value);
     if (!Number.isInteger(index) || index < 0 || index >= data.map.length) return null;
@@ -192,6 +215,25 @@ export function resolveScoreTier(
   void probabilities;
   void confidence;
   return handleTier(value, data);
+}
+
+/**
+ * The choice-handler invariant check: one tier per option label, no more, no fewer, and at least
+ * one non-pass tier. Null when valid, otherwise the field name + problem.
+ */
+export function checkChoiceHandler(
+  data: ChoiceHandlerData,
+  labels: readonly string[],
+): string | null {
+  const declared = Object.keys(data.choices);
+  const missing = labels.filter((label) => !declared.includes(label));
+  if (missing.length > 0) return `handle.choices: no tier for option(s) ${missing.join(", ")}`;
+  const unknown = declared.filter((label) => !labels.includes(label));
+  if (unknown.length > 0) return `handle.choices: ${unknown.join(", ")} is not an option label`;
+  if (Object.values(data.choices).every((entry) => asTier(entry).level === "pass")) {
+    return "handle.choices: at least one tier must be non-pass";
+  }
+  return null;
 }
 
 /** One condition carries exactly one operator: null when valid, else the problem. */

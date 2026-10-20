@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { InternalError } from "../types.ts";
-import { checkNoulHandler, compileNoulHandler, compileScoreHandler } from "./handle.ts";
+import { InternalError, type RuleKind } from "../types.ts";
+import {
+  checkNoulHandler,
+  compileDataHandle,
+  compileNoulHandler,
+  compileScoreHandler,
+  type HandlerData,
+} from "./handle.ts";
 
 const NOUL = { warn: { greater_than: 0.3 }, error: { greater_than: 0.6 } } as const;
 
@@ -76,5 +82,46 @@ describe("compileScoreHandler", () => {
       /handle\.silent_band:.*contains the error threshold/,
     );
     expect(checkNoulHandler({ error: { greater_than: 0.6 }, silent_band: [0.1, 0.2] })).toBeNull();
+  });
+});
+
+describe("compileDataHandle - choice", () => {
+  const CHOICES = { sound: "pass", wrong: { level: "error", message: "Rewrite it." } } as const;
+  const LABELS = ["sound", "wrong"];
+  const compile = (handle: HandlerData, kind: RuleKind, criteria = LABELS) =>
+    compileDataHandle(handle, "r", "cfg", kind, criteria);
+
+  test("the selected option's tier fires, carrying its message", () => {
+    const handle = compile({ choices: CHOICES }, "choice");
+    expect(handle({ value: 0.7, choice: "wrong" })).toEqual({
+      severity: "error",
+      message: "Rewrite it.",
+    });
+    expect(handle({ value: 0.7, choice: "sound" })).toBeNull();
+  });
+
+  test("an unknown or missing option is an impossible state - fail loud", () => {
+    const handle = compile({ choices: CHOICES }, "choice");
+    expect(() => handle({ value: 0.7, choice: "absent" })).toThrow(InternalError);
+    expect(() => handle({ value: 0.7 })).toThrow(InternalError);
+  });
+
+  test("labels must match the options; at least one tier must be non-pass", () => {
+    expect(() => compile({ choices: { sound: "pass" } }, "choice")).toThrow(/no tier for option/);
+    expect(() => compile({ choices: { sound: "pass", wrong: "pass" } }, "choice")).toThrow(
+      /non-pass/,
+    );
+  });
+
+  test("the handle form must match the rule kind", () => {
+    expect(() => compile({ choices: CHOICES }, "score")).toThrow(
+      /a choice handler on a score rule/,
+    );
+    expect(() => compile({ map: ["pass", "error"] }, "choice")).toThrow(
+      /a score handler on a choice rule/,
+    );
+    expect(() => compile({ error: { greater_than: 0.6 } }, "choice")).toThrow(
+      /a noul handler on a choice rule/,
+    );
   });
 });

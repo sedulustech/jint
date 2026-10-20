@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  checkChoiceHandler,
   checkNoulHandler,
   handleSeverity,
+  handleTier,
   ruleTargets,
+  type ChoiceHandlerData,
   type HandlerData,
   type NoulHandlerData,
   type RuleTarget,
@@ -68,6 +71,42 @@ describe("handleSeverity - score", () => {
   test("out-of-range degrades to silent (the engine fails loud upstream)", () => {
     expect(handleSeverity(3, score)).toBeNull();
     expect(handleSeverity(-1, score)).toBeNull();
+  });
+});
+
+describe("handleSeverity - choice", () => {
+  const choice: ChoiceHandlerData = {
+    choices: { sound: "pass", loose: "warn", wrong: { level: "error", message: "Rewrite it." } },
+  };
+
+  test("the selected option's tier is the verdict; the value plays no part", () => {
+    expect(handleSeverity(0.9, choice, "sound")).toBeNull();
+    expect(handleSeverity(0.2, choice, "loose")).toBe("warn");
+    expect(handleSeverity(0.2, choice, "wrong")).toBe("error");
+    expect(handleTier(0.9, choice, "wrong")).toEqual({ severity: "error", message: "Rewrite it." });
+  });
+
+  test("a missing or unknown option degrades to silent (the engine fails loud upstream)", () => {
+    expect(handleSeverity(0.9, choice)).toBeNull();
+    expect(handleSeverity(0.9, choice, "absent")).toBeNull();
+  });
+});
+
+describe("checkChoiceHandler", () => {
+  const labels = ["sound", "wrong"];
+
+  test("one tier per option label, at least one non-pass", () => {
+    expect(checkChoiceHandler({ choices: { sound: "pass", wrong: "error" } }, labels)).toBeNull();
+  });
+
+  test("every failure names the field and the labels involved", () => {
+    expect(checkChoiceHandler({ choices: { sound: "pass" } }, labels)).toContain("wrong");
+    expect(
+      checkChoiceHandler({ choices: { sound: "pass", wrong: "error", extra: "warn" } }, labels),
+    ).toContain("extra");
+    expect(
+      checkChoiceHandler({ choices: { sound: "pass", wrong: { level: "pass" } } }, labels),
+    ).toContain("non-pass");
   });
 });
 

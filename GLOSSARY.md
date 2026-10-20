@@ -43,6 +43,8 @@ measurement its handle judged actionable and is the only output that demands act
 - **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
   (markdown's sections). Absent: a same-capture match inside an existing same-capture
   element reads as a wrapper's payload and collapses into it unless the tail distance is real (the per-grammar capture directives over the shared defaults).
+- **choice** — a rule kind whose question selects one named option; the answer is the selected
+  option's label, with a probability per option.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **scope** — a path selection with an owner: include/exclude patterns that select which files
@@ -116,8 +118,8 @@ measurement its handle judged actionable and is the only output that demands act
   run's payload names the read (str, paths). The resource (a path) needs no noun. A noun's next
   positional is its payload.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
-- **pass** — the level a handle returned when a reading needs no action: the score-map
-  entry that never fires (score maps use pass/warn/error) and the absent-reading state for
+- **pass** — the level a handle returned when a reading needs no action: the score-map or
+  choice tier that never fires (both use pass/warn/error) and the absent-reading state for
   noul handles. Not a finding, not noise: a reading judged acceptable.
 - **path list** — one flat list of paths, one per line, read as declared (`jint run paths -`): no
   VCS vocabulary, no path algebra — entries are the caller's bytes used verbatim as file

@@ -92,6 +92,8 @@ export {
   type NoulRule,
   type ScoreRule,
   type ScoreRubric,
+  type ChoiceRule,
+  type ChoiceOptions,
   type RuleKind,
   type RuleTarget,
   type HandleResult,

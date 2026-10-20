@@ -60,7 +60,7 @@ const TARGET_SCHEMA = Type.Union([
 const SCOPE_SCHEMA = Type.Array(Type.String());
 
 // Discriminated on kind: noul rules carry {true,false}, score rules carry an ordered rubric
-// (>= two descriptions indexed by score 0..N). kind stays optional in the noul branch (noul IS
+// (>= two descriptions indexed by score 0..N), choice rules carry named options (>= two labels). kind stays optional in the noul branch (noul IS
 // the default; the loader fills it). The question and the handle are both REQUIRED (policy:
 // probes ship real questions and real handles) - a rule without its question would classify
 // under an invented prompt and silently recalibrate every reading.
@@ -87,7 +87,7 @@ const NOUL_RULE_SCHEMA = Type.Object({
   exclude: Type.Optional(SCOPE_SCHEMA),
 });
 
-const CHOICE_RULE_SCHEMA = Type.Object({
+const SCORE_RULE_SCHEMA = Type.Object({
   name: Type.String({
     description:
       "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
@@ -101,7 +101,25 @@ const CHOICE_RULE_SCHEMA = Type.Object({
   exclude: Type.Optional(SCOPE_SCHEMA),
 });
 
-const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
+const CHOICE_RULE_SCHEMA = Type.Object({
+  name: Type.String({
+    description:
+      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+  }),
+  kind: Type.Literal("choice"),
+  criteria: Type.Record(Type.String(), Type.String(), {
+    minProperties: 2,
+    description:
+      "The named options: option label -> what selecting it means. Unordered; the model selects one.",
+  }),
+  instructions: Type.String(),
+  target: TARGET_SCHEMA,
+  handle: HANDLER_SCHEMA,
+  include: Type.Optional(SCOPE_SCHEMA),
+  exclude: Type.Optional(SCOPE_SCHEMA),
+});
+
+const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, SCORE_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
 
 /**
  * Schema of the config file's boundary — also emitted, verbatim, as the checked-in editor schema (a
@@ -462,13 +480,17 @@ export function validateConfig(
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
   // capture-address validation happens at LINT STARTUP against the merged registry - the user
   // grammar dir is not scanned at config load
-  const isScore = entry.kind === "score";
+  const kind = entry.kind ?? "noul";
   const handle = compileDataHandle(
     entry.handle,
     entry.name,
     source,
-    isScore,
-    isScore ? (entry.criteria as readonly string[]) : [],
+    kind,
+    entry.kind === "score"
+      ? entry.criteria
+      : entry.kind === "choice"
+        ? Object.keys(entry.criteria)
+        : [],
   );
   // Direct optional properties: scope consumers gate on !== undefined, so absent and
   // present-undefined behave identically, and the manifest snapshot drops undefined under JSON.
@@ -477,25 +499,17 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     exclude: entry.exclude,
   };
   const handleSnapshot = entry.handle;
-  if (entry.kind !== "score") {
-    return {
-      name: entry.name,
-      instructions: entry.instructions,
-      criteria: entry.criteria,
-      target: entry.target as Rule["target"],
-      handle,
-      handleData: handleSnapshot,
-      ...scope,
-    };
-  }
-  return {
+  const common = {
     name: entry.name,
-    kind: "score",
-    criteria: entry.criteria as [string, string, ...string[]],
-    instructions: (entry as { instructions: string }).instructions,
+    instructions: entry.instructions,
     target: entry.target as Rule["target"],
     handle,
     handleData: handleSnapshot,
     ...scope,
   };
+  if (entry.kind === "score") {
+    return { ...common, kind: "score", criteria: entry.criteria as [string, string, ...string[]] };
+  }
+  if (entry.kind === "choice") return { ...common, kind: "choice", criteria: entry.criteria };
+  return { ...common, criteria: entry.criteria };
 }

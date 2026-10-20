@@ -15,7 +15,12 @@
  * polarity, and recorded gap rows.
  */
 
-import type { NoulHandlerData, RuleTarget, ScoreHandlerData } from "@jint/contract";
+import type {
+  ChoiceHandlerData,
+  NoulHandlerData,
+  RuleTarget,
+  ScoreHandlerData,
+} from "@jint/contract";
 
 export type { RuleTarget };
 
@@ -45,8 +50,22 @@ export interface ScoreRuleSchema {
   readonly exclude?: readonly string[];
 }
 
-/** A declarative rule: exactly one of the two kinds. */
-export type RuleSchema = NoulRuleSchema | ScoreRuleSchema;
+/** A choice rule: the model selects one named option; the handle maps each option label to a tier. */
+export interface ChoiceRuleSchema {
+  readonly name: string;
+  readonly kind: "choice";
+  readonly instructions: string;
+  /** Option label -> what selecting it means; at least two options. */
+  readonly criteria: Readonly<Record<string, string>>;
+  readonly target: RuleTarget | readonly RuleTarget[];
+  readonly handle: ChoiceHandlerData;
+  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  readonly include?: readonly string[];
+  readonly exclude?: readonly string[];
+}
+
+/** A declarative rule: exactly one of the three kinds. */
+export type RuleSchema = NoulRuleSchema | ScoreRuleSchema | ChoiceRuleSchema;
 
 /**
  * HANDLERS ARE TYPED DATA: every default handle is a NoulHandler (each threshold names its own

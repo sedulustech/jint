@@ -65,10 +65,12 @@ export const MEASUREMENT_SCHEMA = Type.Object({
   rule: Type.String(),
   input: Type.String(),
   value: Type.Number(),
-  // Score rules only: the distribution the value summarizes. Noul's probability IS the value —
-  // no separate distribution field.
+  // Score and choice rules only: the distribution the value summarizes, per level or per option.
+  // Noul's probability IS the value — no separate distribution field.
   probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
   confidence: Type.Optional(Type.Number()),
+  // Choice rules only: the selected option's label; value is that option's probability.
+  choice: Type.Optional(Type.String()),
   // The measured subject, fully typed. Absent only from the bare whole-source generator (no
   // source, no span); every report path attaches it.
   element: Type.Optional(ELEMENT_SCHEMA),
@@ -83,6 +85,8 @@ export const FINDING_SCHEMA = Type.Object({
   input: Type.String(),
   value: Type.Number(),
   severity: SEVERITY_SCHEMA,
+  // Choice rules only: the selected option's label; value is that option's probability.
+  choice: Type.Optional(Type.String()),
   // Custom tier only: the callback's remediation instruction to the caller — severity says
   // whether, message says how. Absent for noul and score (threshold-derived) findings.
   message: Type.Optional(Type.String()),
@@ -149,6 +153,7 @@ export const REPORT_SCHEMA = Type.Object({
         criteria: Type.Union([
           Type.Array(Type.String()),
           Type.Object({ true: Type.String(), false: Type.String() }),
+          Type.Record(Type.String(), Type.String()),
           Type.Null(),
         ]),
         handle: Type.Union([Type.Object({}, { additionalProperties: true }), Type.Null()]),

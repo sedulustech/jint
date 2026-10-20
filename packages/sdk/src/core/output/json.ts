@@ -33,9 +33,10 @@ export function renderJson(report: LintReport): string {
           rule: m.rule,
           input: m.input,
           value: m.value,
-          // score rules only: the distribution the value summarizes
+          // score and choice rules only: the distribution the value summarizes
           probabilities: m.probabilities,
           confidence: m.confidence,
+          choice: m.choice,
           element: m.element,
         })),
         // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
@@ -52,6 +53,7 @@ export function renderJson(report: LintReport): string {
             // a coin-flip without fetching the measurement (undefined drops, the key omits)
             confidence: s.confidence !== undefined ? s.confidence : undefined,
             probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
+            choice: s.choice !== undefined ? s.choice : undefined,
             message: s.message !== undefined ? s.message : undefined,
             location:
               s.location !== undefined

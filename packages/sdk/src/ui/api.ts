@@ -35,6 +35,7 @@ export interface RequestFile {
         confidence?: number;
         legend?: Record<string, string>;
         probabilities?: Record<string, number>;
+        choice?: string;
       }
     >;
     usage?: Record<string, number>;
@@ -356,7 +357,7 @@ function cellSeverity(
   measurementInput: string,
   ruleName: string,
   findingSeverity: Map<string, Map<string, Severity>>,
-  readingsByInput: Map<string, { rule: string; value: number }[]>,
+  readingsByInput: Map<string, { rule: string; value: number; choice?: string }[]>,
   handlesByRule: Record<string, HandlerData> | null,
 ): Severity | null {
   // the report's own finding wins; otherwise the handle snapshot projects the reading
@@ -364,9 +365,9 @@ function cellSeverity(
   if (direct !== undefined) return direct;
   const handle = handlesByRule?.[ruleName];
   if (handle === undefined) return null;
-  for (const { rule: measuredRule, value } of readingsByInput.get(measurementInput) ?? []) {
+  for (const { rule: measuredRule, value, choice } of readingsByInput.get(measurementInput) ?? []) {
     if (measuredRule !== ruleName) continue;
-    const severity = handleSeverity(value, handle);
+    const severity = handleSeverity(value, handle, choice);
     if (severity !== null) return severity;
   }
   return null;
@@ -409,7 +410,10 @@ async function readManifestHandles(
 async function readReportFacts(dir: string): Promise<{
   findingSev: Map<string, Map<string, Severity>>;
   pathRules: Map<string, string[]> | null;
-  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null;
+  pathValues: Map<
+    string,
+    { rule: string; value: number; choice?: string; element?: Element }[]
+  > | null;
   measurementCount: number;
 }> {
   // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
@@ -417,7 +421,10 @@ async function readReportFacts(dir: string): Promise<{
   // the handle snapshot exists to prevent.
   const findingSev = new Map<string, Map<string, Severity>>();
   let pathRules: Map<string, string[]> | null = null;
-  let pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null = null;
+  let pathValues: Map<
+    string,
+    { rule: string; value: number; choice?: string; element?: Element }[]
+  > | null = null;
   let measurementCount = 0;
   try {
     const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as {
@@ -425,6 +432,7 @@ async function readReportFacts(dir: string): Promise<{
         input: string;
         rule: string;
         value?: number;
+        choice?: string;
         element?: Element;
       }[];
       findings?: { input: string; rule: string; severity: Severity }[];
@@ -449,7 +457,7 @@ async function readReportFacts(dir: string): Promise<{
       } else pathRules.set(path, [m.rule]);
       if (typeof m.value === "number") {
         const vals = pathValues.get(m.input);
-        const entry = { rule: m.rule, value: m.value, element: m.element };
+        const entry = { rule: m.rule, value: m.value, choice: m.choice, element: m.element };
         if (vals) vals.push(entry);
         else pathValues.set(m.input, [entry]);
       }
@@ -474,7 +482,10 @@ async function reportFactsFor(
   requestCount: number,
 ): Promise<{
   pathRules: Map<string, string[]> | null;
-  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null;
+  pathValues: Map<
+    string,
+    { rule: string; value: number; choice?: string; element?: Element }[]
+  > | null;
   findingSev: Map<string, Map<string, Severity>>;
   degraded: boolean;
 }> {
@@ -509,7 +520,10 @@ async function readRequestRow(
   dir: string,
   file: string,
   pathRules: Map<string, string[]> | null,
-  pathValues: Map<string, { rule: string; value: number; element?: Element }[]> | null,
+  pathValues: Map<
+    string,
+    { rule: string; value: number; choice?: string; element?: Element }[]
+  > | null,
   findingSev: Map<string, Map<string, Severity>>,
   handles: Record<string, HandlerData> | null,
 ): Promise<RequestItem | null> {
@@ -524,6 +538,8 @@ async function readRequestRow(
     const probs = Object.values(answers)
       .map((a) => {
         if (typeof a?.noul === "number") return a.noul;
+        // a choice answer joins the p-space summary as its selected option's probability
+        if (typeof a?.choice === "string") return a.probabilities?.[a.choice] ?? null;
         // score answers join the p-space summary normalized to 0..1 so a score-only request
         // (or a request whose score is the only answer) is visible in max-p and the strip
         if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
@@ -568,11 +584,11 @@ async function readRequestRow(
     const projectSeverity = (rule: string): Severity | null => {
       if (handles === null) return null;
       for (const key of keys) {
-        for (const { rule: measuredRule, value } of pathValues?.get(key) ?? []) {
+        for (const { rule: measuredRule, value, choice } of pathValues?.get(key) ?? []) {
           if (measuredRule !== rule) continue;
           const handle = handles[rule];
           if (handle === undefined) continue;
-          const s = handleSeverity(value, handle);
+          const s = handleSeverity(value, handle, choice);
           if (s !== null) return s;
         }
       }

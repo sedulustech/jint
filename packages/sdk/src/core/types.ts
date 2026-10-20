@@ -134,8 +134,11 @@ export class ClassifyError extends Error {
 
 /** The rule target vocabulary is defined beside the wire vocabulary it annotates, re-exported here. */
 
-/** The judgment primitive: a calibrated yes/no reading or an ordered rubric score. */
-export type RuleKind = "noul" | "score";
+/**
+ * The judgment primitive: a calibrated yes/no reading, an ordered rubric score, or a choice between
+ * named options.
+ */
+export type RuleKind = "noul" | "score" | "choice";
 
 interface RuleBase {
   readonly name: string;
@@ -179,8 +182,7 @@ export interface NoulRule extends RuleBase {
 
 /**
  * The rubric of a score rule: at least two descriptions indexed by ordered score 0..N. The rubric
- * is ordered, so the scored question is the right primitive; the named-option question form stays
- * unused.
+ * is ordered, so the scored question is the right primitive; unordered options are a choice rule.
  */
 export type ScoreRubric = readonly [string, string, ...string[]];
 
@@ -193,8 +195,24 @@ export interface ScoreRule extends RuleBase {
   readonly instructions: string;
 }
 
+/** The options of a choice rule: option label -> what selecting it means; at least two options. */
+export type ChoiceOptions = Readonly<Record<string, string>>;
+
+/**
+ * A choice rule: the model selects one named option; the value is that option's probability (0..1)
+ * and the verdict is the selected option's tier. Options are unordered - no averaging between
+ * them.
+ */
+export interface ChoiceRule extends RuleBase {
+  readonly kind: "choice";
+  /** The named options; the question text lives in instructions. */
+  readonly criteria: ChoiceOptions;
+  /** The question sentence, judged per unit; the compiler prepends the kind sentence to it. */
+  readonly instructions: string;
+}
+
 /** A rule: one System One judgment over a state, plus a handle that reads the value. */
-export type Rule = NoulRule | ScoreRule;
+export type Rule = NoulRule | ScoreRule | ChoiceRule;
 
 /**
  * The raw noul value for (rule, input). Values pass through untouched — near 0.5 means undecided,
@@ -206,6 +224,8 @@ export interface Measurement {
   readonly value: number;
   readonly probabilities?: Record<string, number>;
   readonly confidence?: number;
+  /** The selected option's label, choice rules only; value is that option's probability. */
+  readonly choice?: string;
   /**
    * The measured subject, fully typed: the element projection — kind, span, label, parent,
    * kind-specific name. A whole-unit judgment is a file element (a file IS an element), so there is
@@ -235,6 +255,8 @@ export interface Finding {
   readonly confidence?: number;
   /** The full distribution the value summarizes: one probability per criterion option. */
   readonly probabilities?: Record<string, number>;
+  /** The selected option's label, choice rules only; value is that option's probability. */
+  readonly choice?: string;
   /**
    * Additive (custom tier): a policy callback's remediation instruction to the caller
    * (schema-validated at the callback boundary). Absent for threshold-derived findings.
@@ -321,7 +343,13 @@ export interface ScoreQuestionSchema {
   readonly criteria: ScoreRubric;
 }
 
-export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema;
+export interface ChoiceQuestionSchema {
+  readonly type: "choice";
+  readonly instructions: string;
+  readonly criteria: ChoiceOptions;
+}
+
+export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema | ChoiceQuestionSchema;
 
 /**
  * Jint's reexport of the classifier's answer type for a rule: the raw answer, structurally the

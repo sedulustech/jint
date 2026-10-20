@@ -21,16 +21,20 @@ for editor autocomplete via `$schema`.
 | `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                  |
 
 A rule object is a [default-rule-shaped spec](rules.md): `name`, `instructions`, `criteria`
-(`{true, false}` for noul, an ordered rubric for `kind: "score"`), `target`, `handle`, plus
+(`{true, false}` for noul, an ordered rubric for `kind: "score"`, named options for
+`kind: "choice"`), `target`, `handle`, plus
 per-rule `include`/`exclude` globs (exclude always wins; a rule whose exclude cancels its
 include is a warning, never an error).
 
-**Choosing a kind.** A rule is `noul` (a yes/no probability) or `score` (an ordered rubric). A
-score answer is the expected level, and the handle rounds it to the nearest level. Use `score`
-only when the levels sit on one axis, each worse than the one before. Unordered categories break
-that read: a reading split evenly between level 0 and level 8 rounds to level 4, a category the
-classifier did not choose, and the finding carries level 4's message. To judge independent
-defects, write one noul rule per defect. Each rule is its own question with its own probability, threshold, and
+**Choosing a kind.** A rule is `noul` (a yes/no probability), `score` (an ordered rubric), or
+`choice` (named options). A score answer is the expected level, and the handle rounds it to the
+nearest level. Use `score` only when the levels sit on one axis, each worse than the one before.
+Unordered categories break that read: a reading split evenly between level 0 and level 8 rounds to
+level 4, a category the classifier did not choose, and the finding carries level 4's message. For
+unordered categories, use `choice`: the classifier selects one option, and the handle maps each
+option label to a tier (`{ "choices": { "<label>": "pass" | "warn" | "error" | { level, message } } }`),
+so the finding carries the selected option's message. A choice reports one option per unit. To
+judge independent defects that can co-occur, write one noul rule per defect. Each rule is its own question with its own probability, threshold, and
 message, and one unit can fail several at once. The rules on one unit batch into one classifier
 call, so separate questions add no calls.
 

@@ -21,6 +21,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   defaultRules as defaultSpecs,
+  type ChoiceRuleSchema,
   type NoulRuleSchema,
   type RuleSchema,
   type ScoreRuleSchema,
@@ -81,20 +82,31 @@ function renderThresholdHandle(handle: NoulRuleSchema["handle"]): string {
   return [...thresholds, ...messages].join(", ");
 }
 
+function renderChoiceHandle(choices: ChoiceRuleSchema["handle"]["choices"]): string {
+  const entries = Object.entries(choices);
+  const map = entries.map(
+    ([label, tier]) => `${label} → ${typeof tier === "string" ? tier : tier.level}`,
+  );
+  const messages = entries.flatMap(([, tier]) =>
+    typeof tier !== "string" && tier.message !== undefined ? [`"${tier.message}"`] : [],
+  );
+  return [`choice map: ${map.join(", ")}`, ...messages].join(", ");
+}
+
 export function renderHandleCell(spec: RuleSchema): string {
+  if (spec.kind === "choice") return renderChoiceHandle(spec.handle.choices);
   return spec.kind === "score"
     ? renderScoreHandle(spec.handle.map)
     : renderThresholdHandle(spec.handle as NoulRuleSchema["handle"]);
 }
 
 export function renderRuleSection(spec: RuleSchema): string {
-  const isScore = spec.kind === "score";
   const out: string[] = [];
   out.push(`## \`${spec.name}\`\n\n`);
   const handle = renderHandleCell(spec);
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
-    ["kind", isScore ? "score" : "noul"],
+    ["kind", spec.kind ?? "noul"],
     // targets render joined: the explicit list form (the defaults' union) is one cell
     ["target", Array.isArray(spec.target) ? spec.target.join(", ") : String(spec.target)],
     ["handle", handle],
@@ -106,8 +118,12 @@ export function renderRuleSection(spec: RuleSchema): string {
   out.push(`| ${width.map((w) => "-".repeat(w)).join(" | ")} |\n`);
   out.push(tableRow(cells.map(([, v]) => v)) + "\n");
   out.push(`**Instructions.** ${spec.instructions}\n\n`);
-  if (isScore) {
+  if (spec.kind === "score") {
     spec.criteria.forEach((criterion, i) => out.push(`**Score ${i}.** ${criterion}\n\n`));
+  } else if (spec.kind === "choice") {
+    for (const [label, meaning] of Object.entries(spec.criteria)) {
+      out.push(`**Option \`${label}\`.** ${meaning}\n\n`);
+    }
   } else {
     out.push(`**True.** ${spec.criteria.true}\n\n`);
     out.push(`**False.** ${spec.criteria.false}\n\n`);
@@ -135,7 +151,11 @@ export function renderRulesDoc(specs: readonly RuleSchema[]): string {
 
 // The rule-schema material, rendered from the same sources as the schema and the specs, so the
 // authoring doc cannot rot behind the wire shape.
-type SchemaPropertyMeta = { description?: string; const?: string };
+type SchemaPropertyMeta = {
+  description?: string;
+  const?: string;
+  anyOf?: { description?: string; properties?: Record<string, unknown> }[];
+};
 
 export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
   const ruleItems = (CONFIG_SCHEMA.properties.rules as { items: { anyOf: unknown[] } }).items;
@@ -148,22 +168,26 @@ export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
 const FALLBACK_DESCRIPTIONS: Record<string, string> = {
   name: "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
   criteria:
-    "The two-sided contract: noul carries {true, false}; score carries an ordered rubric (score 0..N). The defect side decides the handle direction.",
+    "The answer contract: noul carries {true, false}; score carries an ordered rubric (score 0..N); choice carries named options (label -> meaning). The handle decides which answers fire.",
   target:
     "What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.",
-  handle:
-    "When readings surface as findings; the shape depends on kind (the two descriptions below).",
+  handle: "When readings surface as findings; the shape depends on kind (the descriptions below).",
   include:
     "Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.",
   exclude:
     "Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.",
 };
-const noulHandle =
-  "Noul handle (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.";
-const scoreHandle =
-  "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.";
 const callbackHandle =
   'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
+
+// Each handle form's description, read from the schema the loader validates against - one source,
+// so the authoring doc cannot describe a handle the loader no longer accepts.
+function handleDescription(props: Record<string, SchemaPropertyMeta>, key: string): string {
+  const form = props.handle?.anyOf?.find((f) => f.properties !== undefined && key in f.properties);
+  if (form?.description === undefined)
+    throw new Error(`no handle form with '${key}' in the schema`);
+  return form.description;
+}
 
 export function renderRuleSchemaBlock(props: Record<string, SchemaPropertyMeta>): string {
   const propRows = Object.entries(props)
@@ -181,10 +205,11 @@ export function renderRuleSchemaBlock(props: Record<string, SchemaPropertyMeta>)
     "| --- | --- |",
     propRows,
     "",
-    "Handles, both kinds - direction lives in the handle, never in prose:",
+    "Handles, one form per kind - direction lives in the handle, never in prose:",
     "",
-    "- **noul** (yes/no): `" + noulHandle + "`",
-    "- **score** (scored rubric): `" + scoreHandle + "`",
+    "- **noul** (yes/no): `" + handleDescription(props, "warn") + "`",
+    "- **score** (scored rubric): `" + handleDescription(props, "map") + "`",
+    "- **choice** (named options): `" + handleDescription(props, "choices") + "`",
     "",
     callbackHandle,
   ].join("\n");
@@ -198,7 +223,13 @@ export type FixerMessage = { rule: string; severity: string; message: string };
 export function collectFixerMessages(specs: readonly RuleSchema[]): FixerMessage[] {
   const messages: FixerMessage[] = [];
   for (const spec of specs) {
-    if (spec.kind === "score") {
+    if (spec.kind === "choice") {
+      for (const entry of Object.values(spec.handle.choices)) {
+        if (typeof entry !== "string" && typeof entry.message === "string") {
+          messages.push({ rule: spec.name, severity: entry.level, message: entry.message });
+        }
+      }
+    } else if (spec.kind === "score") {
       for (const entry of spec.handle.map) {
         if (typeof entry !== "string" && typeof entry.message === "string") {
           messages.push({ rule: spec.name, severity: entry.level, message: entry.message });

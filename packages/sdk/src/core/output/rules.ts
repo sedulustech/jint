@@ -21,6 +21,19 @@ function handleLine(rule: Rule): string {
   if ("map" in h) {
     return "level map: " + h.map.join(" / ");
   }
+  if ("choices" in h) {
+    // one tier per option label: the levels inline, the messages after them
+    const entries = Object.entries(h.choices);
+    const line =
+      "choice map: " +
+      entries.map(([label, t]) => label + " " + (typeof t === "string" ? t : t.level)).join(" / ");
+    const messages = entries.flatMap(([, t]) =>
+      typeof t !== "string" && t.message !== undefined ? [t.message] : [],
+    );
+    return messages.length > 0
+      ? line + " · " + messages.map((m) => '"' + m + '"').join(" · ")
+      : line;
+  }
   const parts: string[] = [];
   if (h.warn !== undefined) parts.push("warn " + opText(h.warn));
   if (h.error !== undefined) parts.push("error " + opText(h.error));
@@ -57,6 +70,9 @@ export function describeRule(rule: Rule): string {
     } else if (Array.isArray(c)) {
       // score rubric: one line per level
       c.forEach((level, i) => lines.push("  " + i + "  " + level));
+    } else {
+      // choice options: one line per option label
+      for (const [label, meaning] of Object.entries(c)) lines.push("  " + label + "  " + meaning);
     }
   }
   return lines.join("\n");

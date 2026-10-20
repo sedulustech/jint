@@ -53,9 +53,9 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 function questionSpec(rule: Rule, instructions: string): QuestionSchema {
-  return rule.kind === "score"
-    ? { type: "score", instructions, criteria: rule.criteria }
-    : { type: "noul", instructions, criteria: rule.criteria };
+  if (rule.kind === "score") return { type: "score", instructions, criteria: rule.criteria };
+  if (rule.kind === "choice") return { type: "choice", instructions, criteria: rule.criteria };
+  return { type: "noul", instructions, criteria: rule.criteria };
 }
 
 /**
@@ -123,14 +123,16 @@ function isUsableAnswer(answer: ClassifiedAnswer | undefined): boolean {
 }
 
 function measurementFields(rule: string, input: string, answer: ClassifiedAnswer): Measurement {
-  // Direct optional properties: score rules only (noul's probability IS the value - no separate
-  // distribution). Consumers gate on !== undefined, identical for absent and present-undefined.
+  // Direct optional properties: score and choice rules only (noul's probability IS the value - no
+  // separate distribution); choice also names the selected option. Consumers gate on
+  // !== undefined, identical for absent and present-undefined.
   return {
     rule,
     input,
     value: answer.value,
     probabilities: answer.probabilities,
     confidence: answer.confidence,
+    choice: answer.choice,
   };
 }
 

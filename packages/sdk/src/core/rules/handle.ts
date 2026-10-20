@@ -4,6 +4,8 @@
  * - ScoreHandler (score questions, graded criteria levels): { map } — one level per criterion,
  *   direction expressed by the map itself (high-bad: ["pass","pass","warn","error"]; high-good:
  *   ["error","warn","pass","pass"]).
+ * - ChoiceHandler (choice questions, named options): { choices } — one tier per option label; the
+ *   selected option's tier is the verdict.
  * - NoulHandler (noul questions, the claim probability P(true)): { warn?, error?, silent_band? }, at
  *   least one tier declared. Each tier carries one comparison operator on the raw value (the
  *   operator IS the defect pole). With both tiers, error is strictly narrower than warn.
@@ -13,17 +15,20 @@
  * other consumer — schema, defaults, loader — stays in data.
  */
 
-import { checkNoulHandler, type HandlerData } from "@jint/contract";
+import { checkChoiceHandler, checkNoulHandler, type HandlerData } from "@jint/contract";
 import { Type } from "@sinclair/typebox";
-import { InternalError, SetupError, type HandleOutcome } from "../types.ts";
+import { InternalError, SetupError, type HandleOutcome, type RuleKind } from "../types.ts";
 // The taxonomy and the pure evaluation live in the contract package (one definition, shared with
 // the measurement UI); the engine owns only the compiled seams (handle data -> function).
 export {
+  checkChoiceHandler,
   checkCondition,
   checkNoulHandler,
   conditionFires,
   handleSeverity,
+  isChoiceHandler,
   isScoreHandler,
+  type ChoiceHandlerData,
   type HandlerData,
   type HandlerLevel,
   type NoulHandlerData,
@@ -34,6 +39,7 @@ export {
 import {
   handleTier,
   resolveScoreTier,
+  type ChoiceHandlerData,
   type ClassifiedAnswer,
   type NoulHandlerData,
   type ScoreHandlerData,
@@ -75,6 +81,22 @@ export function compileScoreHandler(data: ScoreHandlerData): Handle {
   };
 }
 
+/**
+ * The single data -> function seam for choice rules: the selected option's label picks its tier. A
+ * missing or unknown label is an impossible state (the request named every option) - fail loud,
+ * like an out-of-scale score.
+ */
+export function compileChoiceHandler(data: ChoiceHandlerData): Handle {
+  return (answer) => {
+    if (answer.choice === undefined || !(answer.choice in data.choices)) {
+      throw new InternalError(
+        `choice ${JSON.stringify(answer.choice)} is not one of the options ${Object.keys(data.choices).join(", ")} - the classifier returned an unknown option`,
+      );
+    }
+    return handleTier(answer.value, data, answer.choice);
+  };
+}
+
 const LEVEL_SCHEMA = Type.Union([
   Type.Literal("pass"),
   Type.Literal("warn"),
@@ -100,6 +122,16 @@ const SCORE_HANDLER_SCHEMA = Type.Object(
   {
     description:
       "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
+  },
+);
+
+const CHOICE_HANDLER_SCHEMA = Type.Object(
+  {
+    choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA),
+  },
+  {
+    description:
+      "Choice handler (choice rules only): one tier per option label, keyed by the label. The selected option's tier is the verdict - options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
   },
 );
 
@@ -146,18 +178,24 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
   },
 );
 
-export const HANDLER_SCHEMA = Type.Union([SCORE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA]);
+export const HANDLER_SCHEMA = Type.Union([
+  SCORE_HANDLER_SCHEMA,
+  CHOICE_HANDLER_SCHEMA,
+  NOUL_HANDLER_SCHEMA,
+]);
 
 /**
- * The handler TYPE must match the question type (score map <-> score, operators <-> noul) and its
- * internal invariants hold. Every failure names the rule id and the exact field. A rule without a
- * handle does not compile: the schema rejects it (policy is not optional).
+ * The handler TYPE must match the question type (score map <-> score, choices <-> choice, operators
+ * <-> noul) and its internal invariants hold. Every failure names the rule id and the exact field.
+ * A rule without a handle does not compile: the schema rejects it (policy is not optional).
+ *
+ * Criteria: the score levels or the choice option labels; unused for noul.
  */
 export function compileDataHandle(
   handle: HandlerData,
   name: string,
   source: string,
-  isScore: boolean,
+  kind: RuleKind,
   criteria: readonly string[],
 ): Handle {
   const fail = (field: string, detail: string): never => {
@@ -167,11 +205,8 @@ export function compileDataHandle(
     );
   };
   if ("map" in handle) {
-    if (!isScore) {
-      fail(
-        "handle.map",
-        "a score handler on a noul rule (criteria {true, false}) — noul rules take a warn and/or error operator handler",
-      );
+    if (kind !== "score") {
+      fail("handle.map", `a score handler on a ${kind} rule — ${HANDLE_FOR[kind]}`);
     }
     if (handle.map.length !== criteria.length) {
       fail(
@@ -184,8 +219,18 @@ export function compileDataHandle(
     }
     return compileScoreHandler(handle);
   }
-  if (isScore) {
-    fail("handle", "a noul handler on a score rule — score rules take a score handler ({ map })");
+  if ("choices" in handle) {
+    if (kind !== "choice") {
+      fail("handle.choices", `a choice handler on a ${kind} rule — ${HANDLE_FOR[kind]}`);
+    }
+    const problem = checkChoiceHandler(handle, criteria);
+    if (problem !== null) {
+      throw new SetupError("CONFIG_INVALID", `invalid config ${source}: rule '${name}' ${problem}`);
+    }
+    return compileChoiceHandler(handle);
+  }
+  if (kind !== "noul") {
+    fail("handle", `a noul handler on a ${kind} rule — ${HANDLE_FOR[kind]}`);
   }
   const problem = checkNoulHandler(handle);
   if (problem !== null) {
@@ -193,3 +238,10 @@ export function compileDataHandle(
   }
   return compileNoulHandler(handle);
 }
+
+/** The handle each kind takes, named in a kind/handle mismatch error. */
+const HANDLE_FOR: Record<RuleKind, string> = {
+  noul: "noul rules take a warn and/or error operator handler",
+  score: "score rules take a score handler ({ map })",
+  choice: "choice rules take a choice handler ({ choices })",
+};
