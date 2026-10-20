@@ -33,6 +33,7 @@ const BAD_SHAPES: readonly unknown[] = [
   { warn: { greater_than: 0.9 }, error: { greater_than: 0.5 } }, // unordered on the defect pole
   { warn: { greater_than: 0.3 }, silent_band: [0, 1] }, // band covers the scale
   { warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }, // band contains warn_at
+  {}, // no tier: a noul handle declares warn, error, or both
 ];
 
 describe("handler validation parity (JSON tier <-> custom tier)", () => {
@@ -43,4 +44,10 @@ describe("handler validation parity (JSON tier <-> custom tier)", () => {
       expect(() => validateCustomRule(customRule(handle), "f.ts")).toThrow(/handle/);
     },
   );
+
+  test("both tiers accept an error-only handle", () => {
+    const handle = { error: { greater_than: 0.6 } };
+    expect(() => validateConfig(jsonRule(handle), "inline")).not.toThrow();
+    expect(() => validateCustomRule(customRule(handle), "f.ts")).not.toThrow();
+  });
 });

@@ -5,10 +5,11 @@
  *
  * Noul direction is DECLARED PER THRESHOLD: warn/error each carry one comparison operator ({
  * greater_than: x } or { less_than: x }). There is no defect pole and no flip - the operator IS the
- * pole. warn fires the wider region, error the strictly narrower one (same direction), so error
- * implies warn. A silent_band suppresses raw-p readings inside [lo, hi] (inclusive) before any
- * threshold is consulted - the two-sided suppression window that single comparison operators cannot
- * express.
+ * pole. A noul handle declares at least one tier - warn, error, or both. When both are present,
+ * warn fires the wider region and error the strictly narrower one (same direction), so error
+ * implies warn; an error-only handle fires error past its threshold and stays silent otherwise. A
+ * silent_band suppresses raw-p readings inside [lo, hi] (inclusive) before any threshold is
+ * consulted - the two-sided suppression window that single comparison operators cannot express.
  */
 
 /** One graded criteria level, as declared in a ScoreHandler map. */
@@ -43,9 +44,9 @@ export interface ThresholdCondition {
   readonly message?: string;
 }
 
-/** The noul-type handler: per-threshold operators, optional silent band. */
+/** The noul-type handler: per-threshold operators (at least one tier), optional silent band. */
 export interface NoulHandlerData {
-  readonly warn: ThresholdCondition;
+  readonly warn?: ThresholdCondition;
   readonly error?: ThresholdCondition;
   /** Raw-p readings inside [lo, hi] (inclusive) stay silent; absent = everything surfaces. */
   readonly silent_band?: readonly [number, number];
@@ -124,7 +125,8 @@ export function conditionFires(value: number, condition: ThresholdCondition): bo
  *
  * Noul: a silent_band hit (inclusive) suppresses before any threshold is consulted; warn and error
  * conditions are evaluated on the RAW value - direction lives in the operators, so no polarity
- * interpretation happens here at all. Error implies warn by validation (narrower).
+ * interpretation happens here at all. Error implies warn by validation (narrower) when both are
+ * declared; an absent tier never fires.
  *
  * Score: the value indexes the criteria map (rounded). Out-of-range is an impossible state the
  * ENGINE fails loud on before this evaluator runs; here it degrades to silent (null), never a
@@ -155,7 +157,8 @@ export function handleTier(
   if (band !== undefined && value >= band[0] && value <= band[1]) return null;
   if (data.error !== undefined && conditionFires(value, data.error))
     return { severity: "error", message: data.error.message };
-  if (conditionFires(value, data.warn)) return { severity: "warn", message: data.warn.message };
+  if (data.warn !== undefined && conditionFires(value, data.warn))
+    return { severity: "warn", message: data.warn.message };
   return null;
 }
 
@@ -211,12 +214,19 @@ export function checkCondition(condition: ThresholdCondition, field: string): st
  * tiers cannot drift.
  */
 export function checkNoulHandler(data: NoulHandlerData): string | null {
-  const warnProblem = checkCondition(data.warn, "handle.warn");
-  if (warnProblem !== null) return warnProblem;
+  if (data.warn === undefined && data.error === undefined) {
+    return "handle: must declare at least one tier (warn, error, or both)";
+  }
+  if (data.warn !== undefined) {
+    const warnProblem = checkCondition(data.warn, "handle.warn");
+    if (warnProblem !== null) return warnProblem;
+  }
   if (data.error !== undefined) {
     const errorProblem = checkCondition(data.error, "handle.error");
     if (errorProblem !== null) return errorProblem;
-    // error must be the narrower region: same direction, ordered toward the defect
+  }
+  if (data.warn !== undefined && data.error !== undefined) {
+    // both tiers: error must be the narrower region - same direction, ordered toward the defect
     if (data.warn.greater_than !== undefined && data.error.greater_than !== undefined) {
       if (data.warn.greater_than >= data.error.greater_than) {
         return `handle.warn/error: greater_than thresholds must be ordered warn < error (error is the narrower region), got ${data.warn.greater_than} >= ${data.error.greater_than}`;

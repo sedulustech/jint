@@ -24,6 +24,15 @@ describe("handleSeverity - noul, greater_than", () => {
   });
 });
 
+describe("handleSeverity - noul, error-only (no warn tier)", () => {
+  test("fires error past the threshold, silent otherwise", () => {
+    const errorOnly: NoulHandlerData = { error: { greater_than: 0.6 } };
+    expect(handleSeverity(0.61, errorOnly)).toBe("error");
+    expect(handleSeverity(0.6, errorOnly)).toBeNull();
+    expect(handleSeverity(0.2, errorOnly)).toBeNull();
+  });
+});
+
 describe("handleSeverity - noul, less_than (the polarity lives in the operator)", () => {
   test("low readings fire; high readings pass", () => {
     expect(handleSeverity(0.4, lt)).toBeNull();
