@@ -6,6 +6,8 @@ description: >
   Triggers: rule calibration, jint rules.
 ---
 
+<!-- Generated - do not edit. Regenerate with: bun run schema -->
+
 # jint - author and calibrate rules
 
 jint measures code: rules in, findings out. A **rule** compiles to one question

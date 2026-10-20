@@ -5,6 +5,8 @@ description: >
   naming, or comments and fixing what jint flags. Triggers: jint, jev lint.
 ---
 
+<!-- Generated - do not edit. Regenerate with: bun run schema -->
+
 # jint - run it, fix what it flags
 
 jint measures code with AI-classifier judgments and prints findings: a severity

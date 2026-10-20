@@ -4,6 +4,7 @@
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
  * - Docs/rules.md from the default rules (packages/defaults/src/index.ts)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
+ * - Docs/targets.md from the target vocabulary and each embedded grammar's queries.scm census
  *
  * Run after any config-schema, default-rule, or skill change: bun run schema (wired into bun run
  * validate). Outputs are checked in so editors resolve "$schema" without running jint and docs stay
@@ -15,9 +16,16 @@
  * (freshness over every generated output, driven by GENERATED_OUTPUTS).
  */
 
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { defaultRules as defaultSpecs, type RuleSchema } from "@jint/defaults";
 import { CONFIG_SCHEMA } from "@jint/sdk";
+import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
+import {
+  parseScmPatterns,
+  scmCaptureDeclarations,
+} from "../packages/sdk/src/core/grammars/query.ts";
+import { isSharedCapture } from "../packages/sdk/src/core/grammars/shared.ts";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
@@ -28,6 +36,7 @@ export const GENERATED_OUTPUTS = [
   "skills/jint-follow/SKILL.md",
   "skills/jint-author/SKILL.md",
   "skills/jint-author/REFERENCE.md",
+  "docs/targets.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -214,6 +223,8 @@ export function renderSkillFollow(specs: readonly RuleSchema[]): string {
     "  naming, or comments and fixing what jint flags. Triggers: jint, jev lint.",
     "---",
     "",
+    "<!-- Generated - do not edit. Regenerate with: bun run schema -->",
+    "",
     "# jint - run it, fix what it flags",
     "",
     "jint measures code with AI-classifier judgments and prints findings: a severity",
@@ -290,6 +301,8 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
     "  Triggers: rule calibration, jint rules.",
     "---",
     "",
+    "<!-- Generated - do not edit. Regenerate with: bun run schema -->",
+    "",
     "# jint - author and calibrate rules",
     "",
     "jint measures code: rules in, findings out. A **rule** compiles to one question",
@@ -354,10 +367,6 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
 // the criteria shape that fails). Generated so the examples cannot rot.
 const specJson = (spec: unknown) => JSON.stringify(spec, null, 2);
 
-// NOTE: the ${greppable.name} / ${complex.name} sequences below are rendered VERBATIM - the
-// committed doc has always carried them literally (those lines are plain strings, not
-// template literals). Fixing them to interpolate changes the output; not done under the
-// byte-identical refactor. Flagged for the owner.
 export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): string {
   const reference = [
     "# jint authoring - reference",
@@ -378,7 +387,7 @@ export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): s
     "",
     "## Noul example: a two-sided criteria contract",
     "",
-    "Rendered from the live default spec `${greppable.name}` (always the current",
+    `Rendered from the live default spec \`${noulSpec.name}\` (always the current`,
     "wire shape):",
     "",
     "```json",
@@ -394,7 +403,7 @@ export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): s
     "Use a rubric when the property is graded, not yes/no. The instructions carry a",
     'scoping sentence ("do not score X here"); the ordered criteria are the score',
     "legend; levels are descriptions, not true/false. Rendered from the live spec",
-    "`${complex.name}`:",
+    `\`${choiceSpec.name}\`:`,
     "",
     "```json",
     specJson(choiceSpec),
@@ -428,12 +437,212 @@ export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): s
   return reference.join("\n");
 }
 
+// docs/targets.md: the rule-side target table, rendered from the target vocabulary and the
+// grammars' own patterns, so the doc can never drift from what a rule actually resolves. Columns
+// per target: namespace, singular, resolves to, grammars emitting it (the per-grammar census of
+// each embedded queries.scm), frame carried, scope-coupled. The census is read at the edge.
+interface Row {
+  target: string;
+  namespace: string;
+  singular: string;
+  resolves: string;
+  grammars: string;
+  frame: string;
+  scope: string;
+}
+
+const CAPTURE = "CAPTURE";
+const FILE = "FILE";
+
+export function renderTargetsDoc(
+  census: Readonly<Record<string, ReadonlySet<string>>>,
+  grammarOrder: readonly string[],
+): string {
+  /** Grammars whose .scm assigns any of `captures`, in registration order. */
+  const emitting = (...captures: string[]): string =>
+    grammarOrder.filter((language) => captures.some((c) => census[language]?.has(c))).join(", ") ||
+    "none";
+
+  const rows: Row[] = [
+    {
+      target: "files",
+      namespace: FILE,
+      singular: "file",
+      resolves: "the whole unit as source text (no walk)",
+      grammars: "every format (no grammar needed)",
+      frame: "the unit's raw content under its path",
+      scope: "yes",
+    },
+    {
+      target: "functions",
+      namespace: CAPTURE,
+      singular: "function",
+      resolves: "elements captured as functions",
+      grammars: emitting("function"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "classes",
+      namespace: CAPTURE,
+      singular: "class",
+      resolves: "elements captured as classes (the @class capture: class-like units)",
+      grammars: emitting("class"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "methods",
+      namespace: CAPTURE,
+      singular: "method",
+      resolves: "elements captured as methods (the @method capture: member functions)",
+      grammars: emitting("method"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "types",
+      namespace: CAPTURE,
+      singular: "type",
+      resolves: "elements captured as types (interfaces, structs, enums, aliases)",
+      grammars: emitting("type"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "bindings",
+      namespace: CAPTURE,
+      singular: "binding",
+      resolves: "elements captured as bindings (a name bound to a value)",
+      grammars: emitting("binding"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "definitions",
+      namespace: CAPTURE,
+      singular: "definition (umbrella)",
+      resolves:
+        "SHORTHAND for every definition capture at once (functions, classes, methods, types, bindings) - the same measured set; prefer the specific targets in new rules",
+      grammars: emitting("function", "method", "class", "type", "binding"),
+      frame: "attached run + inline comments + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "comments",
+      namespace: CAPTURE,
+      singular: "definition (the pair frame)",
+      resolves:
+        "the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition",
+      grammars: emitting("comment", "docstring"),
+      frame: "attached run + inline comments + docstrings + code (the pair frame)",
+      scope: "yes",
+    },
+    {
+      target: "loose-comments",
+      namespace: CAPTURE,
+      singular: "comment (element)",
+      resolves:
+        "comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)",
+      grammars: emitting("comment", "docstring"),
+      frame: "the comment's own text under its path",
+      scope: "yes",
+    },
+    {
+      target: "imports",
+      namespace: CAPTURE,
+      singular: "import (element)",
+      resolves: "the one merged import-group element per file",
+      grammars: emitting("import"),
+      frame: "the merged import statements",
+      scope: "yes",
+    },
+  ];
+
+  // Guard: the doc must have exactly one row per real target, no more, no fewer. A new target
+  // without a row (or a row for a target that does not exist) fails generation loudly.
+  const rowTargets = rows.map((r) => r.target).sort();
+  const realTargets = [...ruleTargets].sort();
+  if (JSON.stringify(rowTargets) !== JSON.stringify(realTargets)) {
+    throw new Error(
+      "targets doc drifted from the vocabulary: rows " +
+        JSON.stringify(rowTargets) +
+        " vs ruleTargets " +
+        JSON.stringify(realTargets),
+    );
+  }
+
+  const header = [
+    "---\n",
+    "title: Targets\n",
+    "description: The rule-side target table, generated from the live resolution and the grammars' patterns.\n",
+    "---\n\n",
+    "# Rule targets\n\n",
+    "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
+      "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
+      "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
+      "rule resolves what this table says or the generator fails.\n\n",
+    "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
+      "The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is\n" +
+      "addressed through the qualified `{grammar}:{capture}` form - markdown's four: " +
+      "`markdown:section`, `markdown:paragraph`, `markdown:list_item`, `markdown:list`.\n\n",
+  ];
+
+  const columns: [string, (r: Row) => string][] = [
+    ["target", (r) => "`" + r.target + "`"],
+    ["namespace", (r) => r.namespace],
+    ["singular", (r) => r.singular],
+    ["resolves to", (r) => r.resolves],
+    ["grammars emitting it", (r) => r.grammars],
+    ["frame carried", (r) => r.frame],
+    ["scope-coupled", (r) => r.scope],
+  ];
+
+  const table = [
+    "| " + columns.map(([h]) => h).join(" | ") + " |\n",
+    "| " + columns.map(() => "---").join(" | ") + " |\n",
+    ...rows.map((r) => "| " + columns.map(([, v]) => v(r)).join(" | ") + " |\n"),
+  ];
+
+  return header.join("") + table.join("");
+}
+
 // ---------------------------------------------------------------------------
 // Edge: the only code that touches the filesystem. Everything above is pure.
 // ---------------------------------------------------------------------------
 
 function out(rel: string): string {
   return new URL("../" + rel, import.meta.url).pathname;
+}
+
+const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
+  .pathname;
+
+/** Per grammar: which element captures its .scm actually assigns (the keyword census). */
+function captureCensus(): Record<string, Set<string>> {
+  const census: Record<string, Set<string>> = {};
+  for (const language of knownLanguages()) {
+    let scm = "";
+    try {
+      scm = readFileSync(embeddedDir + language + "/queries.scm", "utf8");
+    } catch {
+      census[language] = new Set();
+      continue;
+    }
+    const found = new Set<string>();
+    const declared = scmCaptureDeclarations(scm);
+    for (const pattern of parseScmPatterns(scm)) {
+      // addressable = shared (lingua franca) or declared autonomous (the open namespace):
+      // the census counts what a rule could ADDRESS, declared captures included
+      if (
+        pattern.capture !== null &&
+        (isSharedCapture(pattern.capture) || declared.definitions.has(pattern.capture))
+      )
+        found.add(pattern.capture);
+    }
+    census[language] = found;
+  }
+  return census;
 }
 
 function main() {
@@ -479,6 +688,11 @@ function main() {
   );
   Bun.spawnSync(["bunx", "oxfmt", authorOut, referenceOut]);
   process.stdout.write("wrote " + referenceOut + "\n");
+
+  const targetsOut = out(GENERATED_OUTPUTS[5]!);
+  writeFileSync(targetsOut, renderTargetsDoc(captureCensus(), knownLanguages()));
+  Bun.spawnSync(["bunx", "oxfmt", targetsOut]);
+  process.stdout.write("wrote " + targetsOut + "\n");
 }
 
 if (import.meta.main) main();

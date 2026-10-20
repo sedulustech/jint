@@ -16,7 +16,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 ## Noul example: a two-sided criteria contract
 
-Rendered from the live default spec `${greppable.name}` (always the current
+Rendered from the live default spec `is_greppable` (always the current
 wire shape):
 
 ```json
@@ -48,7 +48,7 @@ direction.
 Use a rubric when the property is graded, not yes/no. The instructions carry a
 scoping sentence ("do not score X here"); the ordered criteria are the score
 legend; levels are descriptions, not true/false. Rendered from the live spec
-`${complex.name}`:
+`is_cognitively_complex`:
 
 ```json
 {

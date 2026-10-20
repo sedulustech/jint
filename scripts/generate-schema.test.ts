@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
   renderFixerTable,
   renderHandleCell,
   renderRuleSection,
+  renderTargetsDoc,
 } from "./generate-schema.ts";
 import type { ChoiceRuleSchema, NoulRuleSchema } from "@jint/defaults";
 
@@ -123,5 +125,24 @@ describe("fixer messages", () => {
   test("renderFixerTable quotes each message in its row", () => {
     const table = renderFixerTable([{ rule: "r", severity: "error", message: "Do the thing." }]);
     expect(table).toContain("| `r` | error | Do the thing. |");
+  });
+});
+
+describe("renderTargetsDoc", () => {
+  // a synthetic census: one grammar that only assigns @function
+  const doc = renderTargetsDoc({ synthetic: new Set(["function"]) }, ["synthetic"]);
+  const rows = doc.split("\n").filter((line) => line.startsWith("| `"));
+
+  test("one row per target in the vocabulary, no more, no fewer", () => {
+    expect(rows).toHaveLength(ruleTargets.length);
+    for (const target of ruleTargets) {
+      expect(rows.some((row) => row.startsWith("| `" + target + "`"))).toBe(true);
+    }
+  });
+
+  test("the grammars column follows the census", () => {
+    const row = (target: string) => rows.find((r) => r.startsWith("| `" + target + "`"))!;
+    expect(row("functions")).toContain("| synthetic |");
+    expect(row("imports")).toContain("| none |");
   });
 });
