@@ -41,42 +41,6 @@ download() {
   fi
 }
 
-
-# install_skills: copy the generated agent skills (skills/jint-follow,
-# skills/jint-author) into the platform skill dirs this machine has. The repo
-# skills/ dir is the canonical source; per-platform locations are install
-# targets only (open Agent Skills spec). Source resolution order:
-#   1. a checkout next to this script (skills/ exists there)
-#   2. skills/ shipped in the release tarball (future)
-# A platform dir receives skills only if its base exists:
-#   .claude/skills (cwd or HOME) and ~/.mobius/skills.
-install_skills() {
-  local src="" cand base dest script_dir
-  # Source resolution order: checkout next to this script (skills/ sibling),
-  # cwd checkout, skills/ shipped in the release tarball (future).
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir=""
-  for cand in "${script_dir}/skills" "skills" "${tmp}/skills"; do
-    if [ -n "$cand" ] && [ -d "${cand}/jint-follow" ] && [ -d "${cand}/jint-author" ]; then
-      src="$cand"
-      break
-    fi
-  done
-  if [ -z "$src" ]; then
-    echo "skills: no skills/ source (checkout or tarball) - skipped"
-    return 0
-  fi
-  # A platform dir receives skills only if its base exists:
-  # .claude/skills (script dir, cwd, or HOME) and ~/.mobius/skills.
-  for base in "${script_dir}/.claude" "${PWD}/.claude" "${HOME}/.mobius"; do
-    [ -n "$base" ] && [ -d "$base" ] || continue
-    dest="${base}/skills"
-    mkdir -p "$dest"
-    cp -R "${src}/jint-follow" "${src}/jint-author" "$dest/"
-    echo "skills: copied jint-follow, jint-author -> ${dest}"
-  done
-}
-
-
 main() {
   case "${1:-}" in
     -h|--help) usage; return 0 ;;
@@ -164,7 +128,6 @@ main() {
     *) echo "note: ${bin_dir} is not on your PATH - add 'export PATH=\"${bin_dir}:\$PATH\"' to your shell profile" ;;
   esac
   "${bin_dir}/jint" --version
-  install_skills
 }
 
 main "$@"

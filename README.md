@@ -52,7 +52,7 @@ export default { rules: [...defaultRules] };
 
 ### Skill
 
-Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint-author (author and calibrate rules). Both are generated (bun run schema); install.sh copies them into the platform skill dirs it finds.
+Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint-author (author and calibrate rules). Both are generated (bun run schema). Copy or symlink them into your platform skill directory yourself.
 
 ## How to use
 
