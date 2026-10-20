@@ -42,6 +42,16 @@ uses, so this cannot drift from the messages you will see):
 A finding without a row above carries no fixer message; the finding's own text
 is the instruction.
 
+## Spend
+
+Every run costs classifier spend. Measure the smallest surface that answers
+the question.
+
+- Fixing one finding: re-run scoped to that element (`path@L<line>`), not the
+  file, not the tree.
+- Working in one file: run that file, not the directory.
+- A full run is for discovering findings; scoped runs are for verifying a fix.
+
 ## The fix loop
 
 1. Take a finding. Re-query just that unit:
