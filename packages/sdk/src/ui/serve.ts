@@ -83,7 +83,21 @@ export function hostAllowed(hostHeader: string | null, boundHost: string): boole
     const colon = host.indexOf(":");
     if (colon !== -1) host = host.slice(0, colon);
   }
-  return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === boundHost;
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host === headerForm(boundHost)
+  );
+}
+
+/**
+ * The bound host as a Host header spells it: lowercase (DNS names are case-insensitive), and an
+ * IPv6 literal bracketed (a bare ::1 bind arrives as [::1]:port).
+ */
+function headerForm(boundHost: string): string {
+  const host = boundHost.toLowerCase();
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
 /**

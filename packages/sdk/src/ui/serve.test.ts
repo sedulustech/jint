@@ -192,6 +192,16 @@ describe("hostAllowed", () => {
     expect(hostAllowed("0.0.0.0:5178", "0.0.0.0")).toBe(true);
     expect(hostAllowed("evil.example:80", "0.0.0.0")).toBe(false);
   });
+
+  test("a bound host matches case-insensitively", () => {
+    expect(hostAllowed("mybox.local:5178", "MyBox.local")).toBe(true);
+  });
+
+  test("a bare IPv6 bound host matches its bracketed Host header", () => {
+    expect(hostAllowed("[fe80::1]:5178", "fe80::1")).toBe(true);
+    expect(hostAllowed("[FE80::1]", "fe80::1")).toBe(true);
+    expect(hostAllowed("[fe80::2]:5178", "fe80::1")).toBe(false);
+  });
 });
 
 describe("normalizeUiHost", () => {
