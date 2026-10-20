@@ -64,6 +64,59 @@ export function resolveDistDir(distDir?: string): string {
   );
 }
 
+/**
+ * Host-header allowlist, the shared defense-in-depth check every server surface applies before
+ * serveApiRequest dispatch: the API serves full judged source text, so a spoofed Host (DNS
+ * rebinding, LAN peer) must not reach it. Allowed: localhost / 127.0.0.1 / [::1] (port suffix
+ * optional) plus the actually bound host when a custom JINT_UI_HOST opted out of loopback — that
+ * override is the user's trust decision.
+ */
+export function hostAllowed(hostHeader: string | null, boundHost: string): boolean {
+  if (hostHeader === null) return false;
+  let host = hostHeader.trim().toLowerCase();
+  // [::1]:5178 -> [::1]
+  const bracket = host.indexOf("]");
+  if (bracket !== -1) {
+    host = host.slice(0, bracket + 1);
+  } else {
+    // 127.0.0.1:5178 -> 127.0.0.1
+    const colon = host.indexOf(":");
+    if (colon !== -1) host = host.slice(0, colon);
+  }
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host === headerForm(boundHost)
+  );
+}
+
+/**
+ * The bound host as a Host header spells it: lowercase (DNS names are case-insensitive), and an
+ * IPv6 literal bracketed (a bare ::1 bind arrives as [::1]:port).
+ */
+function headerForm(boundHost: string): string {
+  const host = boundHost.toLowerCase();
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}
+
+/**
+ * JINT_UI_HOST (and the host option) names a HOST, never host:port — the port is JINT_UI_PORT's
+ * job. A :port suffix is rejected with an error naming the right var, not silently stripped: a
+ * silent strip would let the configured value disagree with the bound host. Bracketed IPv6 ([::1])
+ * is a host, not host:port, and passes through untouched.
+ */
+export function normalizeUiHost(raw: string): string {
+  if (!/:\d+$/.test(raw) || ((raw.match(/:/g) ?? []).length !== 1 && !raw.includes("]")))
+    return raw;
+  throw new Error(`jint ui: '${raw}' names a host, not host:port — put the port in JINT_UI_PORT`);
+}
+
+/** The 403 for a rejected Host, shared so both surfaces answer identically. */
+export function hostForbidden(): Response {
+  return new Response("forbidden host", { status: 403 });
+}
+
 /** StartUi's handle: where the UI lives and how to stop it. */
 export interface UiServer {
   url: string;
@@ -78,6 +131,11 @@ export interface StartUiOptions {
   distDir?: string;
   /** Absolute runs root to serve; default the runs store's resolution (JINT_RUNS_DIR / homedir). */
   root?: string;
+  /**
+   * Bind host; default JINT_UI_HOST, else loopback (127.0.0.1). A non-loopback host is the user's
+   * trust decision.
+   */
+  host?: string;
 }
 
 /**
@@ -88,11 +146,15 @@ export interface StartUiOptions {
  */
 export async function startUi(options: StartUiOptions = {}): Promise<UiServer> {
   const distDir = resolveDistDir(options.distDir);
-  // precedence: explicit option > JINT_UI_PORT > ephemeral
+  // precedence: explicit option > env > default (host: JINT_UI_HOST, else loopback-only)
   const envPort = process.env.JINT_UI_PORT;
+  const envHost = process.env.JINT_UI_HOST;
+  const hostname = normalizeUiHost(options.host ?? (envHost !== undefined ? envHost : "127.0.0.1"));
   const server = Bun.serve({
     port: options.port ?? (envPort !== undefined ? Number(envPort) : 0),
+    hostname,
     async fetch(req) {
+      if (!hostAllowed(req.headers.get("host"), hostname)) return hostForbidden();
       const api = await serveApiRequest(req, { root: options.root });
       if (api !== null) return compress(api, req);
       const url = new URL(req.url);
