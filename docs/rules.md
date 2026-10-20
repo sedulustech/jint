@@ -9,9 +9,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_name_purposeful`
 
-| kind   | target                                       | handle                         |
-| ------ | -------------------------------------------- | ------------------------------ |
-| choice | functions, classes, methods, types, bindings | score map: pass → warn → error |
+| kind  | target                                       | handle                         |
+| ----- | -------------------------------------------- | ------------------------------ |
+| score | functions, classes, methods, types, bindings | score map: pass → warn → error |
 
 **Instructions.** Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.
 
@@ -119,9 +119,9 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_cognitively_complex`
 
-| kind   | target                                       | handle                                                                                                                 |
-| ------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| choice | functions, classes, methods, types, bindings | score map: pass → warn → error, "Decompose this function: extract readable named steps so the main body reads easily." |
+| kind  | target                                       | handle                                                                                                                 |
+| ----- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| score | functions, classes, methods, types, bindings | score map: pass → warn → error, "Decompose this function: extract readable named steps so the main body reads easily." |
 
 **Instructions.** How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.
 

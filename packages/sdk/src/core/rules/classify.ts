@@ -53,7 +53,7 @@ export function questionKey(ruleName: string, blockId: string): string {
 }
 
 function questionSpec(rule: Rule, instructions: string): QuestionSchema {
-  return rule.kind === "choice"
+  return rule.kind === "score"
     ? { type: "score", instructions, criteria: rule.criteria }
     : { type: "noul", instructions, criteria: rule.criteria };
 }

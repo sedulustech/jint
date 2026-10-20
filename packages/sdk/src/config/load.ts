@@ -59,7 +59,7 @@ const TARGET_SCHEMA = Type.Union([
 // validated eagerly so the error names the exact field.
 const SCOPE_SCHEMA = Type.Array(Type.String());
 
-// Discriminated on kind: noul rules carry {true,false}, choice rules carry an ordered rubric
+// Discriminated on kind: noul rules carry {true,false}, score rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N). kind stays optional in the noul branch (noul IS
 // the default; the loader fills it). The question and the handle are both REQUIRED (policy:
 // probes ship real questions and real handles) - a rule without its question would classify
@@ -92,7 +92,7 @@ const CHOICE_RULE_SCHEMA = Type.Object({
     description:
       "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
   }),
-  kind: Type.Literal("choice"),
+  kind: Type.Literal("score"),
   criteria: Type.Array(Type.String(), { minItems: 2 }),
   instructions: Type.String(),
   target: TARGET_SCHEMA,
@@ -462,13 +462,13 @@ export function validateConfig(
 export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): Rule {
   // capture-address validation happens at LINT STARTUP against the merged registry - the user
   // grammar dir is not scanned at config load
-  const isChoice = entry.kind === "choice";
+  const isScore = entry.kind === "score";
   const handle = compileDataHandle(
     entry.handle,
     entry.name,
     source,
-    isChoice,
-    isChoice ? (entry.criteria as readonly string[]) : [],
+    isScore,
+    isScore ? (entry.criteria as readonly string[]) : [],
   );
   // Direct optional properties: scope consumers gate on !== undefined, so absent and
   // present-undefined behave identically, and the manifest snapshot drops undefined under JSON.
@@ -477,7 +477,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
     exclude: entry.exclude,
   };
   const handleSnapshot = entry.handle;
-  if (entry.kind !== "choice") {
+  if (entry.kind !== "score") {
     return {
       name: entry.name,
       instructions: entry.instructions,
@@ -490,7 +490,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
   }
   return {
     name: entry.name,
-    kind: "choice",
+    kind: "score",
     criteria: entry.criteria as [string, string, ...string[]],
     instructions: (entry as { instructions: string }).instructions,
     target: entry.target as Rule["target"],

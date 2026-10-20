@@ -55,7 +55,7 @@ export function describeRule(rule: Rule): string {
       lines.push("  1  " + c.true);
       lines.push("  0  " + c.false);
     } else if (Array.isArray(c)) {
-      // choice rubric: one line per level
+      // score rubric: one line per level
       c.forEach((level, i) => lines.push("  " + i + "  " + level));
     }
   }

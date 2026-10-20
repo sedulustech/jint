@@ -7,7 +7,7 @@ import {
   renderRuleSection,
   renderTargetsDoc,
 } from "./generate-schema.ts";
-import type { ChoiceRuleSchema, NoulRuleSchema } from "@jint/defaults";
+import type { ScoreRuleSchema, NoulRuleSchema } from "@jint/defaults";
 
 // Unit tests for the generator's pure renderers, fed SYNTHETIC specs. Freshness tests cannot
 // catch a wrong-but-deterministic renderer (it regenerates the same wrong text), so the shapes
@@ -21,12 +21,12 @@ const noul = (handle: NoulRuleSchema["handle"]): NoulRuleSchema => ({
   handle,
 });
 
-const choice = (
+const score = (
   criteria: readonly string[],
-  handle: ChoiceRuleSchema["handle"],
-): ChoiceRuleSchema => ({
-  name: "synthetic_choice",
-  kind: "choice",
+  handle: ScoreRuleSchema["handle"],
+): ScoreRuleSchema => ({
+  name: "synthetic_score",
+  kind: "score",
   instructions: "How synthetic is this?",
   criteria,
   target: "functions",
@@ -58,9 +58,9 @@ describe("renderHandleCell", () => {
     expect(cell).not.toContain("[object Object]");
   });
 
-  test("choice: object tiers render level and message, not [object Object]", () => {
+  test("score: object tiers render level and message, not [object Object]", () => {
     const cell = renderHandleCell(
-      choice(["a", "b", "c"], {
+      score(["a", "b", "c"], {
         map: [
           "pass",
           { level: "warn", message: "Tighten the loop." },
@@ -76,8 +76,8 @@ describe("renderHandleCell", () => {
     expect(cell).not.toContain("[object Object]");
   });
 
-  test("choice: plain-string tiers render bare level names", () => {
-    const cell = renderHandleCell(choice(["a", "b"], { map: ["pass", "error"] }));
+  test("score: plain-string tiers render bare level names", () => {
+    const cell = renderHandleCell(score(["a", "b"], { map: ["pass", "error"] }));
     expect(cell).toContain("pass");
     expect(cell).toContain("error");
     expect(cell).not.toContain("[object Object]");
@@ -101,24 +101,24 @@ describe("renderRuleSection", () => {
       ...noul({ warn: { greater_than: 0.5 } }),
       criteria: { true: "", false: "" },
     });
-    const emptyChoice = renderRuleSection(choice([], { map: ["pass"] }));
+    const emptyScore = renderRuleSection(score([], { map: ["pass"] }));
     expect(emptyNoul).toContain("## `synthetic_noul`");
-    expect(emptyChoice).toContain("## `synthetic_choice`");
-    expect(emptyNoul + emptyChoice).not.toContain("[object Object]");
+    expect(emptyScore).toContain("## `synthetic_score`");
+    expect(emptyNoul + emptyScore).not.toContain("[object Object]");
   });
 });
 
 describe("fixer messages", () => {
-  test("collectFixerMessages picks up noul tier and choice map messages", () => {
+  test("collectFixerMessages picks up noul tier and score map messages", () => {
     const messages = collectFixerMessages([
       noul({ error: { greater_than: 0.7, message: "Remove this comment." } }),
-      choice(["a", "b", "c"], {
+      score(["a", "b", "c"], {
         map: ["pass", "pass", { level: "error", message: "Decompose this function." }],
       }),
     ]);
     expect(messages).toEqual([
       { rule: "synthetic_noul", severity: "error", message: "Remove this comment." },
-      { rule: "synthetic_choice", severity: "error", message: "Decompose this function." },
+      { rule: "synthetic_score", severity: "error", message: "Decompose this function." },
     ]);
   });
 

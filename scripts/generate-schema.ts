@@ -52,8 +52,8 @@ export function renderSchemaJson(): string {
 // message quoted. Tier messages are author guidance for the finding consumer; a score-map tier is
 // an object, and printing it raw is how the [object Object] renderer bug happened.
 export function renderHandleCell(spec: RuleSchema): string {
-  const isChoice = spec.kind === "choice";
-  const handle = isChoice
+  const isScore = spec.kind === "score";
+  const handle = isScore
     ? [
         `score map: ${spec.handle.map.map((tier) => (typeof tier === "string" ? tier : tier.level)).join(" → ")}`,
         ...spec.handle.map.flatMap((tier) =>
@@ -76,13 +76,13 @@ export function renderHandleCell(spec: RuleSchema): string {
 }
 
 export function renderRuleSection(spec: RuleSchema): string {
-  const isChoice = spec.kind === "choice";
+  const isScore = spec.kind === "score";
   const out: string[] = [];
   out.push(`## \`${spec.name}\`\n\n`);
   const handle = renderHandleCell(spec);
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
-    ["kind", isChoice ? "choice" : "noul"],
+    ["kind", isScore ? "score" : "noul"],
     // targets render joined: the explicit list form (the defaults' union) is one cell
     ["target", Array.isArray(spec.target) ? spec.target.join(", ") : String(spec.target)],
     ["handle", handle],
@@ -94,7 +94,7 @@ export function renderRuleSection(spec: RuleSchema): string {
   out.push(`| ${width.map((w) => "-".repeat(w)).join(" | ")} |\n`);
   out.push(row(cells.map(([, v]) => v)) + "\n");
   out.push(`**Instructions.** ${spec.instructions}\n\n`);
-  if (isChoice) {
+  if (isScore) {
     spec.criteria.forEach((criterion, i) => out.push(`**Score ${i}.** ${criterion}\n\n`));
   } else {
     out.push(`**True.** ${spec.criteria.true}\n\n`);
@@ -136,7 +136,7 @@ export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
 const FALLBACK_DESCRIPTIONS: Record<string, string> = {
   name: "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
   criteria:
-    "The two-sided contract: noul carries {true, false}; choice carries an ordered rubric (score 0..N). The defect side decides the handle direction.",
+    "The two-sided contract: noul carries {true, false}; score carries an ordered rubric (score 0..N). The defect side decides the handle direction.",
   target:
     "What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.",
   handle:
@@ -149,7 +149,7 @@ const FALLBACK_DESCRIPTIONS: Record<string, string> = {
 const noulHandle =
   "Noul handle (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.";
 const scoreHandle =
-  "Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.";
+  "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.";
 const callbackHandle =
   'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
 
@@ -172,7 +172,7 @@ export function renderRuleSchemaBlock(props: Record<string, SchemaPropertyMeta>)
     "Handles, both kinds - direction lives in the handle, never in prose:",
     "",
     "- **noul** (yes/no): `" + noulHandle + "`",
-    "- **choice** (scored rubric): `" + scoreHandle + "`",
+    "- **score** (scored rubric): `" + scoreHandle + "`",
     "",
     callbackHandle,
   ].join("\n");
@@ -186,7 +186,7 @@ export type FixerMessage = { rule: string; severity: string; message: string };
 export function collectFixerMessages(specs: readonly RuleSchema[]): FixerMessage[] {
   const messages: FixerMessage[] = [];
   for (const spec of specs) {
-    if (spec.kind === "choice") {
+    if (spec.kind === "score") {
       for (const entry of spec.handle.map) {
         if (typeof entry !== "string" && typeof entry.message === "string") {
           messages.push({ rule: spec.name, severity: entry.level, message: entry.message });
@@ -315,7 +315,7 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
     "model answers, one sentence, stating the claim. The compiler always prepends a",
     'kind sentence ("This unit is a function definition.") to whatever you write, so',
     "never state the element kind yourself. Changing instructions is a recalibration",
-    "event. Criteria pin what each answer means; for choice rules the ordered",
+    "event. Criteria pin what each answer means; for score rules the ordered",
     "criteria list is the score legend (score 0..N).",
     "",
     ruleSchemaBlock,
@@ -363,11 +363,11 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
   return author.join("\n").replace("AUTHOR_EXAMPLE_PLACEHOLDER", exampleJson);
 }
 
-// REFERENCE.md: the scenario depth (jev properties, live noul + choice examples,
+// REFERENCE.md: the scenario depth (jev properties, live noul + score examples,
 // the criteria shape that fails). Generated so the examples cannot rot.
 const specJson = (spec: unknown) => JSON.stringify(spec, null, 2);
 
-export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): string {
+export function renderReference(noulSpec: RuleSchema, scoreSpec: RuleSchema): string {
   const reference = [
     "# jint authoring - reference",
     "",
@@ -398,15 +398,15 @@ export function renderReference(noulSpec: RuleSchema, choiceSpec: RuleSchema): s
     "for no, and both sides are exhaustive. The defect side decides the handle",
     "direction.",
     "",
-    "## Choice example: the scored rubric",
+    "## Score example: the scored rubric",
     "",
     "Use a rubric when the property is graded, not yes/no. The instructions carry a",
     'scoping sentence ("do not score X here"); the ordered criteria are the score',
     "legend; levels are descriptions, not true/false. Rendered from the live spec",
-    `\`${choiceSpec.name}\`:`,
+    `\`${scoreSpec.name}\`:`,
     "",
     "```json",
-    specJson(choiceSpec),
+    specJson(scoreSpec),
     "```",
     "",
     "## The criteria shape that fails",

@@ -20,7 +20,7 @@ Every rule (noul included) may carry `instructions`: the yes/no question the
 model answers, one sentence, stating the claim. The compiler always prepends a
 kind sentence ("This unit is a function definition.") to whatever you write, so
 never state the element kind yourself. Changing instructions is a recalibration
-event. Criteria pin what each answer means; for choice rules the ordered
+event. Criteria pin what each answer means; for score rules the ordered
 criteria list is the score legend (score 0..N).
 
 | key            | meaning                                                                                                                                               |
@@ -37,7 +37,7 @@ criteria list is the score legend (score 0..N).
 Handles, both kinds - direction lives in the handle, never in prose:
 
 - **noul** (yes/no): `Noul handle (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.`
-- **choice** (scored rubric): `Score handler (choice rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.`
+- **score** (scored rubric): `Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass.`
 
 Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.
 
@@ -67,7 +67,7 @@ wire shape):
     },
     {
       "name": "is_cognitively_complex",
-      "kind": "choice",
+      "kind": "score",
       "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
       "criteria": [
         "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",

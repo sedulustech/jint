@@ -34,9 +34,9 @@ const NOUL_DATA = {
   handle: { warn: { greater_than: 0.9 } }, // fires only on near-1 readings
 };
 
-const CHOICE_DATA = {
-  name: "probe_choice",
-  kind: "choice",
+const SCORE_DATA = {
+  name: "probe_score",
+  kind: "score",
   instructions: "Grade how clearly the unit reads.",
   criteria: [
     "Clear: reads without a pause.",
@@ -48,15 +48,12 @@ const CHOICE_DATA = {
 };
 
 /** Schema-shaped data -> compiled rule, through the same seam the CLI's baseline compiles. */
-const mkRule = (kind: "noul" | "choice", over: Record<string, unknown>): Rule =>
-  compileRule(
-    { ...(kind === "choice" ? CHOICE_DATA : NOUL_DATA), ...over } as never,
-    "lint.test.ts",
-  );
+const mkRule = (kind: "noul" | "score", over: Record<string, unknown>): Rule =>
+  compileRule({ ...(kind === "score" ? SCORE_DATA : NOUL_DATA), ...over } as never, "lint.test.ts");
 
 /** The engine test set: every target the funnel routes, both kinds, silent at rest. */
 const probeFiles = mkRule("noul", { name: "probe_files" });
-const probeFunctions = mkRule("choice", { name: "probe_functions" });
+const probeFunctions = mkRule("score", { name: "probe_functions" });
 const probeDefinitions = mkRule("noul", { name: "probe_definitions", target: "definitions" });
 const probeComments = mkRule("noul", {
   name: "probe_comments",
@@ -141,7 +138,7 @@ describe("synthetic coverage", () => {
       [],
     );
     expect([...kinds].sort(), "a new RuleTarget/kind needs a synthetic rule exercising it").toEqual(
-      ["choice", "noul"],
+      ["noul", "score"],
     );
   });
 });
@@ -427,7 +424,7 @@ describe("lint — classification shape", () => {
     expect(withFunctions).toBeDefined();
     expect(withComments).toBeDefined();
     // criteria-as-rule: instructions is the task sentence, criteria is the rule
-    // (noul questions carry their rule's question; choice questions carry their own instructions)
+    // (noul questions carry their rule's question; score questions carry their own instructions)
     for (const [, spec] of Object.entries(elementCalls[0]!.specs)) {
       const s = spec as {
         type: string;
@@ -747,7 +744,7 @@ describe("lint", () => {
       expect(e.finding.note).toBeUndefined();
     }
     // an author message on the fired tier rides the outcome as the finding's note
-    const messaged = mkRule("choice", {
+    const messaged = mkRule("score", {
       name: "probe_messaged",
       handle: {
         map: [
@@ -965,9 +962,9 @@ describe("lint", () => {
     const files = report.rules!.find((r) => r.name === "probe_files")!;
     expect(files.criteria).toEqual(probeFiles.criteria);
     expect(files.handle).toEqual(probeFiles.handleData ?? null);
-    const choice = report.rules!.find((r) => r.name === "probe_functions")!;
-    expect(choice.criteria).toEqual(probeFunctions.criteria);
-    expect(choice.handle).toEqual(probeFunctions.handleData ?? null);
+    const scored = report.rules!.find((r) => r.name === "probe_functions")!;
+    expect(scored.criteria).toEqual(probeFunctions.criteria);
+    expect(scored.handle).toEqual(probeFunctions.handleData ?? null);
     // the custom callback rule is code policy: no declarative criteria or tier form
     const digest = report.rules!.find((r) => r.name === "probe_custom")!;
     expect(digest.criteria).toBeNull();
@@ -1592,7 +1589,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
   // the scopes: a file is walked when the config include OR any rule's include matches; each rule
   // then measures only files its own scope admits - unscoped rules follow the config scope and never
   // measure a file only a rule include claimed.
-  const mdRule = mkRule("choice", {
+  const mdRule = mkRule("score", {
     name: "probe_md_only",
     // files-target: the md file is judged whole (raw source - no grammar needed)
     target: "files",
@@ -1708,7 +1705,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
   });
 });
 describe("file-operand scopes (the one config-scope test, evaluated on the named path)", () => {
-  const mdRule = mkRule("choice", {
+  const mdRule = mkRule("score", {
     name: "probe_md_only",
     target: "files",
     include: ["**/*.md"],
@@ -1808,7 +1805,7 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
   test("the walk side of the one predicate: a rule-claimed file that hits the config exclude is not measured by unscoped rules", async () => {
     mkdirSync("tmp/fo-walk/fo-gen", { recursive: true });
     await Bun.write("tmp/fo-walk/fo-gen/special.ts", "export const s = 1;\n");
-    const genRule = mkRule("choice", {
+    const genRule = mkRule("score", {
       name: "probe_gen_only",
       target: "files",
       include: ["**/fo-gen/**"],
@@ -1846,7 +1843,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
   test("a rule that names-and-drops a file does not claim it (include AND not-own-excluded, both sides)", async () => {
     mkdirSync("tmp/rv1", { recursive: true });
     await Bun.write("tmp/rv1/rv-notes.md", "# notes\n\nprose\n");
-    const namesAndDrops = mkRule("choice", {
+    const namesAndDrops = mkRule("score", {
       name: "probe_names_and_drops",
       target: "files",
       include: ["**/*.md"],
@@ -1919,7 +1916,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
   });
 
   test("an element-scope run scope-checks its selector file like any operand", async () => {
-    const proseRule = mkRule("choice", {
+    const proseRule = mkRule("score", {
       name: "probe_md_section",
       target: "markdown:section",
       include: ["**/*.md"],
