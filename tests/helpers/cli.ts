@@ -27,7 +27,8 @@ export interface RunCliResult {
   stderr: string;
 }
 
-export type StdinPayload = string | Uint8Array | { file: string };
+/** `{ open: true }` is a pipe held open and never written: a caller that never closes stdin. */
+export type StdinPayload = string | Uint8Array | { file: string } | { open: true };
 
 export interface RunCliOptions {
   /** Extra env on top of the inherited process env; wins over the JINT_RUNS_DIR scratch default. */
@@ -41,6 +42,7 @@ export interface RunCliOptions {
 
 function stdinValue(payload: StdinPayload | undefined) {
   if (payload === undefined) return "ignore";
+  if (typeof payload === "object" && "open" in payload) return "pipe";
   if (typeof payload === "object" && "file" in payload) return Bun.file(payload.file);
   if (payload instanceof Uint8Array) return new Blob([payload]).stream();
   return new Blob([payload]).stream();
@@ -63,7 +65,12 @@ export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
   ]);
-  return { code: await proc.exited, stdout, stderr };
+  const code = await proc.exited;
+  // the held pipe closes only after the child is gone, so the child never saw an end of stdin
+  if (opts.stdin !== undefined && typeof opts.stdin === "object" && "open" in opts.stdin) {
+    (proc.stdin as { end(): void }).end();
+  }
+  return { code, stdout, stderr };
 }
 
 /**
@@ -83,5 +90,10 @@ export async function runShell(command: string, opts: RunCliOptions = {}): Promi
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
   ]);
-  return { code: await proc.exited, stdout, stderr };
+  const code = await proc.exited;
+  // the held pipe closes only after the child is gone, so the child never saw an end of stdin
+  if (opts.stdin !== undefined && typeof opts.stdin === "object" && "open" in opts.stdin) {
+    (proc.stdin as { end(): void }).end();
+  }
+  return { code, stdout, stderr };
 }
