@@ -21,7 +21,8 @@ function handleLine(rule: Rule): string {
   if ("map" in h) {
     return "level map: " + h.map.join(" / ");
   }
-  const parts = ["warn " + opText(h.warn)];
+  const parts: string[] = [];
+  if (h.warn !== undefined) parts.push("warn " + opText(h.warn));
   if (h.error !== undefined) parts.push("error " + opText(h.error));
   if (h.silent_band !== undefined) parts.push("silent [" + h.silent_band.join(", ") + "]");
   const line = parts.join(" · ");

@@ -53,4 +53,28 @@ describe("compileScoreHandler", () => {
     expect(handle({ value: 0.35 })).toEqual({ severity: "warn" }); // above the band still surfaces
     expect(handle({ value: 0.7 })).toEqual({ severity: "error" }); // past the error threshold too
   });
+
+  test("error-only noul handle: validates, fires error past the threshold, passes otherwise", () => {
+    const data = { error: { greater_than: 0.6, message: "split it" } };
+    expect(checkNoulHandler(data)).toBeNull();
+    const handle = compileNoulHandler(data);
+    expect(handle({ value: 0.7 })).toEqual({ severity: "error", message: "split it" });
+    expect(handle({ value: 0.6 })).toBeNull(); // strict: exactly at the threshold stays silent
+    expect(handle({ value: 0.3 })).toBeNull(); // no warn tier: below error is a pass
+    const low = compileNoulHandler({ error: { less_than: 0.2 } });
+    expect(low({ value: 0.1 })).toEqual({ severity: "error" });
+    expect(low({ value: 0.5 })).toBeNull();
+  });
+
+  test("a noul handle declares at least one tier: neither warn nor error is rejected", () => {
+    expect(checkNoulHandler({})).toMatch(/^handle: must declare at least one tier/);
+    expect(checkNoulHandler({ silent_band: [0.1, 0.2] })).toMatch(/at least one tier/);
+  });
+
+  test("silent_band checks run against the declared tiers only (error-only handle)", () => {
+    expect(checkNoulHandler({ error: { greater_than: 0.6 }, silent_band: [0.5, 0.7] })).toMatch(
+      /handle\.silent_band:.*contains the error threshold/,
+    );
+    expect(checkNoulHandler({ error: { greater_than: 0.6 }, silent_band: [0.1, 0.2] })).toBeNull();
+  });
 });

@@ -4,11 +4,10 @@
  * - ScoreHandler (choice questions, graded criteria levels): { map } — one level per criterion,
  *   direction expressed by the map itself (high-bad: ["pass","pass","warn","error"]; high-good:
  *   ["error","warn","pass","pass"]).
- * - NoulHandler (noul questions, the claim probability P(true)): { fires_when, warn_at, error_at?,
- *   silent_band? }. fires_when names the defect pole — REQUIRED, no default (declaration over
- *   inference). Thresholds sit on the defect pole (P is flipped first when fires_when is "false");
- *   warn_at < error_at there. silent_band absent = everything surfaces (explicit, no engine
- *   default).
+ * - NoulHandler (noul questions, the claim probability P(true)): { warn?, error?, silent_band? }, at
+ *   least one tier declared. Each tier carries one comparison operator on the raw value (the
+ *   operator IS the defect pole). With both tiers, error is strictly narrower than warn.
+ *   silent_band absent = everything surfaces (explicit, no engine default).
  *
  * Handlers are data, never code; compileHandle() is the only place data becomes function; every
  * other consumer — schema, defaults, loader — stays in data.
@@ -137,13 +136,13 @@ const CONDITION_SCHEMA = Type.Union(
 
 const NOUL_HANDLER_SCHEMA = Type.Object(
   {
-    warn: CONDITION_SCHEMA,
+    warn: Type.Optional(CONDITION_SCHEMA),
     error: Type.Optional(CONDITION_SCHEMA),
     silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
   },
   {
     description:
-      "Noul handler (noul rules only): per-threshold comparison operators declare the direction - warn is the wider region, error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain a threshold value); absent = everything surfaces.",
+      "Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.",
   },
 );
 
@@ -171,7 +170,7 @@ export function compileDataHandle(
     if (!isChoice) {
       fail(
         "handle.map",
-        "a score handler on a noul rule (criteria {true, false}) — noul rules take a warn/error operator handler",
+        "a score handler on a noul rule (criteria {true, false}) — noul rules take a warn and/or error operator handler",
       );
     }
     if (handle.map.length !== criteria.length) {

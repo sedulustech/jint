@@ -152,10 +152,12 @@ export const CUSTOM_TARGET_ROLES: readonly RuleTarget[] = [
 
 const HANDLE_SCHEMA = Type.Object(
   {
-    warn: Type.Union([
-      Type.Object({ greater_than: Type.Number() }, { additionalProperties: false }),
-      Type.Object({ less_than: Type.Number() }, { additionalProperties: false }),
-    ]),
+    warn: Type.Optional(
+      Type.Union([
+        Type.Object({ greater_than: Type.Number() }, { additionalProperties: false }),
+        Type.Object({ less_than: Type.Number() }, { additionalProperties: false }),
+      ]),
+    ),
     error: Type.Optional(
       Type.Union([
         Type.Object({ greater_than: Type.Number() }, { additionalProperties: false }),
@@ -164,6 +166,7 @@ const HANDLE_SCHEMA = Type.Object(
     ),
     silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
   },
+  // At least one of warn/error is required; checkNoulHandler enforces it with a named message.
   // No extra keys: a { warn, map } hybrid must be rejected here exactly like the JSON tier
   // rejects it (cross-tier parity: the same handler invariants both tiers enforce).
   { additionalProperties: false },
@@ -293,7 +296,7 @@ export function validateCustomRule(rule: unknown, file: string): CustomRule {
     fail(
       '"' +
         name +
-        '": handle must be the typed noul handler { warn: { greater_than | less_than }, error?, silent_band? } or a (results, ctx) => decisions function',
+        '": handle must be the typed noul handler { warn?, error?, silent_band? } (at least one of warn/error, each { greater_than | less_than }) or a (results, ctx) => decisions function',
     );
   } else {
     const h = handle as CustomHandleData;

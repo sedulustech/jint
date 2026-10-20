@@ -55,6 +55,12 @@ describe("describeRule", () => {
     expect(block).not.toContain("level map: pass / warn / error ·");
   });
 
+  test("noul error-only handle: renders the error tier alone, no warn part", () => {
+    const line = describeRule({ ...noulRule, handleData: { error: { greater_than: 0.6 } } });
+    expect(line).toContain("[comments]\n  error > 0.6\n");
+    expect(line).not.toContain("warn");
+  });
+
   test("rule without handleData names itself as measurement-only", () => {
     expect(describeRule(bareRule)).toContain("no handle (measurement only)");
   });

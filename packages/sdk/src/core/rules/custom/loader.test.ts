@@ -206,10 +206,17 @@ describe("validateCustomRule (load-time, fatal)", () => {
       { warn: { greater_than: 0.3 }, silent_band: [0.2, 0.4] }, // band contains warn_at
       { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 }, silent_band: [0.4, 0.75] }, // contains error_at
       { warn: { greater_than: 0.5 }, map: ["pass", "warn"] }, // score handler on a noul rule
+      {}, // no tier at all
+      { silent_band: [0.1, 0.2] }, // a band without a tier
     ];
     for (const handle of cases) {
       expect(() => validateCustomRule({ ...ok, handle }, "f.ts")).toThrow(/"is_fine": handle/);
     }
+  });
+
+  test("an error-only data handle validates (warn is optional)", () => {
+    const rule = validateCustomRule({ ...ok, handle: { error: { greater_than: 0.6 } } }, "f.ts");
+    expect(rule.handle).toEqual({ error: { greater_than: 0.6 } });
   });
 
   test("choice kind rejected as not-yet-supported", () => {

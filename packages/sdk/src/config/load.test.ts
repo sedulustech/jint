@@ -234,6 +234,13 @@ describe("validateConfig / defaultConfig", () => {
         "inline",
       ),
     ).toThrow(/rule 'r' handle\.silent_band:.*contains the error threshold/);
+    // a noul handle declares at least one tier; error alone is enough
+    expect(() => validateConfig(rule({}), "inline")).toThrow(
+      /rule 'r' handle: must declare at least one tier/,
+    );
+    expect(() =>
+      validateConfig(rule({ error: { greater_than: 0.6, message: "m" } }), "inline"),
+    ).not.toThrow();
     // question-type vs handler-type mismatch, both directions
     expect(() => validateConfig(rule({ map: ["pass", "warn"] }), "inline")).toThrow(
       /rule 'r' handle\.map: a score handler on a noul rule/,
