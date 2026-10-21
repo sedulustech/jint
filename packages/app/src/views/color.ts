@@ -8,5 +8,8 @@ export const SEVERITY = {
   warn: { dot: "bg-amber-400", text: "text-sev-warn", row: "bg-amber-400/[0.07]" },
 } as const;
 
-/** A choice option's tier: the bar color of the options that make up a tier read's verdict. */
-export const TIER = { pass: "bg-emerald-500", warn: "bg-amber-400", error: "bg-red-500" } as const;
+/**
+ * A choice option's tier: the bar color of the options that make up a tier read's verdict - the
+ * theme's --sev-* tokens, the same colors as the verdict text.
+ */
+export const TIER = { pass: "bg-sev-clean", warn: "bg-sev-warn", error: "bg-sev-error" } as const;

@@ -72,8 +72,8 @@ test("a choice answer reads its verdict from the tier mass and colors the winnin
     container.querySelector(`[data-testid="answer-distribution"] li[data-option="${k}"] span span`);
   // the losing pass option stays gray; the options that summed into the verdict take its color
   expect(bar("justified")?.className).toContain("bg-foreground/30");
-  expect(bar("digression")?.className).toContain("bg-red-500");
-  expect(bar("provenance")?.className).toContain("bg-red-500");
+  expect(bar("digression")?.className).toContain("bg-sev-error");
+  expect(bar("provenance")?.className).toContain("bg-sev-error");
   // the hover on a bar shows the sum its tier's mass came from
   const track = container.querySelector(
     '[data-testid="answer-distribution"] li[data-option="digression"] > span',

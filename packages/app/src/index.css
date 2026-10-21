@@ -199,6 +199,12 @@ body {
 .bg-sev-error {
   background-color: var(--sev-error);
 }
+.bg-sev-warn {
+  background-color: var(--sev-warn);
+}
+.bg-sev-clean {
+  background-color: var(--sev-clean);
+}
 
 /* github-light highlight theme */
 :root:not(.dark) .hljs {
