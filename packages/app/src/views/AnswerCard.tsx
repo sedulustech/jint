@@ -7,6 +7,7 @@ import {
 } from "@jint/contract";
 import { Fragment } from "react";
 import { SEVERITY, TIER } from "./color";
+import { LabeledText } from "./LabeledText";
 
 export interface QA {
   key: string;
@@ -265,20 +266,10 @@ export function AnswerCard({
             {options
               .filter((k) => legend[k] !== undefined)
               .map((k) => (
-                <li
-                  key={k}
-                  className={`text-body leading-snug ${
-                    emphasized(k) ? "text-foreground" : "text-muted-foreground/70"
-                  }`}
-                >
-                  {/* the option is the description's subtitle, so the descriptions start aligned */}
-                  <span
-                    data-testid="criterion-label"
-                    className="block text-caption text-foreground"
-                  >
-                    {k}
-                  </span>
-                  {legend[k]}
+                <li key={k}>
+                  <LabeledText label={k} dimmed={!emphasized(k)}>
+                    {legend[k]}
+                  </LabeledText>
                 </li>
               ))}
           </ul>
@@ -286,10 +277,7 @@ export function AnswerCard({
       )}
       {qa.question.instructions && (
         <div className="border-b border-border px-rail pb-siblings">
-          <span className="text-caption text-muted-foreground">instruction</span>
-          <p className="mt-related text-body leading-snug text-foreground">
-            {qa.question.instructions}
-          </p>
+          <LabeledText label="instruction">{qa.question.instructions}</LabeledText>
         </div>
       )}
       {!ranked && (
