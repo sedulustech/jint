@@ -12,7 +12,11 @@ const HANDLES: readonly HandlerData[] = [
   { map: ["pass", "pass", "warn", "error"] },
   { map: ["error", "warn", "pass"] },
   {
-    choices: { sound: "pass", drifted: "warn", wrong: { level: "error", message: "Rewrite it." } },
+    choices: {
+      justified: "pass",
+      drifted: "warn",
+      wrong: { level: "error", message: "Rewrite it." },
+    },
   },
 ];
 

@@ -108,10 +108,10 @@ describe("createClassifier", () => {
 
   test("choice questions compile to ChoiceQuestion and answers carry the selected option", async () => {
     const choiceQuestions: Record<string, QuestionSchema> = {
-      is_comment_sound: {
+      is_comment_justified: {
         type: "choice",
         instructions: "Which option best describes the worst comment?",
-        criteria: { sound: "states what the code does", wrong: "contradicted by the code" },
+        criteria: { justified: "states what the code does", wrong: "contradicted by the code" },
       },
     };
     let captured: RequestInit | null = null;
@@ -121,10 +121,10 @@ describe("createClassifier", () => {
         JSON.stringify({
           model: "jev-latest",
           answers: {
-            is_comment_sound: {
+            is_comment_justified: {
               type: "choice",
               choice: "wrong",
-              probabilities: { sound: 0.3, wrong: 0.7 },
+              probabilities: { justified: 0.3, wrong: 0.7 },
               confidence: 0.6,
             },
           },
@@ -138,16 +138,16 @@ describe("createClassifier", () => {
       choiceQuestions,
     );
     // the value is the selected option's probability; the label carries the verdict
-    expect(answers.is_comment_sound).toEqual({
+    expect(answers.is_comment_justified).toEqual({
       value: 0.7,
       choice: "wrong",
-      probabilities: { sound: 0.3, wrong: 0.7 },
+      probabilities: { justified: 0.3, wrong: 0.7 },
       confidence: 0.6,
     });
     const body = JSON.parse(String(captured!.body));
-    expect(body.questions.is_comment_sound.type).toBe("choice");
-    expect(body.questions.is_comment_sound.criteria).toEqual({
-      sound: "states what the code does",
+    expect(body.questions.is_comment_justified.type).toBe("choice");
+    expect(body.questions.is_comment_justified.criteria).toEqual({
+      justified: "states what the code does",
       wrong: "contradicted by the code",
     });
   });

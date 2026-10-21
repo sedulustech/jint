@@ -86,8 +86,8 @@ describe("compileScoreHandler", () => {
 });
 
 describe("compileDataHandle - choice", () => {
-  const CHOICES = { sound: "pass", wrong: { level: "error", message: "Rewrite it." } } as const;
-  const LABELS = ["sound", "wrong"];
+  const CHOICES = { justified: "pass", wrong: { level: "error", message: "Rewrite it." } } as const;
+  const LABELS = ["justified", "wrong"];
   const compile = (handle: HandlerData, kind: RuleKind, criteria = LABELS) =>
     compileDataHandle(handle, "r", "cfg", kind, criteria);
 
@@ -97,7 +97,7 @@ describe("compileDataHandle - choice", () => {
       severity: "error",
       message: "Rewrite it.",
     });
-    expect(handle({ value: 0.7, choice: "sound" })).toBeNull();
+    expect(handle({ value: 0.7, choice: "justified" })).toBeNull();
   });
 
   test("an unknown or missing option is an impossible state - fail loud", () => {
@@ -107,8 +107,10 @@ describe("compileDataHandle - choice", () => {
   });
 
   test("labels must match the options; at least one tier must be non-pass", () => {
-    expect(() => compile({ choices: { sound: "pass" } }, "choice")).toThrow(/no tier for option/);
-    expect(() => compile({ choices: { sound: "pass", wrong: "pass" } }, "choice")).toThrow(
+    expect(() => compile({ choices: { justified: "pass" } }, "choice")).toThrow(
+      /no tier for option/,
+    );
+    expect(() => compile({ choices: { justified: "pass", wrong: "pass" } }, "choice")).toThrow(
       /non-pass/,
     );
   });

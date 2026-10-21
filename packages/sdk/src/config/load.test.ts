@@ -313,9 +313,11 @@ describe("validateConfig / defaultConfig", () => {
             name: "r",
             kind: "choice",
             instructions: "which option?",
-            criteria: { sound: "fine", wrong: "contradicted" },
+            criteria: { justified: "fine", wrong: "contradicted" },
             target: "comments",
-            handle: { choices: { sound: "pass", wrong: { level: "error", message: "Fix it." } } },
+            handle: {
+              choices: { justified: "pass", wrong: { level: "error", message: "Fix it." } },
+            },
           },
         ],
       },

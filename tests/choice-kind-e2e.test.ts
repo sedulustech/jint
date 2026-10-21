@@ -11,17 +11,17 @@ jest.setTimeout(60_000);
 // A choice rule end to end: the wire carries jev's choice primitive with the option labels, the
 // measurement names the selected option, and the selected option's tier decides the finding.
 const CHOICE_RULE = {
-  name: "is_comment_sound",
+  name: "is_comment_justified",
   kind: "choice",
   target: "files",
   instructions: "Which option best describes the worst comment?",
   criteria: {
-    sound: "Every comment states what this code does.",
+    justified: "Every comment states what this code does.",
     contradicted: "A comment claims something the code does not do.",
   },
   handle: {
     choices: {
-      sound: "pass",
+      justified: "pass",
       contradicted: { level: "error", message: "Rewrite the contradicted sentence." },
     },
   },
@@ -52,12 +52,12 @@ async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
 
 describe("choice rules", () => {
   test.concurrent("the wire carries a choice question with the option labels", async () => {
-    const { questions } = await runAgainst("sound");
+    const { questions } = await runAgainst("justified");
     // a whole-file rule's question is keyed "<rule> in <unit id>"; the request carries only it
     const [key, question] = Object.entries(questions[0]!)[0]!;
-    expect(key.startsWith("is_comment_sound")).toBe(true);
+    expect(key.startsWith("is_comment_justified")).toBe(true);
     expect(question.type).toBe("choice");
-    expect(Object.keys(question.criteria as object)).toEqual(["sound", "contradicted"]);
+    expect(Object.keys(question.criteria as object)).toEqual(["justified", "contradicted"]);
   });
 
   test.concurrent("a selected error option fires with its message", async () => {
@@ -66,7 +66,7 @@ describe("choice rules", () => {
     expect(report.measurements[0]).toMatchObject({ choice: "contradicted", value: 0.7 });
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]).toMatchObject({
-      rule: "is_comment_sound",
+      rule: "is_comment_justified",
       severity: "error",
       choice: "contradicted",
       note: "Rewrite the contradicted sentence.",
@@ -93,9 +93,9 @@ describe("choice rules", () => {
   });
 
   test.concurrent("a selected pass option measures without a finding", async () => {
-    const { r, report } = await runAgainst("sound");
+    const { r, report } = await runAgainst("justified");
     expect(r.code).toBe(0);
-    expect(report.measurements[0]).toMatchObject({ choice: "sound" });
+    expect(report.measurements[0]).toMatchObject({ choice: "justified" });
     expect(report.findings).toHaveLength(0);
   });
 
@@ -104,7 +104,7 @@ describe("choice rules", () => {
     const r = await runCli(["run", "--dry-run", "--config", config]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain(
-      'choice map: sound pass / contradicted error · "Rewrite the contradicted sentence."',
+      'choice map: justified pass / contradicted error · "Rewrite the contradicted sentence."',
     );
     expect(r.stdout).toContain("  contradicted  A comment claims something the code does not do.");
   });

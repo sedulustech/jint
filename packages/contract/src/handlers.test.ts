@@ -77,11 +77,15 @@ describe("handleSeverity - score", () => {
 
 describe("handleSeverity - choice", () => {
   const choice: ChoiceHandlerData = {
-    choices: { sound: "pass", loose: "warn", wrong: { level: "error", message: "Rewrite it." } },
+    choices: {
+      justified: "pass",
+      loose: "warn",
+      wrong: { level: "error", message: "Rewrite it." },
+    },
   };
 
   test("the selected option's tier is the verdict; the value plays no part", () => {
-    expect(handleSeverity(0.9, choice, "sound")).toBeNull();
+    expect(handleSeverity(0.9, choice, "justified")).toBeNull();
     expect(handleSeverity(0.2, choice, "loose")).toBe("warn");
     expect(handleSeverity(0.2, choice, "wrong")).toBe("error");
     expect(handleTier(0.9, choice, "wrong")).toEqual({ severity: "error", message: "Rewrite it." });
@@ -96,21 +100,25 @@ describe("handleSeverity - choice", () => {
 describe("readChoice - probabilities grouped by tier", () => {
   const data: ChoiceHandlerData = {
     choices: {
-      sound: "pass",
+      justified: "pass",
       contradicted: { level: "error", message: "Rewrite the contradicted sentence." },
       historical: { level: "error", message: "Remove the history." },
     },
   };
 
   test("the tier with the most probability wins, even when a pass option is the top option", () => {
-    // sound is the single most probable option (0.43), but the error tier holds 0.57
-    const fired = readChoice(data, "sound", { sound: 0.43, contradicted: 0.17, historical: 0.4 });
+    // justified is the single most probable option (0.43), but the error tier holds 0.57
+    const fired = readChoice(data, "justified", {
+      justified: 0.43,
+      contradicted: 0.17,
+      historical: 0.4,
+    });
     expect(fired).toEqual({ severity: "error", message: "Remove the history." });
   });
 
   test("the message comes from the most probable option within the winning tier", () => {
     const fired = readChoice(data, "contradicted", {
-      sound: 0.1,
+      justified: 0.1,
       contradicted: 0.5,
       historical: 0.4,
     });
@@ -124,12 +132,16 @@ describe("readChoice - probabilities grouped by tier", () => {
     };
     // error 0.57 vs pass 0.43: 1.33x < 1.5x
     expect(
-      readChoice(withUndecided, "sound", { sound: 0.43, contradicted: 0.17, historical: 0.4 }),
+      readChoice(withUndecided, "justified", {
+        justified: 0.43,
+        contradicted: 0.17,
+        historical: 0.4,
+      }),
     ).toEqual({ severity: "warn", message: "Read it against the code.", undecided: true });
     // error 0.83 vs pass 0.17: 4.9x - decided
     expect(
       readChoice(withUndecided, "contradicted", {
-        sound: 0.17,
+        justified: 0.17,
         contradicted: 0.43,
         historical: 0.4,
       }),
@@ -138,30 +150,32 @@ describe("readChoice - probabilities grouped by tier", () => {
 
   test("an undecided tier at pass stays silent", () => {
     const silent: ChoiceHandlerData = { ...data, undecided: { below: 1.5, level: "pass" } };
-    expect(readChoice(silent, "sound", { sound: 0.45, contradicted: 0.3, historical: 0.25 })).toBe(
-      null,
-    );
+    expect(
+      readChoice(silent, "justified", { justified: 0.45, contradicted: 0.3, historical: 0.25 }),
+    ).toBe(null);
   });
 });
 
 describe("checkChoiceHandler", () => {
-  const labels = ["sound", "wrong"];
+  const labels = ["justified", "wrong"];
 
   test("one tier per option label, at least one non-pass", () => {
-    expect(checkChoiceHandler({ choices: { sound: "pass", wrong: "error" } }, labels)).toBeNull();
+    expect(
+      checkChoiceHandler({ choices: { justified: "pass", wrong: "error" } }, labels),
+    ).toBeNull();
   });
 
   test("every failure names the field and the labels involved", () => {
-    expect(checkChoiceHandler({ choices: { sound: "pass" } }, labels)).toContain("wrong");
+    expect(checkChoiceHandler({ choices: { justified: "pass" } }, labels)).toContain("wrong");
     expect(
-      checkChoiceHandler({ choices: { sound: "pass", wrong: "error", extra: "warn" } }, labels),
+      checkChoiceHandler({ choices: { justified: "pass", wrong: "error", extra: "warn" } }, labels),
     ).toContain("extra");
     expect(
-      checkChoiceHandler({ choices: { sound: "pass", wrong: { level: "pass" } } }, labels),
+      checkChoiceHandler({ choices: { justified: "pass", wrong: { level: "pass" } } }, labels),
     ).toContain("non-pass");
     expect(
       checkChoiceHandler(
-        { choices: { sound: "pass", wrong: "error" }, undecided: { below: 1, level: "warn" } },
+        { choices: { justified: "pass", wrong: "error" }, undecided: { below: 1, level: "warn" } },
         labels,
       ),
     ).toContain("handle.undecided.below");
