@@ -5,6 +5,7 @@ import {
   type ChoiceHandlerData,
   type HandlerLevel,
 } from "@jint/contract";
+import { Fragment } from "react";
 import { SEVERITY, TIER } from "./color";
 
 export interface QA {
@@ -194,7 +195,13 @@ export function AnswerCard({
           <ul
             data-testid="answer-distribution"
             aria-label="answer distribution"
-            className="mt-related flex flex-wrap items-end gap-chip-x"
+            // choice bars share the row in equal columns up to a cap, from the left; score levels keep
+            // their fixed width
+            className={`mt-related gap-chip-x ${
+              isChoice
+                ? "grid auto-cols-[minmax(0,5rem)] grid-flow-col items-start justify-start"
+                : "flex flex-wrap items-end"
+            }`}
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
@@ -213,11 +220,10 @@ export function AnswerCard({
                   data-option={k}
                   data-probability={prob}
                   data-tier={tier}
-                  // option labels are words, score levels are digits: a choice bar grows to its label
-                  className={`flex flex-col items-center gap-chip-y ${isChoice ? "min-w-8" : "w-8"}`}
+                  className={`flex flex-col items-center gap-chip-y ${isChoice ? "min-w-0" : "w-8"}`}
                 >
                   <span
-                    className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-muted"
+                    className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-border"
                     aria-hidden="true"
                     title={tier !== undefined ? tierRead?.sum(tier) : undefined}
                   >
@@ -233,10 +239,23 @@ export function AnswerCard({
                     />
                   </span>
                   <span
-                    className={`text-caption ${answered ? "text-foreground" : "text-muted-foreground"}`}
+                    // an option label wraps inside its column, mid-word when it has no space
+                    className={`text-caption ${isChoice ? "max-w-full text-center wrap-anywhere" : ""} ${
+                      answered ? "text-foreground" : "text-muted-foreground"
+                    }`}
                     title={legend[k] !== undefined ? legend[k] : undefined}
                   >
-                    {k}
+                    {/* a break hint after each underscore: a long label wraps between its words */}
+                    {k.split("_").map((part, i) => (
+                      <Fragment key={i}>
+                        {i > 0 && (
+                          <>
+                            _<wbr />
+                          </>
+                        )}
+                        {part}
+                      </Fragment>
+                    ))}
                   </span>
                 </li>
               );
@@ -253,7 +272,10 @@ export function AnswerCard({
                   }`}
                 >
                   {/* the option is the description's subtitle, so the descriptions start aligned */}
-                  <span data-testid="criterion-label" className="block text-caption">
+                  <span
+                    data-testid="criterion-label"
+                    className="block text-caption text-foreground"
+                  >
                     {k}
                   </span>
                   {legend[k]}
