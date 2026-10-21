@@ -171,9 +171,8 @@ export function AnswerCard({
             </span>
             <span className="text-caption text-muted-foreground">
               {tierRead !== null
-                ? `${tierRead.ranking.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")} · jev picked ${choice} `
-                : "p "}
-              {(probabilities[choice] ?? 0).toFixed(2)}
+                ? tierRead.ranking.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
+                : `p ${(probabilities[choice] ?? 0).toFixed(2)}`}
               {qa.answer?.confidence !== undefined && (
                 <span className={torn ? "text-sev-warn" : undefined}>
                   {` · confidence ${qa.answer.confidence.toFixed(2)}`}
@@ -253,7 +252,11 @@ export function AnswerCard({
                     emphasized(k) ? "text-foreground" : "text-muted-foreground/70"
                   }`}
                 >
-                  {k}: {legend[k]}
+                  {/* the option is the description's subtitle, so the descriptions start aligned */}
+                  <span data-testid="criterion-label" className="block text-caption">
+                    {k}
+                  </span>
+                  {legend[k]}
                 </li>
               ))}
           </ul>
