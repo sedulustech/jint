@@ -277,7 +277,9 @@ export function AnswerCard({
       )}
       {qa.question.instructions && (
         <div className="border-b border-border px-rail pb-siblings">
-          <LabeledText label="instruction">{qa.question.instructions}</LabeledText>
+          <LabeledText label="instruction" caption>
+            {qa.question.instructions}
+          </LabeledText>
         </div>
       )}
       {!ranked && (
