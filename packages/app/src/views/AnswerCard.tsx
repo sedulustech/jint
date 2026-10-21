@@ -178,7 +178,6 @@ export function AnswerCard({
               {qa.answer?.confidence !== undefined && (
                 <span className={torn ? "text-sev-warn" : undefined}>
                   {` · confidence ${qa.answer.confidence.toFixed(2)}`}
-                  {torn ? " · torn between options" : ""}
                 </span>
               )}
             </span>
