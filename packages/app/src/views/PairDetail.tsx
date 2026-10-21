@@ -124,6 +124,10 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
                 // noul thresholds only: score and choice verdicts read from their own tiers
                 return h !== undefined && !("map" in h) && !("choices" in h) ? h : undefined;
               })()}
+              choices={(() => {
+                const h = run.data?.handles?.[rule];
+                return h !== undefined && "choices" in h ? h : undefined;
+              })()}
             />
           </div>
           {code !== null && (

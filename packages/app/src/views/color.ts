@@ -7,3 +7,6 @@ export const SEVERITY = {
   error: { dot: "bg-red-500", text: "text-sev-error", row: "bg-red-500/[0.07]" },
   warn: { dot: "bg-amber-400", text: "text-sev-warn", row: "bg-amber-400/[0.07]" },
 } as const;
+
+/** A choice option's tier: the bar color of the options that make up a tier read's verdict. */
+export const TIER = { pass: "bg-emerald-500", warn: "bg-amber-400", error: "bg-red-500" } as const;

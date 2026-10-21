@@ -178,6 +178,18 @@ export interface FiredTier {
 
 const TIER_ORDER: readonly HandlerLevel[] = ["pass", "warn", "error"];
 
+/** The probability mass per tier level: each option's probability summed into its tier. */
+export function choiceTierMass(
+  data: ChoiceHandlerData,
+  probabilities: Readonly<Record<string, number>>,
+): Record<HandlerLevel, number> {
+  const mass: Record<HandlerLevel, number> = { pass: 0, warn: 0, error: 0 };
+  for (const [label, entry] of Object.entries(data.choices)) {
+    mass[asTier(entry).level] += probabilities[label] ?? 0;
+  }
+  return mass;
+}
+
 /**
  * The choice read: probability mass per tier level. The top tier is the verdict (a tie goes to the
  * selected option's tier); its most probable option supplies the message. With an undecided tier
@@ -189,10 +201,7 @@ export function readChoice(
   choice: string | undefined,
   probabilities: Readonly<Record<string, number>>,
 ): FiredTier | null {
-  const mass: Record<HandlerLevel, number> = { pass: 0, warn: 0, error: 0 };
-  for (const [label, entry] of Object.entries(data.choices)) {
-    mass[asTier(entry).level] += probabilities[label] ?? 0;
-  }
+  const mass = choiceTierMass(data, probabilities);
   const selectedLevel =
     choice !== undefined && data.choices[choice] !== undefined
       ? asTier(data.choices[choice]).level

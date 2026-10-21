@@ -41,3 +41,42 @@ test("a choice answer renders the selected option and one bar per option", () =>
   // the true/false criteria grid is noul-only
   expect(container.textContent).not.toContain("true");
 });
+
+// jev picks justified, but the two error options together outweigh it: the error tier is the verdict
+const splitQA: QA = {
+  key: "is_comment_justified",
+  rule: "is_comment_justified",
+  question: {
+    type: "choice",
+    criteria: {
+      justified: "states what it does",
+      digression: "about another unit",
+      provenance: "about the past",
+    },
+  },
+  answer: {
+    type: "choice",
+    choice: "justified",
+    confidence: 0.4,
+    probabilities: { justified: 0.43, digression: 0.3, provenance: 0.27 },
+  },
+};
+const choices = {
+  choices: { justified: "pass", digression: "error", provenance: "error" },
+} as const;
+
+test("a choice answer reads its verdict from the tier mass and colors the winning tier", () => {
+  const { container } = render(<AnswerCard qa={splitQA} sev="error" choices={choices} />);
+  expect(container.querySelector("[data-verdict]")?.getAttribute("data-verdict")).toBe("error");
+  const bar = (k: string) =>
+    container.querySelector(`[data-testid="answer-distribution"] li[data-option="${k}"] span span`);
+  // the losing pass option stays gray; the options that summed into the verdict take its color
+  expect(bar("justified")?.className).toContain("bg-foreground/30");
+  expect(bar("digression")?.className).toContain("bg-red-500");
+  expect(bar("provenance")?.className).toContain("bg-red-500");
+  // the hover on a bar shows the sum its tier's mass came from
+  const track = container.querySelector(
+    '[data-testid="answer-distribution"] li[data-option="digression"] > span',
+  );
+  expect(track?.getAttribute("title")).toBe("error: digression 0.30 + provenance 0.27 = 0.57");
+});

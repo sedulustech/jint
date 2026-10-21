@@ -1,4 +1,11 @@
-import { SEVERITY } from "./color";
+import {
+  asTier,
+  choiceTierMass,
+  readChoice,
+  type ChoiceHandlerData,
+  type HandlerLevel,
+} from "@jint/contract";
+import { SEVERITY, TIER } from "./color";
 
 export interface QA {
   key: string;
@@ -19,7 +26,8 @@ export interface QA {
 /**
  * One question = its criteria side by side + its LARGE answer. Score answers render the rounded
  * index as the protagonist plus the legend and the probability distribution (neutral bars - shape,
- * not verdict); choice answers render the selected option the same way, keyed by option label;
+ * not verdict); choice answers render the verdict their tier read reached - each option's
+ * probability summed into its tier - with the winning tier's bars in its color, keyed by label;
  * verdict color comes only from the card's own span-aware severity, never from a sibling
  * element's.
  */
@@ -45,10 +53,13 @@ export function AnswerCard({
   qa,
   sev,
   handle,
+  choices,
 }: {
   qa: QA;
   sev: "error" | "warn" | null;
   handle?: { warn?: Threshold; error?: Threshold };
+  /** The choice rule's handle: each option's tier, so the card can show the tier read. */
+  choices?: ChoiceHandlerData;
 }) {
   const noul = qa.answer?.noul;
   const score = qa.answer?.score;
@@ -70,6 +81,32 @@ export function AnswerCard({
   // score levels sort numerically; choice options keep the question's own order
   const options = Object.keys({ ...legend, ...probabilities });
   if (isScore) options.sort((x, y) => Number(x) - Number(y));
+  // the choice tier read: the verdict is the tier holding the most probability, not jev's pick
+  const tierRead =
+    isChoice && choices !== undefined
+      ? (() => {
+          const mass = choiceTierMass(choices, probabilities);
+          const fired = readChoice(choices, choice, probabilities);
+          const tierOf = (k: string): HandlerLevel | undefined =>
+            choices.choices[k] === undefined ? undefined : asTier(choices.choices[k]).level;
+          const verdict: HandlerLevel | "undecided" = fired?.undecided
+            ? "undecided"
+            : (fired?.severity ?? "pass");
+          // the sum that set a tier's mass, for the hover on each of its bars
+          const sum = (tier: HandlerLevel): string => {
+            const parts = options.filter((k) => tierOf(k) === tier);
+            const terms = parts.map((k) => `${k} ${(probabilities[k] ?? 0).toFixed(2)}`);
+            return `${tier}: ${terms.join(" + ")}${parts.length > 1 ? ` = ${mass[tier].toFixed(2)}` : ""}`;
+          };
+          const ranking = (["error", "warn", "pass"] as const)
+            .filter((t) => options.some((k) => tierOf(k) === t))
+            .sort((a, b) => mass[b] - mass[a]);
+          return { mass, verdict, tierOf, sum, ranking };
+        })()
+      : null;
+  // the emphasized options: the verdict tier's options under a tier read, else the answered one
+  const emphasized = (k: string): boolean =>
+    tierRead !== null ? tierRead.verdict === tierRead.tierOf(k) : k === answeredKey;
   return (
     <div className="pt-siblings">
       <div
@@ -124,13 +161,19 @@ export function AnswerCard({
           <span className="flex items-baseline gap-siblings">
             <span
               data-answer={choice}
-              className={`text-3xl font-bold leading-none ${color}`}
+              data-verdict={tierRead?.verdict}
+              className={`text-3xl font-bold leading-none ${
+                tierRead?.verdict === "pass" ? "text-sev-clean" : color
+              }`}
               title={sev !== null ? `severity: ${sev}` : undefined}
             >
-              {choice}
+              {tierRead?.verdict ?? choice}
             </span>
             <span className="text-caption text-muted-foreground">
-              p {(probabilities[choice] ?? 0).toFixed(2)}
+              {tierRead !== null
+                ? `${tierRead.ranking.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")} · jev picked ${choice} `
+                : "p "}
+              {(probabilities[choice] ?? 0).toFixed(2)}
               {qa.answer?.confidence !== undefined && (
                 <span className={torn ? "text-sev-warn" : undefined}>
                   {` · confidence ${qa.answer.confidence.toFixed(2)}`}
@@ -156,21 +199,37 @@ export function AnswerCard({
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
-              const answered = k === answeredKey;
+              const answered = emphasized(k);
+              const tier = tierRead?.tierOf(k);
+              // the winning tier's bars carry its color; an undecided read colors every bar by its
+              // tier, since the split between tiers is the reading
+              const tierColor =
+                tier !== undefined &&
+                (tierRead?.verdict === tier || tierRead?.verdict === "undecided")
+                  ? TIER[tier]
+                  : null;
               return (
                 <li
                   key={k}
                   data-option={k}
                   data-probability={prob}
+                  data-tier={tier}
                   // option labels are words, score levels are digits: a choice bar grows to its label
                   className={`flex flex-col items-center gap-chip-y ${isChoice ? "min-w-8" : "w-8"}`}
                 >
                   <span
                     className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-muted"
                     aria-hidden="true"
+                    title={tier !== undefined ? tierRead?.sum(tier) : undefined}
                   >
                     <span
-                      className={`w-full rounded-xs ${answered ? "bg-foreground/70" : "bg-foreground/30"}`}
+                      className={`w-full rounded-xs ${
+                        tierRead !== null
+                          ? (tierColor ?? "bg-foreground/30")
+                          : answered
+                            ? "bg-foreground/70"
+                            : "bg-foreground/30"
+                      }`}
                       style={{ height: `${Math.max(prob * 100, prob > 0 ? 8 : 0)}%` }}
                     />
                   </span>
@@ -191,7 +250,7 @@ export function AnswerCard({
                 <li
                   key={k}
                   className={`text-body leading-snug ${
-                    k === answeredKey ? "text-foreground" : "text-muted-foreground/70"
+                    emphasized(k) ? "text-foreground" : "text-muted-foreground/70"
                   }`}
                 >
                   {k}: {legend[k]}
