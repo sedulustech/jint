@@ -24,7 +24,9 @@ export function LabeledText({
       >
         {label}
       </span>
-      <p className={dimmed ? "text-muted-foreground/70" : "text-foreground"}>{children}</p>
+      <p className={`mt-related ${dimmed ? "text-muted-foreground/70" : "text-foreground"}`}>
+        {children}
+      </p>
     </div>
   );
 }

@@ -111,10 +111,10 @@ export function AnswerCard({
   const emphasized = (k: string): boolean =>
     tierRead !== null ? tierRead.verdict === tierRead.tierOf(k) : k === answeredKey;
   return (
-    <div className="pt-siblings">
+    <div>
       <div
         data-torn-answer={torn ? "true" : undefined}
-        className={`flex items-center gap-sections border-b border-border px-rail pb-siblings ${
+        className={`flex items-center gap-sections border-b border-border px-rail py-siblings ${
           torn ? "border-dashed border-amber-400/70 bg-amber-400/[0.05]" : ""
         }`}
       >
@@ -190,7 +190,7 @@ export function AnswerCard({
         )}
       </div>
       {answeredKey !== null && ranked && (
-        <div className="border-b border-border px-rail pb-siblings">
+        <div className="border-b border-border px-rail py-siblings">
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
@@ -202,7 +202,7 @@ export function AnswerCard({
             aria-label="answer distribution"
             // choice bars share the row in equal columns up to a cap, from the left; score levels keep
             // their fixed width
-            className={`mt-related gap-chip-x ${
+            className={`mt-siblings gap-chip-x ${
               isChoice
                 ? "grid auto-cols-[minmax(0,5rem)] grid-flow-col items-start justify-start"
                 : "flex flex-wrap items-end"
@@ -266,7 +266,7 @@ export function AnswerCard({
               );
             })}
           </ul>
-          <ul className="mt-related space-y-related">
+          <ul className="mt-siblings space-y-siblings">
             {options
               .filter((k) => legend[k] !== undefined)
               .map((k) => (
@@ -280,7 +280,7 @@ export function AnswerCard({
         </div>
       )}
       {qa.question.instructions && (
-        <div className="border-b border-border px-rail pb-siblings">
+        <div className="border-b border-border px-rail py-siblings">
           <LabeledText label="instruction" caption>
             {qa.question.instructions}
           </LabeledText>
@@ -288,15 +288,15 @@ export function AnswerCard({
       )}
       {!ranked && (
         <div className="grid grid-cols-2 text-body leading-snug">
-          <div className="bg-background px-rail py-related">
+          <div className="bg-background px-rail py-siblings">
             <span className="text-caption text-sev-clean">true</span>
-            <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="border-l border-border bg-background px-rail py-related">
+          <div className="border-l border-border bg-background px-rail py-siblings">
             <span className="text-caption text-sev-error">false</span>
-            <p className="mt-chip-y whitespace-pre-wrap break-words text-foreground">
+            <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
             </p>
           </div>

@@ -100,7 +100,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
       )}
       {request !== undefined && pair !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-related text-caption text-muted-foreground">
+          <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-siblings text-caption text-muted-foreground">
             <span>
               model:{" "}
               <span className="text-foreground">{meta.model ?? request.request?.model ?? "?"}</span>
