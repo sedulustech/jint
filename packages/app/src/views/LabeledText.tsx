@@ -32,7 +32,12 @@ export function LabeledText({
         )}
       </span>
       {children !== undefined && (
-        <p className={`mt-related ${dimmed ? "text-muted-foreground/70" : "text-foreground"}`}>
+        // a heading sits a step farther from its content than a label from its passage
+        <p
+          className={`${heading ? "mt-siblings" : "mt-related"} ${
+            dimmed ? "text-muted-foreground/70" : "text-foreground"
+          }`}
+        >
           {children}
         </p>
       )}

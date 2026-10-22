@@ -191,9 +191,9 @@ export function AnswerCard({
       {answeredKey !== null && ranked && (
         <div className="border-b border-border px-rail py-siblings">
           {Object.keys(legend).length > 0 && (
-            <span className="text-body">
+            <div className="text-body leading-snug">
               <SectionHeading>criteria</SectionHeading>
-            </span>
+            </div>
           )}
           {/* one row per option: its bar beside its label, the description beneath; bar length is
               the option's probability, the verdict's options emphasized */}
@@ -201,7 +201,7 @@ export function AnswerCard({
             data-testid="answer-distribution"
             aria-label="answer distribution"
             // a dashed rule between options: lighter than the solid borders between sections
-            className="mt-related divide-y divide-dashed divide-border [&>li]:py-siblings"
+            className="mt-siblings divide-y divide-dashed divide-border"
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
@@ -234,7 +234,14 @@ export function AnswerCard({
                 </span>
               );
               return (
-                <li key={k} data-option={k} data-probability={prob} data-tier={tier}>
+                <li
+                  key={k}
+                  data-option={k}
+                  data-probability={prob}
+                  data-tier={tier}
+                  // siblings on each side of a divider; the list's own edges stay the section's
+                  className="py-siblings first:pt-0 last:pb-0"
+                >
                   <LabeledText label={k} dimmed={!answered} marker={bar}>
                     {legend[k]}
                   </LabeledText>
