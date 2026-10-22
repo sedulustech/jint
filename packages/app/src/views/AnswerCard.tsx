@@ -118,8 +118,9 @@ export function AnswerCard({
           torn ? "border-dashed border-amber-400/70 bg-amber-400/[0.05]" : ""
         }`}
       >
+        {/* a narrow pane moves the caption under the answer whole, never breaking it */}
         {noul !== undefined && (
-          <span className="flex items-baseline gap-siblings">
+          <span className="flex flex-wrap items-baseline gap-siblings">
             <span
               data-answer={noul.toFixed(2)}
               className={`text-3xl font-bold leading-none ${color}`}
@@ -128,7 +129,10 @@ export function AnswerCard({
               {noul.toFixed(2)}
             </span>
             {handle !== undefined && (
-              <span data-testid="noul-thresholds" className="text-caption text-muted-foreground">
+              <span
+                data-testid="noul-thresholds"
+                className="whitespace-nowrap text-caption text-muted-foreground"
+              >
                 {["warn", "error"]
                   .map((level) => {
                     const text = thresholdText(handle[level as "warn" | "error"]);
@@ -141,7 +145,7 @@ export function AnswerCard({
           </span>
         )}
         {isScore && index !== null && (
-          <span className="flex items-baseline gap-siblings">
+          <span className="flex flex-wrap items-baseline gap-siblings">
             <span
               data-answer={String(index)}
               className={`text-3xl font-bold leading-none ${color}`}
@@ -149,7 +153,7 @@ export function AnswerCard({
             >
               {index}
             </span>
-            <span className="text-caption text-muted-foreground">
+            <span className="whitespace-nowrap text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
               {qa.answer?.confidence !== undefined && (
                 <span className={torn ? "text-sev-warn" : undefined}>
@@ -161,7 +165,7 @@ export function AnswerCard({
           </span>
         )}
         {isChoice && (
-          <span className="flex items-baseline gap-siblings">
+          <span className="flex flex-wrap items-baseline gap-siblings">
             <span
               data-answer={choice}
               data-verdict={tierRead?.verdict}
@@ -172,7 +176,7 @@ export function AnswerCard({
             >
               {tierRead?.verdict ?? choice}
             </span>
-            <span className="text-caption text-muted-foreground">
+            <span className="whitespace-nowrap text-caption text-muted-foreground">
               {tierRead !== null
                 ? tierRead.tiers.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
                 : `p ${(probabilities[choice] ?? 0).toFixed(2)}`}
