@@ -200,8 +200,8 @@ export function AnswerCard({
           <ul
             data-testid="answer-distribution"
             aria-label="answer distribution"
-            // a dotted rule between options: lighter than the solid borders between sections
-            className="mt-related divide-y divide-dotted divide-border [&>li]:py-siblings"
+            // a dashed rule between options: lighter than the solid borders between sections
+            className="mt-related divide-y divide-dashed divide-border [&>li]:py-siblings"
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
@@ -259,7 +259,7 @@ export function AnswerCard({
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="border-l border-dotted border-border bg-background px-rail py-siblings">
+          <div className="border-l border-dashed border-border bg-background px-rail py-siblings">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}
