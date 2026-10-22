@@ -146,21 +146,21 @@ export interface ApiCell {
   value: number;
   /** Null = no verdict (never "clean"). */
   severity: Severity | null;
-  /** A choice reading's winning tier: the tier holding the most probability. */
-  tier?: HandlerLevel;
+  /** The handle judged the reading and it needs no action. Absent when there is no handle. */
+  pass?: true;
   /** A choice reading too close to call: its top tier held less than the handle's ratio. */
   undecided?: true;
 }
 
 /**
- * A choice reading's tier read, for its cell: the winning tier, the probability it holds, and
- * whether the read was undecided. Undefined when the rule is not a choice rule.
+ * A choice reading's tier read, for its cell: the probability its winning tier holds, and whether
+ * the read was undecided. Undefined when the rule is not a choice rule.
  */
 function choiceCellRead(
   handle: HandlerData | undefined,
   choice: string | undefined,
   probabilities: Record<string, number> | undefined,
-): Pick<ApiCell, "value" | "tier" | "undecided"> | undefined {
+): Pick<ApiCell, "value" | "undecided"> | undefined {
   if (handle === undefined || !isChoiceHandler(handle) || probabilities === undefined) {
     return undefined;
   }
@@ -173,7 +173,7 @@ function choiceCellRead(
       : fired === null
         ? "pass"
         : (["error", "warn", "pass"] as const).reduce((a, b) => (mass[b] > mass[a] ? b : a));
-  const read: Pick<ApiCell, "value" | "tier" | "undecided"> = { value: mass[tier], tier };
+  const read: Pick<ApiCell, "value" | "undecided"> = { value: mass[tier] };
   if (fired?.undecided === true) read.undecided = true;
   return read;
 }
@@ -756,7 +756,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       const requestFile =
         (isElement ? elementRequestFile.get(input) : undefined) ?? fileRequestFile.get(file);
       for (const { rule, value, element, choice, probabilities } of entries) {
-        cells.push({
+        const cell: ApiCell = {
           rule,
           file,
           input,
@@ -765,7 +765,12 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           value,
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),
           ...choiceCellRead(handles?.[rule], choice, probabilities),
-        });
+        };
+        // a silent handle is a pass; without a handle the reading has no verdict at all
+        if (cell.severity === null && cell.undecided !== true && handles?.[rule] !== undefined) {
+          cell.pass = true;
+        }
+        cells.push(cell);
       }
     }
   }

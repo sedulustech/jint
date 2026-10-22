@@ -255,7 +255,7 @@ describe("getRun kinds", () => {
 });
 
 describe("getRun choice cells", () => {
-  test("a choice cell carries its winning tier and that tier's sum; a close read is undecided", async () => {
+  test("a choice cell's value is its winning tier's sum; a close read is undecided", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-choice-"));
     try {
       const dir = join(root, "100");
@@ -285,15 +285,15 @@ describe("getRun choice cells", () => {
         }),
       );
       const body = (await (await get("/api/runs/100", root)).json()) as {
-        cells: { rule: string; value: number; tier?: string; undecided?: boolean }[];
+        cells: { rule: string; value: number; undecided?: boolean; pass?: boolean }[];
       };
       const split = body.cells.find((c) => c.rule === "r_split")!;
-      expect(split.tier).toBe("error");
       expect(split.value).toBeCloseTo(0.57);
       expect(split.undecided).toBeUndefined();
       // 0.57 is under 1.5x 0.43: the read names its leading tier and is flagged undecided
       const close = body.cells.find((c) => c.rule === "r_close")!;
-      expect(close).toMatchObject({ tier: "error", undecided: true });
+      expect(close).toMatchObject({ undecided: true });
+      expect(close.pass).toBeUndefined();
       expect(close.value).toBeCloseTo(0.57);
     } finally {
       rmSync(root, { recursive: true, force: true });

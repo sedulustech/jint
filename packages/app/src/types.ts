@@ -56,8 +56,8 @@ export interface Cell {
   value: number;
   /** Null = no verdict (never "clean"). */
   severity: "error" | "warn" | null;
-  /** A choice reading's winning tier: the tier holding the most probability. */
-  tier?: "pass" | "warn" | "error";
+  /** The handle judged the reading and it needs no action. Absent when there is no handle. */
+  pass?: true;
   /** A choice reading too close to call. */
   undecided?: true;
 }

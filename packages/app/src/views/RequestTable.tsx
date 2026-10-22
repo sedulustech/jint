@@ -136,6 +136,24 @@ function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
   );
 }
 
+/**
+ * A cell's verdict: its severity, a green pass where the handle judged it fine, and a dash where
+ * there is no verdict - an undecided reading included, since it settled on no tier.
+ */
+function CellVerdict({ cell }: { cell: Cell }) {
+  if (cell.undecided) {
+    return (
+      <span className="text-muted-foreground" title="undecided">
+        —
+      </span>
+    );
+  }
+  if (cell.pass) {
+    return <span className="inline-block h-2 w-2 rounded-full bg-sev-clean" title="pass" />;
+  }
+  return <SeverityDot severity={cell.severity} />;
+}
+
 function ModeButtons({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const button = (buttonMode: Mode, label: string) => (
     <Button
@@ -300,6 +318,9 @@ function GroupedParentRow({
   );
 }
 
+// the severity a cell shows: an undecided reading shows none, so it sorts with the unjudged
+const shownSeverity = (cell: Cell): Cell["severity"] => (cell.undecided ? null : cell.severity);
+
 type NestedSort = { key: "sev" | "value"; dir: "asc" | "desc" };
 
 // unset sort = severity heaviest-first: the default view answers "what is worst here"
@@ -310,7 +331,7 @@ const nestedCompare =
   (left: Cell, right: Cell): number => {
     const delta =
       sort.key === "sev"
-        ? sevRank(right.severity) - sevRank(left.severity)
+        ? sevRank(shownSeverity(right)) - sevRank(shownSeverity(left))
         : right.value - left.value;
     return sort.dir === "desc" ? delta : -delta;
   };
@@ -445,15 +466,9 @@ function GroupedChildRow({
         <td className="w-px whitespace-nowrap px-rail text-muted-foreground">{kind}</td>
       )}
       <td className="w-px whitespace-nowrap px-rail">
-        <SeverityDot severity={cell.severity} />
+        <CellVerdict cell={cell} />
       </td>
-      {/* a choice reading names the tier its value belongs to: the value is that tier's sum */}
-      <td className="w-px whitespace-nowrap px-rail">
-        {cell.tier !== undefined && (
-          <span className="text-muted-foreground">{cell.undecided ? "undecided" : cell.tier} </span>
-        )}
-        {cell.value.toFixed(2)}
-      </td>
+      <td className="w-px whitespace-nowrap px-rail">{cell.value.toFixed(2)}</td>
       <td className="w-full" aria-hidden="true" />
     </tr>
   );
