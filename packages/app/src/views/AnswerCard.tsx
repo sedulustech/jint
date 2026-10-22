@@ -6,7 +6,7 @@ import {
   type HandlerLevel,
 } from "@jint/contract";
 import { SEVERITY, TIER } from "./color";
-import { LabeledText } from "./LabeledText";
+import { LabeledText, SectionHeading } from "./LabeledText";
 
 export interface QA {
   key: string;
@@ -44,9 +44,9 @@ function thresholdText(threshold: Threshold | undefined): string | null {
 
 /**
  * The CONFIDENCE VISIBILITY FLOOR (same 0.25 as the CLI's human print): below it the answer was
- * torn between distant levels (in practice 0, bimodal) and the card says so structurally - a dashed
- * amber frame on the answer header - not just as a number. The request's raw confidence always
- * prints in the caption; the floor only adds the frame.
+ * torn between distant levels (in practice 0, bimodal) and the card says so structurally - a warn
+ * tint on the answer header - not just as a number. The request's raw confidence always prints in
+ * the caption; the floor only adds the tint.
  */
 const CONFIDENCE_FLOOR = 0.25;
 
@@ -76,7 +76,7 @@ export function AnswerCard({
   const probabilities = ranked ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
-  // torn: the distribution is split between distant levels; the header frames itself so a
+  // torn: the distribution is split between distant levels; the header is tinted so a
   // coin-flip never reads as a settled verdict
   const torn = qa.answer?.confidence !== undefined && qa.answer.confidence < CONFIDENCE_FLOOR;
   // score levels sort numerically; choice options keep the question's own order
@@ -114,7 +114,7 @@ export function AnswerCard({
       <div
         data-torn-answer={torn ? "true" : undefined}
         className={`flex items-center gap-sections border-b border-border px-rail py-siblings ${
-          torn ? "border-dashed border-amber-400/70 bg-amber-400/[0.05]" : ""
+          torn ? "bg-amber-400/[0.05]" : ""
         }`}
       >
         {/* a narrow pane moves the caption under the answer whole, never breaking it */}
@@ -191,14 +191,17 @@ export function AnswerCard({
       {answeredKey !== null && ranked && (
         <div className="border-b border-border px-rail py-siblings">
           {Object.keys(legend).length > 0 && (
-            <span className="text-caption text-muted-foreground">criteria</span>
+            <span className="text-body">
+              <SectionHeading>criteria</SectionHeading>
+            </span>
           )}
           {/* one row per option: its bar beside its label, the description beneath; bar length is
               the option's probability, the verdict's options emphasized */}
           <ul
             data-testid="answer-distribution"
             aria-label="answer distribution"
-            className="mt-siblings space-y-siblings"
+            // a dotted rule between options: lighter than the solid borders between sections
+            className="mt-related divide-y divide-dotted divide-border [&>li]:py-siblings"
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
@@ -243,7 +246,7 @@ export function AnswerCard({
       )}
       {qa.question.instructions && (
         <div className="border-b border-border px-rail py-siblings">
-          <LabeledText label="instruction" caption>
+          <LabeledText label="instruction" heading>
             {qa.question.instructions}
           </LabeledText>
         </div>
@@ -256,7 +259,7 @@ export function AnswerCard({
               {qa.question.criteria?.true ?? "—"}
             </p>
           </div>
-          <div className="border-l border-border bg-background px-rail py-siblings">
+          <div className="border-l border-dotted border-border bg-background px-rail py-siblings">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
               {qa.question.criteria?.false ?? "—"}

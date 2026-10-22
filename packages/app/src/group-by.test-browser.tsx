@@ -406,7 +406,7 @@ test("generated fixture: an element cell click resolves to the element capture b
   expect(loc).toBeTruthy();
 });
 
-test("a torn score answer renders its distribution + the torn frame (confidence 0)", async () => {
+test("a torn score answer renders its distribution + the torn tint (confidence 0)", async () => {
   mount();
   await page.getByTestId("run-picker").click();
   await page.getByTestId("run-option-generated/elements").click();
@@ -450,11 +450,11 @@ test("a torn score answer renders its distribution + the torn frame (confidence 
     '[data-testid="answer-distribution"] li[data-option="2"] [data-testid="option-bar"] > span',
   );
   expect(answered?.className).toContain("bg-foreground/70");
-  // the card frames the coin-flip: the torn marker + the caption naming confidence 0.00
+  // the card marks the coin-flip: the torn marker + the caption naming confidence 0.00
   await waitFor(() => {
     const header = q("[data-torn-answer]");
     if (header?.getAttribute("data-torn-answer") !== "true")
-      throw new Error("torn frame not on the answer header");
+      throw new Error("torn tint not on the answer header");
   });
   expect(q(".detail-pane")?.textContent).toContain("confidence 0.00");
 });
