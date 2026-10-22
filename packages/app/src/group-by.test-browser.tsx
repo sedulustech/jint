@@ -446,7 +446,9 @@ test("a torn score answer renders its distribution + the torn frame (confidence 
   expect(byOption.get("1")).toBeCloseTo(0.1);
   expect(byOption.get("2")).toBeCloseTo(0.45);
   // the answered level (2) is the emphasized one - its bar element carries the darker class
-  const answered = q('[data-testid="answer-distribution"] li[data-option="2"] span span');
+  const answered = q(
+    '[data-testid="answer-distribution"] li[data-option="2"] [data-testid="option-bar"] > span',
+  );
   expect(answered?.className).toContain("bg-foreground/70");
   // the card frames the coin-flip: the torn marker + the caption naming confidence 0.00
   await waitFor(() => {

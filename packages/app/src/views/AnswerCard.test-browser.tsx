@@ -35,7 +35,7 @@ test("a choice answer renders the selected option and one bar per option", () =>
   expect(Number(bars[1]!.getAttribute("data-probability"))).toBeCloseTo(0.7);
   // the selected option's bar is the emphasized one
   const selected = container.querySelector(
-    '[data-testid="answer-distribution"] li[data-option="contradicted"] span span',
+    '[data-testid="answer-distribution"] li[data-option="contradicted"] [data-testid="option-bar"] > span',
   );
   expect(selected?.className).toContain("bg-foreground/70");
   // the true/false criteria grid is noul-only
@@ -69,14 +69,16 @@ test("a choice answer reads its verdict from the tier mass and colors the winnin
   const { container } = render(<AnswerCard qa={splitQA} sev="error" choices={choices} />);
   expect(container.querySelector("[data-verdict]")?.getAttribute("data-verdict")).toBe("error");
   const bar = (k: string) =>
-    container.querySelector(`[data-testid="answer-distribution"] li[data-option="${k}"] span span`);
+    container.querySelector(
+      `[data-testid="answer-distribution"] li[data-option="${k}"] [data-testid="option-bar"] > span`,
+    );
   // the losing pass option stays gray; the options that summed into the verdict take its color
   expect(bar("justified")?.className).toContain("bg-foreground/30");
   expect(bar("digression")?.className).toContain("bg-sev-error");
   expect(bar("provenance")?.className).toContain("bg-sev-error");
   // the hover on a bar shows the sum its tier's mass came from
   const track = container.querySelector(
-    '[data-testid="answer-distribution"] li[data-option="digression"] > span',
+    '[data-testid="answer-distribution"] li[data-option="digression"] [data-testid="option-bar"]',
   );
   expect(track?.getAttribute("title")).toBe("error: digression 0.30 + provenance 0.27 = 0.57");
 });

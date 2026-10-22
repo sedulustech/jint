@@ -5,7 +5,6 @@ import {
   type ChoiceHandlerData,
   type HandlerLevel,
 } from "@jint/contract";
-import { Fragment } from "react";
 import { SEVERITY, TIER } from "./color";
 import { LabeledText } from "./LabeledText";
 
@@ -194,19 +193,12 @@ export function AnswerCard({
           {Object.keys(legend).length > 0 && (
             <span className="text-caption text-muted-foreground">criteria</span>
           )}
-          {/* the distribution is the BAR strip: one bar per criterion option, labeled by its
-              index, height = its probability, the answered level emphasized. The legend list
-              below stays prose - the numbers moved into the bars */}
+          {/* one row per option: its bar beside its label, the description beneath; bar length is
+              the option's probability, the verdict's options emphasized */}
           <ul
             data-testid="answer-distribution"
             aria-label="answer distribution"
-            // choice bars share the row in equal columns up to a cap, from the left; score levels keep
-            // their fixed width
-            className={`mt-siblings gap-chip-x ${
-              isChoice
-                ? "grid auto-cols-[minmax(0,5rem)] grid-flow-col items-start justify-start"
-                : "flex flex-wrap items-end"
-            }`}
+            className="mt-siblings space-y-siblings"
           >
             {options.map((k) => {
               const prob = probabilities[k] ?? 0;
@@ -219,63 +211,33 @@ export function AnswerCard({
                 (tierRead?.verdict === tier || tierRead?.verdict === "undecided")
                   ? TIER[tier]
                   : null;
-              return (
-                <li
-                  key={k}
-                  data-option={k}
-                  data-probability={prob}
-                  data-tier={tier}
-                  className={`flex flex-col items-center gap-chip-y ${isChoice ? "min-w-0" : "w-8"}`}
+              const bar = (
+                <span
+                  data-testid="option-bar"
+                  className="flex h-2 w-16 shrink-0 overflow-hidden rounded-xs bg-border"
+                  aria-hidden="true"
+                  title={tier !== undefined ? tierRead?.sum(tier) : undefined}
                 >
                   <span
-                    className="flex h-8 w-full items-end overflow-hidden rounded-xs bg-border"
-                    aria-hidden="true"
-                    title={tier !== undefined ? tierRead?.sum(tier) : undefined}
-                  >
-                    <span
-                      className={`w-full rounded-xs ${
-                        tierRead !== null
-                          ? (tierColor ?? "bg-foreground/30")
-                          : answered
-                            ? "bg-foreground/70"
-                            : "bg-foreground/30"
-                      }`}
-                      style={{ height: `${Math.max(prob * 100, prob > 0 ? 8 : 0)}%` }}
-                    />
-                  </span>
-                  <span
-                    // an option label wraps inside its column, mid-word when it has no space
-                    className={`text-caption ${isChoice ? "max-w-full text-center wrap-anywhere" : ""} ${
-                      answered ? "text-foreground" : "text-muted-foreground"
+                    className={`h-full rounded-xs ${
+                      tierRead !== null
+                        ? (tierColor ?? "bg-foreground/30")
+                        : answered
+                          ? "bg-foreground/70"
+                          : "bg-foreground/30"
                     }`}
-                    title={legend[k] !== undefined ? legend[k] : undefined}
-                  >
-                    {/* a break hint after each underscore: a long label wraps between its words */}
-                    {k.split("_").map((part, i) => (
-                      <Fragment key={i}>
-                        {i > 0 && (
-                          <>
-                            _<wbr />
-                          </>
-                        )}
-                        {part}
-                      </Fragment>
-                    ))}
-                  </span>
-                </li>
+                    style={{ width: `${Math.max(prob * 100, prob > 0 ? 8 : 0)}%` }}
+                  />
+                </span>
               );
-            })}
-          </ul>
-          <ul className="mt-siblings space-y-siblings">
-            {options
-              .filter((k) => legend[k] !== undefined)
-              .map((k) => (
-                <li key={k}>
-                  <LabeledText label={k} dimmed={!emphasized(k)}>
+              return (
+                <li key={k} data-option={k} data-probability={prob} data-tier={tier}>
+                  <LabeledText label={k} dimmed={!answered} marker={bar}>
                     {legend[k]}
                   </LabeledText>
                 </li>
-              ))}
+              );
+            })}
           </ul>
         </div>
       )}
