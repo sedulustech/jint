@@ -249,7 +249,7 @@ export function AnswerCard({
         </div>
       )}
       {!ranked && (
-        <div className="grid grid-cols-2 text-body leading-snug">
+        <div className="grid grid-cols-2 border-b border-border text-body leading-snug">
           <div className="bg-background px-rail py-siblings">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
