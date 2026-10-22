@@ -447,7 +447,13 @@ function GroupedChildRow({
       <td className="w-px whitespace-nowrap px-rail">
         <SeverityDot severity={cell.severity} />
       </td>
-      <td className="w-px whitespace-nowrap px-rail">{cell.value.toFixed(2)}</td>
+      {/* a choice reading names the tier its value belongs to: the value is that tier's sum */}
+      <td className="w-px whitespace-nowrap px-rail">
+        {cell.tier !== undefined && (
+          <span className="text-muted-foreground">{cell.undecided ? "undecided" : cell.tier} </span>
+        )}
+        {cell.value.toFixed(2)}
+      </td>
       <td className="w-full" aria-hidden="true" />
     </tr>
   );

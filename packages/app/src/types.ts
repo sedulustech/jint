@@ -49,10 +49,17 @@ export interface Cell {
   element?: Element;
   /** The request file this cell's measurement came from; direct fetch on click. */
   requestFile?: string;
-  /** The rule's own reading (p-space noul, or a score index for score handles). */
+  /**
+   * The rule's own reading: p-space noul, a score index for score handles, and for a choice rule
+   * the probability its winning tier holds.
+   */
   value: number;
   /** Null = no verdict (never "clean"). */
   severity: "error" | "warn" | null;
+  /** A choice reading's winning tier: the tier holding the most probability. */
+  tier?: "pass" | "warn" | "error";
+  /** A choice reading too close to call. */
+  undecided?: true;
 }
 
 export interface RequestItem {

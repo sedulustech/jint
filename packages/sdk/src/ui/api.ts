@@ -5,7 +5,16 @@ import { join, resolve, sep } from "node:path";
  * THE shared API route module, mounted by both the dev plugin and the prod server. Paths resolve
  * ONLY inside the requests root; anything traversal-shaped is rejected with 400.
  */
-import { handleSeverity, type Element, type HandlerData, type Severity } from "@jint/contract";
+import {
+  choiceTierMass,
+  handleSeverity,
+  isChoiceHandler,
+  readChoice,
+  type Element,
+  type HandlerData,
+  type HandlerLevel,
+  type Severity,
+} from "@jint/contract";
 import { runsBase } from "../core/jev/debug.ts";
 import type { Dirent } from "node:fs";
 
@@ -130,10 +139,43 @@ export interface ApiCell {
   element?: Element;
   /** The request file this measurement came from (element uuid / file-tier join); direct fetch. */
   requestFile?: string;
-  /** The rule's own reading (p-space noul, or a score index for score handles). */
+  /**
+   * The rule's own reading: p-space noul, a score index for score handles, and for a choice rule
+   * the probability its winning tier holds.
+   */
   value: number;
   /** Null = no verdict (never "clean"). */
   severity: Severity | null;
+  /** A choice reading's winning tier: the tier holding the most probability. */
+  tier?: HandlerLevel;
+  /** A choice reading too close to call: its top tier held less than the handle's ratio. */
+  undecided?: true;
+}
+
+/**
+ * A choice reading's tier read, for its cell: the winning tier, the probability it holds, and
+ * whether the read was undecided. Undefined when the rule is not a choice rule.
+ */
+function choiceCellRead(
+  handle: HandlerData | undefined,
+  choice: string | undefined,
+  probabilities: Record<string, number> | undefined,
+): Pick<ApiCell, "value" | "tier" | "undecided"> | undefined {
+  if (handle === undefined || !isChoiceHandler(handle) || probabilities === undefined) {
+    return undefined;
+  }
+  const mass = choiceTierMass(handle, probabilities);
+  const fired = readChoice(handle, choice, probabilities);
+  // an undecided read names its leading tier: the one that fell short of the ratio
+  const tier: HandlerLevel =
+    fired !== null && fired.undecided !== true
+      ? fired.severity
+      : fired === null
+        ? "pass"
+        : (["error", "warn", "pass"] as const).reduce((a, b) => (mass[b] > mass[a] ? b : a));
+  const read: Pick<ApiCell, "value" | "tier" | "undecided"> = { value: mass[tier], tier };
+  if (fired?.undecided === true) read.undecided = true;
+  return read;
 }
 
 export async function serveApiRequest(
@@ -713,7 +755,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       const isElement = input.includes("#");
       const requestFile =
         (isElement ? elementRequestFile.get(input) : undefined) ?? fileRequestFile.get(file);
-      for (const { rule, value, element } of entries) {
+      for (const { rule, value, element, choice, probabilities } of entries) {
         cells.push({
           rule,
           file,
@@ -722,6 +764,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           requestFile,
           value,
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),
+          ...choiceCellRead(handles?.[rule], choice, probabilities),
         });
       }
     }
