@@ -28,7 +28,7 @@ const COMPONENTS: Components = {
   // a fenced block is one box: its code drops both the inline-code chip and the highlight theme's
   // own padding and background (the theme's selector outranks a plain override)
   pre: ({ children }) => (
-    <pre className="overflow-auto rounded-xs bg-muted p-inner [&>code]:bg-transparent! [&>code]:p-0!">
+    <pre className="overflow-auto rounded-xs bg-background p-inner [&>code]:bg-transparent! [&>code]:p-0!">
       {children}
     </pre>
   ),

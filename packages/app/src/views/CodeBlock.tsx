@@ -80,7 +80,9 @@ function HighlightedCode({ code, path }: { code: string; path: string }) {
     }
   }, [code, path]);
   return (
-    <pre className="hljs overflow-auto bg-transparent p-inner text-body leading-snug">
+    // the code shows the section's background: the theme's unlayered .hljs background outranks a
+    // plain utility, hence the important
+    <pre className="hljs overflow-auto bg-transparent! p-inner text-body leading-snug">
       <code dangerouslySetInnerHTML={{ __html: html }} />
     </pre>
   );

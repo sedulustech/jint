@@ -131,7 +131,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             />
           </div>
           {code !== null && (
-            <div className="relative">
+            <div className="relative bg-muted">
               <div className="absolute right-related top-related z-10">
                 <CopyButton text={code} label="copy code" icon />
               </div>
