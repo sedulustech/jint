@@ -100,10 +100,11 @@ export function AnswerCard({
             const terms = parts.map((k) => `${k} ${(probabilities[k] ?? 0).toFixed(2)}`);
             return `${tier}: ${terms.join(" + ")}${parts.length > 1 ? ` = ${mass[tier].toFixed(2)}` : ""}`;
           };
-          const ranking = (["error", "warn", "pass"] as const)
-            .filter((t) => options.some((k) => tierOf(k) === t))
-            .sort((a, b) => mass[b] - mass[a]);
-          return { mass, verdict, tierOf, sum, ranking };
+          // the rule's tiers in one fixed order, so every card's caption reads the same way
+          const tiers = (["error", "warn", "pass"] as const).filter((t) =>
+            options.some((k) => tierOf(k) === t),
+          );
+          return { mass, verdict, tierOf, sum, tiers };
         })()
       : null;
   // the emphasized options: the verdict tier's options under a tier read, else the answered one
@@ -173,7 +174,7 @@ export function AnswerCard({
             </span>
             <span className="text-caption text-muted-foreground">
               {tierRead !== null
-                ? tierRead.ranking.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
+                ? tierRead.tiers.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
                 : `p ${(probabilities[choice] ?? 0).toFixed(2)}`}
               {qa.answer?.confidence !== undefined && (
                 <span className={torn ? "text-sev-warn" : undefined}>
