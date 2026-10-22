@@ -20,7 +20,7 @@ export function LabeledText({
   children?: ReactNode;
 }) {
   return (
-    <div className="text-body leading-snug">
+    <div className="text-body">
       <span className="flex items-center gap-siblings">
         {marker}
         {heading ? (

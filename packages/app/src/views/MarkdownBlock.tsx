@@ -50,7 +50,7 @@ const COMPONENTS: Components = {
  */
 export function MarkdownBlock({ source }: { source: string }) {
   return (
-    <div className="space-y-siblings p-inner text-body leading-snug text-foreground">
+    <div className="space-y-siblings p-inner text-body text-foreground">
       <Markdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
