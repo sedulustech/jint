@@ -25,6 +25,8 @@ export interface RunDetail {
   results: RequestItem[];
   /** Per-rule handle snapshot from manifest.json; empty when manifest.json is absent. */
   handles: Record<string, HandlerData>;
+  /** Each rule's question kind (noul, score, choice), from its questions' wire type. */
+  kinds?: Record<string, string>;
   /**
    * Report.json was a fragment (torn write): canonical rules + severities fell back to per-request
    * answers.

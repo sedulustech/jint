@@ -562,6 +562,7 @@ async function readRequestRow(
   > | null,
   findingSev: Map<string, Map<string, Severity>>,
   handles: Record<string, HandlerData> | null,
+  kinds: Map<string, string>,
 ): Promise<RequestItem | null> {
   try {
     const [text, st] = await Promise.all([
@@ -587,14 +588,13 @@ async function readRequestRow(
     const state = requestFile.request?.state ?? {};
     const rules: string[] = [];
     let elementId: string | null = typeof state.id === "string" ? state.id : null;
-    for (const key of Object.keys(questions)) {
+    for (const [key, question] of Object.entries(questions)) {
       const m = key.match(/^(.+?) in (.+)$/);
-      if (m) {
-        rules.push(m[1]!);
-        if (elementId === null) elementId = m[2]!;
-      } else {
-        rules.push(key);
-      }
+      const rule = m ? m[1]! : key;
+      rules.push(rule);
+      if (m && elementId === null) elementId = m[2]!;
+      // the question's wire type is its rule's kind: noul, score or choice
+      if (typeof question?.type === "string") kinds.set(rule, question.type);
     }
     const canonical =
       pathRules !== null && typeof state.path === "string" ? pathRules.get(state.path) : undefined;
@@ -685,9 +685,10 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     findingSev,
     degraded: reportDegraded,
   } = await reportFactsFor(dir, reportFile, requestFiles.length);
+  const kinds = new Map<string, string>();
   const rows = await Promise.all(
     requestFiles.map((file) =>
-      readRequestRow(dir, file, pathRules, pathValues, findingSev, handles),
+      readRequestRow(dir, file, pathRules, pathValues, findingSev, handles, kinds),
     ),
   );
   const resultRows = rows.filter((row): row is RequestItem => row !== null);
@@ -731,6 +732,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     hasReport: reportFile,
     results: resultRows,
     handles: handles ?? {},
+    kinds: Object.fromEntries(kinds),
     cells,
     reportDegraded,
     legacy: manifestLegacy,

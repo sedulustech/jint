@@ -217,3 +217,39 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
     }
   });
 });
+
+describe("getRun kinds", () => {
+  test("each rule's kind is its questions' wire type, keyed by the rule name", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-kinds-"));
+    try {
+      const dir = join(root, "100");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
+      // an element question is keyed "<rule> in <element id>"; a file question by the bare rule
+      writeFileSync(
+        join(dir, "1700000000001-files.json"),
+        JSON.stringify({
+          request: {
+            state: { path: "src/x.ts", id: "abc" },
+            questions: {
+              "r_choice in abc": { type: "choice" },
+              "r_noul in abc": { type: "noul" },
+            },
+          },
+        }),
+      );
+      writeFileSync(
+        join(dir, "1700000000002-files.json"),
+        JSON.stringify({
+          request: { state: { path: "src/x.ts" }, questions: { r_score: { type: "score" } } },
+        }),
+      );
+      const body = (await (await get("/api/runs/100", root)).json()) as {
+        kinds: Record<string, string>;
+      };
+      expect(body.kinds).toEqual({ r_choice: "choice", r_noul: "noul", r_score: "score" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

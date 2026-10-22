@@ -197,6 +197,11 @@ function GroupedHeader({ mode }: { mode: Mode }) {
         <th scope="col" className="w-px whitespace-nowrap px-rail py-bar-y text-left font-normal">
           {mode === "rule" ? "rule" : "file"}
         </th>
+        {mode === "rule" && (
+          <th scope="col" className="w-px whitespace-nowrap px-rail py-bar-y text-left font-normal">
+            kind
+          </th>
+        )}
         <th scope="col" className="w-px whitespace-nowrap px-rail py-bar-y text-left font-normal">
           findings
         </th>
@@ -241,11 +246,14 @@ function RequestHeader({
 
 function GroupedParentRow({
   row,
+  kind,
   stats,
   isExpanded,
   onToggleExpand,
 }: {
   row: ParentRow;
+  /** The rule's kind when the parent is a rule; undefined for a file parent. */
+  kind: string | undefined;
   stats: GroupStats & { targets?: number; rules?: number; cells?: number };
   isExpanded: boolean;
   onToggleExpand: (key: string) => void;
@@ -273,6 +281,9 @@ function GroupedParentRow({
       <td className="max-w-[48rem] truncate px-rail" title={row.name}>
         {row.name}
       </td>
+      {kind !== undefined && (
+        <td className="whitespace-nowrap px-rail text-muted-foreground">{kind}</td>
+      )}
       <td className="whitespace-nowrap px-rail">
         {stats.err > 0 || stats.warn > 0 ? (
           <span className="text-muted-foreground">
@@ -312,6 +323,7 @@ const nestedCompare =
  */
 function GroupedNestedTable({
   mode,
+  kinds,
   parentKey,
   cells,
   selectedFile,
@@ -320,6 +332,7 @@ function GroupedNestedTable({
   onToggle,
 }: {
   mode: Mode;
+  kinds: Record<string, string>;
   parentKey: string;
   cells: Cell[];
   selectedFile: string | null;
@@ -350,6 +363,11 @@ function GroupedNestedTable({
           <th scope="col" className="pl-indent pr-rail text-left font-normal">
             {mode === "rule" ? "input" : "rule"}
           </th>
+          {mode === "file" && (
+            <th scope="col" className="w-px whitespace-nowrap px-rail text-left font-normal">
+              kind
+            </th>
+          )}
           {sortHeader("sev", "severity")}
           {sortHeader("value", "value")}
           <th className="w-full" aria-hidden="true" />
@@ -361,6 +379,7 @@ function GroupedNestedTable({
             key={cell.rule + "\u0000" + cell.input}
             cell={cell}
             mode={mode}
+            kind={mode === "file" ? (kinds[cell.rule] ?? "-") : undefined}
             selected={selectedFile === cell.file}
             onSelectPair={onSelectPair}
           />
@@ -373,11 +392,14 @@ function GroupedNestedTable({
 function GroupedChildRow({
   cell,
   mode,
+  kind,
   selected,
   onSelectPair,
 }: {
   cell: Cell;
   mode: Mode;
+  /** The child rule's kind when the child is a rule; undefined for a file child. */
+  kind: string | undefined;
   selected: boolean;
   onSelectPair: (pair: Pair) => void;
 }) {
@@ -419,6 +441,9 @@ function GroupedChildRow({
           </span>
         </span>
       </td>
+      {kind !== undefined && (
+        <td className="w-px whitespace-nowrap px-rail text-muted-foreground">{kind}</td>
+      )}
       <td className="w-px whitespace-nowrap px-rail">
         <SeverityDot severity={cell.severity} />
       </td>
@@ -469,6 +494,7 @@ function RequestLog({
 function GroupedTreeView({
   parents,
   mode,
+  kinds,
   ruleGroups,
   fileGroups,
   expanded,
@@ -480,6 +506,8 @@ function GroupedTreeView({
 }: {
   parents: ParentRow[];
   mode: Mode;
+  /** Each rule's kind (noul, score, choice): a rule row names it beside the rule. */
+  kinds: Record<string, string>;
   ruleGroups: RuleGroup[];
   fileGroups: FileGroup[];
   expanded: Set<string>;
@@ -497,15 +525,17 @@ function GroupedTreeView({
           <Fragment key={parentRow.key}>
             <GroupedParentRow
               row={parentRow}
+              kind={mode === "rule" ? (kinds[parentRow.name] ?? "-") : undefined}
               stats={groupStatsFor(mode, ruleGroups, fileGroups, parentRow)}
               isExpanded={expanded.has(parentRow.key)}
               onToggleExpand={onToggleExpand}
             />
             {expanded.has(parentRow.key) && (
               <tr>
-                <td colSpan={3} className="p-0">
+                <td colSpan={mode === "rule" ? 4 : 3} className="p-0">
                   <GroupedNestedTable
                     mode={mode}
+                    kinds={kinds}
                     parentKey={parentRow.key}
                     cells={parentRow.cells}
                     selectedFile={selectedFile}
@@ -672,6 +702,7 @@ export function RequestTable({
       <GroupedTreeView
         parents={grouped}
         mode={mode}
+        kinds={query.data?.kinds ?? {}}
         ruleGroups={ruleGroups}
         fileGroups={fileGroups}
         expanded={expanded}
