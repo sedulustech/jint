@@ -216,12 +216,12 @@ blocks mix reset styles. No per-line tool can ask it; it needs the whole module 
 ]
 ```
 
-### Probe evidence
+### Test evidence
 
 Healthy and defective fixtures (inline below, self-contained — no corpus is committed). The
-recorded probe run scored 0.63 (warn) and 0.97 (error); a rerun through the CURRENT binary via
+recorded test run scored 0.63 (warn) and 0.97 (error); a rerun through the CURRENT binary via
 the seam reproduced the verdicts (0.58 warn, 0.98 error) — 7 classifier calls for two small
-files. The recorded-probe numbers stand in the table:
+files. The recorded-test numbers stand in the table:
 
 | rule                         | defective reading | healthy max | verdict                         |
 | ---------------------------- | ----------------- | ----------- | ------------------------------- |
@@ -321,10 +321,10 @@ context (~5 classifier calls per module), and whole-tree does not scale.
 
 ### Calibration sidebar: the wording loop
 
-Probe 1's first wording produced a false positive on a HEALTHY edge-triggered block — the
+Test 1's first wording produced a false positive on a HEALTHY edge-triggered block — the
 instructions described reset behavior loosely enough that an ordinary async-reset block looked
 defective. The fix was REWORDING, not thresholds: naming the exact shapes (posedge/negedge,
-asynchronous vs synchronous) until healthy blocks read clean. Write -> probe healthy and
+asynchronous vs synchronous) until healthy blocks read clean. Write -> test healthy and
 defective -> reword. Thresholds are the last knob, moved only when two languages' gaps agree
 (the AGENTS.md calibration doctrine); wording is the first, moved every time a healthy fixture
 scores above your gut.

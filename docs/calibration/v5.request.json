@@ -1,0 +1,100 @@
+[
+  {
+    "run": "1792519455333",
+    "ts": "2026-10-20T18:04:16.881Z",
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "durationMs": 220,
+    "request": {
+      "state": {
+        "path": "packages/sdk/src/core/lint.ts",
+        "source": "/** The unknown-name SetupError with its structured detail: the valid vocabulary + closest match. */\nfunction unknownRuleError(name: string, known: ReadonlySet<string>): SetupError {\n  const suggest = closestName(name, known);\n  return new SetupError(\"CONFIG_INVALID\", `unknown rule \"${name}\"`, {\n    detail: {\n      kind: \"unknown-rule\",\n      valid: [...known],\n      suggest,\n    },\n  });\n}",
+        "id": "f9f5706f-60ba-48c3-880e-67616b064a1a"
+      },
+      "questions": {
+        "is_comment_sound": {
+          "type": "choice",
+          "instructions": "This unit is a definition with the comments it owns. Find the worst comment and choose the one option that best describes it. Choose sound only when every comment fits it.",
+          "criteria": {
+            "sound": "Every comment states what this code does - or why, when the code cannot say it - in the code's own words, and nothing else.",
+            "contradicted": "A comment claims something the code shown does not do: a wrong count, a part the code does not contain, a different order, or return, error, or validation behavior the code does not have.",
+            "wording_unmapped": "A comment uses coined labels, nicknames, or value judgments (honest, clean, proper) for parts of this code, so its nouns map to no identifier or behavior.",
+            "about_surroundings": "A comment describes who calls this code, when it is called, what a caller does with the result, or where else its output goes.",
+            "historical": "A comment refers to a past state, a rename, an old version, or contrasts this code with a design that is not shown (never a second X, no longer, instead of the old Y)."
+          }
+        }
+      },
+      "model": "jev-latest"
+    },
+    "status": 200,
+    "response": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "is_comment_sound": {
+          "type": "choice",
+          "choice": "sound",
+          "confidence": 0.46,
+          "probabilities": {
+            "sound": 0.57,
+            "contradicted": 0.12,
+            "wording_unmapped": 0.29,
+            "about_surroundings": 0.01,
+            "historical": 0.01
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 716,
+        "output_tokens": 67
+      }
+    }
+  },
+  {
+    "run": "1792519457183",
+    "ts": "2026-10-20T18:04:18.693Z",
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "durationMs": 216,
+    "request": {
+      "state": {
+        "path": "packages/sdk/src/core/lint.ts",
+        "source": "/** The unknown-name SetupError with its structured detail: the valid vocabulary + closest match. */\nfunction unknownRuleError(name: string, known: ReadonlySet<string>): SetupError {\n  const suggest = closestName(name, known);\n  return new SetupError(\"CONFIG_INVALID\", `unknown rule \"${name}\"`, {\n    detail: {\n      kind: \"unknown-rule\",\n      valid: [...known],\n      suggest,\n    },\n  });\n}",
+        "id": "54844033-3d39-4a2a-84a6-29dfc75ffd8d"
+      },
+      "questions": {
+        "is_comment_sound": {
+          "type": "choice",
+          "instructions": "This unit is a definition with the comments it owns. Find the worst comment and choose the one option that best describes it. Choose sound only when every comment fits it.",
+          "criteria": {
+            "sound": "Every comment states what this code does - or why, when the code cannot say it - in the code's own words, and nothing else.",
+            "contradicted": "A comment claims something the code shown does not do: a wrong count, a part the code does not contain, a different order, or return, error, or validation behavior the code does not have.",
+            "wording_unmapped": "A comment uses coined labels, nicknames, or value judgments (honest, clean, proper) for parts of this code, so its nouns map to no identifier or behavior.",
+            "about_surroundings": "A comment describes who calls this code, when it is called, what a caller does with the result, or where else its output goes.",
+            "historical": "A comment refers to a past state, a rename, an old version, or contrasts this code with a design that is not shown (never a second X, no longer, instead of the old Y)."
+          }
+        }
+      },
+      "model": "jev-latest"
+    },
+    "status": 200,
+    "response": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "is_comment_sound": {
+          "type": "choice",
+          "choice": "sound",
+          "confidence": 0.42,
+          "probabilities": {
+            "sound": 0.54,
+            "contradicted": 0.14,
+            "wording_unmapped": 0.3,
+            "about_surroundings": 0.01,
+            "historical": 0.01
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 714,
+        "output_tokens": 67
+      }
+    }
+  }
+]

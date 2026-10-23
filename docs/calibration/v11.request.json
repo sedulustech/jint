@@ -1,0 +1,104 @@
+[
+  {
+    "run": "1792596452639",
+    "ts": "2026-10-21T15:27:39.977Z",
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "durationMs": 1064,
+    "request": {
+      "state": {
+        "path": "packages/sdk/src/core/lint.ts",
+        "source": "/** The unknown-name SetupError with its structured detail: the valid vocabulary + closest match. */\nfunction unknownRuleError(name: string, known: ReadonlySet<string>): SetupError {\n  const suggest = closestName(name, known);\n  return new SetupError(\"CONFIG_INVALID\", `unknown rule \"${name}\"`, {\n    detail: {\n      kind: \"unknown-rule\",\n      valid: [...known],\n      suggest,\n    },\n  });\n}",
+        "id": "43bb0555-fb6c-480c-9763-6da513788c63"
+      },
+      "questions": {
+        "is_comment_sound": {
+          "type": "choice",
+          "instructions": "This unit is a definition with the comments it owns. Find the worst comment and choose the one option that best describes it. Choose justified only when every comment fits it.",
+          "criteria": {
+            "justified": "Every comment states what this code does - or why, when the code cannot say it - in the code's own words, and nothing else.",
+            "contradicted": "A comment claims something the code shown does not do: a wrong count, a part the code does not contain, a different order, or return, error, or validation behavior the code does not have.",
+            "wording_unmapped": "A comment names this code's parts in words the code does not use: coined labels, nicknames, value judgments (honest, clean, proper), or another part of the system's vocabulary (a caller's or a format's terms), so its nouns map to no identifier or behavior in this code.",
+            "digression": "Part of a comment is about something other than this unit - a caller, another component, the language, a library - rather than what this unit does. A constraint this unit depends on, stated as the reason its code is written this way, is not a digression.",
+            "historical_events": "A comment depends on historical events outside the code as it reads now: a past state of the code, a rename, an earlier version, or something measured, decided, migrated, or documented.",
+            "narration": "A comment merely narrates the code: it restates what the code already says, translating statements into prose or echoing identifiers, so removing it loses nothing."
+          }
+        }
+      },
+      "model": "jev-latest"
+    },
+    "status": 200,
+    "response": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "is_comment_sound": {
+          "type": "choice",
+          "choice": "justified",
+          "confidence": 0.36,
+          "probabilities": {
+            "justified": 0.47000000000000003,
+            "contradicted": 0.07,
+            "wording_unmapped": 0.28,
+            "digression": 0.03,
+            "historical_events": 0,
+            "narration": 0.15
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 811,
+        "output_tokens": 77
+      }
+    }
+  },
+  {
+    "run": "1792596471258",
+    "ts": "2026-10-21T15:27:58.573Z",
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "durationMs": 917,
+    "request": {
+      "state": {
+        "path": "packages/sdk/src/core/lint.ts",
+        "source": "/** The unknown-name SetupError with its structured detail: the valid vocabulary + closest match. */\nfunction unknownRuleError(name: string, known: ReadonlySet<string>): SetupError {\n  const suggest = closestName(name, known);\n  return new SetupError(\"CONFIG_INVALID\", `unknown rule \"${name}\"`, {\n    detail: {\n      kind: \"unknown-rule\",\n      valid: [...known],\n      suggest,\n    },\n  });\n}",
+        "id": "17686af3-7a42-47f2-8d98-7923268c0dfb"
+      },
+      "questions": {
+        "is_comment_sound": {
+          "type": "choice",
+          "instructions": "This unit is a definition with the comments it owns. Find the worst comment and choose the one option that best describes it. Choose justified only when every comment fits it.",
+          "criteria": {
+            "justified": "Every comment states what this code does - or why, when the code cannot say it - in the code's own words, and nothing else.",
+            "contradicted": "A comment claims something the code shown does not do: a wrong count, a part the code does not contain, a different order, or return, error, or validation behavior the code does not have.",
+            "wording_unmapped": "A comment names this code's parts in words the code does not use: coined labels, nicknames, value judgments (honest, clean, proper), or another part of the system's vocabulary (a caller's or a format's terms), so its nouns map to no identifier or behavior in this code.",
+            "digression": "Part of a comment is about something other than this unit - a caller, another component, the language, a library - rather than what this unit does. A constraint this unit depends on, stated as the reason its code is written this way, is not a digression.",
+            "historical_events": "A comment depends on historical events outside the code as it reads now: a past state of the code, a rename, an earlier version, or something measured, decided, migrated, or documented.",
+            "narration": "A comment merely narrates the code: it restates what the code already says, translating statements into prose or echoing identifiers, so removing it loses nothing."
+          }
+        }
+      },
+      "model": "jev-latest"
+    },
+    "status": 200,
+    "response": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "is_comment_sound": {
+          "type": "choice",
+          "choice": "justified",
+          "confidence": 0.42,
+          "probabilities": {
+            "justified": 0.52,
+            "contradicted": 0.04,
+            "wording_unmapped": 0.24,
+            "digression": 0.03,
+            "historical_events": 0,
+            "narration": 0.17
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 812,
+        "output_tokens": 77
+      }
+    }
+  }
+]

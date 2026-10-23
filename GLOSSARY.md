@@ -144,6 +144,10 @@ measurement its handle judged actionable and is the only output that demands act
 - **result** — the tool's derived outcome for one request: the answers, per-rule verdicts,
   and timings a request produced. A result is a SUBSET of its request — the request is the
   recorded call, the result is what jint derived from it.
+- **test** — the runs of one rule version on fixed inputs, compared against the previous
+  version's. Two runs show the rerun noise. The unit of calibration; not the reserved `test`
+  capture.
+- **calibration** — testing a rule and editing its instructions or criteria until it is right.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
