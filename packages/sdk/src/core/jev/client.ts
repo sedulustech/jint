@@ -112,12 +112,19 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
   };
 }
 
+/**
+ * The pinned jev release. The `jev-latest` alias moves when a new release ships, so readings, and
+ * every threshold calibrated against them, would change without a change here.
+ */
+export const JEV_MODEL = "jev-1.13.0";
+
 function makeClient(config: ClassifierConfig | undefined, input: string): TypeSafeClient {
   const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   try {
     return new TypeSafeClient({
       apiKey: config?.apiKey,
       baseURL: config?.baseURL,
+      defaultModel: JEV_MODEL,
       fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
