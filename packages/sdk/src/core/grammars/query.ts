@@ -44,36 +44,19 @@ import { SetupError, type Span } from "../types.ts";
 import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
 
 /**
- * The element captures, frozen for v1. A query capturing anything else fails at load.
- *
- * @docstring is a COMMENT-KIND capture: a grammar's docstring convention, captured by pattern
- * (python's string-in-block) and owned by its enclosing definition (docstringOf) - the capture
- * seam is the ONE authority for what a docstring is; the decompose runtime holds no node-type names.
- */
-/**
- * A capture name. THE OPEN NAMESPACE: the shared lingua franca (validated, closed) plus any
- * grammar-autonomous capture the OWNING .scm declares with a capture.<name>.definition directive
- * (validated at load: a capture neither shared nor declared is a typo or a missing declaration, and
- * fails loud naming the fix). No engine list enumerates the autonomous names.
+ * A capture name: a shared capture, or one the owning grammar's .scm declares with a
+ * `capture.<name>.definition` directive. A capture that is neither fails at load, naming the fix.
+ * `docstring` is comment-kind: the definition that encloses it owns it.
  */
 export type Capture = string;
 
 /**
- * RESERVED capture tokens: valid in a query, validated, but emitted by no grammar today. `test` is
- * held for the test capture (design: Test identification) so the name cannot be coined twice when
- * it ships; a query binding it produces no element until a grammar assigns it to a node.
+ * Capture tokens a query may bind that produce no element. `test` is reserved for a test capture,
+ * so the name cannot be coined for anything else.
  */
 export const RESERVED_CAPTURES = ["test"] as const;
 
-/**
- * ONE CANDIDATE'S SUPPRESSION SHAPE, resolved from the OWNING grammar's .scm directives over the
- * tier-1 shared defaults: a capture's `capture.<name>.opaque` / `capture.<name>.absorbTail` lines
- * OVERRIDE; an undeclared shared capture carries the lingua franca's default shape; an undeclared
- * AUTONOMOUS capture carries the conservative default (hide nothing, absorb nothing - everything
- * surfaces). No engine table survives here.
- */
-
-/** Per-capture suppression shapes declared by one grammar's .scm (the overrides only). */
+/** The suppression overrides one grammar's .scm declares; undeclared captures keep defaults. */
 export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<SuppressionShape>> {
   const declared = new Map<string, Partial<SuppressionShape>>();
   for (const directive of scmDirectives(scm)) {
@@ -90,6 +73,17 @@ export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<Suppr
   return declared;
 }
 
+/** Captures whose same-capture runs merge into one element, with the declared mode. */
+export function scmCaptureMerges(scm: string): ReadonlyMap<string, MergeMode> {
+  const merges = new Map<string, MergeMode>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null || match[2] !== "merge") continue;
+    merges.set(match[1]!, directive.value as MergeMode);
+  }
+  return merges;
+}
+
 /** Captures whose same-capture candidates nest legitimately (per-capture selfNesting). */
 export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
   const nested = new Set<string>();
@@ -104,22 +98,7 @@ export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
 
-/**
- * PATTERN-ORDER VALIDATION: when two patterns root on the same node type but assign DIFFERENT
- * element captures, the order between them is load-bearing (the earlier pattern wins) - silence
- * there is the highest-risk invariant an agent reordering patterns can break.
- *
- * The boundary is PER PATTERN, not per group: every pattern that takes part in a same-root conflict
- * must carry the directive, because each one's POSITION is what the runtime reads (a directive on
- * the last pattern alone would leave the earlier ones silently order-bearing). A pattern with no
- * directive in a conflicting root group fails the run at setup.
- *
- * Root node type is read from the COMPILED query's pattern offsets (startIndexForPattern /
- * endIndexForPattern), so multi-line patterns report their real root rather than a continuation
- * line; comments and the pattern's own leading whitespace are stripped before the root token is
- * taken. Over-approximation remains (two patterns may root on the same type yet never match the
- * same node) - forcing the one-line statement is the point.
- */
+/** One top-level pattern of a .scm: its root node type, the captures it binds, and where it sits. */
 export interface ScmPattern {
   readonly pattern: number;
   readonly rootType: string;
@@ -137,72 +116,60 @@ export interface ScmPattern {
   readonly intentional: boolean;
 }
 
+function commentEnd(scm: string, i: number): number {
+  const eol = scm.indexOf("\n", i);
+  return eol === -1 ? scm.length : eol;
+}
+
 /**
- * Split a .scm into its top-level patterns with a depth scanner (comments and string literals
- * ignored), so each pattern's OWN text supplies its root node type and its directive. The compiled
- * query's offsets are deliberately not used: startIndex/endIndex point at captured nodes, not at
- * pattern boundaries, which made multi-line patterns report an inner token as their root (the
- * merge-gate finding).
+ * Split a .scm into its top-level patterns with a depth scanner, so each pattern's own text gives
+ * its root node type and its directive. The compiled query's offsets cannot: they point at captured
+ * nodes, not at pattern boundaries. A comment after a pattern's closing paren is part of that
+ * pattern (a trailing `; @priority`); other comments precede the next pattern.
  */
 function splitPatterns(scm: string): { text: string; precededBy: string; at: number }[] {
   const patterns: { text: string; precededBy: string; at: number }[] = [];
   let depth = 0;
   let start = -1;
-  // index of the closing paren, pinned when depth returns to 0
-  let open = -1;
+  let closeAt = -1;
   let inString = false;
   let comments = "";
   let pendingComments = "";
   const flush = (tailEnd: number) => {
-    if (open === -1) return;
+    if (closeAt === -1) return;
     patterns.push({
-      text: scm.slice(start, Math.max(open + 1, tailEnd)),
+      text: scm.slice(start, Math.max(closeAt + 1, tailEnd)),
       precededBy: pendingComments,
       at: start,
     });
     start = -1;
-    open = -1;
+    closeAt = -1;
     pendingComments = "";
   };
   for (let i = 0; i < scm.length; i++) {
     const char = scm[i]!;
     if (inString) {
-      if (char === '"' && scm[i - 1] !== "\\") inString = false;
-      continue;
-    }
-    if (char === '"') {
+      inString = !(char === '"' && scm[i - 1] !== "\\");
+    } else if (char === '"') {
       inString = true;
-      continue;
-    }
-    if (char === ";") {
-      const eol = scm.indexOf("\n", i);
-      const end = eol === -1 ? scm.length : eol;
-      const comment = scm.slice(i, end);
-      if (open !== -1 && start !== -1) {
-        // trailing comment inside the pattern's tail: keep it (directives ride there)
-        i = end;
-        continue;
-      }
-      comments += comment + "\n";
+    } else if (char === ";") {
+      const end = commentEnd(scm, i);
+      if (closeAt === -1) comments += scm.slice(i, end) + "\n";
       i = end;
-      continue;
-    }
-    if (char === "(") {
+    } else if (char === "(") {
       if (depth === 0) {
-        if (open !== -1) flush(i);
+        flush(i);
         start = i;
         pendingComments = comments;
         comments = "";
       }
       depth++;
-      continue;
-    }
-    if (char === ")") {
+    } else if (char === ")") {
       depth--;
-      if (depth === 0) open = i;
-      continue;
+      if (depth === 0) closeAt = i;
+    } else if (depth === 0 && char.trim() !== "" && closeAt === -1) {
+      comments = "";
     }
-    if (depth === 0 && char.trim() !== "" && open === -1) comments = "";
   }
   flush(scm.length);
   return patterns;
@@ -211,9 +178,7 @@ function splitPatterns(scm: string): { text: string; precededBy: string; at: num
 /**
  * Blank out string literals (single- or double-quoted, backslash-escaped) so predicates that merely
  * MENTION a word - (#match? @name "@priority") - cannot fake a directive, a capture, or a root
- * token. The quoted text is replaced by spaces, keeping offsets and line structure. SHARED: every
- * .scm text reader (patterns, directives, emitted captures) blanks strings through this one
- * function - one discipline, no reader that leaks a mention into a fact.
+ * token. The quoted text is replaced by spaces, keeping offsets and line structure.
  */
 export function withoutStrings(text: string): string {
   let out = "";
@@ -279,19 +244,27 @@ export function scmCode(scm: string): string {
 }
 
 /**
- * THE directive vocabulary: every #set! fact a queries.scm may declare, with the value shape each
- * name accepts. Naming principle: the prefix names the grouper (attach, docstring, import), the
- * suffix the knob (gap, owner, merge), the value the setting - a name never names a node; the
- * pattern the directive sits on IS the target. presence = a boolean knob declared by its name alone
- * (its presence is the setting); number = a whole count; enum = one listed word. The engine parses
- * the same directives natively (QueryMatch.setProperties) - this table is the LOAD-TIME authority
- * for names and value shapes; the walker reads the engine's values.
+ * The file-wide directives a queries.scm may declare, with the value shape each accepts: the load-
+ * time authority for names and values (the walker reads tree-sitter's parse of the same
+ * directives). A name is grouper.knob and never names a node: the pattern it rides is the target.
+ * presence: the name alone is the setting. The summaries are the generated directive reference.
  */
 const DIRECTIVES = {
-  selfNesting: { kind: "presence" },
-  "attach.gap": { kind: "number" },
-  "docstring.owner": { kind: "enum", values: ["next", "enclosing"] },
-  "import.merge": { kind: "enum", values: ["contiguous", "none"] },
+  selfNesting: {
+    kind: "presence",
+    summary: "Every capture's same-capture candidates nest (the grammar-wide form).",
+  },
+  "attach.gap": {
+    kind: "number",
+    summary:
+      "A comment run attaches to the next definition across at most this many blank rows; 0 means the capture takes no attached run. Default 1.",
+  },
+  "docstring.owner": {
+    kind: "enum",
+    values: ["next", "enclosing"],
+    summary:
+      "Who a docstring documents: the definition that follows it, or the one that contains it. Default enclosing.",
+  },
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
 
@@ -306,16 +279,73 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * (a different-capture candidate strictly inside is implementation and dies), `absorbTail` (the
  * largest same-capture wrapper tail in BYTES that still reads as prefix-absorb), `selfNesting`
  * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
- * the grammar-wide form).
+ * the grammar-wide form), `merge` (same-capture candidates in a run become ONE element:
+ * `contiguous` - a blank line or another element ends the run; `adjacent` - only another element
+ * ends it, so blank lines and comments ride inside; `none` - every candidate is its own element).
  */
 const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail)/;
-const CAPTURE_KNOBS: Readonly<Record<string, "boolean" | "number">> = {
-  definition: "boolean",
-  opaque: "boolean",
-  selfNesting: "boolean",
-  absorbTail: "number",
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge)/;
+const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
+export type MergeMode = (typeof MERGE_MODES)[number];
+const CAPTURE_KNOBS: Readonly<
+  Record<string, { shape: "boolean" | "number" | readonly string[]; summary: string }>
+> = {
+  definition: {
+    shape: "boolean",
+    summary:
+      "The capture is an element rules can target. A grammar's own capture must declare it; shared captures are definitions by default.",
+  },
+  opaque: {
+    shape: "boolean",
+    summary:
+      "A different-capture candidate strictly inside is implementation and produces no element.",
+  },
+  selfNesting: {
+    shape: "boolean",
+    summary: "Same-capture candidates nest: a nested one is an element of its own.",
+  },
+  absorbTail: {
+    shape: "number",
+    summary:
+      "The largest same-capture wrapper tail, in bytes, that still reads as one element (a trailing `;`).",
+  },
+  merge: {
+    shape: MERGE_MODES,
+    summary:
+      "A run of same-capture nodes is one element. contiguous: a blank row or another element ends the run; adjacent: only another element ends it; none: no merging.",
+  },
 };
+
+/** One row of the directive reference: the loader's vocabulary, as data. */
+export interface DirectiveRow {
+  readonly name: string;
+  readonly values: string;
+  readonly summary: string;
+}
+
+export function directiveVocabulary(): readonly DirectiveRow[] {
+  const fileWide = Object.entries(DIRECTIVES).map(([name, d]) => ({
+    name,
+    values:
+      d.kind === "presence"
+        ? "(none)"
+        : d.kind === "number"
+          ? "a whole number"
+          : d.values.join(" | "),
+    summary: d.summary,
+  }));
+  const perCapture = Object.entries(CAPTURE_KNOBS).map(([knob, k]) => ({
+    name: `capture.<name>.${knob}`,
+    values:
+      k.shape === "boolean"
+        ? "true | false"
+        : k.shape === "number"
+          ? "a whole number"
+          : k.shape.join(" | "),
+    summary: k.summary,
+  }));
+  return [...fileWide, ...perCapture];
+}
 
 /** The capture names a .scm actually emits (any @token that is not @name or a reserved word). */
 export function scmEmittedNames(scm: string): ReadonlySet<string> {
@@ -424,13 +454,10 @@ export function scmDirectives(scm: string): ScmDirective[] {
 }
 
 /**
- * Loud directive validation at .scm load: a #set! naming an unknown directive, or carrying a value
- * its name does not accept, is a setup error naming the line and what it wants - a directive that
- * silently no-ops is a grammar author's false belief about their own extraction. One name, one
- * setting per file: the same directive declared twice with different values is the same loudness
- * (the knobs are grammar-level facts; per-pattern disagreement would be two behaviors under one
- * name). Unknown predicate forms (#eq?, #match?, ...) stay tree-sitter's business; only the #set
- * family is ours.
+ * Directive validation at .scm load: an unknown #set! name, or a value its name does not accept, is
+ * a setup error naming the line and what it wants - a directive that silently does nothing is a
+ * false belief about the extraction. One name, one setting per file: the same directive twice with
+ * different values fails too. Other predicates (#eq?, #match?) are tree-sitter's to check.
  */
 export function assertScmDirectives(scm: string, grammarId: string): void {
   const known = Object.keys(DIRECTIVES) as DirectiveName[];
@@ -440,8 +467,6 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
   for (const directive of scmDirectives(scm)) {
     const captureKnob = directive.name.match(CAPTURE_DIRECTIVE);
     if (captureKnob !== null) {
-      // the capture namespace: kind-checked value + REGISTERED-WITHOUT-QUERIES honesty (a
-      // directive naming a capture this .scm does not emit is a false belief about its extraction)
       const capture = captureKnob[1]!;
       const knob = captureKnob[2]! as keyof typeof CAPTURE_KNOBS;
       if (!emitted.has(capture)) {
@@ -450,16 +475,10 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
           `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" names capture '${capture}' but the queries emit no @${capture} - directive and patterns disagree`,
         );
       }
-      // CARRIED BY A BINDING PATTERN: a directive rides the LAST pattern opened before it -
-      // trailing predicates ((node) @cap (#set! ...)) follow the pattern's open paren, so
-      // last-opener attribution is exact. It may only name a capture THAT pattern binds: a
-      // capture.X directive riding a pattern that binds @Y is a silent retarget (the wrong knob
-      // on the wrong capture). A directive before ANY pattern (a standalone #set! line) is the
-      // same loudness: it attaches to nothing.
+      // a directive rides the last pattern opened before it, and must name a capture that
+      // pattern binds; a predicate group ((#set! ...)) carries nothing
       let carrying: ScmPattern | undefined;
       for (const p of patterns) {
-        // predicate groups ((#set! ...)) are not carrying patterns - the carrier is the last
-        // REAL pattern opened before the directive
         if (p.at < directive.at && !p.textStartsPredicate) carrying = p;
       }
       const bound = carrying !== undefined && carrying.captures.includes(capture);
@@ -469,15 +488,23 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
           `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" rides a pattern that does not bind @${capture} - attach it to a pattern that does (a directive naming one capture while riding another's pattern is a silent retarget)`,
         );
       }
-      const booleanOk = directive.value === "true" || directive.value === "false";
-      const numberOk = /^\d+$/.test(directive.value ?? "");
-      if (
-        (CAPTURE_KNOBS[knob] === "boolean" && !booleanOk) ||
-        (CAPTURE_KNOBS[knob] === "number" && !numberOk)
-      ) {
+      const shape = CAPTURE_KNOBS[knob]!.shape;
+      const ok =
+        shape === "boolean"
+          ? directive.value === "true" || directive.value === "false"
+          : shape === "number"
+            ? /^\d+$/.test(directive.value ?? "")
+            : shape.includes(directive.value ?? "");
+      if (!ok) {
+        const wants =
+          shape === "boolean"
+            ? "true or false"
+            : shape === "number"
+              ? "a whole number"
+              : `one of: ${shape.join(", ")}`;
         throw new SetupError(
           "CONFIG_INVALID",
-          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" wants ${CAPTURE_KNOBS[knob] === "number" ? "a whole number" : "true or false"} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" wants ${wants} (got ${directive.value === undefined ? "no value" : `"${directive.value}"`})`,
         );
       }
     } else {
@@ -522,7 +549,6 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
   }
 }
 
-/** Does the .scm set the selfNesting shape directive? (real syntax only; see scmDirectives) */
 export function scmSelfNesting(scm: string): boolean {
   return scmDirectives(scm).some((d) => d.name === "selfNesting");
 }
@@ -574,6 +600,13 @@ export function assertPatternCount(language: string, scm: string, compiledCount:
   }
 }
 
+/**
+ * When two patterns root on the same node type but assign different element captures, the earlier
+ * pattern wins, so their order is load-bearing. Every pattern in such a group must state it with an
+ * `; @priority` comment: each one's position matters, not only the last one's. The check can
+ * over-approximate (two patterns may share a root type yet never match the same node); stating the
+ * order is the point.
+ */
 export function validatePatternOrder(language: string, scm: string): void {
   const patterns = parseScmPatterns(scm);
   const byRoot = new Map<string, ScmPattern[]>();
@@ -611,16 +644,13 @@ function scmNodeTypes(scm: string): string[] {
 }
 
 /**
- * Compile + fully validate one .scm against its language (vocabulary, #set! directives,
- * pattern-order conflicts - the loud checks every extraction source goes through). UNCACHED: the
- * custom-query path (a capture call with a query file) may compile several .scm against one
- * language in a process; the embedded path caches per language below.
+ * Compile and fully validate one .scm against its language. Uncached: a custom query may compile
+ * several .scm files against one language in a process.
  *
- * NODE-VOCABULARY GUARD: every node type the .scm names must exist in the grammar it is compiled
- * against - an .scm authored for another grammar is a cross-grammar handoff and fails loud, naming
- * every unknown type in one error (tree-sitter's own compile error names one at a time in its
- * voice; the pre-check precedes it). The loaded language object is the authority, so embedded and
- * custom grammars get the identical check with no mirrored node-types file.
+ * Every node type the .scm names must exist in the grammar it compiles against: an .scm written for
+ * another grammar fails naming every unknown type at once, before tree-sitter's compile error
+ * (which names one). The loaded language object is the authority, so embedded and custom grammars
+ * get the same check.
  */
 export async function compileQuery(
   language: string,
@@ -650,15 +680,14 @@ export async function compileQuery(
         language +
         ": " +
         (e instanceof Error ? e.message : String(e)),
+      { cause: e },
     );
   }
   assertPatternCount(language, scm, query.patternCount());
   assertScmDirectives(scm, language);
   validatePatternOrder(language, scm);
-  // THE OPEN-NAMESPACE GATE: every element capture must be EITHER shared (the lingua franca,
-  // spelled right by construction) OR declared by this .scm (capture.<name>.definition, true or
-  // false - the declaration is the intent). Anything else is a typo'd shared name or a forgotten
-  // declaration; the error names both paths.
+  // every element capture is shared or declared by this .scm (capture.<name>.definition, true or
+  // false); anything else is a misspelled shared name or a missing declaration
   const declared = scmCaptureDeclarations(scm);
   const undeclared = query.captureNames.filter(
     (name) =>
@@ -723,11 +752,7 @@ export interface Candidate {
   /** The captured node IS the element: span and content come from it (span = captured node). */
   readonly node: QueryNode;
   readonly name?: string;
-  /**
-   * The pattern's #set! facts as the ENGINE parsed them (QueryMatch.setProperties), keyed by
-   * directive name - the walker's grouping knobs travel here, validated separately at load and read
-   * with code defaults when absent.
-   */
+  /** The pattern's #set! values as tree-sitter parsed them, keyed by directive name. */
   readonly properties?: Readonly<Record<string, string | null>>;
 }
 
@@ -749,10 +774,8 @@ function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candi
   const capture = elementCaptureOf(match, addressable);
   if (capture === null) return null;
   const elementNode = match.captures.find((c) => c.name === capture)!.node;
-  // THE CONTAINER-BINDING TRAP, loud: a pattern like (enum_body (property_identifier) @name)
-  // @binding binds @name on EVERY member of the container while the element is the whole
-  // container - any one member's text as its name is arbitrary. One element carries one name;
-  // the honest shapes are a single @name binding or one element per member.
+  // a pattern like (enum_body (property_identifier) @name) @binding binds @name on every member
+  // while the element is the whole container: one element carries one name
   const nameCaptures = match.captures.filter((c) => c.name === NAME_CAPTURE);
   if (nameCaptures.length > 1) {
     throw new SetupError(
@@ -844,13 +867,9 @@ export function resolveCandidates(
   return kept;
 }
 
-/**
- * Grammar-declared structure facts that modulate suppression: the resolved per-capture shapes
- * (shared defaults + that grammar's directive overrides) and the nesting flags (per-capture
- * `capture.<name>.selfNesting`, or the file-wide bare `selfNesting` for every capture).
- */
+/** One grammar's suppression facts: resolved per-capture shapes and the captures that nest. */
 export interface SuppressionOptions {
-  /** The grammar's resolved shapes (built by the walk over the grammar's directives). */
+  /** Each capture's shape: its default, overridden by the grammar's directives. */
   readonly shapes: ReadonlyMap<string, SuppressionShape>;
   /** Captures whose same-capture candidates nest legitimately. */
   readonly selfNestingCaptures: ReadonlySet<string>;
@@ -896,7 +915,6 @@ export function isEmptyComment(text: string): boolean {
   return !/[\p{L}\p{N}]/u.test(text);
 }
 
-/** Run a compiled query over a tree and return its candidates in match (document) order. */
 export function runQuery(
   query: Query,
   rootNode: QueryMatchSource,

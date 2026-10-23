@@ -37,11 +37,8 @@ DECLARES it. There are two tiers:
   docs/designs/grammar-loading.md; do not do it for one grammar.
 - **Autonomous captures** - any name your grammar owns (`section`, `list`, yours). Declare it
   with ONE directive line and it is an element the same hour: `(#set! "capture.<name>.definition" "true")`
-  attached to one of its patterns. Optional knobs carry the rest of the shape:
-  `capture.<name>.selfNesting "true"` (same-capture candidates nest - a nested block is an element
-  of its own), `capture.<name>.opaque "true|false"` (a different-capture candidate strictly
-  inside is implementation), `capture.<name>.absorbTail <bytes>` (the largest same-capture wrapper
-  tail that still reads as prefix-absorb). Undeclared defaults for an autonomous capture: hide
+  attached to one of its patterns. Optional `capture.<name>.*` knobs carry the rest of the shape
+  (nesting, opacity, merging): docs/directives.md lists them. Undeclared defaults for an autonomous capture: hide
   nothing, absorb nothing. This is the whole authoring surface - ZERO engine edits; the standing
   proof is tests/capture-directives-e2e.test.ts, a fixture grammar that mints a new capture and
   measures it through a rule end to end.
@@ -81,12 +78,8 @@ Everything fails loud, at setup, before any file is measured — never into sile
   a capture the .scm does not emit is the same loudness (directive and patterns disagree).
 - **Malformed or unknown #set! directives**: a `#set` without the bang, a `#set!` with no quoted
   name, or a `#set! "unknown"` naming no known directive is a setup error naming the line - a
-  directive that silently no-ops is a false belief about your own extraction. Known today:
-  `capture.<name>.definition|opaque|selfNesting|absorbTail` (your capture's facts - the tier-2
-  authoring surface above), the file-wide `selfNesting` (EVERY capture's same-capture candidates
-  nest), `attach.gap N` (comment attaches only across N or fewer blank rows; default 1),
-  `docstring.owner next|enclosing` (who the docstring documents; default enclosing),
-  `import.merge contiguous|none` (adjacent imports merge per contiguous run; default contiguous).
+  directive that silently no-ops is a false belief about your own extraction. The full list,
+  generated from what the loader accepts: docs/directives.md.
   Every directive is FILE-scoped: one name, one setting per file - `docstring.owner` cannot be
   `next` for one pattern and `enclosing` for another (the rust `///`-vs-`//!` split is not
   expressible today; a real grammar needing per-pattern values reopens the design).

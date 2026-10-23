@@ -34,9 +34,11 @@ import {
   spanOf,
   type Candidate,
   type Capture,
+  type MergeMode,
   type QueryNode,
   compileQuery,
   scmCaptureDeclarations,
+  scmCaptureMerges,
   scmCapturePolicy,
   scmEmittedNames,
   scmSelfNestingCaptures,
@@ -441,72 +443,72 @@ function parentLabelOf(
   return innermost === undefined ? undefined : labels.get(innermost);
 }
 
-// The imports merge, per CONTIGUOUS RUN: adjacent import nodes (nothing but whitespace
-// between them, no other candidate intervening) merge into one element; a blank row or any
-// non-import candidate ends the element - a scattered import (a typescript re-export after
-// code, a C #include mid-file) never drags intervening source into a merged span. The run's
-// content is its span slice, so "slice the span, get the content" holds by construction.
-// import.merge "contiguous" declares this style in the .scm; it is the engine default too.
+// The RUN MERGE, for any capture whose .scm declares `capture.<name>.merge`: same-capture nodes in
+// a run become one element whose content is its span slice, so "slice the span, get the content"
+// holds by construction. Another capture's candidate between two members always ends the run - a
+// scattered member (a typescript re-export after code, a C #include mid-file) never drags
+// intervening source into a merged span. `contiguous` also ends it at a blank row; `adjacent`
+// lets blank rows and comments ride inside (a script's statements read as one unit across them);
+// `none` keeps every member its own element.
 //
 // a blank row between: the text between the two nodes carries two newlines (row-only gaps
 // misread on grammars whose include nodes absorb neighboring newlines into their spans)
-function importRunSplits(
+function runSplits(
   previous: Candidate | undefined,
   candidate: Candidate,
   candidates: readonly Candidate[],
   source: string,
+  mode: MergeMode,
 ): boolean {
-  return (
-    previous === undefined ||
-    (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length >
-      1 ||
-    candidates.some(
-      (other) =>
-        other.capture !== "import" &&
-        other.node.startIndex < candidate.node.startIndex &&
-        other.node.endIndex > previous.node.endIndex,
-    )
+  if (previous === undefined || mode === "none") return true;
+  if (
+    mode === "contiguous" &&
+    (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length > 1
+  )
+    return true;
+  return candidates.some(
+    (other) =>
+      other.capture !== candidate.capture &&
+      !(mode === "adjacent" && other.capture === "comment") &&
+      other.node.startIndex < candidate.node.startIndex &&
+      other.node.endIndex > previous.node.endIndex,
   );
 }
 
-function mergeImportRuns(
-  imports: readonly Candidate[],
+function mergeRuns(
+  members: readonly Candidate[],
   candidates: readonly Candidate[],
   source: string,
-  grammarId: string,
-): InventoryElement[] {
-  const orderedImports = [...imports].sort((a, b) => a.node.startIndex - b.node.startIndex);
-  // the DIRECTIVE IS READ: import.merge "none" on a candidate keeps it out of any run (its own
-  // element); absent defaults to "contiguous" - the declared value can flip the behavior, and
-  // this read is what makes the declaration do work
-  const mergesWithPrevious = (candidate: (typeof orderedImports)[number]): boolean =>
-    candidate.properties?.["import.merge"] !== "none";
-  const runs: (typeof orderedImports)[] = [];
-  for (const candidate of orderedImports) {
-    const previous = runs.at(-1)?.at(-1);
-    if (importRunSplits(previous, candidate, candidates, source) || !mergesWithPrevious(candidate))
-      runs.push([candidate]);
+  mode: MergeMode,
+): Candidate[][] {
+  const ordered = [...members].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  const runs: Candidate[][] = [];
+  for (const candidate of ordered) {
+    if (runSplits(runs.at(-1)?.at(-1), candidate, candidates, source, mode)) runs.push([candidate]);
     else runs.at(-1)!.push(candidate);
   }
-  return runs.map((run, index) => {
-    const first = run[0]!;
-    const last = run.at(-1)!;
-    return {
-      label: "i" + String(index),
-      span: {
-        start: spanOf(first.node).start,
-        end: spanOf(last.node).end,
-        startByte: first.node.startIndex,
-        endByte: last.node.endIndex,
-      },
-      content: source.slice(first.node.startIndex, last.node.endIndex),
-      nodeType: first.node.type,
-      capture: "import" as const,
-      grammar: grammarId,
-      internalCommentCount: 0,
-      docstringCount: 0,
-    };
-  });
+  return runs;
+}
+
+/**
+ * A merged run as ONE candidate: its node runs from the first member's start to the last member's
+ * end, so containment, comment ownership, span and content read the run like any captured node.
+ */
+function runCandidate(run: readonly Candidate[], source: string): Candidate {
+  const first = run[0]!;
+  const last = run.at(-1)!;
+  if (run.length === 1) return first;
+  return {
+    ...first,
+    node: {
+      startIndex: first.node.startIndex,
+      endIndex: last.node.endIndex,
+      startPosition: first.node.startPosition,
+      endPosition: last.node.endPosition,
+      text: source.slice(first.node.startIndex, last.node.endIndex),
+      type: first.node.type,
+    },
+  };
 }
 
 function materialize(
@@ -514,12 +516,23 @@ function materialize(
   grammarId: string,
   source: string,
   definitionCaptures: ReadonlySet<string>,
+  merges: ReadonlyMap<string, MergeMode>,
 ): {
   definitions: InventoryElement[];
   comments: InventoryElement[];
   imports: InventoryElement[];
 } {
-  const definitions = candidates.filter((c) => definitionCaptures.has(c.capture));
+  // a merging definition capture contributes one candidate per run
+  const definitions: Candidate[] = [];
+  for (const capture of definitionCaptures) {
+    const members = candidates.filter((c) => c.capture === capture);
+    const mode = merges.get(capture);
+    if (mode === undefined) definitions.push(...members);
+    else
+      for (const run of mergeRuns(members, candidates, source, mode))
+        definitions.push(runCandidate(run, source));
+  }
+  definitions.sort((a, b) => a.node.startIndex - b.node.startIndex);
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
@@ -577,7 +590,25 @@ function materialize(
     docstringOf: ownerOf(c, definitions, orderedDefinitions, attachedRuns),
   }));
 
-  const walkImports = mergeImportRuns(imports, candidates, source, grammarId);
+  // imports always merge: `contiguous` unless the grammar declares otherwise
+  const walkImports: InventoryElement[] = mergeRuns(
+    imports,
+    candidates,
+    source,
+    merges.get("import") ?? "contiguous",
+  ).map((run, index) => {
+    const merged = runCandidate(run, source);
+    return {
+      label: "i" + String(index),
+      span: spanOf(merged.node),
+      content: merged.node.text,
+      nodeType: merged.node.type,
+      capture: "import" as const,
+      grammar: grammarId,
+      internalCommentCount: 0,
+      docstringCount: 0,
+    };
+  });
 
   return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
 }
@@ -620,6 +651,7 @@ export async function decompose(
     language,
     source,
     definitionCaptures,
+    scmCaptureMerges(scm),
   );
   return {
     hasError: tree.rootNode.hasError,
@@ -630,12 +662,7 @@ export async function decompose(
   };
 }
 
-/**
- * The wire projection of one walked element: kind, span, label, parent, kind-specific name - never
- * the walked form's source content. One capture, two forms: the walk-time form carries the source;
- * the wire form is what a measurement references.
- */
-/** The projection view: the base fields every Element shares (span, label, parent). */
+/** What every wire element shares; the wire form never carries the walked source. */
 interface ProjectionBase {
   readonly span: Span;
   readonly label: string;
