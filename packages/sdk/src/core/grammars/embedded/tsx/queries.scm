@@ -76,11 +76,11 @@
 (enum_declaration name: (identifier) @name) @type
 
 ; --- imports ----------------------------------------------------------------------------------
-; import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
+; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
 ; since the scattered-merge fix; declared here because the per-file merge measured
 ; diverging (merged span slices included non-import source between scattered imports)
-((import_statement) @import (#set! "import.merge" "contiguous"))
-((import_require_clause) @import (#set! "import.merge" "contiguous"))
+((import_statement) @import (#set! "capture.import.merge" "contiguous"))
+((import_require_clause) @import (#set! "capture.import.merge" "contiguous"))
 (import_alias) @import
 
 ; A RE-EXPORT is an import-lane item: `export * from './a'` / `export { b } from './b'` pulls
@@ -112,3 +112,24 @@
 (export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function ; @priority
 (export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority
 (export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority
+
+; --- top-level statements: the statement group ---------------------------------------------
+; STATEMENT GROUP (this grammar's own capture): executable statements at program level that no
+; definition owns - a script's setup calls, its main loop - one element per run of adjacent
+; statements; only another element ends the run (merge "adjacent": blank lines and comments ride
+; inside). Opaque: a loop's bindings are its implementation, not elements of their own.
+; A test construct (describe(...), test.each(...)(...)) stays the @function above - its statement
+; is a wrapper, so the text predicate keeps it out of the group.
+(program
+  (expression_statement) @statement_group
+  (#not-match? @statement_group "^(describe|it|test|beforeEach|afterEach|beforeAll|afterAll)\\b")
+  (#set! "capture.statement_group.definition" "true")
+  (#set! "capture.statement_group.merge" "adjacent")
+  (#set! "capture.statement_group.opaque" "true"))
+(program
+  [(if_statement) (for_statement) (for_in_statement) (while_statement) (do_statement)
+   (switch_statement) (try_statement) (throw_statement) (labeled_statement) (statement_block)]
+  @statement_group
+  (#set! "capture.statement_group.definition" "true")
+  (#set! "capture.statement_group.merge" "adjacent")
+  (#set! "capture.statement_group.opaque" "true"))

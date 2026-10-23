@@ -134,7 +134,7 @@ describe("store", () => {
     expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "beforeEach", "it"]);
   });
 
-  test("call composites: the member-call variant (describe.only / it.skip) captures; non-family calls produce nothing", async () => {
+  test("call composites: the member-call variant (describe.only / it.skip) captures; non-family calls are a statement group", async () => {
     const inv = await decomposeTS(`
 describe.only("outer", () => {
   it.skip("x", () => {});
@@ -147,6 +147,7 @@ compute(2);
       "d0 function describe L2-L4",
       "d1 function it L3-L3 in d0",
       "d2 binding plain L5-L5",
+      "d3 statement_group - L6-L7",
     ]);
   });
 
@@ -160,11 +161,13 @@ make.each([1])("not a family object", () => {});
 `);
     // ONE element per wrapper call, named by the call (the callee family object); the inner
     // callback is an argument of the outer call and surfaces nowhere; a non-family object
-    // (make.each) is not a composite at all - the name test holds for wrappers too
+    // (make.each) is not a composite at all - the name test holds for wrappers too - so its
+    // statement is top-level code
     expect(summary(inv)).toEqual([
       "d0 function describe L2-L5",
       "d1 function test L3-L3 in d0",
       "d2 function test L4-L4 in d0",
+      "d3 statement_group - L6-L6",
     ]);
     expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "test", "test"]);
   });
@@ -201,9 +204,15 @@ test(1);
 test("not a suite");
 `);
     // every one of these carries a matching callee NAME; none carries a function-valued
-    // argument, so none is a definition - the shape test is what makes the capture honest.
+    // argument, so none is a function - the shape test is what makes the capture honest.
     // (The object literal's toString is a method_definition inside a binding: opaque interior.)
-    expect(summary(inv)).toEqual(["d0 binding obj L2-L2", "d1 binding test L5-L5"]);
+    // The calls are top-level code; the test-family ones stay out of the group too (KNOWN LIMIT:
+    // the group's text predicate cannot see the callback either)
+    expect(summary(inv)).toEqual([
+      "d0 binding obj L2-L2",
+      "d1 statement_group - L3-L4",
+      "d2 binding test L5-L5",
+    ]);
     expect(inv.definitions.every((d) => d.capture !== "function")).toBe(true);
   });
 
@@ -216,13 +225,40 @@ class Klass {
     expect(summary(inv)).toEqual(["d0 class Klass L2-L4", "d1 method method L3-L3 in d0"]);
   });
 
-  test("unlisted nodes passthrough: a file of expressions yields nothing", async () => {
+  test("statement groups: a run spans blank lines and comments; a declaration ends it; opaque inside", async () => {
+    const inv = await decomposeTS(`
+const kv = new Map();
+console.log("ready");
+// stop cleanly
+
+process.on("SIGINT", () => process.exit(0));
+const lines = ["a"];
+for (const line of lines) {
+  const parts = line.split(" ");
+  kv.set(parts[0], parts[1]);
+}
+console.log("bye");
+`);
+    // two runs: the setup calls (across the blank line and the comment, which the first group
+    // owns), then the loop and its tail; the loop's own binding is its implementation
+    expect(summary(inv)).toEqual([
+      "d0 binding kv L2-L2",
+      "d1 statement_group - L3-L6",
+      "d2 binding lines L7-L7",
+      "d3 statement_group - L8-L12",
+      "c0 comment - L4-L4 in d1",
+    ]);
+    expect(inv.definitions[3]!.content.startsWith("for (const line of lines)")).toBe(true);
+    expect(inv.definitions[3]!.content.endsWith('console.log("bye");')).toBe(true);
+  });
+
+  test("top-level expressions and control flow merge into one statement group", async () => {
     const inv = await decomposeTS(`
 const x = someCall(1, 2);
 console.log(x);
 if (x) { throw new Error("no"); }
 `);
-    expect(inv.definitions.map((e) => e.capture)).toEqual(["binding"]);
+    expect(summary(inv)).toEqual(["d0 binding x L2-L2", "d1 statement_group - L3-L4"]);
     expect(inv.comments).toEqual([]);
     expect(inv.imports).toEqual([]);
   });

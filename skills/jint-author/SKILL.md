@@ -2,7 +2,8 @@
 name: jint-author
 description: >
   Author and calibrate jint rules: criteria, handles, fixer messages, and the
-  two-language calibration ritual for promoting a rule to the default set.
+  calibration ritual - small tests on many languages - for promoting a rule to the
+  default set.
   Triggers: rule calibration, jint rules.
 ---
 
@@ -105,14 +106,30 @@ Measured: an agent briefed with extra rule taxonomy kept 34 error-tier
 comments; an agent briefed only with "follow the fixer messages" reached zero.
 The message is the intervention. Everything else is rationalization material.
 
+## Preview the population
+
+Before calibrating, see what the rule will judge. `jint capture` runs the
+extraction only - no classifier calls, no cost:
+
+```bash
+jint capture <path>                  # every element: grammar, capture, span, name
+jint capture <path> --rule <name>    # mark the elements this rule judges
+```
+
+A defect in code that no element covers is invisible to every rule. If the
+construct you want judged is not an element, the fix is a capture in the
+grammar's queries.scm, not a rule: see docs/captures.md and docs/directives.md
+(https://github.com/sedulustech/jint/tree/main/docs).
+
 ## The calibration ritual
 
 A rule is not promoted to the default set from one corpus:
 single-language calibration overfits that language's naming and structure
 conventions.
 
-- Probe on at least two languages: a healthy corpus plus defective fixtures
-  per language.
+- Test small on many languages, not big on a couple: a few healthy units plus
+  a few defective fixtures per language. A language's conventions show in a few
+  units; another hundred units of the same language add little.
 - Document the healthy-max / defective-min gap for each language; thresholds
   must sit inside every measured gap.
 - Validate that the rule's claim survives each language's conventions (naming
@@ -121,5 +138,5 @@ conventions.
   hypothesis, not a rule.
 
 AGENTS.md ("Adding defaults") is the authority for this ritual, including the
-precedent (is_filename_fitting, issue 006: TS probe 0.36/0.88, Go probe
+precedent (is_filename_fitting, issue 006: TS test 0.36/0.88, Go test
 0.25/0.72). Defer to it; do not restate thresholds here.

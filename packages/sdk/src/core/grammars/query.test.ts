@@ -271,9 +271,12 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner")', "g")).toThrow(
       /docstring\.owner wants one of: next, enclosing \(got no value\)/,
     );
-    expect(() => assertScmDirectives('(a) @a (#set! "import.merge" "file")', "g")).toThrow(
-      /import\.merge wants one of: contiguous, none \(got "file"\)/,
+    expect(() => assertScmDirectives('(a) @a (#set! "capture.a.merge" "file")', "g")).toThrow(
+      /capture\.a\.merge" wants one of: contiguous, adjacent, none \(got "file"\)/,
     );
+    expect(() =>
+      assertScmDirectives('(a) @a (#set! "capture.a.merge" "adjacent")', "g"),
+    ).not.toThrow();
     expect(() => assertScmDirectives('(a) @a (#set! "selfNesting" "true")', "g")).toThrow(
       /selfNesting is presence-only - it takes no value \(got "true"\)/,
     );

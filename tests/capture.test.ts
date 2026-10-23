@@ -189,15 +189,15 @@ describe("capture() e2e — the exported sdk surface", () => {
     expect(elements.every((e) => e.grammar === "tsx")).toBe(true);
   });
 
-  test('import.merge "none" flips the merge behavior the declared way', async () => {
+  test('capture.import.merge "none" flips the merge behavior the declared way', async () => {
     // default (embedded .scm): adjacent imports merge per contiguous run - ONE import element.
     // The directive read makes the declaration do work: the same file under an .scm declaring
-    // import.merge "none" yields each import as its OWN element.
+    // capture.import.merge "none" yields each import as its OWN element.
     const dir = setup("merge", {
       "a.ts": 'import x from "x";\nimport y from "y";\nexport const z = 1;\n',
       "none.scm":
-        '((import_statement) @import (#set! "import.merge" "none"))\n' +
-        '((import_require_clause) @import (#set! "import.merge" "none"))\n',
+        '((import_statement) @import (#set! "capture.import.merge" "none"))\n' +
+        '((import_require_clause) @import (#set! "capture.import.merge" "none"))\n',
     });
     const file = join(dir, "a.ts");
     const merged = await capture(file);

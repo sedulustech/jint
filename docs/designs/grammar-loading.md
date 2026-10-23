@@ -338,10 +338,11 @@ walker reads each knob with its code default when absent. The vocabulary: `selfN
 (presence-only, markdown's founding member - it stays in its current form, now typed),
 `attach.gap` (a whole number; the rows a run's end may sit above the definition; default 1;
 0 declares the capture takes no attached run), `docstring.owner` (`enclosing` the default, or
-`next`), `import.merge` (`contiguous`). `import.merge "contiguous"` is DECLARED in c, cpp,
-python and typescript - the grammars whose per-file merge measured diverging - and is also the
-engine default since fix 4, so the declaration pins the measured style in the artifact that
-owns the fact. Naming principle (glossary): the prefix names the grouper, the suffix the knob,
+`next`). Run merging is a capture fact, `capture.<name>.merge` (`contiguous`, `adjacent`,
+`none`): `capture.import.merge "contiguous"` is DECLARED in c, cpp, python and typescript - the
+grammars whose per-file merge measured diverging - and is also the engine default for imports
+since fix 4, so the declaration pins the measured style in the artifact that owns the fact;
+typescript's `statement_group` declares `adjacent`. Naming principle (glossary): the prefix names the grouper, the suffix the knob,
 the value the setting; names never name the node - the pattern IS the target.
 
 **The docstring projection contract.** `@docstring` is a comment-kind capture: the element

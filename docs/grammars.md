@@ -38,12 +38,13 @@ and its source. Captures:
 | `class`     | class-like units (ts/tsx/python/php/cpp class declarations)                                                                             | `classes`                                                      |
 | `type`      | interfaces, type aliases, enums, structs, modules, packages, typedefs                                                                   | `types` (and the `definitions` umbrella)                       |
 | `binding`   | a name bound to a non-callable, non-type value (declarations, assignments)                                                              | `bindings` (and the `definitions` umbrella)                    |
-| `import`    | import statements/declarations (one merged element per file)                                                                            | `imports`                                                      |
+| `import`    | import statements/declarations (one merged element per contiguous run)                                                                  | `imports`                                                      |
 | `comment`   | comments — standalone runs, attached leading runs, or interior comments (counted)                                                       | `comments`                                                     |
 | `docstring` | python's docstring convention - PLUMBING, not a shared capture (projects into the comment element; grammar-side vocabulary, like @name) | `comments` (projected as a comment element with `docstringOf`) |
 
-What a capture's interior yields is the per-capture policy table (`query.ts`); a grammar-level
-shape change is a #set! directive in its .scm. Targets are rule-side vocabulary: a rule names a target, the walk lands
+What a capture's interior yields is declared in the grammar's .scm: shared captures carry the
+defaults in `grammars/shared.ts`, and every change is a #set! directive (docs/directives.md;
+docs/captures.md for how to check the result with `jint capture`). Targets are rule-side vocabulary: a rule names a target, the walk lands
 it on elements. The `files` target skips the walk — the whole file is the judged subject.
 
 Which constructs have no honest capture yet (prose, code blocks, struct fields) is recorded per grammar in `queries.scm` comments and in the design doc's

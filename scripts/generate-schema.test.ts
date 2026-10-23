@@ -3,6 +3,7 @@ import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
   renderFixerTable,
+  renderDirectivesDoc,
   renderHandleCell,
   renderRuleSection,
   renderTargetsDoc,
@@ -144,5 +145,22 @@ describe("renderTargetsDoc", () => {
     const row = (target: string) => rows.find((r) => r.startsWith("| `" + target + "`"))!;
     expect(row("functions")).toContain("| synthetic |");
     expect(row("imports")).toContain("| none |");
+  });
+});
+
+describe("renderDirectivesDoc", () => {
+  test("one row per directive: values escaped for the table, usage or a dash", () => {
+    const doc = renderDirectivesDoc(
+      [
+        { name: "capture.<name>.merge", values: "contiguous | none", summary: "Runs merge." },
+        { name: "attach.gap", values: "a whole number", summary: "Blank rows." },
+      ],
+      new Map([["capture.<name>.merge", ["typescript (import)"]]]),
+    );
+    expect(doc).toContain(
+      "| `capture.<name>.merge` | contiguous \\| none | Runs merge. | typescript (import) |",
+    );
+    expect(doc).toContain("| `attach.gap` | a whole number | Blank rows. | — |");
+    expect(doc).toContain("GENERATED — do not edit.");
   });
 });

@@ -79,6 +79,12 @@ measurement its handle judged actionable and is the only output that demands act
   no heading and no interior structure worth judging alone. Flat by construction - paragraphs
   never nest, so it needs no shape directive - and addressed through the qualified lane
   (`markdown:paragraph`).
+- **statement_group** — typescript's and tsx's top-level code capture (@statement_group,
+  `typescript:statement_group`): executable statements at program level that no definition owns
+  (a script's setup calls, a CLI's main loop), one element per run of adjacent statements. Only
+  another element ends the run - blank lines and comments ride inside (capture merge
+  "adjacent"); opaque, so a loop's bindings are its implementation. A test construct stays a
+  function.
 - **false positive rate**
   — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.
