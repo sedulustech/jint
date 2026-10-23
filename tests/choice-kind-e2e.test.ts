@@ -74,12 +74,12 @@ describe("choice rules", () => {
   });
 
   test.concurrent("a reading too close to call fires the rule's undecided tier", async () => {
-    // the mock puts 0.7 on the selected option and 0.3 on the other: 2.33x, below 3x
+    // the mock puts 0.7 on the selected option and 0.3 on the other: a 0.4 lead, under 0.5
     const undecidedRule = {
       ...CHOICE_RULE,
       handle: {
         ...CHOICE_RULE.handle,
-        undecided: { below: 3, level: "warn", message: "Read it against the code." },
+        undecided: { margin: 0.5, level: "warn", message: "Read it against the code." },
       },
     };
     const { r, report } = await runAgainst("contradicted", undecidedRule);

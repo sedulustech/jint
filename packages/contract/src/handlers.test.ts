@@ -125,12 +125,12 @@ describe("readChoice - probabilities grouped by tier", () => {
     expect(fired?.message).toBe("Rewrite the contradicted sentence.");
   });
 
-  test("an undecided tier fires when the top tier holds less than `below` times the runner-up", () => {
+  test("an undecided tier fires when the top tier leads the runner-up by less than `margin`", () => {
     const withUndecided: ChoiceHandlerData = {
       ...data,
-      undecided: { below: 1.5, level: "warn", message: "Read it against the code." },
+      undecided: { margin: 0.2, level: "warn", message: "Read it against the code." },
     };
-    // error 0.57 vs pass 0.43: 1.33x < 1.5x
+    // error 0.57 vs pass 0.43: a 0.14 lead, under 0.2
     expect(
       readChoice(withUndecided, "justified", {
         justified: 0.43,
@@ -138,7 +138,7 @@ describe("readChoice - probabilities grouped by tier", () => {
         historical: 0.4,
       }),
     ).toEqual({ severity: "warn", message: "Read it against the code.", undecided: true });
-    // error 0.83 vs pass 0.17: 4.9x - decided
+    // error 0.83 vs pass 0.17: a 0.66 lead - decided
     expect(
       readChoice(withUndecided, "contradicted", {
         justified: 0.17,
@@ -149,7 +149,7 @@ describe("readChoice - probabilities grouped by tier", () => {
   });
 
   test("an undecided tier at pass stays silent", () => {
-    const silent: ChoiceHandlerData = { ...data, undecided: { below: 1.5, level: "pass" } };
+    const silent: ChoiceHandlerData = { ...data, undecided: { margin: 0.2, level: "pass" } };
     expect(
       readChoice(silent, "justified", { justified: 0.45, contradicted: 0.3, historical: 0.25 }),
     ).toBe(null);
@@ -175,10 +175,10 @@ describe("checkChoiceHandler", () => {
     ).toContain("non-pass");
     expect(
       checkChoiceHandler(
-        { choices: { justified: "pass", wrong: "error" }, undecided: { below: 1, level: "warn" } },
+        { choices: { justified: "pass", wrong: "error" }, undecided: { margin: 1, level: "warn" } },
         labels,
       ),
-    ).toContain("handle.undecided.below");
+    ).toContain("handle.undecided.margin");
   });
 });
 

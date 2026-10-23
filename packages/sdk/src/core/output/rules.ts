@@ -26,7 +26,7 @@ function handleLine(rule: Rule): string {
     const entries = Object.entries(h.choices);
     const undecided =
       h.undecided !== undefined
-        ? " / undecided < " + h.undecided.below + "x " + h.undecided.level
+        ? " / undecided margin < " + h.undecided.margin + " " + h.undecided.level
         : "";
     const line =
       "choice map: " +

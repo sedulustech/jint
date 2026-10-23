@@ -88,7 +88,7 @@ function renderChoiceHandle(handle: ChoiceRuleSchema["handle"]): string {
   const map = entries.map(
     ([label, tier]) => `${label} → ${typeof tier === "string" ? tier : tier.level}`,
   );
-  if (undecided) map.push(`undecided (< ${undecided.below}x) → ${undecided.level}`);
+  if (undecided) map.push(`undecided (margin < ${undecided.margin}) → ${undecided.level}`);
   const tiers = [...entries.map(([, tier]) => tier), ...(undecided ? [undecided] : [])];
   const messages = tiers.flatMap((tier) =>
     typeof tier !== "string" && tier.message !== undefined ? [`"${tier.message}"`] : [],

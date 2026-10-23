@@ -10,7 +10,7 @@ rule's action.
 ## Tests: is_comment_justified
 
 Corpus `sdk`: 9 files in `packages/sdk/src/core`, 95 units. Each cell is `run 1 / run 2`.
-All counts use `below: 1.5`.
+All counts use `margin: 0.2`.
 
 | test | change                                                                              | error   | pass    | undecided | request                             |
 | ---- | ----------------------------------------------------------------------------------- | ------- | ------- | --------- | ----------------------------------- |
@@ -20,7 +20,7 @@ All counts use `below: 1.5`.
 | v11  | add narration; provenance becomes historical_events                                 | 47 / 48 | 24 / 24 | 24 / 23   | [v11](calibration/v11.request.json) |
 | v12  | v10 options; provenance reworded                                                    | 50 / 50 | 26 / 27 | 19 / 18   | [v12](calibration/v12.request.json) |
 
-v5 had no `undecided` handle. Its counts are read again at `below: 1.5`.
+v5 had no `undecided` handle. Its counts are read again at `margin: 0.2`.
 
 The same tests on other corpora, undecided readings only:
 

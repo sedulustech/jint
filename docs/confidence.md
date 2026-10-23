@@ -12,8 +12,21 @@ option. jint measures the top tier, because the tier is the verdict.
 
 ## Undecided
 
-A reading is undecided when the top tier's mass is less than `below` times the runner-up
-tier's mass. With two tiers, `below: 1.5` makes a top tier under 0.60 undecided.
+A reading is undecided when the top tier's mass leads the runner-up tier's mass by less than
+`margin`. With two tiers, `margin: 0.2` makes a top tier under 0.60 undecided.
+
+The margin is in probability units, the same units as jev's variation. jev does not return the
+same probabilities for the same request: a byte-identical request moves by about 0.02. Across
+reruns of one test, the margin moves by:
+
+| percentile | is_comment_justified (913 pairs) | is_class_cohesive (33 pairs) |
+| ---------- | -------------------------------- | ---------------------------- |
+| p50        | 0.04                             | 0.04                         |
+| p90        | 0.12                             | 0.10                         |
+| p99        | 0.24                             | 0.22                         |
+
+Set `margin` from these numbers, per rule. A reading with a larger lead keeps its tier on a
+rerun. A reading near the margin can still change between undecided and decided.
 
 Undecided is not a severity. It does not say how bad the code is. It says that the reading
 does not decide.
@@ -26,7 +39,7 @@ The default response to an undecided reading is recalibration, not an action on 
 An undecided reading must not fail a build. Its tier changes between runs on the same input.
 
 The table counts tier changes between two runs of the same config on the same inputs. All
-counts use `below: 1.5`.
+counts use `margin: 0.2`.
 
 | test | corpus | readings | tier changes | changes between two decided readings |
 | ---- | ------ | -------- | ------------ | ------------------------------------ |
@@ -45,6 +58,7 @@ fails only on decided readings, these runs do not flake.
 
 ## Limits
 
-- `below: 1.5` is not fitted to labeled data. We chose it on two TypeScript corpora.
+- `margin: 0.2` is not fitted to labeled data. We chose it on two TypeScript corpora.
+- jint pins `jev-1.13.0`. A new jev release changes the readings, so recalibrate before a switch.
 - jev gives no default threshold. Its examples use different floors (0.5, 0.6), and it says to
   set a threshold per question: [docs.typesafe.ai/confidence](https://docs.typesafe.ai/confidence.md).

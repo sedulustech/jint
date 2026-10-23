@@ -130,7 +130,7 @@ const CHOICE_HANDLER_SCHEMA = Type.Object(
     choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA),
     undecided: Type.Optional(
       Type.Object({
-        below: Type.Number(),
+        margin: Type.Number(),
         level: LEVEL_SCHEMA,
         message: Type.Optional(Type.String()),
       }),
@@ -138,7 +138,7 @@ const CHOICE_HANDLER_SCHEMA = Type.Object(
   },
   {
     description:
-      "Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { below, level, message? }: when the top tier holds less than `below` (> 1) times the runner-up tier's probability, this tier fires instead - an undecided reading the rule acts on like any other tier.",
+      "Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { margin, level, message? }: when the top tier's probability leads the runner-up tier's by less than `margin` (between 0 and 1), this tier fires instead - an undecided reading the rule acts on like any other tier.",
   },
 );
 

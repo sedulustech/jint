@@ -267,7 +267,7 @@ describe("getRun choice cells", () => {
           configPath: "/c.json",
           handles: {
             r_split: { choices },
-            r_close: { choices, undecided: { below: 1.5, level: "warn" } },
+            r_close: { choices, undecided: { margin: 0.2, level: "warn" } },
           },
         }),
       );

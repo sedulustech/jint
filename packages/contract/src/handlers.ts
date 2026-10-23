@@ -30,11 +30,12 @@ export interface ScoreHandlerData {
 }
 
 /**
- * The tier for an undecided reading: it fires when the winning tier holds less than `below` times
- * the probability of the runner-up tier (jev's top-to-second measure, over tiers). `below` > 1.
+ * The tier for an undecided reading: it fires when the winning tier's probability leads the
+ * runner-up tier's by less than `margin` (0 < margin < 1). The margin is in probability units, the
+ * same units as jev's run-to-run variation, so it can be set from measured reruns.
  */
 export interface UndecidedTier extends ScoreTier {
-  readonly below: number;
+  readonly margin: number;
 }
 
 /**
@@ -193,8 +194,8 @@ export function choiceTierMass(
 /**
  * The choice read: probability mass per tier level. The top tier is the verdict (a tie goes to the
  * selected option's tier); its most probable option supplies the message. With an undecided tier
- * declared, a top tier holding less than `below` times the runner-up's mass fires the undecided
- * tier instead. Null = pass.
+ * declared, a top tier leading the runner-up's mass by less than `margin` fires the undecided tier
+ * instead. Null = pass.
  */
 export function readChoice(
   data: ChoiceHandlerData,
@@ -210,7 +211,7 @@ export function readChoice(
     (a, b) => mass[b] - mass[a] || Number(b === selectedLevel) - Number(a === selectedLevel),
   );
   const [top, second] = [ranked[0]!, ranked[1]!];
-  if (data.undecided !== undefined && mass[top] < data.undecided.below * mass[second]) {
+  if (data.undecided !== undefined && mass[top] - mass[second] < data.undecided.margin) {
     const tier = data.undecided;
     return tier.level === "pass"
       ? null
@@ -308,8 +309,8 @@ export function checkChoiceHandler(
   if (Object.values(data.choices).every((entry) => asTier(entry).level === "pass")) {
     return "handle.choices: at least one tier must be non-pass";
   }
-  if (data.undecided !== undefined && !(data.undecided.below > 1)) {
-    return `handle.undecided.below: must be greater than 1 (the top tier's mass over the runner-up's), got ${data.undecided.below}`;
+  if (data.undecided !== undefined && !(data.undecided.margin > 0 && data.undecided.margin < 1)) {
+    return `handle.undecided.margin: must be between 0 and 1 (the top tier's lead over the runner-up, in probability), got ${data.undecided.margin}`;
   }
   return null;
 }
