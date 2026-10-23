@@ -35,15 +35,15 @@ Rendered verbatim from the spec package (@jint/defaults). Instructions are the y
 
 ## `is_naming_convention_consistent`
 
-| kind | target                                       | handle                                    |
-| ---- | -------------------------------------------- | ----------------------------------------- |
-| noul | functions, classes, methods, types, bindings | warn less than 0.75, error less than 0.65 |
+| kind | target | handle                                    |
+| ---- | ------ | ----------------------------------------- |
+| noul | files  | warn less than 0.75, error less than 0.65 |
 
-**Instructions.** Do identifiers of the same kind in this unit follow a single casing convention?
+**Instructions.** Do identifiers of the same kind in this file follow a single casing convention?
 
-**True.** Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.
+**True.** Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the file has already established for that kind.
 
-**False.** Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.
+**False.** Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.
 
 ## `is_greppable`
 

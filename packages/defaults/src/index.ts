@@ -146,19 +146,15 @@ export const isVocabularyConsistent: NoulRuleSchema = {
 
 export const isNamingConventionConsistent: NoulRuleSchema = {
   name: "is_naming_convention_consistent",
-  instructions: "Do identifiers of the same kind in this unit follow a single casing convention?",
-  // (threshold note: re-anchored below for the per-rule question, issue 001)
+  instructions: "Do identifiers of the same kind in this file follow a single casing convention?",
   criteria: {
-    true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
+    true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the file has already established for that kind.",
     false:
-      "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
+      "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
   },
-  // Explicit union, not the definitions shorthand - same measured set (see is_name_purposeful).
-  target: ["functions", "classes", "methods", "types", "bindings"],
-  // Defect pole "false" (casing conventions mixed). The self-corpus gap between the blatant
-  // convention mixers and the consistent files (P(good) 0.56 -> 0.67, i.e. P(bad) 0.44 -> 0.33)
-  // puts error_at 0.35 above the healthy p5 (P(bad) 0.28) and m1_bad_names (P(bad) 0.39)
-  // errors with it; warn_at 0.25 keeps the clean corpus (P(bad) 0.09-0.11) clear.
+  // A file, not an element: casing consistency is a comparison, and one element rarely holds
+  // two identifiers of the same kind to compare.
+  target: "files",
   handle: { warn: { less_than: 0.75 }, error: { less_than: 0.65 } },
 };
 
