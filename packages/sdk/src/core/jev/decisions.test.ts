@@ -114,6 +114,7 @@ describe("decisionsFetch", () => {
       score: 0.75,
       probabilities: { "0": 0.5, "1": 0.25, "2": 0.25 },
       confidence: 0.5,
+      legend: { "0": "low", "1": "mid", "2": "high" },
     });
   });
 

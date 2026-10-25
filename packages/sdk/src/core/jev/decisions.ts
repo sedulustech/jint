@@ -76,11 +76,14 @@ function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
     return { type: "noul", noul: a.type === "predicate" ? a.probability : (shares.true ?? 0) };
   if (q.type === "score") {
     const score = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
+    // System One echoes each level's text as the legend; the run view shows the levels from it.
+    const legend = Object.fromEntries((q.criteria as string[]).map((text, i) => [String(i), text]));
     return {
       type: "score",
       score,
-      probabilities: shares,
       confidence: Math.max(...Object.values(shares)),
+      legend,
+      probabilities: shares,
     };
   }
   delete shares[NONE];
