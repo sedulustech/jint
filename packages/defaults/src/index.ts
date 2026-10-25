@@ -148,7 +148,7 @@ export const isNamingConventionConsistent: NoulRuleSchema = {
   name: "is_naming_convention_consistent",
   instructions: "Do identifiers of the same kind in this file follow a single casing convention?",
   criteria: {
-    true: "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the file has already established for that kind.",
+    true: "Identifiers of the same kind follow one casing convention.",
     false:
       "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
   },
