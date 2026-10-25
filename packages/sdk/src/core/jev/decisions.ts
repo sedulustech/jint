@@ -129,18 +129,19 @@ export function decisionsFetch(base: Fetch = (input, init) => fetch(input, init)
     const reply = (await response.json()) as {
       model?: string;
       answers?: DecisionsAnswer[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        input_tokens_details?: { cached_tokens?: number };
+      };
     };
     const byName = new Map((reply.answers ?? []).map((a) => [a.name, a]));
-    const refused = names.filter((_, i) => byName.get(`q${i}`)?.type === "refusal");
-    if (refused.length > 0) {
-      return json(422, {
-        error: { message: `${request.model} declined to answer ${refused.join(", ")}` },
-      });
-    }
+    // A refused question keeps its place as a refusal, so only its own rule loses the reading: the
+    // model refuses a score none of whose levels fits (complexity of a plain data object).
     const answers = Object.fromEntries(
       names.map((name, i) => {
         const a = byName.get(`q${i}`);
+        if (a?.type === "refusal") return [name, { type: "refusal" }];
         return [name, a === undefined ? undefined : fromDecisions(request.questions[name]!, a)];
       }),
     );
@@ -150,6 +151,7 @@ export function decisionsFetch(base: Fetch = (input, init) => fetch(input, init)
       usage: {
         input_tokens: reply.usage?.input_tokens ?? 0,
         output_tokens: reply.usage?.output_tokens ?? 0,
+        cached_input_tokens: reply.usage?.input_tokens_details?.cached_tokens ?? 0,
       },
     });
   };

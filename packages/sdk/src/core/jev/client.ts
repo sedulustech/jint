@@ -194,6 +194,8 @@ function extractAnswers(
   const out: Record<string, ClassifiedAnswer> = {};
   for (const [name, spec] of Object.entries(questions)) {
     const answer: unknown = result.answers[name];
+    // A refused question has no reading: left out, its rule alone reports a missing answer.
+    if ((answer as { type?: string } | undefined)?.type === "refusal") continue;
     const shape = ANSWER_SHAPES[spec.type];
     if (!Value.Check(shape.schema, answer)) {
       throw new ClassifyError(

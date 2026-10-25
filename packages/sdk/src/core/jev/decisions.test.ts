@@ -55,7 +55,7 @@ describe("decisionsFetch", () => {
     expect(await res.json()).toEqual({
       model: "gpt-6-luna",
       answers: { "rule in L1-L9": { type: "noul", noul: 0.14 } },
-      usage: { input_tokens: 9, output_tokens: 0 },
+      usage: { input_tokens: 9, output_tokens: 0, cached_input_tokens: 0 },
     });
   });
 
@@ -117,12 +117,25 @@ describe("decisionsFetch", () => {
     });
   });
 
-  test("a refusal fails the request instead of returning a partial reading", async () => {
-    const api = fake({ answers: [{ type: "refusal", name: "q0" }] });
-    const res = await ask(decisionsFetch(api.fetch), {
-      r: { type: "noul", instructions: "Is it?" },
+  test("a refusal marks only its own question; the others keep their readings", async () => {
+    const api = fake({
+      answers: [
+        { type: "refusal", name: "q0" },
+        { type: "predicate", name: "q1", probability: 0.3 },
+      ],
+      usage: { input_tokens: 9, output_tokens: 0, input_tokens_details: { cached_tokens: 7 } },
     });
-    expect(res.status).toBe(422);
+    const res = await ask(decisionsFetch(api.fetch), {
+      refused: { type: "score", instructions: "How?", criteria: ["low", "high"] },
+      kept: { type: "noul", instructions: "Is it?" },
+    });
+    const body: any = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.answers).toEqual({
+      refused: { type: "refusal" },
+      kept: { type: "noul", noul: 0.3 },
+    });
+    expect(body.usage.cached_input_tokens).toBe(7);
   });
 
   test("an API error passes through with its status", async () => {
