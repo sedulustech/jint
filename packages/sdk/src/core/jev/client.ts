@@ -36,6 +36,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { recordRequests } from "./debug.ts";
+import { decisionsFetch, isDecisionsModel } from "./decisions.ts";
 import type { ClassifiedAnswer } from "@jint/contract";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
@@ -84,6 +85,11 @@ export interface ClassifierConfig {
   /** Overrides the environment key; tests inject a fake transport instead. */
   apiKey?: string;
   baseURL?: string;
+  /**
+   * The model id; defaults to $JINT_MODEL, then the pinned jev release. A Decisions model (gpt-*)
+   * is asked through OpenAI's Decisions API with $OPENAI_API_KEY.
+   */
+  model?: string;
   /** Custom fetch for tests (structurally the vendor client's fetch). */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /**
@@ -97,7 +103,7 @@ export interface ClassifierConfig {
 export function createClassifier(config?: ClassifierConfig): Classifier {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
-    if (client === null) client = makeClient(recordRequests(config), state.path);
+    if (client === null) client = makeClient(recordRequests(routeModel(config)), state.path);
     const sdkQuestions = compileQuestions(questions);
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
@@ -118,13 +124,29 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
  */
 export const JEV_MODEL = "jev-1.13.0";
 
+/** The model a run asks: the config's, else $JINT_MODEL, else the pinned jev release. */
+export const resolveModel = (model?: string): string =>
+  model ?? process.env.JINT_MODEL ?? JEV_MODEL;
+
+/** A Decisions model swaps in the translating fetch and OpenAI's key; System One goes as is. */
+function routeModel(config: ClassifierConfig | undefined): ClassifierConfig {
+  const model = resolveModel(config?.model);
+  if (!isDecisionsModel(model)) return { ...config, model };
+  return {
+    ...config,
+    model,
+    apiKey: config?.apiKey ?? process.env.OPENAI_API_KEY,
+    fetch: decisionsFetch(config?.fetch),
+  };
+}
+
 function makeClient(config: ClassifierConfig | undefined, input: string): TypeSafeClient {
   const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   try {
     return new TypeSafeClient({
       apiKey: config?.apiKey,
       baseURL: config?.baseURL,
-      defaultModel: JEV_MODEL,
+      defaultModel: config?.model ?? JEV_MODEL,
       fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429

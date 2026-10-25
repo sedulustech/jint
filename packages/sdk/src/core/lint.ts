@@ -29,8 +29,9 @@ import {
   type InputStats,
   type InputSummary,
 } from "./input/stats.ts";
-import { createClassifier } from "./jev/client.ts";
+import { createClassifier, resolveModel } from "./jev/client.ts";
 import { recordSummary } from "./jev/debug.ts";
+import { isDecisionsModel } from "./jev/decisions.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
@@ -683,9 +684,15 @@ function scopeElementRules(rules: readonly Rule[], options: LintOptions): readon
   return rules.filter((rule) => !judgesWholeUnit(rule, "file"));
 }
 
-/** A key reaches the classifier via config apiKey or the environment; empty counts as absent. */
+/**
+ * A key reaches the classifier via config apiKey or the environment (OPENAI_API_KEY for a Decisions
+ * model); empty counts as absent.
+ */
 export function apiKeyAvailable(configKey?: string): boolean {
-  return (configKey !== undefined && configKey !== "") || !!process.env.TYPESAFE_API_KEY;
+  const envKey = isDecisionsModel(resolveModel())
+    ? process.env.OPENAI_API_KEY
+    : process.env.TYPESAFE_API_KEY;
+  return (configKey !== undefined && configKey !== "") || !!envKey;
 }
 
 /**
