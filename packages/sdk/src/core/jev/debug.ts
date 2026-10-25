@@ -26,7 +26,9 @@ export interface RequestRecordSummary {
 
 let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
-let usageTotals = { input: 0, output: 0 };
+let usageTotals = { input: 0, output: 0, cached: 0 };
+/** The model the run asks, from the classifier config: readings differ between models. */
+let runModel: string | undefined;
 
 /** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
 function errorMessage(err: unknown): string {
@@ -72,13 +74,14 @@ export function recordRunManifest(manifest: {
   /** Wall duration of the run in ms, from recorder start to manifest write. */
   durationMs?: number;
   /** Token usage summed across the run's classifier responses. */
-  usage?: { input: number; output: number };
+  usage?: { input: number; output: number; cached: number };
 }): void {
   if (runSummary === null) return;
   try {
     const withRunStats = {
       ...manifest,
       durationMs: Date.now() - runStartedAt,
+      model: runModel,
       usage: { ...usageTotals },
     };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
@@ -115,7 +118,8 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
   // The run id IS the run's start, and the run dir's name - one timestamp, one identity.
   const runId = Date.now();
   runStartedAt = runId;
-  usageTotals = { input: 0, output: 0 };
+  usageTotals = { input: 0, output: 0, cached: 0 };
+  runModel = config?.model;
   const base = runsBase();
   const dir = `${base}/${runId}`;
   runSummary = {
@@ -157,11 +161,14 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
         response: asJson(responseText),
       };
       const usage = (
-        record.response as { usage?: { input_tokens?: number; output_tokens?: number } }
+        record.response as {
+          usage?: { input_tokens?: number; output_tokens?: number; cached_input_tokens?: number };
+        }
       ).usage;
       if (usage) {
         usageTotals.input += usage.input_tokens ?? 0;
         usageTotals.output += usage.output_tokens ?? 0;
+        usageTotals.cached += usage.cached_input_tokens ?? 0;
       }
       mkdirSync(dir, { recursive: true });
       const state = (record.request as { state?: Record<string, unknown> }).state ?? {};

@@ -56,6 +56,12 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
             data-testid="run-marker"
             className="flex flex-wrap items-center gap-related text-muted-foreground"
           >
+            {run.model !== undefined && (
+              <>
+                <span data-testid="run-model">{run.model}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            )}
             <span>
               {run.configPath !== null && "config " + baseName(run.configPath)}
               {run.configPath === null && (run.legacy ? "migrated run" : "default rules")}
@@ -78,7 +84,14 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
                 <span>
                   {runDuration(run.durationMs)} · {run.usage.input.toLocaleString()} in /{" "}
                   {run.usage.output.toLocaleString()} out tokens
+                  {(run.usage.cached ?? 0) > 0 && ` (${run.usage.cached!.toLocaleString()} cached)`}
                 </span>
+              </>
+            )}
+            {run.cost !== undefined && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span data-testid="run-cost">${run.cost.toFixed(4)}</span>
               </>
             )}
           </span>

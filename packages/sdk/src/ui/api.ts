@@ -16,6 +16,7 @@ import {
   type Severity,
 } from "@jint/contract";
 import { runsBase } from "../core/jev/debug.ts";
+import { runCost } from "../core/jev/prices.ts";
 import type { Dirent } from "node:fs";
 
 /** The wire shape of one recorded classifier request file, as served by this module. */
@@ -90,7 +91,11 @@ interface RunSummary {
   /** Wall duration of the run in ms (manifest durationMs); absent on pre-stats runs. */
   durationMs?: number;
   /** Token usage summed across the run's classifier responses; absent on pre-stats runs. */
-  usage?: { input: number; output: number };
+  usage?: { input: number; output: number; cached?: number };
+  /** The model the run asked; absent on runs recorded before the manifest carried it. */
+  model?: string;
+  /** Input cost in USD at the model's published price; absent when the model is unpriced. */
+  cost?: number;
 }
 
 interface RequestItem {
@@ -360,7 +365,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     legacy?: boolean;
     handles?: Record<string, HandlerData>;
     durationMs?: number;
-    usage?: { input: number; output: number };
+    usage?: { input: number; output: number; cached?: number };
+    model?: string;
   };
   return {
     id: runId,
@@ -374,6 +380,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
     legacy: manifest?.legacy === true,
     durationMs: manifest?.durationMs,
     usage: manifest?.usage,
+    model: manifest?.model,
+    cost: runCost(manifest?.model, manifest?.usage),
   };
 }
 

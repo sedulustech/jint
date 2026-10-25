@@ -15,7 +15,11 @@ export interface RunSummary {
   /** Wall duration of the run in ms (manifest durationMs); absent on pre-stats runs. */
   durationMs?: number;
   /** Token usage summed across the run's classifier responses; absent on pre-stats runs. */
-  usage?: { input: number; output: number };
+  usage?: { input: number; output: number; cached?: number };
+  /** The model the run asked; absent on runs recorded before the manifest carried it. */
+  model?: string;
+  /** Input cost in USD at the model's published price; absent when the model is unpriced. */
+  cost?: number;
 }
 
 export interface RunDetail {

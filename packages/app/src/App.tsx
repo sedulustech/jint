@@ -96,6 +96,7 @@ function RunPicker({
               >
                 <span className="truncate text-foreground">{runLabel(run)}</span>
                 <span className="truncate text-muted-foreground">
+                  {run.model !== undefined && ` · ${run.model}`}
                   {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                   {run.configPath === null &&
                     (run.legacy ? " · migrated run" : " · default rules")}{" "}
@@ -220,6 +221,7 @@ function RunLanding({ runList, onPick }: { runList: RunSummary[]; onPick: (id: s
                     line up across every row (F2) */}
                 <span className="min-w-0 truncate">{runLabel(run)}</span>
                 <span className="ml-auto truncate pl-related text-muted-foreground">
+                  {run.model !== undefined && ` · ${run.model}`}
                   {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                   {run.configPath === null &&
                     (run.legacy ? " · migrated run" : " · default rules")}{" "}
