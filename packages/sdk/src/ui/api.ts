@@ -32,7 +32,11 @@ export interface RequestFile {
     state?: Record<string, unknown>;
     questions?: Record<
       string,
-      { type?: string; instructions?: string; criteria?: { true?: string; false?: string } }
+      {
+        type?: string;
+        instructions?: string;
+        criteria?: { true?: string; false?: string } | readonly string[];
+      }
     >;
     model?: string;
   };
@@ -624,15 +628,17 @@ async function readRequestRow(
     const requestFile = JSON.parse(text) as RequestFile;
     const questions = requestFile.request?.questions ?? {};
     const answers = requestFile.response?.answers ?? {};
-    const probs = Object.values(answers)
-      .map((a) => {
+    const probs = Object.entries(answers)
+      .map(([key, a]) => {
         if (typeof a?.noul === "number") return a.noul;
         // a choice answer joins the p-space summary as its selected option's probability
         if (typeof a?.choice === "string") return a.probabilities?.[a.choice] ?? null;
         // score answers join the p-space summary normalized to 0..1 so a score-only request
-        // (or a request whose score is the only answer) is visible in max-p and the strip
-        if (typeof a?.score === "number" && a.legend && Object.keys(a.legend).length > 1) {
-          return a.score / (Object.keys(a.legend).length - 1);
+        // (or a request whose score is the only answer) is visible in max-p and the strip; the
+        // level count is the question's, not an echo the model may leave out
+        const levels = questions[key]?.criteria;
+        if (typeof a?.score === "number" && Array.isArray(levels) && levels.length > 1) {
+          return a.score / (levels.length - 1);
         }
         return null;
       })

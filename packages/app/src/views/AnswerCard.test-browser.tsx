@@ -82,3 +82,19 @@ test("a choice answer reads its verdict from the tier mass and colors the winnin
   );
   expect(track?.getAttribute("title")).toBe("error: digression 0.30 + provenance 0.27 = 0.57");
 });
+
+// A score answer from a model that does not echo the level texts (luna): the levels still read,
+// because the legend comes from the question - the rule's own criteria, indexed by level.
+const scoreQA: QA = {
+  key: "is_literal_shared",
+  rule: "is_literal_shared",
+  question: { type: "score", criteria: ["none repeat", "some repeat", "many repeat"] },
+  answer: { type: "score", score: 0.4, confidence: 0.7, probabilities: { 0: 0.7, 1: 0.2, 2: 0.1 } },
+};
+
+test("a score answer shows each level's text from the question, not the model's echo", () => {
+  const { container } = render(<AnswerCard qa={scoreQA} sev={null} />);
+  const rows = [...container.querySelectorAll('[data-testid="answer-distribution"] > li')];
+  expect(rows.map((r) => r.getAttribute("data-option"))).toEqual(["0", "1", "2"]);
+  expect(rows[1]!.textContent).toContain("some repeat");
+});

@@ -11,8 +11,15 @@ import { LabeledText, SectionHeading } from "./LabeledText";
 export interface QA {
   key: string;
   rule: string;
-  /** Criteria: {true, false} for noul, option label -> meaning for choice. */
-  question: { type?: string; instructions?: string; criteria?: Record<string, string> };
+  /**
+   * Criteria: {true, false} for noul, option label -> meaning for choice, the level texts in order
+   * for score (an array: its index is the level).
+   */
+  question: {
+    type?: string;
+    instructions?: string;
+    criteria?: Record<string, string> | readonly string[];
+  };
   answer?: {
     type?: string;
     noul?: number;
@@ -71,8 +78,8 @@ export function AnswerCard({
   // the answered option: a score's rounded level, or the selected choice label
   const answeredKey = isChoice ? choice : index !== null ? String(index) : null;
   const ranked = isScore || isChoice;
-  // a choice answer carries no legend: the options and their meanings live in the question
-  const legend = isChoice ? (qa.question.criteria ?? {}) : isScore ? (qa.answer?.legend ?? {}) : {};
+  // the legend is the rule's own text, read from the question: a model may not echo it back
+  const legend: Record<string, string> = ranked ? { ...qa.question.criteria } : {};
   const probabilities = ranked ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
