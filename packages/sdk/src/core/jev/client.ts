@@ -55,6 +55,8 @@ const SCORE_ANSWER_SCHEMA = Type.Object({
   score: Type.Number(),
   probabilities: Type.Record(Type.String(), Type.Number()),
   confidence: Type.Number(),
+  // System One echoes each level's text; a model that drops it fails here, not as a blank card
+  legend: Type.Record(Type.String(), Type.String()),
 });
 
 /**

@@ -82,6 +82,10 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
                 score: override ?? opts.score ?? 1,
                 probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
                 confidence: 0.8,
+                // jev echoes each level's text back as the legend
+                legend: Object.fromEntries(
+                  ((question.criteria as string[] | undefined) ?? []).map((t, i) => [String(i), t]),
+                ),
               }
             : question.type === "choice"
               ? choiceAnswer(question, opts.choice)

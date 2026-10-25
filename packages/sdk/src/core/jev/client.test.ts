@@ -59,6 +59,7 @@ const scoreBody = {
       score: 2,
       probabilities: { 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 },
       confidence: 0.9,
+      legend: { 0: "obvious", 1: "mostly clear", 2: "reconstructed intent", 3: "dense" },
     },
   },
   usage: { input_tokens: 10, output_tokens: 1 },
@@ -288,6 +289,14 @@ describe("createClassifier", () => {
       {
         model: "jev-latest",
         answers: { is_name_purposeful: { type: "noul", noul: 1.5 } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+      {
+        // a score with no legend: the level texts the run view shows are missing
+        model: "jev-latest",
+        answers: {
+          is_name_purposeful: { type: "score", score: 1, probabilities: { 0: 1 }, confidence: 1 },
+        },
         usage: { input_tokens: 1, output_tokens: 1 },
       },
       { model: "jev-latest", answers: {}, usage: { input_tokens: 1, output_tokens: 1 } },
