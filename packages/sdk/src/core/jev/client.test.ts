@@ -172,11 +172,11 @@ describe("createClassifier", () => {
       true: "the property holds",
       false: "the property does not hold",
     });
-    expect(body.state).toEqual({
-      path: "src/a.ts",
-      content: "export const x = 1;\n",
-      id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
-    });
+    // the model judges the code, never jint's id: the id rides in a header the recorder keeps
+    expect(body.state).toEqual({ path: "src/a.ts", content: "export const x = 1;\n" });
+    expect(new Headers(captured!.init.headers).get("X-Jint-Id")).toBe(
+      elementWireId({ start: { line: 1 }, end: { line: 2 } }),
+    );
   });
 
   test("missing TYPESAFE_API_KEY fails loud JEV_AUTH at first call, not at import", async () => {

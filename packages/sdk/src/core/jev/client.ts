@@ -35,7 +35,7 @@ import {
   type Questions,
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
-import { recordRequests } from "./debug.ts";
+import { ID_HEADER, recordRequests } from "./debug.ts";
 import { decisionsFetch, isDecisionsModel } from "./decisions.ts";
 import type { ClassifiedAnswer } from "@jint/contract";
 
@@ -105,12 +105,16 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
   return async (state, questions) => {
     if (client === null) client = makeClient(recordRequests(routeModel(config)), state.path);
     const sdkQuestions = compileQuestions(questions);
+    // The id is jint's handle, not something to judge: a fresh id each run would make identical
+    // code a different request (luna's readings moved by up to 0.55 on unchanged code). It rides
+    // in a header the recorder keeps, so the run UI can still join a request to its cell.
+    const { id, ...judged } = state;
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
-      result = await client.systemOne({
-        state: state as unknown as EntryType,
-        questions: sdkQuestions,
-      });
+      result = await client.systemOne(
+        { state: judged as unknown as EntryType, questions: sdkQuestions },
+        { headers: { [ID_HEADER]: id } },
+      );
     } catch (e) {
       throw mapTransportError(e, state.path);
     }

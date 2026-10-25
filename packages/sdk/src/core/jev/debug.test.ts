@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { recordRequests, recordSummary } from "./debug.ts";
+import { ID_HEADER, recordRequests, recordSummary } from "./debug.ts";
 
 const DIR = "tmp/jev-record-test";
 
@@ -81,6 +81,18 @@ describe("recordRequests", () => {
     expect(request.request.state.path).toBe("src/a.ts");
     expect(request.request.model).toBe("jev-latest");
     expect(request.response.model).toBe("jev-1.0");
+  });
+
+  test("the state's id, sent beside the state in a header, is kept in the record", async () => {
+    const config = recordRequests({ fetch: passthrough() });
+    await config.fetch!("https://api.typesafe.ai/v1/systemone", {
+      method: "POST",
+      headers: { [ID_HEADER]: "0f6c" },
+      body: JSON.stringify({ state: { path: "a.ts", source: "x" }, questions: {}, model: "m" }),
+    });
+    const request = JSON.parse(readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8"));
+    expect(request.id).toBe("0f6c");
+    expect(request.request.state.id).toBeUndefined();
   });
 
   test("state shape drives the kind: single-element source -> elements, else files", async () => {

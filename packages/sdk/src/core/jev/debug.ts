@@ -24,6 +24,9 @@ export interface RequestRecordSummary {
   override: boolean;
 }
 
+/** Carries a state's id beside the request, never inside the state the model judges. */
+export const ID_HEADER = "X-Jint-Id";
+
 let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
 let usageTotals = { input: 0, output: 0, cached: 0 };
@@ -151,6 +154,7 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
       const record = {
         ts: new Date().toISOString(),
         url: input,
+        id: new Headers(requestInit.headers).get(ID_HEADER) ?? undefined,
         durationMs: Date.now() - startedAt,
         request: asJson(
           requestInit.body !== undefined && typeof requestInit.body === "string"

@@ -23,6 +23,8 @@ import type { Dirent } from "node:fs";
 export interface RequestFile {
   ts?: string;
   url?: string;
+  /** The state's id, recorded beside the request; older records carry it in request.state. */
+  id?: string;
   /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
   durationMs?: number;
   status?: number;
@@ -637,7 +639,12 @@ async function readRequestRow(
       .filter((n): n is number => n !== null);
     const state = requestFile.request?.state ?? {};
     const rules: string[] = [];
-    let elementId: string | null = typeof state.id === "string" ? state.id : null;
+    let elementId: string | null =
+      typeof requestFile.id === "string"
+        ? requestFile.id
+        : typeof state.id === "string"
+          ? state.id
+          : null;
     for (const [key, question] of Object.entries(questions)) {
       const m = key.match(/^(.+?) in (.+)$/);
       const rule = m ? m[1]! : key;

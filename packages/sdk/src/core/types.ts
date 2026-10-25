@@ -314,7 +314,10 @@ export interface FileState {
 export interface ElementState {
   readonly path: string;
   readonly source: string;
-  /** Identity: a uuidv4 minted at classify time, propagated unchanged (input, finding, cell). */
+  /**
+   * Identity: a uuidv4 minted at classify time, propagated unchanged (input, finding, cell). Never
+   * sent to the model: the classifier strips it from the state it sends.
+   */
   readonly id: string;
 }
 
