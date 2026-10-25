@@ -608,9 +608,10 @@ async function classifyElementJob(
   events: ClassifyEvent[],
 ): Promise<boolean> {
   const input = `${statePath}#${job.id}`;
+  const questions = compileElementQuestions(job.rules, job.element.kind);
   const elementReply = await askClassifier(
     { path: statePath, source: job.source, id: job.id },
-    compileElementQuestions(job.rules, job.element.kind),
+    questions,
     classifier,
     input,
   );
@@ -618,12 +619,15 @@ async function classifyElementJob(
     events.push({ event: elementReply.error });
     return elementReply.error.code === "JEV_AUTH";
   }
-  for (const [rule, answer] of Object.entries(elementReply.answers)) {
+  // Every question asked gets a measurement or an error: an answer the model never gave (a refusal)
+  // is reported, not dropped.
+  for (const rule of Object.keys(questions)) {
+    const answer = elementReply.answers[rule];
     if (!isUsableAnswer(answer)) {
       events.push({ event: invalidAnswerError(input, rule, answer) });
       continue;
     }
-    events.push({ event: measurementFields(rule, input, answer), element: job.element });
+    events.push({ event: measurementFields(rule, input, answer!), element: job.element });
   }
   return false;
 }

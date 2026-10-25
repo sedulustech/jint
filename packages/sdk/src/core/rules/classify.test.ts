@@ -319,6 +319,25 @@ describe("classifyFile — role routing", () => {
     expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
   });
 
+  test("an element question left unanswered (a refusal) is an error, not a dropped reading", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const answered: Rule = { ...scoreFn, name: "probe_answered" };
+    // the model answers one of the element's two questions and declines the other
+    const classifier: Classifier = async () => ({ probe_answered: { value: 1 } });
+    const { events } = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/sum.ts", content: "function sum(a, b) { return a + b; }\n", id: "L1" },
+      },
+      [fnRule, answered],
+      classifier,
+    );
+    const errors = events.filter((e) => e.event instanceof ClassifyError);
+    expect(events.filter((e) => !(e.event instanceof ClassifyError))).toHaveLength(1);
+    expect(errors).toHaveLength(1);
+    expect((errors[0]!.event as ClassifyError).message).toContain("probe_score");
+  });
+
   test("an arrow-function const still gets the functions-target measurement", async () => {
     const { classifyFile } = await import("./classify.ts");
     const classifier: Classifier = async (_state, questions) =>
