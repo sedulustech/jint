@@ -233,6 +233,8 @@ export interface ClassifyErrorInfo {
   readonly input: string;
   readonly code: string;
   readonly message: string;
+  /** The rule whose reading failed, when the error concerns one rule's answer. */
+  readonly rule?: string;
 }
 
 /** The jint machine report document. */

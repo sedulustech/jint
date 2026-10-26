@@ -122,13 +122,16 @@ export class InternalError extends Error {
  * stream; it never escapes the pipeline boundary.
  */
 export class ClassifyError extends Error {
+  /** The rule whose reading failed, when the error concerns one rule's answer. */
+  readonly rule?: string;
   constructor(
     readonly code: ClassifyErrorCode,
     readonly input: string,
     message: string,
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; rule?: string },
   ) {
     super(message, options);
+    if (options?.rule !== undefined) this.rule = options.rule;
     this.name = "ClassifyError";
     Object.setPrototypeOf(this, new.target.prototype);
   }

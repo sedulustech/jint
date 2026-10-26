@@ -114,7 +114,7 @@ export function invalidAnswerError(
     "JEV_RESPONSE_INVALID",
     input,
     `answer for '${ruleName}' is missing or not a finite number`,
-    unusableAnswer === undefined ? undefined : { cause: unusableAnswer },
+    unusableAnswer === undefined ? { rule: ruleName } : { cause: unusableAnswer, rule: ruleName },
   );
 }
 

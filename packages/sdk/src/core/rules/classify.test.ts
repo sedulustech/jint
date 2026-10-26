@@ -86,7 +86,7 @@ function classifierWith(values: Record<string, number>, calls: Unit[] = []): Cla
 }
 
 function isMeasurement(event: Measurement | ClassifyError): event is Measurement {
-  return "rule" in event;
+  return !(event instanceof ClassifyError);
 }
 
 describe("compileRuleQuestions", () => {
@@ -336,6 +336,8 @@ describe("classifyFile — role routing", () => {
     expect(events.filter((e) => !(e.event instanceof ClassifyError))).toHaveLength(1);
     expect(errors).toHaveLength(1);
     expect((errors[0]!.event as ClassifyError).message).toContain("probe_score");
+    // the error names its rule, so the run view can open that question at that element
+    expect((errors[0]!.event as ClassifyError).rule).toBe("probe_score");
   });
 
   test("an arrow-function const still gets the functions-target measurement", async () => {

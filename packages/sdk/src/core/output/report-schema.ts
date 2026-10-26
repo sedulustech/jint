@@ -117,6 +117,7 @@ export const CLASSIFY_ERROR_SCHEMA = Type.Object({
   input: Type.String(),
   code: Type.String(),
   message: Type.String(),
+  rule: Type.Optional(Type.String()),
 });
 
 export const REPORT_SCHEMA = Type.Object({

@@ -67,6 +67,7 @@ export function renderJson(report: LintReport): string {
           input: e.input,
           code: e.code,
           message: e.message,
+          rule: e.rule,
         })),
         // In-band degradation (oversized skips, scope exclusions): the same array the raw-line
         // renderer prints on stderr — a machine consumer gets the identical signal, never less

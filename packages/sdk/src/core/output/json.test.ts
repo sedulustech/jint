@@ -38,7 +38,10 @@ const report: LintReport = {
       },
     },
   ],
-  errors: [new ClassifyError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable")],
+  errors: [
+    new ClassifyError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable"),
+    new ClassifyError("JEV_RESPONSE_INVALID", "src/c.ts#L4", "no answer", { rule: "r" }),
+  ],
 };
 
 describe("renderJson", () => {
@@ -49,6 +52,8 @@ describe("renderJson", () => {
     expect(parsed.tool).toBe("jint");
     expect(parsed.errors).toEqual([
       { input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" },
+      // an error about one rule's answer names the rule
+      { input: "src/c.ts#L4", code: "JEV_RESPONSE_INVALID", message: "no answer", rule: "r" },
     ]);
   });
 
