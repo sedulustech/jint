@@ -1,12 +1,10 @@
 {
-  "ts": "2026-10-19T23:27:21.720Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 1,
   "request": {
     "state": {
       "path": "complex.ts",
-      "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;",
-      "id": "9e452b94-4cf1-40fa-814e-eaf87f817bfa"
+      "source": "export class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}",
+      "id": "14fae634-efa0-4298-8cf6-188858843779"
     },
     "questions": {
       "is_name_purposeful": {
@@ -24,30 +22,6 @@
         "criteria": {
           "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
           "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
-        }
-      },
-      "is_comment_narration": {
-        "type": "noul",
-        "instructions": "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
-        "criteria": {
-          "true": "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
-          "false": "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap."
-        }
-      },
-      "is_comment_patching_readability": {
-        "type": "noul",
-        "instructions": "Does any comment here patch code that should read itself, instead of the code being made readable?",
-        "criteria": {
-          "true": "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
-          "false": "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read."
-        }
-      },
-      "will_comment_drift": {
-        "type": "noul",
-        "instructions": "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
-        "criteria": {
-          "true": "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
-          "false": "No comment here is coupled to specific artifacts by name: every comment describes behavior, rationale, or constraints without pinning identifiers, so renaming or removing code can never silently invalidate it."
         }
       },
       "is_cognitively_complex": {
@@ -80,18 +54,6 @@
         "type": "noul",
         "noul": 0.9
       },
-      "is_comment_narration": {
-        "type": "noul",
-        "noul": 0.1
-      },
-      "is_comment_patching_readability": {
-        "type": "noul",
-        "noul": 0.1
-      },
-      "will_comment_drift": {
-        "type": "noul",
-        "noul": 0.1
-      },
       "is_cognitively_complex": {
         "type": "score",
         "score": 2,
@@ -106,5 +68,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }

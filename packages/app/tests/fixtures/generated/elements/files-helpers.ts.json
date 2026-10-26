@@ -1,7 +1,5 @@
 {
-  "ts": "2026-10-19T23:27:21.717Z",
   "url": "https://api.typesafe.ai/v1/systemone",
-  "durationMs": 0,
   "request": {
     "state": {
       "path": "helpers.ts",
@@ -45,5 +43,7 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
-  }
+  },
+  "ts": "1970-01-01T00:00:00.000Z",
+  "durationMs": 0
 }

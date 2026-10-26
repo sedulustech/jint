@@ -11,13 +11,22 @@
  * tests/fixtures/generated/elements/ (captures + report.json + manifest.json, committed; the API
  * serves it as the nested run "generated/elements")
  *
- * Determinism: the only stubbed piece is the transport — a fetch that answers every question with a
- * fixed per-rule value (the engine's own lint tests stub classifiers the same way). The model,
- * question compilation, state shapes, uuid minting, and report writing are all real. Captures carry
- * wall-clock timestamps and per-run uuids, so regeneration is not byte-identical — tests assert
- * shapes and relationships, never uuids.
+ * Determinism: regeneration is byte-identical. The only stubbed piece is the transport — a fetch
+ * that answers every question with a fixed per-rule value (the engine's own lint tests stub
+ * classifiers the same way); the model, question compilation, state shapes, and report writing are
+ * all real. The engine's own per-run entropy is sealed inside this script, not in packages/sdk:
+ *
+ * - Element uuids: crypto.randomUUID is temporarily wrapped with a counter-seeded sha256 minter (uuid
+ *   v4 shape, unique within the run) so the finding.input == capture state.id join survives
+ * - Capture filenames: the recorder's <unixts>- prefix is stripped on hoist (the -<n> suffixes that
+ *   disambiguate multiple captures per source stay)
+ * - Timestamps/durations/paths: captures' ts and durationMs, the manifest ts/durationMs/cwd, and the
+ *   report's run.id/run.dir are replaced with the sentinels below
+ * - Tests assert shapes and relationships, never uuids; fixture-determinism.test.ts asserts the
+ *   byte-identical property itself.
  */
-import { mkdirSync, readdirSync, rmSync, renameSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { defaultRules as defaultSpecs } from "@jint/defaults";
 import {
@@ -33,9 +42,16 @@ import {
   type Rule,
 } from "@jint/sdk";
 
+/** Fixed stand-ins for the wall-clock values the engine stamps on a run. */
+const SENTINEL_TS = "1970-01-01T00:00:00.000Z";
+const SENTINEL_RUN_ID = "0";
+/** Path stand-ins, relative so regenerating from any worktree yields the same bytes. */
+const SENTINEL_CWD = "packages/app";
+const SENTINEL_RUN_DIR = "tmp/fixtures-gen/0";
+
 const appRoot = resolve(import.meta.dir, "..");
 const sourceDir = resolve(appRoot, "tests/fixtures/sources/elements");
-const outDir = resolve(appRoot, "tests/fixtures/generated/elements");
+const defaultOutDir = resolve(appRoot, "tests/fixtures/generated/elements");
 // staging under tmp (gitignored); recording writes to <base>/<runid>/ and we hoist that one dir
 const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
 
@@ -131,7 +147,37 @@ const baseline: Record<string, Rule> = Object.fromEntries(
   }),
 );
 
-async function main(): Promise<void> {
+/**
+ * Deterministic stand-in for crypto.randomUUID: counter-seeded sha256 formatted as uuid v4 (version
+ * nibble 4, variant 8). Unique within the run, identical across runs — the same uniqueness
+ * guarantee the engine's per-run uuidv4 provides, without wall-clock entropy. The engine's real
+ * minter is restored in the finally block; packages/sdk is never touched.
+ */
+function deterministicUuidMinter(): () => string {
+  const real = crypto.randomUUID.bind(crypto);
+  let ordinal = 0;
+  crypto.randomUUID = () => {
+    const h = createHash("sha256")
+      .update("fixture-element-" + String(ordinal++))
+      .digest("hex");
+    return (
+      h.slice(0, 8) +
+      "-" +
+      h.slice(8, 12) +
+      "-4" +
+      h.slice(13, 16) +
+      "-8" +
+      h.slice(17, 20) +
+      "-" +
+      h.slice(20, 32)
+    );
+  };
+  return real;
+}
+
+export async function main(outDirOverride?: string): Promise<void> {
+  const outDir = outDirOverride ?? process.argv[2] ?? defaultOutDir;
+  rmSync(stagingDir, { recursive: true, force: true });
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
   process.env.JINT_RUNS_DIR = stagingDir;
@@ -144,42 +190,114 @@ async function main(): Promise<void> {
     include: [],
     exclude: [],
   };
-  const report = await collectReport(
-    lint({
-      config,
-      input: sourceDir,
-      inputType: "dir",
-      classifier: createClassifier({ apiKey: "fixture-key", fetch: stubFetch() }),
-    }),
-  );
+  const realRandomUUID = deterministicUuidMinter();
+  let report;
+  try {
+    report = await collectReport(
+      lint({
+        config,
+        input: sourceDir,
+        inputType: "dir",
+        classifier: createClassifier({ apiKey: "fixture-key", fetch: stubFetch() }),
+      }),
+    );
+  } finally {
+    crypto.randomUUID = realRandomUUID;
+  }
 
-  // the engine's own writers persist report + manifest next to the captures recording already wrote
+  // the engine's own writers persist report + manifest next to the captures recording already
+  // wrote. The report's run pointer and the manifest's wall-clock fields carry per-run entropy —
+  // replace them with the sentinels before anything hits disk.
+  report.run.id = SENTINEL_RUN_ID;
+  report.run.dir = SENTINEL_RUN_DIR;
   recordRunReport(renderJson(report));
   recordRunManifest({
     configPath: "fixtures/sources/elements",
-    cwd: appRoot,
+    cwd: SENTINEL_CWD,
     argv: ["bun", "fixtures:gen"],
-    ts: new Date().toISOString(),
+    ts: SENTINEL_TS,
     handles: Object.fromEntries(
       config.rules.flatMap((r) => (r.handleData ? [[r.name, r.handleData] as const] : [])),
     ),
   });
 
-  // hoist <staging>/<runid>/* -> outDir/
+  // hoist <staging>/<runid>/* -> outDir/, deterministically: the recorder's <unixts>- filename
+  // prefix and the per-record ts/durationMs are per-run entropy, so each capture is rewritten with
+  // the sentinels and hoisted under its stripped name (the -<n> suffixes that disambiguate multiple
+  // captures per source file stay). Manifest gets the same treatment for durationMs.
   const summary = recordSummary();
   if (summary === null || summary.count === 0)
     throw new Error("recording wrote no captures; generator is broken");
   // JINT_RUNS_DIR names the runs dir ITSELF (741b1dd's split): captures land at
   // <stagingDir>/<runId>, not <stagingDir>/runs/<runId>
-  const runDirs = readdirSync(stagingDir).filter((n) => /^\d+$/.test(n));
-  if (runDirs.length === 0) throw new Error(`no record run dir under ${stagingDir}`);
-  const newest = runDirs.map((n) => Number(n)).sort((a, b) => b - a)[0]!;
+  // The SDK mints one recorder client per classifier seam, and each recordRequests call re-stamps
+  // the run id — so one lint can split its captures across several <stagingDir>/<runId>/ dirs (a
+  // stub this fast usually lands them in one millisecond, but that is luck, not contract). Hoist
+  // EVERY numeric run dir (the staging root is rm'd at entry, so all of them are ours) and rebuild
+  // capture names deterministically: the recorder's <unixts>- stamp AND its -<n> collision suffixes
+  // are both timing artifacts (existsSync races across concurrent requests), so both are stripped
+  // and the -<n> suffixes are re-assigned by content order. Names stay path-keyed + suffixed —
+  // multiple captures per source file remain unambiguous, and nothing resolves a capture by its
+  // run-id prefix (the API serves the dir; nothing parses the stamp back out).
+  const runDirs = readdirSync(stagingDir)
+    .filter((n) => /^\d+$/.test(n))
+    .sort();
+  if (runDirs.length === 0) throw new Error(`no record run dirs under ${stagingDir}`);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  for (const f of readdirSync(join(stagingDir, String(newest)))) {
-    renameSync(join(stagingDir, String(newest), f), join(outDir, f));
+  interface StagedCapture {
+    base: string;
+    raw: string;
+    // content with the wall-clock fields stripped: raw bytes carry per-run ts and durationMs, and
+    // ordering on those would assign the -<n> suffixes differently per run
+    key: string;
+    json: Record<string, unknown> | null;
   }
-  rmSync(join(stagingDir, "runs", String(newest)), { recursive: true, force: true });
+  const staged: StagedCapture[] = [];
+  for (const run of runDirs) {
+    for (const f of readdirSync(join(stagingDir, run))) {
+      const raw = readFileSync(join(stagingDir, run, f), "utf8");
+      const dest = f.replace(/^\d+-/, "");
+      if (dest === "report.json") {
+        staged.push({ base: dest, raw, key: dest, json: null });
+        continue;
+      }
+      if (dest === "manifest.json") {
+        // recordRunManifest stamps durationMs internally; seal it after the write. Its ts is the
+        // sentinel the builder already passed, so it needs no stripping.
+        const manifest = JSON.parse(raw) as Record<string, unknown>;
+        manifest.durationMs = 0;
+        staged.push({ base: dest, raw, key: dest, json: manifest });
+        continue;
+      }
+      const base = dest.replace(/-\d+\.json$/, ".json");
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      delete parsed.ts;
+      delete parsed.durationMs;
+      staged.push({ base, raw, key: JSON.stringify(parsed), json: parsed });
+    }
+  }
+  staged.sort((a, b) => a.base.localeCompare(b.base) || (a.key < b.key ? -1 : 1));
+  const groupCounts = new Map<string, number>();
+  for (const { base, raw, json } of staged) {
+    const seen = groupCounts.get(base) ?? 0;
+    groupCounts.set(base, seen + 1);
+    const name = seen === 0 ? base : base.replace(/\.json$/, "-" + String(seen) + ".json");
+    if (json === null) {
+      writeFileSync(join(outDir, name), raw);
+      continue;
+    }
+    json.ts = SENTINEL_TS;
+    json.durationMs = 0;
+    writeFileSync(join(outDir, name), JSON.stringify(json, null, 2) + "\n");
+  }
+  rmSync(stagingDir, { recursive: true, force: true });
+
+  // the committed fixture is oxfmt-formatted (short arrays collapse, e.g. the handles map), and
+  // JSON.stringify does not speak that dialect — format the hoisted tree so builder output IS the
+  // committed bytes, determinism test included.
+  const fmt = Bun.spawnSync(["bunx", "oxfmt", outDir], { cwd: appRoot });
+  if (fmt.exitCode !== 0) throw new Error("oxfmt failed on the generated fixture");
 
   // --- verification ---------------------------------------------------------
   // element captures carry a uuid state.id; every element measurement's input suffix is one of
@@ -219,4 +337,8 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+// Usage: bun scripts/build-fixture.ts [outDir] — the positional overrides the fixture dir (the
+// determinism test runs two full processes into temp dirs and compares bytes). A fresh process per
+// run is the contract: the engine keeps module-level grammar state, so a second lint() in the same
+// process can discover a different inventory — never exercise this builder by importing it twice.
+if (import.meta.main) await main();
