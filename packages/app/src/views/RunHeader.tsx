@@ -111,7 +111,9 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
           </Button>
         )}
       </div>
-      {errorsOpen && runErrors.length > 0 && <RunErrors errors={runErrors} />}
+      {errorsOpen && run !== null && runErrors.length > 0 && (
+        <RunErrors runId={run.id} errors={runErrors} />
+      )}
     </>
   );
 }

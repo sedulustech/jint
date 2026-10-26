@@ -364,6 +364,13 @@
       }
     }
   ],
-  "errors": [],
+  "errors": [
+    {
+      "input": "src/multi.tsx#E1",
+      "code": "JEV_RESPONSE_INVALID",
+      "message": "answer for 'is_name_purposeful' is missing or not a finite number",
+      "rule": "is_name_purposeful"
+    }
+  ],
   "notes": ["fixture run"]
 }
