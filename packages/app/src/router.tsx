@@ -9,6 +9,10 @@ import { App } from "./App";
 // so a single "panel" enum cannot represent the state space:
 //   report=1|0        report panel; absent = follow the run default (open iff report.json exists)
 //   rule/input/file   presence of rule opens PairDetail; file is optional
+// The run errors list is a child route (/runs/$runId/errors), not a param: the
+// run view keeps rendering underneath. On that route rule/input address the
+// errors dialog instead of the pane (input holds / and #, so it stays a query
+// value), the pane stays closed, and only report= carries across the switch.
 // Everything else (group-by mode, theme, focus) stays local state on purpose.
 
 export type RunSearch = {
@@ -124,6 +128,13 @@ const runRoute = createRoute({
   },
 });
 
+// no component: the run view reads the match (useErrorsRoute) and opens the list
+// under its header; search is validated by the root, same as the run route
+const errorsRoute = createRoute({
+  getParentRoute: () => runRoute,
+  path: "errors",
+});
+
 // splat catch-all: without a matching route the router renders nothing at all
 // (no implicit 404), so unknown paths must land somewhere that renders NotFound
 const catchRoute = createRoute({
@@ -132,7 +143,11 @@ const catchRoute = createRoute({
   component: () => <NotFound />,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, runRoute, catchRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  runRoute.addChildren([errorsRoute]),
+  catchRoute,
+]);
 
 // fresh router per boot: tests simulate full page loads by remounting against
 // a new instance over the shared browser history

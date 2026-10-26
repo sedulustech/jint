@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
 import { TriangleAlert } from "lucide-react";
-import { useState } from "react";
 import { fetchReport } from "../api/client";
-import { RunErrors } from "./RunErrors";
+import { ERRORS_ROUTE, RunErrors, useErrorsRoute } from "./RunErrors";
+import type { RunSearch } from "../router";
 import type { Report, RunSummary } from "../types";
 import { Button } from "@/components/ui/button";
 export const baseName = (path: string) => path.split("/").pop() ?? path;
@@ -33,7 +34,9 @@ export const runDuration = (ms: number | undefined): string | null =>
  * into one line. The trigger slims to label + chevron; the full identity lives here.
  */
 export function RunHeader({ run, picker }: { run: RunSummary | null; picker: React.ReactNode }) {
-  const [errorsOpen, setErrorsOpen] = useState(false);
+  // the errors list is a route, not local state: the toggle walks /runs/$runId <-> /errors
+  const errorsOpen = useErrorsRoute();
+  const navigate = useNavigate();
   const reportQuery = useQuery({
     queryKey: ["report", run?.id],
     queryFn: () => fetchReport(run!.id),
@@ -103,7 +106,17 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
             data-testid="run-errors-toggle"
             aria-expanded={errorsOpen}
             aria-controls="run-errors"
-            onClick={() => setErrorsOpen((o) => !o)}
+            onClick={() =>
+              run !== null &&
+              navigate({
+                to: errorsOpen ? "/runs/$runId" : ERRORS_ROUTE,
+                params: { runId: run.id },
+                // only report= carries over: rule/input address the pane on the run route and
+                // the dialog on the errors route, so neither survives the switch
+                search: (previousSearch: RunSearch) =>
+                  previousSearch.report === undefined ? {} : { report: previousSearch.report },
+              })
+            }
             className="text-sev-error"
             title={runErrors[0]!.message}
           >

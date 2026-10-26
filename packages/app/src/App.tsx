@@ -8,6 +8,7 @@ import { PairDetail } from "./views/PairDetail";
 import { ReportHeader } from "./views/ReportHeader";
 import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
+import { ERRORS_ROUTE, useErrorsRoute } from "./views/RunErrors";
 import { RunHeader, baseName, relTime, runLabel } from "./views/RunHeader";
 import { useTheme } from "./views/useTheme";
 import type { RunSearch } from "./router";
@@ -138,10 +139,10 @@ const reportSearchEditFailure = (cause: unknown): void => {
  */
 function useSequentialSearchEdit(
   runId: string | null,
-): (searchChange: Partial<RunSearch>) => Promise<unknown> {
+): (searchChange: Partial<RunSearch>, route?: RunRoute) => Promise<unknown> {
   const navigate = useNavigate();
   const pendingNavigation = useRef<Promise<unknown>>(Promise.resolve());
-  return (searchChange: Partial<RunSearch>): Promise<unknown> => {
+  return (searchChange: Partial<RunSearch>, route: RunRoute = RUN_ROUTE): Promise<unknown> => {
     pendingNavigation.current = pendingNavigation.current
       .then(() =>
         navigate(
@@ -151,7 +152,7 @@ function useSequentialSearchEdit(
                 search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
               }
             : {
-                to: RUN_ROUTE,
+                to: route,
                 params: { runId },
                 search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
               },
@@ -244,6 +245,7 @@ function RunLanding({ runList, onPick }: { runList: RunSummary[]; onPick: (id: s
 const DEFAULT_MODE: Mode = "file";
 // the run route id, shared by navigate and link so the two cannot drift
 const RUN_ROUTE = "/runs/$runId";
+type RunRoute = typeof RUN_ROUTE | typeof ERRORS_ROUTE;
 // the picker caps its list client-side; the server returns every run
 const MAX_RUNS = 100;
 
@@ -251,10 +253,12 @@ export function App({ runId }: { runId: string | null }) {
   const { theme, choose } = useTheme();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as RunSearch;
+  // on the errors route rule/input address the errors dialog, not the pane
+  const errorsOpen = useErrorsRoute();
   // the detail pane is addressed by a rule-target pair, never by request identity;
   // its identity lives in the URL (search params) so a pane deep-links + survives reload
   const selectedPair =
-    search.rule !== undefined
+    search.rule !== undefined && !errorsOpen
       ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
       : null;
   const [viewMode, setViewMode] = useState<Mode>(DEFAULT_MODE);
@@ -307,7 +311,11 @@ export function App({ runId }: { runId: string | null }) {
   // click lands, in order.
   const editSearch = useSequentialSearchEdit(runId);
   const setReportOverride = (reportChoice: boolean | null) => {
-    editSearch({ report: reportChoice === null ? undefined : reportChoice ? 1 : 0 });
+    // the report toggle stays on the current route: it must not close the errors list
+    editSearch(
+      { report: reportChoice === null ? undefined : reportChoice ? 1 : 0 },
+      errorsOpen ? ERRORS_ROUTE : RUN_ROUTE,
+    );
   };
   const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
     editSearch(
