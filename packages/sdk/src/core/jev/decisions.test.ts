@@ -23,19 +23,9 @@ const ask = (f: ReturnType<typeof decisionsFetch>, questions: unknown) =>
   });
 
 describe("decisionsFetch", () => {
-  test("a noul goes as a true/false choice and comes back as P(true)", async () => {
+  test("a noul goes as a predicate with its criteria in the question", async () => {
     const api = fake({
-      answers: [
-        {
-          type: "choice",
-          name: "q0",
-          choice: "false",
-          probabilities: [
-            { value: "true", probability: 0.14 },
-            { value: "false", probability: 0.86 },
-          ],
-        },
-      ],
+      answers: [{ type: "predicate", name: "q0", probability: 0.14 }],
       usage: { input_tokens: 9, output_tokens: 0 },
     });
     const res = await ask(decisionsFetch(api.fetch), {
@@ -48,10 +38,11 @@ describe("decisionsFetch", () => {
     expect(api.sent[0]!.url).toBe("https://api.openai.com/v1/decisions");
     expect(api.sent[0]!.auth).toBe("Bearer k");
     expect(api.sent[0]!.body.input).toBe('{"path":"a.ts","content":"x"}');
-    expect(api.sent[0]!.body.questions[0].choices.map((c: any) => c.value)).toEqual([
-      "true",
-      "false",
-    ]);
+    expect(api.sent[0]!.body.questions[0]).toEqual({
+      type: "predicate",
+      name: "q0",
+      instructions: "Is it?\n\nYes: yes\nNo: no",
+    });
     expect(await res.json()).toEqual({
       model: "gpt-6-luna",
       answers: { "rule in L1-L9": { type: "noul", noul: 0.14 } },

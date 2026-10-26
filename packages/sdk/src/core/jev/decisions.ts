@@ -3,9 +3,10 @@
  * this fetch translates each request into the Decisions format and each response back: the rest of
  * the adapter, the recorder and every reading stay in System One's shape.
  *
- * A noul is asked as a choice between its criteria, which is how System One reads one. A choice
- * gets a fallback option the API needs when none fits; its mass is dropped and the rest
- * renormalized. A score level is labelled by its index.
+ * A noul is asked as a predicate, the API's yes/no form. A predicate has no criteria field, so a
+ * noul's criteria are folded into its question as what a yes and a no mean. A choice gets a
+ * fallback option the API needs when none fits; its mass is dropped and the rest renormalized. A
+ * score level is labelled by its index.
  */
 
 /** Models served by the Decisions API rather than System One. */
@@ -41,17 +42,10 @@ function toDecisions(name: string, q: SystemOneQuestion): Record<string, unknown
     return { type: "score", name, instructions, levels };
   }
   if (q.type === "noul") {
-    if (q.criteria === undefined) return { type: "predicate", name, instructions };
-    const c = q.criteria as Record<string, string>;
-    return {
-      type: "choice",
-      name,
-      instructions,
-      choices: [
-        { value: "true", description: c.true ?? "true" },
-        { value: "false", description: c.false ?? "false" },
-      ],
-    };
+    const c = (q.criteria ?? {}) as Record<string, string>;
+    const meaning = [c.true && `Yes: ${c.true}`, c.false && `No: ${c.false}`].filter(Boolean);
+    const asked = meaning.length ? `${instructions}\n\n${meaning.join("\n")}` : instructions;
+    return { type: "predicate", name, instructions: asked };
   }
   const choices = Object.entries(q.criteria as Record<string, string>).map(
     ([value, description]) => ({
@@ -72,8 +66,7 @@ function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
   const shares: Record<string, number> = Object.fromEntries(
     (a.probabilities ?? []).map((o) => [o.value, o.probability]),
   );
-  if (q.type === "noul")
-    return { type: "noul", noul: a.type === "predicate" ? a.probability : (shares.true ?? 0) };
+  if (q.type === "noul") return { type: "noul", noul: a.probability ?? 0 };
   if (q.type === "score") {
     const score = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
     // System One echoes each level's text as the legend; the run view shows the levels from it.
