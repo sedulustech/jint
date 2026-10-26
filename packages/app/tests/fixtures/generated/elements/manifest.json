@@ -93,8 +93,10 @@
     }
   },
   "durationMs": 0,
+  "model": "jev-1.13.0",
   "usage": {
     "input": 1000,
-    "output": 100
+    "output": 100,
+    "cached": 0
   }
 }

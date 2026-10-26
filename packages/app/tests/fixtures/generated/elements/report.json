@@ -40,6 +40,27 @@
       }
     },
     {
+      "rule": "is_naming_convention_consistent",
+      "input": "complex.ts",
+      "value": 0.9,
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 25,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 978
+        },
+        "label": "L1-L25"
+      }
+    },
+    {
       "rule": "is_vocabulary_consistent",
       "input": "complex.ts",
       "value": 0.9,
@@ -160,28 +181,6 @@
       }
     },
     {
-      "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
-      "value": 0.9,
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 4,
-            "column": 0
-          },
-          "end": {
-            "line": 10,
-            "column": 1
-          },
-          "startByte": 180,
-          "endByte": 499
-        },
-        "label": "d0",
-        "name": "computeInvoiceTotal"
-      }
-    },
-    {
       "rule": "will_error_lose_cause",
       "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
       "value": 0.5,
@@ -307,29 +306,6 @@
       }
     },
     {
-      "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
-      "value": 0.9,
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 6,
-            "column": 2
-          },
-          "end": {
-            "line": 8,
-            "column": 3
-          },
-          "startByte": 356,
-          "endByte": 448
-        },
-        "label": "d1",
-        "parent": "d0",
-        "name": "roundToCents"
-      }
-    },
-    {
       "rule": "will_error_lose_cause",
       "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
       "value": 0.5,
@@ -408,28 +384,6 @@
       }
     },
     {
-      "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
-      "value": 0.9,
-      "element": {
-        "kind": "class",
-        "span": {
-          "start": {
-            "line": 12,
-            "column": 0
-          },
-          "end": {
-            "line": 21,
-            "column": 1
-          },
-          "startByte": 501,
-          "endByte": 842
-        },
-        "label": "d2",
-        "name": "InvoicePrinter"
-      }
-    },
-    {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
       "value": 2,
@@ -467,29 +421,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "element": {
-        "kind": "method",
-        "span": {
-          "start": {
-            "line": 15,
-            "column": 2
-          },
-          "end": {
-            "line": 20,
-            "column": 3
-          },
-          "startByte": 556,
-          "endByte": 840
-        },
-        "label": "d3",
-        "parent": "d2",
-        "name": "render"
-      }
-    },
-    {
-      "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
-      "value": 0.9,
       "element": {
         "kind": "method",
         "span": {
@@ -609,28 +540,6 @@
       }
     },
     {
-      "rule": "is_naming_convention_consistent",
-      "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
-      "value": 0.9,
-      "element": {
-        "kind": "binding",
-        "span": {
-          "start": {
-            "line": 24,
-            "column": 0
-          },
-          "end": {
-            "line": 24,
-            "column": 37
-          },
-          "startByte": 940,
-          "endByte": 977
-        },
-        "label": "d4",
-        "name": "DEFAULT_TAX_RATE"
-      }
-    },
-    {
       "rule": "will_comment_drift",
       "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
       "value": 0.1,
@@ -656,6 +565,27 @@
       "rule": "is_filename_fitting",
       "input": "helpers.ts",
       "value": 0.3,
+      "element": {
+        "kind": "file",
+        "span": {
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 7,
+            "column": 0
+          },
+          "startByte": 0,
+          "endByte": 279
+        },
+        "label": "L1-L7"
+      }
+    },
+    {
+      "rule": "is_naming_convention_consistent",
+      "input": "helpers.ts",
+      "value": 0.9,
       "element": {
         "kind": "file",
         "span": {
@@ -750,28 +680,6 @@
       }
     },
     {
-      "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
-      "value": 0.9,
-      "element": {
-        "kind": "type",
-        "span": {
-          "start": {
-            "line": 1,
-            "column": 0
-          },
-          "end": {
-            "line": 1,
-            "column": 59
-          },
-          "startByte": 0,
-          "endByte": 59
-        },
-        "label": "d0",
-        "name": "Invoice"
-      }
-    },
-    {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
       "value": 2,
@@ -808,28 +716,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "element": {
-        "kind": "type",
-        "span": {
-          "start": {
-            "line": 2,
-            "column": 0
-          },
-          "end": {
-            "line": 2,
-            "column": 81
-          },
-          "startByte": 60,
-          "endByte": 141
-        },
-        "label": "d1",
-        "name": "InvoiceLine"
-      }
-    },
-    {
-      "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
-      "value": 0.9,
       "element": {
         "kind": "type",
         "span": {
@@ -929,28 +815,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 4,
-            "column": 0
-          },
-          "end": {
-            "line": 6,
-            "column": 1
-          },
-          "startByte": 143,
-          "endByte": 278
-        },
-        "label": "d2",
-        "name": "mergeInvoices"
-      }
-    },
-    {
-      "rule": "is_naming_convention_consistent",
-      "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
-      "value": 0.9,
       "element": {
         "kind": "function",
         "span": {
@@ -1305,8 +1169,8 @@
     {
       "name": "is_naming_convention_consistent",
       "criteria": {
-        "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
-        "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+        "true": "Identifiers of the same kind follow one casing convention.",
+        "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
       },
       "handle": {
         "warn": {

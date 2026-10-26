@@ -1,13 +1,13 @@
 {
   "url": "https://api.typesafe.ai/v1/systemone",
+  "id": "L1-L7",
   "request": {
     "state": {
-      "path": "complex.ts",
-      "content": "// A deliberately mixed file: nested functions, a class, varied naming — the walker has real\n// structure to descend into and the classifier has real per-element states to judge.\n\nexport function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}\n\nexport class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}\n\n// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;\n",
-      "id": "L1-L25"
+      "path": "helpers.ts",
+      "content": "export type Invoice = { id: string; lines: InvoiceLine[] };\nexport type InvoiceLine = { unitPrice: number; quantity: number; label: string };\n\nexport function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}\n"
     },
     "questions": {
-      "is_vocabulary_consistent in L1-L25": {
+      "is_vocabulary_consistent in L1-L7": {
         "type": "noul",
         "instructions": "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
         "criteria": {
@@ -15,7 +15,15 @@
           "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
         }
       },
-      "is_filename_fitting in L1-L25": {
+      "is_naming_convention_consistent in L1-L7": {
+        "type": "noul",
+        "instructions": "Do identifiers of the same kind in this file follow a single casing convention?",
+        "criteria": {
+          "true": "Identifiers of the same kind follow one casing convention.",
+          "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+        }
+      },
+      "is_filename_fitting in L1-L7": {
         "type": "noul",
         "instructions": "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
         "criteria": {
@@ -24,17 +32,21 @@
         }
       }
     },
-    "model": "jev-latest"
+    "model": "jev-1.13.0"
   },
   "status": 200,
   "response": {
     "model": "jev-fixture",
     "answers": {
-      "is_vocabulary_consistent in L1-L25": {
+      "is_vocabulary_consistent in L1-L7": {
         "type": "noul",
         "noul": 0.9
       },
-      "is_filename_fitting in L1-L25": {
+      "is_naming_convention_consistent in L1-L7": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "is_filename_fitting in L1-L7": {
         "type": "noul",
         "noul": 0.3
       }

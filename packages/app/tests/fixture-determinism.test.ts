@@ -31,9 +31,10 @@ test("generated fixture is byte-identical across runs", async () => {
 
   const namesA = readdirSync(a).sort();
   const namesB = readdirSync(b).sort();
-  // stable names: no per-run unixts prefix, no wall-clock anything in a file name
+  // stable names: a capture carries the fixed sentinel prefix the run store needs to list it,
+  // never a per-run unixts, and no wall-clock anything else in a file name
   expect(namesA).toEqual(namesB);
-  expect(namesA.filter((n) => /^\d+-/.test(n))).toEqual([]);
+  expect(namesA.filter((n) => /^\d+-/.test(n) && !n.startsWith("0000000000000-"))).toEqual([]);
   expect(namesA).toContain("report.json");
   expect(namesA).toContain("manifest.json");
 

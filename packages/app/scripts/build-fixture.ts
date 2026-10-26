@@ -17,9 +17,10 @@
  * all real. The engine's own per-run entropy is sealed inside this script, not in packages/sdk:
  *
  * - Element uuids: crypto.randomUUID is temporarily wrapped with a counter-seeded sha256 minter (uuid
- *   v4 shape, unique within the run) so the finding.input == capture state.id join survives
- * - Capture filenames: the recorder's <unixts>- prefix is stripped on hoist (the -<n> suffixes that
- *   disambiguate multiple captures per source stay)
+ *   v4 shape, unique within the run) so the finding.input == capture id join survives
+ * - Capture filenames: the recorder's <unixts>- prefix is replaced on hoist by a fixed one (the run
+ *   store only recognizes a request file by a 13-digit prefix; the -<n> suffixes that disambiguate
+ *   multiple captures per source stay)
  * - Timestamps/durations/paths: captures' ts and durationMs, the manifest ts/durationMs/cwd, and the
  *   report's run.id/run.dir are replaced with the sentinels below
  * - Tests assert shapes and relationships, never uuids; fixture-determinism.test.ts asserts the
@@ -45,6 +46,8 @@ import {
 /** Fixed stand-ins for the wall-clock values the engine stamps on a run. */
 const SENTINEL_TS = "1970-01-01T00:00:00.000Z";
 const SENTINEL_RUN_ID = "0";
+// the run store lists a request file by its 13-digit prefix (isRequestFile in the SDK's run API)
+const SENTINEL_CAPTURE_PREFIX = "0000000000000-";
 /** Path stand-ins, relative so regenerating from any worktree yields the same bytes. */
 const SENTINEL_CWD = "packages/app";
 const SENTINEL_RUN_DIR = "tmp/fixtures-gen/0";
@@ -121,6 +124,10 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
               // the wire requires the distribution (SCORE_ANSWER_SCHEMA); the table names the
               // designed shapes, the fallback covers score rules the table has not met yet
               probabilities: SCORE_PROBABILITIES[rule] ?? centeredScore(value),
+              // the response check requires the level texts echoed back (SCORE_ANSWER_SCHEMA)
+              legend: Object.fromEntries(
+                ((q.criteria as string[] | undefined) ?? []).map((text, i) => [String(i), text]),
+              ),
             }
           : { type: "noul", noul: value };
     }
@@ -282,7 +289,11 @@ export async function main(outDirOverride?: string): Promise<void> {
   for (const { base, raw, json } of staged) {
     const seen = groupCounts.get(base) ?? 0;
     groupCounts.set(base, seen + 1);
-    const name = seen === 0 ? base : base.replace(/\.json$/, "-" + String(seen) + ".json");
+    const unique = seen === 0 ? base : base.replace(/\.json$/, "-" + String(seen) + ".json");
+    const name =
+      base === "report.json" || base === "manifest.json"
+        ? unique
+        : SENTINEL_CAPTURE_PREFIX + unique;
     if (json === null) {
       writeFileSync(join(outDir, name), raw);
       continue;
@@ -300,19 +311,20 @@ export async function main(outDirOverride?: string): Promise<void> {
   if (fmt.exitCode !== 0) throw new Error("oxfmt failed on the generated fixture");
 
   // --- verification ---------------------------------------------------------
-  // element captures carry a uuid state.id; every element measurement's input suffix is one of
-  // those ids (identity propagated capture -> report). Also no input is a positional L-span.
+  // element captures carry a uuid id (the recorder's top-level field: the id travels in a header,
+  // never in the state); every element measurement's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
   const elementIds = new Set<string>();
   const files = readdirSync(outDir).filter((f) => f.endsWith(".json"));
   const read = async (f: string) =>
     JSON.parse(await Bun.file(join(outDir, f)).text()) as {
-      request?: { state?: { source?: string; id?: unknown } };
+      id?: unknown;
+      request?: { state?: { source?: string } };
     };
   for (const f of files) {
     if (f === "report.json" || f === "manifest.json") continue;
     const cap = await read(f);
     if (cap.request?.state?.source !== undefined) {
-      const id = cap.request.state.id;
+      const id = cap.id;
       if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id))
         throw new Error(`element capture ${f} lacks a uuid id: ${String(id)}`);
       elementIds.add(id);

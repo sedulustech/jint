@@ -1,10 +1,10 @@
 {
   "url": "https://api.typesafe.ai/v1/systemone",
+  "id": "14fae634-efa0-4298-8cf6-188858843779",
   "request": {
     "state": {
-      "path": "helpers.ts",
-      "source": "export type InvoiceLine = { unitPrice: number; quantity: number; label: string };",
-      "id": "3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5"
+      "path": "complex.ts",
+      "source": "export class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}"
     },
     "questions": {
       "is_name_purposeful": {
@@ -16,14 +16,6 @@
           "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
         ]
       },
-      "is_naming_convention_consistent": {
-        "type": "noul",
-        "instructions": "Do identifiers of the same kind in this unit follow a single casing convention?",
-        "criteria": {
-          "true": "Identifiers of the same kind follow one casing convention - functions and variables in camelCase, types and classes in PascalCase, module-level constants in SCREAMING_SNAKE - or whichever single form the surrounding code has already established for that kind.",
-          "false": "Two different casing forms appear for the same kind within the change or module (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
-        }
-      },
       "is_cognitively_complex": {
         "type": "score",
         "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
@@ -34,7 +26,7 @@
         ]
       }
     },
-    "model": "jev-latest"
+    "model": "jev-1.13.0"
   },
   "status": 200,
   "response": {
@@ -48,11 +40,12 @@
           "1": 0.067,
           "2": 0.067,
           "3": 0.067
+        },
+        "legend": {
+          "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
+          "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+          "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
         }
-      },
-      "is_naming_convention_consistent": {
-        "type": "noul",
-        "noul": 0.9
       },
       "is_cognitively_complex": {
         "type": "score",
@@ -61,6 +54,11 @@
           "0": 0.45,
           "1": 0.1,
           "2": 0.45
+        },
+        "legend": {
+          "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+          "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+          "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
         }
       }
     },
