@@ -1,10 +1,10 @@
 # jint
 
-jint (jev lint) measures code with AI-classifier judgments (TypeSafe System One / jev) and turns raw readings into actionable output via user-configurable callbacks. Sensors in, signals out.
+jint (jev lint) measures code with AI-classifier judgments (asked of a provider) and turns raw readings into actionable output via user-configurable callbacks. Sensors in, signals out.
 
 ## Design
 
-CLI -> SDK -> jev; config is a single small typed file. The CLI is a thin client of the SDK — every CLI capability must exist as an SDK option first; nothing is CLI-only.
+CLI -> SDK -> provider; config is a single small typed file. The CLI is a thin client of the SDK — every CLI capability must exist as an SDK option first; nothing is CLI-only.
 
 ### Adding defaults
 

@@ -55,7 +55,7 @@ export interface RuleContext {
 
 /**
  * One compiled judgment. jint schema-validates the spec, applies per-part size backstops,
- * serializes it, and calls jev — the rule NEVER sees the classifier. Composition is free;
+ * serializes it, and calls the provider — the rule NEVER sees the classifier. Composition is free;
  * observability (the wire dumps) is the guarantee.
  */
 export interface StateSchema {

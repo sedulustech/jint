@@ -13,8 +13,8 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import {} from "../core/grammars/grammars.ts";
 import {} from "../core/grammars/query.ts";
-import { checkRunKnobs } from "../core/jev/pacer.ts";
 import { closestName } from "../core/lint.ts";
+import { checkRunKnobs } from "../core/provider/pacer.ts";
 import { importConfigModule } from "../core/rules/custom/loader.ts";
 import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
@@ -155,7 +155,7 @@ export const CONFIG_SCHEMA = Type.Object({
   timeout: Type.Optional(
     Type.Number({
       description:
-        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30 (~80x the measured p95 of 380ms). A hung call becomes a per-element JEV_TIMEOUT failure.",
+        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30 (~80x the measured p95 of 380ms). A hung call becomes a per-element PROVIDER_TIMEOUT failure.",
     }),
   ),
 });
@@ -174,7 +174,7 @@ export interface ResolvedConfig {
   readonly apiKey?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
-  /** Per-call classifier timeout, seconds (default 30); a hung call becomes JEV_TIMEOUT. */
+  /** Per-call classifier timeout, seconds (default 30); a hung call becomes PROVIDER_TIMEOUT. */
   readonly timeout?: number;
   /** Load-time scope warnings (a rule whose exclude cancels its include): surfaced as notes. */
   readonly warnings?: readonly string[];

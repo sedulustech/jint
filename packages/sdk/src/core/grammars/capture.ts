@@ -89,7 +89,7 @@ function assertQueriesAuthoredFor(
 /**
  * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
  * elements; the classifier stays unplugged. It is lint's pipeline with the classifier unplugged:
- * input resolution, grammar registration, walk, inventory - no rules, no jev, no config, no
+ * input resolution, grammar registration, walk, inventory - no rules, no provider, no config, no
  * handles. The CLI verb `jint capture` is a thin print of this function (one word, two layers: the
  * SDK function and the CLI verb share the name by design). The config-aware layer below wraps the
  * same walk: run's resolution seams, still no classifier.
@@ -221,7 +221,7 @@ export interface CaptureForOptions {
   /**
    * Population preview: ONE rule name, resolved against the config's rules (defaults + custom). The
    * elements the rule's target and scope globs would measure carry matches: true; nothing is
-   * classified - no questions, no criteria, no handles, no jev.
+   * classified - no questions, no criteria, no handles, no provider.
    */
   readonly rule?: string;
   /**
@@ -290,9 +290,9 @@ function markPreviewPopulation(
  * included, because the sdk cannot resolve default rule names itself), the same input fallback
  * (target > config.input), the same walk scoping (config include/exclude/secretDenylist + extra
  * excludes + scopeBase), the same registry build order (the grammar dir's customs first, then the
- * call's own grammarPath). What never crosses: criteria, handles, question shapes, jev, severity.
- * The classifier stays unplugged - captureFor measures the population a run would classify, nothing
- * else. An unknown rule name fails through the run's own rule-selection scope.
+ * call's own grammarPath). What never crosses: criteria, handles, question shapes, provider,
+ * severity. The classifier stays unplugged - captureFor measures the population a run would
+ * classify, nothing else. An unknown rule name fails through the run's own rule-selection scope.
  */
 export function captureFor(
   config: ResolvedConfig,

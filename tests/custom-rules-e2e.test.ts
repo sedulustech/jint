@@ -3,10 +3,10 @@ import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // custom-rule end-to-end: an INLINE callback rule in a TS config (jint.config.ts), loaded through
-// the jint:sdk virtual module, classified over the mock jev wire. Contract claims only (report shape, spans, dumps,
+// the jint:sdk virtual module, classified over the mock provider wire. Contract claims only (report shape, spans, dumps,
 // fatal-vs-streamed error boundaries) — see src/core/rules/custom/*.test.ts for the unit level.
 
 const DIR = scratchDir("jint-custom-e2e");
@@ -99,10 +99,10 @@ function setup(name: string, configSource: string): string {
   return dir;
 }
 
-const jev = startMockJev();
-const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
+const provider = startMockProvider();
+const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
 afterAll(() => {
-  jev.stop();
+  provider.stop();
   rmScratchTree(DIR);
 });
 

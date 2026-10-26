@@ -15,8 +15,8 @@ import {
   type HandlerLevel,
   type Severity,
 } from "@jint/contract";
-import { runsBase } from "../core/jev/debug.ts";
-import { runCost } from "../core/jev/prices.ts";
+import { runsBase } from "../core/provider/debug.ts";
+import { runCost } from "../core/provider/prices.ts";
 import type { Dirent } from "node:fs";
 
 /** The wire shape of one recorded classifier request file, as served by this module. */

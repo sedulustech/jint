@@ -1,14 +1,14 @@
 import { describe, test, jest, expect, afterAll } from "bun:test";
 import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
 // Piped-stdin units: the kind is DECLARED by a noun — the str noun carries one str unit, the
-// paths noun a path list. The jev adapter is pointed at a local mock of POST /v1/systemone so the
+// paths noun a path list. The provider adapter is pointed at a local mock of POST /v1/systemone so the
 // runs classify for real.
 
 const SNIPPET = [
@@ -18,11 +18,11 @@ const SNIPPET = [
 ].join("\n");
 
 /** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
-const jev = startMockJev();
+const provider = startMockProvider();
 
 const MOCK_ENV = {
   TYPESAFE_API_KEY: "test-key",
-  TYPESAFE_BASE_URL: jev.baseUrl,
+  TYPESAFE_BASE_URL: provider.baseUrl,
 };
 
 async function runWithStdin(
@@ -30,12 +30,12 @@ async function runWithStdin(
   args: string[],
   env: Record<string, string> = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
-  // Async spawn: the mock jev server lives in THIS process — a synchronous wait would block
+  // Async spawn: the mock provider server lives in THIS process — a synchronous wait would block
   // its event loop and the child would hang waiting for answers.
   return runCli(args, { env: { ...MOCK_ENV, ...env }, stdin });
 }
 
-afterAll(() => jev.stop());
+afterAll(() => provider.stop());
 
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
@@ -88,7 +88,7 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("an element-target rule still judges the str unit whole: no grammar, no elements", async () => {
-    const before = jev.requests.length;
+    const before = provider.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "run",
       "--json",
@@ -109,7 +109,7 @@ describe("cli: piped stdin str unit", async () => {
     expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
     // no grammar ever requested: every wire call carries the whole snippet as state.content,
     // never an element state ({path, source})
-    const seen = jev.requests.slice(before);
+    const seen = provider.requests.slice(before);
     expect(seen.length).toBeGreaterThan(0);
     for (const wire of seen) {
       expect(wire.state.content).toBe(SNIPPET);
@@ -194,7 +194,7 @@ describe("cli: piped stdin str unit", async () => {
       "--rule",
       "is_greppable",
     ]);
-    expect(r.code).toBe(0); // the mock jev classifies the listed file cleanly
+    expect(r.code).toBe(0); // the mock provider classifies the listed file cleanly
     const report = JSON.parse(r.stdout);
     const allInputs = [
       ...report.measurements.map((m: { input: string }) => m.input),
@@ -237,7 +237,7 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
-    const before = jev.requests.length;
+    const before = provider.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "run",
       "str",
@@ -249,7 +249,7 @@ describe("cli: piped stdin str unit", async () => {
       "typescript",
     ]);
     expect(r.code).toBeLessThan(2);
-    const seen = jev.requests.slice(before);
+    const seen = provider.requests.slice(before);
     expect(seen.length).toBeGreaterThan(0);
     const wire = seen[seen.length - 1]!;
     const state = wire.state;
@@ -292,7 +292,7 @@ describe("cli: piped stdin str unit", async () => {
       ],
       exclude: [],
     });
-    const before = jev.requests.length;
+    const before = provider.requests.length;
     const MSG = "- **noul** - the number the model returns per question";
     const runs = await Promise.all(
       Array.from({ length: 20 }, () =>
@@ -308,7 +308,7 @@ describe("cli: piped stdin str unit", async () => {
       expect(report.measurements[0]!.rule).toBe("is_noul_documented");
     }
     // one whole-unit call per spawn, each carrying the exact piped text as the state
-    const seen = jev.requests.slice(before);
+    const seen = provider.requests.slice(before);
     expect(seen).toHaveLength(20);
     for (const wire of seen) {
       expect(wire.state.content).toBe("- **noul** - the number the model returns per question");

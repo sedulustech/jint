@@ -1,8 +1,8 @@
 /**
- * Run recording for the jev adapter: every run, on by default. Captures the exact bytes the vendor
- * SDK serializes — not our pre-SDK question objects — plus the manifest and the machine report, so
- * any run can be replayed, inspected, or judged from real payloads. Only the in-process test seam
- * stops it; JINT_RUNS_DIR moves WHERE the run dir lands, never WHETHER one is written.
+ * Run recording for the provider adapter: every run, on by default. Captures the exact bytes the
+ * vendor SDK serializes — not our pre-SDK question objects — plus the manifest and the machine
+ * report, so any run can be replayed, inspected, or judged from real payloads. Only the in-process
+ * test seam stops it; JINT_RUNS_DIR moves WHERE the run dir lands, never WHETHER one is written.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";

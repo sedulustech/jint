@@ -4,8 +4,8 @@
  *
  * The state IS the thing judged: the whole source is one unit, and the REGRESSION BAN holds here
  * exactly as in classifyFile — the array/matrix state (many elements x many questions in one call)
- * is forbidden, because jev answers every question from the file's average, not the element. One
- * element per call, that element's rules batched inside the call.
+ * is forbidden, because the provider answers every question from the file's average, not the
+ * element. One element per call, that element's rules batched inside the call.
  *
  * This is the MEASUREMENT-ONLY lane: handles are never applied here. Interpretation — thresholds,
  * severities, findings — is lint's job (design §4.5); classify() returns raw readings and in-band
@@ -16,14 +16,14 @@
  */
 
 import { knownLanguages, languageOf, EMBEDDED } from "./grammars/walk.ts";
-import { createClassifier } from "./jev/client.ts";
+import { createClassifier } from "./provider/client.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
   DEFAULT_TIMEOUT,
   withLimit,
   withTimeout,
-} from "./jev/pacer.ts";
+} from "./provider/pacer.ts";
 import { classifyFile, elementWireId, type OversizedElement } from "./rules/classify.ts";
 import {
   SetupError,
@@ -45,7 +45,7 @@ export interface ClassifyOptions {
   readonly classifier?: Classifier;
   /** Cap on in-flight per-element classifier calls (default 16, the shared run-wide ceiling). */
   readonly concurrency?: number;
-  /** Per-call timeout in seconds (default 30): a hung call becomes JEV_TIMEOUT. */
+  /** Per-call timeout in seconds (default 30): a hung call becomes PROVIDER_TIMEOUT. */
   readonly timeout?: number;
 }
 

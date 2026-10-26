@@ -5,9 +5,10 @@
  *   realistic payloads, zero 429s, median 283ms / p95 380ms latency). Arrivals are not paced: the
  *   vendor SDK retries with backoff and honors Retry-After, so an overshoot is absorbed upstream
  *   (an rps_budget pacer existed and was removed - git history holds it).
- * - Timeout bounds a single call's duration: a hung request converts to a per-element JEV_TIMEOUT
- *   failure instead of holding a run-wide slot forever (default 30s - generous against the measured
- *   p95 of 380ms; the SDK's own retries have their own budget and this is NOT a retry layer).
+ * - Timeout bounds a single call's duration: a hung request converts to a per-element
+ *   PROVIDER_TIMEOUT failure instead of holding a run-wide slot forever (default 30s - generous
+ *   against the measured p95 of 380ms; the SDK's own retries have their own budget and this is NOT
+ *   a retry layer).
  *
  * Composition order is load-bearing: withLimit(withTimeout(raw)) - the timeout fires while holding
  * a slot so a hang frees the slot instead of pinning it.
@@ -76,7 +77,7 @@ export function withLimit(classifier: Classifier, limit: number | undefined): Cl
 }
 
 /**
- * Bounds one classifier call's duration: a hung request rejects as JEV_TIMEOUT after `seconds`
+ * Bounds one classifier call's duration: a hung request rejects as PROVIDER_TIMEOUT after `seconds`
  * (converted to a per-element ClassifyError by the call seam) instead of holding a run-wide slot
  * forever. Liveness, not retry - the typesafe SDK owns retries. Sits INSIDE the limit so the
  * timeout firing frees the slot; the underlying request is not cancelled (the SDK/transport owns
@@ -95,7 +96,7 @@ export function withTimeout(classifier: Classifier, seconds: number | undefined)
           () =>
             reject(
               new ClassifyError(
-                "JEV_TIMEOUT",
+                "PROVIDER_TIMEOUT",
                 state.path,
                 `classifier call exceeded the ${seconds}s timeout - hung request abandoned (liveness, not retry)`,
               ),

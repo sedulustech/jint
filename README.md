@@ -4,7 +4,7 @@
 
 # jint, a semantic linter
 
-`jint` constructs state with Treesitter, and classifies the state against a set of user defined rules using Typesafe's Jev.
+`jint` constructs state with Treesitter, and classifies the state against a set of user defined rules using a provider.
 It then turns the classification values into actionable output via per-rule callbacks.
 
 [Read the blogpost!](https://sedulus.tech/blog/jint/)
@@ -56,7 +56,7 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint
 
 ## How to use
 
-Jev is the only supported classifier for now.
+Only one provider is supported for now.
 
 ```bash
 export TYPESAFE_API_KEY=...   # required

@@ -271,7 +271,7 @@ describe("getRun choice cells", () => {
           },
         }),
       );
-      // jev picks justified (0.43), but the two error options hold 0.57 together
+      // the provider picks justified (0.43), but the two error options hold 0.57 together
       const probabilities = { justified: 0.43, digression: 0.3, provenance: 0.27 };
       writeFileSync(
         join(dir, "report.json"),

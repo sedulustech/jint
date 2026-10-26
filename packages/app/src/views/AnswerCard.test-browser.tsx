@@ -41,7 +41,7 @@ test("a choice answer renders the selected option and one bar per option", () =>
   expect(container.textContent).not.toContain("true");
 });
 
-// jev picks justified, but the two error options together outweigh it: the error tier is the verdict
+// the provider picks justified, but the two error options together outweigh it: the error tier is the verdict
 const splitQA: QA = {
   key: "is_comment_justified",
   rule: "is_comment_justified",

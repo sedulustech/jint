@@ -111,7 +111,7 @@ export function invalidAnswerError(
   unusableAnswer?: ClassifiedAnswer,
 ): ClassifyError {
   return new ClassifyError(
-    "JEV_RESPONSE_INVALID",
+    "PROVIDER_RESPONSE_INVALID",
     input,
     `answer for '${ruleName}' is missing or not a finite number`,
     unusableAnswer === undefined ? { rule: ruleName } : { cause: unusableAnswer, rule: ruleName },
@@ -197,7 +197,7 @@ export interface OversizedElement {
 
 export interface ClassifyResult {
   readonly events: ClassifyEvent[];
-  /** A JEV_AUTH error aborts the whole run. */
+  /** A PROVIDER_AUTH error aborts the whole run. */
   readonly fatal: boolean;
   /** The derived inventory, when the source parsed into elements; absent on derivation failure. */
   readonly inventory?: Inventory;
@@ -616,7 +616,7 @@ async function classifyElementJob(
   );
   if (elementReply.error !== null) {
     events.push({ event: elementReply.error });
-    return elementReply.error.code === "JEV_AUTH";
+    return elementReply.error.code === "PROVIDER_AUTH";
   }
   // Every question asked gets a measurement or an error: an answer the model never gave (a refusal)
   // is reported, not dropped.
@@ -684,7 +684,8 @@ async function classifyWholeUnit(
     state.path,
   );
   return events.some(
-    (streamed) => streamed.event instanceof ClassifyError && streamed.event.code === "JEV_AUTH",
+    (streamed) =>
+      streamed.event instanceof ClassifyError && streamed.event.code === "PROVIDER_AUTH",
   );
 }
 
@@ -754,8 +755,8 @@ export async function classifyFile(
   const configAdmits = options.configAdmits ?? true;
 
   // The FILE unit needs the same token backstop the elements have: file-scope rules send the
-  // whole content, and jev rejects over-budget requests with a 400 (the only red errors in the
-  // verilator-cpp sweep). One constant serves both sides - a token is a token to jev, and the
+  // whole content, and the provider rejects over-budget requests with a 400 (the only red errors in the
+  // verilator-cpp sweep). One constant serves both sides - a token is a token to the provider, and the
   // criteria reserve the margin protects is the same shape for a files-rule batch as an element
   // batch - so the file unit reuses the element cap rather than growing a second constant.
   // Skips are a coverage note, never a 400; element rules still measure the file.

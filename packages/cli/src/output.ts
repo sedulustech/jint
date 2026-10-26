@@ -28,7 +28,7 @@ export function emit(line: {
 const JINT_PREFIX = "jint: ";
 
 /** The run's transport log (vendor backoff/warn/error): unprefixed lines through the emitter. */
-export function jevLog(line: string): void {
+export function providerLog(line: string): void {
   emit({ message: line, kind: "info" });
 }
 

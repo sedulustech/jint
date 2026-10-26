@@ -2,9 +2,9 @@
 
 Generated - do not edit. Regenerate with: `bun run schema`.
 
-## What jev is (read before writing criteria)
+## What the provider is (read before writing criteria)
 
-jev is a System One classifier, not a chat model: it returns calibrated
+The provider is a System One classifier, not a chat model: it returns calibrated
 probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 - **0.5 is undecided, not medium.** A noul of 0.45 vs 0.55 is not a ranking.

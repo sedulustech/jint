@@ -27,7 +27,7 @@ Generated files - do not hand-edit; regenerate instead.
 ## Generated case fixtures (fixture-pipeline)
 
 New edge cases ship as GENERATED runs: the generator runs the real engine pipeline
-(walk -> classify -> jev tap -> engine report/manifest writers) against a checked-in source dir:
+(walk -> classify -> provider tap -> engine report/manifest writers) against a checked-in source dir:
 
 - `sources/elements/` — real TS input (complex.ts + helpers.ts, nested functions).
 - `generated/elements/` — the run it produced: captures + report.json + manifest.json. Served

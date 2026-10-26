@@ -3,13 +3,13 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
-// a key with no reachable jev: the run walks, transport failures stay in-band
+// a key with no reachable provider: the run walks, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
@@ -20,7 +20,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 
 describe("cli: dir walk ignores", () => {
   // The input accounting (run.input): the flat decided shape, over a config that owns every
-  // scope - include, exclude, and the walker's own skips. No reachable jev: the run still walks,
+  // scope - include, exclude, and the walker's own skips. No reachable provider: the run still walks,
   // the report still carries the accounting (transport failures abort measurements, not input).
   test.concurrent("run.input: flat shape, per-glob exclusion, reason-keyed skips", async () => {
     const tmpRoot = scratchDir("jint-input-summary");
@@ -93,8 +93,8 @@ describe("cli: dir walk ignores", () => {
       await rmScratchTree(tmpRoot);
     }
   }, 30000);
-  test.concurrent("ignored files never reach the report; resolver excludes them pre-jev", async () => {
-    // No reachable jev: transport errors abort before measurements exist, but the report still
+  test.concurrent("ignored files never reach the report; resolver excludes them pre-provider", async () => {
+    // No reachable provider: transport errors abort before measurements exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
     const r = await run(["run", "tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
@@ -143,21 +143,21 @@ describe("cli: dir walk ignores", () => {
       configPath,
       JSON.stringify({ rules: ["is_greppable"], exclude: ["**/fixtures/**"] }),
     );
-    // No key: the run reaches input resolution and the units (JEV_AUTH, exit 4) — NOT
+    // No key: the run reaches input resolution and the units (PROVIDER_AUTH, exit 4) — NOT
     // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
     // became optional.
     const r = await run(["run", "tests/fixtures/sample-dir", "--json", "--config", configPath]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    expect(report.errors.some((e: any) => e.code === "JEV_UNAVAILABLE")).toBe(true);
+    expect(report.errors.some((e: any) => e.code === "PROVIDER_UNAVAILABLE")).toBe(true);
   });
 
   // structural twin of the live calibration test: exclusions are CONTRACT (the walker owns
-  // them, pre-jev), so the mock proves them keylessly; the live twin only adds real readings
-  test("mocked jev: ignored files are absent from measurements", async () => {
-    const jev = startMockJev();
+  // them, pre-provider), so the mock proves them keylessly; the live twin only adds real readings
+  test("mocked provider: ignored files are absent from measurements", async () => {
+    const provider = startMockProvider();
     try {
-      // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block
+      // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block
       // its event loop and the child would hang waiting for answers.
       // own config: the repo root config excludes the tests subtree on the config-relative
       // basis, which would (correctly) empty this walk - this test owns the walker contract
@@ -166,7 +166,7 @@ describe("cli: dir walk ignores", () => {
       const proc = await runCli(
         ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
         {
-          env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
+          env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl },
         },
       );
       const report = JSON.parse(proc.stdout);
@@ -177,7 +177,7 @@ describe("cli: dir walk ignores", () => {
       expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
       expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
     } finally {
-      jev.stop();
+      provider.stop();
     }
   });
 
@@ -197,5 +197,5 @@ describe("cli: dir walk ignores", () => {
     expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
     expect(paths.some((p: string) => p.includes("blob.bin"))).toBe(false);
     expect(paths.some((p: string) => p.includes("photo.png"))).toBe(false);
-  }, 30000); // live jev round trip: real network latency, above bun's 5s default
+  }, 30000); // live provider round trip: real network latency, above bun's 5s default
 });

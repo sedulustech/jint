@@ -77,7 +77,7 @@ export function AnswerCard({
   // score levels sort numerically; choice options keep the question's own order
   const options = Object.keys({ ...legend, ...probabilities });
   if (isScore) options.sort((x, y) => Number(x) - Number(y));
-  // the choice tier read: the verdict is the tier holding the most probability, not jev's pick
+  // the choice tier read: the verdict is the tier holding the most probability, not the provider's pick
   const tierRead =
     isChoice && choices !== undefined
       ? (() => {

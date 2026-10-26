@@ -93,11 +93,16 @@ describe("renderLines", () => {
     const { stderr } = renderLines({
       ...report,
       errors: [
-        { name: "JEV_TIMEOUT", input: "src/x.ts", code: "JEV_TIMEOUT", message: "timed out" },
+        {
+          name: "PROVIDER_TIMEOUT",
+          input: "src/x.ts",
+          code: "PROVIDER_TIMEOUT",
+          message: "timed out",
+        },
       ],
       notes: ["src/big.ts: 1 oversized element(s) skipped"],
     });
-    expect(stderr).toContain("error JEV_TIMEOUT src/x.ts: timed out");
+    expect(stderr).toContain("error PROVIDER_TIMEOUT src/x.ts: timed out");
     expect(stderr).toContain("note: src/big.ts: 1 oversized element(s) skipped");
     expect(stderr).not.toContain("jint:");
   });

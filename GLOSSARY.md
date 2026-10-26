@@ -136,6 +136,7 @@ measurement its handle judged actionable and is the only output that demands act
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
   `jint run ./capture`).
+- **provider** — the service jint asks its questions of: where (URL), how (wire protocol), with which key and model id.
 - **question** — one classified judgment request sent to the model about one state.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.

@@ -1,15 +1,15 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { runCli } from "./helpers/cli.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 const FIXTURE = "tests/fixtures/sample-file.ts";
 
 // Element-scoped classification (path@L<n> / path#id): ONE walker element judged per run, so a
 // fix agent tests rule x element pairs without a full-tree re-lint. Contract claims over the
-// mock jev: call count, the judged source, and the finding-string round trip.
-describe("cli: element-scoped runs (mocked jev)", () => {
-  const jev = startMockJev();
-  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
+// mock provider: call count, the judged source, and the finding-string round trip.
+describe("cli: element-scoped runs (mocked provider)", () => {
+  const provider = startMockProvider();
+  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
     // scopes-open config: the fixture lives under tests/, which the repo config excludes -
@@ -18,41 +18,41 @@ describe("cli: element-scoped runs (mocked jev)", () => {
       env: { ...MOCK_ENV, ...env },
     });
   }
-  afterAll(() => jev.stop());
+  afterAll(() => provider.stop());
 
   test("a line selector classifies exactly ONE element in ONE call", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L3"]);
     // the element's FULL rule set runs; a score-typed rule may flag under the constant mock
     expect([0, 1]).toContain(r.code);
-    expect(jev.requests).toHaveLength(1);
-    const source = String(jev.requests[0]!.state.source);
+    expect(provider.requests).toHaveLength(1);
+    const source = String(provider.requests[0]!.state.source);
     expect(source).toContain("addSeconds");
     expect(source).not.toContain("formatDuration");
   });
 
   test("--rule narrows the scoped run to a single question (still one call)", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
-    expect(jev.requests).toHaveLength(1);
-    expect(Object.keys(jev.requests[0]!.questions)).toEqual(["is_greppable"]);
+    expect(provider.requests).toHaveLength(1);
+    expect(Object.keys(provider.requests[0]!.questions)).toEqual(["is_greppable"]);
   });
 
   test("a pasted path#id finding string gets run-scoped guidance, not a walk", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "#f1c044af-a09f-43d8-8460-c87213766c47@L58"]);
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("run-scoped");
     expect(r.stderr).toContain("@L58");
-    expect(jev.requests).toHaveLength(0);
+    expect(provider.requests).toHaveLength(0);
   });
 
   test("a bare file noun still judges every element (unscoped)", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE, "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
-    expect(jev.requests.length).toBeGreaterThan(1);
+    expect(provider.requests.length).toBeGreaterThan(1);
   });
 
   test("a line inside no element fails in-band with exit 2", async () => {
@@ -63,11 +63,11 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   });
 
   test("a RANGE selects fully-enclosed elements: one call each with --rule", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L2-L4", "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
-    expect(jev.requests).toHaveLength(1);
-    expect(jev.requests[0]!.state.source).toContain("addSeconds");
+    expect(provider.requests).toHaveLength(1);
+    expect(provider.requests[0]!.state.source).toContain("addSeconds");
     expect(r.stderr).toContain("jint: @L2-L4 -> 1 element: L2-L4");
     // the echo block: edge-only section, stderr
     expect(r.stderr).toContain("--- " + FIXTURE + "@L2-L4 (3 lines) ---");
@@ -79,10 +79,10 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   });
 
   test("a comma list resolves each item independently: 2 elements, 2 calls", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L2-L4,@L6-L11", "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
-    expect(jev.requests).toHaveLength(2);
+    expect(provider.requests).toHaveLength(2);
     expect(r.stderr).toContain("jint: @L2-L4 -> 1 element: L2-L4");
     expect(r.stderr).toContain("jint: @L6-L11 -> 1 element: L6-L11");
   });
@@ -101,7 +101,7 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   });
 
   test("human mode echoes WHICH element was captured on stdout BEFORE the findings", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
     const echoAt = r.stdout.indexOf("jint: " + FIXTURE + "@L");
@@ -114,7 +114,7 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   });
 
   test("--json keeps stdout a single JSON document with the selected object inside", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable", "--json"]);
     expect(r.code).toBe(0);
     const doc = JSON.parse(r.stdout);
@@ -129,7 +129,7 @@ describe("cli: element-scoped runs (mocked jev)", () => {
   });
 
   test("an unscoped run carries no selected object (a walk has no selection)", async () => {
-    jev.requests.length = 0;
+    provider.requests.length = 0;
     const r = await runMock(["run", FIXTURE, "--rule", "is_greppable", "--json"]);
     expect(r.code).toBe(0);
     expect(JSON.parse(r.stdout).selected).toBeUndefined();

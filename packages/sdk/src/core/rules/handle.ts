@@ -66,7 +66,7 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
  */
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
   return (answer) => {
-    // jev bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
+    // the provider bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
     // state, not a silent null - fail loud (InternalError: the wire contract broke, not the
     // invocation), per repo convention (the contract evaluator alone would degrade to silent).
     const index = Math.round(answer.value);

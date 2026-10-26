@@ -1,6 +1,6 @@
 /**
- * The jev adapter — the only file that imports the vendor SDK. This is the swappable-backend seam:
- * the lint pipeline accepts any classifier, tests fake it.
+ * The provider adapter — the only file that imports the vendor SDK. This is the swappable-backend
+ * seam: the lint pipeline accepts any classifier, tests fake it.
  *
  * Vendor transport failures map onto the project's error taxonomy exactly once, here: auth failures
  * fail loud at the first call (never at import), rejected requests, rate limits and outages surface
@@ -86,7 +86,7 @@ export interface ClassifierConfig {
   apiKey?: string;
   baseURL?: string;
   /**
-   * The model id; defaults to $JINT_MODEL, then the pinned jev release. A Decisions model (gpt-*)
+   * The model id; defaults to $JINT_MODEL, then the pinned default model. A Decisions model (gpt-*)
    * is asked through OpenAI's Decisions API with $OPENAI_API_KEY.
    */
   model?: string;
@@ -123,14 +123,14 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
 }
 
 /**
- * The pinned jev release. The `jev-latest` alias moves when a new release ships, so readings, and
+ * The pinned default model. The `jev-latest` alias moves when a new release ships, so readings, and
  * every threshold calibrated against them, would change without a change here.
  */
-export const JEV_MODEL = "jev-1.13.0";
+export const DEFAULT_MODEL = "jev-1.13.0";
 
-/** The model a run asks: the config's, else $JINT_MODEL, else the pinned jev release. */
+/** The model a run asks: the config's, else $JINT_MODEL, else the pinned default model. */
 export const resolveModel = (model?: string): string =>
-  model ?? process.env.JINT_MODEL ?? JEV_MODEL;
+  model ?? process.env.JINT_MODEL ?? DEFAULT_MODEL;
 
 /** A Decisions model swaps in the translating fetch and OpenAI's key; System One goes as is. */
 function routeModel(config: ClassifierConfig | undefined): ClassifierConfig {
@@ -150,7 +150,7 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
     return new TypeSafeClient({
       apiKey: config?.apiKey,
       baseURL: config?.baseURL,
-      defaultModel: config?.model ?? JEV_MODEL,
+      defaultModel: config?.model ?? DEFAULT_MODEL,
       fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
@@ -161,19 +161,19 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
         debug: () => {},
         info: (message, ...args) => {
           if (message.includes("retrying in")) {
-            writeLog(`jev backoff: ${message} ${args.join(" ")}`);
+            writeLog(`provider backoff: ${message} ${args.join(" ")}`);
           }
         },
-        warn: (message, ...args) => writeLog(`jev warn: ${message} ${args.join(" ")}`),
-        error: (message, ...args) => writeLog(`jev error: ${message} ${args.join(" ")}`),
+        warn: (message, ...args) => writeLog(`provider warn: ${message} ${args.join(" ")}`),
+        error: (message, ...args) => writeLog(`provider error: ${message} ${args.join(" ")}`),
       },
     });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     throw new ClassifyError(
-      "JEV_AUTH",
+      "PROVIDER_AUTH",
       input,
-      `jev unavailable at startup: ${detail} — set TYPESAFE_API_KEY to a valid key`,
+      `provider unavailable at startup: ${detail} — set TYPESAFE_API_KEY to a valid key`,
       { cause: e },
     );
   }
@@ -203,9 +203,9 @@ function extractAnswers(
     const shape = ANSWER_SHAPES[spec.type];
     if (!Value.Check(shape.schema, answer)) {
       throw new ClassifyError(
-        "JEV_RESPONSE_INVALID",
+        "PROVIDER_RESPONSE_INVALID",
         input,
-        `jev answer '${name}' failed shape validation: expected ${shape.text}, got ${JSON.stringify(answer)}`,
+        `provider answer '${name}' failed shape validation: expected ${shape.text}, got ${JSON.stringify(answer)}`,
       );
     }
     if (spec.type === "score") {
@@ -228,41 +228,51 @@ function extractAnswers(
 
 function mapTransportError(e: unknown, input: string): ClassifyError {
   if (e instanceof AuthenticationError || e instanceof PermissionDeniedError) {
-    return new ClassifyError("JEV_AUTH", input, `jev rejected the API key: ${e.message}`, {
-      cause: e,
-    });
+    return new ClassifyError(
+      "PROVIDER_AUTH",
+      input,
+      `provider rejected the API key: ${e.message}`,
+      {
+        cause: e,
+      },
+    );
   }
   if (e instanceof BadRequestError || e instanceof UnprocessableEntityError) {
     return new ClassifyError(
-      "JEV_REQUEST_INVALID",
+      "PROVIDER_REQUEST_INVALID",
       input,
-      `jev rejected the request: ${e.message}`,
+      `provider rejected the request: ${e.message}`,
       {
         cause: e,
       },
     );
   }
   if (e instanceof RateLimitError || e instanceof InternalServerError || e instanceof APIError) {
-    return new ClassifyError("JEV_UNAVAILABLE", input, `jev unavailable: ${e.message}`, {
+    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unavailable: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof APIConnectionError) {
-    return new ClassifyError("JEV_UNAVAILABLE", input, `jev unreachable: ${e.message}`, {
+    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unreachable: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof TypeSafeError) {
-    return new ClassifyError("JEV_UNAVAILABLE", input, `jev call failed: ${e.message}`, {
+    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider call failed: ${e.message}`, {
       cause: e,
     });
   }
   if (e instanceof Error) {
-    return new ClassifyError("INTERNAL", input, `unexpected jev transport error: ${e.message}`, {
-      cause: e,
-    });
+    return new ClassifyError(
+      "INTERNAL",
+      input,
+      `unexpected provider transport error: ${e.message}`,
+      {
+        cause: e,
+      },
+    );
   }
-  return new ClassifyError("INTERNAL", input, `unexpected jev transport error: ${String(e)}`, {
+  return new ClassifyError("INTERNAL", input, `unexpected provider transport error: ${String(e)}`, {
     cause: e,
   });
 }

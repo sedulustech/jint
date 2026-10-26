@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { runCli } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // BYOG end-to-end: a USER grammar dir walks a real file through the seam (docs/byog.md) to
 // elements to a qualified-capture-address rule. The registration mechanics are unit-tested
 // (packages/sdk/src/core/grammars/grammars.test.ts); this file proves the seam OBSERVABLY, over the
-// mock jev wire, by the house e2e pattern (custom-rules-e2e.test.ts).
+// mock provider wire, by the house e2e pattern (custom-rules-e2e.test.ts).
 //
 // THE SHADOW PATH (no wasm committed): tests/fixtures/grammars/markdown/ is named for the embedded
 // id "markdown" and holds queries.scm + extensions.json WITHOUT a wasm - so it shadows the embedded
@@ -36,10 +36,10 @@ const FIXTURE = [
   "",
 ].join("\n");
 
-const jev = startMockJev();
-const WIRE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
+const provider = startMockProvider();
+const WIRE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
 afterAll(() => {
-  jev.stop();
+  provider.stop();
   rmScratchTree(DIR);
 });
 
@@ -92,7 +92,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     // The wire state carries the shadow's element content verbatim: the prose runs, not the
     // headings or their bodies - the strongest single proof the shadow .scm, not the embedded one,
     // materialized extraction.
-    const sources = jev.requests
+    const sources = provider.requests
       .filter((req) => "probe_shadow_section" in req.questions)
       .map((req) => req.state.source)
       .sort();

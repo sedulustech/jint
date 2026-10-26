@@ -129,7 +129,7 @@ export function resolveTargets(
         };
       }
       // Per-rule scoping applies to selection-function picks too: a scoped-out element costs
-      // zero jev calls regardless of how it was requested.
+      // zero provider calls regardless of how it was requested.
       const filtered = picked.filter((e) => ruleInScope(rule, e.path));
       return { targets: filtered, scopedOut: picked.length - filtered.length };
     } catch (thrown) {
@@ -235,7 +235,7 @@ export async function runCustomRules(
         continue;
       }
       // Per-part size backstop: any string state part over the bound skips the element (noted),
-      // mirroring the walk's oversized-element behavior — ordinary state never crashes jev.
+      // mirroring the walk's oversized-element behavior — ordinary state never crashes the provider.
       const oversized = Object.entries(stateSpec.state).find(
         ([, part]) => typeof part === "string" && charsToTokens(part.length) > MAX_ELEMENT_TOKENS,
       );
@@ -269,7 +269,7 @@ export async function runCustomRules(
           events.push({
             type: "error",
             error: new ClassifyError(
-              "JEV_RESPONSE_INVALID",
+              "PROVIDER_RESPONSE_INVALID",
               input,
               "answer for '" + rule.name + "' is missing or not a finite number",
             ),
@@ -280,7 +280,7 @@ export async function runCustomRules(
       } catch (thrown) {
         const error = toClassifyError(input, thrown);
         events.push({ type: "error", error });
-        if (error.code === "JEV_AUTH") fatal = true;
+        if (error.code === "PROVIDER_AUTH") fatal = true;
         continue;
       }
       results.push({ type: "noul", noul: value });

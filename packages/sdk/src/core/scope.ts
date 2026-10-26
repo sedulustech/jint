@@ -16,9 +16,9 @@
  * ignoring a negation inside a scoping list reads as a bug, so a `!`-leading pattern is rejected at
  * load, naming the field.
  *
- * Scoping filters at element selection, before rule resolution: a scoped-out element costs zero jev
- * calls. Scoping matches the element's FILE path as the walk yields it (relative for dir inputs,
- * as-given for file inputs); it is not span-granular.
+ * Scoping filters at element selection, before rule resolution: a scoped-out element costs zero
+ * provider calls. Scoping matches the element's FILE path as the walk yields it (relative for dir
+ * inputs, as-given for file inputs); it is not span-granular.
  */
 
 import {

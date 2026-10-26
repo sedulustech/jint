@@ -126,20 +126,20 @@ export interface Inventory {
 }
 
 /**
- * The char -> token estimate behind the size backstop. jev's limit is a TOKEN budget, not a char
- * budget; this side carries no tokenizer (and must not grow one - no new deps), so the backstop
- * converts source chars with the ~4-chars-per-token rule of thumb for code. An ESTIMATE, not a
- * measurement: dense symbol-heavy source reads as more tokens than the ratio predicts, which is why
- * the cap below keeps a margin under the measured ceiling instead of sitting on it.
+ * The char -> token estimate behind the size backstop. The provider's limit is a TOKEN budget, not
+ * a char budget; this side carries no tokenizer (and must not grow one - no new deps), so the
+ * backstop converts source chars with the ~4-chars-per-token rule of thumb for code. An ESTIMATE,
+ * not a measurement: dense symbol-heavy source reads as more tokens than the ratio predicts, which
+ * is why the cap below keeps a margin under the measured ceiling instead of sitting on it.
  */
 export function charsToTokens(chars: number): number {
   return Math.ceil(chars / 4);
 }
 
 /**
- * The element size backstop, in TOKENS (the unit jev's budget counts): any element whose source
- * exceeds this is emitted with oversized: true and skipped by the classifier - ordinary code can
- * never crash the run with an oversized judgment request. Chunking is rejected.
+ * The element size backstop, in TOKENS (the unit the provider's budget counts): any element whose
+ * source exceeds this is emitted with oversized: true and skipped by the classifier - ordinary code
+ * can never crash the run with an oversized judgment request. Chunking is rejected.
  *
  * Why 30k: measured against the live API (2026-10-05), jev accepts ~32k tokens and rejects ~48k
  * with 400 max_tokens_exceeded - and that budget is SHARED by the element source and the batched

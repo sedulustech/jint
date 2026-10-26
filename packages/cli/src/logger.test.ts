@@ -26,14 +26,14 @@ describe("logger", () => {
   test("debug level passes debug entries as one JSON object per line", () => {
     capture();
     setLogLevel("debug");
-    log("debug", "unit failed", { file: "a.ts", errorCode: "JEV_UNAVAILABLE" });
+    log("debug", "unit failed", { file: "a.ts", errorCode: "PROVIDER_UNAVAILABLE" });
     expect(captured).toHaveLength(1);
     const entry = JSON.parse(captured[0]![0] as string);
     expect(entry).toEqual({
       level: "debug",
       msg: "unit failed",
       file: "a.ts",
-      errorCode: "JEV_UNAVAILABLE",
+      errorCode: "PROVIDER_UNAVAILABLE",
     });
   });
 

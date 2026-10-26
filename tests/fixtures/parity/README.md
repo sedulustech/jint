@@ -155,7 +155,7 @@ Deltas, all documented policy:
 
 The shipped CLIs - main at be54e46 (scratch build, byte-identical tree) vs this branch - ran the
 same corpus (main's packages/contract/src, 4 files, 456 lines) with the same element-scoped probe
-config (one rule per target: definitions, functions, comments, imports) and a mock jev. Reports
+config (one rule per target: definitions, functions, comments, imports) and a mock provider. Reports
 diffed on (file, kind, span):
 
 - ALLOWED, 52 REF-ONLY functions in handlers.test.ts: the reference stretched every

@@ -326,10 +326,10 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
     let code = 0;
     const line = capture(() => {
       code = exitForThrown(
-        new ClassifyError("JEV_TIMEOUT" as ClassifyErrorCode, "str:stdin", "timed out"),
+        new ClassifyError("PROVIDER_TIMEOUT" as ClassifyErrorCode, "str:stdin", "timed out"),
       );
     });
-    expect(line).toBe("jint: timed out [JEV_TIMEOUT]\n");
+    expect(line).toBe("jint: timed out [PROVIDER_TIMEOUT]\n");
     expect(code).toBe(4);
   });
 
@@ -347,8 +347,8 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
     expect(capture(() => emit({ message: "ui -> http://localhost:1" }))).toBe(
       "jint: ui -> http://localhost:1\n",
     );
-    expect(capture(() => emit({ message: "jev backoff: retrying in 5ms", kind: "info" }))).toBe(
-      "jint: jev backoff: retrying in 5ms\n",
-    );
+    expect(
+      capture(() => emit({ message: "provider backoff: retrying in 5ms", kind: "info" })),
+    ).toBe("jint: provider backoff: retrying in 5ms\n");
   });
 });

@@ -14,12 +14,12 @@ describe("checkRunKnobs", () => {
 });
 
 describe("withTimeout", () => {
-  test("a hung call rejects JEV_TIMEOUT after the timeout; a fast call passes through", async () => {
+  test("a hung call rejects PROVIDER_TIMEOUT after the timeout; a fast call passes through", async () => {
     const hung: Classifier = () => new Promise(() => {}); // never settles
     const timed = withTimeout(hung, 0.02);
     await expect(timed({ path: "a.ts", source: "a" } as AnyState, {})).rejects.toMatchObject({
       name: "ClassifyError",
-      code: "JEV_TIMEOUT",
+      code: "PROVIDER_TIMEOUT",
       input: "a.ts",
     });
     const fast: Classifier = async () => ({ ok: { value: 1 } });

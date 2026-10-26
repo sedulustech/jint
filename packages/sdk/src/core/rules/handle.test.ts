@@ -21,7 +21,7 @@ describe("compileScoreHandler", () => {
   });
 
   test("out-of-scale and NaN scores are impossible states - fail loud, never silent null", () => {
-    // jev bounds score to the criteria count; a violation means the wire contract broke.
+    // the provider bounds score to the criteria count; a violation means the wire contract broke.
     expect(() => handle({ value: 3 })).toThrow(InternalError);
     expect(() => handle({ value: -1 })).toThrow(/outside the criteria scale/);
     expect(() => handle({ value: Number.NaN })).toThrow(/outside the criteria scale/);

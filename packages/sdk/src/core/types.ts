@@ -70,11 +70,11 @@ export type SetupDetail =
  * the bug bucket instead, never a streamed code.
  */
 export type ClassifyErrorCode =
-  | "JEV_AUTH"
-  | "JEV_UNAVAILABLE"
-  | "JEV_REQUEST_INVALID"
-  | "JEV_RESPONSE_INVALID"
-  | "JEV_TIMEOUT"
+  | "PROVIDER_AUTH"
+  | "PROVIDER_UNAVAILABLE"
+  | "PROVIDER_REQUEST_INVALID"
+  | "PROVIDER_RESPONSE_INVALID"
+  | "PROVIDER_TIMEOUT"
   | "WALK_FAILED"
   | "RULE_FAILED"
   | "INTERNAL";
@@ -115,11 +115,11 @@ export class InternalError extends Error {
 }
 
 /**
- * A per-unit failure to produce a measurement: the request to the classifier failed (JEV_*), or the
- * unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the unit.
- * One bad unit never kills the run and never fails it by itself — the error streams as a value and
- * the run is failed only by findings. The seam throws it and the pipeline catches it into the
- * stream; it never escapes the pipeline boundary.
+ * A per-unit failure to produce a measurement: the request to the classifier failed (PROVIDER_*),
+ * or the unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the
+ * unit. One bad unit never kills the run and never fails it by itself — the error streams as a
+ * value and the run is failed only by findings. The seam throws it and the pipeline catches it into
+ * the stream; it never escapes the pipeline boundary.
  */
 export class ClassifyError extends Error {
   /** The rule whose reading failed, when the error concerns one rule's answer. */
@@ -304,8 +304,8 @@ export interface FileState {
 /**
  * State for ONE element judgment: the element's source under its own name, plus the file path so
  * the model knows the enclosing context. Never batch elements into an array state - one state x
- * many questions makes jev answer every question from the file's average (probes: noul pinned
- * 0.61-0.66 across 21 elements whose isolated readings spread 0.60-0.92).
+ * many questions makes the provider answer every question from the file's average (probes: noul
+ * pinned 0.61-0.66 across 21 elements whose isolated readings spread 0.60-0.92).
  */
 export interface ElementState {
   readonly path: string;
@@ -364,8 +364,8 @@ export type ScoreResult = { readonly type: "score"; readonly score: number };
 export type RuleResult = NoulResult | ScoreResult;
 
 /**
- * The swappable backend seam: answers keyed by question name. Implemented by the jev adapter; faked
- * in tests.
+ * The swappable backend seam: answers keyed by question name. Implemented by the provider adapter;
+ * faked in tests.
  */
 export type Classifier = (
   state: AnyState,

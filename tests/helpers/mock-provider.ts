@@ -1,24 +1,24 @@
 /**
- * Shared mock of the jev vendor wire (POST /v1/systemone). Point the CLI at baseUrl via
+ * Shared mock of the provider vendor wire (POST /v1/systemone). Point the CLI at baseUrl via
  * TYPESAFE_BASE_URL and every classification is answered locally — the suite runs fully keyless.
  *
  * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
  * everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see tests/README.md.
  *
- * The wire shape mirrors src/core/jev/client.ts: the request carries { state, questions } where
- * each question is a compiled { instructions, criteria } spec, and the response carries an answer
- * per question of shape { type: "noul", noul: 0..1 }, { type: "score", score: number }, or { type:
- * "choice", choice: label }.
+ * The wire shape mirrors src/core/provider/client.ts: the request carries { state, questions }
+ * where each question is a compiled { instructions, criteria } spec, and the response carries an
+ * answer per question of shape { type: "noul", noul: 0..1 }, { type: "score", score: number }, or {
+ * type: "choice", choice: label }.
  */
 
-export interface MockJevRequest {
+export interface MockProviderRequest {
   /** The full parsed request body (state, questions) — assert the wire, not our pre-SDK objects. */
   body: Record<string, unknown>;
   state: Record<string, unknown>;
   questions: Record<string, Record<string, unknown>>;
 }
 
-export interface MockJevOptions {
+export interface MockProviderOptions {
   /** Default answer for noul-type questions. Default 0.8. */
   noul?: number;
   /** Default answer for score-type questions. Default 1. */
@@ -33,16 +33,16 @@ export interface MockJevOptions {
   answerFor?: (q: {
     rule: string;
     question: Record<string, unknown>;
-    request: MockJevRequest;
+    request: MockProviderRequest;
   }) => number | null;
 }
 
-export interface MockJev {
+export interface MockProvider {
   /** Value for TYPESAFE_BASE_URL — the proven process-level injection for spawned CLIs. */
   baseUrl: string;
   stop: () => void;
   /** Every request the mock saw, in order. Assert the wire: state content, instructions, criteria. */
-  requests: MockJevRequest[];
+  requests: MockProviderRequest[];
 }
 
 /** A choice answer: the selected option holds 0.7, the rest share 0.3 evenly. */
@@ -54,8 +54,8 @@ function choiceAnswer(question: Record<string, unknown>, selected: string | unde
   return { type: "choice", choice, probabilities };
 }
 
-export function startMockJev(opts: MockJevOptions = {}): MockJev {
-  const requests: MockJevRequest[] = [];
+export function startMockProvider(opts: MockProviderOptions = {}): MockProvider {
+  const requests: MockProviderRequest[] = [];
   const server = Bun.serve({
     port: 0,
     idleTimeout: 30,
@@ -64,7 +64,7 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
         state?: Record<string, unknown>;
         questions?: Record<string, Record<string, unknown>>;
       };
-      const entry: MockJevRequest = {
+      const entry: MockProviderRequest = {
         body: body as Record<string, unknown>,
         state: body.state ?? {},
         questions: body.questions ?? {},
@@ -81,7 +81,7 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
                 type: "score",
                 score: override ?? opts.score ?? 1,
                 probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
-                // jev echoes each level's text back as the legend
+                // provider echoes each level's text back as the legend
                 legend: Object.fromEntries(
                   ((question.criteria as string[] | undefined) ?? []).map((t, i) => [String(i), t]),
                 ),

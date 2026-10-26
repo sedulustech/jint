@@ -58,7 +58,7 @@ import {
   emit,
   printSelection,
   emitLines,
-  jevLog,
+  providerLog,
   printRules,
   printRulesJson,
   printRulesStdout,
@@ -111,7 +111,7 @@ export const FLAGS = {
     type: "string",
     arg: "<secs>",
     blurb:
-      "per-call classifier timeout (default 30; a hung call becomes a per-element JEV_TIMEOUT failure - liveness, not retry)",
+      "per-call classifier timeout (default 30; a hung call becomes a per-element PROVIDER_TIMEOUT failure - liveness, not retry)",
   },
   "--queries": {
     type: "string",
@@ -844,7 +844,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         exclude: cliArgs.exclude,
         disable: cliArgs.disable,
         only: cliArgs.rule,
-        log: jevLog,
+        log: providerLog,
         concurrency,
         timeout,
         paths: pathsContent !== undefined ? { content: pathsContent } : undefined,

@@ -241,7 +241,7 @@ export const will_comment_drift: NoulRuleSchema = {
   },
 };
 
-// provisional: first score rule — scored rubric via the jev score primitive; unanchored until
+// provisional: first score rule — scored rubric via the provider score primitive; unanchored until
 // the self-lint corpus has score readings
 export const isCognitivelyComplex: ScoreRuleSchema = {
   name: "is_cognitively_complex",

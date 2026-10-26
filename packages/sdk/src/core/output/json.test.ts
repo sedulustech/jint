@@ -38,8 +38,8 @@ const report: LintReport = {
     },
   ],
   errors: [
-    new ClassifyError("JEV_UNAVAILABLE", "src/b.ts", "jev unreachable"),
-    new ClassifyError("JEV_RESPONSE_INVALID", "src/c.ts#L4", "no answer", { rule: "r" }),
+    new ClassifyError("PROVIDER_UNAVAILABLE", "src/b.ts", "provider unreachable"),
+    new ClassifyError("PROVIDER_RESPONSE_INVALID", "src/c.ts#L4", "no answer", { rule: "r" }),
   ],
 };
 
@@ -50,9 +50,9 @@ describe("renderJson", () => {
     expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
     expect(parsed.tool).toBe("jint");
     expect(parsed.errors).toEqual([
-      { input: "src/b.ts", code: "JEV_UNAVAILABLE", message: "jev unreachable" },
+      { input: "src/b.ts", code: "PROVIDER_UNAVAILABLE", message: "provider unreachable" },
       // an error about one rule's answer names the rule
-      { input: "src/c.ts#L4", code: "JEV_RESPONSE_INVALID", message: "no answer", rule: "r" },
+      { input: "src/c.ts#L4", code: "PROVIDER_RESPONSE_INVALID", message: "no answer", rule: "r" },
     ]);
   });
 

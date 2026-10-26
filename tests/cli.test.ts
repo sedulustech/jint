@@ -1,7 +1,7 @@
 import { describe, test, jest, expect, afterEach, afterAll } from "bun:test";
 import { runCli, runShell, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
@@ -24,7 +24,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 }
 
 const NO_KEY = { TYPESAFE_API_KEY: "" }; // SDK ignores empty env values -> missing key
-// a key with no reachable jev: the run walks and classifies, transport failures stay in-band
+// a key with no reachable provider: the run walks and classifies, transport failures stay in-band
 const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
 
 afterEach(() => {
@@ -273,7 +273,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no TYPESAFE_API_KEY set");
     expect(r.stderr).not.toContain("failed to classify");
-    expect(r.stdout).not.toContain("JEV_AUTH");
+    expect(r.stdout).not.toContain("PROVIDER_AUTH");
   });
 
   test.concurrent("config resolving to zero rules: CONFIG_NO_RULES, exit 2 (an empty run is an error, not a headline)", async () => {
@@ -443,7 +443,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const proc = await runCli(["run", "str", "-"], { env: NO_SERVICE, stdin: "x" });
     expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
     // raw-line stderr: the failed unit renders as its own error line; totals stay zero-findings
-    expect(proc.stderr).toMatch(/error JEV_\w+ str:stdin:/);
+    expect(proc.stderr).toMatch(/error PROVIDER_\w+ str:stdin:/);
     expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
 
@@ -489,7 +489,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // config itself loaded fine; the failure is transport (exit 4), not CONFIG_INVALID (exit 2)
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    expect(report.errors[0]!.code).toBe("JEV_UNAVAILABLE");
+    expect(report.errors[0]!.code).toBe("PROVIDER_UNAVAILABLE");
   });
 
   test.concurrent("dir positional respects .gitignore, errors in-band, exit 4", async () => {
@@ -523,15 +523,15 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 // Structural claims of the live tests, always on over the mock: these are CONTRACT claims
 // (report shape, tap activation, walker exclusions) that never needed a real model. They run
 // keyless — a mock here is what makes a regression visible in every run.
-describe("cli: mocked jev twins (structural claims, always on)", () => {
-  const jev = startMockJev();
-  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
-  // Async spawn: the mock jev server lives in THIS process — a synchronous spawn would block its
+describe("cli: mocked provider twins (structural claims, always on)", () => {
+  const provider = startMockProvider();
+  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
+  // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block its
   // event loop and the child would hang waiting for answers.
   async function runMock(args: string[], env: Record<string, string> = {}) {
     return runCli(args, { env: { ...MOCK_ENV, ...env }, timeout: 60_000 });
   }
-  afterAll(() => jev.stop());
+  afterAll(() => provider.stop());
   test.concurrent("recording persists report.json: the exact stdout --json bytes, next to the requests", async () => {
     const { rmSync } = await import("node:fs");
     const dir = ROOT + "/tmp/cli-tap-report";
@@ -647,7 +647,7 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
 // Live round trips assert MODEL BEHAVIOR (calibration), not contract — the mocked twins above own
 // every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND TYPESAFE_API_KEY. A run that asks
 // for live tests without a key fails loud; the old silent skip hid a regression once already.
-describe("cli: live jev round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)", () => {
+describe("cli: live provider round trip (opt-in: RUN_LIVE_TESTS=1 + TYPESAFE_API_KEY)", () => {
   const liveRequested = process.env.RUN_LIVE_TESTS === "1";
   function requireLive(): boolean {
     if (!liveRequested) return false;

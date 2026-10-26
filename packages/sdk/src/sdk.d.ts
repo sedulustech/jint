@@ -44,7 +44,7 @@ declare module "jint:sdk" {
     readonly targets: readonly CustomElement[];
   }
 
-  /** One compiled judgment: question, criteria, and the freely composed state jev judges. */
+  /** One compiled judgment: question, criteria, and the freely composed state the provider judges. */
   export interface StateSchema {
     readonly instructions: string;
     readonly criteria: { readonly true: string; readonly false: string };
@@ -54,7 +54,7 @@ declare module "jint:sdk" {
   /** Declarative policy: the typed noul handler (same shape as JSON noul rules). */
   export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
-  /** The jev answer type for the rule's kind (noul-only in v1). */
+  /** The provider answer type for the rule's kind (noul-only in v1). */
   export type NoulResult = { readonly type: "noul"; readonly noul: number };
   export type ScoreResult = { readonly type: "score"; readonly score: number };
   export type RuleResult = NoulResult | ScoreResult;

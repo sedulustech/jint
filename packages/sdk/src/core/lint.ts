@@ -29,16 +29,16 @@ import {
   type InputStats,
   type InputSummary,
 } from "./input/stats.ts";
-import { createClassifier, resolveModel } from "./jev/client.ts";
-import { recordSummary } from "./jev/debug.ts";
-import { isDecisionsModel } from "./jev/decisions.ts";
+import { createClassifier, resolveModel } from "./provider/client.ts";
+import { recordSummary } from "./provider/debug.ts";
+import { isDecisionsModel } from "./provider/decisions.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
   DEFAULT_TIMEOUT,
   withLimit,
   withTimeout,
-} from "./jev/pacer.ts";
+} from "./provider/pacer.ts";
 import {
   classifyFile,
   elementWireId,
@@ -116,7 +116,7 @@ export interface LintOptions {
   concurrency?: number;
   /**
    * Per-call timeout in seconds (CLI --timeout; config key of the same name; default 30). A hung
-   * call becomes a per-element JEV_TIMEOUT failure instead of pinning a run-wide slot.
+   * call becomes a per-element PROVIDER_TIMEOUT failure instead of pinning a run-wide slot.
    */
   timeout?: number;
   /**

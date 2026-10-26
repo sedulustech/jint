@@ -565,7 +565,7 @@ describe("lint", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("a hung call times out into a per-element JEV_TIMEOUT error; the run continues", async () => {
+  test("a hung call times out into a per-element PROVIDER_TIMEOUT error; the run continues", async () => {
     const dir = "tests/fixtures/timeout-test";
     mkdirSync(dir, { recursive: true });
     const lines = Array.from(
@@ -589,7 +589,7 @@ describe("lint", () => {
     );
     // one hung call = one per-element error, the run continues around it
     expect(report.errors).toHaveLength(1);
-    expect(report.errors[0]?.code).toBe("JEV_TIMEOUT");
+    expect(report.errors[0]?.code).toBe("PROVIDER_TIMEOUT");
     expect(report.errors[0]?.input).toMatch(/\/elements\.ts#[0-9a-f-]{36}$/);
     expect(report.measurements.length).toBeGreaterThanOrEqual(2);
     rmSync(dir, { recursive: true, force: true });
@@ -616,7 +616,7 @@ describe("lint", () => {
         classifier,
       }),
     );
-    // zero jev calls: scoping filters at element selection, before rule resolution
+    // zero provider calls: scoping filters at element selection, before rule resolution
     expect(calls).toHaveLength(0);
     expect(report.measurements).toHaveLength(0);
     expect(report.findings).toHaveLength(0);
@@ -1075,7 +1075,7 @@ describe("lint", () => {
   test("per-unit failure becomes a streamed error; the run continues", async () => {
     const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
-        throw new ClassifyError("JEV_UNAVAILABLE", state.path, "first unit hiccup");
+        throw new ClassifyError("PROVIDER_UNAVAILABLE", state.path, "first unit hiccup");
       return classifierWith({})(state, questions);
     };
     const events = await drain(
@@ -1091,17 +1091,17 @@ describe("lint", () => {
     // the failed file's calls (whole-content + one call per element: two definitions - the
     // attached comment rides d0's frame) surface an error each
     expect(errors).toHaveLength(3);
-    expect(errors[0]!.error.code).toBe("JEV_UNAVAILABLE");
+    expect(errors[0]!.error.code).toBe("PROVIDER_UNAVAILABLE");
     // second unit: 1 whole-file + 2 element question batches (the comment-carrying binding
     // draws bindings + definitions + comments; the bare function draws functions + definitions)
     expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
   });
 
-  test("JEV_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
+  test("PROVIDER_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
     let calls = 0;
     const classifier: Classifier = async (state) => {
       calls++;
-      throw new ClassifyError("JEV_AUTH", state.path, "jev rejected the API key");
+      throw new ClassifyError("PROVIDER_AUTH", state.path, "provider rejected the API key");
     };
     const events = await drain(
       lint({
@@ -1121,7 +1121,7 @@ describe("lint", () => {
     expect(events.filter((e) => e.type === "error")).toHaveLength(3);
     for (const e of events.filter((e) => e.type !== "rules" && e.type !== "input")) {
       expect(e.type).toBe("error");
-      if (e.type === "error") expect(e.error.code).toBe("JEV_AUTH");
+      if (e.type === "error") expect(e.error.code).toBe("PROVIDER_AUTH");
     }
   });
 

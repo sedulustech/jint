@@ -260,7 +260,7 @@ describe("runCustomRules — impossible state fails loud", () => {
 // Review 396888e finding 3: scoping is a cross-tier feature — the custom tier must be TESTED, not
 // just compiled. Zero-cost filtering on BOTH selection paths, and the note the JSON tier emits.
 describe("per-rule scoping on the custom tier", () => {
-  test("zero-cost: a scoped-out element costs zero jev calls (grammar path)", async () => {
+  test("zero-cost: a scoped-out element costs zero provider calls (grammar path)", async () => {
     const inventory = await oneFile(SOURCE, "tests/fixture.ts");
     const calls: Call[] = [];
     const phase = await run(
@@ -310,25 +310,25 @@ describe("per-rule scoping on the custom tier", () => {
   });
 });
 
-describe("runCustomRules — JEV_RESPONSE_INVALID guard", () => {
-  test("a missing answer streams JEV_RESPONSE_INVALID, never a measurement", async () => {
+describe("runCustomRules — PROVIDER_RESPONSE_INVALID guard", () => {
+  test("a missing answer streams PROVIDER_RESPONSE_INVALID, never a measurement", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async () => ({}));
     // comments resolves the frame alone; the call fails the guard, no measurement results
     expect(phase.events).toHaveLength(1);
     expect(phase.events[0]?.type).toBe("error");
     expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe(
-      "JEV_RESPONSE_INVALID",
+      "PROVIDER_RESPONSE_INVALID",
     );
   });
 
-  test("a non-finite answer streams JEV_RESPONSE_INVALID too", async () => {
+  test("a non-finite answer streams PROVIDER_RESPONSE_INVALID too", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async (_s, q) =>
       Object.fromEntries(Object.keys(q).map((k) => [k, { value: Number.NaN }])),
     );
     expect(
-      phase.events.some((e) => e.type === "error" && e.error.code === "JEV_RESPONSE_INVALID"),
+      phase.events.some((e) => e.type === "error" && e.error.code === "PROVIDER_RESPONSE_INVALID"),
     ).toBe(true);
     expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
   });
@@ -475,7 +475,7 @@ describe("runCustomRules — classification", () => {
     expect(phase.events.some((e) => e.type === "note" && e.note.includes("blob"))).toBe(true);
   });
 
-  test("a classifier transport error streams as its JEV code", async () => {
+  test("a classifier transport error streams as its PROVIDER code", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, fakeClassifier(0, [], new Error("down")));
     const error = phase.events.find((e) => e.type === "error");

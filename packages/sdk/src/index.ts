@@ -28,9 +28,9 @@ export {
   recordRunManifest,
   recordRunReport,
   type RequestRecordSummary,
-} from "./core/jev/debug.ts";
-export { checkRunKnobs } from "./core/jev/pacer.ts";
-export { runsBase } from "./core/jev/debug.ts";
+} from "./core/provider/debug.ts";
+export { checkRunKnobs } from "./core/provider/pacer.ts";
+export { runsBase } from "./core/provider/debug.ts";
 export {
   serveApiRequest,
   requestsRoot,
@@ -57,7 +57,7 @@ export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint
 export { renderInputSummary, type InputSummary, type InputStats } from "./core/input/stats.ts";
 export { walkScopes, configScopeAdmits, type OwnedScope } from "./core/scope.ts";
 export { validateCustomRule } from "./core/rules/custom/schema.ts";
-export { createClassifier, type ClassifierConfig } from "./core/jev/client.ts";
+export { createClassifier, type ClassifierConfig } from "./core/provider/client.ts";
 export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/classify.ts";
 // capture (verb): extraction without the classifier - the BYOG iterate-on-a-known-language loop
 // captureFor: the config-aware scope over the same walk (run's resolution seams, still no classifier)

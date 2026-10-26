@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { ID_HEADER, recordRequests, recordSummary } from "./debug.ts";
 
-const DIR = "tmp/jev-record-test";
+const DIR = "tmp/provider-record-test";
 
 function listRequests(dir: string): string[] {
   if (!existsSync(dir)) return [];

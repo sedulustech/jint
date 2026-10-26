@@ -12,7 +12,7 @@ import { createClassifier } from "./client.ts";
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 /** The recorder is always-on; the suite injects a scratch dir so nothing lands in ~/.jint/runs. */
-const DIR = "tmp/jev-client-test";
+const DIR = "tmp/provider-client-test";
 beforeAll(() => rmSync(DIR, { recursive: true, force: true }));
 afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
@@ -176,7 +176,7 @@ describe("createClassifier", () => {
     );
   });
 
-  test("missing TYPESAFE_API_KEY fails loud JEV_AUTH at first call, not at import", async () => {
+  test("missing TYPESAFE_API_KEY fails loud PROVIDER_AUTH at first call, not at import", async () => {
     const saved = process.env.TYPESAFE_API_KEY;
     delete process.env.TYPESAFE_API_KEY;
     try {
@@ -185,7 +185,7 @@ describe("createClassifier", () => {
         await classifier(state, questions);
         expect.unreachable();
       } catch (e) {
-        expectClassifyError("JEV_AUTH")(e);
+        expectClassifyError("PROVIDER_AUTH")(e);
         expect((e as ClassifyError).message).toContain("TYPESAFE_API_KEY");
       }
     } finally {
@@ -193,40 +193,40 @@ describe("createClassifier", () => {
     }
   });
 
-  test("401 -> JEV_AUTH", async () => {
+  test("401 -> PROVIDER_AUTH", async () => {
     try {
       await judgeOnce(fakeFetch({ error: "bad key" }, 401));
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_AUTH")(e);
+      expectClassifyError("PROVIDER_AUTH")(e);
     }
   });
 
-  test("422 -> JEV_REQUEST_INVALID", async () => {
+  test("422 -> PROVIDER_REQUEST_INVALID", async () => {
     try {
       await judgeOnce(fakeFetch({ error: "bad question" }, 422));
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_REQUEST_INVALID")(e);
+      expectClassifyError("PROVIDER_REQUEST_INVALID")(e);
     }
   });
 
-  test("429 and 500 -> JEV_UNAVAILABLE", async () => {
+  test("429 and 500 -> PROVIDER_UNAVAILABLE", async () => {
     try {
       await judgeOnce(fakeFetch({ error: "rate limited" }, 429));
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("PROVIDER_UNAVAILABLE")(e);
     }
     try {
       await judgeOnce(fakeFetch({ error: "server exploded" }, 500));
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("PROVIDER_UNAVAILABLE")(e);
     }
   });
 
-  test("connection failure -> JEV_UNAVAILABLE", async () => {
+  test("connection failure -> PROVIDER_UNAVAILABLE", async () => {
     const broken: FetchLike = async () => {
       throw new TypeError("fetch failed");
     };
@@ -234,11 +234,11 @@ describe("createClassifier", () => {
       await judgeOnce(broken);
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_UNAVAILABLE")(e);
+      expectClassifyError("PROVIDER_UNAVAILABLE")(e);
     }
   });
 
-  test("a choice answer without its distribution -> JEV_RESPONSE_INVALID", async () => {
+  test("a choice answer without its distribution -> PROVIDER_RESPONSE_INVALID", async () => {
     const choiceQuestions: Record<string, QuestionSchema> = {
       c: { type: "choice", instructions: "Which?", criteria: { a: "first", b: "second" } },
     };
@@ -254,12 +254,12 @@ describe("createClassifier", () => {
       );
       expect.unreachable();
     } catch (e) {
-      expectClassifyError("JEV_RESPONSE_INVALID")(e);
+      expectClassifyError("PROVIDER_RESPONSE_INVALID")(e);
       expect((e as Error).message).toContain('{ type: "choice", choice, probabilities }');
     }
   });
 
-  test("answer failing shape validation -> JEV_RESPONSE_INVALID", async () => {
+  test("answer failing shape validation -> PROVIDER_RESPONSE_INVALID", async () => {
     const cases: unknown[] = [
       {
         model: "jev-latest",
@@ -293,7 +293,7 @@ describe("createClassifier", () => {
         await judgeOnce(fakeFetch(body));
         expect.unreachable();
       } catch (e) {
-        expectClassifyError("JEV_RESPONSE_INVALID")(e);
+        expectClassifyError("PROVIDER_RESPONSE_INVALID")(e);
       }
     }
   });

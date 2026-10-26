@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 /**
  * THE OPEN PATH, PROVEN (owner steering item 3): a BYOG-shaped grammar declares a NEW autonomous
@@ -70,11 +70,11 @@ writeFileSync(
 );
 writeFileSync(join(DIR, "jint.config.json"), CONFIG);
 
-const jev = startMockJev();
-const WIRE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl };
+const provider = startMockProvider();
+const WIRE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
 
 afterAll(() => {
-  jev.stop();
+  provider.stop();
   rmScratchTree(DIR);
 });
 

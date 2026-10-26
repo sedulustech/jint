@@ -143,7 +143,7 @@ describe("classifyUnit", () => {
     }
   });
 
-  test("missing or non-finite answer -> JEV_RESPONSE_INVALID error, siblings continue", async () => {
+  test("missing or non-finite answer -> PROVIDER_RESPONSE_INVALID error, siblings continue", async () => {
     const classifier = classifierWith({ probe_noul: 0.7, probe_score: Number.NaN });
     const events: (Measurement | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, [noulFile, scoreFn, noulDefs], classifier)) {
@@ -153,19 +153,19 @@ describe("classifyUnit", () => {
     const measurements = events.filter(isMeasurement);
     expect(measurements.map((m) => m.rule)).toEqual(["probe_noul"]);
     expect(errors).toHaveLength(2); // NaN for probe_score, missing probe_defs
-    expect(errors[0]!.code).toBe("JEV_RESPONSE_INVALID");
+    expect(errors[0]!.code).toBe("PROVIDER_RESPONSE_INVALID");
     expect(errors[0]!.message).toContain("probe_score");
     expect(errors[1]!.message).toContain("probe_defs");
   });
 
   test("classifier throwing ClassifyError -> streamed error with the same code", async () => {
     const classifier: Classifier = async () => {
-      throw new ClassifyError("JEV_UNAVAILABLE", "src/a.ts", "jev unreachable: boom");
+      throw new ClassifyError("PROVIDER_UNAVAILABLE", "src/a.ts", "provider unreachable: boom");
     };
     const events: (Measurement | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, sensors, classifier)) events.push(event);
     expect(events).toHaveLength(1);
-    expect((events[0] as ClassifyError).code).toBe("JEV_UNAVAILABLE");
+    expect((events[0] as ClassifyError).code).toBe("PROVIDER_UNAVAILABLE");
     expect((events[0] as ClassifyError).message).toContain("boom");
     expect((events[0] as ClassifyError).input).toBe("src/a.ts");
   });
@@ -211,9 +211,9 @@ describe("toClassifyError", () => {
   });
 
   test("a thrown ClassifyError keeps its code; input is refined", () => {
-    const thrown = new ClassifyError("JEV_AUTH", "other.ts", "rejected");
+    const thrown = new ClassifyError("PROVIDER_AUTH", "other.ts", "rejected");
     const error = toClassifyError("src/a.ts", thrown);
-    expect(error.code).toBe("JEV_AUTH");
+    expect(error.code).toBe("PROVIDER_AUTH");
     expect(error.input).toBe("src/a.ts");
   });
 });

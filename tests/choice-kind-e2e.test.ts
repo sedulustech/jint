@@ -3,12 +3,12 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
-import { startMockJev } from "./helpers/mock-jev.ts";
+import { startMockProvider } from "./helpers/mock-provider.ts";
 
 // every test spawns the CLI: the per-test timeout matches the spawn ceiling
 jest.setTimeout(60_000);
 
-// A choice rule end to end: the wire carries jev's choice primitive with the option labels, the
+// A choice rule end to end: the wire carries the provider's choice primitive with the option labels, the
 // measurement names the selected option, and the selected option's tier decides the finding.
 const CHOICE_RULE = {
   name: "is_comment_justified",
@@ -38,15 +38,19 @@ function writeFixture(rule: object = CHOICE_RULE): { config: string; source: str
 }
 
 async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
-  const jev = startMockJev({ choice });
+  const provider = startMockProvider({ choice });
   try {
     const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
-      env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: jev.baseUrl },
+      env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl },
     });
-    return { r, report: JSON.parse(r.stdout), questions: jev.requests.map((q) => q.questions) };
+    return {
+      r,
+      report: JSON.parse(r.stdout),
+      questions: provider.requests.map((q) => q.questions),
+    };
   } finally {
-    jev.stop();
+    provider.stop();
   }
 }
 

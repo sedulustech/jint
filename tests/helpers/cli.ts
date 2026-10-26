@@ -19,7 +19,7 @@ const ROOT = join(import.meta.dir, "..", "..");
  * point at. Pid-scoped so parallel workers never share one store (run dirs are unix timestamps; two
  * writers would collide).
  */
-export const RUNS_DIR = join(ROOT, "tmp", `jev-test-runs-${process.pid}`);
+export const RUNS_DIR = join(ROOT, "tmp", `provider-test-runs-${process.pid}`);
 
 export interface RunCliResult {
   code: number;
