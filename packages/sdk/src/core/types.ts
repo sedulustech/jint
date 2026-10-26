@@ -228,7 +228,6 @@ export interface Measurement {
   readonly input: string;
   readonly value: number;
   readonly probabilities?: Record<string, number>;
-  readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
   /**
@@ -252,12 +251,6 @@ export interface Finding {
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
-  /**
-   * The answer's certainty, copied from the finding's measurement when the answer carried one
-   * (score answers): 1 = concentrated, 0 = torn between distant levels (bimodal). Absent when the
-   * answer had none (noul answers, callback tiers).
-   */
-  readonly confidence?: number;
   /** The full distribution the value summarizes: one probability per criterion option. */
   readonly probabilities?: Record<string, number>;
   /** The selected option's label, choice rules only; value is that option's probability. */

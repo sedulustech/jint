@@ -35,7 +35,6 @@ export function renderJson(report: LintReport): string {
           value: m.value,
           // score and choice rules only: the distribution the value summarizes
           probabilities: m.probabilities,
-          confidence: m.confidence,
           choice: m.choice,
           element: m.element,
         })),
@@ -49,9 +48,6 @@ export function renderJson(report: LintReport): string {
             input: s.input,
             value: s.value,
             severity: s.severity,
-            // the measurement's certainty rides the finding: an agent reading findings alone sees
-            // a coin-flip without fetching the measurement (undefined drops, the key omits)
-            confidence: s.confidence !== undefined ? s.confidence : undefined,
             probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
             choice: s.choice !== undefined ? s.choice : undefined,
             undecided: s.undecided !== undefined ? s.undecided : undefined,

@@ -71,13 +71,7 @@ function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
     const score = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
     // System One echoes each level's text as the legend; the run view shows the levels from it.
     const legend = Object.fromEntries((q.criteria as string[]).map((text, i) => [String(i), text]));
-    return {
-      type: "score",
-      score,
-      confidence: Math.max(...Object.values(shares)),
-      legend,
-      probabilities: shares,
-    };
+    return { type: "score", score, legend, probabilities: shares };
   }
   delete shares[NONE];
   const total = Object.values(shares).reduce((s, p) => s + p, 0);
@@ -89,7 +83,7 @@ function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
     a.choice !== undefined && a.choice in spread
       ? a.choice
       : options.reduce((b, o) => (spread[o]! > spread[b]! ? o : b));
-  return { type: "choice", choice, probabilities: spread, confidence: spread[choice] };
+  return { type: "choice", choice, probabilities: spread };
 }
 
 const json = (status: number, body: unknown): Response =>

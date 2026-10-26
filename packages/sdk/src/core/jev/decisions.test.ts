@@ -73,7 +73,6 @@ describe("decisionsFetch", () => {
     expect(api.sent[0]!.body.questions[0].choices.at(-1).value).toBe("none_of_these");
     expect(res.answers.r.choice).toBe("a");
     expect(res.answers.r.probabilities.a).toBeCloseTo(0.75);
-    expect(res.answers.r.confidence).toBeCloseTo(0.75);
   });
 
   test("a score is the expected level over index-labelled levels", async () => {
@@ -104,7 +103,6 @@ describe("decisionsFetch", () => {
       type: "score",
       score: 0.75,
       probabilities: { "0": 0.5, "1": 0.25, "2": 0.25 },
-      confidence: 0.5,
       legend: { "0": "low", "1": "mid", "2": "high" },
     });
   });

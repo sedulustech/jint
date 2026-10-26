@@ -18,7 +18,6 @@ const report: LintReport = {
       input: "src/a.ts",
       value: 0.5347219,
       severity: "warn",
-      confidence: 0,
       probabilities: { "0": 0.5, "1": 0, "2": 0.5 },
     },
     {
@@ -97,13 +96,11 @@ describe("renderJson", () => {
     expect(keys.indexOf("notes")).toBeGreaterThan(keys.indexOf("errors"));
   });
 
-  // The finding's certainty rides the wire: copied from the measurement when present, omitted
+  // The finding's distribution rides the wire: copied from the measurement when present, omitted
   // (key absent, not null) when the answer had none - an agent reads findings alone.
-  test("findings carry confidence + probabilities when the answer had them; keys omit otherwise", () => {
+  test("findings carry probabilities when the answer had them; the key omits otherwise", () => {
     const parsed = JSON.parse(renderJson(report));
-    expect(parsed.findings[0]!.confidence).toBe(0);
     expect(parsed.findings[0]!.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
-    expect(parsed.findings[1]).not.toHaveProperty("confidence");
     expect(parsed.findings[1]).not.toHaveProperty("probabilities");
   });
 

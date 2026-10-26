@@ -20,7 +20,6 @@ const choiceQA: QA = {
   answer: {
     type: "choice",
     choice: "contradicted",
-    confidence: 0.6,
     probabilities: { justified: 0.3, contradicted: 0.7 },
   },
 };
@@ -57,7 +56,6 @@ const splitQA: QA = {
   answer: {
     type: "choice",
     choice: "justified",
-    confidence: 0.4,
     probabilities: { justified: 0.43, digression: 0.3, provenance: 0.27 },
   },
 };
@@ -89,7 +87,7 @@ const scoreQA: QA = {
   key: "is_literal_shared",
   rule: "is_literal_shared",
   question: { type: "score", criteria: ["none repeat", "some repeat", "many repeat"] },
-  answer: { type: "score", score: 0.4, confidence: 0.7, probabilities: { 0: 0.7, 1: 0.2, 2: 0.1 } },
+  answer: { type: "score", score: 0.4, probabilities: { 0: 0.7, 1: 0.2, 2: 0.1 } },
 };
 
 test("a score answer shows each level's text from the question, not the model's echo", () => {

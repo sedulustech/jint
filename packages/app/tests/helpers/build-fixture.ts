@@ -53,7 +53,6 @@ type Answer =
   | {
       type: "score";
       score: number;
-      confidence: number;
       legend: Record<string, string>;
       probabilities: Record<string, number>;
     };
@@ -145,7 +144,6 @@ add("score.ts", "files", "src/score.ts", CODE_A, { [RULE_SCORE]: 3 });
       [key(RULE_COMPLEX, id)]: {
         type: "score" as const,
         score,
-        confidence: 0.9,
         legend,
         probabilities:
           score === 2 ? { "0": 0.05, "1": 0.1, "2": 0.85 } : { "0": 0.9, "1": 0.05, "2": 0.05 },
@@ -179,7 +177,6 @@ add("score.ts", "files", "src/score.ts", CODE_A, { [RULE_SCORE]: 3 });
     [key(RULE_SCORE, id)]: {
       type: "score",
       score: 3,
-      confidence: 0.9,
       legend,
       probabilities: { "0": 0.02, "1": 0.03, "2": 0.1, "3": 0.85 },
     },

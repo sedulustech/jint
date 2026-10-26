@@ -51,7 +51,7 @@ function choiceAnswer(question: Record<string, unknown>, selected: string | unde
   const choice = selected ?? labels[0]!;
   const rest = labels.length > 1 ? 0.3 / (labels.length - 1) : 0;
   const probabilities = Object.fromEntries(labels.map((l) => [l, l === choice ? 0.7 : rest]));
-  return { type: "choice", choice, probabilities, confidence: 0.7 };
+  return { type: "choice", choice, probabilities };
 }
 
 export function startMockJev(opts: MockJevOptions = {}): MockJev {
@@ -81,7 +81,6 @@ export function startMockJev(opts: MockJevOptions = {}): MockJev {
                 type: "score",
                 score: override ?? opts.score ?? 1,
                 probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
-                confidence: 0.8,
                 // jev echoes each level's text back as the legend
                 legend: Object.fromEntries(
                   ((question.criteria as string[] | undefined) ?? []).map((t, i) => [String(i), t]),

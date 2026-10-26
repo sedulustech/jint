@@ -47,27 +47,25 @@ const NOUL_ANSWER_SCHEMA = Type.Object({
 
 /**
  * The score answer boundary: the expected score of the ordered rubric (may fall between levels),
- * plus the distribution it summarizes — every Score answer carries per-level probabilities and a
- * confidence (docs.typesafe.ai/primitives/score.md), required on the wire.
+ * plus the distribution it summarizes — every Score answer carries per-level probabilities
+ * (docs.typesafe.ai/primitives/score.md), required on the wire.
  */
 const SCORE_ANSWER_SCHEMA = Type.Object({
   type: Type.Literal("score"),
   score: Type.Number(),
   probabilities: Type.Record(Type.String(), Type.Number()),
-  confidence: Type.Number(),
   // System One echoes each level's text; a model that drops it fails here, not as a blank card
   legend: Type.Record(Type.String(), Type.String()),
 });
 
 /**
- * The choice answer boundary: the selected option's label, its confidence, and the probability of
- * every option (keyed by label) - required on the wire.
+ * The choice answer boundary: the selected option's label and the probability of every option
+ * (keyed by label) - required on the wire.
  */
 const CHOICE_ANSWER_SCHEMA = Type.Object({
   type: Type.Literal("choice"),
   choice: Type.String(),
   probabilities: Type.Record(Type.String(), Type.Number()),
-  confidence: Type.Number(),
 });
 
 /** The expected answer shape per question type, named in a shape-validation error. */
@@ -75,11 +73,11 @@ const ANSWER_SHAPES = {
   noul: { schema: NOUL_ANSWER_SCHEMA, text: '{ type: "noul", noul: number 0..1 }' },
   score: {
     schema: SCORE_ANSWER_SCHEMA,
-    text: '{ type: "score", score, probabilities, confidence }',
+    text: '{ type: "score", score, probabilities }',
   },
   choice: {
     schema: CHOICE_ANSWER_SCHEMA,
-    text: '{ type: "choice", choice, probabilities, confidence }',
+    text: '{ type: "choice", choice, probabilities }',
   },
 } as const;
 
@@ -212,15 +210,14 @@ function extractAnswers(
     }
     if (spec.type === "score") {
       const s = answer as Static<typeof SCORE_ANSWER_SCHEMA>;
-      out[name] = { value: s.score, probabilities: s.probabilities, confidence: s.confidence };
+      out[name] = { value: s.score, probabilities: s.probabilities };
     } else if (spec.type === "choice") {
       // the value is the selected option's probability; the label carries the verdict
       const c = answer as Static<typeof CHOICE_ANSWER_SCHEMA>;
       out[name] = {
-        value: c.probabilities[c.choice] ?? c.confidence,
+        value: c.probabilities[c.choice] ?? 0,
         choice: c.choice,
         probabilities: c.probabilities,
-        confidence: c.confidence,
       };
     } else {
       out[name] = { value: (answer as Static<typeof NOUL_ANSWER_SCHEMA>).noul };

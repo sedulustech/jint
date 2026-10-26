@@ -263,18 +263,16 @@ export function handleTier(
 
 /**
  * Score resolution: the full answer -> severity. DEFAULT read (the only one that ships) is
- * round-to-nearest-level — the docs-blessed projection; probabilities and confidence are carried
- * for future reads but no rule consumes them yet (distribution-aware reads land only when a rule's
- * calibration demands them). Delegates to the level-index logic of handleSeverity.
+ * round-to-nearest-level — the docs-blessed projection; probabilities are carried for future reads
+ * but no rule consumes them yet (distribution-aware reads land only when a rule's calibration
+ * demands them). Delegates to the level-index logic of handleSeverity.
  */
 export function resolveScore(
   value: number,
   probabilities: Record<string, number> | undefined,
-  confidence: number | undefined,
   data: ScoreHandlerData,
 ): Severity | null {
   void probabilities;
-  void confidence;
   return handleSeverity(value, data);
 }
 
@@ -285,11 +283,9 @@ export function resolveScore(
 export function resolveScoreTier(
   value: number,
   probabilities: Record<string, number> | undefined,
-  confidence: number | undefined,
   data: ScoreHandlerData,
 ): { readonly severity: Severity; readonly message?: string } | null {
   void probabilities;
-  void confidence;
   return handleTier(value, data);
 }
 

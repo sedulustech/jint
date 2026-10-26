@@ -25,7 +25,6 @@ export interface QA {
     noul?: number;
     score?: number;
     choice?: string;
-    confidence?: number;
     legend?: Record<string, string>;
     probabilities?: Record<string, number>;
   };
@@ -48,14 +47,6 @@ function thresholdText(threshold: Threshold | undefined): string | null {
   if (threshold.less_than !== undefined) return `< ${threshold.less_than}`;
   return null;
 }
-
-/**
- * The CONFIDENCE VISIBILITY FLOOR (same 0.25 as the CLI's human print): below it the answer was
- * torn between distant levels (in practice 0, bimodal) and the card says so structurally - a warn
- * tint on the answer header - not just as a number. The request's raw confidence always prints in
- * the caption; the floor only adds the tint.
- */
-const CONFIDENCE_FLOOR = 0.25;
 
 export function AnswerCard({
   qa,
@@ -83,9 +74,6 @@ export function AnswerCard({
   const probabilities = ranked ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
-  // torn: the distribution is split between distant levels; the header is tinted so a
-  // coin-flip never reads as a settled verdict
-  const torn = qa.answer?.confidence !== undefined && qa.answer.confidence < CONFIDENCE_FLOOR;
   // score levels sort numerically; choice options keep the question's own order
   const options = Object.keys({ ...legend, ...probabilities });
   if (isScore) options.sort((x, y) => Number(x) - Number(y));
@@ -118,12 +106,7 @@ export function AnswerCard({
     tierRead !== null ? tierRead.verdict === tierRead.tierOf(k) : k === answeredKey;
   return (
     <div>
-      <div
-        data-torn-answer={torn ? "true" : undefined}
-        className={`flex items-center gap-sections border-b border-border px-rail py-siblings ${
-          torn ? "bg-amber-400/[0.05]" : ""
-        }`}
-      >
+      <div className="flex items-center gap-sections border-b border-border px-rail py-siblings">
         {/* a narrow pane moves the caption under the answer whole, never breaking it */}
         {noul !== undefined && (
           <span className="flex flex-wrap items-baseline gap-siblings">
@@ -161,12 +144,6 @@ export function AnswerCard({
             </span>
             <span className="whitespace-nowrap text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
-              {qa.answer?.confidence !== undefined && (
-                <span className={torn ? "text-sev-warn" : undefined}>
-                  {` · confidence ${qa.answer.confidence.toFixed(2)}`}
-                  {torn ? " · torn between levels" : ""}
-                </span>
-              )}
             </span>
           </span>
         )}
@@ -186,11 +163,6 @@ export function AnswerCard({
               {tierRead !== null
                 ? tierRead.tiers.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
                 : `p ${(probabilities[choice] ?? 0).toFixed(2)}`}
-              {qa.answer?.confidence !== undefined && (
-                <span className={torn ? "text-sev-warn" : undefined}>
-                  {` · confidence ${qa.answer.confidence.toFixed(2)}`}
-                </span>
-              )}
             </span>
           </span>
         )}

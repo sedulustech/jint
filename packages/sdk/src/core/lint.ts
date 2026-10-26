@@ -615,7 +615,7 @@ function findingFor(
   // finding policy here.
   if (handle === undefined) return undefined;
   // the full answer flows to the handle: score resolution reads value (DEFAULT round) and
-  // carries probabilities/confidence for future reads
+  // carries probabilities for future reads
   const outcome = handle(event);
   if (outcome === null) return undefined;
   return {
@@ -625,10 +625,6 @@ function findingFor(
     severity: outcome.severity,
     note: outcome.message,
     undecided: outcome.undecided,
-    // the answer's certainty rides the finding (absent when the answer had none: noul
-    // answers, callback tiers) - findings are the actionable output; a coin-flip must be
-    // discoverable from them, not only from the measurement
-    confidence: event.confidence,
     probabilities: event.probabilities,
     choice: event.choice,
     // Literal ternary branches, NOT conditional spreads: this literal sits under

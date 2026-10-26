@@ -69,7 +69,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "function",
         "span": {
@@ -142,7 +141,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -214,7 +212,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "function",
         "span": {
@@ -290,7 +287,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -365,7 +361,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "class",
         "span": {
@@ -394,7 +389,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "class",
         "span": {
@@ -444,7 +438,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "method",
         "span": {
@@ -474,7 +467,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "method",
         "span": {
@@ -526,7 +518,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "binding",
         "span": {
@@ -599,7 +590,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "binding",
         "span": {
@@ -713,7 +703,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "type",
         "span": {
@@ -742,7 +731,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "type",
         "span": {
@@ -792,7 +780,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "type",
         "span": {
@@ -821,7 +808,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "type",
         "span": {
@@ -871,7 +857,6 @@
         "1": 0.1,
         "2": 0.45
       },
-      "confidence": 0,
       "element": {
         "kind": "function",
         "span": {
@@ -944,7 +929,6 @@
         "2": 0.067,
         "3": 0.067
       },
-      "confidence": 0.8,
       "element": {
         "kind": "function",
         "span": {
@@ -1014,7 +998,6 @@
       "input": "complex.ts#5d12a642-8534-4a1a-bfaa-cd7ec9aa9c38",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1063,7 +1046,6 @@
       "input": "complex.ts#8cac3627-67e9-4f6d-a853-362673f94bf1",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1112,7 +1094,6 @@
       "input": "complex.ts#3f4a259d-5332-4d53-94d3-867e3d1fe563",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1140,7 +1121,6 @@
       "input": "complex.ts#b1193246-c3f1-45eb-8187-89ed31b5747c",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1168,7 +1148,6 @@
       "input": "complex.ts#9e452b94-4cf1-40fa-814e-eaf87f817bfa",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1196,7 +1175,6 @@
       "input": "helpers.ts#83cdf821-28b7-46a7-856e-b1faf1cd6ba5",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1224,7 +1202,6 @@
       "input": "helpers.ts#e2e4cc00-73ae-46c1-8a78-c59ec68e4487",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,
@@ -1252,7 +1229,6 @@
       "input": "helpers.ts#adbb7410-b965-4f45-9b4a-3bb11d539418",
       "value": 2,
       "severity": "error",
-      "confidence": 0,
       "probabilities": {
         "0": 0.45,
         "1": 0.1,

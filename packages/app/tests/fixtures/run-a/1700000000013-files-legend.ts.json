@@ -26,7 +26,6 @@
       "will_error_lose_cause in L1-L8": {
         "type": "score",
         "score": 3,
-        "confidence": 0.9,
         "legend": {
           "0": "causes fully chained",
           "1": "minor detail loss",

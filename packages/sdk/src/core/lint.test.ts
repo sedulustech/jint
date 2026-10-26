@@ -315,43 +315,38 @@ test("element-scoped run: a function whose only comment is INTERNAL is measured 
   expect(events.some((e) => e.type === "note")).toBe(false);
 });
 
-// The finding is the actionable output: a score answer's certainty (distribution + confidence)
-// must ride it, copied from its measurement - an agent reading findings alone sees the coin-flip.
-test("a score finding carries the measurement's probabilities and confidence", async () => {
+// The finding is the actionable output: a score answer's distribution must ride it, copied from
+// its measurement - an agent reading findings alone sees the split.
+test("a score finding carries the measurement's probabilities", async () => {
   mkdirSync("tmp", { recursive: true });
-  const file = "tmp/lint-confident-finding.ts";
-  await Bun.write(file, "export function torn(x: number): number {\n  return x + 1;\n}\n");
-  // value 2 fires the map's error tier; the answer is BIMODAL (0.5/0.5 on distant levels,
-  // confidence 0) - the exact shape that must not hide behind the measurement
-  const torn: Classifier = async (_state, questions) => {
+  const file = "tmp/lint-bimodal-finding.ts";
+  await Bun.write(file, "export function split(x: number): number {\n  return x + 1;\n}\n");
+  // value 2 fires the map's error tier; the answer is BIMODAL (0.5/0.5 on distant levels) - the
+  // exact shape that must not hide behind the measurement
+  const bimodal: Classifier = async (_state, questions) => {
     const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
-      out[key] = {
-        value: 2,
-        probabilities: { "0": 0.5, "1": 0, "2": 0.5 },
-        confidence: 0,
-      };
+      out[key] = { value: 2, probabilities: { "0": 0.5, "1": 0, "2": 0.5 } };
     }
     return out;
   };
   const events = await drain(
-    lint({ config: baseConfig, input: file, only: ["probe_functions"], classifier: torn }),
+    lint({ config: baseConfig, input: file, only: ["probe_functions"], classifier: bimodal }),
   );
   const findings = events.filter(
     (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
   );
   expect(findings).toHaveLength(1);
   const f = findings[0]!.finding;
-  expect(f.confidence).toBe(0);
   expect(f.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
   // and the measurement keeps its own copy (findings never drain the measurement)
   const m = events.find(
     (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
   )!;
-  expect(m.measurement.confidence).toBe(0);
+  expect(m.measurement.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
 });
 
-test("a noul finding carries neither confidence nor probabilities (the answer had none)", async () => {
+test("a noul finding carries no probabilities (the answer had none)", async () => {
   mkdirSync("tmp", { recursive: true });
   const file = "tmp/lint-plain-finding.ts";
   await Bun.write(file, "export function calm(x: number): number {\n  return x + 1;\n}\n");
@@ -367,7 +362,6 @@ test("a noul finding carries neither confidence nor probabilities (the answer ha
     (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
   )!.finding;
   expect(f.severity).toBe("error");
-  expect(f.confidence).toBeUndefined();
   expect(f.probabilities).toBeUndefined();
 });
 

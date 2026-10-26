@@ -74,8 +74,7 @@
           "1": 0.067,
           "2": 0.067,
           "3": 0.067
-        },
-        "confidence": 0.8
+        }
       },
       "is_naming_convention_consistent": {
         "type": "noul",
@@ -96,8 +95,7 @@
           "0": 0.45,
           "1": 0.1,
           "2": 0.45
-        },
-        "confidence": 0
+        }
       },
       "is_function_srp": {
         "type": "noul",

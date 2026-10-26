@@ -42,8 +42,8 @@ const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
 /**
  * Deterministic per-rule answers (p-space noul values; the score-kind set moves with the defaults,
  * so the stub derives distributions generically - only the DESIGNED shapes are named below). Chosen
- * to exercise severity variety: errors (is_cognitively_complex 2, and every torn finding it
- * produces), warns (will_error_lose_cause 0.5 > warn_at 0.4), the rest in-band.
+ * to exercise severity variety: errors (is_cognitively_complex 2, and every finding it produces),
+ * warns (will_error_lose_cause 0.5 > warn_at 0.4), the rest in-band.
  */
 const VALUES: Record<string, number> = {
   // is_name_purposeful 0.25 -> error (less_than 0.3); the defect-pole noul: low P(good) is bad.
@@ -59,25 +59,21 @@ const VALUES: Record<string, number> = {
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
   will_comment_drift: 0.1,
-  // scored rubric: 2 = warn (score map 0,1 pass; 2 warn) - AND the deliberately TORN answer, so
-  // the fixture carries warn findings that are coin-flips (see SCORE_PROBABILITIES below)
+  // scored rubric: 2 = warn (score map 0,1 pass; 2 warn) - with its mass split between distant
+  // levels (see SCORE_PROBABILITIES below)
   is_cognitively_complex: 2,
   is_readable: 2,
 };
 
 /**
- * Per-score-rule answer distributions, strict wire shape. is_cognitively_complex is the
- * deliberately TORN one: mass split between the distant levels 0 and 2 while answering 2 - the
- * bimodal coin-flip the UI's torn frame and the report's finding-level confidence surface
- * (is_readable is no longer measured on these elements; its row stays for the designed shape).
+ * Per-score-rule answer distributions, strict wire shape. is_cognitively_complex splits its mass
+ * between the distant levels 0 and 2 while answering 2 - a bimodal distribution (is_readable is no
+ * longer measured on these elements; its row stays for the designed shape).
  */
 const SCORE_PROBABILITIES: Record<string, Record<string, number>> = {
   is_cognitively_complex: { "0": 0.45, "1": 0.1, "2": 0.45 },
   is_readable: { "0": 0.05, "1": 0.1, "2": 0.8, "3": 0.05 },
 };
-
-/** Per-rule confidence: 0.8 concentrated everywhere except the deliberately torn rule. */
-const CONFIDENCE: Record<string, number> = { is_cognitively_complex: 0 };
 
 /**
  * Generic fallback distribution for a score rule the table does not name: 4 levels, mass 0.8 on the
@@ -109,7 +105,6 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
               // the wire requires the distribution (SCORE_ANSWER_SCHEMA); the table names the
               // designed shapes, the fallback covers score rules the table has not met yet
               probabilities: SCORE_PROBABILITIES[rule] ?? centeredScore(value),
-              confidence: CONFIDENCE[rule] ?? 0.8,
             }
           : { type: "noul", noul: value };
     }

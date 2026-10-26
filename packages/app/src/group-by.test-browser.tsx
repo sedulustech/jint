@@ -406,7 +406,7 @@ test("generated fixture: an element cell click resolves to the element capture b
   expect(loc).toBeTruthy();
 });
 
-test("a torn score answer renders its distribution + the torn tint (confidence 0)", async () => {
+test("a bimodal score answer renders its distribution", async () => {
   mount();
   await page.getByTestId("run-picker").click();
   await page.getByTestId("run-option-generated/elements").click();
@@ -418,13 +418,13 @@ test("a torn score answer renders its distribution + the torn tint (confidence 0
   );
   modeButton("rule").click();
   await ruleGroupsReady(11);
-  // the fixture's deliberately torn rule: score 2 (error fires) with mass split between the
-  // distant levels 0 and 2, confidence 0 - the bimodal coin-flip finding
+  // the fixture's bimodal rule: score 2 (error fires) with mass split between the distant
+  // levels 0 and 2
   groupRow("rule:is_cognitively_complex").click();
   await waitFor(
     () => {
       if (cellRows("is_cognitively_complex@").length === 0)
-        throw new Error("torn rule cells not expanded");
+        throw new Error("bimodal rule cells not expanded");
     },
     { timeout: 2_000 },
   );
@@ -450,11 +450,4 @@ test("a torn score answer renders its distribution + the torn tint (confidence 0
     '[data-testid="answer-distribution"] li[data-option="2"] [data-testid="option-bar"] > span',
   );
   expect(answered?.className).toContain("bg-foreground/70");
-  // the card marks the coin-flip: the torn marker + the caption naming confidence 0.00
-  await waitFor(() => {
-    const header = q("[data-torn-answer]");
-    if (header?.getAttribute("data-torn-answer") !== "true")
-      throw new Error("torn tint not on the answer header");
-  });
-  expect(q(".detail-pane")?.textContent).toContain("confidence 0.00");
 });

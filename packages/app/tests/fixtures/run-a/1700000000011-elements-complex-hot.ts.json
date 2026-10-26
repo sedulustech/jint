@@ -26,7 +26,6 @@
       "is_cognitively_complex in L2-L3": {
         "type": "score",
         "score": 2,
-        "confidence": 0.9,
         "legend": {
           "0": "Easy",
           "1": "Moderate",

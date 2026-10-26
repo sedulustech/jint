@@ -133,13 +133,12 @@ export type Element =
 
 /**
  * The full typed answer a classifier returns for one question: the value always; the score
- * distribution (per-level probabilities, confidence) only when the question is score-kind — noul's
- * probability IS the whole answer (no separate confidence).
+ * distribution (per-level probabilities) only when the question is score-kind — noul's probability
+ * IS the whole answer (no separate distribution).
  */
 export interface ClassifiedAnswer {
   readonly value: number;
   readonly probabilities?: Record<string, number>;
-  readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
 }
@@ -150,12 +149,10 @@ export interface Measurement {
   readonly input: string;
   readonly value: number;
   /**
-   * The distribution the value summarizes, with its confidence: per level for score rules, per
-   * option label for choice rules. Noul has no separate distribution — its probability IS the
-   * value.
+   * The distribution the value summarizes: per level for score rules, per option label for choice
+   * rules. Noul has no separate distribution — its probability IS the value.
    */
   readonly probabilities?: Record<string, number>;
-  readonly confidence?: number;
   /**
    * The selected option's label, choice rules only. The value is that option's probability and
    * probabilities are keyed by option label.
@@ -179,12 +176,6 @@ export interface Finding {
   readonly input: string;
   readonly value: number;
   readonly severity: Severity;
-  /**
-   * The answer's certainty (jev's score answers; 1 = concentrated, 0 = torn between distant
-   * levels). Copied from the finding's measurement whenever the answer carried one; absent when the
-   * answer had none (noul answers, callback tiers).
-   */
-  readonly confidence?: number;
   /** The full distribution the value summarizes (one probability per criterion option). */
   readonly probabilities?: Record<string, number>;
   /** The selected option's label, choice rules only; value is that option's probability. */

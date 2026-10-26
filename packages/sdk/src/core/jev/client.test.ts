@@ -58,7 +58,6 @@ const scoreBody = {
       type: "score",
       score: 2,
       probabilities: { 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 },
-      confidence: 0.9,
       legend: { 0: "obvious", 1: "mostly clear", 2: "reconstructed intent", 3: "dense" },
     },
   },
@@ -95,7 +94,6 @@ describe("createClassifier", () => {
     const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
     const answers = await classifier(state, scoreQuestions);
     expect(answers.is_readable?.value).toBe(2);
-    expect(answers.is_readable?.confidence).toBe(0.9);
     expect(answers.is_readable?.probabilities).toEqual({ 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 });
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_readable.type).toBe("score");
@@ -126,7 +124,6 @@ describe("createClassifier", () => {
               type: "choice",
               choice: "wrong",
               probabilities: { justified: 0.3, wrong: 0.7 },
-              confidence: 0.6,
             },
           },
           usage: { input_tokens: 1, output_tokens: 1 },
@@ -143,7 +140,6 @@ describe("createClassifier", () => {
       value: 0.7,
       choice: "wrong",
       probabilities: { justified: 0.3, wrong: 0.7 },
-      confidence: 0.6,
     });
     const body = JSON.parse(String(captured!.body));
     expect(body.questions.is_comment_justified.type).toBe("choice");
@@ -248,7 +244,7 @@ describe("createClassifier", () => {
     };
     const body = {
       model: "jev-latest",
-      answers: { c: { type: "choice", choice: "a", confidence: 0.6 } },
+      answers: { c: { type: "choice", choice: "a" } },
       usage: { input_tokens: 1, output_tokens: 1 },
     };
     try {
@@ -259,9 +255,7 @@ describe("createClassifier", () => {
       expect.unreachable();
     } catch (e) {
       expectClassifyError("JEV_RESPONSE_INVALID")(e);
-      expect((e as Error).message).toContain(
-        '{ type: "choice", choice, probabilities, confidence }',
-      );
+      expect((e as Error).message).toContain('{ type: "choice", choice, probabilities }');
     }
   });
 
@@ -270,13 +264,6 @@ describe("createClassifier", () => {
       {
         model: "jev-latest",
         answers: { is_name_purposeful: { type: "score", score: 3 } },
-        usage: { input_tokens: 1, output_tokens: 1 },
-      },
-      {
-        model: "jev-latest",
-        answers: {
-          is_name_purposeful: { type: "score", score: 1, confidence: 0.9 },
-        },
         usage: { input_tokens: 1, output_tokens: 1 },
       },
       {
@@ -295,7 +282,7 @@ describe("createClassifier", () => {
         // a score with no legend: the level texts the run view shows are missing
         model: "jev-latest",
         answers: {
-          is_name_purposeful: { type: "score", score: 1, probabilities: { 0: 1 }, confidence: 1 },
+          is_name_purposeful: { type: "score", score: 1, probabilities: { 0: 1 } },
         },
         usage: { input_tokens: 1, output_tokens: 1 },
       },

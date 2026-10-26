@@ -77,7 +77,7 @@ export function compileScoreHandler(data: ScoreHandlerData): Handle {
     }
     // the resolver owns the read; DEFAULT (and only) read is round-to-nearest-level; the fired
     // tier's author message (if any) rides the outcome as the finding's note
-    return resolveScoreTier(answer.value, answer.probabilities, answer.confidence, data);
+    return resolveScoreTier(answer.value, answer.probabilities, data);
   };
 }
 
