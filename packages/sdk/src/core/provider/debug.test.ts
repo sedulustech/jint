@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { ID_HEADER, recordRequests, recordSummary } from "./debug.ts";
+import { ID_HEADER, recordRequests, recordSummary, tapWire } from "./debug.ts";
 
 const DIR = "tmp/provider-record-test";
 
@@ -147,5 +147,27 @@ describe("recordRequests", () => {
     );
     expect(summary.count).toBe(2);
     expect(summary.override).toBe(true);
+  });
+
+  test("wire: a provider with no translation records the same body, url redacted, no credential", async () => {
+    const config = recordRequests({ fetch: tapWire(passthrough()) });
+    await config.fetch!("https://user:pw@api.typesafe.ai/v1/systemone?key=sk-secret", {
+      method: "POST",
+      headers: { Authorization: "Bearer sk-secret" },
+      body: JSON.stringify({ state: { path: "a.ts", content: "x" }, questions: {} }),
+    });
+    const text = readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8");
+    const file = JSON.parse(text);
+    expect(file.wire.body).toEqual(file.request);
+    expect(file.wire.url).toBe("https://api.typesafe.ai/v1/systemone");
+    expect(file.wire.status).toBe(200);
+    expect(file.wire.response).toEqual(file.response);
+    for (const secret of ["sk-secret", "Bearer", "pw@"]) expect(text).not.toContain(secret);
+  });
+
+  test("a recording without a wire tap has no wire field", async () => {
+    const config = recordRequests({ fetch: passthrough() });
+    await recordOnce(config, { path: "a.ts", content: "x" });
+    expect(JSON.parse(readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8")).wire).toBeUndefined();
   });
 });

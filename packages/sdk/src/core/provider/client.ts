@@ -36,7 +36,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { ADAPTERS } from "./adapters.ts";
-import { ID_HEADER, recordRequests } from "./debug.ts";
+import { ID_HEADER, recordRequests, tapWire } from "./debug.ts";
 import { protocolFetch } from "./protocol.ts";
 import {
   PROVIDERS,
@@ -149,8 +149,10 @@ function routeProvider(
 ): ClassifierConfig {
   const routed = { ...config, model: provider.model, apiKey: provider.apiKey };
   const adapter = ADAPTERS[provider.spec.protocol];
-  if (adapter === undefined) return routed;
-  return { ...routed, fetch: protocolFetch(adapter, provider.spec, config?.fetch) };
+  // The wire tap sits at the lowest fetch: what it sees is what goes to the network.
+  const wire = tapWire(config?.fetch);
+  if (adapter === undefined) return { ...routed, fetch: wire };
+  return { ...routed, fetch: protocolFetch(adapter, provider.spec, wire) };
 }
 
 function makeClient(

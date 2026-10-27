@@ -28,6 +28,11 @@ export interface RequestFile {
   /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
   durationMs?: number;
   status?: number;
+  /**
+   * The call as it reached the network, after any protocol translation (url redacted, no headers);
+   * absent on records written before wire capture. `request` stays jint's own request shape.
+   */
+  wire?: { url?: string; body?: unknown; status?: number; response?: unknown };
   request?: {
     state?: Record<string, unknown>;
     questions?: Record<

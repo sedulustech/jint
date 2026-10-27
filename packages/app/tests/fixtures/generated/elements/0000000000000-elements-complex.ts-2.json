@@ -67,6 +67,75 @@
       "output_tokens": 10
     }
   },
+  "wire": {
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "body": {
+      "state": {
+        "path": "complex.ts",
+        "source": "export class InvoicePrinter {\n  private width = 42;\n\n  render(invoice: Invoice): string {\n    const fmt = (n: number): string => n.toFixed(2).padStart(this.width);\n    const header = \"INVOICE\".padEnd(this.width);\n    const body = invoice.lines.map((l) => fmt(l.unitPrice * l.quantity)).join(\"\\n\");\n    return [header, body].join(\"\\n\");\n  }\n}"
+      },
+      "questions": {
+        "is_name_purposeful": {
+          "type": "score",
+          "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
+          "criteria": [
+            "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
+            "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+            "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+          ]
+        },
+        "is_cognitively_complex": {
+          "type": "score",
+          "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+          "criteria": [
+            "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+            "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+            "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+          ]
+        }
+      },
+      "model": "jev-1.13.0"
+    },
+    "status": 200,
+    "response": {
+      "model": "jev-fixture",
+      "answers": {
+        "is_name_purposeful": {
+          "type": "score",
+          "score": 0.25,
+          "probabilities": {
+            "0": 0.8,
+            "1": 0.067,
+            "2": 0.067,
+            "3": 0.067
+          },
+          "legend": {
+            "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
+            "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
+            "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+          }
+        },
+        "is_cognitively_complex": {
+          "type": "score",
+          "score": 2,
+          "probabilities": {
+            "0": 0.45,
+            "1": 0.1,
+            "2": 0.45
+          },
+          "legend": {
+            "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+            "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+            "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10
+      }
+    }
+  },
   "ts": "1970-01-01T00:00:00.000Z",
   "durationMs": 0
 }

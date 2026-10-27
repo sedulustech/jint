@@ -34,6 +34,12 @@ test("a url and key override is noted and recorded without the key", async () =>
   expect(manifest).toMatchObject({ provider: "systemone", providerHost: host });
 
   const recorded = readdirSync(dir).map((f) => readFileSync(join(dir, f), "utf8"));
+  // No translation for systemone: the wire is the same call, redacted like the url.
+  const requestFile = JSON.parse(
+    recorded[readdirSync(dir).findIndex((f) => f !== "manifest.json" && f !== "report.json")]!,
+  );
+  expect(requestFile.wire.body).toEqual(requestFile.request);
+  expect(requestFile.wire.url).not.toContain("pw");
   for (const text of [proc.stdout, proc.stderr, ...recorded]) {
     expect(text).not.toContain(key);
     expect(text).not.toContain("pw@"); // userinfo never lands in a recorded url

@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { recordRequests, tapWire } from "./debug.ts";
 import { decisions } from "./decisions.ts";
 import { protocolFetch } from "./protocol.ts";
 
@@ -143,5 +146,39 @@ describe("decisions protocol", () => {
       (await ask(decisionsFetch(api.fetch), { r: { type: "noul", instructions: "Is it?" } }))
         .status,
     ).toBe(429);
+  });
+
+  test("a recorded call keeps the translated wire body and no credential", async () => {
+    const dir = mkdtempSync(`${tmpdir()}/jint-wire-`);
+    const prior = process.env.JINT_RUNS_DIR;
+    process.env.JINT_RUNS_DIR = dir;
+    try {
+      const api = fake({
+        answers: [{ type: "predicate", name: "q0", probability: 0.14 }],
+        usage: { input_tokens: 9, output_tokens: 0 },
+      });
+      const config = recordRequests({
+        fetch: protocolFetch(decisions, SPEC, tapWire(api.fetch)),
+      });
+      await ask(config.fetch as ReturnType<typeof decisionsFetch>, {
+        r: { type: "noul", instructions: "Is it?", criteria: { true: "yes", false: "no" } },
+      });
+      const run = `${dir}/${readdirSync(dir)[0]}`;
+      const name = readdirSync(run).find((f) => f.endsWith(".json"))!;
+      const text = readFileSync(`${run}/${name}`, "utf8");
+      const file = JSON.parse(text);
+      expect(file.request.state).toEqual({ path: "a.ts", content: "x" });
+      expect(file.wire.url).toBe(SPEC.url);
+      expect(file.wire.body).toEqual(api.sent[0]!.body);
+      expect(file.wire.body.input).toBe('{"path":"a.ts","content":"x"}');
+      expect(file.wire.body.questions[0].type).toBe("predicate");
+      expect(file.wire.response.answers[0].probability).toBe(0.14);
+      expect(text).not.toContain("Bearer");
+      expect(existsSync(run)).toBe(true);
+    } finally {
+      if (prior === undefined) delete process.env.JINT_RUNS_DIR;
+      else process.env.JINT_RUNS_DIR = prior;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -5,6 +5,7 @@
  * test seam stops it; JINT_RUNS_DIR moves WHERE the run dir lands, never WHETHER one is written.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -46,6 +47,56 @@ function redactUrl(input: string): string {
   } catch {
     return input;
   }
+}
+
+/**
+ * Parsed when it parses, else verbatim: a non-JSON payload (a proxy's HTML error page, say) is
+ * evidence.
+ */
+function asJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+/** The call that reached the network: url, body, status, response. Never a header or a key. */
+export interface WireCall {
+  url: string;
+  body: unknown;
+  status: number;
+  response: unknown;
+}
+
+/** One recorded call's slot: the lowest fetch fills it, the recording fetch above reads it. */
+const wireSlot = new AsyncLocalStorage<{ wire?: WireCall }>();
+
+type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
+
+/**
+ * Wrap the LOWEST fetch (beneath any protocol translation) so a recorded call also keeps the bytes
+ * that went to the network. Reads only the url, the string body and the response; request headers
+ * (the Authorization credential) are never touched. A no-op outside a recorded call.
+ */
+export function tapWire(base: Fetcher = (input, init) => fetch(input, init)): Fetcher {
+  return async (input, init) => {
+    const response = await base(input, init);
+    const slot = wireSlot.getStore();
+    if (slot !== undefined) {
+      try {
+        slot.wire = {
+          url: redactUrl(input),
+          body: asJson(typeof init?.body === "string" ? init.body : ""),
+          status: response.status,
+          response: asJson(await response.clone().text()),
+        };
+      } catch {
+        // Wire capture never breaks the call it observes.
+      }
+    }
+    return response;
+  };
 }
 
 /** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
@@ -157,21 +208,13 @@ export function recordRequests(
     init,
   ) => {
     const startedAt = Date.now();
-    const response = await baseFetch(input, init);
+    const slot: { wire?: WireCall } = {};
+    const response = await wireSlot.run(slot, () => baseFetch(input, init));
     try {
       const requestInit = init ?? {};
       const request = new Request(input, requestInit);
       const requestText = await request.text();
       const responseText = await response.clone().text();
-      // Parsed when it parses, else stored verbatim: a non-JSON payload (a proxy's HTML error
-      // page, say) is evidence, and dropping it for a throw would lose the only copy.
-      const asJson = (text: string): unknown => {
-        try {
-          return JSON.parse(text);
-        } catch {
-          return text;
-        }
-      };
       const record = {
         ts: new Date().toISOString(),
         url: redactUrl(input),
@@ -184,6 +227,7 @@ export function recordRequests(
         ),
         status: response.status,
         response: asJson(responseText),
+        wire: slot.wire,
       };
       const usage = (
         record.response as {
