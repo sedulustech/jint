@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { runCli, mockWire } from "./helpers/cli.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 const FIXTURE = "tests/fixtures/sample-file.ts";
 
@@ -8,8 +8,8 @@ const FIXTURE = "tests/fixtures/sample-file.ts";
 // fix agent tests rule x element pairs without a full-tree re-lint. Contract claims over the
 // mock provider: call count, the judged source, and the finding-string round trip.
 describe("cli: element-scoped runs (mocked provider)", () => {
-  const provider = startMockProvider();
-  const MOCK_ENV = mockWire(provider.baseUrl);
+  const provider = startMockDecisions();
+  const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
     // scopes-open config: the fixture lives under tests/, which the repo config excludes -
@@ -36,7 +36,8 @@ describe("cli: element-scoped runs (mocked provider)", () => {
     const r = await runMock(["run", FIXTURE + "@L3", "--rule", "is_greppable"]);
     expect(r.code).toBe(0);
     expect(provider.requests).toHaveLength(1);
-    expect(Object.keys(provider.requests[0]!.questions)).toEqual(["is_greppable"]);
+    expect(provider.requests[0]!.questions).toHaveLength(1);
+    expect(String(provider.requests[0]!.questions[0]!.instructions)).toContain("grep");
   });
 
   test("a pasted path#id finding string gets run-scoped guidance, not a walk", async () => {

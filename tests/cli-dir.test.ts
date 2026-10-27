@@ -1,16 +1,16 @@
 import { describe, test, jest, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { runCli, mockWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
 // a key with no reachable provider: the run walks, transport failures stay in-band
-const NO_SERVICE = mockWire("http://127.0.0.1:1");
+const NO_SERVICE = mockDecisionsWire("http://127.0.0.1:1");
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
@@ -155,7 +155,7 @@ describe("cli: dir walk ignores", () => {
   // structural twin of the live calibration test: exclusions are CONTRACT (the walker owns
   // them, pre-provider), so the mock proves them keylessly; the live twin only adds real readings
   test("mocked provider: ignored files are absent from measurements", async () => {
-    const provider = startMockProvider();
+    const provider = startMockDecisions();
     try {
       // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block
       // its event loop and the child would hang waiting for answers.
@@ -166,7 +166,7 @@ describe("cli: dir walk ignores", () => {
       const proc = await runCli(
         ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
         {
-          env: mockWire(provider.baseUrl),
+          env: mockDecisionsWire(provider.baseUrl),
         },
       );
       const report = JSON.parse(proc.stdout);

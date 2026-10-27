@@ -1,117 +1,20 @@
 /**
- * Shared mock of the provider vendor wire (POST /v1/systemone). Point the CLI at baseUrl via
- * mockWire(baseUrl) (tests/helpers/cli.ts) and every classification is answered locally — the suite
- * runs fully keyless.
+ * Shared mocks of the provider wires: the Decisions API (startMockDecisions, the `openai` provider)
+ * and the AI gateway's decision-model endpoint (startMockGateway, the `vercel` provider). Point the
+ * CLI at one via mockDecisionsWire(baseUrl) (tests/helpers/cli.ts) and every classification is
+ * answered locally — the suite runs fully keyless.
  *
  * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
  * everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see tests/README.md.
- *
- * The wire shape mirrors src/core/provider/client.ts: the request carries { state, questions }
- * where each question is a compiled { instructions, criteria } spec, and the response carries an
- * answer per question of shape { type: "noul", noul: 0..1 }, { type: "score", score: number }, or {
- * type: "choice", choice: label }.
  */
-
-export interface MockProviderRequest {
-  /** The full parsed request body (state, questions) — assert the wire, not our pre-SDK objects. */
-  body: Record<string, unknown>;
-  state: Record<string, unknown>;
-  questions: Record<string, Record<string, unknown>>;
-}
-
-export interface MockProviderOptions {
-  /** Default answer for noul-type questions. Default 0.8. */
-  noul?: number;
-  /** Default answer for score-type questions. Default 1. */
-  score?: number;
-  /** Selected option for choice-type questions. Default: the question's first option label. */
-  choice?: string;
-  /**
-   * Per-question override: return a probability, or null to fall back to the defaults. Called with
-   * the question name, the compiled question, and the whole request — a function of the incoming
-   * question (rule name, state) for selective answers.
-   */
-  answerFor?: (q: {
-    rule: string;
-    question: Record<string, unknown>;
-    request: MockProviderRequest;
-  }) => number | null;
-}
-
-export interface MockProvider {
-  /**
-   * The server address for mockWire - the url the systemone provider is pointed at in a spawned
-   * CLI.
-   */
-  baseUrl: string;
-  stop: () => void;
-  /** Every request the mock saw, in order. Assert the wire: state content, instructions, criteria. */
-  requests: MockProviderRequest[];
-}
-
-/** A choice answer: the selected option holds 0.7, the rest share 0.3 evenly. */
-function choiceAnswer(question: Record<string, unknown>, selected: string | undefined) {
-  const labels = Object.keys((question.criteria ?? {}) as Record<string, unknown>);
-  const choice = selected ?? labels[0]!;
-  const rest = labels.length > 1 ? 0.3 / (labels.length - 1) : 0;
-  const probabilities = Object.fromEntries(labels.map((l) => [l, l === choice ? 0.7 : rest]));
-  return { type: "choice", choice, probabilities };
-}
-
-export function startMockProvider(opts: MockProviderOptions = {}): MockProvider {
-  const requests: MockProviderRequest[] = [];
-  const server = Bun.serve({
-    port: 0,
-    idleTimeout: 30,
-    async fetch(req) {
-      const body = (await req.json()) as {
-        state?: Record<string, unknown>;
-        questions?: Record<string, Record<string, unknown>>;
-      };
-      const entry: MockProviderRequest = {
-        body: body as Record<string, unknown>,
-        state: body.state ?? {},
-        questions: body.questions ?? {},
-      };
-      requests.push(entry);
-      const answers: Record<string, unknown> = {};
-      for (const [rule, question] of Object.entries(body.questions ?? {})) {
-        const override = opts.answerFor?.({ rule, question, request: entry });
-        // score answers carry the full distribution (the wire requires it); the mock mass sits
-        // on level 1 with the score summarized around it
-        answers[rule] =
-          question.type === "score"
-            ? {
-                type: "score",
-                score: override ?? opts.score ?? 1,
-                probabilities: { 0: 0.1, 1: 0.8, 2: 0.1 },
-                // provider echoes each level's text back as the legend
-                legend: Object.fromEntries(
-                  ((question.criteria as string[] | undefined) ?? []).map((t, i) => [String(i), t]),
-                ),
-              }
-            : question.type === "choice"
-              ? choiceAnswer(question, opts.choice)
-              : { type: "noul", noul: override ?? opts.noul ?? 0.8 };
-      }
-      return Response.json(
-        { model: "jev-mock", answers, usage: { input_tokens: 1, output_tokens: 1 } },
-        { headers: { "Content-Type": "application/json" } },
-      );
-    },
-  });
-  return {
-    baseUrl: `http://localhost:${server.port}`,
-    stop: () => server.stop(true),
-    requests,
-  };
-}
 
 export interface MockDecisionsRequest {
   /** The full parsed request body: model, input, questions (an array of named questions). */
   body: { model: string; input: unknown; questions: Record<string, unknown>[] };
   /** The state: the input_json part's data. */
   state: Record<string, unknown>;
+  /** The questions asked, in order (named q0, q1 ... on the wire; the instructions tell them apart). */
+  questions: Record<string, any>[];
 }
 
 export interface MockDecisionsOptions {
@@ -149,7 +52,7 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
       const body = (await req.json()) as MockDecisionsRequest["body"];
       const part = (body.input as { content?: { data?: Record<string, unknown> }[] }[])?.[0]
         ?.content?.[0];
-      requests.push({ body, state: part?.data ?? {} });
+      requests.push({ body, state: part?.data ?? {}, questions: body.questions });
       if (opts.latencyMs !== undefined) await Bun.sleep(opts.latencyMs);
       if (opts.status !== undefined) {
         return Response.json({ error: { message: "mock failure" } }, { status: opts.status });

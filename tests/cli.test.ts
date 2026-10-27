@@ -1,7 +1,7 @@
 import { describe, test, jest, expect, afterEach, afterAll } from "bun:test";
-import { runCli, runShell, CLI_SRC as CLI, mockWire, NO_KEY_WIRE } from "./helpers/cli.ts";
+import { runCli, runShell, CLI_SRC as CLI, mockDecisionsWire, NO_KEY_WIRE } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // the repo this test file lives in - never a sibling checkout, so worktree
 // runs exercise the worktree's own rules and calibration
@@ -25,7 +25,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 
 const NO_KEY = NO_KEY_WIRE; // an empty key counts as absent
 // a key with no reachable provider: the run walks and classifies, transport failures stay in-band
-const NO_SERVICE = mockWire("http://127.0.0.1:1");
+const NO_SERVICE = mockDecisionsWire("http://127.0.0.1:1");
 
 afterEach(() => {
   delete process.env.NO_COLOR;
@@ -262,7 +262,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // classified, so stdout stays empty — no machine document
     expectContract(r, {
       exit: 2,
-      stderr: ["CONFIG_INVALID", "no JINT_TYPESAFE_API_KEY set - measurements need a valid key"],
+      stderr: ["CONFIG_INVALID", "no JINT_OPENAI_API_KEY set - measurements need a valid key"],
       stdout: "empty",
     });
     expect(r.stderr).not.toContain("failed to classify");
@@ -271,7 +271,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("default raw-line stdout without a key: same exit 2, no unit failures", async () => {
     const r = await run(["run", "tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("no JINT_TYPESAFE_API_KEY set");
+    expect(r.stderr).toContain("no JINT_OPENAI_API_KEY set");
     expect(r.stderr).not.toContain("failed to classify");
     expect(r.stdout).not.toContain("PROVIDER_AUTH");
   });
@@ -524,8 +524,8 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 // (report shape, tap activation, walker exclusions) that never needed a real model. They run
 // keyless — a mock here is what makes a regression visible in every run.
 describe("cli: mocked provider twins (structural claims, always on)", () => {
-  const provider = startMockProvider();
-  const MOCK_ENV = mockWire(provider.baseUrl);
+  const provider = startMockDecisions();
+  const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
   // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block its
   // event loop and the child would hang waiting for answers.
   async function runMock(args: string[], env: Record<string, string> = {}) {

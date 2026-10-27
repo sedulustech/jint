@@ -1,9 +1,9 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
-import { runCli, mockWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // custom-rule end-to-end: an INLINE callback rule in a TS config (jint.config.ts), loaded through
 // the jint:sdk virtual module, classified over the mock provider wire. Contract claims only (report shape, spans, dumps,
@@ -99,8 +99,8 @@ function setup(name: string, configSource: string): string {
   return dir;
 }
 
-const provider = startMockProvider();
-const MOCK_ENV = mockWire(provider.baseUrl);
+const provider = startMockDecisions();
+const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
 afterAll(() => {
   provider.stop();
   rmScratchTree(DIR);
@@ -184,19 +184,18 @@ describe("cli: custom rules end-to-end", () => {
     // Exact contract: this fixture run makes exactly ONE classifier call - the comments pair
     // frame (alpha alone; the owned comment element never matches separately).
     expect(files).toHaveLength(1);
-    // The TS state is a free composition (no "source" key), so the tap kinds it "files-state".
+    // The TS state is a free composition (no "source" key), so the recorder kinds it "files-state".
     for (const file of files) expect(file).toMatch(/-files-state\.json$/);
     const captures = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
+    const stateOf = (c: any) => c.request.input[0].content[0].data;
     // The composed state reached the wire verbatim (the frame sees the resolved count of 1).
     for (const capture of captures) {
-      expect(capture.request.state.targets).toBe(1);
-      expect(capture.request.state.composed).toEqual({ free: true });
+      expect(stateOf(capture).targets).toBe(1);
+      expect(stateOf(capture).composed).toEqual({ free: true });
     }
-    const sources = captures.map((c) => c.request.state.comment).sort();
+    const sources = captures.map((c) => stateOf(c).comment).sort();
     expect(sources).toEqual(["export function alpha() {\n  return 1;\n}"]);
-    expect(captures[0]!.request.questions["will_ts_rule_fire"].instructions).toContain(
-      "Judge the comment.",
-    );
+    expect(captures[0]!.request.questions[0].instructions).toContain("Judge the comment.");
   });
 
   test("a TS config that fails at load is fatal: exit 2, the file is named", async () => {

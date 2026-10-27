@@ -1,9 +1,9 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 /**
  * THE OPEN PATH, PROVEN (owner steering item 3): a BYOG-shaped grammar declares a NEW autonomous
@@ -70,8 +70,8 @@ writeFileSync(
 );
 writeFileSync(join(DIR, "jint.config.json"), CONFIG);
 
-const provider = startMockProvider();
-const WIRE = mockWire(provider.baseUrl);
+const provider = startMockDecisions();
+const WIRE = mockDecisionsWire(provider.baseUrl);
 
 afterAll(() => {
   provider.stop();

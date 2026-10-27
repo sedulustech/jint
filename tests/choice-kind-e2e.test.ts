@@ -1,9 +1,9 @@
 import { describe, expect, jest, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // every test spawns the CLI: the per-test timeout matches the spawn ceiling
 jest.setTimeout(60_000);
@@ -38,11 +38,11 @@ function writeFixture(rule: object = CHOICE_RULE): { config: string; source: str
 }
 
 async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
-  const provider = startMockProvider({ choice });
+  const provider = startMockDecisions({ choice });
   try {
     const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
-      env: mockWire(provider.baseUrl),
+      env: mockDecisionsWire(provider.baseUrl),
     });
     return {
       r,
@@ -57,17 +57,21 @@ async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
 describe("choice rules", () => {
   test.concurrent("the wire carries a choice question with the option labels", async () => {
     const { questions } = await runAgainst("justified");
-    // a whole-file rule's question is keyed "<rule> in <unit id>"; the request carries only it
-    const [key, question] = Object.entries(questions[0]!)[0]!;
-    expect(key.startsWith("is_comment_justified")).toBe(true);
-    expect(question.type).toBe("choice");
-    expect(Object.keys(question.criteria as object)).toEqual(["justified", "contradicted"]);
+    // the request carries only the rule's question, named by position
+    expect(questions[0]).toHaveLength(1);
+    const question = questions[0]![0]!;
+    expect(question).toMatchObject({ type: "choice", name: "q0" });
+    expect(question.choices.map((c: { value: string }) => c.value).slice(0, 2)).toEqual([
+      "justified",
+      "contradicted",
+    ]);
   });
 
   test.concurrent("a selected error option fires with its message", async () => {
     const { r, report } = await runAgainst("contradicted");
     expect(r.code).toBe(1);
-    expect(report.measurements[0]).toMatchObject({ choice: "contradicted", value: 0.7 });
+    expect(report.measurements[0]).toMatchObject({ choice: "contradicted" });
+    expect(report.measurements[0].value).toBeGreaterThan(0.5);
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]).toMatchObject({
       rule: "is_comment_justified",
@@ -78,12 +82,13 @@ describe("choice rules", () => {
   });
 
   test.concurrent("a reading too close to call fires the rule's undecided tier", async () => {
-    // the mock puts 0.7 on the selected option and 0.3 on the other: a 0.4 lead, under 0.5
+    // the mock reads 0.82 for the selected option and 0.18 for the other (its none-fits mass is dropped
+    // and the rest renormalized): a 0.65 lead, under 0.7
     const undecidedRule = {
       ...CHOICE_RULE,
       handle: {
         ...CHOICE_RULE.handle,
-        undecided: { margin: 0.5, level: "warn", message: "Read it against the code." },
+        undecided: { margin: 0.7, level: "warn", message: "Read it against the code." },
       },
     };
     const { r, report } = await runAgainst("contradicted", undecidedRule);

@@ -5,7 +5,7 @@
  * process and on a loaded CI runner a spawn alone can burn seconds before the CLI's own work
  * starts
  *
- * - The runner also runs the vendored retry chain on purpose in the NO_SERVICE tests (~2s per
+ * - The runner also runs the client's retry chain on purpose in the NO_SERVICE tests (~2s per
  *   request), so a tight ceiling kills healthy runs.
  */
 import { join } from "node:path";
@@ -53,28 +53,21 @@ function childEnv(extra?: Record<string, string | undefined>): Record<string, st
 }
 
 /**
- * The env for a run answered by a System One server at `baseUrl` (the mock provider, or a dead
- * address): the systemone provider, its url and a throwaway key, through the same env overrides a
- * user has. A config's own `provider`, `providers` url or `apiKey` still wins over them.
+ * The env for a run answered by a Decisions mock at `baseUrl` (startMockDecisions, or a dead
+ * address): the openai provider, its url and a throwaway key, through the same env overrides a user
+ * has. A config's own `provider`, `providers` url or `apiKey` still wins over them.
  */
-export const mockWire = (baseUrl: string): Record<string, string> => ({
-  JINT_PROVIDER: "systemone",
-  JINT_PROVIDER_URL: baseUrl,
-  JINT_PROVIDER_KEY: "test",
-});
-
-/** The same for the openai provider, pointed at a Decisions mock's root (startMockDecisions). */
 export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
   JINT_PROVIDER: "openai",
   JINT_PROVIDER_URL: `${baseUrl}/v1/decisions`,
   JINT_PROVIDER_KEY: "test",
 });
 
-/** The env for a run with the systemone provider and no key. */
+/** The env for a run with the openai provider and no key. */
 export const NO_KEY_WIRE = {
-  JINT_PROVIDER: "systemone",
+  JINT_PROVIDER: "openai",
   JINT_PROVIDER_KEY: "",
-  JINT_TYPESAFE_API_KEY: "",
+  JINT_OPENAI_API_KEY: "",
 };
 
 export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<RunCliResult> {

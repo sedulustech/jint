@@ -1,14 +1,14 @@
 import { describe, test, jest, expect, afterAll } from "bun:test";
-import { runCli, mockWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
-import { startMockProvider } from "./helpers/mock-provider.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
 jest.setTimeout(60_000);
 
 // Piped-stdin units: the kind is DECLARED by a noun — the str noun carries one str unit, the
-// paths noun a path list. The provider adapter is pointed at a local mock of POST /v1/systemone so the
+// paths noun a path list. The provider adapter is pointed at a local mock of POST /v1/decisions so the
 // runs classify for real.
 
 const SNIPPET = [
@@ -18,9 +18,9 @@ const SNIPPET = [
 ].join("\n");
 
 /** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
-const provider = startMockProvider();
+const provider = startMockDecisions();
 
-const MOCK_ENV = mockWire(provider.baseUrl);
+const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
 
 async function runWithStdin(
   stdin: string,
@@ -63,7 +63,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   test("an EMPTY list is LIST_EMPTY, exit 2 — distinguishable from an unreadable one", async () => {
     const proc = await runCli(["run", "paths", "-"], {
       stdin: "",
-      env: mockWire("http://127.0.0.1:1"),
+      env: mockDecisionsWire("http://127.0.0.1:1"),
     });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_EMPTY");
@@ -73,7 +73,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   test("an entry that would need interpreting is LIST_ENTRY_INVALID, exit 2", async () => {
     const proc = await runCli(["run", "paths", "-"], {
       stdin: "src/\n",
-      env: mockWire("http://127.0.0.1:1"),
+      env: mockDecisionsWire("http://127.0.0.1:1"),
     });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_ENTRY_INVALID");
@@ -239,7 +239,7 @@ describe("cli: piped stdin str unit", async () => {
     });
   });
 
-  test("the wire carries the real stdin content, path str:stdin, and the compiled question", async () => {
+  test("the wire carries the real stdin content, path str:stdin, and the question", async () => {
     const before = provider.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "run",
@@ -258,10 +258,8 @@ describe("cli: piped stdin str unit", async () => {
     const state = wire.state;
     expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
     expect(state.path).toBe("str:stdin");
-    const questions = wire.questions;
-    const names = Object.keys(questions);
-    expect(names.some((n) => n.startsWith("is_greppable"))).toBe(true);
-    expect(questions[names[0]!]!.criteria).toBeDefined(); // compiled, not raw spec
+    expect(wire.questions).toHaveLength(1);
+    expect(wire.questions[0]).toMatchObject({ type: "predicate", name: "q0" });
   });
 
   test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
@@ -316,7 +314,7 @@ describe("cli: piped stdin str unit", async () => {
     for (const wire of seen) {
       expect(wire.state.content).toBe("- **noul** - the number the model returns per question");
       expect(wire.state.path).toBe("str:stdin");
-      expect(Object.keys(wire.questions)[0]).toContain("is_noul_documented");
+      expect(String(wire.questions[0]!.instructions)).toContain("document the noul value");
     }
   });
 
@@ -331,7 +329,7 @@ describe("cli: piped stdin str unit", async () => {
     ); // report/manifest.json are the run's own metadata, not captures
     expect(captures.length).toBeGreaterThan(0);
     const capture = JSON.parse(await Bun.file(`${dumpDir}/${captures[0]}`).text());
-    expect((capture.request.state as Record<string, unknown>).content).toBe(SNIPPET);
+    expect(capture.request.input[0].content[0].data.content).toBe(SNIPPET);
     expect(r.stderr).toContain("requests ->");
     expect(r.stderr).toContain(dumpDir);
   });
