@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { AnyState, Classifier } from "../types.ts";
 
 const state = { path: "x", content: "", id: "L1" } as AnyState;
-import { checkRunKnobs, withLimit, withTimeout } from "./pacer.ts";
+import { checkRunKnobs, estimateTokens, withLimit, withTimeout, withTokenRate } from "./pacer.ts";
+import { resolveProvider } from "./providers.ts";
 
 describe("checkRunKnobs", () => {
   test("each failure names the exact field", () => {
@@ -46,5 +47,65 @@ describe("withLimit / withPacer", () => {
     await Promise.all(Array.from({ length: 12 }, () => limited(state, { q: {} as never })));
     expect(maxInFlight).toBeLessThanOrEqual(3);
     expect(maxInFlight).toBeGreaterThan(1);
+  });
+});
+
+describe("withTokenRate", () => {
+  /** A clock whose sleep advances it: waits cost no real time. */
+  const fakeClock = () => {
+    const clock = {
+      time: 0,
+      slept: [] as number[],
+      now: () => clock.time,
+      sleep: async (ms: number) => {
+        clock.slept.push(ms);
+        clock.time += ms;
+      },
+    };
+    return clock;
+  };
+  const questions = { q: { type: "noul", instructions: "Is it?" } } as never;
+  const call = (n: number) => ({ path: "a.ts", content: "x".repeat(n), id: "L1" }) as AnyState;
+  const ok: Classifier = async () => ({ q: { value: 1 } });
+
+  test("identity when the provider has no budget", () => {
+    expect(withTokenRate(ok, undefined)).toBe(ok);
+    expect(
+      resolveProvider({ provider: "systemone" }, {}).spec.limits?.tokensPerMinute,
+    ).toBeUndefined();
+  });
+
+  test("calls under the budget are not delayed", async () => {
+    const clock = fakeClock();
+    const paced = withTokenRate(ok, 1_000_000, clock);
+    for (let i = 0; i < 5; i++) await paced(call(100), questions);
+    expect(clock.slept).toEqual([]);
+  });
+
+  test("a call over the minute's budget waits for the oldest admission to leave the window", async () => {
+    const clock = fakeClock();
+    const tokens = estimateTokens(call(400), questions);
+    const paced = withTokenRate(ok, tokens * 2, clock); // room for exactly two
+    await paced(call(400), questions);
+    clock.time = 10_000;
+    await paced(call(400), questions);
+    await paced(call(400), questions);
+    expect(clock.slept).toEqual([50_000]); // until the first leaves, 60s after it was admitted
+    expect(clock.time).toBe(60_000);
+  });
+
+  test("a call larger than the whole budget runs alone instead of deadlocking", async () => {
+    const clock = fakeClock();
+    const paced = withTokenRate(ok, 1, clock);
+    await paced(call(400), questions);
+    expect(clock.slept).toEqual([]);
+    await paced(call(400), questions);
+    expect(clock.slept).toEqual([60_000]);
+  });
+
+  test("the budget is the selected provider's: table default, config override", () => {
+    expect(resolveProvider({}, {}).spec.limits?.tokensPerMinute).toBe(10_000_000);
+    const override = { providers: { openai: { limits: { tokensPerMinute: 123 } } } };
+    expect(resolveProvider(override, {}).spec.limits?.tokensPerMinute).toBe(123);
   });
 });

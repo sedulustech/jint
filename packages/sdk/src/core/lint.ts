@@ -37,8 +37,9 @@ import {
   DEFAULT_TIMEOUT,
   withLimit,
   withTimeout,
+  withTokenRate,
 } from "./provider/pacer.ts";
-import { assertProviderKey } from "./provider/providers.ts";
+import { assertProviderKey, resolveProvider } from "./provider/providers.ts";
 import {
   classifyFile,
   elementWireId,
@@ -279,19 +280,24 @@ function pacedClassifier(
   options: LintOptions,
   knobs: { concurrency: number; timeout: number },
 ): Classifier {
-  return withLimit(
-    withTimeout(
-      options.classifier ??
-        createClassifier({
-          apiKey: options.config.apiKey,
-          provider: options.config.provider,
-          model: options.config.model,
-          providers: options.config.providers,
-          log: options.log,
-        }),
-      knobs.timeout,
-    ),
-    knobs.concurrency,
+  const injected = options.classifier;
+  const classifier =
+    injected ??
+    createClassifier({
+      apiKey: options.config.apiKey,
+      provider: options.config.provider,
+      model: options.config.model,
+      providers: options.config.providers,
+      log: options.log,
+    });
+  // An injected classifier is not a provider's: no provider budget applies to it.
+  const budget =
+    injected === undefined
+      ? resolveProvider(options.config).spec.limits?.tokensPerMinute
+      : undefined;
+  return withTokenRate(
+    withLimit(withTimeout(classifier, knobs.timeout), knobs.concurrency),
+    budget,
   );
 }
 

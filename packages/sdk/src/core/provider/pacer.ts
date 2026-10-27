@@ -1,5 +1,6 @@
 /**
- * The run knobs at the classifier seam: limit (wall-clock), timeout (liveness).
+ * The run knobs at the classifier seam: limit (wall-clock), timeout (liveness), and the token
+ * budget (the provider's tokensPerMinute).
  *
  * - Concurrency bounds IN-FLIGHT calls run-wide (the wall-clock knob; measured: 53.9 rps at 16 with
  *   realistic payloads, zero 429s, median 283ms / p95 380ms latency). Arrivals are not paced: the
@@ -9,12 +10,16 @@
  *   PROVIDER_TIMEOUT failure instead of holding a run-wide slot forever (default 30s - generous
  *   against the measured p95 of 380ms; the SDK's own retries have their own budget and this is NOT
  *   a retry layer).
+ * - The token budget spaces ARRIVALS by the provider's `limits.tokensPerMinute` (providers.ts): a
+ *   call waits while the estimated input tokens of the last minute plus its own would exceed the
+ *   budget, so a long run stays under a provider's rate limit instead of living on its 429s. A
+ *   provider with no budget is not paced.
  *
  * Composition order is load-bearing: withLimit(withTimeout(raw)) - the timeout fires while holding
  * a slot so a hang frees the slot instead of pinning it.
  */
 
-import { ClassifyError, type Classifier } from "../types.ts";
+import { ClassifyError, type AnyState, type Classifier, type QuestionSchema } from "../types.ts";
 
 /** The measured/default knob values (probe evidence, not guesses). */
 export const DEFAULT_CONCURRENCY = 16;
@@ -106,4 +111,51 @@ export function withTimeout(classifier: Classifier, seconds: number | undefined)
         (timer as unknown as { unref?: () => void }).unref?.();
       }),
     ]);
+}
+
+/** The estimate the budget is spent in: about four characters per token of what the call sends. */
+export const estimateTokens = (
+  state: AnyState,
+  questions: Record<string, QuestionSchema>,
+): number => Math.ceil(JSON.stringify([state, questions]).length / 4);
+
+const MINUTE_MS = 60_000;
+
+/** The clock the token budget reads; tests inject a fake one. */
+export interface PacerClock {
+  now(): number;
+  sleep(ms: number): Promise<void>;
+}
+
+const REAL_CLOCK: PacerClock = {
+  now: () => Date.now(),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+};
+
+/**
+ * Paces a classifier under a token budget: a call is admitted when the estimated tokens admitted in
+ * the last minute plus its own fit `tokensPerMinute`, else it waits for the oldest admission to
+ * leave the window. A call larger than the whole budget runs alone, never deadlocked. Wraps OUTSIDE
+ * withLimit, so a waiting call holds no in-flight slot. Identity when the budget is absent.
+ */
+export function withTokenRate(
+  classifier: Classifier,
+  tokensPerMinute: number | undefined,
+  clock: PacerClock = REAL_CLOCK,
+): Classifier {
+  if (tokensPerMinute === undefined) return classifier;
+  const admitted: Array<{ at: number; tokens: number }> = [];
+  return async (state, questions) => {
+    const tokens = estimateTokens(state, questions);
+    for (;;) {
+      const now = clock.now();
+      while (admitted.length > 0 && admitted[0]!.at <= now - MINUTE_MS) admitted.shift();
+      const used = admitted.reduce((sum, a) => sum + a.tokens, 0);
+      if (admitted.length === 0 || used + tokens <= tokensPerMinute) {
+        admitted.push({ at: now, tokens });
+        return classifier(state, questions);
+      }
+      await clock.sleep(admitted[0]!.at + MINUTE_MS - now);
+    }
+  };
 }
