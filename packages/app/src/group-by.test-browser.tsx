@@ -5,9 +5,10 @@ import { expect, test, afterEach } from "vitest";
 import { page } from "vitest/browser";
 import { router } from "./router";
 
-// ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 16 captures + report.json, 16 cells) ----
+// ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 17 captures + report.json, 16 cells) ----
 // severity comes from the span-aware join: findings first, handle projection second.
-// 16 cells across 14 files.
+// 16 cells across 14 files; src/decisions.ts (a decisions-form recording) has no measurement, like
+// src/none.ts, so it is a request and no cell.
 // is_name_purposeful: 0.5 warn (finding), 0.92 null, 0.08 error, 0.51 warn, 0.7 null -> 5 cells
 // "has_nothing in mind": 0.8 silent, 0.2 null, 0.3 null -> 3 cells, all no-verdict
 // will_comment_drift: 0.95 error (>0.9), 0.45 null -> 2 cells
@@ -107,7 +108,7 @@ test("request mode is the capture log: max-p column, no grouped rows, no rule ch
   mount();
   await openRun();
   modeButton("request").click();
-  await expectCounter("16/16 requests");
+  await expectCounter("17/17 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
   // grouped rows are gone: no group parents, no rule-carrying children
   expect(all('tr[data-testid^="group-"]')).toHaveLength(0);
@@ -122,7 +123,7 @@ test("the group-by toggle renders all three modes", async () => {
   modeButton("file").click();
   await ruleGroupsReady(FILES);
   modeButton("request").click();
-  await expectCounter("16/16 requests");
+  await expectCounter("17/17 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
 });
 
@@ -335,7 +336,7 @@ test("request rows still drill in: a request click opens the pair detail of its 
   mount();
   await openRun();
   modeButton("request").click();
-  await expectCounter("16/16 requests");
+  await expectCounter("17/17 requests");
   // exact path: "low.ts" substring-matches src/greedy-low.ts (earlier seq) and opens the wrong pair
   requestRow("src/low.ts").click();
   await waitFor(

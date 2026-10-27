@@ -82,6 +82,11 @@ type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
  */
 export interface CallContext {
   id: string;
+  /**
+   * The question ids in the order the request names them (q0, q1, ...): the request holds only
+   * positions.
+   */
+  questionIds: string[];
   path: string;
   kind: "elements" | "files";
 }
@@ -91,10 +96,12 @@ const callSlot = new AsyncLocalStorage<CallContext>();
 /** Runs `body` as the call of `state`: the exchanges it makes are recorded as that call's. */
 export function inCall<T>(
   state: { id: string; path: string; source?: string },
+  questionIds: string[],
   body: () => Promise<T>,
 ): Promise<T> {
   const call: CallContext = {
     id: state.id,
+    questionIds,
     path: state.path,
     kind: state.source === undefined ? "files" : "elements",
   };
@@ -258,7 +265,13 @@ export function recordRequests(
       );
       const record =
         call !== undefined
-          ? { ...common, status: response.status, request: body, response: asJson(responseText) }
+          ? {
+              ...common,
+              questionIds: call.questionIds,
+              status: response.status,
+              request: body,
+              response: asJson(responseText),
+            }
           : {
               ...common,
               request: body,

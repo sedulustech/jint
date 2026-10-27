@@ -16,22 +16,14 @@
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
 import { wireName, type Fetch, type SystemOneQuestion, type WireAsk } from "./protocol.ts";
+import { NONE, readAnswer, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import type { ResolvedProvider } from "./providers.ts";
+
+export { fromDecisions, readAnswer, type DecisionsAnswer };
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 import type { Decision, DecisionCreateParams } from "openai/resources/decisions";
 
-const NONE = "none_of_these";
-
 type Question = DecisionCreateParams["questions"][number];
-
-/** The shape of an answer the conversion reads: the client's typed answers, and the vercel route's. */
-export type DecisionsAnswer = {
-  type: string;
-  name: string | null;
-  choice?: string | boolean;
-  probability?: number;
-  probabilities?: { value: string | boolean | number; probability: number }[];
-};
 
 /** The Decisions question for one System One question, under a wire-safe name. */
 export function toDecisions(name: string, q: SystemOneQuestion): Question {
@@ -62,59 +54,6 @@ export function toDecisions(name: string, q: SystemOneQuestion): Question {
     instructions,
     choices: [...choices, { value: NONE, description: "None of these fits" }],
   };
-}
-
-/**
- * The answer the rules read for one Decisions answer. A noul is its probability, a score the
- * expected level over its distribution, a choice the selected option's share once the fallback
- * option's mass is dropped and the rest renormalized.
- */
-export function readAnswer(
-  q: SystemOneQuestion,
-  a: DecisionsAnswer,
-  input = "",
-): ClassifiedAnswer | Refusal {
-  if (a.type === "refusal") return { refused: true };
-  const shares: Record<string, number> = Object.fromEntries(
-    (a.probabilities ?? []).map((o) => [String(o.value), o.probability]),
-  );
-  if (q.type === "noul") return { value: a.probability ?? 0 };
-  if (q.type === "score") {
-    const value = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
-    return { value, probabilities: shares };
-  }
-  delete shares[NONE];
-  const total = Object.values(shares).reduce((s, p) => s + p, 0);
-  const options = Object.keys(shares);
-  if (options.length === 0) {
-    throw new ClassifyError(
-      "PROVIDER_RESPONSE_INVALID",
-      input,
-      "provider choice answer carries no options",
-    );
-  }
-  const probabilities = Object.fromEntries(
-    options.map((o) => [o, total > 0 ? shares[o]! / total : 1 / options.length]),
-  );
-  const choice =
-    a.choice !== undefined && String(a.choice) in probabilities
-      ? String(a.choice)
-      : options.reduce((b, o) => (probabilities[o]! > probabilities[b]! ? o : b));
-  return { value: probabilities[choice] ?? 0, choice, probabilities };
-}
-
-/** The System One answer for one Decisions answer (the vercel route's shape). */
-export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
-  const r = readAnswer(q, a) as ClassifiedAnswer;
-  if (q.type === "noul") return { type: "noul", noul: r.value };
-  if (q.type === "score") {
-    // System One echoes each level's text as the legend; the run view shows the levels from it.
-    const legend = Object.fromEntries(
-      (q.criteria as readonly string[]).map((text, i) => [String(i), text]),
-    );
-    return { type: "score", score: r.value, legend, probabilities: r.probabilities };
-  }
-  return { type: "choice", choice: r.choice, probabilities: r.probabilities };
 }
 
 /**
@@ -218,7 +157,7 @@ function answersOf(reply: Decision, ask: Ask): Asked["answers"] {
   const out: Record<string, ClassifiedAnswer | Refusal> = {};
   Object.entries(ask.questions).forEach(([name, spec], i) => {
     const a = byName.get(wireName(i));
-    const answer = a === undefined ? undefined : readAnswer(spec, a, input);
+    const answer = a === undefined ? undefined : readAnswer(spec, a);
     // A missing answer, or a noul outside [0, 1], is the model's reply failing the contract.
     const outOfRange =
       spec.type === "noul" && answer !== undefined && "value" in answer

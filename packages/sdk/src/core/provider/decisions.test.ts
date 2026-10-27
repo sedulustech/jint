@@ -424,9 +424,10 @@ describe("through createClassifier", () => {
     });
     const file = JSON.parse(files.find((f) => /^\d+-files-a\.ts\.json$/.test(f.name))!.text);
     expect(Object.keys(file).sort()).toEqual(
-      ["durationMs", "id", "request", "response", "status", "ts", "url"].sort(),
+      ["durationMs", "id", "questionIds", "request", "response", "status", "ts", "url"].sort(),
     );
     expect(file.id).toBe("L1-L2");
+    expect(file.questionIds).toEqual(["is_readable"]);
     expect(file.url).toBe(URL_);
     expect(file.status).toBe(200);
     expect(file.request).toEqual(JSON.parse(sent[0]!.body));

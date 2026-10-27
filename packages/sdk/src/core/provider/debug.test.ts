@@ -181,7 +181,7 @@ describe("recordRequests", () => {
           : new Response(JSON.stringify(reply), { status: 200 }),
     });
     const body = JSON.stringify({ model: "m", input: "x", questions: [] });
-    await inCall({ id: "L1-L2", path: "src/a.ts", source: "x" }, async () => {
+    await inCall({ id: "L1-L2", path: "src/a.ts", source: "x" }, ["rule in L1-L2"], async () => {
       for (let i = 0; i < 2; i++) {
         await config.fetch!("https://user:pw@api.test/v1/decisions?key=sk-secret", {
           method: "POST",
@@ -198,9 +198,10 @@ describe("recordRequests", () => {
     const failed = files.find((f) => f.status === 429);
     const ok = files.find((f) => f.status === 200);
     expect(Object.keys(ok).sort()).toEqual(
-      ["durationMs", "id", "request", "response", "status", "ts", "url"].sort(),
+      ["durationMs", "id", "questionIds", "request", "response", "status", "ts", "url"].sort(),
     );
     expect(ok.id).toBe("L1-L2");
+    expect(ok.questionIds).toEqual(["rule in L1-L2"]);
     expect(ok.url).toBe("https://api.test/v1/decisions");
     expect(ok.request).toEqual(JSON.parse(body));
     expect(ok.response).toEqual(reply);

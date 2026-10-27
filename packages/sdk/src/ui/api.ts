@@ -17,50 +17,10 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
+import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
 import type { Dirent } from "node:fs";
 
-/** The wire shape of one recorded classifier request file, as served by this module. */
-export interface RequestFile {
-  ts?: string;
-  url?: string;
-  /** The state's id, recorded beside the request; older records carry it in request.state. */
-  id?: string;
-  /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
-  durationMs?: number;
-  status?: number;
-  /**
-   * The call as it reached the network, after any protocol translation (url redacted, no headers);
-   * absent on records written before wire capture. `request` stays jint's own request shape.
-   */
-  wire?: { url?: string; body?: unknown; status?: number; response?: unknown };
-  request?: {
-    state?: Record<string, unknown>;
-    questions?: Record<
-      string,
-      {
-        type?: string;
-        instructions?: string;
-        criteria?: { true?: string; false?: string } | readonly string[];
-      }
-    >;
-    model?: string;
-  };
-  response?: {
-    model?: string;
-    answers?: Record<
-      string,
-      {
-        type?: string;
-        noul?: number;
-        score?: number;
-        legend?: Record<string, string>;
-        probabilities?: Record<string, number>;
-        choice?: string;
-      }
-    >;
-    usage?: Record<string, number>;
-  };
-}
+export type { RequestFile } from "./request-file.ts";
 
 // filenames and encodings shared across read sites: one name, no drift
 const REPORT_FILE = "report.json";
@@ -264,7 +224,9 @@ async function serveRunRequest(
   const requestPath = safeJoin(runDir, fileName);
   if (requestPath === null) return badRequest("invalid request file");
   try {
-    return jsonResponse(JSON.parse(await readFile(requestPath, READ_ENCODING)));
+    return jsonResponse(
+      normalizeRequestFile(JSON.parse(await readFile(requestPath, READ_ENCODING))),
+    );
   } catch (err) {
     if (isMissingFileError(err)) return notFound("request not found");
     throw err;
@@ -617,7 +579,7 @@ async function readRequestRow(
       readFile(join(dir, file), READ_ENCODING),
       stat(join(dir, file)),
     ]);
-    const requestFile = JSON.parse(text) as RequestFile;
+    const requestFile: RequestFile = normalizeRequestFile(JSON.parse(text));
     const questions = requestFile.request?.questions ?? {};
     const answers = requestFile.response?.answers ?? {};
     const probs = Object.entries(answers)

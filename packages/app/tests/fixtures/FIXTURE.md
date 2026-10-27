@@ -5,7 +5,7 @@ Generated files - do not hand-edit; regenerate instead.
 
 ## Layout
 
-- `run-a/` - 16 captures + `report.json` + `manifest.json`. The main fixture. Covers STATES,
+- `run-a/` - 17 captures + `report.json` + `manifest.json`. The main fixture. Covers STATES,
   not a corpus:
   - 5 rules: a normal name (`is_name_purposeful`), a greedy-parser breaker
     (`has_nothing in mind` - would corrupt the old greedy `/^(.*) in (.+)` question-key
@@ -18,6 +18,9 @@ Generated files - do not hand-edit; regenerate instead.
     the report measurement is `refused: true` - no value, no verdict).
   - one recording with a `wire` request (`borderline.ts`, the translated Decisions body); every
     other capture predates wire capture and has none (the request view's fallback).
+  - one recording in the decisions form (`decisions.ts`, `is_name_purposeful` at 0.35): the real
+    POST /v1/decisions bodies (a `questions` array, an `answers` array, `questionIds`), no
+    System One shape and no `wire`; it has no report measurement, so it is a request and no cell.
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders
@@ -62,8 +65,8 @@ whatever the new fixture contains.
 
 | filter                | rows |
 | --------------------- | ---- |
-| (none)                | 16   |
-| is_name_purposeful    | 5    |
+| (none)                | 17   |
+| is_name_purposeful    | 6    |
 | has_nothing in mind   | 3    |
 | will_comment_drift    | 2    |
 | is_noul_documented    | 1    |

@@ -1,0 +1,49 @@
+{
+  "ts": "2023-11-14T22:13:20.017Z",
+  "url": "https://api.openai.com/v1/decisions",
+  "id": "L1-L5",
+  "questionIds": ["is_name_purposeful in L1-L5"],
+  "durationMs": 412,
+  "status": 200,
+  "request": {
+    "model": "gpt-6-luna",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_json",
+            "data": {
+              "path": "src/decisions.ts",
+              "content": "export function alpha(x: number): number {\n  return x + 1;\n}\n"
+            }
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "type": "predicate",
+        "name": "q0",
+        "instructions": "Judge is_name_purposeful.\n\nYes: holds\nNo: does not hold"
+      }
+    ]
+  },
+  "response": {
+    "model": "gpt-6-luna",
+    "answers": [
+      {
+        "type": "predicate",
+        "name": "q0",
+        "probability": 0.35
+      }
+    ],
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  }
+}

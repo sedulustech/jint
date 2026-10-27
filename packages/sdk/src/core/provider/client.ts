@@ -142,7 +142,9 @@ function makeClassifier(
       // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays
       // out of the request and reaches the recorder through the call.
       const { id: _id, ...judged } = state;
-      const asked = await inCall(state, () => adapter.ask({ state: judged, questions }));
+      const asked = await inCall(state, Object.keys(questions), () =>
+        adapter.ask({ state: judged, questions }),
+      );
       return asked.answers;
     };
   }

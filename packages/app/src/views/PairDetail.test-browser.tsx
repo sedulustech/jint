@@ -9,6 +9,8 @@ afterEach(cleanup);
 // run-a: borderline.ts carries a wire request (the translated body); high.ts predates wire capture
 const WITH_WIRE = "1700000000001-files-borderline.ts.json";
 const WITHOUT_WIRE = "1700000000002-files-high.ts.json";
+// a decisions-form recording: the real exchange, served as the same view model
+const DECISIONS_FORM = "1700000000017-files-decisions.ts.json";
 
 const copied: string[] = [];
 beforeEach(() => {
@@ -140,4 +142,18 @@ test("a recording without a wire shows jint's request shape and says so", async 
   await waitFor(() => expect(copied).toHaveLength(2));
   expect(copied[0]).toBe(copied[1]);
   expect(JSON.parse(copied[0]!)).toEqual(body);
+});
+
+test("a decisions-form recording shows its state, and its real request body", async () => {
+  open(DECISIONS_FORM, "src/decisions.ts");
+  await ready();
+  // the code is the input_json part's state
+  expect(q('[data-testid="pair-view"] pre')?.textContent).toContain("export function alpha");
+  await page.getByTestId("pair-view-request").click();
+  await page.getByTestId("pair-request-raw").click();
+  expect(q('[data-testid="pair-request"]')!.getAttribute("data-wire")).toBe("true");
+  expect(q('[data-testid="pair-request-note"]')).toBeNull();
+  const body = JSON.parse(q('[data-testid="pair-request"] pre')!.textContent!);
+  expect(body.input[0].content[0].type).toBe("input_json");
+  expect(body.questions[0]).toMatchObject({ type: "predicate", name: "q0" });
 });
