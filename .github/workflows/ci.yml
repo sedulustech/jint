@@ -57,10 +57,6 @@ jobs:
         run: bun run build
 
       - name: Run Tests
-        env:
-          # W5 (the bin-liveness test) makes one real classification; every other test
-          # blanks the key in its spawn env, so the runtime key leaks nowhere else
-          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         # serial on purpose: nearly every case spawns its own CLI process and the
         # 2-vCPU runner cannot hold ~39 concurrent files of that without starving
         # whichever spawn is tail-most, which surfaced as 5000ms timeouts. A quiet

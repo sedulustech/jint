@@ -59,6 +59,7 @@ fails only on decided readings, these runs do not flake.
 ## Limits
 
 - `margin: 0.2` is not fitted to labeled data. We chose it on two TypeScript corpora.
-- jint pins `jev-1.13.0`. A new jev release changes the readings, so recalibrate before a switch.
-- jev gives no default threshold. Its examples use different floors (0.5, 0.6), and it says to
-  set a threshold per question: [docs.typesafe.ai/confidence](https://docs.typesafe.ai/confidence.md).
+- These measurements come from `jev-1.13.0`, a model jint no longer asks. The default model is
+  `gpt-6-luna`, so recalibrate the margin on its readings before relying on it.
+- The classifier gives no default threshold. Its examples use different floors (0.5, 0.6), so set a
+  threshold per question.

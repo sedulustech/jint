@@ -12,7 +12,7 @@ description: >
 # jint - author and calibrate rules
 
 jint measures code: rules in, findings out. A **rule** compiles to one question
-for the **provider** (a System One classifier); each answer is a calibrated
+for the **provider** (an AI classifier); each answer is a calibrated
 reading; a reading that crosses the rule's thresholds becomes a **finding**.
 
 ## Rules are data

@@ -57,7 +57,7 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint
 ## How to use
 
 jint asks its questions of a provider. The default is `openai` (OpenAI's Decisions API); `vercel`
-(the AI gateway's native decision-model endpoint) and `systemone` are built in.
+(the AI gateway's native decision-model endpoint) is built in.
 
 ```bash
 export JINT_OPENAI_API_KEY=...   # the default provider's key; each provider names its own variable

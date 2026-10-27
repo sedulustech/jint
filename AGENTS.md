@@ -1,6 +1,6 @@
 # jint
 
-jint (jev lint) measures code with AI-classifier judgments (asked of a provider) and turns raw readings into actionable output via user-configurable callbacks. Sensors in, signals out.
+jint is an AI-classifier lint tool: it measures code with classifier judgments (asked of a provider) and turns raw readings into actionable output via user-configurable callbacks. Sensors in, signals out.
 
 ## Design
 
