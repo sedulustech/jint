@@ -22,7 +22,7 @@ import {
   type Span,
 } from "../../types.ts";
 import { matchesTarget } from "../classify.ts";
-import { toClassifyError } from "../classify.ts";
+import { isRefusal, toClassifyError } from "../classify.ts";
 import { compileNoulHandler } from "../handle.ts";
 import {
   validateDecision,
@@ -265,6 +265,24 @@ export async function runCustomRules(
           },
         });
         const noul = answers[rule.name];
+        if (isRefusal(noul)) {
+          // A refusal is a reading without a value: reported as such, never fed to the policy.
+          events.push({
+            type: "measurement",
+            measurement: {
+              rule: rule.name,
+              input,
+              refused: true,
+              element: {
+                kind: element.capture as Element["kind"],
+                span: element.span,
+                label: element.id,
+                parent: element.parent !== null ? element.parent.id : undefined,
+              },
+            },
+          });
+          continue;
+        }
         if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
           events.push({
             type: "error",

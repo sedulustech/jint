@@ -343,7 +343,11 @@ test("a score finding carries the measurement's probabilities", async () => {
   const m = events.find(
     (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
   )!;
-  expect(m.measurement.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
+  expect(!m.measurement.refused && m.measurement.probabilities).toEqual({
+    "0": 0.5,
+    "1": 0,
+    "2": 0.5,
+  });
 });
 
 test("a noul finding carries no probabilities (the answer had none)", async () => {

@@ -6,6 +6,7 @@ import {
   type ClassifiedAnswer,
   type Classifier,
   type Measurement,
+  type Refusal,
   type Rule,
   type Unit,
   type UnitState,
@@ -139,7 +140,7 @@ describe("classifyUnit", () => {
   test("values pass through untouched", async () => {
     const classifier = classifierWith({ probe_noul: 0.5347219 });
     for await (const event of classifyUnit(fileUnit, [noulFile], classifier)) {
-      expect(isMeasurement(event) && event.value).toBe(0.5347219);
+      expect(isMeasurement(event) && !event.refused && event.value).toBe(0.5347219);
     }
   });
 
@@ -319,7 +320,7 @@ describe("classifyFile — role routing", () => {
     expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
   });
 
-  test("an element question left unanswered (a refusal) is an error, not a dropped reading", async () => {
+  test("an element question the model never answered is an error, not a dropped reading", async () => {
     const { classifyFile } = await import("./classify.ts");
     const answered: Rule = { ...scoreFn, name: "probe_answered" };
     // the model answers one of the element's two questions and declines the other
@@ -338,6 +339,35 @@ describe("classifyFile — role routing", () => {
     expect((errors[0]!.event as ClassifyError).message).toContain("probe_score");
     // the error names its rule, so the run view can open that question at that element
     expect((errors[0]!.event as ClassifyError).rule).toBe("probe_score");
+  });
+
+  test("a refusal is a refused measurement: no error, siblings kept, malformed still errors", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    const kept: Rule = { ...scoreFn, name: "probe_kept" };
+    const broken: Rule = { ...scoreFn, name: "probe_broken" };
+    const classifier: Classifier = async () =>
+      ({
+        probe_score: { refused: true },
+        probe_kept: { value: 1 },
+        probe_broken: { value: Number.NaN },
+      }) as Record<string, ClassifiedAnswer | Refusal>;
+    const { events } = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/sum.ts", content: "function sum(a, b) { return a + b; }\n", id: "L1" },
+      },
+      [fnRule, kept, broken],
+      classifier,
+    );
+    const measurements = events.map((e) => e.event).filter(isMeasurement);
+    const refused = measurements.find((m) => m.rule === "probe_score")!;
+    expect(refused.refused).toBe(true);
+    expect("value" in refused).toBe(false);
+    expect(refused.input).toMatch(/^src\/sum\.ts#/);
+    expect(refused.rule).toBe("probe_score");
+    expect(measurements.find((m) => m.rule === "probe_kept")?.refused).toBeUndefined();
+    const errors = events.map((e) => e.event).filter((e) => e instanceof ClassifyError);
+    expect(errors.map((e) => e.rule)).toEqual(["probe_broken"]);
   });
 
   test("an arrow-function const still gets the functions-target measurement", async () => {

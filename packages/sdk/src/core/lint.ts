@@ -71,6 +71,7 @@ import {
   type Element,
   type LintEvent,
   type Measurement,
+  type ValuedMeasurement,
   type Finding,
   type Rule,
   type Unit,
@@ -611,7 +612,7 @@ function oversizedSkipNote(path: string, skipped: OversizedElement): string {
  * messages (authoring them is a separate calibration pass).
  */
 function findingFor(
-  event: Measurement,
+  event: ValuedMeasurement,
   element: Element | undefined,
   handle: Rule["handle"] | undefined,
 ): Finding | undefined {
@@ -660,6 +661,8 @@ function* unitOutcomeEvents(
       continue;
     }
     yield { type: "measurement", measurement: { ...event, element } };
+    // A refused reading has no value: no handle reads it, no finding follows.
+    if (event.refused) continue;
     const finding = findingFor(event, element, byName.get(event.rule)?.handle);
     if (finding !== undefined) yield { type: "finding", finding };
   }
@@ -1111,7 +1114,9 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule) ||
       (a.element?.kind ?? "").localeCompare(b.element?.kind ?? "") ||
-      a.value - b.value,
+      // refused readings sort after valued ones
+      (a.refused ? 1 : 0) - (b.refused ? 1 : 0) ||
+      (a.refused || b.refused ? 0 : a.value - b.value),
   );
   report.errors.sort(
     (a, b) =>

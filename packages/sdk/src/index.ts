@@ -107,6 +107,8 @@ export {
   type HandleResult,
   type QuestionSchema,
   type Measurement,
+  type RefusedMeasurement,
+  type ValuedMeasurement,
   type Finding,
   type Severity,
   type InputKind,

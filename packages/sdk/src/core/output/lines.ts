@@ -62,6 +62,15 @@ export function renderLines(report: LintReport): LinesRender {
   // Degradation notes (oversized skips, scope exclusions): in-band, never silent. The note marker
   // is the SDK's voice for the client's note treatment (jint: note: ...).
   for (const note of report.notes) err.push(`note: ${note}`);
+  // Refused readings are neither findings nor errors: one line counts them, per rule.
+  const refusedByRule = new Map<string, number>();
+  for (const m of report.measurements)
+    if (m.refused) refusedByRule.set(m.rule, (refusedByRule.get(m.rule) ?? 0) + 1);
+  if (refusedByRule.size > 0) {
+    const total = [...refusedByRule.values()].reduce((sum, n) => sum + n, 0);
+    const perRule = [...refusedByRule].sort(([a], [b]) => a.localeCompare(b));
+    err.push(`refused: ${total} (${perRule.map(([rule, n]) => `${rule} ${n}`).join(", ")})`);
+  }
   const errors = report.findings.filter((f) => f.severity === "error").length;
   // Zero findings on zero measurements is NOT a pass - qualify it so a scoped run that measured
   // nothing never reads as clean (the exit code already says 4; the line must agree).

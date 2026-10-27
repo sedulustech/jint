@@ -143,10 +143,20 @@ export interface ClassifiedAnswer {
   readonly choice?: string;
 }
 
-/** One judged reading: a rule's value at one input (file or element). */
-export interface Measurement {
+/** The measurement fields every reading carries, valued or refused. */
+interface MeasurementBase {
   readonly rule: string;
   readonly input: string;
+  /**
+   * The measured subject: what was classified, fully typed. Absent only from the bare classifyUnit
+   * generator, which sees no source and so cannot span a FileElement — every report path (lint,
+   * one-shot classify) attaches it.
+   */
+  readonly element?: Element;
+}
+
+/** A judged reading: a rule's value at one input (file or element). */
+export interface ValuedMeasurement extends MeasurementBase {
   readonly value: number;
   /**
    * The distribution the value summarizes: per level for score rules, per option label for choice
@@ -158,12 +168,23 @@ export interface Measurement {
    * probabilities are keyed by option label.
    */
   readonly choice?: string;
-  /**
-   * The measured subject: what was classified, fully typed. Absent only from the bare classifyUnit
-   * generator, which sees no source and so cannot span a FileElement — every report path (lint,
-   * one-shot classify) attaches it.
-   */
-  readonly element?: Element;
+  readonly refused?: undefined;
+}
+
+/**
+ * A refused reading: the model was asked and gave no answer, so the question did not apply to the
+ * element. It has no value, so no handle reads it and no finding follows.
+ */
+export interface RefusedMeasurement extends MeasurementBase {
+  readonly refused: true;
+}
+
+/** One reading of one (rule, element) pair; narrow on `refused` before reading `value`. */
+export type Measurement = ValuedMeasurement | RefusedMeasurement;
+
+/** What a classifier returns for a question the model refused. */
+export interface Refusal {
+  readonly refused: true;
 }
 
 /**

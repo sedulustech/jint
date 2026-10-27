@@ -93,7 +93,7 @@ describe("classify", () => {
     expect(
       outcome.measurements.every((m) => m.element !== undefined && m.element.kind === "function"),
     ).toBe(true);
-    expect(outcome.measurements.every((m) => m.value === 2)).toBe(true);
+    expect(outcome.measurements.every((m) => !m.refused && m.value === 2)).toBe(true);
     expect(outcome.measurements.every((m) => /^src\/maths\.ts#[0-9a-f-]{36}$/.test(m.input))).toBe(
       true,
     );

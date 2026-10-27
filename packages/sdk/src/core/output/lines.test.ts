@@ -31,6 +31,22 @@ const report: LintReport = {
 };
 
 describe("renderLines", () => {
+  test("refused readings are counted per rule on stderr, never as findings", () => {
+    const refused = { input: "src/a.ts#u", refused: true } as const;
+    const { stdout, stderr } = renderLines({
+      ...report,
+      findings: [],
+      measurements: [
+        { rule: "is_function_srp", ...refused },
+        { rule: "will_error_lose_cause", ...refused },
+        { rule: "is_function_srp", ...refused, input: "src/b.ts#v" },
+      ],
+    });
+    expect(stdout).toBe("");
+    expect(stderr).toContain("refused: 3 (is_function_srp 2, will_error_lose_cause 1)\n");
+    expect(stderr).toContain("0 problems");
+  });
+
   test("one line per finding; every line parses per LINE_SCHEMA", () => {
     const { stdout } = renderLines(report);
     const lines = stdout.trimEnd().split("\n");

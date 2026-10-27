@@ -61,19 +61,32 @@ export const ELEMENT_SCHEMA = Type.Union([
   }),
 ]);
 
-export const MEASUREMENT_SCHEMA = Type.Object({
+const MEASUREMENT_BASE = {
   rule: Type.String(),
   input: Type.String(),
-  value: Type.Number(),
-  // Score and choice rules only: the distribution the value summarizes, per level or per option.
-  // Noul's probability IS the value — no separate distribution field.
-  probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
-  // Choice rules only: the selected option's label; value is that option's probability.
-  choice: Type.Optional(Type.String()),
   // The measured subject, fully typed. Absent only from the bare whole-source generator (no
   // source, no span); every report path attaches it.
   element: Type.Optional(ELEMENT_SCHEMA),
+};
+
+// A refused reading has no value: the model gave no answer, so the question did not apply.
+const REFUSED_MEASUREMENT_SCHEMA = Type.Object({
+  ...MEASUREMENT_BASE,
+  refused: Type.Literal(true),
 });
+
+export const MEASUREMENT_SCHEMA = Type.Union([
+  Type.Object({
+    ...MEASUREMENT_BASE,
+    value: Type.Number(),
+    // Score and choice rules only: the distribution the value summarizes, per level or per option.
+    // Noul's probability IS the value — no separate distribution field.
+    probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
+    // Choice rules only: the selected option's label; value is that option's probability.
+    choice: Type.Optional(Type.String()),
+  }),
+  REFUSED_MEASUREMENT_SCHEMA,
+]);
 
 // The severity vocabulary has one home: the contract's Severity type. The schema spells the
 // same union for the wire; the identity pin below makes any drift a typecheck failure.

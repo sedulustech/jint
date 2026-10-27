@@ -45,7 +45,7 @@ import {
   type ProviderChoice,
   type ResolvedProvider,
 } from "./providers.ts";
-import type { ClassifiedAnswer } from "@jint/contract";
+import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
 const NOUL_ANSWER_SCHEMA = Type.Object({
@@ -75,6 +75,9 @@ const CHOICE_ANSWER_SCHEMA = Type.Object({
   choice: Type.String(),
   probabilities: Type.Record(Type.String(), Type.Number()),
 });
+
+/** A refusal, the answer boundary every question kind shares: the model gave no answer. */
+const REFUSAL_ANSWER_SCHEMA = Type.Object({ type: Type.Literal("refusal") });
 
 /** The expected answer shape per question type, named in a shape-validation error. */
 const ANSWER_SHAPES = {
@@ -215,12 +218,15 @@ function extractAnswers(
   result: SystemOneResult<Questions>,
   questions: Record<string, QuestionSchema>,
   input: string,
-): Record<string, ClassifiedAnswer> {
-  const out: Record<string, ClassifiedAnswer> = {};
+): Record<string, ClassifiedAnswer | Refusal> {
+  const out: Record<string, ClassifiedAnswer | Refusal> = {};
   for (const [name, spec] of Object.entries(questions)) {
     const answer: unknown = result.answers[name];
-    // A refused question has no reading: left out, its rule alone reports a missing answer.
-    if ((answer as { type?: string } | undefined)?.type === "refusal") continue;
+    // A refused question is a valid answer for any question kind: it passes through as a refusal.
+    if (Value.Check(REFUSAL_ANSWER_SCHEMA, answer)) {
+      out[name] = { refused: true };
+      continue;
+    }
     const shape = ANSWER_SHAPES[spec.type];
     if (!Value.Check(shape.schema, answer)) {
       throw new ClassifyError(

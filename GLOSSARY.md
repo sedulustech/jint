@@ -6,12 +6,13 @@ added here when introduced, and only when necessary.
 
 ## Scope
 
-measurement vs finding: a measurement is always produced and never actionable; a finding is a
-measurement its handle judged actionable and is the only output that demands action.
+measurement vs finding: a measurement is always produced (a value, or refused) and never
+actionable; a finding is a measurement its handle judged actionable and is the only output that
+demands action.
 
 ## Terms
 
-- **answer** — the single calibrated probability returned per question.
+- **answer** — what the model returns per question: a calibrated probability, or a refusal.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
 - **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp
   class declarations). Split from @type so a rule can judge classes as classes; every other type
@@ -110,8 +111,8 @@ measurement its handle judged actionable and is the only output that demands act
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   unit is). Criteria pins the boundary; editing either is a recalibration event.
 - **inventory** — the set of elements derived from one file.
-- **measurement** — the raw reading for one (rule, element) pair; always produced, never
-  actionable by itself.
+- **measurement** — the raw reading for one (rule, element) pair; always produced (a value, or
+  refused), never actionable by itself.
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
@@ -132,6 +133,7 @@ measurement its handle judged actionable and is the only output that demands act
   correct form.
 - **undecided** — a reading too close to call: its top tier's probability leads the runner-up
   tier's by less than the rule's `margin`. The rule maps it to a tier and message like any other.
+- **refused** — a measurement with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as

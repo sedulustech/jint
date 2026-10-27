@@ -22,6 +22,7 @@ import {
   InternalError,
   type AnyState,
   type ClassifiedAnswer,
+  type Refusal,
   type Element,
   type Classifier,
   type Measurement,
@@ -118,8 +119,21 @@ export function invalidAnswerError(
   );
 }
 
-function isUsableAnswer(answer: ClassifiedAnswer | undefined): boolean {
-  return answer !== undefined && typeof answer.value === "number" && Number.isFinite(answer.value);
+type AskedAnswer = ClassifiedAnswer | Refusal | undefined;
+
+export function isRefusal(answer: unknown): answer is Refusal {
+  return typeof answer === "object" && answer !== null && (answer as Refusal).refused === true;
+}
+
+/**
+ * The outcome of one asked question: a refusal is a refused measurement, a finite value a valued
+ * one, anything else (missing, malformed) a response-invalid error.
+ */
+function outcomeFor(rule: string, input: string, answer: AskedAnswer): Measurement | ClassifyError {
+  if (isRefusal(answer)) return { rule, input, refused: true };
+  if (answer === undefined || typeof answer.value !== "number" || !Number.isFinite(answer.value))
+    return invalidAnswerError(input, rule, answer as ClassifiedAnswer | undefined);
+  return measurementFields(rule, input, answer);
 }
 
 function measurementFields(rule: string, input: string, answer: ClassifiedAnswer): Measurement {
@@ -144,7 +158,7 @@ export async function* classifyUnit(
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
   const questionBatch = compileRuleQuestions(rules, unitId);
-  let answers: Record<string, ClassifiedAnswer>;
+  let answers: Record<string, ClassifiedAnswer | Refusal>;
   try {
     answers = await classifier(unit.state, questionBatch.questions);
   } catch (thrown) {
@@ -152,12 +166,7 @@ export async function* classifyUnit(
     return;
   }
   for (const rule of rules) {
-    const answer = answers[questionKey(rule.name, unitId)];
-    if (!isUsableAnswer(answer)) {
-      yield invalidAnswerError(unit.state.path, rule.name, answer);
-      continue;
-    }
-    yield measurementFields(rule.name, unit.state.path, answer!);
+    yield outcomeFor(rule.name, unit.state.path, answers[questionKey(rule.name, unitId)]);
   }
 }
 
@@ -429,7 +438,7 @@ export function elementContent(element: InventoryElement): string {
 }
 
 interface ClassifierReply {
-  readonly answers: Record<string, ClassifiedAnswer>;
+  readonly answers: Record<string, ClassifiedAnswer | Refusal>;
   readonly error: ClassifyError | null;
 }
 
@@ -463,13 +472,8 @@ function emitWholeUnitMeasurements(
     return;
   }
   for (const questionId of questionIds) {
-    const answer = unitReply.answers[questionId];
     const rule = questionId.slice(0, questionId.indexOf(" in "));
-    if (!isUsableAnswer(answer)) {
-      events.push({ event: invalidAnswerError(input, rule, answer) });
-      continue;
-    }
-    events.push({ event: measurementFields(rule, input, answer!), element });
+    events.push({ event: outcomeFor(rule, input, unitReply.answers[questionId]), element });
   }
 }
 
@@ -618,15 +622,13 @@ async function classifyElementJob(
     events.push({ event: elementReply.error });
     return elementReply.error.code === "PROVIDER_AUTH";
   }
-  // Every question asked gets a measurement or an error: an answer the model never gave (a refusal)
-  // is reported, not dropped.
+  // Every question asked gets a measurement or an error: a refusal is a refused measurement, an
+  // answer the model never gave is reported, not dropped.
   for (const rule of Object.keys(questions)) {
-    const answer = elementReply.answers[rule];
-    if (!isUsableAnswer(answer)) {
-      events.push({ event: invalidAnswerError(input, rule, answer) });
-      continue;
-    }
-    events.push({ event: measurementFields(rule, input, answer!), element: job.element });
+    events.push({
+      event: outcomeFor(rule, input, elementReply.answers[rule]),
+      element: job.element,
+    });
   }
   return false;
 }

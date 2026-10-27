@@ -3,6 +3,7 @@ import { rmSync } from "node:fs";
 import {
   ClassifyError,
   type ClassifiedAnswer,
+  type Refusal,
   type ClassifyErrorCode,
   type QuestionSchema,
   type UnitState,
@@ -64,7 +65,9 @@ const scoreBody = {
   usage: { input_tokens: 10, output_tokens: 1 },
 };
 
-async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, ClassifiedAnswer>> {
+async function judgeOnce(
+  fetchImpl: FetchLike,
+): Promise<Record<string, ClassifiedAnswer | Refusal>> {
   const classifier = createClassifier({
     provider: "systemone",
     apiKey: "test-key",
@@ -83,7 +86,7 @@ function expectClassifyError(code: ClassifyErrorCode): (e: unknown) => void {
 describe("createClassifier", () => {
   test("happy path: noul answers keyed by question name", async () => {
     const answers = await judgeOnce(fakeFetch(happyBody));
-    expect(answers.is_name_purposeful?.value).toBe(0.72);
+    expect((answers.is_name_purposeful as ClassifiedAnswer).value).toBe(0.72);
   });
 
   test("score questions compile to ScoreQuestion and answers extract the score", async () => {
@@ -101,8 +104,13 @@ describe("createClassifier", () => {
       fetch: probe,
     });
     const answers = await classifier(state, scoreQuestions);
-    expect(answers.is_readable?.value).toBe(2);
-    expect(answers.is_readable?.probabilities).toEqual({ 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 });
+    expect((answers.is_readable as ClassifiedAnswer).value).toBe(2);
+    expect((answers.is_readable as ClassifiedAnswer).probabilities).toEqual({
+      0: 0.05,
+      1: 0.2,
+      2: 0.7,
+      3: 0.05,
+    });
     const body = JSON.parse(String(captured!.init.body));
     expect(body.questions.is_readable.type).toBe("score");
     expect(body.questions.is_readable.criteria).toEqual([
@@ -238,7 +246,7 @@ describe("createClassifier", () => {
         fetch: probe,
         providers: { openai: { url: "http://127.0.0.1:1/v1/decisions" } },
       })(state, { is_readable: { type: "noul", instructions: "Is it?" } });
-      expect(answers.is_readable?.value).toBe(0.25);
+      expect((answers.is_readable as ClassifiedAnswer).value).toBe(0.25);
       expect(seen[0]!.url).toBe("http://127.0.0.1:1/v1/decisions");
       expect(seen[0]!.auth).toBe("Bearer env-key");
       expect(seen[0]!.body.model).toBe("gpt-6-luna");
@@ -312,6 +320,37 @@ describe("createClassifier", () => {
       expectClassifyError("PROVIDER_RESPONSE_INVALID")(e);
       expect((e as Error).message).toContain('{ type: "choice", choice, probabilities }');
     }
+  });
+
+  test("a refusal passes through for any question kind; its siblings keep their readings", async () => {
+    const classifier = createClassifier({
+      provider: "systemone",
+      apiKey: "test-key",
+      fetch: fakeFetch({
+        model: "jev-latest",
+        answers: {
+          is_name_purposeful: { type: "refusal" },
+          is_readable: scoreBody.answers.is_readable,
+        },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    });
+    const answers = await classifier(state, {
+      is_name_purposeful: { type: "noul", instructions: "Is it?" },
+      is_readable: scoreQuestions.is_readable!,
+    });
+    expect(answers.is_name_purposeful).toEqual({ refused: true });
+    expect((answers.is_readable as ClassifiedAnswer).value).toBe(2);
+    const refusedScore = await createClassifier({
+      provider: "systemone",
+      apiKey: "test-key",
+      fetch: fakeFetch({
+        model: "jev-latest",
+        answers: { is_readable: { type: "refusal" } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    })(state, scoreQuestions);
+    expect(refusedScore.is_readable).toEqual({ refused: true });
   });
 
   test("answer failing shape validation -> PROVIDER_RESPONSE_INVALID", async () => {

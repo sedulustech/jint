@@ -13,7 +13,7 @@
  * re-exported here — never redefined locally.
  */
 export type { Severity } from "@jint/contract";
-import type { RuleTarget, Severity } from "@jint/contract";
+import type { Measurement, RuleTarget, Severity } from "@jint/contract";
 export type { RuleTarget };
 /**
  * Readings stay raw probabilities — whether one fires is the policy's decision, never baked into
@@ -220,26 +220,6 @@ export interface ChoiceRule extends RuleBase {
 export type Rule = NoulRule | ScoreRule | ChoiceRule;
 
 /**
- * The raw noul value for (rule, input). Values pass through untouched — near 0.5 means undecided,
- * not medium.
- */
-export interface Measurement {
-  readonly rule: string;
-  readonly input: string;
-  readonly value: number;
-  readonly probabilities?: Record<string, number>;
-  /** The selected option's label, choice rules only; value is that option's probability. */
-  readonly choice?: string;
-  /**
-   * The measured subject, fully typed: the element projection — kind, span, label, parent,
-   * kind-specific name. A whole-unit judgment is a file element (a file IS an element), so there is
-   * no parallel unit string. The span is the stable sort key and the display source — the uuid
-   * input is identity, never presentation.
-   */
-  readonly element?: Element;
-}
-
-/**
  * A measurement that mattered: it cleared the rule's policy and carries the returned severity.
  * value is the JUDGED value on the defect pole (inverted when the rule fires on no), so value and
  * severity always agree under the rule's own thresholds. message is the custom-tier callback's
@@ -370,9 +350,17 @@ export type RuleResult = NoulResult | ScoreResult;
 export type Classifier = (
   state: AnyState,
   questions: Record<string, QuestionSchema>,
-) => Promise<Record<string, import("@jint/contract").ClassifiedAnswer>>;
+) => Promise<
+  Record<string, import("@jint/contract").ClassifiedAnswer | import("@jint/contract").Refusal>
+>;
 
-export type { ClassifiedAnswer } from "@jint/contract";
+export type {
+  ClassifiedAnswer,
+  Measurement,
+  RefusedMeasurement,
+  Refusal,
+  ValuedMeasurement,
+} from "@jint/contract";
 
 /** What the lint pipeline streams. */
 export type LintEvent =

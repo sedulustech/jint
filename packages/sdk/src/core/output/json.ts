@@ -6,7 +6,7 @@
 
 import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
-import type { Finding } from "@jint/contract";
+import type { Finding, Measurement } from "@jint/contract";
 
 export function renderJson(report: LintReport): string {
   return (
@@ -29,15 +29,20 @@ export function renderJson(report: LintReport): string {
           span: { start: s.spanStart, end: s.spanEnd },
           content: s.content,
         })),
-        measurements: report.measurements.map((m) => ({
-          rule: m.rule,
-          input: m.input,
-          value: m.value,
-          // score and choice rules only: the distribution the value summarizes
-          probabilities: m.probabilities,
-          choice: m.choice,
-          element: m.element,
-        })),
+        measurements: report.measurements.map(
+          (m): Measurement =>
+            m.refused
+              ? { rule: m.rule, input: m.input, refused: true, element: m.element }
+              : {
+                  rule: m.rule,
+                  input: m.input,
+                  value: m.value,
+                  // score and choice rules only: the distribution the value summarizes
+                  probabilities: m.probabilities,
+                  choice: m.choice,
+                  element: m.element,
+                },
+        ),
         // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
         // return position, so excess-property checking fires — a field the wire shape does not
         // declare is a COMPILE error here, not a silently dropped key. (undefined properties

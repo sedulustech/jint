@@ -70,6 +70,19 @@ describe("renderJson", () => {
     expect(parsed.measurements[0]!.value).toBe(0.5347219);
   });
 
+  test("a refused measurement serializes without a value and validates", () => {
+    const refused: LintReport = {
+      ...report,
+      measurements: [{ rule: "is_function_srp", input: "src/a.ts#u", refused: true }],
+      findings: [],
+    };
+    const parsed = JSON.parse(renderJson(refused));
+    expect(parsed.measurements).toEqual([
+      { rule: "is_function_srp", input: "src/a.ts#u", refused: true },
+    ]);
+    expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
+  });
+
   test("empty report renders with empty arrays", () => {
     const parsed = JSON.parse(
       renderJson({ measurements: [], findings: [], errors: [], notes: [], rules: [] }),
