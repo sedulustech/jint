@@ -42,8 +42,7 @@ export interface RunDetail {
   cells: Cell[];
 }
 
-/** One rule measured against one input - the atom the grouped table navigates by. */
-export interface Cell {
+interface CellBase {
   rule: string;
   /** Bare path, never carries a #span. */
   file: string;
@@ -53,6 +52,10 @@ export interface Cell {
   element?: Element;
   /** The request file this cell's measurement came from; direct fetch on click. */
   requestFile?: string;
+}
+
+/** One rule measured against one input - the atom the grouped table navigates by. */
+export interface ValuedCell extends CellBase {
   /**
    * The rule's own reading: p-space noul, a score index for score handles, and for a choice rule
    * the probability its winning tier holds.
@@ -64,7 +67,15 @@ export interface Cell {
   pass?: true;
   /** A choice reading too close to call. */
   undecided?: true;
+  refused?: undefined;
 }
+
+/** A refused cell: the model gave no answer, so there is no value and no verdict. */
+export interface RefusedCell extends CellBase {
+  refused: true;
+}
+
+export type Cell = ValuedCell | RefusedCell;
 
 export interface RequestItem {
   file: string;

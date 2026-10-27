@@ -13,7 +13,7 @@ import {
   type RuleGroup,
   type SortKey,
 } from "./useRun";
-import type { Cell, RequestItem } from "../types";
+import type { Cell, RequestItem, ValuedCell } from "../types";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -60,7 +60,10 @@ interface ParentRow {
 // parents order by FINDINGS, heaviest first: the weighted score (err=2, warn=1) keeps 1 error
 // above 1 warning while 4 warnings outweigh 1 error; ties fall back to the name
 const findingsScore = (cells: Cell[]): number =>
-  cells.reduce((sum, c) => sum + (c.severity === "error" ? 2 : c.severity === "warn" ? 1 : 0), 0);
+  cells.reduce(
+    (sum, c) => sum + (c.refused ? 0 : c.severity === "error" ? 2 : c.severity === "warn" ? 1 : 0),
+    0,
+  );
 
 /**
  * Grouped render model: parent rows order by findings weight, heaviest first; children keep cell
@@ -141,6 +144,13 @@ function SeverityDot({ severity }: { severity: "error" | "warn" | null }) {
  * there is no verdict - an undecided reading included, since it settled on no tier.
  */
 function CellVerdict({ cell }: { cell: Cell }) {
+  if (cell.refused) {
+    return (
+      <span className="text-muted-foreground" title="refused">
+        —
+      </span>
+    );
+  }
   if (cell.undecided) {
     return (
       <span className="text-muted-foreground" title="undecided">
@@ -319,7 +329,8 @@ function GroupedParentRow({
 }
 
 // the severity a cell shows: an undecided reading shows none, so it sorts with the unjudged
-const shownSeverity = (cell: Cell): Cell["severity"] => (cell.undecided ? null : cell.severity);
+const shownSeverity = (cell: ValuedCell): ValuedCell["severity"] =>
+  cell.undecided ? null : cell.severity;
 
 type NestedSort = { key: "sev" | "value"; dir: "asc" | "desc" };
 
@@ -329,6 +340,8 @@ const NESTED_DEFAULT_SORT: NestedSort = { key: "sev", dir: "desc" };
 const nestedCompare =
   (sort: NestedSort) =>
   (left: Cell, right: Cell): number => {
+    // a refused cell has no severity and no value: it sorts after every valued one, either way
+    if (left.refused || right.refused) return Number(!!left.refused) - Number(!!right.refused);
     const delta =
       sort.key === "sev"
         ? sevRank(shownSeverity(right)) - sevRank(shownSeverity(left))
@@ -468,7 +481,15 @@ function GroupedChildRow({
       <td className="w-px whitespace-nowrap px-rail">
         <CellVerdict cell={cell} />
       </td>
-      <td className="w-px whitespace-nowrap px-rail">{cell.value.toFixed(2)}</td>
+      <td className="w-px whitespace-nowrap px-rail">
+        {cell.refused ? (
+          <span className="text-muted-foreground" data-testid="cell-refused">
+            refused
+          </span>
+        ) : (
+          cell.value.toFixed(2)
+        )}
+      </td>
       <td className="w-full" aria-hidden="true" />
     </tr>
   );

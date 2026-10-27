@@ -49,6 +49,8 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
 
   if (report) {
     for (const m of report.measurements) {
+      // a refused reading has no value: it is in no histogram, no rate
+      if (m.refused) continue;
       const s = stat(m.rule);
       s.measurements += 1;
       s.histogram[bin(m.rule, m.value)] += 1;

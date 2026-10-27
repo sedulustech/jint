@@ -60,9 +60,12 @@ export function AnswerCard({
   /** The choice rule's handle: each option's tier, so the card can show the tier read. */
   choices?: ChoiceHandlerData;
 }) {
+  const refused = qa.answer?.type === "refusal";
   const noul = qa.answer?.noul;
   const score = qa.answer?.score;
   const isScore = qa.answer?.type === "score" || (noul === undefined && score !== undefined);
+  // a refused score or choice question has no answer to rank: its criteria list plainly
+  const isNoulQuestion = qa.question.type === undefined || qa.question.type === "noul";
   const index = isScore && score !== undefined ? Math.round(score) : null;
   const choice = qa.answer?.type === "choice" ? qa.answer.choice : undefined;
   const isChoice = choice !== undefined;
@@ -108,6 +111,14 @@ export function AnswerCard({
     <div>
       <div className="flex items-center gap-sections border-b border-border px-rail py-siblings">
         {/* a narrow pane moves the caption under the answer whole, never breaking it */}
+        {refused && (
+          <span
+            data-testid="answer-refused"
+            className="text-3xl font-bold leading-none text-muted-foreground"
+          >
+            refused
+          </span>
+        )}
         {noul !== undefined && (
           <span className="flex flex-wrap items-baseline gap-siblings">
             <span
@@ -237,7 +248,19 @@ export function AnswerCard({
           </LabeledText>
         </div>
       )}
-      {!ranked && (
+      {refused && !isNoulQuestion && (
+        <div className="border-b border-border px-rail py-siblings">
+          <SectionHeading>criteria</SectionHeading>
+          <ul data-testid="refused-criteria" className="mt-siblings flex flex-col gap-siblings">
+            {Object.entries(qa.question.criteria ?? {}).map(([k, text]) => (
+              <li key={k}>
+                <LabeledText label={k}>{text}</LabeledText>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!ranked && (!refused || isNoulQuestion) && (
         <div className="grid grid-cols-2 border-b border-border text-body">
           <div className="bg-background px-rail py-siblings">
             <span className="text-caption text-sev-clean">true</span>

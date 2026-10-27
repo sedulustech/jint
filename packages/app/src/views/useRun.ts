@@ -36,10 +36,11 @@ export interface FileGroup {
   cells: Cell[];
 }
 
+// a refused cell has no verdict: it is in no severity bucket
 const statsFor = (cells: Cell[]) => ({
-  err: cells.filter((c) => c.severity === "error").length,
-  warn: cells.filter((c) => c.severity === "warn").length,
-  passOk: cells.filter((c) => c.severity === null).length,
+  err: cells.filter((c) => !c.refused && c.severity === "error").length,
+  warn: cells.filter((c) => !c.refused && c.severity === "warn").length,
+  passOk: cells.filter((c) => !c.refused && c.severity === null).length,
 });
 
 export function useRun(runId: string) {
@@ -97,7 +98,10 @@ export function useRun(runId: string) {
     const hit = (c: Cell) =>
       terms.length === 0 ||
       terms.every((t) =>
-        [c.rule, c.file, c.input, c.severity ?? ""].join(" ").toLowerCase().includes(t),
+        [c.rule, c.file, c.input, c.refused ? "refused" : (c.severity ?? "")]
+          .join(" ")
+          .toLowerCase()
+          .includes(t),
       );
     const byRule = new Map<string, Cell[]>();
     const byFile = new Map<string, Cell[]>();

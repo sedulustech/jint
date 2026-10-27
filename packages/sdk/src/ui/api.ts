@@ -139,7 +139,7 @@ interface RequestItem {
  * Built from the report's measurements, severity joined span-aware (finding first, handle
  * projection second). Empty when the report is degraded/absent - no measurements, no cells.
  */
-export interface ApiCell {
+interface ApiCellBase {
   rule: string;
   /** Bare file path, never carrying an element suffix. */
   file: string;
@@ -149,6 +149,10 @@ export interface ApiCell {
   element?: Element;
   /** The request file this measurement came from (element uuid / file-tier join); direct fetch. */
   requestFile?: string;
+}
+
+/** A cell with a reading. */
+export interface ValuedApiCell extends ApiCellBase {
   /**
    * The rule's own reading: p-space noul, a score index for score handles, and for a choice rule
    * the probability its winning tier holds.
@@ -160,7 +164,15 @@ export interface ApiCell {
   pass?: true;
   /** A choice reading too close to call: its top tier held less than the handle's ratio. */
   undecided?: true;
+  refused?: undefined;
 }
+
+/** A refused cell: the model gave no answer, so it has no value and no verdict. */
+export interface RefusedApiCell extends ApiCellBase {
+  refused: true;
+}
+
+export type ApiCell = ValuedApiCell | RefusedApiCell;
 
 /**
  * A choice reading's tier read, for its cell: the probability its winning tier holds, and whether
@@ -170,7 +182,7 @@ function choiceCellRead(
   handle: HandlerData | undefined,
   choice: string | undefined,
   probabilities: Record<string, number> | undefined,
-): Pick<ApiCell, "value" | "undecided"> | undefined {
+): Pick<ValuedApiCell, "value" | "undecided"> | undefined {
   if (handle === undefined || !isChoiceHandler(handle) || probabilities === undefined) {
     return undefined;
   }
@@ -183,7 +195,7 @@ function choiceCellRead(
       : fired === null
         ? "pass"
         : (["error", "warn", "pass"] as const).reduce((a, b) => (mass[b] > mass[a] ? b : a));
-  const read: Pick<ApiCell, "value" | "undecided"> = { value: mass[tier] };
+  const read: Pick<ValuedApiCell, "value" | "undecided"> = { value: mass[tier] };
   if (fired?.undecided === true) read.undecided = true;
   return read;
 }
@@ -408,14 +420,23 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
   }
 }
 
+/** One report measurement as the run view joins it: a value read, or a refusal with none. */
+type Reading =
+  | {
+      rule: string;
+      value: number;
+      choice?: string;
+      probabilities?: Record<string, number>;
+      element?: Element;
+      refused?: undefined;
+    }
+  | { rule: string; element?: Element; refused: true };
+
 function cellSeverity(
   measurementInput: string,
   ruleName: string,
   findingSeverity: Map<string, Map<string, Severity>>,
-  readingsByInput: Map<
-    string,
-    { rule: string; value: number; choice?: string; probabilities?: Record<string, number> }[]
-  >,
+  readingsByInput: Map<string, Reading[]>,
   handlesByRule: Record<string, HandlerData> | null,
 ): Severity | null {
   // the report's own finding wins; otherwise the handle snapshot projects the reading
@@ -423,11 +444,9 @@ function cellSeverity(
   if (direct !== undefined) return direct;
   const handle = handlesByRule?.[ruleName];
   if (handle === undefined) return null;
-  for (const { rule: measuredRule, value, choice, probabilities } of readingsByInput.get(
-    measurementInput,
-  ) ?? []) {
-    if (measuredRule !== ruleName) continue;
-    const severity = handleSeverity(value, handle, choice, probabilities);
+  for (const reading of readingsByInput.get(measurementInput) ?? []) {
+    if (reading.refused || reading.rule !== ruleName) continue;
+    const severity = handleSeverity(reading.value, handle, reading.choice, reading.probabilities);
     if (severity !== null) return severity;
   }
   return null;
@@ -470,16 +489,7 @@ async function readManifestHandles(
 async function readReportFacts(dir: string): Promise<{
   findingSev: Map<string, Map<string, Severity>>;
   pathRules: Map<string, string[]> | null;
-  pathValues: Map<
-    string,
-    {
-      rule: string;
-      value: number;
-      choice?: string;
-      probabilities?: Record<string, number>;
-      element?: Element;
-    }[]
-  > | null;
+  pathValues: Map<string, Reading[]> | null;
   measurementCount: number;
 }> {
   // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
@@ -487,16 +497,7 @@ async function readReportFacts(dir: string): Promise<{
   // the handle snapshot exists to prevent.
   const findingSev = new Map<string, Map<string, Severity>>();
   let pathRules: Map<string, string[]> | null = null;
-  let pathValues: Map<
-    string,
-    {
-      rule: string;
-      value: number;
-      choice?: string;
-      probabilities?: Record<string, number>;
-      element?: Element;
-    }[]
-  > | null = null;
+  let pathValues: Map<string, Reading[]> | null = null;
   let measurementCount = 0;
   try {
     const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as {
@@ -504,6 +505,7 @@ async function readReportFacts(dir: string): Promise<{
         input: string;
         rule: string;
         value?: number;
+        refused?: boolean;
         choice?: string;
         probabilities?: Record<string, number>;
         element?: Element;
@@ -528,15 +530,19 @@ async function readReportFacts(dir: string): Promise<{
       if (arr) {
         if (!arr.includes(m.rule)) arr.push(m.rule);
       } else pathRules.set(path, [m.rule]);
-      if (typeof m.value === "number") {
+      const entry: Reading | null = m.refused
+        ? { rule: m.rule, element: m.element, refused: true }
+        : typeof m.value === "number"
+          ? {
+              rule: m.rule,
+              value: m.value,
+              choice: m.choice,
+              probabilities: m.probabilities,
+              element: m.element,
+            }
+          : null;
+      if (entry !== null) {
         const vals = pathValues.get(m.input);
-        const entry = {
-          rule: m.rule,
-          value: m.value,
-          choice: m.choice,
-          probabilities: m.probabilities,
-          element: m.element,
-        };
         if (vals) vals.push(entry);
         else pathValues.set(m.input, [entry]);
       }
@@ -561,16 +567,7 @@ async function reportFactsFor(
   requestCount: number,
 ): Promise<{
   pathRules: Map<string, string[]> | null;
-  pathValues: Map<
-    string,
-    {
-      rule: string;
-      value: number;
-      choice?: string;
-      probabilities?: Record<string, number>;
-      element?: Element;
-    }[]
-  > | null;
+  pathValues: Map<string, Reading[]> | null;
   findingSev: Map<string, Map<string, Severity>>;
   degraded: boolean;
 }> {
@@ -605,16 +602,7 @@ async function readRequestRow(
   dir: string,
   file: string,
   pathRules: Map<string, string[]> | null,
-  pathValues: Map<
-    string,
-    {
-      rule: string;
-      value: number;
-      choice?: string;
-      probabilities?: Record<string, number>;
-      element?: Element;
-    }[]
-  > | null,
+  pathValues: Map<string, Reading[]> | null,
   findingSev: Map<string, Map<string, Severity>>,
   handles: Record<string, HandlerData> | null,
   kinds: Map<string, string>,
@@ -682,12 +670,11 @@ async function readRequestRow(
     const projectSeverity = (rule: string): Severity | null => {
       if (handles === null) return null;
       for (const key of keys) {
-        for (const { rule: measuredRule, value, choice, probabilities } of pathValues?.get(key) ??
-          []) {
-          if (measuredRule !== rule) continue;
+        for (const reading of pathValues?.get(key) ?? []) {
+          if (reading.refused || reading.rule !== rule) continue;
           const handle = handles[rule];
           if (handle === undefined) continue;
-          const s = handleSeverity(value, handle, choice, probabilities);
+          const s = handleSeverity(reading.value, handle, reading.choice, reading.probabilities);
           if (s !== null) return s;
         }
       }
@@ -775,8 +762,14 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       const isElement = input.includes("#");
       const requestFile =
         (isElement ? elementRequestFile.get(input) : undefined) ?? fileRequestFile.get(file);
-      for (const { rule, value, element, choice, probabilities } of entries) {
-        const cell: ApiCell = {
+      for (const reading of entries) {
+        const { rule, element } = reading;
+        if (reading.refused) {
+          cells.push({ rule, file, input, element, requestFile, refused: true });
+          continue;
+        }
+        const { value, choice, probabilities } = reading;
+        const cell: ValuedApiCell = {
           rule,
           file,
           input,

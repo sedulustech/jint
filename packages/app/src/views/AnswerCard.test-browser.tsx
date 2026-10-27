@@ -96,3 +96,35 @@ test("a score answer shows each level's text from the question, not the model's 
   expect(rows.map((r) => r.getAttribute("data-option"))).toEqual(["0", "1", "2"]);
   expect(rows[1]!.textContent).toContain("some repeat");
 });
+
+// A refusal: the model gave no answer, so the card shows the question and no reading.
+test("a refused noul question shows a refused header, its criteria and no probability", () => {
+  const qa: QA = {
+    key: "will_error_lose_cause",
+    rule: "will_error_lose_cause",
+    question: {
+      type: "noul",
+      instructions: "Does the error handling lose the cause?",
+      criteria: { true: "it keeps the cause", false: "it drops the cause" },
+    },
+    answer: { type: "refusal" },
+  };
+  const { container } = render(<AnswerCard qa={qa} sev={null} />);
+  expect(container.querySelector('[data-testid="answer-refused"]')).toBeTruthy();
+  expect(container.querySelector("[data-answer]")).toBeNull();
+  expect(container.querySelector('[data-testid="answer-distribution"]')).toBeNull();
+  expect(container.textContent).toContain("it keeps the cause");
+  expect(container.textContent).toContain("it drops the cause");
+});
+
+test("a refused score question lists its levels without bars", () => {
+  const { container } = render(
+    <AnswerCard qa={{ ...scoreQA, answer: { type: "refusal" } }} sev={null} />,
+  );
+  expect(container.querySelector('[data-testid="answer-refused"]')).toBeTruthy();
+  expect(container.querySelector('[data-testid="answer-distribution"]')).toBeNull();
+  expect(container.querySelector('[data-testid="option-bar"]')).toBeNull();
+  const levels = [...container.querySelectorAll('[data-testid="refused-criteria"] > li')];
+  expect(levels).toHaveLength(3);
+  expect(levels[1]!.textContent).toContain("some repeat");
+});

@@ -5,7 +5,7 @@ Generated files - do not hand-edit; regenerate instead.
 
 ## Layout
 
-- `run-a/` - 12 captures + `report.json` + `manifest.json`. The main fixture. Covers STATES,
+- `run-a/` - 16 captures + `report.json` + `manifest.json`. The main fixture. Covers STATES,
   not a corpus:
   - 5 rules: a normal name (`is_name_purposeful`), a greedy-parser breaker
     (`has_nothing in mind` - would corrupt the old greedy `/^(.*) in (.+)` question-key
@@ -14,6 +14,8 @@ Generated files - do not hand-edit; regenerate instead.
     map), and the acceptance-polarity rule (`is_noul_documented`, fires_when "false").
   - answer edges: borderline (0.50, 0.51, 0.45), high (0.92, 0.95), low (0.08, 0.20, 0.30).
   - one multi-question capture (two rules on one element, elements tier / `state.source`).
+  - one refused reading (`will_error_lose_cause` at src/refused.ts: the answer is `{type:"refusal"}`,
+    the report measurement is `refused: true` - no value, no verdict).
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders
@@ -58,7 +60,7 @@ whatever the new fixture contains.
 
 | filter                | rows |
 | --------------------- | ---- |
-| (none)                | 12   |
+| (none)                | 16   |
 | is_name_purposeful    | 5    |
 | has_nothing in mind   | 3    |
 | will_comment_drift    | 2    |

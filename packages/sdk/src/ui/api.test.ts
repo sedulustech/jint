@@ -254,6 +254,44 @@ describe("getRun kinds", () => {
   });
 });
 
+describe("getRun refused cells", () => {
+  test("a refused measurement is a cell with no value and no verdict, handle-judged or not", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-refused-"));
+    try {
+      const dir = join(root, "100");
+      mkdirSync(dir);
+      writeFileSync(
+        join(dir, "manifest.json"),
+        JSON.stringify({
+          configPath: "/c.json",
+          handles: { r_a: { warn: { greater_than: 0.5 } } },
+        }),
+      );
+      writeFileSync(
+        join(dir, "report.json"),
+        JSON.stringify({
+          measurements: [
+            { rule: "r_a", input: "src/x.ts", refused: true },
+            { rule: "r_a", input: "src/y.ts", value: 0.9 },
+          ],
+          findings: [],
+          errors: [],
+        }),
+      );
+      const body = (await (await get("/api/runs/100", root)).json()) as {
+        cells: Record<string, unknown>[];
+      };
+      const refused = body.cells.find((c) => c.input === "src/x.ts")!;
+      expect(refused.refused).toBe(true);
+      expect("value" in refused).toBe(false);
+      expect("severity" in refused).toBe(false);
+      expect(body.cells.find((c) => c.input === "src/y.ts")).toMatchObject({ severity: "warn" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("getRun choice cells", () => {
   test("a choice cell's value is its winning tier's sum; a close read is undecided", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-choice-"));

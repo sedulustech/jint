@@ -5,16 +5,17 @@ import { expect, test, afterEach } from "vitest";
 import { page } from "vitest/browser";
 import { router } from "./router";
 
-// ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 15 captures + report.json, 12 cells) ----
+// ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 16 captures + report.json, 16 cells) ----
 // severity comes from the span-aware join: findings first, handle projection second.
-// 15 cells across 13 files.
+// 16 cells across 14 files.
 // is_name_purposeful: 0.5 warn (finding), 0.92 null, 0.08 error, 0.51 warn, 0.7 null -> 5 cells
 // "has_nothing in mind": 0.8 silent, 0.2 null, 0.3 null -> 3 cells, all no-verdict
 // will_comment_drift: 0.95 error (>0.9), 0.45 null -> 2 cells
-// will_error_lose_cause: score 3 -> error (x2); is_noul_documented: 0.8 -> null
+// will_error_lose_cause: score 3 -> error (x2), 1 refused (src/refused.ts: no value, no verdict);
+// is_noul_documented: 0.8 -> null
 const RULES = 6;
 // src/none.ts has no measurements -> no cell, no group
-const FILES = 13;
+const FILES = 14;
 // ----------------------------------------------------------------------------------------------
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -106,7 +107,7 @@ test("request mode is the capture log: max-p column, no grouped rows, no rule ch
   mount();
   await openRun();
   modeButton("request").click();
-  await expectCounter("15/15 requests");
+  await expectCounter("16/16 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
   // grouped rows are gone: no group parents, no rule-carrying children
   expect(all('tr[data-testid^="group-"]')).toHaveLength(0);
@@ -121,7 +122,7 @@ test("the group-by toggle renders all three modes", async () => {
   modeButton("file").click();
   await ruleGroupsReady(FILES);
   modeButton("request").click();
-  await expectCounter("15/15 requests");
+  await expectCounter("16/16 requests");
   expect(q('[data-testid="sort-maxProb"]')?.textContent).toContain("max-p");
 });
 
@@ -334,7 +335,7 @@ test("request rows still drill in: a request click opens the pair detail of its 
   mount();
   await openRun();
   modeButton("request").click();
-  await expectCounter("15/15 requests");
+  await expectCounter("16/16 requests");
   // exact path: "low.ts" substring-matches src/greedy-low.ts (earlier seq) and opens the wrong pair
   requestRow("src/low.ts").click();
   await waitFor(
@@ -450,4 +451,40 @@ test("a bimodal score answer renders its distribution", async () => {
     '[data-testid="answer-distribution"] li[data-option="2"] [data-testid="option-bar"] > span',
   );
   expect(answered?.className).toContain("bg-foreground/70");
+});
+
+test("a refused cell is muted, sorts after valued cells, and opens a pair view with no verdict", async () => {
+  mount();
+  await openRun();
+  modeButton("rule").click();
+  await ruleGroupsReady(RULES);
+  groupRow("rule:will_error_lose_cause").click();
+  await waitFor(
+    () => {
+      if (cellRows("will_error_lose_cause@src/refused.ts").length === 0)
+        throw new Error("refused cell missing");
+    },
+    { timeout: 2_000 },
+  );
+  // 2 valued cells + 1 refused: the refused one comes last under the default severity sort
+  const rows = cellRows("will_error_lose_cause@");
+  expect(rows).toHaveLength(3);
+  expect(rows[2]!.getAttribute("data-testid")).toBe("cell-will_error_lose_cause@src/refused.ts");
+  expect(rows[2]!.querySelector('[data-testid="cell-refused"]')).toBeTruthy();
+  expect(rows[0]!.querySelector('[data-testid="cell-refused"]')).toBeNull();
+  // it is in no severity bucket: the group's err count stays the two valued score-3 cells
+  expect(groupRow("rule:will_error_lose_cause").textContent).toContain("2 err");
+  rows[2]!.click();
+  await waitFor(
+    () => {
+      if (q('.detail-pane [data-testid="answer-refused"]') === null)
+        throw new Error("refused header missing");
+    },
+    { timeout: 2_000 },
+  );
+  // no probability, no bars; the question's criteria and the element's code still show
+  expect(q(".detail-pane [data-answer]")).toBeNull();
+  expect(q('.detail-pane [data-testid="answer-distribution"]')).toBeNull();
+  expect(q(".detail-pane")?.textContent).toContain("holds");
+  expect(q(".detail-pane")?.textContent).toContain("export function pad");
 });
