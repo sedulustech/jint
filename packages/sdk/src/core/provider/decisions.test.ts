@@ -1,35 +1,61 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { recordRequests, tapWire } from "./debug.ts";
-import { decisions } from "./decisions.ts";
-import { protocolFetch } from "./protocol.ts";
+import { ClassifyError, type UnitState } from "../types.ts";
+import { createClassifier } from "./client.ts";
+import { ID_HEADER, recordRequests, tapWire } from "./debug.ts";
+import { decisionsFetch as makeDecisionsFetch } from "./decisions.ts";
+import type { Fetch } from "./protocol.ts";
+import type { ResolvedProvider } from "./providers.ts";
 
-const SPEC = { url: "https://api.openai.com/v1/decisions", headers: { "x-extra": "1" } };
-const decisionsFetch = (base: Parameters<typeof protocolFetch>[2]) =>
-  protocolFetch(decisions, SPEC, base);
+const URL_ = "https://api.openai.com/v1/decisions";
+const PROVIDER: ResolvedProvider = {
+  name: "openai",
+  spec: {
+    protocol: "decisions",
+    url: URL_,
+    keyEnv: "JINT_OPENAI_API_KEY",
+    model: "gpt-6-luna",
+    headers: { "x-extra": "1" },
+  },
+  model: "gpt-6-luna",
+  apiKey: "k",
+  notes: [],
+};
+const decisionsFetch = (
+  base: Fetch,
+  provider = PROVIDER,
+  log: (l: string) => void = () => {},
+  limits?: Parameters<typeof makeDecisionsFetch>[3],
+) => makeDecisionsFetch(provider, base, log, limits);
+
+const STATE = { path: "a.ts", content: "x" };
+/** A reply that makes the client retry at once instead of after its backoff. */
+const QUICK = { "retry-after-ms": "1" };
 
 /** A fake Decisions endpoint: records what it was sent and answers with the given body. */
 function fake(reply: unknown, status = 200) {
   const sent: { url: string; body: any; auth: string | null; headers: Record<string, string> }[] =
     [];
-  const fetch = async (url: string, init?: RequestInit) => {
+  const fetch: Fetch = async (url, init) => {
     sent.push({
       url,
       body: JSON.parse(String(init?.body)),
       auth: new Headers(init?.headers).get("Authorization"),
       headers: Object.fromEntries(new Headers(init?.headers)),
     });
-    return new Response(JSON.stringify(reply), { status });
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (status !== 200) Object.assign(headers, QUICK);
+    return new Response(JSON.stringify(reply), { status, headers });
   };
   return { sent, fetch };
 }
 
-const ask = (f: ReturnType<typeof decisionsFetch>, questions: unknown) =>
+const ask = (f: Fetch, questions: unknown, state: unknown = STATE, headers = {}) =>
   f("https://api.typesafe.ai/v1/systemone", {
     method: "POST",
-    headers: { Authorization: "Bearer k" },
-    body: JSON.stringify({ model: "gpt-6-luna", state: { path: "a.ts", content: "x" }, questions }),
+    headers: { Authorization: "Bearer k", ...headers },
+    body: JSON.stringify({ model: "gpt-6-luna", state, questions }),
   });
 
 describe("decisions protocol", () => {
@@ -45,11 +71,13 @@ describe("decisions protocol", () => {
         criteria: { true: "yes", false: "no" },
       },
     });
-    expect(api.sent[0]!.url).toBe("https://api.openai.com/v1/decisions");
+    expect(api.sent[0]!.url).toBe(URL_);
     expect(api.sent[0]!.auth).toBe("Bearer k");
     expect(api.sent[0]!.headers["x-extra"]).toBe("1");
     expect(api.sent[0]!.body.model).toBe("gpt-6-luna");
-    expect(api.sent[0]!.body.input).toBe('{"path":"a.ts","content":"x"}');
+    expect(api.sent[0]!.body.input).toEqual([
+      { role: "user", content: [{ type: "input_json", data: STATE }] },
+    ]);
     expect(api.sent[0]!.body.questions[0]).toEqual({
       type: "predicate",
       name: "q0",
@@ -140,12 +168,80 @@ describe("decisions protocol", () => {
     expect(body.usage.cached_input_tokens).toBe(7);
   });
 
-  test("an API error passes through with its status", async () => {
+  test("an element's state goes as input_json untouched, with the question bodies as before", async () => {
+    const api = fake({ answers: [], usage: { input_tokens: 1, output_tokens: 0 } });
+    const state = { path: "a.ts", source: 'const s = "q\\n";\n' };
+    await ask(
+      decisionsFetch(api.fetch),
+      {
+        p: { type: "noul", instructions: "Is it?", criteria: { true: "yes", false: "no" } },
+        s: { type: "score", instructions: "How?", criteria: ["low", "high"] },
+        c: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "" } },
+      },
+      state,
+    );
+    const body = api.sent[0]!.body;
+    expect(body.input).toEqual([{ role: "user", content: [{ type: "input_json", data: state }] }]);
+    expect(JSON.stringify(body.questions)).toBe(
+      JSON.stringify([
+        { type: "predicate", name: "q0", instructions: "Is it?\n\nYes: yes\nNo: no" },
+        {
+          type: "score",
+          name: "q1",
+          instructions: "How?",
+          levels: [
+            { label: "0", description: "low" },
+            { label: "1", description: "high" },
+          ],
+        },
+        {
+          type: "choice",
+          name: "q2",
+          instructions: "Which?",
+          choices: [
+            { value: "a", description: "A" },
+            { value: "b", description: "b" },
+            { value: "none_of_these", description: "None of these fits" },
+          ],
+        },
+      ]),
+    );
+  });
+
+  test("the element id rides as a request header", async () => {
+    const api = fake({ answers: [], usage: { input_tokens: 1, output_tokens: 0 } });
+    await ask(decisionsFetch(api.fetch), {}, STATE, { [ID_HEADER]: "L1-L2" });
+    expect(api.sent[0]!.headers[ID_HEADER.toLowerCase()]).toBe("L1-L2");
+  });
+
+  test("an API error passes up with its status once the client's retries are spent", async () => {
     const api = fake({ error: { message: "slow down" } }, 429);
-    expect(
-      (await ask(decisionsFetch(api.fetch), { r: { type: "noul", instructions: "Is it?" } }))
-        .status,
-    ).toBe(429);
+    const lines: string[] = [];
+    const res = await ask(
+      decisionsFetch(api.fetch, PROVIDER, (l) => lines.push(l)),
+      { r: { type: "noul", instructions: "Is it?" } },
+    );
+    expect(res.status).toBe(429);
+    expect(api.sent).toHaveLength(3);
+    expect(lines.filter((l) => l.startsWith("provider backoff: "))).toHaveLength(2);
+  });
+
+  test("a timeout is thrown, not turned into a status", async () => {
+    const hang: Fetch = (_url, init) =>
+      new Promise((_, reject) =>
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)),
+      );
+    await expect(
+      ask(
+        decisionsFetch(hang, PROVIDER, () => {}, { timeoutMs: 20, maxRetries: 0 }),
+        {},
+      ),
+    ).rejects.toThrow();
+  });
+
+  test("a url that does not end in /decisions is a setup error naming the field", () => {
+    const odd = { ...PROVIDER, spec: { ...PROVIDER.spec, url: "http://x.test/v1/answers" } };
+    expect(() => decisionsFetch(fake({}).fetch, odd)).toThrow(/url must end in \/decisions/);
   });
 
   test("a recorded call keeps the translated wire body and no credential", async () => {
@@ -158,9 +254,9 @@ describe("decisions protocol", () => {
         usage: { input_tokens: 9, output_tokens: 0 },
       });
       const config = recordRequests({
-        fetch: protocolFetch(decisions, SPEC, tapWire(api.fetch)),
+        fetch: decisionsFetch(tapWire(api.fetch)),
       });
-      await ask(config.fetch as ReturnType<typeof decisionsFetch>, {
+      await ask(config.fetch as Fetch, {
         r: { type: "noul", instructions: "Is it?", criteria: { true: "yes", false: "no" } },
       });
       const run = `${dir}/${readdirSync(dir)[0]}`;
@@ -168,17 +264,191 @@ describe("decisions protocol", () => {
       const text = readFileSync(`${run}/${name}`, "utf8");
       const file = JSON.parse(text);
       expect(file.request.state).toEqual({ path: "a.ts", content: "x" });
-      expect(file.wire.url).toBe(SPEC.url);
+      expect(file.wire.url).toBe(URL_);
       expect(file.wire.body).toEqual(api.sent[0]!.body);
-      expect(file.wire.body.input).toBe('{"path":"a.ts","content":"x"}');
+      expect(file.wire.body.input).toEqual([
+        { role: "user", content: [{ type: "input_json", data: STATE }] },
+      ]);
       expect(file.wire.body.questions[0].type).toBe("predicate");
       expect(file.wire.response.answers[0].probability).toBe(0.14);
       expect(text).not.toContain("Bearer");
+      expect(text).not.toContain('"k"');
       expect(existsSync(run)).toBe(true);
     } finally {
       if (prior === undefined) delete process.env.JINT_RUNS_DIR;
       else process.env.JINT_RUNS_DIR = prior;
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/** The OPENAI_* variables the official client would read, set to values that must never be used. */
+const HOSTILE: Record<string, string> = {
+  OPENAI_API_KEY: "sk-hostile-key",
+  OPENAI_ADMIN_KEY: "sk-hostile-admin",
+  OPENAI_BASE_URL: "http://127.0.0.1:1/hostile",
+  OPENAI_ORG_ID: "org-hostile",
+  OPENAI_PROJECT_ID: "proj-hostile",
+  OPENAI_WEBHOOK_SECRET: "whsec-hostile",
+  OPENAI_LOG: "debug",
+  OPENAI_CUSTOM_HEADERS: "X-Hostile: leaked",
+};
+
+const unit: UnitState = { path: "src/a.ts", content: "export const x = 1;\n", id: "L1-L2" };
+const noul = { is_readable: { type: "noul", instructions: "Is it?" } } as const;
+
+describe("through createClassifier", () => {
+  /** Runs `body` with a scratch run dir and returns the text of every recorded file. */
+  async function recorded(body: () => Promise<void>): Promise<{ name: string; text: string }[]> {
+    const dir = mkdtempSync(`${tmpdir()}/jint-decisions-`);
+    const prior = process.env.JINT_RUNS_DIR;
+    process.env.JINT_RUNS_DIR = dir;
+    try {
+      await body();
+      const run = `${dir}/${readdirSync(dir)[0]}`;
+      return readdirSync(run).map((name) => ({
+        name,
+        text: readFileSync(`${run}/${name}`, "utf8"),
+      }));
+    } finally {
+      if (prior === undefined) delete process.env.JINT_RUNS_DIR;
+      else process.env.JINT_RUNS_DIR = prior;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("hostile OPENAI_* variables change neither the host, the key nor the headers", async () => {
+    const seen: { url: string; headers: Record<string, string>; body: string }[] = [];
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (req) => {
+        seen.push({
+          url: req.url,
+          headers: Object.fromEntries(req.headers),
+          body: await req.text(),
+        });
+        return Response.json({
+          model: "gpt-6-luna",
+          answers: [{ type: "predicate", name: "q0", probability: 0.4 }],
+          usage: {
+            input_tokens: 3,
+            output_tokens: 0,
+            input_tokens_details: { cached_tokens: 0 },
+          },
+        });
+      },
+    });
+    const saved = Object.fromEntries(Object.keys(HOSTILE).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, HOSTILE);
+    try {
+      const files = await recorded(async () => {
+        const answers = await createClassifier({
+          apiKey: "configured-key",
+          providers: { openai: { url: `http://127.0.0.1:${server.port}/v1/decisions` } },
+        })(unit, noul);
+        expect((answers.is_readable as { value: number }).value).toBe(0.4);
+      });
+      expect(seen).toHaveLength(1);
+      expect(new URL(seen[0]!.url).pathname).toBe("/v1/decisions");
+      expect(seen[0]!.headers.authorization).toBe("Bearer configured-key");
+      expect(JSON.stringify(seen[0]!.headers)).not.toMatch(/hostile|leaked|org-|proj-/i);
+      expect(Object.keys(seen[0]!.headers).filter((h) => /openai|hostile/i.test(h))).toEqual([]);
+      // no recorded file holds a key, an Authorization header or a hostile value
+      expect(files.length).toBeGreaterThan(0);
+      for (const f of files) {
+        expect(f.text).not.toMatch(/configured-key|Authorization|Bearer|hostile|leaked/i);
+      }
+      for (const [k, v] of Object.entries(HOSTILE)) expect(process.env[k]).toBe(v);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      await server.stop(true);
+    }
+  });
+
+  const through = (fetch: Fetch) =>
+    createClassifier({ apiKey: "k", fetch })(unit, noul).then(
+      () => undefined,
+      (e: unknown) => e as ClassifyError,
+    );
+  const status = (code: number) => async () =>
+    new Response(JSON.stringify({ error: { message: "no" } }), {
+      status: code,
+      headers: { "Content-Type": "application/json", ...QUICK },
+    });
+
+  test("401 -> PROVIDER_AUTH, without a retry", async () => {
+    let calls = 0;
+    const e = await through(async () => (calls++, status(401)()));
+    expect(e?.code).toBe("PROVIDER_AUTH");
+    expect(calls).toBe(1);
+  });
+
+  test("429 and 500 -> PROVIDER_UNAVAILABLE after the client's two retries", async () => {
+    for (const code of [429, 500]) {
+      let calls = 0;
+      const e = await through(async () => (calls++, status(code)()));
+      expect(e?.code).toBe("PROVIDER_UNAVAILABLE");
+      expect(calls).toBe(3);
+    }
+  });
+
+  test("400 -> PROVIDER_REQUEST_INVALID", async () => {
+    expect((await through(status(400)))?.code).toBe("PROVIDER_REQUEST_INVALID");
+  });
+
+  test("a connection failure -> PROVIDER_UNAVAILABLE", async () => {
+    const e = await through(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(e?.code).toBe("PROVIDER_UNAVAILABLE");
+  });
+
+  test("a refusal becomes a refused measurement", async () => {
+    const answers = await createClassifier({
+      apiKey: "k",
+      fetch: async () =>
+        Response.json({
+          model: "gpt-6-luna",
+          answers: [{ type: "refusal", name: "q0" }],
+          usage: { input_tokens: 1, output_tokens: 0, input_tokens_details: { cached_tokens: 0 } },
+        }),
+    })(unit, noul);
+    expect(answers.is_readable).toEqual({ refused: true });
+  });
+
+  test("the element id becomes the recording's id; the wire body is what the client sent", async () => {
+    const sent: string[] = [];
+    const files = await recorded(async () => {
+      await createClassifier({
+        apiKey: "k",
+        fetch: async (_url, init) => {
+          sent.push(String(init?.body));
+          return Response.json({
+            model: "gpt-6-luna",
+            answers: [{ type: "predicate", name: "q0", probability: 0.2 }],
+            usage: {
+              input_tokens: 1,
+              output_tokens: 0,
+              input_tokens_details: { cached_tokens: 0 },
+            },
+          });
+        },
+      })(unit, noul);
+    });
+    const file = JSON.parse(
+      files.find((f) => f.name.endsWith(".json") && f.name !== "manifest.json")!.text,
+    );
+    expect(file.id).toBe("L1-L2");
+    expect(file.wire.body).toEqual(JSON.parse(sent[0]!));
+    expect(file.wire.body.input).toEqual([
+      {
+        role: "user",
+        content: [{ type: "input_json", data: { path: unit.path, content: unit.content } }],
+      },
+    ]);
+    expect(file.request.state).toEqual({ path: unit.path, content: unit.content });
   });
 });

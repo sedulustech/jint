@@ -20,15 +20,13 @@ type NativeQuestion =
 function toNative(q: ReturnType<typeof toDecisions>): NativeQuestion {
   const instructions = String(q.instructions);
   if (q.type === "score") {
-    const levels = q.levels as { description: string }[];
-    return { type: "score", instructions, criteria: levels.map((l) => l.description) };
+    return { type: "score", instructions, criteria: q.levels.map((l) => l.description ?? "") };
   }
   if (q.type === "predicate") return { type: "boolean", instructions };
-  const choices = q.choices as { value: string; description: string }[];
   return {
     type: "choice",
     instructions,
-    criteria: Object.fromEntries(choices.map((c) => [c.value, c.description])),
+    criteria: Object.fromEntries(q.choices.map((c) => [String(c.value), c.description ?? ""])),
   };
 }
 

@@ -37,6 +37,7 @@ import {
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { ADAPTERS } from "./adapters.ts";
 import { ID_HEADER, recordRequests, tapWire } from "./debug.ts";
+import { decisionsFetch, DECISIONS_BUDGET_MS } from "./decisions.ts";
 import { protocolFetch } from "./protocol.ts";
 import {
   PROVIDERS,
@@ -151,6 +152,10 @@ function routeProvider(
   const adapter = ADAPTERS[provider.spec.protocol];
   // The wire tap sits at the lowest fetch: what it sees is what goes to the network.
   const wire = tapWire(config?.fetch);
+  if (provider.spec.protocol === "decisions") {
+    const log = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+    return { ...routed, fetch: decisionsFetch(provider, wire, log) };
+  }
   if (adapter === undefined) return { ...routed, fetch: wire };
   return { ...routed, fetch: protocolFetch(adapter, provider.spec, wire) };
 }
@@ -178,6 +183,9 @@ function makeClient(
         provider.spec.protocol === "systemone" ? provider.spec.url : PROVIDERS.systemone!.url,
       defaultModel: provider.model,
       fetch: config?.fetch,
+      // The decisions client retries and times out for itself, inside this one's single attempt
+      retry: provider.spec.protocol === "decisions" ? { maxRetries: 0 } : undefined,
+      timeout: provider.spec.protocol === "decisions" ? DECISIONS_BUDGET_MS : undefined,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
       // backoff is visible in the CLI (one line per retry; nothing when the API is healthy).

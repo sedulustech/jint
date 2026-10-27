@@ -250,6 +250,12 @@ describe("createClassifier", () => {
       expect(seen[0]!.url).toBe("http://127.0.0.1:1/v1/decisions");
       expect(seen[0]!.auth).toBe("Bearer env-key");
       expect(seen[0]!.body.model).toBe("gpt-6-luna");
+      expect(seen[0]!.body.input).toEqual([
+        {
+          role: "user",
+          content: [{ type: "input_json", data: { path: state.path, content: state.content } }],
+        },
+      ]);
     } finally {
       if (saved === undefined) delete process.env.JINT_OPENAI_API_KEY;
       else process.env.JINT_OPENAI_API_KEY = saved;
