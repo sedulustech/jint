@@ -39,7 +39,10 @@ export interface MockProviderOptions {
 }
 
 export interface MockProvider {
-  /** The server address for mockWire - the systemone provider url in a spawned CLI's wrapper config. */
+  /**
+   * The server address for mockWire - the url the systemone provider is pointed at in a spawned
+   * CLI.
+   */
   baseUrl: string;
   stop: () => void;
   /** Every request the mock saw, in order. Assert the wire: state content, instructions, criteria. */

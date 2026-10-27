@@ -8,8 +8,7 @@
  * - The runner also runs the vendored retry chain on purpose in the NO_SERVICE tests (~2s per
  *   request), so a tight ceiling kills healthy runs.
  */
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 
 export const CLI_SRC = "packages/cli/src/cli.ts";
 
@@ -53,67 +52,26 @@ function childEnv(extra?: Record<string, string | undefined>): Record<string, st
   return { ...process.env, JINT_RUNS_DIR: RUNS_DIR, ...extra };
 }
 
-/** Test-only env key naming a System One server to point the run at; consumed by runCli, never sent. */
-const MOCK_URL = "MOCK_PROVIDER_URL";
-
 /**
  * The env for a run answered by a System One server at `baseUrl` (the mock provider, or a dead
- * address): the key the systemone provider reads, plus the URL, which runCli turns into provider
- * data - a `providers` override in a wrapper config - rather than passing it through the
- * environment.
+ * address): the systemone provider, its url and a throwaway key, through the same env overrides a
+ * user has. A config's own `provider`, `providers` url or `apiKey` still wins over them.
  */
 export const mockWire = (baseUrl: string): Record<string, string> => ({
-  JINT_TYPESAFE_API_KEY: "test-key",
-  [MOCK_URL]: baseUrl,
+  JINT_PROVIDER: "systemone",
+  JINT_PROVIDER_URL: baseUrl,
+  JINT_PROVIDER_KEY: "test",
 });
 
 /** The env for a run with the systemone provider and no key. */
-export const NO_KEY_WIRE = { JINT_PROVIDER: "systemone", JINT_TYPESAFE_API_KEY: "" };
-
-let wrapperCount = 0;
-
-/**
- * A config that is the config the run would load (--config, else the one discovered in cwd, else
- * none) plus the systemone provider at `url`. Written beside that config, so its scope base is
- * unchanged, and excluded from the walk under its own name; the caller removes it.
- */
-function wrapConfig(args: string[], cwd: string, url: string): { args: string[]; file: string } {
-  const at = args.indexOf("--config");
-  const given = at >= 0 ? resolve(cwd, args[at + 1]!) : undefined;
-  const found = ["jint.config.ts", "jint.config.json"]
-    .map((name) => join(cwd, name))
-    .find((path) => existsSync(path));
-  const base = given ?? found;
-  const dir = base === undefined ? join(RUNS_DIR, "..", "mock-configs") : dirname(base);
-  mkdirSync(dir, { recursive: true });
-  const name = `.jint-mock-${process.pid}-${wrapperCount++}.config.ts`;
-  const file = join(dir, name);
-  writeFileSync(
-    file,
-    [
-      base === undefined ? "const base = {};" : `import base from ${JSON.stringify(base)};`,
-      "export default {",
-      "  ...base,",
-      `  exclude: [...((base as { exclude?: string[] }).exclude ?? []), ${JSON.stringify(name)}],`,
-      '  provider: "systemone",',
-      `  providers: { systemone: { url: ${JSON.stringify(url)} } },`,
-      "};",
-      "",
-    ].join("\n"),
-  );
-  const rest = at >= 0 ? args.filter((_, i) => i !== at && i !== at + 1) : args;
-  // right after the verb: appended, it would land behind a `--` that ends flag parsing
-  return { args: [rest[0]!, "--config", file, ...rest.slice(1)], file };
-}
+export const NO_KEY_WIRE = {
+  JINT_PROVIDER: "systemone",
+  JINT_PROVIDER_KEY: "",
+  JINT_TYPESAFE_API_KEY: "",
+};
 
 export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<RunCliResult> {
-  const { [MOCK_URL]: mockUrl, ...env } = opts.env ?? {};
-  const wrapped = mockUrl === undefined ? undefined : wrapConfig(args, opts.cwd ?? ROOT, mockUrl);
-  try {
-    return await spawnCli(wrapped?.args ?? args, { ...opts, env });
-  } finally {
-    if (wrapped !== undefined) rmSync(wrapped.file, { force: true });
-  }
+  return spawnCli(args, opts);
 }
 
 async function spawnCli(args: string[], opts: RunCliOptions): Promise<RunCliResult> {
