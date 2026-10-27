@@ -1,210 +1,146 @@
 {
-  "url": "https://api.typesafe.ai/v1/systemone",
+  "url": "https://api.openai.com/v1/decisions",
   "id": "3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
-  "request": {
-    "state": {
-      "path": "complex.ts",
-      "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;"
-    },
-    "questions": {
-      "is_name_purposeful": {
-        "type": "score",
-        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
-        "criteria": [
-          "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-          "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-          "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-        ]
-      },
-      "is_comment_narration": {
-        "type": "noul",
-        "instructions": "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
-        "criteria": {
-          "true": "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
-          "false": "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap."
-        }
-      },
-      "is_comment_patching_readability": {
-        "type": "noul",
-        "instructions": "Does any comment here patch code that should read itself, instead of the code being made readable?",
-        "criteria": {
-          "true": "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
-          "false": "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read."
-        }
-      },
-      "will_comment_drift": {
-        "type": "noul",
-        "instructions": "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
-        "criteria": {
-          "true": "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
-          "false": "No comment here is coupled to specific artifacts by name: every comment describes behavior, rationale, or constraints without pinning identifiers, so renaming or removing code can never silently invalidate it."
-        }
-      },
-      "is_cognitively_complex": {
-        "type": "score",
-        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-        "criteria": [
-          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-        ]
-      }
-    },
-    "model": "jev-1.13.0"
-  },
+  "questionIds": [
+    "is_name_purposeful",
+    "is_comment_narration",
+    "is_comment_patching_readability",
+    "will_comment_drift",
+    "is_cognitively_complex"
+  ],
   "status": 200,
-  "response": {
-    "model": "jev-fixture",
-    "answers": {
-      "is_name_purposeful": {
-        "type": "score",
-        "score": 0.25,
-        "probabilities": {
-          "0": 0.8,
-          "1": 0.067,
-          "2": 0.067,
-          "3": 0.067
-        },
-        "legend": {
-          "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-          "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-          "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-        }
-      },
-      "is_comment_narration": {
-        "type": "noul",
-        "noul": 0.1
-      },
-      "is_comment_patching_readability": {
-        "type": "noul",
-        "noul": 0.1
-      },
-      "will_comment_drift": {
-        "type": "noul",
-        "noul": 0.1
-      },
-      "is_cognitively_complex": {
-        "type": "score",
-        "score": 2,
-        "probabilities": {
-          "0": 0.45,
-          "1": 0.1,
-          "2": 0.45
-        },
-        "legend": {
-          "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-          "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-          "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-        }
+  "request": {
+    "model": "gpt-6-luna",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_json",
+            "data": {
+              "path": "complex.ts",
+              "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;"
+            }
+          }
+        ]
       }
-    },
+    ],
+    "questions": [
+      {
+        "type": "score",
+        "name": "q0",
+        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
+        "levels": [
+          {
+            "label": "0",
+            "description": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body."
+          },
+          {
+            "label": "1",
+            "description": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is."
+          },
+          {
+            "label": "2",
+            "description": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "instructions": "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?\n\nYes: At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.\nNo: Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap."
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "instructions": "Does any comment here patch code that should read itself, instead of the code being made readable?\n\nYes: At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.\nNo: Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read."
+      },
+      {
+        "type": "predicate",
+        "name": "q3",
+        "instructions": "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?\n\nYes: At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.\nNo: No comment here is coupled to specific artifacts by name: every comment describes behavior, rationale, or constraints without pinning identifiers, so renaming or removing code can never silently invalidate it."
+      },
+      {
+        "type": "score",
+        "name": "q4",
+        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "levels": [
+          {
+            "label": "0",
+            "description": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure."
+          },
+          {
+            "label": "1",
+            "description": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots."
+          },
+          {
+            "label": "2",
+            "description": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+          }
+        ]
+      }
+    ]
+  },
+  "response": {
+    "model": "gpt-6-luna",
+    "answers": [
+      {
+        "type": "score",
+        "name": "q0",
+        "probabilities": [
+          {
+            "value": "0",
+            "probability": 0.75
+          },
+          {
+            "value": "1",
+            "probability": 0.25
+          },
+          {
+            "value": "2",
+            "probability": 0
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "probability": 0.1
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "probability": 0.1
+      },
+      {
+        "type": "predicate",
+        "name": "q3",
+        "probability": 0.1
+      },
+      {
+        "type": "score",
+        "name": "q4",
+        "probabilities": [
+          {
+            "value": "0",
+            "probability": 0.2
+          },
+          {
+            "value": "1",
+            "probability": 0.05
+          },
+          {
+            "value": "2",
+            "probability": 0.75
+          }
+        ]
+      }
+    ],
     "usage": {
       "input_tokens": 100,
-      "output_tokens": 10
-    }
-  },
-  "wire": {
-    "url": "https://api.typesafe.ai/v1/systemone",
-    "body": {
-      "state": {
-        "path": "complex.ts",
-        "source": "// datax keeps a data element in the inventory: the const below is not a definition everywhere.\nexport const DEFAULT_TAX_RATE = 0.19;"
-      },
-      "questions": {
-        "is_name_purposeful": {
-          "type": "score",
-          "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
-          "criteria": [
-            "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-            "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-            "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-          ]
-        },
-        "is_comment_narration": {
-          "type": "noul",
-          "instructions": "Does any comment in this unit merely restate what the code in this unit already says, so that removing it loses nothing a reader could not get from the code itself?",
-          "criteria": {
-            "true": "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
-            "false": "Every comment here says something the code cannot: it states why the code exists, records a constraint, or flags a non-obvious trap."
-          }
-        },
-        "is_comment_patching_readability": {
-          "type": "noul",
-          "instructions": "Does any comment here patch code that should read itself, instead of the code being made readable?",
-          "criteria": {
-            "true": "At least one comment exists to explain code that should read itself - patching dense expressions, tangled control flow, or misleading names with prose instead of the code being made readable. This is a code smell: the fix is rewriting the code, and the comment makes the confusion livable so the rewrite never happens.",
-            "false": "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read."
-          }
-        },
-        "will_comment_drift": {
-          "type": "noul",
-          "instructions": "Does any comment pin specific artifacts by name such that renaming or removing them silently invalidates the comment?",
-          "criteria": {
-            "true": "At least one comment pins specific artifacts by name - files, functions, parameters, constants, types, paths - such that renaming or removing that artifact silently invalidates the comment while the code keeps working. The claim is coupling between the comment's wording and identifiers, not comments already wrong today.",
-            "false": "No comment here is coupled to specific artifacts by name: every comment describes behavior, rationale, or constraints without pinning identifiers, so renaming or removing code can never silently invalidate it."
-          }
-        },
-        "is_cognitively_complex": {
-          "type": "score",
-          "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-          "criteria": [
-            "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-            "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-            "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-          ]
-        }
-      },
-      "model": "jev-1.13.0"
-    },
-    "status": 200,
-    "response": {
-      "model": "jev-fixture",
-      "answers": {
-        "is_name_purposeful": {
-          "type": "score",
-          "score": 0.25,
-          "probabilities": {
-            "0": 0.8,
-            "1": 0.067,
-            "2": 0.067,
-            "3": 0.067
-          },
-          "legend": {
-            "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-            "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-            "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-          }
-        },
-        "is_comment_narration": {
-          "type": "noul",
-          "noul": 0.1
-        },
-        "is_comment_patching_readability": {
-          "type": "noul",
-          "noul": 0.1
-        },
-        "will_comment_drift": {
-          "type": "noul",
-          "noul": 0.1
-        },
-        "is_cognitively_complex": {
-          "type": "score",
-          "score": 2,
-          "probabilities": {
-            "0": 0.45,
-            "1": 0.1,
-            "2": 0.45
-          },
-          "legend": {
-            "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-            "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-            "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-          }
-        }
-      },
-      "usage": {
-        "input_tokens": 100,
-        "output_tokens": 10
+      "output_tokens": 10,
+      "input_tokens_details": {
+        "cached_tokens": 0
       }
     }
   },

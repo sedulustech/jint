@@ -84,11 +84,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "function",
@@ -157,10 +157,9 @@
       "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "function",
@@ -205,11 +204,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "function",
@@ -281,10 +280,9 @@
       "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "function",
@@ -331,11 +329,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "class",
@@ -360,10 +358,9 @@
       "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "class",
@@ -386,11 +383,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "method",
@@ -416,10 +413,9 @@
       "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "method",
@@ -443,11 +439,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "binding",
@@ -516,10 +512,9 @@
       "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "binding",
@@ -627,11 +622,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "type",
@@ -656,10 +651,9 @@
       "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "type",
@@ -682,11 +676,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "type",
@@ -711,10 +705,9 @@
       "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "type",
@@ -737,11 +730,11 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
-      "value": 2,
+      "value": 1.55,
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "element": {
         "kind": "function",
@@ -810,10 +803,9 @@
       "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
       "value": 0.25,
       "probabilities": {
-        "0": 0.8,
-        "1": 0.067,
-        "2": 0.067,
-        "3": 0.067
+        "0": 0.75,
+        "1": 0.25,
+        "2": 0
       },
       "element": {
         "kind": "function",
@@ -860,12 +852,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
@@ -908,12 +900,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
@@ -956,12 +948,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
@@ -983,12 +975,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
@@ -1010,12 +1002,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
@@ -1037,12 +1029,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
@@ -1064,12 +1056,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
@@ -1091,12 +1083,12 @@
     {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
-      "value": 2,
+      "value": 1.55,
       "severity": "error",
       "probabilities": {
-        "0": 0.45,
-        "1": 0.1,
-        "2": 0.45
+        "0": 0.2,
+        "1": 0.05,
+        "2": 0.75
       },
       "location": {
         "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",

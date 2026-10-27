@@ -1,7 +1,8 @@
 # Test fixtures
 
 Checked-in, deterministic fixtures for the component tests (src/*.test-browser.tsx).
-Generated files - do not hand-edit; regenerate instead.
+`generated/` is produced by `bun run fixtures:gen` - do not hand-edit it. `run-a/` and `run-b/` are
+hand-maintained: edit the files directly.
 
 ## Layout
 
@@ -17,10 +18,10 @@ Generated files - do not hand-edit; regenerate instead.
   - one refused reading (`will_error_lose_cause` at src/refused.ts: the answer is `{type:"refusal"}`,
     the report measurement is `refused: true` - no value, no verdict).
   - one recording with a `wire` request (`borderline.ts`, the translated Decisions body); every
-    other capture predates wire capture and has none (the request view's fallback).
+    other legacy capture predates wire capture and has none (the request view's fallback).
   - one recording in the decisions form (`decisions.ts`, `is_name_purposeful` at 0.35): the real
     POST /v1/decisions bodies (a `questions` array, an `answers` array, `questionIds`), no
-    System One shape and no `wire`; it has no report measurement, so it is a request and no cell.
+    legacy shape and no `wire`; it has no report measurement, so it is a request and no cell.
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders
@@ -34,32 +35,28 @@ Generated files - do not hand-edit; regenerate instead.
 ## Generated case fixtures (fixture-pipeline)
 
 New edge cases ship as GENERATED runs: the generator runs the real engine pipeline
-(walk -> classify -> provider tap -> engine report/manifest writers) against a checked-in source dir:
+(walk -> classify -> the Decisions adapter and recorder -> engine report/manifest writers) against a checked-in source dir:
 
 - `sources/elements/` — real TS input (complex.ts + helpers.ts, nested functions).
 - `generated/elements/` — the run it produced: captures + report.json + manifest.json. Served
   by the API as the nested run id `generated/elements`.
 
-Regenerate deliberately: `bun run fixtures:gen`. The only stub is the transport (fixed per-rule
-answers, like the engine's own lint tests). Regeneration is byte-identical: the builder seals the
+Regenerate deliberately: `bun run fixtures:gen`. The only stub is the transport (a Decisions reply with fixed
+per-rule answers, like the engine's own lint tests); the captures are the real Decisions exchange. Regeneration is byte-identical: the builder seals the
 engine's per-run entropy (uuid minting, timestamps, run-id filename stamps) behind sentinels —
 tests/fixture-determinism.test.ts proves it. Tests still assert shapes and relationships, never
 uuids.
 
 ## Regenerate
 
-Two builders, two fixture kinds (both run from packages/app):
-
 ```bash
-bun run fixtures:build   # tests/helpers/build-fixture.ts - synthesized run-a / run-b states fixture
-bun run fixtures:gen     # scripts/build-fixture.ts      - generated/<case> runs through the real engine
+bun run fixtures:gen   # from packages/app: scripts/build-fixture.ts - generated/<case> runs
 ```
 
-The fixtures are synthesized by the script (not sampled from a live dump), so regeneration is
-identical on any machine (the manifest's configPath is a synthetic absolute). When the dump
-format changes, update the capture shape in the script and re-run it, then re-pin the constants
+`run-a/` and `run-b/` have no builder: they mix the recorded forms (legacy, wire, decisions) on
+purpose, and a script would erase the hand-made cases. When a fixture changes, re-pin the constants
 at the top of `src/rule-filter.test-browser.tsx` (TOTAL / RULE_COUNTS / BORDERLINE_COUNT) to
-whatever the new fixture contains.
+whatever the fixture contains.
 
 ## Pinned expectations (kept in sync with the generator)
 

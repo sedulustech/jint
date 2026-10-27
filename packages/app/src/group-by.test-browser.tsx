@@ -420,8 +420,8 @@ test("a bimodal score answer renders its distribution", async () => {
   );
   modeButton("rule").click();
   await ruleGroupsReady(11);
-  // the fixture's bimodal rule: score 2 (error fires) with mass split between the distant
-  // levels 0 and 2
+  // the fixture's bimodal rule: expected level 1.55 (error fires) with mass split between the
+  // distant levels 0 and 2
   groupRow("rule:is_cognitively_complex").click();
   await waitFor(
     () => {
@@ -444,9 +444,9 @@ test("a bimodal score answer renders its distribution", async () => {
   const byOption = new Map(
     bars.map((b) => [b.getAttribute("data-option"), Number(b.getAttribute("data-probability"))]),
   );
-  expect(byOption.get("0")).toBeCloseTo(0.45);
-  expect(byOption.get("1")).toBeCloseTo(0.1);
-  expect(byOption.get("2")).toBeCloseTo(0.45);
+  expect(byOption.get("0")).toBeCloseTo(0.2);
+  expect(byOption.get("1")).toBeCloseTo(0.05);
+  expect(byOption.get("2")).toBeCloseTo(0.75);
   // the answered level (2) is the emphasized one - its bar element carries the darker class
   const answered = q(
     '[data-testid="answer-distribution"] li[data-option="2"] [data-testid="option-bar"] > span',

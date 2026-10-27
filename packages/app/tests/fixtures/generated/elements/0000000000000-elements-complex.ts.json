@@ -1,210 +1,146 @@
 {
-  "url": "https://api.typesafe.ai/v1/systemone",
+  "url": "https://api.openai.com/v1/decisions",
   "id": "056348f6-5f99-41f3-8efe-6888f986b7d0",
-  "request": {
-    "state": {
-      "path": "complex.ts",
-      "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}"
-    },
-    "questions": {
-      "is_name_purposeful": {
-        "type": "score",
-        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
-        "criteria": [
-          "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-          "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-          "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-        ]
-      },
-      "is_greppable": {
-        "type": "noul",
-        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
-        "criteria": {
-          "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
-          "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
-        }
-      },
-      "will_error_lose_cause": {
-        "type": "noul",
-        "instructions": "Does this function's error handling lose information about the original failure?",
-        "criteria": {
-          "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
-          "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
-        }
-      },
-      "is_cognitively_complex": {
-        "type": "score",
-        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-        "criteria": [
-          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-        ]
-      },
-      "is_function_srp": {
-        "type": "noul",
-        "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
-        "criteria": {
-          "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
-          "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
-        }
-      }
-    },
-    "model": "jev-1.13.0"
-  },
+  "questionIds": [
+    "is_name_purposeful",
+    "is_greppable",
+    "will_error_lose_cause",
+    "is_cognitively_complex",
+    "is_function_srp"
+  ],
   "status": 200,
-  "response": {
-    "model": "jev-fixture",
-    "answers": {
-      "is_name_purposeful": {
-        "type": "score",
-        "score": 0.25,
-        "probabilities": {
-          "0": 0.8,
-          "1": 0.067,
-          "2": 0.067,
-          "3": 0.067
-        },
-        "legend": {
-          "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-          "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-          "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-        }
-      },
-      "is_greppable": {
-        "type": "noul",
-        "noul": 0.9
-      },
-      "will_error_lose_cause": {
-        "type": "noul",
-        "noul": 0.5
-      },
-      "is_cognitively_complex": {
-        "type": "score",
-        "score": 2,
-        "probabilities": {
-          "0": 0.45,
-          "1": 0.1,
-          "2": 0.45
-        },
-        "legend": {
-          "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-          "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-          "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-        }
-      },
-      "is_function_srp": {
-        "type": "noul",
-        "noul": 0.5
+  "request": {
+    "model": "gpt-6-luna",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_json",
+            "data": {
+              "path": "complex.ts",
+              "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}"
+            }
+          }
+        ]
       }
-    },
+    ],
+    "questions": [
+      {
+        "type": "score",
+        "name": "q0",
+        "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
+        "levels": [
+          {
+            "label": "0",
+            "description": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body."
+          },
+          {
+            "label": "1",
+            "description": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is."
+          },
+          {
+            "label": "2",
+            "description": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?\n\nYes: The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.\nNo: At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "instructions": "Does this function's error handling lose information about the original failure?\n\nYes: Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.\nNo: Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+      },
+      {
+        "type": "score",
+        "name": "q3",
+        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "levels": [
+          {
+            "label": "0",
+            "description": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure."
+          },
+          {
+            "label": "1",
+            "description": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots."
+          },
+          {
+            "label": "2",
+            "description": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q4",
+        "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?\n\nYes: The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.\nNo: There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
+      }
+    ]
+  },
+  "response": {
+    "model": "gpt-6-luna",
+    "answers": [
+      {
+        "type": "score",
+        "name": "q0",
+        "probabilities": [
+          {
+            "value": "0",
+            "probability": 0.75
+          },
+          {
+            "value": "1",
+            "probability": 0.25
+          },
+          {
+            "value": "2",
+            "probability": 0
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "probability": 0.9
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "probability": 0.5
+      },
+      {
+        "type": "score",
+        "name": "q3",
+        "probabilities": [
+          {
+            "value": "0",
+            "probability": 0.2
+          },
+          {
+            "value": "1",
+            "probability": 0.05
+          },
+          {
+            "value": "2",
+            "probability": 0.75
+          }
+        ]
+      },
+      {
+        "type": "predicate",
+        "name": "q4",
+        "probability": 0.5
+      }
+    ],
     "usage": {
       "input_tokens": 100,
-      "output_tokens": 10
-    }
-  },
-  "wire": {
-    "url": "https://api.typesafe.ai/v1/systemone",
-    "body": {
-      "state": {
-        "path": "complex.ts",
-        "source": "export function computeInvoiceTotal(lines: InvoiceLine[], taxRate: number): number {\n  const subtotal = lines.reduce((acc, line) => acc + line.unitPrice * line.quantity, 0);\n  function roundToCents(value: number): number {\n    return Math.round(value * 100) / 100;\n  }\n  return roundToCents(subtotal * (1 + taxRate));\n}"
-      },
-      "questions": {
-        "is_name_purposeful": {
-          "type": "score",
-          "instructions": "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
-          "criteria": [
-            "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-            "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-            "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-          ]
-        },
-        "is_greppable": {
-          "type": "noul",
-          "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
-          "criteria": {
-            "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
-            "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
-          }
-        },
-        "will_error_lose_cause": {
-          "type": "noul",
-          "instructions": "Does this function's error handling lose information about the original failure?",
-          "criteria": {
-            "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
-            "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
-          }
-        },
-        "is_cognitively_complex": {
-          "type": "score",
-          "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-          "criteria": [
-            "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-            "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-            "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-          ]
-        },
-        "is_function_srp": {
-          "type": "noul",
-          "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?",
-          "criteria": {
-            "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
-            "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
-          }
-        }
-      },
-      "model": "jev-1.13.0"
-    },
-    "status": 200,
-    "response": {
-      "model": "jev-fixture",
-      "answers": {
-        "is_name_purposeful": {
-          "type": "score",
-          "score": 0.25,
-          "probabilities": {
-            "0": 0.8,
-            "1": 0.067,
-            "2": 0.067,
-            "3": 0.067
-          },
-          "legend": {
-            "0": "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-            "1": "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-            "2": "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-          }
-        },
-        "is_greppable": {
-          "type": "noul",
-          "noul": 0.9
-        },
-        "will_error_lose_cause": {
-          "type": "noul",
-          "noul": 0.5
-        },
-        "is_cognitively_complex": {
-          "type": "score",
-          "score": 2,
-          "probabilities": {
-            "0": 0.45,
-            "1": 0.1,
-            "2": 0.45
-          },
-          "legend": {
-            "0": "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-            "1": "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-            "2": "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-          }
-        },
-        "is_function_srp": {
-          "type": "noul",
-          "noul": 0.5
-        }
-      },
-      "usage": {
-        "input_tokens": 100,
-        "output_tokens": 10
+      "output_tokens": 10,
+      "input_tokens_details": {
+        "cached_tokens": 0
       }
     }
   },

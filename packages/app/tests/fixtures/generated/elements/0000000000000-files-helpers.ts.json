@@ -1,116 +1,70 @@
 {
-  "url": "https://api.typesafe.ai/v1/systemone",
+  "url": "https://api.openai.com/v1/decisions",
   "id": "L1-L7",
-  "request": {
-    "state": {
-      "path": "helpers.ts",
-      "content": "export type Invoice = { id: string; lines: InvoiceLine[] };\nexport type InvoiceLine = { unitPrice: number; quantity: number; label: string };\n\nexport function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}\n"
-    },
-    "questions": {
-      "is_vocabulary_consistent in L1-L7": {
-        "type": "noul",
-        "instructions": "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
-        "criteria": {
-          "true": "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
-          "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
-        }
-      },
-      "is_naming_convention_consistent in L1-L7": {
-        "type": "noul",
-        "instructions": "Do identifiers of the same kind in this file follow a single casing convention?",
-        "criteria": {
-          "true": "Identifiers of the same kind follow one casing convention.",
-          "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
-        }
-      },
-      "is_filename_fitting in L1-L7": {
-        "type": "noul",
-        "instructions": "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
-        "criteria": {
-          "true": "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
-          "false": "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
-        }
-      }
-    },
-    "model": "jev-1.13.0"
-  },
+  "questionIds": [
+    "is_vocabulary_consistent in L1-L7",
+    "is_naming_convention_consistent in L1-L7",
+    "is_filename_fitting in L1-L7"
+  ],
   "status": 200,
-  "response": {
-    "model": "jev-fixture",
-    "answers": {
-      "is_vocabulary_consistent in L1-L7": {
-        "type": "noul",
-        "noul": 0.9
-      },
-      "is_naming_convention_consistent in L1-L7": {
-        "type": "noul",
-        "noul": 0.9
-      },
-      "is_filename_fitting in L1-L7": {
-        "type": "noul",
-        "noul": 0.3
+  "request": {
+    "model": "gpt-6-luna",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_json",
+            "data": {
+              "path": "helpers.ts",
+              "content": "export type Invoice = { id: string; lines: InvoiceLine[] };\nexport type InvoiceLine = { unitPrice: number; quantity: number; label: string };\n\nexport function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}\n"
+            }
+          }
+        ]
       }
-    },
+    ],
+    "questions": [
+      {
+        "type": "predicate",
+        "name": "q0",
+        "instructions": "Do the identifiers in this change keep one vocabulary - the same concept always the same word?\n\nYes: The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.\nNo: Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "instructions": "Do identifiers of the same kind in this file follow a single casing convention?\n\nYes: Identifiers of the same kind follow one casing convention.\nNo: Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "instructions": "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?\n\nYes: The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.\nNo: The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
+      }
+    ]
+  },
+  "response": {
+    "model": "gpt-6-luna",
+    "answers": [
+      {
+        "type": "predicate",
+        "name": "q0",
+        "probability": 0.9
+      },
+      {
+        "type": "predicate",
+        "name": "q1",
+        "probability": 0.9
+      },
+      {
+        "type": "predicate",
+        "name": "q2",
+        "probability": 0.3
+      }
+    ],
     "usage": {
       "input_tokens": 100,
-      "output_tokens": 10
-    }
-  },
-  "wire": {
-    "url": "https://api.typesafe.ai/v1/systemone",
-    "body": {
-      "state": {
-        "path": "helpers.ts",
-        "content": "export type Invoice = { id: string; lines: InvoiceLine[] };\nexport type InvoiceLine = { unitPrice: number; quantity: number; label: string };\n\nexport function mergeInvoices(a: Invoice, b: Invoice): Invoice {\n  return { id: `${a.id}+${b.id}`, lines: [...a.lines, ...b.lines] };\n}\n"
-      },
-      "questions": {
-        "is_vocabulary_consistent in L1-L7": {
-          "type": "noul",
-          "instructions": "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
-          "criteria": {
-            "true": "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
-            "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
-          }
-        },
-        "is_naming_convention_consistent in L1-L7": {
-          "type": "noul",
-          "instructions": "Do identifiers of the same kind in this file follow a single casing convention?",
-          "criteria": {
-            "true": "Identifiers of the same kind follow one casing convention.",
-            "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
-          }
-        },
-        "is_filename_fitting in L1-L7": {
-          "type": "noul",
-          "instructions": "Does this file's name promise a subject its body does not deliver - a name whose dominant content answers to a different responsibility?",
-          "criteria": {
-            "true": "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
-            "false": "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
-          }
-        }
-      },
-      "model": "jev-1.13.0"
-    },
-    "status": 200,
-    "response": {
-      "model": "jev-fixture",
-      "answers": {
-        "is_vocabulary_consistent in L1-L7": {
-          "type": "noul",
-          "noul": 0.9
-        },
-        "is_naming_convention_consistent in L1-L7": {
-          "type": "noul",
-          "noul": 0.9
-        },
-        "is_filename_fitting in L1-L7": {
-          "type": "noul",
-          "noul": 0.3
-        }
-      },
-      "usage": {
-        "input_tokens": 100,
-        "output_tokens": 10
+      "output_tokens": 10,
+      "input_tokens_details": {
+        "cached_tokens": 0
       }
     }
   },

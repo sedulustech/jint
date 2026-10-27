@@ -93,9 +93,9 @@
     }
   },
   "durationMs": 0,
-  "model": "jev-1.13.0",
-  "provider": "systemone",
-  "providerHost": "api.typesafe.ai",
+  "model": "gpt-6-luna",
+  "provider": "openai",
+  "providerHost": "api.openai.com",
   "usage": {
     "input": 1000,
     "output": 100,

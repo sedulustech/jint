@@ -13,8 +13,9 @@
  *
  * Determinism: regeneration is byte-identical. The only stubbed piece is the transport — a fetch
  * that answers every question with a fixed per-rule value (the engine's own lint tests stub
- * classifiers the same way); the model, question compilation, state shapes, and report writing are
- * all real. The engine's own per-run entropy is sealed inside this script, not in packages/sdk:
+ * classifiers the same way); the Decisions adapter, the recorder, question compilation, state
+ * shapes, and report writing are all real, and the captures are the Decisions exchange itself. The
+ * engine's own per-run entropy is sealed inside this script, not in packages/sdk:
  *
  * - Element uuids: crypto.randomUUID is temporarily wrapped with a counter-seeded sha256 minter (uuid
  *   v4 shape, unique within the run) so the finding.input == capture id join survives
@@ -26,6 +27,7 @@
  * - Tests assert shapes and relationships, never uuids; fixture-determinism.test.ts asserts the
  *   byte-identical property itself.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -39,6 +41,7 @@ import {
   recordSummary,
   recordRunManifest,
   recordRunReport,
+  type Classifier,
   type ClassifierConfig,
   type Rule,
 } from "@jint/sdk";
@@ -85,57 +88,64 @@ const VALUES: Record<string, number> = {
 };
 
 /**
- * Per-score-rule answer distributions, strict wire shape. is_cognitively_complex splits its mass
- * between the distant levels 0 and 2 while answering 2 - a bimodal distribution (is_readable is no
- * longer measured on these elements; its row stays for the designed shape).
+ * Per-score-rule answer distributions. A score reads as the expected level of its distribution, so
+ * is_cognitively_complex splits its mass between the distant levels 0 and 2 while its expectation
+ * (1.55) still crosses the rule's error line (1.5) - a bimodal distribution.
  */
 const SCORE_PROBABILITIES: Record<string, Record<string, number>> = {
-  is_cognitively_complex: { "0": 0.45, "1": 0.1, "2": 0.45 },
-  is_readable: { "0": 0.05, "1": 0.1, "2": 0.8, "3": 0.05 },
+  is_cognitively_complex: { "0": 0.2, "1": 0.05, "2": 0.75 },
 };
 
 /**
- * Generic fallback distribution for a score rule the table does not name: 4 levels, mass 0.8 on the
- * answered level, the rest split - the wire requires the full record (SCORE_ANSWER_SCHEMA)
- * whichever rule asks, and the defaults' score-kind set moves.
+ * The distribution whose expected level is `value`: the mass sits on the two levels around it, so
+ * the reading the rules take back is the designed value exactly.
  */
-function centeredScore(value: number): Record<string, number> {
-  const answered = Math.min(3, Math.max(0, Math.round(value)));
-  const rest = Number(((1 - 0.8) / 3).toFixed(3));
-  return { "0": rest, "1": rest, "2": rest, "3": rest, [String(answered)]: 0.8 };
+function aroundScore(value: number, levels: number): Record<string, number> {
+  const low = Math.min(levels - 1, Math.floor(value));
+  const up = Math.min(levels - 1, low + 1);
+  const share = low === up ? 0 : value - low;
+  return Object.fromEntries(
+    Array.from({ length: levels }, (_, i) => [
+      String(i),
+      i === low && i === up ? 1 : i === low ? 1 - share : i === up ? share : 0,
+    ]),
+  );
 }
 
-/** Fake transport: answers the way POST /v1/systemone would, with fixed per-rule values. */
+/** The rule names of the call being answered: the request names its questions only by position. */
+const askedRules = new AsyncLocalStorage<string[]>();
+
+/** Fake transport: answers the way POST /v1/decisions would, with fixed per-rule values. */
 function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
   return async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {
-      questions: Record<string, { type?: "noul" | "score" }>;
+      model: string;
+      questions: { type: string; name: string; levels?: { label: string }[] }[];
     };
-    const answers: Record<string, unknown> = {};
-    for (const [key, q] of Object.entries(body.questions)) {
+    const rules = askedRules.getStore() ?? [];
+    const answers = body.questions.map((q, i) => {
       // element questions are keyed by bare rule name; file questions "<rule> in <id>"
-      const rule = key.split(" in ")[0]!;
-      const value = VALUES[rule] ?? (q.type === "score" ? 1 : 0.9);
-      answers[key] =
-        q.type === "score"
-          ? {
-              type: "score",
-              score: value,
-              // the wire requires the distribution (SCORE_ANSWER_SCHEMA); the table names the
-              // designed shapes, the fallback covers score rules the table has not met yet
-              probabilities: SCORE_PROBABILITIES[rule] ?? centeredScore(value),
-              // the response check requires the level texts echoed back (SCORE_ANSWER_SCHEMA)
-              legend: Object.fromEntries(
-                ((q.criteria as string[] | undefined) ?? []).map((text, i) => [String(i), text]),
-              ),
-            }
-          : { type: "noul", noul: value };
-    }
+      const rule = (rules[i] ?? "").split(" in ")[0]!;
+      if (q.type === "score") {
+        const levels = q.levels!.map((l) => l.label);
+        const value = VALUES[rule] ?? 1;
+        const distribution = SCORE_PROBABILITIES[rule] ?? aroundScore(value, levels.length);
+        return {
+          type: "score",
+          name: q.name,
+          probabilities: levels.map((label) => ({
+            value: label,
+            probability: distribution[label] ?? 0,
+          })),
+        };
+      }
+      return { type: "predicate", name: q.name, probability: VALUES[rule] ?? 0.9 };
+    });
     return new Response(
       JSON.stringify({
-        model: "jev-fixture",
+        model: body.model,
         answers,
-        usage: { input_tokens: 100, output_tokens: 10 },
+        usage: { input_tokens: 100, output_tokens: 10, input_tokens_details: { cached_tokens: 0 } },
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -182,13 +192,18 @@ function deterministicUuidMinter(): () => string {
   return real;
 }
 
+/** The classifier, with each call's rule names kept where the stub transport can read them. */
+function named(inner: Classifier): Classifier {
+  return (state, questions) =>
+    askedRules.run(Object.keys(questions), () => inner(state, questions));
+}
+
 export async function main(outDirOverride?: string): Promise<void> {
   const outDir = outDirOverride ?? process.argv[2] ?? defaultOutDir;
   rmSync(stagingDir, { recursive: true, force: true });
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
   process.env.JINT_RUNS_DIR = stagingDir;
-  process.env.JINT_TYPESAFE_API_KEY = "fixture-key";
 
   const config = {
     input: "",
@@ -205,11 +220,13 @@ export async function main(outDirOverride?: string): Promise<void> {
         config,
         input: sourceDir,
         inputType: "dir",
-        classifier: createClassifier({
-          provider: "systemone",
-          apiKey: "fixture-key",
-          fetch: stubFetch(),
-        }),
+        classifier: named(
+          createClassifier({
+            provider: "openai",
+            apiKey: "fixture-key",
+            fetch: stubFetch(),
+          }),
+        ),
       }),
     );
   } finally {
@@ -315,19 +332,19 @@ export async function main(outDirOverride?: string): Promise<void> {
   if (fmt.exitCode !== 0) throw new Error("oxfmt failed on the generated fixture");
 
   // --- verification ---------------------------------------------------------
-  // element captures carry a uuid id (the recorder's top-level field: the id travels in a header,
-  // never in the state); every element measurement's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
+  // element captures carry a uuid id (the recorder's top-level field: the id never enters the
+  // state the model judges); every element measurement's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
   const elementIds = new Set<string>();
   const files = readdirSync(outDir).filter((f) => f.endsWith(".json"));
   const read = async (f: string) =>
     JSON.parse(await Bun.file(join(outDir, f)).text()) as {
       id?: unknown;
-      request?: { state?: { source?: string } };
+      request?: { input?: { content?: { data?: { source?: string } }[] }[] };
     };
   for (const f of files) {
     if (f === "report.json" || f === "manifest.json") continue;
     const cap = await read(f);
-    if (cap.request?.state?.source !== undefined) {
+    if (cap.request?.input?.[0]?.content?.[0]?.data?.source !== undefined) {
       const id = cap.id;
       if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id))
         throw new Error(`element capture ${f} lacks a uuid id: ${String(id)}`);
