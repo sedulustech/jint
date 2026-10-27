@@ -63,10 +63,23 @@ jint asks its questions of a provider. The default is `openai` (OpenAI's Decisio
 export JINT_OPENAI_API_KEY=...   # the default provider's key; each provider names its own variable
 ```
 
-Choose another provider, model, url or key variable in the config (`provider`, `model`, `providers`),
-or per environment with `JINT_PROVIDER` and `JINT_MODEL`. The config wins over the environment, the
-environment over the built-in table. A provider is data: `providers` overrides a table entry's
-`protocol`, `url`, `keyEnv`, `model`, `headers` and `limits`, or adds a provider.
+A provider is a route to a model, not a different model: `openai` and `vercel` serve the same one
+(`gpt-6-luna`, through the AI gateway as `openai/gpt-6-luna-decisions`) and differ in route, key and
+latency. Each setting resolves on its own axis, config first, then the environment, then the
+built-in table; an empty variable counts as unset:
+
+```
+provider: config provider          > JINT_PROVIDER      > openai
+model:    config model             > JINT_MODEL         > the provider's model
+url:      config providers[name].url > JINT_PROVIDER_URL > the provider's table url
+key:      config apiKey            > JINT_PROVIDER_KEY  > the provider's key variable
+```
+
+`JINT_PROVIDER_URL` and `JINT_PROVIDER_KEY` apply to whichever provider is selected, so switching
+`JINT_PROVIDER` keeps using them. A run that moves the url off the table's, or reads the key from
+`JINT_PROVIDER_KEY`, says so in a run note (provider name and url host only, never the key).
+A provider is data: `providers` overrides a table entry's `protocol`, `url`, `keyEnv`, `model`,
+`headers` and `limits`, or adds a provider.
 
 ```ts
 export default {

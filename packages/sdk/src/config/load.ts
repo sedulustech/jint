@@ -144,16 +144,22 @@ export const CONFIG_SCHEMA = Type.Object({
   // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
   secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
-  apiKey: Type.Optional(Type.String()),
+  apiKey: Type.Optional(
+    Type.String({
+      description:
+        "The API key. Precedence: this, else $JINT_PROVIDER_KEY, else the selected provider's key variable (JINT_OPENAI_API_KEY, JINT_AI_GATEWAY_API_KEY, JINT_TYPESAFE_API_KEY).",
+    }),
+  ),
   provider: Type.Optional(
     Type.String({
       description:
-        "The provider asked: a name from the provider table or from providers. Default: $JINT_PROVIDER, else openai.",
+        "The provider asked: a name from the provider table or from providers. Precedence: this, else $JINT_PROVIDER, else openai. A provider is a route to a model: openai and vercel serve the same one.",
     }),
   ),
   model: Type.Optional(
     Type.String({
-      description: "The model id asked. Default: $JINT_MODEL, else the provider's model.",
+      description:
+        "The model id asked. Precedence: this, else $JINT_MODEL, else the provider's model.",
     }),
   ),
   providers: Type.Optional(
@@ -165,7 +171,10 @@ export const CONFIG_SCHEMA = Type.Object({
             [Type.Literal("decisions"), Type.Literal("decision-model"), Type.Literal("systemone")],
             { description: "The wire format the provider speaks." },
           ),
-          url: Type.String({ description: "The endpoint the questions are posted to." }),
+          url: Type.String({
+            description:
+              "The endpoint the questions are posted to. Precedence: this, else $JINT_PROVIDER_URL, else the table url.",
+          }),
           keyEnv: Type.String({
             description: "The environment variable holding the provider's API key.",
           }),

@@ -1179,14 +1179,15 @@
       }
     },
     "apiKey": {
+      "description": "The API key. Precedence: this, else $JINT_PROVIDER_KEY, else the selected provider's key variable (JINT_OPENAI_API_KEY, JINT_AI_GATEWAY_API_KEY, JINT_TYPESAFE_API_KEY).",
       "type": "string"
     },
     "provider": {
-      "description": "The provider asked: a name from the provider table or from providers. Default: $JINT_PROVIDER, else openai.",
+      "description": "The provider asked: a name from the provider table or from providers. Precedence: this, else $JINT_PROVIDER, else openai. A provider is a route to a model: openai and vercel serve the same one.",
       "type": "string"
     },
     "model": {
-      "description": "The model id asked. Default: $JINT_MODEL, else the provider's model.",
+      "description": "The model id asked. Precedence: this, else $JINT_MODEL, else the provider's model.",
       "type": "string"
     },
     "providers": {
@@ -1214,7 +1215,7 @@
               ]
             },
             "url": {
-              "description": "The endpoint the questions are posted to.",
+              "description": "The endpoint the questions are posted to. Precedence: this, else $JINT_PROVIDER_URL, else the table url.",
               "type": "string"
             },
             "keyEnv": {

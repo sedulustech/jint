@@ -41,6 +41,7 @@ import { protocolFetch } from "./protocol.ts";
 import {
   PROVIDERS,
   resolveProvider,
+  urlHost,
   type ProviderChoice,
   type ResolvedProvider,
 } from "./providers.ts";
@@ -109,7 +110,14 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
     if (client === null)
-      client = makeClient(recordRequests(routeProvider(config, provider)), provider, state.path);
+      client = makeClient(
+        recordRequests(routeProvider(config, provider), {
+          provider: provider.name,
+          host: urlHost(provider.spec.url),
+        }),
+        provider,
+        state.path,
+      );
     const sdkQuestions = compileQuestions(questions);
     // The id is jint's handle, not something to judge: a fresh id each run would make identical
     // code a different request (luna's readings moved by up to 0.55 on unchanged code). It rides

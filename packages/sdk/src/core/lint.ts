@@ -354,6 +354,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     })),
   };
   assertApiKeyForRules(rules.length + customRules.length, options);
+  // An override of the provider's url or key is visible, never silent (names only, no key value).
+  if (options.classifier === undefined && rules.length + customRules.length > 0) {
+    for (const note of resolveProvider(options.config).notes) yield { type: "note", note };
+  }
   const knobs = resolveRunKnobs(options);
   const classifier = pacedClassifier(options, knobs);
   // The changeset selection: every listed path is the file's identity verbatim. Entries that

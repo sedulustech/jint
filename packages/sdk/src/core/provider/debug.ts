@@ -32,6 +32,21 @@ let runStartedAt = 0;
 let usageTotals = { input: 0, output: 0, cached: 0 };
 /** The model the run asks, from the classifier config: readings differ between models. */
 let runModel: string | undefined;
+/** The provider name and url host the run asked (a host only: never a path, userinfo or key). */
+let runRoute: { provider: string; host: string } | undefined;
+
+/** A url without userinfo or query: a recorded request must never carry a credential. */
+function redactUrl(input: string): string {
+  try {
+    const url = new URL(input);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    return url.toString();
+  } catch {
+    return input;
+  }
+}
 
 /** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
 function errorMessage(err: unknown): string {
@@ -85,6 +100,8 @@ export function recordRunManifest(manifest: {
       ...manifest,
       durationMs: Date.now() - runStartedAt,
       model: runModel,
+      provider: runRoute?.provider,
+      providerHost: runRoute?.host,
       usage: { ...usageTotals },
     };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
@@ -117,12 +134,16 @@ export function recordRunReport(json: string): void {
  * Wrap the classifier's fetch so every call records. Calling this IS the start of a recorded run.
  * JINT_RUNS_DIR never changes WHETHER — only WHERE the run dir lands.
  */
-export function recordRequests(config: ClassifierConfig | undefined): ClassifierConfig {
+export function recordRequests(
+  config: ClassifierConfig | undefined,
+  route?: { provider: string; host: string },
+): ClassifierConfig {
   // The run id IS the run's start, and the run dir's name - one timestamp, one identity.
   const runId = Date.now();
   runStartedAt = runId;
   usageTotals = { input: 0, output: 0, cached: 0 };
   runModel = config?.model;
+  runRoute = route;
   const base = runsBase();
   const dir = `${base}/${runId}`;
   runSummary = {
@@ -153,7 +174,7 @@ export function recordRequests(config: ClassifierConfig | undefined): Classifier
       };
       const record = {
         ts: new Date().toISOString(),
-        url: input,
+        url: redactUrl(input),
         id: new Headers(requestInit.headers).get(ID_HEADER) ?? undefined,
         durationMs: Date.now() - startedAt,
         request: asJson(

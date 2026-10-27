@@ -3,10 +3,14 @@
  * key variable, model id, headers, limits) change often and live in one table entry each; only the
  * wire format a provider speaks is code (one adapter per protocol, named here by `protocol`).
  *
- * Selection (config > environment > table): the provider name from config `provider`, else
- * $JINT_PROVIDER, else DEFAULT_PROVIDER; the model from config `model`, else $JINT_MODEL, else the
- * provider's own; the key from config `apiKey`, else the variable the provider's `keyEnv` names.
- * Config `providers` overrides a table entry field by field, or adds a provider.
+ * A provider is a route to a model, not a model: `openai` and `vercel` serve the same one.
+ *
+ * Selection (config > environment > table), each axis on its own; an empty variable is unset:
+ * provider: config `provider` > $JINT_PROVIDER > DEFAULT_PROVIDER model: config `model` >
+ * $JINT_MODEL > the provider's model url: config providers[name].url > $JINT_PROVIDER_URL > the
+ * provider's table url key: config `apiKey` > $JINT_PROVIDER_KEY > the variable the provider's
+ * `keyEnv` names The url and key overrides apply to WHICHEVER provider is selected. Config
+ * `providers` overrides a table entry field by field, or adds a provider.
  */
 
 import { SetupError } from "../types.ts";
@@ -46,6 +50,8 @@ export const PROVIDERS: Readonly<Record<string, ProviderSpec>> = {
     model: "gpt-6-luna",
     limits: { tokensPerMinute: 10_000_000 },
   },
+  // Same model as `openai` (gpt-6-luna), reached through the AI gateway under the id
+  // openai/gpt-6-luna-decisions: differs only in route, key and latency.
   vercel: {
     protocol: "decision-model",
     url: "https://ai-gateway.vercel.sh/v4/ai/decision-model",
@@ -77,6 +83,11 @@ export interface ResolvedProvider {
   model: string;
   /** Undefined when neither config nor the environment holds a key. */
   apiKey: string | undefined;
+  /**
+   * Run notes naming an override (never a key's value): a url moved off the table's, a key read
+   * from $JINT_PROVIDER_KEY. Empty when nothing is overridden.
+   */
+  notes: string[];
 }
 
 type Env = Record<string, string | undefined>;
@@ -84,6 +95,15 @@ type Env = Record<string, string | undefined>;
 /** An empty variable counts as unset. */
 const fromEnv = (env: Env, name: string): string | undefined =>
   env[name] === "" ? undefined : env[name];
+
+/** The host of a url (no userinfo, path or query), for notes and the manifest. */
+export function urlHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "unparseable";
+  }
+}
 
 /** The known provider names: the table plus any the config adds. */
 export function providerNames(choice: ProviderChoice): string[] {
@@ -112,6 +132,8 @@ export function resolveProvider(
     ...override,
     limits: { ...base?.limits, ...override?.limits },
   } as Partial<ProviderSpec>;
+  // $JINT_PROVIDER_URL sits under a config url and over the table's
+  if (override?.url === undefined) spec.url = fromEnv(env, "JINT_PROVIDER_URL") ?? spec.url;
   const missing = (["protocol", "url", "keyEnv", "model"] as const).filter(
     (field) => spec[field] === undefined,
   );
@@ -128,17 +150,25 @@ export function resolveProvider(
     );
   }
   const full = spec as ProviderSpec;
+  const configKey = choice.apiKey === "" ? undefined : choice.apiKey;
+  const genericKey = configKey === undefined ? fromEnv(env, "JINT_PROVIDER_KEY") : undefined;
+  const notes: string[] = [];
+  if (base !== undefined && full.url !== base.url) {
+    notes.push(`provider ${name}: url overridden, host ${urlHost(full.url)}`);
+  }
+  if (genericKey !== undefined) notes.push(`provider ${name}: key from JINT_PROVIDER_KEY`);
   return {
+    notes,
     name,
     spec: full,
     model: choice.model ?? fromEnv(env, "JINT_MODEL") ?? full.model,
-    apiKey: (choice.apiKey === "" ? undefined : choice.apiKey) ?? fromEnv(env, full.keyEnv),
+    apiKey: configKey ?? genericKey ?? fromEnv(env, full.keyEnv),
   };
 }
 
 /** The setup message for a run with no key: names the selected provider's key variable. */
 export function missingKeyMessage(provider: ResolvedProvider): string {
-  return `no ${provider.spec.keyEnv} set - measurements need a valid key (override per run: --config with apiKey)`;
+  return `no ${provider.spec.keyEnv} set - measurements need a valid key (override per run: --config with apiKey, or JINT_PROVIDER_KEY)`;
 }
 
 /** Fails the run at setup when the selected provider has no key. */

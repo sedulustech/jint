@@ -136,7 +136,7 @@ measurement its handle judged actionable and is the only output that demands act
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
   `jint run ./capture`).
-- **provider** — the service jint asks its questions of: where (URL), how (protocol), with which key and model id. Data: one entry in the provider table, overridable in config.
+- **provider** — the service jint asks its questions of: where (URL), how (protocol), with which key and model id. A route to a model, not a model: `openai` and `vercel` serve the same one. Data: one entry in the provider table, overridable in config. Each axis resolves config > environment > table (empty is unset): provider = `provider` > JINT_PROVIDER > openai; model = `model` > JINT_MODEL > the provider's; url = `providers[name].url` > JINT_PROVIDER_URL > the table's; key = `apiKey` > JINT_PROVIDER_KEY > the provider's key variable. An overridden url or key is reported in a run note.
 - **protocol** — the wire format a provider speaks: how questions become a request body and a reply becomes answers. Code, one adapter each; the provider table names which.
 - **question** — one classified judgment request sent to the model about one state.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
