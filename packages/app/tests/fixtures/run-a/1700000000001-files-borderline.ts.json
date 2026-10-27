@@ -32,5 +32,29 @@
       "input_tokens": 100,
       "output_tokens": 10
     }
+  },
+  "wire": {
+    "url": "https://api.openai.com/v1/decisions",
+    "body": {
+      "model": "jev-1.13.0",
+      "input": "{\"path\":\"src/borderline.ts\",\"content\":\"export function alpha(x: number): number {\\n  return x + 1;\\n}\\n\",\"id\":\"L1-L5\"}",
+      "questions": [
+        {
+          "type": "predicate",
+          "name": "q0",
+          "instructions": "Judge is_name_purposeful.\n\nYes: holds\nNo: does not hold"
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "answers": [
+        {
+          "type": "predicate",
+          "name": "q0",
+          "probability": 0.5
+        }
+      ]
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useId, useMemo, useState } from "react";
 import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { CodeBlock } from "./CodeBlock";
@@ -66,6 +67,29 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         : null;
   const meta = request?.response ?? {};
 
+  // The request view shows what the model was sent: the recorded wire body. A recording from
+  // before wire capture holds only jint's own request shape, shown with a note saying so.
+  const [view, setView] = useState<"code" | "request">("code");
+  const panelId = useId();
+  const hasWire = request?.wire?.body !== undefined;
+  const requestText = useMemo(
+    () => JSON.stringify(hasWire ? request?.wire?.body : request?.request, null, 2) ?? "",
+    [hasWire, request],
+  );
+  const viewButton = (mode: "code" | "request") => (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => setView(mode)}
+      aria-pressed={view === mode}
+      aria-controls={panelId}
+      data-testid={`pair-view-${mode}`}
+      className={view === mode ? "text-body" : "border border-input text-body"}
+    >
+      {mode}
+    </Button>
+  );
+
   return (
     <section className="detail-pane flex h-full w-full min-h-0 min-w-0 flex-col border-t border-border bg-background overflow-auto lg:border-l lg:border-t-0">
       <header className="flex shrink-0 items-center gap-siblings border-b border-border px-rail py-bar-y">
@@ -76,9 +100,6 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             {element !== undefined ? " · " + spanLabel(element.span) : ""}
           </span>
         </h2>
-        {request !== undefined && (
-          <CopyButton text={JSON.stringify(request, null, 2)} label="copy request" />
-        )}
         <Button
           variant="secondary"
           size="icon-xs"
@@ -130,14 +151,40 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
               })()}
             />
           </div>
-          {code !== null && (
-            <div className="relative bg-muted">
-              <div className="absolute right-related top-related z-10">
-                <CopyButton text={code} label="copy code" icon />
+          <div
+            role="group"
+            aria-label="view"
+            className="flex items-center gap-related px-rail py-siblings"
+          >
+            {viewButton("code")}
+            {viewButton("request")}
+          </div>
+          <div id={panelId} data-testid="pair-view" className="relative bg-muted">
+            {view === "code" && code !== null && (
+              <>
+                <div className="absolute right-related top-related z-10">
+                  <CopyButton text={code} label="copy code" icon />
+                </div>
+                <CodeBlock code={code} path={result?.path ?? file} />
+              </>
+            )}
+            {view === "request" && (
+              <div data-testid="pair-request" data-wire={hasWire}>
+                <div className="absolute right-related top-related z-10">
+                  <CopyButton text={requestText} label="copy request" icon />
+                </div>
+                {!hasWire && (
+                  <p
+                    data-testid="pair-request-note"
+                    className="px-rail pt-siblings text-caption text-muted-foreground"
+                  >
+                    recorded before wire capture: this is jint's request shape, not the bytes sent
+                  </p>
+                )}
+                <CodeBlock code={requestText} path="request.json" />
               </div>
-              <CodeBlock code={code} path={result?.path ?? file} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </section>

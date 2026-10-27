@@ -4,6 +4,7 @@ import cppLang from "highlight.js/lib/languages/cpp";
 import cssLang from "highlight.js/lib/languages/css";
 import goLang from "highlight.js/lib/languages/go";
 import jsLang from "highlight.js/lib/languages/javascript";
+import jsonLang from "highlight.js/lib/languages/json";
 import phpLang from "highlight.js/lib/languages/php";
 import pyLang from "highlight.js/lib/languages/python";
 import tsLang from "highlight.js/lib/languages/typescript";
@@ -19,6 +20,7 @@ const MarkdownBlock = lazy(() =>
 
 hljs.registerLanguage("typescript", tsLang);
 hljs.registerLanguage("javascript", jsLang);
+hljs.registerLanguage("json", jsonLang);
 // the JSX in tsx/jsx highlights as xml: the typescript grammar hands its tags to this sublanguage
 hljs.registerLanguage("xml", xmlLang);
 hljs.registerLanguage("go", goLang);
@@ -37,6 +39,7 @@ const EXT: Record<string, string> = {
   js: "javascript",
   jsx: "javascript",
   mjs: "javascript",
+  json: "json",
   go: "go",
   py: "python",
   c: "c",

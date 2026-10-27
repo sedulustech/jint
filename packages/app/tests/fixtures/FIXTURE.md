@@ -16,6 +16,8 @@ Generated files - do not hand-edit; regenerate instead.
   - one multi-question capture (two rules on one element, elements tier / `state.source`).
   - one refused reading (`will_error_lose_cause` at src/refused.ts: the answer is `{type:"refusal"}`,
     the report measurement is `refused: true` - no value, no verdict).
+  - one recording with a `wire` request (`borderline.ts`, the translated Decisions body); every
+    other capture predates wire capture and has none (the request view's fallback).
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders
