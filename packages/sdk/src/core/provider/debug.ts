@@ -1,6 +1,6 @@
 /**
  * Run recording for the provider adapter: every run, on by default. Captures the exact bytes the
- * vendor SDK serializes — not our pre-SDK question objects — plus the manifest and the machine
+ * provider's client sends — not our pre-client question objects — plus the manifest and the machine
  * report, so any run can be replayed, inspected, or judged from real payloads. Only the in-process
  * test seam stops it; JINT_RUNS_DIR moves WHERE the run dir lands, never WHETHER one is written.
  */
@@ -13,9 +13,8 @@ import type { ClassifierConfig } from "./client.ts";
 
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
- * request body, response status + body; a call through a provider's own client keeps exactly that,
- * a call through the vendor client keeps its System One request, a neutral response and the wire),
- * named <unixts>-<kind>-<file>.json, under the run dir <base>/<runId>/ (base = $JINT_RUNS_DIR, else
+ * request body, response status + body: the real exchange, nothing else), named
+ * <unixts>-<kind>-<file>.json, under the run dir <base>/<runId>/ (base = $JINT_RUNS_DIR, else
  * <homedir>/.jint/runs; runId = unix timestamp of the run's first request; past runs are never
  * overwritten). The kind (elements / files) is derived from the request's state shape.
  */
@@ -25,9 +24,6 @@ export interface RequestRecordSummary {
   count: number;
   override: boolean;
 }
-
-/** Carries a state's id beside the request, never inside the state the model judges. */
-export const ID_HEADER = "X-Jint-Id";
 
 let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
@@ -62,23 +58,10 @@ function asJson(text: string): unknown {
   }
 }
 
-/** The call that reached the network: url, body, status, response. Never a header or a key. */
-export interface WireCall {
-  url: string;
-  body: unknown;
-  status: number;
-  response: unknown;
-}
-
-/** One recorded call's slot: the lowest fetch fills it, the recording fetch above reads it. */
-const wireSlot = new AsyncLocalStorage<{ wire?: WireCall }>();
-
-type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
-
 /**
- * The call a request belongs to, for a provider reached through its own client: the state's
- * run-scoped id and what names its file. Set around each ask, so the recording fetch beneath the
- * client knows whose exchange it sees without the id travelling to the provider.
+ * The call a request belongs to: the state's run-scoped id and what names its file. Set around each
+ * ask, so the recording fetch beneath the client knows whose exchange it sees without the id
+ * travelling to the provider.
  */
 export interface CallContext {
   id: string;
@@ -106,31 +89,6 @@ export function inCall<T>(
     kind: state.source === undefined ? "files" : "elements",
   };
   return callSlot.run(call, body);
-}
-
-/**
- * Wrap the LOWEST fetch (beneath any protocol translation) so a recorded call also keeps the bytes
- * that went to the network. Reads only the url, the string body and the response; request headers
- * (the Authorization credential) are never touched. A no-op outside a recorded call.
- */
-export function tapWire(base: Fetcher = (input, init) => fetch(input, init)): Fetcher {
-  return async (input, init) => {
-    const response = await base(input, init);
-    const slot = wireSlot.getStore();
-    if (slot !== undefined) {
-      try {
-        slot.wire = {
-          url: redactUrl(input),
-          body: asJson(typeof init?.body === "string" ? init.body : ""),
-          status: response.status,
-          response: asJson(await response.clone().text()),
-        };
-      } catch {
-        // Wire capture never breaks the call it observes.
-      }
-    }
-    return response;
-  };
 }
 
 /**
@@ -278,19 +236,16 @@ export function recordRequests(
   ) => {
     const startedAt = Date.now();
     const call = callSlot.getStore();
-    const slot: { wire?: WireCall } = {};
-    const response = await wireSlot.run(slot, () => baseFetch(input, init));
+    const response = await baseFetch(input, init);
     try {
       const requestInit = init ?? {};
       const requestText = await new Request(input, requestInit).text();
       const responseText = await response.clone().text();
-      // A call made through the provider's own client records the real exchange: the body sent and
-      // the body received, nothing else. A call through the vendor client keeps its System One
-      // request, the neutral response and the wire beneath them.
+      // The real exchange: the body sent and the body received, nothing else.
       const common = {
         ts: new Date().toISOString(),
         url: redactUrl(input),
-        id: call?.id ?? new Headers(requestInit.headers).get(ID_HEADER) ?? undefined,
+        id: call?.id,
         durationMs: Date.now() - startedAt,
       };
       const body = asJson(
@@ -298,22 +253,13 @@ export function recordRequests(
           ? requestInit.body
           : requestText,
       );
-      const record =
-        call !== undefined
-          ? {
-              ...common,
-              questionIds: call.questionIds,
-              status: response.status,
-              request: body,
-              response: asJson(responseText),
-            }
-          : {
-              ...common,
-              request: body,
-              status: response.status,
-              response: asJson(responseText),
-              wire: slot.wire,
-            };
+      const record = {
+        ...common,
+        questionIds: call?.questionIds,
+        status: response.status,
+        request: body,
+        response: asJson(responseText),
+      };
       const counted = tokensOf(record.response);
       usageTotals.input += counted.input;
       usageTotals.output += counted.output;

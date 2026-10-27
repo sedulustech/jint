@@ -15,8 +15,8 @@ describe("resolveProvider", () => {
 
   test("provider: config beats JINT_PROVIDER beats the default", () => {
     expect(resolveProvider({}, { JINT_PROVIDER: "vercel" }).name).toBe("vercel");
-    expect(resolveProvider({ provider: "systemone" }, { JINT_PROVIDER: "vercel" }).name).toBe(
-      "systemone",
+    expect(resolveProvider({ provider: "openai" }, { JINT_PROVIDER: "vercel" }).name).toBe(
+      "openai",
     );
   });
 
@@ -34,7 +34,7 @@ describe("resolveProvider", () => {
     expect(resolveProvider({ provider: "vercel" }, env).apiKey).toBe("gw-key");
     // bare vendor variables collide with other tools: never read
     expect(
-      resolveProvider({}, { OPENAI_API_KEY: "x", TYPESAFE_API_KEY: "y" }).apiKey,
+      resolveProvider({}, { OPENAI_API_KEY: "x", AI_GATEWAY_API_KEY: "y" }).apiKey,
     ).toBeUndefined();
     // empty counts as unset
     expect(resolveProvider({ apiKey: "" }, { JINT_OPENAI_API_KEY: "" }).apiKey).toBeUndefined();
@@ -107,7 +107,7 @@ describe("resolveProvider", () => {
     expect(thrown).toBeInstanceOf(SetupError);
     expect((thrown as SetupError).code).toBe("CONFIG_INVALID");
     expect((thrown as SetupError).message).toContain("'nope'");
-    expect((thrown as SetupError).message).toContain("openai, vercel, systemone, mine");
+    expect((thrown as SetupError).message).toContain("openai, vercel, mine");
   });
 
   test("an override merges field by field over the table entry, limits included", () => {

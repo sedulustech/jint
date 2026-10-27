@@ -71,7 +71,7 @@ describe("withTokenRate", () => {
   test("identity when the provider has no budget", () => {
     expect(withTokenRate(ok, undefined)).toBe(ok);
     expect(
-      resolveProvider({ provider: "systemone" }, {}).spec.limits?.tokensPerMinute,
+      resolveProvider({ provider: "vercel" }, {}).spec.limits?.tokensPerMinute,
     ).toBeUndefined();
   });
 

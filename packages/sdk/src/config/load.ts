@@ -147,7 +147,7 @@ export const CONFIG_SCHEMA = Type.Object({
   apiKey: Type.Optional(
     Type.String({
       description:
-        "The API key. Precedence: this, else $JINT_PROVIDER_KEY, else the selected provider's key variable (JINT_OPENAI_API_KEY, JINT_AI_GATEWAY_API_KEY, JINT_TYPESAFE_API_KEY).",
+        "The API key. Precedence: this, else $JINT_PROVIDER_KEY, else the selected provider's key variable (JINT_OPENAI_API_KEY, JINT_AI_GATEWAY_API_KEY).",
     }),
   ),
   provider: Type.Optional(
@@ -167,10 +167,9 @@ export const CONFIG_SCHEMA = Type.Object({
       Type.String(),
       Type.Partial(
         Type.Object({
-          protocol: Type.Union(
-            [Type.Literal("decisions"), Type.Literal("decision-model"), Type.Literal("systemone")],
-            { description: "The wire format the provider speaks." },
-          ),
+          protocol: Type.Union([Type.Literal("decisions"), Type.Literal("decision-model")], {
+            description: "The wire format the provider speaks.",
+          }),
           url: Type.String({
             description:
               "The endpoint the questions are posted to. Precedence: this, else $JINT_PROVIDER_URL, else the table url.",
@@ -197,7 +196,7 @@ export const CONFIG_SCHEMA = Type.Object({
       ),
       {
         description:
-          "Per-name overrides of the provider table entries (openai, vercel, systemone), or new providers.",
+          "Per-name overrides of the provider table entries (openai, vercel), or new providers.",
       },
     ),
   ),

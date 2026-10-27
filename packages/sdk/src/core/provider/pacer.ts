@@ -84,7 +84,7 @@ export function withLimit(classifier: Classifier, limit: number | undefined): Cl
 /**
  * Bounds one classifier call's duration: a hung request rejects as PROVIDER_TIMEOUT after `seconds`
  * (converted to a per-element ClassifyError by the call seam) instead of holding a run-wide slot
- * forever. Liveness, not retry - the typesafe SDK owns retries. Sits INSIDE the limit so the
+ * forever. Liveness, not retry - the provider client owns retries. Sits INSIDE the limit so the
  * timeout firing frees the slot; the underlying request is not cancelled (the SDK/transport owns
  * the socket), only abandoned. Identity when seconds is absent.
  */

@@ -95,7 +95,7 @@ export interface LintOptions {
   disable?: readonly string[];
   /** If set, ONLY these rules run (CLI --rule, repeatable). Applied after disable. */
   only?: readonly string[];
-  /** Swappable classifier; defaults to the TypeSafe System One adapter. */
+  /** Swappable classifier; defaults to the configured provider's adapter. */
   classifier?: Classifier;
   /**
    * The transport log sink (vendor backoff/warn/error visibility), called with one UNPREFIXED line

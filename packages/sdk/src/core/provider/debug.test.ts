@@ -1,13 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import {
-  ID_HEADER,
-  inCall,
-  recordRequests,
-  recordRunManifest,
-  recordSummary,
-  tapWire,
-} from "./debug.ts";
+import { inCall, recordRequests, recordRunManifest, recordSummary } from "./debug.ts";
 
 const DIR = "tmp/provider-record-test";
 
@@ -24,7 +17,7 @@ function listRequests(dir: string): string[] {
 
 function passthrough(): (input: string, init?: RequestInit) => Promise<Response> {
   return async () =>
-    new Response(JSON.stringify({ model: "jev-1.0", answers: {}, usage: {} }), {
+    new Response(JSON.stringify({ model: "m-1", answers: {}, usage: {} }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -34,12 +27,12 @@ async function recordOnce(
   config: ReturnType<typeof recordRequests>,
   state: Record<string, unknown>,
 ): Promise<void> {
-  await config.fetch!("https://api.typesafe.ai/v1/systemone", {
+  await config.fetch!("https://api.test/v1/decisions", {
     method: "POST",
     body: JSON.stringify({
       state,
       questions: { is_name_purposeful: { type: "noul", instructions: "names are precise" } },
-      model: "jev-latest",
+      model: "m",
     }),
   });
 }
@@ -83,23 +76,11 @@ describe("recordRequests", () => {
     expect(list[0]).toMatch(/^\d+\/\d+-files-a\.ts\.json$/);
 
     const request = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
-    expect(request.url).toBe("https://api.typesafe.ai/v1/systemone");
+    expect(request.url).toBe("https://api.test/v1/decisions");
     expect(request.status).toBe(200);
     expect(request.request.state.path).toBe("src/a.ts");
-    expect(request.request.model).toBe("jev-latest");
-    expect(request.response.model).toBe("jev-1.0");
-  });
-
-  test("the state's id, sent beside the state in a header, is kept in the record", async () => {
-    const config = recordRequests({ fetch: passthrough() });
-    await config.fetch!("https://api.typesafe.ai/v1/systemone", {
-      method: "POST",
-      headers: { [ID_HEADER]: "0f6c" },
-      body: JSON.stringify({ state: { path: "a.ts", source: "x" }, questions: {}, model: "m" }),
-    });
-    const request = JSON.parse(readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8"));
-    expect(request.id).toBe("0f6c");
-    expect(request.request.state.id).toBeUndefined();
+    expect(request.request.model).toBe("m");
+    expect(request.response.model).toBe("m-1");
   });
 
   test("state shape drives the kind: single-element source -> elements, else files", async () => {
@@ -119,9 +100,9 @@ describe("recordRequests", () => {
       questions: { q: { type: "noul", instructions: "x" } },
     });
     await Promise.all([
-      config.fetch!("https://api.typesafe.ai/v1/systemone", { method: "POST", body }),
-      config.fetch!("https://api.typesafe.ai/v1/systemone", { method: "POST", body }),
-      config.fetch!("https://api.typesafe.ai/v1/systemone", { method: "POST", body }),
+      config.fetch!("https://api.test/v1/decisions", { method: "POST", body }),
+      config.fetch!("https://api.test/v1/decisions", { method: "POST", body }),
+      config.fetch!("https://api.test/v1/decisions", { method: "POST", body }),
     ]);
 
     const list = listRequests(DIR);
@@ -134,7 +115,7 @@ describe("recordRequests", () => {
   test("a failing store never breaks the observed call", async () => {
     process.env.JINT_RUNS_DIR = "/proc/definitely-not-writable";
     const config = recordRequests({ fetch: passthrough() });
-    const response = await config.fetch!("https://api.typesafe.ai/v1/systemone", {
+    const response = await config.fetch!("https://api.test/v1/decisions", {
       method: "POST",
       body: JSON.stringify({ state: { path: "a.ts", content: "x" }, questions: {} }),
     });
@@ -156,28 +137,6 @@ describe("recordRequests", () => {
     expect(summary.override).toBe(true);
   });
 
-  test("wire: a provider with no translation records the same body, url redacted, no credential", async () => {
-    const config = recordRequests({ fetch: tapWire(passthrough()) });
-    await config.fetch!("https://user:pw@api.typesafe.ai/v1/systemone?key=sk-secret", {
-      method: "POST",
-      headers: { Authorization: "Bearer sk-secret" },
-      body: JSON.stringify({ state: { path: "a.ts", content: "x" }, questions: {} }),
-    });
-    const text = readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8");
-    const file = JSON.parse(text);
-    expect(file.wire.body).toEqual(file.request);
-    expect(file.wire.url).toBe("https://api.typesafe.ai/v1/systemone");
-    expect(file.wire.status).toBe(200);
-    expect(file.wire.response).toEqual(file.response);
-    for (const secret of ["sk-secret", "Bearer", "pw@"]) expect(text).not.toContain(secret);
-  });
-
-  test("a recording without a wire tap has no wire field", async () => {
-    const config = recordRequests({ fetch: passthrough() });
-    await recordOnce(config, { path: "a.ts", content: "x" });
-    expect(JSON.parse(readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8")).wire).toBeUndefined();
-  });
-
   test("a call through a provider's own client records the real exchange, redacted, per attempt", async () => {
     const reply = { model: "m", answers: [], usage: { input_tokens: 3, output_tokens: 1 } };
     let attempt = 0;
@@ -192,7 +151,7 @@ describe("recordRequests", () => {
       for (let i = 0; i < 2; i++) {
         await config.fetch!("https://user:pw@api.test/v1/decisions?key=sk-secret", {
           method: "POST",
-          headers: { Authorization: "Bearer sk-secret", [ID_HEADER]: "never-read" },
+          headers: { Authorization: "Bearer sk-secret" },
           body,
         });
       }
@@ -214,9 +173,7 @@ describe("recordRequests", () => {
     expect(ok.response).toEqual(reply);
     expect(failed.response).toEqual({ error: "slow" });
     for (const t of texts)
-      for (const secret of ["sk-secret", "Bearer", "pw@", "never-read"])
-        expect(t).not.toContain(secret);
-    expect(JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8")).wire).toBeUndefined();
+      for (const secret of ["sk-secret", "Bearer", "pw@"]) expect(t).not.toContain(secret);
   });
 
   test("the run's token totals read the AI gateway's usage shape too", async () => {

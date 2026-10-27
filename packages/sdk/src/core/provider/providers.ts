@@ -15,14 +15,14 @@
 
 import { SetupError } from "../types.ts";
 
-/** The wire formats with an adapter. `systemone` is the vendor SDK's own format (no translation). */
-export const PROTOCOLS = ["decisions", "decision-model", "systemone"] as const;
+/** The wire formats with an adapter. */
+export const PROTOCOLS = ["decisions", "decision-model"] as const;
 export type ProtocolName = (typeof PROTOCOLS)[number];
 
 export interface ProviderSpec {
   /** The wire format this provider speaks. */
   protocol: ProtocolName;
-  /** The endpoint the questions are posted to (the API root for `systemone`). */
+  /** The endpoint the questions are posted to. */
   url: string;
   /** The environment variable holding the provider's API key. */
   keyEnv: string;
@@ -35,12 +35,6 @@ export interface ProviderSpec {
     tokensPerMinute?: number;
   };
 }
-
-/**
- * The pinned System One model. Its `jev-latest` alias moves when a release ships, so readings, and
- * every threshold calibrated against them, would change without a change here.
- */
-export const DEFAULT_MODEL = "jev-1.13.0";
 
 export const PROVIDERS: Readonly<Record<string, ProviderSpec>> = {
   openai: {
@@ -57,12 +51,6 @@ export const PROVIDERS: Readonly<Record<string, ProviderSpec>> = {
     url: "https://ai-gateway.vercel.sh/v4/ai/decision-model",
     keyEnv: "JINT_AI_GATEWAY_API_KEY",
     model: "openai/gpt-6-luna-decisions",
-  },
-  systemone: {
-    protocol: "systemone",
-    url: "https://api.typesafe.ai",
-    keyEnv: "JINT_TYPESAFE_API_KEY",
-    model: DEFAULT_MODEL,
   },
 };
 

@@ -15,7 +15,7 @@
 
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
-import { wireName, type Fetch, type SystemOneQuestion } from "./protocol.ts";
+import { wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 import type { ResolvedProvider } from "./providers.ts";
@@ -25,8 +25,8 @@ import type { Decision, DecisionCreateParams } from "openai/resources/decisions"
 
 type Question = DecisionCreateParams["questions"][number];
 
-/** The Decisions question for one System One question, under a wire-safe name. */
-export function toDecisions(name: string, q: SystemOneQuestion): Question {
+/** The Decisions question for one question, under a wire-safe name. */
+export function toDecisions(name: string, q: QuestionSpec): Question {
   const instructions =
     typeof q.instructions === "string" ? q.instructions : JSON.stringify(q.instructions);
   if (q.type === "score") {

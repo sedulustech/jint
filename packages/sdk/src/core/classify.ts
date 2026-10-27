@@ -41,7 +41,7 @@ export interface ClassifyOptions {
   readonly path?: string;
   /** Explicit tree-sitter grammar (e.g. "typescript") for extensionless sources. */
   readonly language?: string;
-  /** Swappable classifier; defaults to the TypeSafe System One adapter. */
+  /** Swappable classifier; defaults to the configured provider's adapter. */
   readonly classifier?: Classifier;
   /** Cap on in-flight per-element classifier calls (default 16, the shared run-wide ceiling). */
   readonly concurrency?: number;

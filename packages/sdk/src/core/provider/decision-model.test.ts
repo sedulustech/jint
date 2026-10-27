@@ -198,8 +198,8 @@ describe("decision-model adapter", () => {
   });
 });
 
-describe("decision-model adapter keeps what the TypeSafe-translated path sent and read", () => {
-  // Captured from that path (the translating fetch under the vendor client) on the same asks.
+describe("decision-model adapter keeps its request bytes and readings pinned", () => {
+  // Captured from the earlier translating path on the same asks.
   const BODY =
     '{"stateParts":[{"type":"text","text":"{\\"path\\":\\"src/a.ts\\",\\"content\\":\\"export const x = 1;\\\\n\\"}"}],"questions":{"q0":{"type":"boolean","instructions":"Is it ok?\\n\\nYes: ok\\nNo: not ok"},"q1":{"type":"score","instructions":"How readable?","criteria":["bad","fair","good"]},"q2":{"type":"choice","instructions":"What kind?","criteria":{"a":"A","b":"B","none_of_these":"None of these fits"}},"q3":{"type":"score","instructions":"Unscorable?","criteria":["x","y"]}}}';
 

@@ -216,7 +216,7 @@ export interface ChoiceRule extends RuleBase {
   readonly instructions: string;
 }
 
-/** A rule: one System One judgment over a state, plus a handle that reads the value. */
+/** A rule: one classifier judgment over a state, plus a handle that reads the value. */
 export type Rule = NoulRule | ScoreRule | ChoiceRule;
 
 /**

@@ -1,8 +1,8 @@
 /**
- * What the protocol adapters share: the question shape the rules write (System One's, kept as the
- * lingua franca of the questions), the fetch they run on, and the wire name of a question. A
- * protocol's adapter knows its wire format and nothing about who serves it: where, with which key
- * and which headers is the provider table's data (providers.ts), never a branch here.
+ * What the protocol adapters share: the question shape the rules write, the fetch they run on, and
+ * the wire name of a question. A protocol's adapter knows its wire format and nothing about who
+ * serves it: where, with which key and which headers is the provider table's data (providers.ts),
+ * never a branch here.
  */
 
 import type { Usage } from "../types.ts";
@@ -11,8 +11,8 @@ export type { Usage };
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-/** One System One question, as the vendor SDK serializes it. */
-export type SystemOneQuestion = {
+/** One question as a rule writes it: a type, the claim to judge, and what its answers mean. */
+export type QuestionSpec = {
   type: "noul" | "choice" | "score";
   instructions: unknown;
   criteria?: Readonly<Record<string, string>> | readonly string[];

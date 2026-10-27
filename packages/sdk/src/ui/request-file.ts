@@ -18,7 +18,7 @@
 
 import { asDecisions, type NativeReply } from "../core/provider/decision-model.ts";
 import { fromDecisions, NONE, type DecisionsAnswer } from "../core/provider/reading.ts";
-import type { SystemOneQuestion } from "../core/provider/protocol.ts";
+import type { QuestionSpec } from "../core/provider/protocol.ts";
 
 /**
  * The view model of one recorded classifier request file, as served by this module: one stable
@@ -102,7 +102,7 @@ function stateOf(input: unknown): Obj {
 }
 
 /** The System One-shaped question the run view reads for one decisions question. */
-function questionOf(q: DecisionsQuestion): SystemOneQuestion {
+function questionOf(q: DecisionsQuestion): QuestionSpec {
   if (q.type === "score") {
     return {
       type: "score",
@@ -141,12 +141,12 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
   const response = isObj(raw.response) ? raw.response : {};
   const ids = Array.isArray(raw.questionIds) ? (raw.questionIds as string[]) : [];
   const received = isObj(response.answers) ? response.answers : {};
-  const questions: Record<string, SystemOneQuestion> = {};
+  const questions: Record<string, QuestionSpec> = {};
   const answers: Record<string, unknown> = {};
   Object.entries(isObj(request.questions) ? request.questions : {}).forEach(([wire, q], i) => {
     const asked = q as NativeQuestion;
     const key = ids[i] ?? wire;
-    const question: SystemOneQuestion =
+    const question: QuestionSpec =
       asked.type === "score"
         ? { type: "score", instructions: asked.instructions, criteria: asked.criteria }
         : asked.type === "choice"
@@ -214,7 +214,7 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
   const ids = Array.isArray(raw.questionIds) ? (raw.questionIds as string[]) : [];
   const keyOf = (q: DecisionsQuestion, i: number): string => ids[i] ?? q.name ?? `q${i}`;
   const received = (Array.isArray(response.answers) ? response.answers : []) as DecisionsAnswer[];
-  const questions: Record<string, SystemOneQuestion> = {};
+  const questions: Record<string, QuestionSpec> = {};
   const answers: Record<string, unknown> = {};
   asked.forEach((q, i) => {
     const key = keyOf(q, i);

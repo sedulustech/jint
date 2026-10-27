@@ -6,7 +6,7 @@
 
 import { ClassifyError, type Ask } from "../types.ts";
 import { wireName } from "./protocol.ts";
-import type { SystemOneQuestion } from "./protocol.ts";
+import type { QuestionSpec } from "./protocol.ts";
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
 /** The fallback option a choice is asked with; its mass is dropped from the reading. */
@@ -27,7 +27,7 @@ export type DecisionsAnswer = {
  * option's mass is dropped and the rest renormalized.
  */
 export function readAnswer(
-  q: SystemOneQuestion,
+  q: QuestionSpec,
   a: DecisionsAnswer,
 ): ClassifiedAnswer | Refusal | undefined {
   if (a.type === "refusal") return { refused: true };
@@ -53,13 +53,13 @@ export function readAnswer(
   return { value: probabilities[choice] ?? 0, choice, probabilities };
 }
 
-/** The System One answer for one Decisions answer (the vercel route's shape). */
-export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
+/** The run view's answer shape for one Decisions answer (what the recorded `response` is read as). */
+export function fromDecisions(q: QuestionSpec, a: DecisionsAnswer): unknown {
   const r = readAnswer(q, a) as ClassifiedAnswer | undefined;
   if (r === undefined) throw new Error("provider choice answer carries no options");
   if (q.type === "noul") return { type: "noul", noul: r.value };
   if (q.type === "score") {
-    // System One echoes each level's text as the legend; the run view shows the levels from it.
+    // the legend carries each level's text; the run view shows the levels from it
     const legend = Object.fromEntries(
       (q.criteria as readonly string[]).map((text, i) => [String(i), text]),
     );
