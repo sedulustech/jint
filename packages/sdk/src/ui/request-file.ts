@@ -8,11 +8,15 @@
  * - Decisions: the real exchange, `request` and `response` being the bodies of POST /v1/decisions (a
  *   `questions` ARRAY, an `answers` ARRAY matched by name), plus `questionIds` naming each question
  *   by position.
+ * - Decision-model: the real exchange with the AI gateway's native endpoint: `request` holds
+ *   `stateParts` (text parts) and `questions` keyed by wire name, `response.answers` is keyed the
+ *   same, with `questionIds` naming each question by position.
  *
- * The forms tell apart by `request.questions`: an array is the decisions form, anything else
- * legacy.
+ * The forms tell apart by the request: `stateParts` marks decision-model, a `questions` ARRAY the
+ * decisions form, anything else legacy.
  */
 
+import { asDecisions, type NativeReply } from "../core/provider/decision-model.ts";
 import { fromDecisions, NONE, type DecisionsAnswer } from "../core/provider/reading.ts";
 import type { SystemOneQuestion } from "../core/provider/protocol.ts";
 
@@ -118,8 +122,89 @@ function questionOf(q: DecisionsQuestion): SystemOneQuestion {
   return { type: "noul", instructions: q.instructions };
 }
 
-/** One recorded file of either form to the view model; anything unrecognized passes as legacy. */
+type NativeQuestion = {
+  type?: string;
+  instructions?: string;
+  criteria?: readonly string[] | Readonly<Record<string, string>>;
+};
+
+/** The state a decision-model request judged: its text parts, JSON joined back. */
+function nativeState(parts: unknown): Obj {
+  const text = (Array.isArray(parts) ? parts : [])
+    .map((p) => (isObj(p) && typeof p.text === "string" ? p.text : ""))
+    .join("");
+  return stateOf(text);
+}
+
+/** The decision-model form to the view model: the questions and answers keyed by question id. */
+function normalizeNative(raw: Obj, request: Obj): RequestFile {
+  const response = isObj(raw.response) ? raw.response : {};
+  const ids = Array.isArray(raw.questionIds) ? (raw.questionIds as string[]) : [];
+  const received = isObj(response.answers) ? response.answers : {};
+  const questions: Record<string, SystemOneQuestion> = {};
+  const answers: Record<string, unknown> = {};
+  Object.entries(isObj(request.questions) ? request.questions : {}).forEach(([wire, q], i) => {
+    const asked = q as NativeQuestion;
+    const key = ids[i] ?? wire;
+    const question: SystemOneQuestion =
+      asked.type === "score"
+        ? { type: "score", instructions: asked.instructions, criteria: asked.criteria }
+        : asked.type === "choice"
+          ? {
+              type: "choice",
+              instructions: asked.instructions,
+              criteria: Object.fromEntries(
+                Object.entries(asked.criteria ?? {}).filter(([value]) => value !== NONE),
+              ),
+            }
+          : { type: "noul", instructions: asked.instructions };
+    questions[key] = question;
+    const answer = received[wire] as NonNullable<NativeReply["answers"]>[string] | undefined;
+    if (answer === undefined) return;
+    answers[key] =
+      answer.type === "refusal"
+        ? { type: "refusal" }
+        : fromDecisions(question, asDecisions(wire, answer));
+  });
+  const usage = isObj(response.usage) ? response.usage : undefined;
+  const provider = (response as NativeReply).providerMetadata?.openai?.usage;
+  return {
+    ts: raw.ts as string | undefined,
+    url: raw.url as string | undefined,
+    id: raw.id as string | undefined,
+    durationMs: raw.durationMs as number | undefined,
+    status: raw.status as number | undefined,
+    wire: {
+      url: raw.url as string | undefined,
+      body: raw.request,
+      status: raw.status as number | undefined,
+      response: raw.response,
+    },
+    request: {
+      state: nativeState(request.stateParts),
+      questions: questions as NonNullable<RequestFile["request"]>["questions"],
+      model: undefined,
+    },
+    response: {
+      model: response.model as string | undefined,
+      answers: answers as NonNullable<RequestFile["response"]>["answers"],
+      usage:
+        usage === undefined && provider === undefined
+          ? undefined
+          : {
+              input_tokens: Number(usage?.inputTokens ?? provider?.input_tokens ?? 0),
+              output_tokens: Number(usage?.outputTokens ?? 0),
+              cached_input_tokens: Number(provider?.input_tokens_details?.cached_tokens ?? 0),
+            },
+    },
+  };
+}
+
+/** One recorded file of any form to the view model; anything unrecognized passes as legacy. */
 export function normalizeRequestFile(raw: unknown): RequestFile {
+  if (isObj(raw) && isObj(raw.request) && Array.isArray(raw.request.stateParts)) {
+    return normalizeNative(raw, raw.request);
+  }
   if (!isObj(raw) || !isObj(raw.request) || !Array.isArray(raw.request.questions)) {
     return raw as RequestFile;
   }

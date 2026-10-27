@@ -1,6 +1,13 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { ID_HEADER, inCall, recordRequests, recordSummary, tapWire } from "./debug.ts";
+import {
+  ID_HEADER,
+  inCall,
+  recordRequests,
+  recordRunManifest,
+  recordSummary,
+  tapWire,
+} from "./debug.ts";
 
 const DIR = "tmp/provider-record-test";
 
@@ -210,5 +217,24 @@ describe("recordRequests", () => {
       for (const secret of ["sk-secret", "Bearer", "pw@", "never-read"])
         expect(t).not.toContain(secret);
     expect(JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8")).wire).toBeUndefined();
+  });
+
+  test("the run's token totals read the AI gateway's usage shape too", async () => {
+    const config = recordRequests({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            answers: {},
+            usage: { inputTokens: 40, outputTokens: 4 },
+            providerMetadata: { openai: { usage: { input_tokens_details: { cached_tokens: 8 } } } },
+          }),
+        ),
+    });
+    await inCall({ id: "L1", path: "src/a.ts", source: "x" }, ["r"], () =>
+      config.fetch!("https://gw.test/v4/ai/decision-model", { method: "POST", body: "{}" }),
+    );
+    recordRunManifest({ configPath: null, cwd: ".", argv: [], ts: "t" });
+    const manifest = JSON.parse(readFileSync(`${recordSummary()!.dir}/manifest.json`, "utf8"));
+    expect(manifest.usage).toEqual({ input: 40, output: 4, cached: 8 });
   });
 });

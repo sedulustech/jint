@@ -133,6 +133,41 @@ export function tapWire(base: Fetcher = (input, init) => fetch(input, init)): Fe
   };
 }
 
+/**
+ * The tokens a recorded reply reports, whichever shape it has: the Decisions API's usage
+ * (input_tokens, input_tokens_details), the neutral shape's (cached_input_tokens), or the AI
+ * gateway's (inputTokens, the model provider's own count under providerMetadata).
+ */
+function tokensOf(response: unknown): { input: number; output: number; cached: number } {
+  const reply = (typeof response === "object" && response !== null ? response : {}) as {
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cached_input_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number };
+      inputTokens?: number;
+      outputTokens?: number;
+    };
+    providerMetadata?: {
+      openai?: {
+        usage?: { input_tokens?: number; input_tokens_details?: { cached_tokens?: number } };
+      };
+    };
+  };
+  const usage = reply.usage;
+  const provider = reply.providerMetadata?.openai?.usage;
+  if (usage === undefined && provider === undefined) return { input: 0, output: 0, cached: 0 };
+  return {
+    input: usage?.input_tokens ?? usage?.inputTokens ?? provider?.input_tokens ?? 0,
+    output: usage?.output_tokens ?? usage?.outputTokens ?? 0,
+    cached:
+      usage?.cached_input_tokens ??
+      usage?.input_tokens_details?.cached_tokens ??
+      provider?.input_tokens_details?.cached_tokens ??
+      0,
+  };
+}
+
 /** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -279,22 +314,10 @@ export function recordRequests(
               response: asJson(responseText),
               wire: slot.wire,
             };
-      const usage = (
-        record.response as {
-          usage?: {
-            input_tokens?: number;
-            output_tokens?: number;
-            cached_input_tokens?: number;
-            input_tokens_details?: { cached_tokens?: number };
-          };
-        } | null
-      )?.usage;
-      if (usage) {
-        usageTotals.input += usage.input_tokens ?? 0;
-        usageTotals.output += usage.output_tokens ?? 0;
-        usageTotals.cached +=
-          usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? 0;
-      }
+      const counted = tokensOf(record.response);
+      usageTotals.input += counted.input;
+      usageTotals.output += counted.output;
+      usageTotals.cached += counted.cached;
       mkdirSync(dir, { recursive: true });
       const state = (body as { state?: Record<string, unknown> } | null)?.state ?? {};
       const kind = call?.kind ?? ("source" in state ? "elements" : "files");
