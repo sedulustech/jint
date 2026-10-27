@@ -63,6 +63,13 @@ export const mockWire = (baseUrl: string): Record<string, string> => ({
   JINT_PROVIDER_KEY: "test",
 });
 
+/** The same for the openai provider, pointed at a Decisions mock's root (startMockDecisions). */
+export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
+  JINT_PROVIDER: "openai",
+  JINT_PROVIDER_URL: `${baseUrl}/v1/decisions`,
+  JINT_PROVIDER_KEY: "test",
+});
+
 /** The env for a run with the systemone provider and no key. */
 export const NO_KEY_WIRE = {
   JINT_PROVIDER: "systemone",

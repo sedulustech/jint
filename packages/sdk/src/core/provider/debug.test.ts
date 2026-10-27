@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { ID_HEADER, recordRequests, recordSummary, tapWire } from "./debug.ts";
+import { ID_HEADER, inCall, recordRequests, recordSummary, tapWire } from "./debug.ts";
 
 const DIR = "tmp/provider-record-test";
 
@@ -169,5 +169,45 @@ describe("recordRequests", () => {
     const config = recordRequests({ fetch: passthrough() });
     await recordOnce(config, { path: "a.ts", content: "x" });
     expect(JSON.parse(readFileSync(`${DIR}/${listRequests(DIR)[0]}`, "utf8")).wire).toBeUndefined();
+  });
+
+  test("a call through a provider's own client records the real exchange, redacted, per attempt", async () => {
+    const reply = { model: "m", answers: [], usage: { input_tokens: 3, output_tokens: 1 } };
+    let attempt = 0;
+    const config = recordRequests({
+      fetch: async () =>
+        attempt++ === 0
+          ? new Response(JSON.stringify({ error: "slow" }), { status: 429 })
+          : new Response(JSON.stringify(reply), { status: 200 }),
+    });
+    const body = JSON.stringify({ model: "m", input: "x", questions: [] });
+    await inCall({ id: "L1-L2", path: "src/a.ts", source: "x" }, async () => {
+      for (let i = 0; i < 2; i++) {
+        await config.fetch!("https://user:pw@api.test/v1/decisions?key=sk-secret", {
+          method: "POST",
+          headers: { Authorization: "Bearer sk-secret", [ID_HEADER]: "never-read" },
+          body,
+        });
+      }
+    });
+    const list = listRequests(DIR);
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatch(/^\d+\/\d+-elements-a\.ts(-1)?\.json$/);
+    const texts = list.map((f) => readFileSync(`${DIR}/${f}`, "utf8"));
+    const files = texts.map((t) => JSON.parse(t));
+    const failed = files.find((f) => f.status === 429);
+    const ok = files.find((f) => f.status === 200);
+    expect(Object.keys(ok).sort()).toEqual(
+      ["durationMs", "id", "request", "response", "status", "ts", "url"].sort(),
+    );
+    expect(ok.id).toBe("L1-L2");
+    expect(ok.url).toBe("https://api.test/v1/decisions");
+    expect(ok.request).toEqual(JSON.parse(body));
+    expect(ok.response).toEqual(reply);
+    expect(failed.response).toEqual({ error: "slow" });
+    for (const t of texts)
+      for (const secret of ["sk-secret", "Bearer", "pw@", "never-read"])
+        expect(t).not.toContain(secret);
+    expect(JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8")).wire).toBeUndefined();
   });
 });

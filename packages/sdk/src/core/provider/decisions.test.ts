@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { ClassifyError, type UnitState } from "../types.ts";
+import { ClassifyError, type Ask, type UnitState } from "../types.ts";
 import { createClassifier } from "./client.ts";
-import { ID_HEADER, recordRequests, tapWire } from "./debug.ts";
-import { decisionsFetch as makeDecisionsFetch } from "./decisions.ts";
+import { decisionsAdapter } from "./decisions.ts";
 import type { Fetch } from "./protocol.ts";
 import type { ResolvedProvider } from "./providers.ts";
 
@@ -22,12 +21,12 @@ const PROVIDER: ResolvedProvider = {
   apiKey: "k",
   notes: [],
 };
-const decisionsFetch = (
-  base: Fetch,
+const adapterOver = (
+  fetch: Fetch,
   provider = PROVIDER,
   log: (l: string) => void = () => {},
-  limits?: Parameters<typeof makeDecisionsFetch>[3],
-) => makeDecisionsFetch(provider, base, log, limits);
+  limits?: { timeoutMs: number; maxRetries: number },
+) => decisionsAdapter(provider, { fetch, log, limits });
 
 const STATE = { path: "a.ts", content: "x" };
 /** A reply that makes the client retry at once instead of after its backoff. */
@@ -35,11 +34,17 @@ const QUICK = { "retry-after-ms": "1" };
 
 /** A fake Decisions endpoint: records what it was sent and answers with the given body. */
 function fake(reply: unknown, status = 200) {
-  const sent: { url: string; body: any; auth: string | null; headers: Record<string, string> }[] =
-    [];
+  const sent: {
+    url: string;
+    raw: string;
+    body: any;
+    auth: string | null;
+    headers: Record<string, string>;
+  }[] = [];
   const fetch: Fetch = async (url, init) => {
     sent.push({
       url,
+      raw: String(init?.body),
       body: JSON.parse(String(init?.body)),
       auth: new Headers(init?.headers).get("Authorization"),
       headers: Object.fromEntries(new Headers(init?.headers)),
@@ -51,46 +56,45 @@ function fake(reply: unknown, status = 200) {
   return { sent, fetch };
 }
 
-const ask = (f: Fetch, questions: unknown, state: unknown = STATE, headers = {}) =>
-  f("https://api.typesafe.ai/v1/systemone", {
-    method: "POST",
-    headers: { Authorization: "Bearer k", ...headers },
-    body: JSON.stringify({ model: "gpt-6-luna", state, questions }),
-  });
+const ask = (questions: Ask["questions"], state: Ask["state"] = STATE): Ask => ({
+  state,
+  questions,
+});
 
-describe("decisions protocol", () => {
+describe("decisions adapter", () => {
   test("a noul goes as a predicate with its criteria in the question", async () => {
     const api = fake({
+      model: "gpt-6-luna-2",
       answers: [{ type: "predicate", name: "q0", probability: 0.14 }],
       usage: { input_tokens: 9, output_tokens: 0 },
     });
-    const res = await ask(decisionsFetch(api.fetch), {
-      "rule in L1-L9": {
-        type: "noul",
-        instructions: "Is it?",
-        criteria: { true: "yes", false: "no" },
-      },
-    });
+    const asked = await adapterOver(api.fetch).ask(
+      ask({
+        "rule in L1-L9": {
+          type: "noul",
+          instructions: "Is it?",
+          criteria: { true: "yes", false: "no" },
+        },
+      }),
+    );
     expect(api.sent[0]!.url).toBe(URL_);
     expect(api.sent[0]!.auth).toBe("Bearer k");
     expect(api.sent[0]!.headers["x-extra"]).toBe("1");
-    expect(api.sent[0]!.body.model).toBe("gpt-6-luna");
-    expect(api.sent[0]!.body.input).toEqual([
-      { role: "user", content: [{ type: "input_json", data: STATE }] },
-    ]);
-    expect(api.sent[0]!.body.questions[0]).toEqual({
-      type: "predicate",
-      name: "q0",
-      instructions: "Is it?\n\nYes: yes\nNo: no",
-    });
-    expect(await res.json()).toEqual({
-      model: "gpt-6-luna",
-      answers: { "rule in L1-L9": { type: "noul", noul: 0.14 } },
+    expect(api.sent[0]!.raw).toBe(
+      JSON.stringify({
+        model: "gpt-6-luna",
+        input: [{ role: "user", content: [{ type: "input_json", data: STATE }] }],
+        questions: [{ type: "predicate", name: "q0", instructions: "Is it?\n\nYes: yes\nNo: no" }],
+      }),
+    );
+    expect(asked).toEqual({
+      model: "gpt-6-luna-2",
+      answers: { "rule in L1-L9": { value: 0.14 } },
       usage: { input_tokens: 9, output_tokens: 0, cached_input_tokens: 0 },
     });
   });
 
-  test("a choice drops the fallback option and renormalizes", async () => {
+  test("a choice goes with a fallback option, dropped and renormalized in the reply", async () => {
     const api = fake({
       answers: [
         {
@@ -105,17 +109,35 @@ describe("decisions protocol", () => {
         },
       ],
     });
-    const res: any = await (
-      await ask(decisionsFetch(api.fetch), {
-        r: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "B" } },
-      })
-    ).json();
-    expect(api.sent[0]!.body.questions[0].choices.at(-1).value).toBe("none_of_these");
-    expect(res.answers.r.choice).toBe("a");
-    expect(res.answers.r.probabilities.a).toBeCloseTo(0.75);
+    const asked = await adapterOver(api.fetch).ask(
+      ask({ r: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "" } } }),
+    );
+    expect(api.sent[0]!.raw).toBe(
+      JSON.stringify({
+        model: "gpt-6-luna",
+        input: [{ role: "user", content: [{ type: "input_json", data: STATE }] }],
+        questions: [
+          {
+            type: "choice",
+            name: "q0",
+            instructions: "Which?",
+            choices: [
+              { value: "a", description: "A" },
+              { value: "b", description: "b" },
+              { value: "none_of_these", description: "None of these fits" },
+            ],
+          },
+        ],
+      }),
+    );
+    const r = asked.answers.r as { value: number; choice: string; probabilities: any };
+    expect(r.choice).toBe("a");
+    expect(r.value).toBeCloseTo(0.75);
+    expect(r.probabilities.a).toBeCloseTo(0.75);
+    expect(r.probabilities.none_of_these).toBeUndefined();
   });
 
-  test("a score is the expected level over index-labelled levels", async () => {
+  test("a score goes over index-labelled levels and reads as the expected level", async () => {
     const api = fake({
       answers: [
         {
@@ -129,21 +151,40 @@ describe("decisions protocol", () => {
         },
       ],
     });
-    const res: any = await (
-      await ask(decisionsFetch(api.fetch), {
-        r: { type: "score", instructions: "How?", criteria: ["low", "mid", "high"] },
-      })
-    ).json();
-    expect(api.sent[0]!.body.questions[0].levels).toEqual([
-      { label: "0", description: "low" },
-      { label: "1", description: "mid" },
-      { label: "2", description: "high" },
-    ]);
-    expect(res.answers.r).toEqual({
-      type: "score",
-      score: 0.75,
+    const asked = await adapterOver(api.fetch).ask(
+      ask(
+        { r: { type: "score", instructions: "How?", criteria: ["low", "mid", "high"] } },
+        { path: "a.ts", source: 'const s = "q\\n";\n' },
+      ),
+    );
+    expect(api.sent[0]!.raw).toBe(
+      JSON.stringify({
+        model: "gpt-6-luna",
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_json", data: { path: "a.ts", source: 'const s = "q\\n";\n' } },
+            ],
+          },
+        ],
+        questions: [
+          {
+            type: "score",
+            name: "q0",
+            instructions: "How?",
+            levels: [
+              { label: "0", description: "low" },
+              { label: "1", description: "mid" },
+              { label: "2", description: "high" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(asked.answers.r).toEqual({
+      value: 0.75,
       probabilities: { "0": 0.5, "1": 0.25, "2": 0.25 },
-      legend: { "0": "low", "1": "mid", "2": "high" },
     });
   });
 
@@ -155,130 +196,73 @@ describe("decisions protocol", () => {
       ],
       usage: { input_tokens: 9, output_tokens: 0, input_tokens_details: { cached_tokens: 7 } },
     });
-    const res = await ask(decisionsFetch(api.fetch), {
-      refused: { type: "score", instructions: "How?", criteria: ["low", "high"] },
-      kept: { type: "noul", instructions: "Is it?" },
-    });
-    const body: any = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.answers).toEqual({
-      refused: { type: "refusal" },
-      kept: { type: "noul", noul: 0.3 },
-    });
-    expect(body.usage.cached_input_tokens).toBe(7);
-  });
-
-  test("an element's state goes as input_json untouched, with the question bodies as before", async () => {
-    const api = fake({ answers: [], usage: { input_tokens: 1, output_tokens: 0 } });
-    const state = { path: "a.ts", source: 'const s = "q\\n";\n' };
-    await ask(
-      decisionsFetch(api.fetch),
-      {
-        p: { type: "noul", instructions: "Is it?", criteria: { true: "yes", false: "no" } },
-        s: { type: "score", instructions: "How?", criteria: ["low", "high"] },
-        c: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "" } },
-      },
-      state,
+    const asked = await adapterOver(api.fetch).ask(
+      ask({
+        refused: { type: "score", instructions: "How?", criteria: ["low", "high"] },
+        kept: { type: "noul", instructions: "Is it?" },
+      }),
     );
-    const body = api.sent[0]!.body;
-    expect(body.input).toEqual([{ role: "user", content: [{ type: "input_json", data: state }] }]);
-    expect(JSON.stringify(body.questions)).toBe(
-      JSON.stringify([
-        { type: "predicate", name: "q0", instructions: "Is it?\n\nYes: yes\nNo: no" },
-        {
-          type: "score",
-          name: "q1",
-          instructions: "How?",
-          levels: [
-            { label: "0", description: "low" },
-            { label: "1", description: "high" },
-          ],
-        },
-        {
-          type: "choice",
-          name: "q2",
-          instructions: "Which?",
-          choices: [
-            { value: "a", description: "A" },
-            { value: "b", description: "b" },
-            { value: "none_of_these", description: "None of these fits" },
-          ],
-        },
-      ]),
-    );
+    expect(asked.answers).toEqual({ refused: { refused: true }, kept: { value: 0.3 } });
+    expect(asked.usage.cached_input_tokens).toBe(7);
   });
 
-  test("the element id rides as a request header", async () => {
-    const api = fake({ answers: [], usage: { input_tokens: 1, output_tokens: 0 } });
-    await ask(decisionsFetch(api.fetch), {}, STATE, { [ID_HEADER]: "L1-L2" });
-    expect(api.sent[0]!.headers[ID_HEADER.toLowerCase()]).toBe("L1-L2");
+  test("a missing answer, and a noul outside [0, 1], are invalid responses", async () => {
+    const missing = fake({ answers: [] });
+    const out = fake({ answers: [{ type: "predicate", name: "q0", probability: 1.5 }] });
+    for (const api of [missing, out]) {
+      const e = await adapterOver(api.fetch)
+        .ask(ask({ r: { type: "noul", instructions: "Is it?" } }))
+        .then(
+          () => undefined,
+          (x: unknown) => x as ClassifyError,
+        );
+      expect(e?.code).toBe("PROVIDER_RESPONSE_INVALID");
+    }
   });
 
-  test("an API error passes up with its status once the client's retries are spent", async () => {
+  test("an API error is mapped once the client's retries are spent", async () => {
     const api = fake({ error: { message: "slow down" } }, 429);
     const lines: string[] = [];
-    const res = await ask(
-      decisionsFetch(api.fetch, PROVIDER, (l) => lines.push(l)),
-      { r: { type: "noul", instructions: "Is it?" } },
-    );
-    expect(res.status).toBe(429);
+    const e = await adapterOver(api.fetch, PROVIDER, (l) => lines.push(l))
+      .ask(ask({ r: { type: "noul", instructions: "Is it?" } }))
+      .then(
+        () => undefined,
+        (x: unknown) => x as ClassifyError,
+      );
+    expect(e?.code).toBe("PROVIDER_UNAVAILABLE");
     expect(api.sent).toHaveLength(3);
     expect(lines.filter((l) => l.startsWith("provider backoff: "))).toHaveLength(2);
   });
 
-  test("a timeout is thrown, not turned into a status", async () => {
+  test("a timeout is an unreachable provider", async () => {
     const hang: Fetch = (_url, init) =>
       new Promise((_, reject) =>
         init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)),
       );
-    await expect(
-      ask(
-        decisionsFetch(hang, PROVIDER, () => {}, { timeoutMs: 20, maxRetries: 0 }),
-        {},
-      ),
-    ).rejects.toThrow();
+    const e = await adapterOver(hang, PROVIDER, () => {}, { timeoutMs: 20, maxRetries: 0 })
+      .ask(ask({}))
+      .then(
+        () => undefined,
+        (x: unknown) => x as ClassifyError,
+      );
+    expect(e?.code).toBe("PROVIDER_UNAVAILABLE");
+    expect(e?.message).toContain("unreachable");
+  });
+
+  test("an abort signal stops the call", async () => {
+    const hang: Fetch = (_url, init) =>
+      new Promise((_, reject) =>
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)),
+      );
+    const controller = new AbortController();
+    const pending = adapterOver(hang).ask(ask({}), { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toBeInstanceOf(ClassifyError);
   });
 
   test("a url that does not end in /decisions is a setup error naming the field", () => {
     const odd = { ...PROVIDER, spec: { ...PROVIDER.spec, url: "http://x.test/v1/answers" } };
-    expect(() => decisionsFetch(fake({}).fetch, odd)).toThrow(/url must end in \/decisions/);
-  });
-
-  test("a recorded call keeps the translated wire body and no credential", async () => {
-    const dir = mkdtempSync(`${tmpdir()}/jint-wire-`);
-    const prior = process.env.JINT_RUNS_DIR;
-    process.env.JINT_RUNS_DIR = dir;
-    try {
-      const api = fake({
-        answers: [{ type: "predicate", name: "q0", probability: 0.14 }],
-        usage: { input_tokens: 9, output_tokens: 0 },
-      });
-      const config = recordRequests({
-        fetch: decisionsFetch(tapWire(api.fetch)),
-      });
-      await ask(config.fetch as Fetch, {
-        r: { type: "noul", instructions: "Is it?", criteria: { true: "yes", false: "no" } },
-      });
-      const run = `${dir}/${readdirSync(dir)[0]}`;
-      const name = readdirSync(run).find((f) => f.endsWith(".json"))!;
-      const text = readFileSync(`${run}/${name}`, "utf8");
-      const file = JSON.parse(text);
-      expect(file.request.state).toEqual({ path: "a.ts", content: "x" });
-      expect(file.wire.url).toBe(URL_);
-      expect(file.wire.body).toEqual(api.sent[0]!.body);
-      expect(file.wire.body.input).toEqual([
-        { role: "user", content: [{ type: "input_json", data: STATE }] },
-      ]);
-      expect(file.wire.body.questions[0].type).toBe("predicate");
-      expect(file.wire.response.answers[0].probability).toBe(0.14);
-      expect(text).not.toContain("Bearer");
-      expect(text).not.toContain('"k"');
-      expect(existsSync(run)).toBe(true);
-    } finally {
-      if (prior === undefined) delete process.env.JINT_RUNS_DIR;
-      else process.env.JINT_RUNS_DIR = prior;
-      rmSync(dir, { recursive: true, force: true });
-    }
+    expect(() => adapterOver(fake({}).fetch, odd)).toThrow(/url must end in \/decisions/);
   });
 });
 
@@ -419,36 +403,44 @@ describe("through createClassifier", () => {
     expect(answers.is_readable).toEqual({ refused: true });
   });
 
-  test("the element id becomes the recording's id; the wire body is what the client sent", async () => {
-    const sent: string[] = [];
+  test("the recording is the real exchange, with the element id from the call and not upstream", async () => {
+    const sent: { body: string; headers: Record<string, string> }[] = [];
+    const reply = {
+      model: "gpt-6-luna",
+      answers: [{ type: "predicate", name: "q0", probability: 0.2 }],
+      usage: { input_tokens: 4, output_tokens: 0, input_tokens_details: { cached_tokens: 1 } },
+    };
     const files = await recorded(async () => {
       await createClassifier({
         apiKey: "k",
         fetch: async (_url, init) => {
-          sent.push(String(init?.body));
-          return Response.json({
-            model: "gpt-6-luna",
-            answers: [{ type: "predicate", name: "q0", probability: 0.2 }],
-            usage: {
-              input_tokens: 1,
-              output_tokens: 0,
-              input_tokens_details: { cached_tokens: 0 },
-            },
+          sent.push({
+            body: String(init?.body),
+            headers: Object.fromEntries(new Headers(init?.headers)),
           });
+          return Response.json(reply);
         },
       })(unit, noul);
     });
-    const file = JSON.parse(
-      files.find((f) => f.name.endsWith(".json") && f.name !== "manifest.json")!.text,
+    const file = JSON.parse(files.find((f) => /^\d+-files-a\.ts\.json$/.test(f.name))!.text);
+    expect(Object.keys(file).sort()).toEqual(
+      ["durationMs", "id", "request", "response", "status", "ts", "url"].sort(),
     );
     expect(file.id).toBe("L1-L2");
-    expect(file.wire.body).toEqual(JSON.parse(sent[0]!));
-    expect(file.wire.body.input).toEqual([
+    expect(file.url).toBe(URL_);
+    expect(file.status).toBe(200);
+    expect(file.request).toEqual(JSON.parse(sent[0]!.body));
+    expect(file.request.input).toEqual([
       {
         role: "user",
         content: [{ type: "input_json", data: { path: unit.path, content: unit.content } }],
       },
     ]);
-    expect(file.request.state).toEqual({ path: unit.path, content: unit.content });
+    expect(file.response).toEqual(reply);
+    // the id never travels upstream
+    expect(JSON.stringify(sent[0])).not.toContain("L1-L2");
+    expect(Object.keys(sent[0]!.headers).some((h) => /jint/i.test(h))).toBe(false);
+    const manifest = files.find((f) => f.name === "manifest.json");
+    expect(manifest).toBeUndefined(); // written by the CLI, not the classifier
   });
 });

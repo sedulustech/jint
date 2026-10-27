@@ -13,10 +13,11 @@ import type { ClassifierConfig } from "./client.ts";
 
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
- * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
- * <base>/<runId>/ (base = $JINT_RUNS_DIR, else <homedir>/.jint/runs; runId = unix timestamp of the
- * run's first request; past runs are never overwritten). The kind (elements / files) is derived
- * from the request's state shape.
+ * request body, response status + body; a call through a provider's own client keeps exactly that,
+ * a call through the vendor client keeps its System One request, a neutral response and the wire),
+ * named <unixts>-<kind>-<file>.json, under the run dir <base>/<runId>/ (base = $JINT_RUNS_DIR, else
+ * <homedir>/.jint/runs; runId = unix timestamp of the run's first request; past runs are never
+ * overwritten). The kind (elements / files) is derived from the request's state shape.
  */
 /** What this run recorded. Null before the recorder starts (never in a run that classifies). */
 export interface RequestRecordSummary {
@@ -73,6 +74,32 @@ export interface WireCall {
 const wireSlot = new AsyncLocalStorage<{ wire?: WireCall }>();
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
+
+/**
+ * The call a request belongs to, for a provider reached through its own client: the state's
+ * run-scoped id and what names its file. Set around each ask, so the recording fetch beneath the
+ * client knows whose exchange it sees without the id travelling to the provider.
+ */
+export interface CallContext {
+  id: string;
+  path: string;
+  kind: "elements" | "files";
+}
+
+const callSlot = new AsyncLocalStorage<CallContext>();
+
+/** Runs `body` as the call of `state`: the exchanges it makes are recorded as that call's. */
+export function inCall<T>(
+  state: { id: string; path: string; source?: string },
+  body: () => Promise<T>,
+): Promise<T> {
+  const call: CallContext = {
+    id: state.id,
+    path: state.path,
+    kind: state.source === undefined ? "files" : "elements",
+  };
+  return callSlot.run(call, body);
+}
 
 /**
  * Wrap the LOWEST fetch (beneath any protocol translation) so a recorded call also keeps the bytes
@@ -208,43 +235,57 @@ export function recordRequests(
     init,
   ) => {
     const startedAt = Date.now();
+    const call = callSlot.getStore();
     const slot: { wire?: WireCall } = {};
     const response = await wireSlot.run(slot, () => baseFetch(input, init));
     try {
       const requestInit = init ?? {};
-      const request = new Request(input, requestInit);
-      const requestText = await request.text();
+      const requestText = await new Request(input, requestInit).text();
       const responseText = await response.clone().text();
-      const record = {
+      // A call made through the provider's own client records the real exchange: the body sent and
+      // the body received, nothing else. A call through the vendor client keeps its System One
+      // request, the neutral response and the wire beneath them.
+      const common = {
         ts: new Date().toISOString(),
         url: redactUrl(input),
-        id: new Headers(requestInit.headers).get(ID_HEADER) ?? undefined,
+        id: call?.id ?? new Headers(requestInit.headers).get(ID_HEADER) ?? undefined,
         durationMs: Date.now() - startedAt,
-        request: asJson(
-          requestInit.body !== undefined && typeof requestInit.body === "string"
-            ? requestInit.body
-            : requestText,
-        ),
-        status: response.status,
-        response: asJson(responseText),
-        wire: slot.wire,
       };
+      const body = asJson(
+        requestInit.body !== undefined && typeof requestInit.body === "string"
+          ? requestInit.body
+          : requestText,
+      );
+      const record =
+        call !== undefined
+          ? { ...common, status: response.status, request: body, response: asJson(responseText) }
+          : {
+              ...common,
+              request: body,
+              status: response.status,
+              response: asJson(responseText),
+              wire: slot.wire,
+            };
       const usage = (
         record.response as {
-          usage?: { input_tokens?: number; output_tokens?: number; cached_input_tokens?: number };
-        }
-      ).usage;
+          usage?: {
+            input_tokens?: number;
+            output_tokens?: number;
+            cached_input_tokens?: number;
+            input_tokens_details?: { cached_tokens?: number };
+          };
+        } | null
+      )?.usage;
       if (usage) {
         usageTotals.input += usage.input_tokens ?? 0;
         usageTotals.output += usage.output_tokens ?? 0;
-        usageTotals.cached += usage.cached_input_tokens ?? 0;
+        usageTotals.cached +=
+          usage.cached_input_tokens ?? usage.input_tokens_details?.cached_tokens ?? 0;
       }
       mkdirSync(dir, { recursive: true });
-      const state = (record.request as { state?: Record<string, unknown> }).state ?? {};
-      const kind = "source" in state ? "elements" : "files";
-      const name = String(state.path ?? "state")
-        .split("/")
-        .pop();
+      const state = (body as { state?: Record<string, unknown> } | null)?.state ?? {};
+      const kind = call?.kind ?? ("source" in state ? "elements" : "files");
+      const name = (call?.path ?? String(state.path ?? "state")).split("/").pop();
       const stamp = Date.now();
       let file = `${dir}/${stamp}-${kind}-${name}.json`;
       for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;

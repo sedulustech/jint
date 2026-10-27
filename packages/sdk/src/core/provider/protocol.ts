@@ -8,7 +8,10 @@
  * headers is the provider table's data (providers.ts), never a branch here.
  */
 
+import type { Usage } from "../types.ts";
 import type { ProviderSpec } from "./providers.ts";
+
+export type { Usage };
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -16,18 +19,10 @@ export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 export type SystemOneQuestion = {
   type: "noul" | "choice" | "score";
   instructions: unknown;
-  criteria?: Record<string, string> | string[];
+  criteria?: Readonly<Record<string, string>> | readonly string[];
 };
 
-/** What a call used; `gateway_cost` rides along when the provider reports its charge. */
-export interface Usage {
-  input_tokens: number;
-  output_tokens: number;
-  cached_input_tokens: number;
-  gateway_cost?: number;
-}
-
-export interface Ask {
+export interface WireAsk {
   model: string;
   /** The state, serialized: exactly what the model judges. */
   input: string;
@@ -43,9 +38,9 @@ export interface Answered {
 
 export interface Protocol {
   /** The request body and the headers the wire format itself requires. */
-  request(ask: Ask): { headers: Record<string, string>; body: unknown };
+  request(ask: WireAsk): { headers: Record<string, string>; body: unknown };
   /** The reply, parsed into answers and usage. */
-  reply(raw: unknown, ask: Ask): Answered;
+  reply(raw: unknown, ask: WireAsk): Answered;
 }
 
 /** The wire name of the i-th question: rule names carry spaces and ranges, the wire gets positions. */
@@ -70,7 +65,7 @@ export function protocolFetch(
       state: unknown;
       questions: Record<string, SystemOneQuestion>;
     };
-    const ask: Ask = {
+    const ask: WireAsk = {
       model: sent.model,
       input: typeof sent.state === "string" ? sent.state : JSON.stringify(sent.state),
       questions: sent.questions,

@@ -1,6 +1,7 @@
 /**
  * The `decisions` protocol: OpenAI's POST /v1/decisions, called through the official `openai`
- * client. Each System One request is translated into the Decisions format and each reply back.
+ * client directly. The adapter turns each ask into the Decisions format and each reply into the
+ * answers the rules read.
  *
  * The state travels as an `input_json` part of one user message, the documented form for structured
  * data (a string would be JSON inside JSON).
@@ -13,16 +14,10 @@
  */
 
 import OpenAI from "openai";
-import { SetupError } from "../types.ts";
-import { ID_HEADER } from "./debug.ts";
-import {
-  wireName,
-  type Ask,
-  type Answered,
-  type Fetch,
-  type SystemOneQuestion,
-} from "./protocol.ts";
+import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
+import { wireName, type Fetch, type SystemOneQuestion, type WireAsk } from "./protocol.ts";
 import type { ResolvedProvider } from "./providers.ts";
+import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 import type { Decision, DecisionCreateParams } from "openai/resources/decisions";
 
 const NONE = "none_of_these";
@@ -69,29 +64,57 @@ export function toDecisions(name: string, q: SystemOneQuestion): Question {
   };
 }
 
-/** The System One answer for one Decisions answer. */
-export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
+/**
+ * The answer the rules read for one Decisions answer. A noul is its probability, a score the
+ * expected level over its distribution, a choice the selected option's share once the fallback
+ * option's mass is dropped and the rest renormalized.
+ */
+export function readAnswer(
+  q: SystemOneQuestion,
+  a: DecisionsAnswer,
+  input = "",
+): ClassifiedAnswer | Refusal {
+  if (a.type === "refusal") return { refused: true };
   const shares: Record<string, number> = Object.fromEntries(
     (a.probabilities ?? []).map((o) => [String(o.value), o.probability]),
   );
-  if (q.type === "noul") return { type: "noul", noul: a.probability ?? 0 };
+  if (q.type === "noul") return { value: a.probability ?? 0 };
   if (q.type === "score") {
-    const score = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
-    // System One echoes each level's text as the legend; the run view shows the levels from it.
-    const legend = Object.fromEntries((q.criteria as string[]).map((text, i) => [String(i), text]));
-    return { type: "score", score, legend, probabilities: shares };
+    const value = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
+    return { value, probabilities: shares };
   }
   delete shares[NONE];
   const total = Object.values(shares).reduce((s, p) => s + p, 0);
   const options = Object.keys(shares);
-  const spread = Object.fromEntries(
+  if (options.length === 0) {
+    throw new ClassifyError(
+      "PROVIDER_RESPONSE_INVALID",
+      input,
+      "provider choice answer carries no options",
+    );
+  }
+  const probabilities = Object.fromEntries(
     options.map((o) => [o, total > 0 ? shares[o]! / total : 1 / options.length]),
   );
   const choice =
-    a.choice !== undefined && String(a.choice) in spread
+    a.choice !== undefined && String(a.choice) in probabilities
       ? String(a.choice)
-      : options.reduce((b, o) => (spread[o]! > spread[b]! ? o : b));
-  return { type: "choice", choice, probabilities: spread };
+      : options.reduce((b, o) => (probabilities[o]! > probabilities[b]! ? o : b));
+  return { value: probabilities[choice] ?? 0, choice, probabilities };
+}
+
+/** The System One answer for one Decisions answer (the vercel route's shape). */
+export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
+  const r = readAnswer(q, a) as ClassifiedAnswer;
+  if (q.type === "noul") return { type: "noul", noul: r.value };
+  if (q.type === "score") {
+    // System One echoes each level's text as the legend; the run view shows the levels from it.
+    const legend = Object.fromEntries(
+      (q.criteria as readonly string[]).map((text, i) => [String(i), text]),
+    );
+    return { type: "score", score: r.value, legend, probabilities: r.probabilities };
+  }
+  return { type: "choice", choice: r.choice, probabilities: r.probabilities };
 }
 
 /**
@@ -99,7 +122,7 @@ export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown
  * (complexity of a plain data object); that question alone becomes a refusal.
  */
 export function answersByName(
-  ask: Ask,
+  ask: WireAsk,
   find: (wire: string) => DecisionsAnswer | undefined,
 ): Record<string, unknown> {
   return Object.fromEntries(
@@ -109,20 +132,6 @@ export function answersByName(
       return [name, a === undefined ? undefined : fromDecisions(ask.questions[name]!, a)];
     }),
   );
-}
-
-/** The answers and usage the layer above expects, from the client's typed reply. */
-export function answered(reply: Decision, ask: Ask): Answered {
-  const byName = new Map(reply.answers.map((a) => [a.name, a]));
-  return {
-    model: reply.model,
-    answers: answersByName(ask, (wire) => byName.get(wire)),
-    usage: {
-      input_tokens: reply.usage?.input_tokens ?? 0,
-      output_tokens: reply.usage?.output_tokens ?? 0,
-      cached_input_tokens: reply.usage?.input_tokens_details?.cached_tokens ?? 0,
-    },
-  };
 }
 
 /** The setup error for a url the client cannot be pointed at: it takes a root, we hold an endpoint. */
@@ -137,16 +146,9 @@ function baseUrl(provider: ResolvedProvider): string {
   return url.slice(0, -"/decisions".length);
 }
 
-const idHeader = (headers: ConstructorParameters<typeof Headers>[0]): Record<string, string> => {
-  const id = new Headers(headers).get(ID_HEADER);
-  return id === null ? {} : { [ID_HEADER]: id };
-};
-
 /** Per attempt, as the vendor client's own default. */
 const ATTEMPT_TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 2;
-/** The outer (vendor) client's budget: the client's attempts and backoffs all happen inside it. */
-export const DECISIONS_BUDGET_MS = 5 * 60_000;
 
 /**
  * The official client reads OPENAI_* variables (key, base url, org, project, webhook secret, admin
@@ -163,107 +165,144 @@ function withoutOpenAIEnv<T>(build: () => T): T {
   }
 }
 
-/**
- * The fetch that answers a System One request by asking Decisions through the official client,
- * which sends the request through `base` (the wire tap). The client retries and times out; an error
- * it gives up on goes up as a response with the same status and body, so the layer above maps it as
- * it maps any provider failure. A connection failure or timeout is thrown.
- */
-export function decisionsFetch(
-  provider: ResolvedProvider,
-  base: Fetch,
-  log: (line: string) => void,
-  limits: { timeoutMs: number; maxRetries: number } = {
-    timeoutMs: ATTEMPT_TIMEOUT_MS,
-    maxRetries: MAX_RETRIES,
-  },
-): Fetch {
-  const baseURL = baseUrl(provider);
-  let client: OpenAI | undefined;
-  const clientFor = (apiKey: string): OpenAI =>
-    (client ??= withoutOpenAIEnv(
-      () =>
-        new OpenAI({
-          apiKey,
-          baseURL,
-          organization: null,
-          project: null,
-          webhookSecret: null,
-          adminAPIKey: null,
-          maxRetries: limits.maxRetries,
-          timeout: limits.timeoutMs,
-          fetch: (input, init) =>
-            base(
-              typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
-              init,
-            ),
-          logLevel: "info",
-          logger: {
-            debug: () => {},
-            // "<request> 429 Too Many Requests in 12ms - retrying, 2 attempts remaining"
-            info: (message, ...args) => {
-              if (message.includes("retrying,"))
-                log(`provider backoff: ${message} ${args.join(" ")}`);
-            },
-            warn: (message, ...args) => log(`provider warn: ${message} ${args.join(" ")}`),
-            error: (message, ...args) => log(`provider error: ${message} ${args.join(" ")}`),
-          },
-        }),
-    ));
+/** The ClassifyError a failed call is, by the client's error type; a ClassifyError passes as is. */
+export function mapDecisionsError(e: unknown, input: string): ClassifyError {
+  if (e instanceof ClassifyError) return e;
+  if (e instanceof OpenAI.AuthenticationError || e instanceof OpenAI.PermissionDeniedError) {
+    return new ClassifyError(
+      "PROVIDER_AUTH",
+      input,
+      `provider rejected the API key: ${e.message}`,
+      { cause: e },
+    );
+  }
+  if (e instanceof OpenAI.BadRequestError || e instanceof OpenAI.UnprocessableEntityError) {
+    return new ClassifyError(
+      "PROVIDER_REQUEST_INVALID",
+      input,
+      `provider rejected the request: ${e.message}`,
+      { cause: e },
+    );
+  }
+  if (e instanceof OpenAI.APIConnectionError) {
+    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unreachable: ${e.message}`, {
+      cause: e,
+    });
+  }
+  if (e instanceof OpenAI.APIError) {
+    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unavailable: ${e.message}`, {
+      cause: e,
+    });
+  }
+  const detail = e instanceof Error ? e.message : String(e);
+  return new ClassifyError("INTERNAL", input, `unexpected provider transport error: ${detail}`, {
+    cause: e,
+  });
+}
 
-  return async (_input, init) => {
-    const sent = JSON.parse(String(init?.body)) as {
-      model: string;
-      state: unknown;
-      questions: Record<string, SystemOneQuestion>;
-    };
-    const ask: Ask = {
-      model: sent.model,
-      input: typeof sent.state === "string" ? sent.state : JSON.stringify(sent.state),
-      questions: sent.questions,
-    };
-    const apiKey = provider.apiKey;
-    if (apiKey === undefined)
-      throw new SetupError("CONFIG_INVALID", `no ${provider.spec.keyEnv} set`);
-    const state = sent.state;
-    const params: DecisionCreateParams = {
-      model: sent.model,
-      input:
-        typeof state === "object" && state !== null && !Array.isArray(state)
-          ? [
-              {
-                role: "user",
-                content: [{ type: "input_json", data: state as Record<string, unknown> }],
-              },
-            ]
-          : ask.input,
-      questions: Object.keys(ask.questions).map((name, i) =>
-        toDecisions(wireName(i), ask.questions[name]!),
-      ),
-    };
-    try {
-      const reply = await clientFor(apiKey).decisions.create(params, {
-        // the run-scoped element id rides along, as it does to the recorder above
-        headers: { ...provider.spec.headers, ...idHeader(init?.headers) },
-        signal: init?.signal ?? undefined,
-      });
-      const done = answered(reply, ask);
-      return new Response(
-        JSON.stringify({
-          model: done.model ?? sent.model,
-          answers: done.answers,
-          usage: done.usage,
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+/** The Decisions request for one ask: the state as one input_json part, one question per name. */
+export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
+  return {
+    model,
+    input: [{ role: "user", content: [{ type: "input_json", data: { ...ask.state } }] }],
+    questions: Object.keys(ask.questions).map((name, i) =>
+      toDecisions(wireName(i), ask.questions[name]!),
+    ),
+  };
+}
+
+/** Each question's answer from the reply, matched by wire name; a wrong-shaped one is invalid. */
+function answersOf(reply: Decision, ask: Ask): Asked["answers"] {
+  const byName = new Map(reply.answers.map((a) => [a.name, a]));
+  const input = ask.state.path;
+  const out: Record<string, ClassifiedAnswer | Refusal> = {};
+  Object.entries(ask.questions).forEach(([name, spec], i) => {
+    const a = byName.get(wireName(i));
+    const answer = a === undefined ? undefined : readAnswer(spec, a, input);
+    // A missing answer, or a noul outside [0, 1], is the model's reply failing the contract.
+    const outOfRange =
+      spec.type === "noul" && answer !== undefined && "value" in answer
+        ? !(answer.value >= 0 && answer.value <= 1)
+        : false;
+    if (answer === undefined || outOfRange) {
+      throw new ClassifyError(
+        "PROVIDER_RESPONSE_INVALID",
+        input,
+        `provider answer '${name}' failed shape validation: expected ${spec.type}, got ${JSON.stringify(a)}`,
       );
-    } catch (e) {
-      if (e instanceof OpenAI.APIError && e.status !== undefined) {
-        return new Response(JSON.stringify(e.error ?? { message: e.message }), {
-          status: e.status,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      throw e;
     }
+    out[name] = answer;
+  });
+  return out;
+}
+
+/**
+ * The adapter for a provider speaking the `decisions` protocol. `fetch` is the client's transport
+ * (the recorder sits there); the client retries and times out per attempt. A reply, a refusal, or a
+ * failure all leave as an Asked or a ClassifyError.
+ */
+export function decisionsAdapter(
+  provider: ResolvedProvider,
+  transport: {
+    fetch: Fetch;
+    log: (line: string) => void;
+    limits?: { timeoutMs: number; maxRetries: number };
+  },
+): Adapter {
+  const baseURL = baseUrl(provider);
+  const apiKey = provider.apiKey;
+  if (apiKey === undefined)
+    throw new SetupError("CONFIG_INVALID", `no ${provider.spec.keyEnv} set`);
+  const limits = transport.limits ?? { timeoutMs: ATTEMPT_TIMEOUT_MS, maxRetries: MAX_RETRIES };
+  const client = withoutOpenAIEnv(
+    () =>
+      new OpenAI({
+        apiKey,
+        baseURL,
+        organization: null,
+        project: null,
+        webhookSecret: null,
+        adminAPIKey: null,
+        maxRetries: limits.maxRetries,
+        timeout: limits.timeoutMs,
+        fetch: (input, init) =>
+          transport.fetch(
+            typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+            init,
+          ),
+        logLevel: "info",
+        logger: {
+          debug: () => {},
+          // "<request> 429 Too Many Requests in 12ms - retrying, 2 attempts remaining"
+          info: (message, ...args) => {
+            if (message.includes("retrying,"))
+              transport.log(`provider backoff: ${message} ${args.join(" ")}`);
+          },
+          warn: (message, ...args) => transport.log(`provider warn: ${message} ${args.join(" ")}`),
+          error: (message, ...args) =>
+            transport.log(`provider error: ${message} ${args.join(" ")}`),
+        },
+      }),
+  );
+  return {
+    async ask(ask, options) {
+      try {
+        const reply = await client.decisions.create(decisionsParams(provider.model, ask), {
+          headers: provider.spec.headers,
+          signal: options?.signal,
+        });
+        return {
+          model: reply.model ?? provider.model,
+          answers: answersOf(reply, ask),
+          usage: {
+            input_tokens: reply.usage?.input_tokens ?? 0,
+            output_tokens: reply.usage?.output_tokens ?? 0,
+            cached_input_tokens: reply.usage?.input_tokens_details?.cached_tokens ?? 0,
+          },
+        };
+      } catch (e) {
+        throw mapDecisionsError(e, ask.state.path);
+      }
+    },
   };
 }

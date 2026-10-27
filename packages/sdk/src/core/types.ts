@@ -354,6 +354,44 @@ export type Classifier = (
   Record<string, import("@jint/contract").ClassifiedAnswer | import("@jint/contract").Refusal>
 >;
 
+/** What one question batch asks: the state the model judges (never its id) and the questions. */
+export interface Ask {
+  readonly state: Omit<FileState, "id"> | Omit<ElementState, "id">;
+  readonly questions: Record<string, QuestionSchema>;
+}
+
+/** What a call used; `gateway_cost` rides along when the provider reports its charge. */
+export interface Usage {
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  gateway_cost?: number;
+}
+
+/** What a provider answered: one answer per question name, keyed as asked. */
+export interface Asked {
+  readonly answers: Record<
+    string,
+    import("@jint/contract").ClassifiedAnswer | import("@jint/contract").Refusal
+  >;
+  readonly usage: Usage;
+  readonly model: string;
+}
+
+export interface AskOptions {
+  /** Abandons the call: the transport stops waiting and the call rejects. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * A protocol's adapter in the shape the classifier consumes: asks the provider the questions and
+ * returns answers the rules read. It throws ClassifyError for every failure (transport, status,
+ * wrong-shaped reply); nothing of the provider's client escapes.
+ */
+export interface Adapter {
+  ask(ask: Ask, options?: AskOptions): Promise<Asked>;
+}
+
 export type {
   ClassifiedAnswer,
   Measurement,

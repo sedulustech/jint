@@ -36,8 +36,8 @@ import {
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { ADAPTERS } from "./adapters.ts";
-import { ID_HEADER, recordRequests, tapWire } from "./debug.ts";
-import { decisionsFetch, DECISIONS_BUDGET_MS } from "./decisions.ts";
+import { ID_HEADER, inCall, recordRequests, tapWire } from "./debug.ts";
+import { decisionsAdapter } from "./decisions.ts";
 import { protocolFetch } from "./protocol.ts";
 import {
   PROVIDERS,
@@ -111,21 +111,48 @@ export interface ClassifierConfig extends ProviderChoice {
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
   const provider = resolveProvider(config);
-  let client: TypeSafeClient | null = null;
+  const log = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+  let classifier: Classifier | null = null;
   return async (state, questions) => {
-    if (client === null)
-      client = makeClient(
-        recordRequests(routeProvider(config, provider), {
-          provider: provider.name,
-          host: urlHost(provider.spec.url),
-        }),
-        provider,
-        state.path,
-      );
+    classifier ??= makeClassifier(config, provider, log, state.path);
+    return classifier(state, questions);
+  };
+}
+
+/**
+ * The classifier for one provider. A provider whose protocol has an adapter of its own
+ * (`decisions`) is asked through it, its client called directly; the others go through the vendor
+ * client in System One's shape, a translating fetch beneath it where the protocol is not System
+ * One.
+ */
+function makeClassifier(
+  config: ClassifierConfig | undefined,
+  provider: ResolvedProvider,
+  log: (line: string) => void,
+  input: string,
+): Classifier {
+  const route = { provider: provider.name, host: urlHost(provider.spec.url) };
+  if (provider.spec.protocol === "decisions") {
+    // A missing key fails here, naming keyEnv, before anything is built or recorded.
+    if (provider.apiKey === undefined) throw missingKey(provider, input);
+    const recorded = recordRequests({ ...config, model: provider.model }, route);
+    const adapter = decisionsAdapter(provider, { fetch: recorded.fetch!, log });
+    return async (state, questions) => {
+      // The id is jint's handle, not something to judge: a fresh id each run would make identical
+      // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays
+      // out of the request and reaches the recorder through the call.
+      const { id: _id, ...judged } = state;
+      const asked = await inCall(state, () => adapter.ask({ state: judged, questions }));
+      return asked.answers;
+    };
+  }
+  const client = makeClient(
+    recordRequests(routeProvider(config, provider), route),
+    provider,
+    input,
+  );
+  return async (state, questions) => {
     const sdkQuestions = compileQuestions(questions);
-    // The id is jint's handle, not something to judge: a fresh id each run would make identical
-    // code a different request (luna's readings moved by up to 0.55 on unchanged code). It rides
-    // in a header the recorder keeps, so the run UI can still join a request to its cell.
     const { id, ...judged } = state;
     let result: SystemOneResult<typeof sdkQuestions>;
     try {
@@ -140,9 +167,16 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
   };
 }
 
+const missingKey = (provider: ResolvedProvider, input: string): ClassifyError =>
+  new ClassifyError(
+    "PROVIDER_AUTH",
+    input,
+    `provider unavailable at startup: no API key — set ${provider.spec.keyEnv} to a valid key`,
+  );
+
 /**
  * The classifier config the recorder and the client run on: the resolved model, the provider's key,
- * and, for a protocol with an adapter, the translating fetch. System One goes as is.
+ * and, for a protocol with a translating adapter, the translating fetch. System One goes as is.
  */
 function routeProvider(
   config: ClassifierConfig | undefined,
@@ -152,10 +186,6 @@ function routeProvider(
   const adapter = ADAPTERS[provider.spec.protocol];
   // The wire tap sits at the lowest fetch: what it sees is what goes to the network.
   const wire = tapWire(config?.fetch);
-  if (provider.spec.protocol === "decisions") {
-    const log = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
-    return { ...routed, fetch: decisionsFetch(provider, wire, log) };
-  }
   if (adapter === undefined) return { ...routed, fetch: wire };
   return { ...routed, fetch: protocolFetch(adapter, provider.spec, wire) };
 }
@@ -168,13 +198,7 @@ function makeClient(
   const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   // The vendor client falls back to its own TYPESAFE_API_KEY when given none: a key the provider's
   // keyEnv does not name must never be picked up, so a missing key fails here, naming keyEnv.
-  if (config?.apiKey === undefined) {
-    throw new ClassifyError(
-      "PROVIDER_AUTH",
-      input,
-      `provider unavailable at startup: no API key — set ${provider.spec.keyEnv} to a valid key`,
-    );
-  }
+  if (config?.apiKey === undefined) throw missingKey(provider, input);
   try {
     return new TypeSafeClient({
       apiKey: config.apiKey,
@@ -183,9 +207,6 @@ function makeClient(
         provider.spec.protocol === "systemone" ? provider.spec.url : PROVIDERS.systemone!.url,
       defaultModel: provider.model,
       fetch: config?.fetch,
-      // The decisions client retries and times out for itself, inside this one's single attempt
-      retry: provider.spec.protocol === "decisions" ? { maxRetries: 0 } : undefined,
-      timeout: provider.spec.protocol === "decisions" ? DECISIONS_BUDGET_MS : undefined,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
       // backoff is visible in the CLI (one line per retry; nothing when the API is healthy).
