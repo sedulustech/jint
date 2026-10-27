@@ -29,9 +29,8 @@ import {
   type InputStats,
   type InputSummary,
 } from "./input/stats.ts";
-import { createClassifier, resolveModel } from "./provider/client.ts";
+import { createClassifier } from "./provider/client.ts";
 import { recordSummary } from "./provider/debug.ts";
-import { isDecisionsModel } from "./provider/decisions.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
@@ -39,6 +38,7 @@ import {
   withLimit,
   withTimeout,
 } from "./provider/pacer.ts";
+import { assertProviderKey } from "./provider/providers.ts";
 import {
   classifyFile,
   elementWireId,
@@ -255,16 +255,7 @@ function assertInputSelected(
 }
 
 function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
-  if (
-    ruleCount > 0 &&
-    options.classifier === undefined &&
-    !apiKeyAvailable(options.config.apiKey)
-  ) {
-    throw new SetupError(
-      "CONFIG_INVALID",
-      "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
-    );
-  }
+  if (ruleCount > 0 && options.classifier === undefined) assertProviderKey(options.config);
 }
 
 /**
@@ -293,6 +284,9 @@ function pacedClassifier(
       options.classifier ??
         createClassifier({
           apiKey: options.config.apiKey,
+          provider: options.config.provider,
+          model: options.config.model,
+          providers: options.config.providers,
           log: options.log,
         }),
       knobs.timeout,
@@ -678,17 +672,6 @@ function scopeElementRules(rules: readonly Rule[], options: LintOptions): readon
       `rule ${named} judges whole files, not elements - element-scoped runs take inventory-scoped rules`,
     );
   return rules.filter((rule) => !judgesWholeUnit(rule, "file"));
-}
-
-/**
- * A key reaches the classifier via config apiKey or the environment (OPENAI_API_KEY for a Decisions
- * model); empty counts as absent.
- */
-export function apiKeyAvailable(configKey?: string): boolean {
-  const envKey = isDecisionsModel(resolveModel())
-    ? process.env.OPENAI_API_KEY
-    : process.env.TYPESAFE_API_KEY;
-  return (configKey !== undefined && configKey !== "") || !!envKey;
 }
 
 /**

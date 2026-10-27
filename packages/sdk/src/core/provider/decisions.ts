@@ -1,28 +1,25 @@
 /**
- * OpenAI's Decisions API behind the System One client. The vendor SDK speaks System One only, so
- * this fetch translates each request into the Decisions format and each response back: the rest of
- * the adapter, the recorder and every reading stay in System One's shape.
+ * The `decisions` protocol: OpenAI's POST /v1/decisions. Each System One request is translated into
+ * the Decisions format and each reply back.
  *
  * A noul is asked as a predicate, the API's yes/no form. A predicate has no criteria field, so a
  * noul's criteria are folded into its question as what a yes and a no mean. A choice gets a
  * fallback option the API needs when none fits; its mass is dropped and the rest renormalized. A
- * score level is labelled by its index.
+ * score level is labelled by its index. A refused question keeps its place as a refusal, so only
+ * its own rule loses the reading.
  */
 
-/** Models served by the Decisions API rather than System One. */
-export const isDecisionsModel = (model: string): boolean => model.startsWith("gpt-");
-
-export const DECISIONS_URL = "https://api.openai.com/v1/decisions";
+import {
+  wireName,
+  type Ask,
+  type Answered,
+  type Protocol,
+  type SystemOneQuestion,
+} from "./protocol.ts";
 
 const NONE = "none_of_these";
 
-type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
-type SystemOneQuestion = {
-  type: "noul" | "choice" | "score";
-  instructions: unknown;
-  criteria?: Record<string, string> | string[];
-};
-type DecisionsAnswer = {
+export type DecisionsAnswer = {
   type: string;
   name: string;
   choice?: string;
@@ -31,7 +28,7 @@ type DecisionsAnswer = {
 };
 
 /** The Decisions question for one System One question, under a wire-safe name. */
-function toDecisions(name: string, q: SystemOneQuestion): Record<string, unknown> {
+export function toDecisions(name: string, q: SystemOneQuestion): Record<string, unknown> {
   const instructions =
     typeof q.instructions === "string" ? q.instructions : JSON.stringify(q.instructions);
   if (q.type === "score") {
@@ -62,7 +59,7 @@ function toDecisions(name: string, q: SystemOneQuestion): Record<string, unknown
 }
 
 /** The System One answer for one Decisions answer. */
-function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
+export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
   const shares: Record<string, number> = Object.fromEntries(
     (a.probabilities ?? []).map((o) => [o.value, o.probability]),
   );
@@ -86,63 +83,55 @@ function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown {
   return { type: "choice", choice, probabilities: spread };
 }
 
-const json = (status: number, body: unknown): Response =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+type DecisionsReply = {
+  model?: string;
+  answers?: DecisionsAnswer[];
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    input_tokens_details?: { cached_tokens?: number };
+  };
+};
 
-/** A fetch that takes System One requests and answers them through the Decisions API. */
-export function decisionsFetch(base: Fetch = (input, init) => fetch(input, init)): Fetch {
-  return async (_input, init) => {
-    const request = JSON.parse(String(init?.body)) as {
-      model: string;
-      state: unknown;
-      questions: Record<string, SystemOneQuestion>;
-    };
-    // Rule question names carry spaces and ranges ("rule in L1-L9"); the wire gets positional names.
-    const names = Object.keys(request.questions);
-    const body = {
-      model: request.model,
-      input: typeof request.state === "string" ? request.state : JSON.stringify(request.state),
-      questions: names.map((name, i) => toDecisions(`q${i}`, request.questions[name]!)),
-    };
-    const headers = new Headers(init?.headers);
-    const response = await base(DECISIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: headers.get("Authorization") ?? "",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: init?.signal,
-    });
-    // Errors pass through with their status, so the vendor client retries and maps them as usual.
-    if (!response.ok) return response;
-    const reply = (await response.json()) as {
-      model?: string;
-      answers?: DecisionsAnswer[];
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        input_tokens_details?: { cached_tokens?: number };
-      };
-    };
+/**
+ * Per question, in System One's shape. The model refuses a score none of whose levels fits
+ * (complexity of a plain data object); that question alone becomes a refusal.
+ */
+export function answersByName(
+  ask: Ask,
+  find: (wire: string) => DecisionsAnswer | undefined,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.keys(ask.questions).map((name, i) => {
+      const a = find(wireName(i));
+      if (a?.type === "refusal") return [name, { type: "refusal" }];
+      return [name, a === undefined ? undefined : fromDecisions(ask.questions[name]!, a)];
+    }),
+  );
+}
+
+export const decisions: Protocol = {
+  request: (ask) => ({
+    headers: {},
+    body: {
+      model: ask.model,
+      input: ask.input,
+      questions: Object.keys(ask.questions).map((name, i) =>
+        toDecisions(wireName(i), ask.questions[name]!),
+      ),
+    },
+  }),
+  reply(raw, ask): Answered {
+    const reply = raw as DecisionsReply;
     const byName = new Map((reply.answers ?? []).map((a) => [a.name, a]));
-    // A refused question keeps its place as a refusal, so only its own rule loses the reading: the
-    // model refuses a score none of whose levels fits (complexity of a plain data object).
-    const answers = Object.fromEntries(
-      names.map((name, i) => {
-        const a = byName.get(`q${i}`);
-        if (a?.type === "refusal") return [name, { type: "refusal" }];
-        return [name, a === undefined ? undefined : fromDecisions(request.questions[name]!, a)];
-      }),
-    );
-    return json(200, {
-      model: reply.model ?? request.model,
-      answers,
+    return {
+      model: reply.model,
+      answers: answersByName(ask, (wire) => byName.get(wire)),
       usage: {
         input_tokens: reply.usage?.input_tokens ?? 0,
         output_tokens: reply.usage?.output_tokens ?? 0,
         cached_input_tokens: reply.usage?.input_tokens_details?.cached_tokens ?? 0,
       },
-    });
-  };
-}
+    };
+  },
+};

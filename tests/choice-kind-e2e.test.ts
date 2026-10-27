@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
 
@@ -42,7 +42,7 @@ async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
   try {
     const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
-      env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl },
+      env: mockWire(provider.baseUrl),
     });
     return {
       r,

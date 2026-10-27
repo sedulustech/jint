@@ -27,7 +27,7 @@ import {
   runsBase,
   selectRules,
   validateRuleSelection,
-  apiKeyAvailable,
+  assertProviderKey,
   knownLanguages,
   lint,
   loadConfig,
@@ -802,14 +802,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // Auth pre-flight (the same check lint() makes): with rules to classify and no key
     // anywhere, the run aborts anyway - surface it before the rubric block so the one
     // actionable line is never buried under it.
-    if (
-      effective.length + (resolvedConfig.customRules?.length ?? 0) > 0 &&
-      !apiKeyAvailable(resolvedConfig.apiKey)
-    ) {
-      throw new SetupError(
-        "CONFIG_INVALID",
-        "no TYPESAFE_API_KEY set - measurements need a valid key (override per run: --config with apiKey)",
-      );
+    if (effective.length + (resolvedConfig.customRules?.length ?? 0) > 0) {
+      assertProviderKey(resolvedConfig);
     }
     printRules(effective, resolvedConfig.customRules?.length ?? 0);
     // The lint input, statement-resolved (no conditional spreads): with no flags and no stdin pass

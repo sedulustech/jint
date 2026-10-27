@@ -408,6 +408,23 @@ describe("validateConfig / defaultConfig", () => {
     expect(() => config({ concurrency: 65 })).toThrow(/concurrency: must be <= 64/);
   });
 
+  test("provider, model and providers overrides load; a wrong-typed field is rejected", () => {
+    const config = (overrides: Record<string, unknown>) =>
+      validateConfig({ input: "x", ...overrides }, "inline", defaultRules);
+    const loaded = config({
+      provider: "vercel",
+      model: "m",
+      providers: { vercel: { url: "http://x", limits: { tokensPerMinute: 5 } } },
+    });
+    expect(loaded.provider).toBe("vercel");
+    expect(loaded.model).toBe("m");
+    expect(loaded.providers).toEqual({
+      vercel: { url: "http://x", limits: { tokensPerMinute: 5 } },
+    });
+    expect(() => config({ providers: { vercel: { url: 3 } } })).toThrow();
+    expect(() => config({ providers: { vercel: { protocol: "soap" } } })).toThrow();
+  });
+
   test("per-rule scoping: validation names rule+field; full cancellation warns, never errors", () => {
     const rule = (scope: Record<string, unknown>) => ({
       input: "x",

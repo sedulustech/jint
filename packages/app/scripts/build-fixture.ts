@@ -188,7 +188,7 @@ export async function main(outDirOverride?: string): Promise<void> {
   mkdirSync(stagingDir, { recursive: true });
   // activate recording BEFORE the first classifier call; point it at our staging root
   process.env.JINT_RUNS_DIR = stagingDir;
-  process.env.TYPESAFE_API_KEY = "fixture-key";
+  process.env.JINT_TYPESAFE_API_KEY = "fixture-key";
 
   const config = {
     input: "",
@@ -205,7 +205,11 @@ export async function main(outDirOverride?: string): Promise<void> {
         config,
         input: sourceDir,
         inputType: "dir",
-        classifier: createClassifier({ apiKey: "fixture-key", fetch: stubFetch() }),
+        classifier: createClassifier({
+          provider: "systemone",
+          apiKey: "fixture-key",
+          fetch: stubFetch(),
+        }),
       }),
     );
   } finally {

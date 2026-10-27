@@ -116,6 +116,11 @@ declare module "jint:sdk" {
     readonly exclude?: readonly string[];
     readonly disable?: readonly string[];
     readonly apiKey?: string;
+    readonly provider?: string;
+    readonly model?: string;
+    readonly providers?: Readonly<
+      Record<string, Partial<import("./core/provider/providers.ts").ProviderSpec>>
+    >;
     readonly concurrency?: number;
     readonly timeout?: number;
   }

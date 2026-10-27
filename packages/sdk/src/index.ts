@@ -53,7 +53,15 @@ export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { compileRule } from "./config/load.ts";
 export { registerCustomRuleLoader } from "./core/rules/custom/loader.ts";
-export { selectRules, validateRuleSelection, apiKeyAvailable } from "./core/lint.ts";
+export { selectRules, validateRuleSelection } from "./core/lint.ts";
+export {
+  assertProviderKey,
+  resolveProvider,
+  PROVIDERS,
+  type ProviderChoice,
+  type ProviderSpec,
+  type ResolvedProvider,
+} from "./core/provider/providers.ts";
 export { renderInputSummary, type InputSummary, type InputStats } from "./core/input/stats.ts";
 export { walkScopes, configScopeAdmits, type OwnedScope } from "./core/scope.ts";
 export { validateCustomRule } from "./core/rules/custom/schema.ts";

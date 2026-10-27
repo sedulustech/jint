@@ -1,6 +1,7 @@
 /**
  * Shared mock of the provider vendor wire (POST /v1/systemone). Point the CLI at baseUrl via
- * TYPESAFE_BASE_URL and every classification is answered locally — the suite runs fully keyless.
+ * mockWire(baseUrl) (tests/helpers/cli.ts) and every classification is answered locally — the suite
+ * runs fully keyless.
  *
  * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
  * everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see tests/README.md.
@@ -38,7 +39,7 @@ export interface MockProviderOptions {
 }
 
 export interface MockProvider {
-  /** Value for TYPESAFE_BASE_URL — the proven process-level injection for spawned CLIs. */
+  /** The server address for mockWire - the systemone provider url in a spawned CLI's wrapper config. */
   baseUrl: string;
   stop: () => void;
   /** Every request the mock saw, in order. Assert the wire: state content, instructions, criteria. */

@@ -1,5 +1,5 @@
 import { describe, test, jest, expect, afterAll } from "bun:test";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
 
@@ -20,10 +20,7 @@ const SNIPPET = [
 /** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
 const provider = startMockProvider();
 
-const MOCK_ENV = {
-  TYPESAFE_API_KEY: "test-key",
-  TYPESAFE_BASE_URL: provider.baseUrl,
-};
+const MOCK_ENV = mockWire(provider.baseUrl);
 
 async function runWithStdin(
   stdin: string,
@@ -64,14 +61,20 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   });
 
   test("an EMPTY list is LIST_EMPTY, exit 2 — distinguishable from an unreadable one", async () => {
-    const proc = await runCli(["run", "paths", "-"], { stdin: "" });
+    const proc = await runCli(["run", "paths", "-"], {
+      stdin: "",
+      env: mockWire("http://127.0.0.1:1"),
+    });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_EMPTY");
     expect(proc.stderr).toContain("empty list");
   });
 
   test("an entry that would need interpreting is LIST_ENTRY_INVALID, exit 2", async () => {
-    const proc = await runCli(["run", "paths", "-"], { stdin: "src/\n" });
+    const proc = await runCli(["run", "paths", "-"], {
+      stdin: "src/\n",
+      env: mockWire("http://127.0.0.1:1"),
+    });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_ENTRY_INVALID");
     expect(proc.stderr).toContain("a list names files");

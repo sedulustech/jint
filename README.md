@@ -56,10 +56,23 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint
 
 ## How to use
 
-Only one provider is supported for now.
+jint asks its questions of a provider. The default is `openai` (OpenAI's Decisions API); `vercel`
+(the AI gateway's native decision-model endpoint) and `systemone` are built in.
 
 ```bash
-export TYPESAFE_API_KEY=...   # required
+export JINT_OPENAI_API_KEY=...   # the default provider's key; each provider names its own variable
+```
+
+Choose another provider, model, url or key variable in the config (`provider`, `model`, `providers`),
+or per environment with `JINT_PROVIDER` and `JINT_MODEL`. The config wins over the environment, the
+environment over the built-in table. A provider is data: `providers` overrides a table entry's
+`protocol`, `url`, `keyEnv`, `model`, `headers` and `limits`, or adds a provider.
+
+```ts
+export default {
+  provider: "vercel", // key: JINT_AI_GATEWAY_API_KEY
+  providers: { vercel: { model: "openai/gpt-6-luna-decisions" } },
+};
 ```
 
 ```bash

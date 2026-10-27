@@ -1,5 +1,5 @@
 import { describe, test, jest, expect } from "bun:test";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, NO_KEY_WIRE } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
@@ -17,7 +17,7 @@ describe("cli: config load errors exit 2", () => {
     Bun.write(tmpDir + "/input.ts", "// content");
     const proc = await runCli(["run", "input.ts", "--json"], {
       cwd: tmpDir,
-      env: { TYPESAFE_API_KEY: "" },
+      env: NO_KEY_WIRE,
     });
     expect(proc.code).toBe(2);
     rmScratchTree(tmpDir);
@@ -27,7 +27,7 @@ describe("cli: config load errors exit 2", () => {
     const tmpDir = scratchDir("jint-config-broken");
     Bun.write(tmpDir + "/jint.config.json", "{ broken: true }");
 
-    const proc = await runCli(["run", "--json"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    const proc = await runCli(["run", "--json"], { cwd: tmpDir, env: NO_KEY_WIRE });
     expect(proc.code).toBe(2);
     rmScratchTree(tmpDir);
   });
@@ -41,7 +41,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
       JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
     );
 
-    const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: NO_KEY_WIRE });
     expect(proc.code).toBe(0);
     expect(proc.stderr).toBe("");
     const err = proc.stdout;
@@ -67,7 +67,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = await runCli(["run", "--dry-run", "--disable", "is_name_purposeful"], {
       cwd: tmpDir,
-      env: { TYPESAFE_API_KEY: "" },
+      env: NO_KEY_WIRE,
     });
     expect(proc.code).toBe(0);
     const err = proc.stdout;
@@ -86,7 +86,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
     const proc = await runCli(["run", "--dry-run", "--json"], {
       cwd: tmpDir,
-      env: { TYPESAFE_API_KEY: "" },
+      env: NO_KEY_WIRE,
     });
     expect(proc.code).toBe(0);
     // byte-clean stdout: exactly one JSON document (the declared rule set), banner on stderr
@@ -101,7 +101,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun-empty");
     Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));
 
-    const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: { TYPESAFE_API_KEY: "" } });
+    const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: NO_KEY_WIRE });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("CONFIG_NO_RULES");
     rmScratchTree(tmpDir);

@@ -1,5 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
 
 const FIXTURE = "tests/fixtures/sample-file.ts";
@@ -9,7 +9,7 @@ const FIXTURE = "tests/fixtures/sample-file.ts";
 // mock provider: call count, the judged source, and the finding-string round trip.
 describe("cli: element-scoped runs (mocked provider)", () => {
   const provider = startMockProvider();
-  const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
+  const MOCK_ENV = mockWire(provider.baseUrl);
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
     // scopes-open config: the fixture lives under tests/, which the repo config excludes -

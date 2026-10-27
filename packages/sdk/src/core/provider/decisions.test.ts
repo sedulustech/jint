@@ -1,14 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { decisionsFetch } from "./decisions.ts";
+import { decisions } from "./decisions.ts";
+import { protocolFetch } from "./protocol.ts";
+
+const SPEC = { url: "https://api.openai.com/v1/decisions", headers: { "x-extra": "1" } };
+const decisionsFetch = (base: Parameters<typeof protocolFetch>[2]) =>
+  protocolFetch(decisions, SPEC, base);
 
 /** A fake Decisions endpoint: records what it was sent and answers with the given body. */
 function fake(reply: unknown, status = 200) {
-  const sent: { url: string; body: any; auth: string | null }[] = [];
+  const sent: { url: string; body: any; auth: string | null; headers: Record<string, string> }[] =
+    [];
   const fetch = async (url: string, init?: RequestInit) => {
     sent.push({
       url,
       body: JSON.parse(String(init?.body)),
       auth: new Headers(init?.headers).get("Authorization"),
+      headers: Object.fromEntries(new Headers(init?.headers)),
     });
     return new Response(JSON.stringify(reply), { status });
   };
@@ -22,7 +29,7 @@ const ask = (f: ReturnType<typeof decisionsFetch>, questions: unknown) =>
     body: JSON.stringify({ model: "gpt-6-luna", state: { path: "a.ts", content: "x" }, questions }),
   });
 
-describe("decisionsFetch", () => {
+describe("decisions protocol", () => {
   test("a noul goes as a predicate with its criteria in the question", async () => {
     const api = fake({
       answers: [{ type: "predicate", name: "q0", probability: 0.14 }],
@@ -37,6 +44,8 @@ describe("decisionsFetch", () => {
     });
     expect(api.sent[0]!.url).toBe("https://api.openai.com/v1/decisions");
     expect(api.sent[0]!.auth).toBe("Bearer k");
+    expect(api.sent[0]!.headers["x-extra"]).toBe("1");
+    expect(api.sent[0]!.body.model).toBe("gpt-6-luna");
     expect(api.sent[0]!.body.input).toBe('{"path":"a.ts","content":"x"}');
     expect(api.sent[0]!.body.questions[0]).toEqual({
       type: "predicate",

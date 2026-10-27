@@ -65,7 +65,11 @@ const scoreBody = {
 };
 
 async function judgeOnce(fetchImpl: FetchLike): Promise<Record<string, ClassifiedAnswer>> {
-  const classifier = createClassifier({ apiKey: "test-key", fetch: fetchImpl });
+  const classifier = createClassifier({
+    provider: "systemone",
+    apiKey: "test-key",
+    fetch: fetchImpl,
+  });
   return await classifier(state, questions);
 }
 
@@ -91,7 +95,11 @@ describe("createClassifier", () => {
         headers: { "Content-Type": "application/json" },
       });
     };
-    const classifier = createClassifier({ apiKey: "test-key", fetch: probe });
+    const classifier = createClassifier({
+      provider: "systemone",
+      apiKey: "test-key",
+      fetch: probe,
+    });
     const answers = await classifier(state, scoreQuestions);
     expect(answers.is_readable?.value).toBe(2);
     expect(answers.is_readable?.probabilities).toEqual({ 0: 0.05, 1: 0.2, 2: 0.7, 3: 0.05 });
@@ -131,10 +139,11 @@ describe("createClassifier", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     };
-    const answers = await createClassifier({ apiKey: "test-key", fetch: probe })(
-      state,
-      choiceQuestions,
-    );
+    const answers = await createClassifier({
+      provider: "systemone",
+      apiKey: "test-key",
+      fetch: probe,
+    })(state, choiceQuestions);
     // the value is the selected option's probability; the label carries the verdict
     expect(answers.is_comment_justified).toEqual({
       value: 0.7,
@@ -176,20 +185,66 @@ describe("createClassifier", () => {
     );
   });
 
-  test("missing TYPESAFE_API_KEY fails loud PROVIDER_AUTH at first call, not at import", async () => {
-    const saved = process.env.TYPESAFE_API_KEY;
-    delete process.env.TYPESAFE_API_KEY;
+  test("a missing key fails loud PROVIDER_AUTH at first call, naming the provider's keyEnv, not at import", async () => {
+    const saved = { ...process.env };
+    delete process.env.JINT_OPENAI_API_KEY;
+    // the vendor client's own variable must never stand in for the provider's key
+    process.env.TYPESAFE_API_KEY = "stray";
+    process.env.OPENAI_API_KEY = "stray";
     try {
-      const classifier = createClassifier(); // construction must not throw
-      try {
-        await classifier(state, questions);
-        expect.unreachable();
-      } catch (e) {
-        expectClassifyError("PROVIDER_AUTH")(e);
-        expect((e as ClassifyError).message).toContain("TYPESAFE_API_KEY");
+      for (const [provider, keyEnv] of [
+        ["openai", "JINT_OPENAI_API_KEY"],
+        ["systemone", "JINT_TYPESAFE_API_KEY"],
+      ] as const) {
+        delete process.env[keyEnv];
+        const classifier = createClassifier({ provider }); // construction must not throw
+        try {
+          await classifier(state, questions);
+          expect.unreachable();
+        } catch (e) {
+          expectClassifyError("PROVIDER_AUTH")(e);
+          expect((e as ClassifyError).message).toContain(keyEnv);
+        }
       }
     } finally {
-      if (saved !== undefined) process.env.TYPESAFE_API_KEY = saved;
+      process.env = saved;
+    }
+  });
+
+  test("an unknown provider fails at construction as a setup error", () => {
+    expect(() => createClassifier({ provider: "nope" })).toThrow(/unknown provider 'nope'/);
+  });
+
+  test("the default provider asks the Decisions API at the table's url, with the provider's key", async () => {
+    const seen: { url: string; auth: string | null; body: any }[] = [];
+    const probe = async (url: string, init?: RequestInit) => {
+      seen.push({
+        url,
+        auth: new Headers(init?.headers).get("Authorization"),
+        body: JSON.parse(String(init?.body)),
+      });
+      return new Response(
+        JSON.stringify({
+          answers: [{ type: "predicate", name: "q0", probability: 0.25 }],
+          usage: { input_tokens: 1, output_tokens: 0 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const saved = process.env.JINT_OPENAI_API_KEY;
+    process.env.JINT_OPENAI_API_KEY = "env-key";
+    try {
+      const answers = await createClassifier({
+        fetch: probe,
+        providers: { openai: { url: "http://127.0.0.1:1/v1/decisions" } },
+      })(state, { is_readable: { type: "noul", instructions: "Is it?" } });
+      expect(answers.is_readable?.value).toBe(0.25);
+      expect(seen[0]!.url).toBe("http://127.0.0.1:1/v1/decisions");
+      expect(seen[0]!.auth).toBe("Bearer env-key");
+      expect(seen[0]!.body.model).toBe("gpt-6-luna");
+    } finally {
+      if (saved === undefined) delete process.env.JINT_OPENAI_API_KEY;
+      else process.env.JINT_OPENAI_API_KEY = saved;
     }
   });
 
@@ -248,7 +303,7 @@ describe("createClassifier", () => {
       usage: { input_tokens: 1, output_tokens: 1 },
     };
     try {
-      await createClassifier({ apiKey: "test-key", fetch: fakeFetch(body) })(
+      await createClassifier({ provider: "systemone", apiKey: "test-key", fetch: fakeFetch(body) })(
         state,
         choiceQuestions,
       );

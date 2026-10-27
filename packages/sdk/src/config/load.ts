@@ -20,6 +20,7 @@ import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";
+import type { ProviderSpec } from "../core/provider/providers.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";
 
@@ -144,6 +145,53 @@ export const CONFIG_SCHEMA = Type.Object({
   secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
   apiKey: Type.Optional(Type.String()),
+  provider: Type.Optional(
+    Type.String({
+      description:
+        "The provider asked: a name from the provider table or from providers. Default: $JINT_PROVIDER, else openai.",
+    }),
+  ),
+  model: Type.Optional(
+    Type.String({
+      description: "The model id asked. Default: $JINT_MODEL, else the provider's model.",
+    }),
+  ),
+  providers: Type.Optional(
+    Type.Record(
+      Type.String(),
+      Type.Partial(
+        Type.Object({
+          protocol: Type.Union(
+            [Type.Literal("decisions"), Type.Literal("decision-model"), Type.Literal("systemone")],
+            { description: "The wire format the provider speaks." },
+          ),
+          url: Type.String({ description: "The endpoint the questions are posted to." }),
+          keyEnv: Type.String({
+            description: "The environment variable holding the provider's API key.",
+          }),
+          model: Type.String({ description: "The model id asked by default." }),
+          headers: Type.Record(Type.String(), Type.String(), {
+            description: "Extra request headers, sent with every call.",
+          }),
+          limits: Type.Partial(
+            Type.Object({
+              tokensPerMinute: Type.Number({
+                description: "Input-token budget per minute; the run paces its calls under it.",
+              }),
+            }),
+          ),
+        }),
+        {
+          description:
+            "Fields of the named provider to override, or a new provider (protocol, url, keyEnv and model all required once merged).",
+        },
+      ),
+      {
+        description:
+          "Per-name overrides of the provider table entries (openai, vercel, systemone), or new providers.",
+      },
+    ),
+  ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
   // cross-field checks so the error names the field.
   concurrency: Type.Optional(
@@ -172,6 +220,12 @@ export interface ResolvedConfig {
   /** The walk's secret-shaped denylist (config override; default = the built-in denylist). */
   readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
+  /** The provider asked (a table or `providers` name); absent: $JINT_PROVIDER, then the default. */
+  readonly provider?: string;
+  /** The model id asked; absent: $JINT_MODEL, then the provider's model. */
+  readonly model?: string;
+  /** Per-name overrides of provider table entries, or new providers. */
+  readonly providers?: Readonly<Record<string, Partial<ProviderSpec>>>;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes PROVIDER_TIMEOUT. */
@@ -446,6 +500,9 @@ export function validateConfig(
     exclude: string[];
     secretDenylist?: string[];
     apiKey?: string;
+    provider?: string;
+    model?: string;
+    providers?: Record<string, Partial<ProviderSpec>>;
     concurrency?: number;
     timeout?: number;
     warnings?: string[];
@@ -459,6 +516,9 @@ export function validateConfig(
   if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
+  if (parsed.provider !== undefined) resolved.provider = parsed.provider;
+  if (parsed.model !== undefined) resolved.model = parsed.model;
+  if (parsed.providers !== undefined) resolved.providers = parsed.providers;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,

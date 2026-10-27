@@ -15,7 +15,8 @@ and, for most rules, a fixer message that states the exact fix.
 ## Run it
 
 Install: https://github.com/sedulustech/jint#install.
-`TYPESAFE_API_KEY` must be in the environment. Every flag, including output
+The selected provider's key (`JINT_OPENAI_API_KEY` by default) must be in
+the environment. Every flag, including output
 formats and scoping, lives in `jint --help` - the tool's own contract, not
 duplicated here.
 

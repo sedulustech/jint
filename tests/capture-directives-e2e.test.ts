@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
 
@@ -71,7 +71,7 @@ writeFileSync(
 writeFileSync(join(DIR, "jint.config.json"), CONFIG);
 
 const provider = startMockProvider();
-const WIRE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
+const WIRE = mockWire(provider.baseUrl);
 
 afterAll(() => {
   provider.stop();

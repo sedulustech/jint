@@ -35,8 +35,15 @@ import {
   type Questions,
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
+import { ADAPTERS } from "./adapters.ts";
 import { ID_HEADER, recordRequests } from "./debug.ts";
-import { decisionsFetch, isDecisionsModel } from "./decisions.ts";
+import { protocolFetch } from "./protocol.ts";
+import {
+  PROVIDERS,
+  resolveProvider,
+  type ProviderChoice,
+  type ResolvedProvider,
+} from "./providers.ts";
 import type { ClassifiedAnswer } from "@jint/contract";
 
 /** The noul answer boundary: exactly one calibrated probability per question. */
@@ -81,13 +88,10 @@ const ANSWER_SHAPES = {
   },
 } as const;
 
-export interface ClassifierConfig {
-  /** Overrides the environment key; tests inject a fake transport instead. */
-  apiKey?: string;
-  baseURL?: string;
+export interface ClassifierConfig extends ProviderChoice {
   /**
-   * The model id; defaults to $JINT_MODEL, then the pinned default model. A Decisions model (gpt-*)
-   * is asked through OpenAI's Decisions API with $OPENAI_API_KEY.
+   * The model id; defaults to $JINT_MODEL, then the selected provider's model. The provider is
+   * chosen by `provider`, else $JINT_PROVIDER, else the default (see providers.ts).
    */
   model?: string;
   /** Custom fetch for tests (structurally the vendor client's fetch). */
@@ -101,9 +105,11 @@ export interface ClassifierConfig {
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
+  const provider = resolveProvider(config);
   let client: TypeSafeClient | null = null;
   return async (state, questions) => {
-    if (client === null) client = makeClient(recordRequests(routeModel(config)), state.path);
+    if (client === null)
+      client = makeClient(recordRequests(routeProvider(config, provider)), provider, state.path);
     const sdkQuestions = compileQuestions(questions);
     // The id is jint's handle, not something to judge: a fresh id each run would make identical
     // code a different request (luna's readings moved by up to 0.55 on unchanged code). It rides
@@ -123,34 +129,41 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
 }
 
 /**
- * The pinned default model. The `jev-latest` alias moves when a new release ships, so readings, and
- * every threshold calibrated against them, would change without a change here.
+ * The classifier config the recorder and the client run on: the resolved model, the provider's key,
+ * and, for a protocol with an adapter, the translating fetch. System One goes as is.
  */
-export const DEFAULT_MODEL = "jev-1.13.0";
-
-/** The model a run asks: the config's, else $JINT_MODEL, else the pinned default model. */
-export const resolveModel = (model?: string): string =>
-  model ?? process.env.JINT_MODEL ?? DEFAULT_MODEL;
-
-/** A Decisions model swaps in the translating fetch and OpenAI's key; System One goes as is. */
-function routeModel(config: ClassifierConfig | undefined): ClassifierConfig {
-  const model = resolveModel(config?.model);
-  if (!isDecisionsModel(model)) return { ...config, model };
-  return {
-    ...config,
-    model,
-    apiKey: config?.apiKey ?? process.env.OPENAI_API_KEY,
-    fetch: decisionsFetch(config?.fetch),
-  };
+function routeProvider(
+  config: ClassifierConfig | undefined,
+  provider: ResolvedProvider,
+): ClassifierConfig {
+  const routed = { ...config, model: provider.model, apiKey: provider.apiKey };
+  const adapter = ADAPTERS[provider.spec.protocol];
+  if (adapter === undefined) return routed;
+  return { ...routed, fetch: protocolFetch(adapter, provider.spec, config?.fetch) };
 }
 
-function makeClient(config: ClassifierConfig | undefined, input: string): TypeSafeClient {
+function makeClient(
+  config: ClassifierConfig | undefined,
+  provider: ResolvedProvider,
+  input: string,
+): TypeSafeClient {
   const writeLog = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+  // The vendor client falls back to its own TYPESAFE_API_KEY when given none: a key the provider's
+  // keyEnv does not name must never be picked up, so a missing key fails here, naming keyEnv.
+  if (config?.apiKey === undefined) {
+    throw new ClassifyError(
+      "PROVIDER_AUTH",
+      input,
+      `provider unavailable at startup: no API key — set ${provider.spec.keyEnv} to a valid key`,
+    );
+  }
   try {
     return new TypeSafeClient({
-      apiKey: config?.apiKey,
-      baseURL: config?.baseURL,
-      defaultModel: config?.model ?? DEFAULT_MODEL,
+      apiKey: config.apiKey,
+      // A translated protocol is still asked in System One's shape beneath the translating fetch
+      baseURL:
+        provider.spec.protocol === "systemone" ? provider.spec.url : PROVIDERS.systemone!.url,
+      defaultModel: provider.model,
       fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"
       // at info, invisible under its warn default. Route those lines to the log sink so a 429
@@ -173,7 +186,7 @@ function makeClient(config: ClassifierConfig | undefined, input: string): TypeSa
     throw new ClassifyError(
       "PROVIDER_AUTH",
       input,
-      `provider unavailable at startup: ${detail} — set TYPESAFE_API_KEY to a valid key`,
+      `provider unavailable at startup: ${detail} — set ${provider.spec.keyEnv} to a valid key`,
       { cause: e },
     );
   }

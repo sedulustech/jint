@@ -1181,6 +1181,73 @@
     "apiKey": {
       "type": "string"
     },
+    "provider": {
+      "description": "The provider asked: a name from the provider table or from providers. Default: $JINT_PROVIDER, else openai.",
+      "type": "string"
+    },
+    "model": {
+      "description": "The model id asked. Default: $JINT_MODEL, else the provider's model.",
+      "type": "string"
+    },
+    "providers": {
+      "description": "Per-name overrides of the provider table entries (openai, vercel, systemone), or new providers.",
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "description": "The wire format the provider speaks.",
+              "anyOf": [
+                {
+                  "const": "decisions",
+                  "type": "string"
+                },
+                {
+                  "const": "decision-model",
+                  "type": "string"
+                },
+                {
+                  "const": "systemone",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "description": "The endpoint the questions are posted to.",
+              "type": "string"
+            },
+            "keyEnv": {
+              "description": "The environment variable holding the provider's API key.",
+              "type": "string"
+            },
+            "model": {
+              "description": "The model id asked by default.",
+              "type": "string"
+            },
+            "headers": {
+              "description": "Extra request headers, sent with every call.",
+              "type": "object",
+              "patternProperties": {
+                "^(.*)$": {
+                  "type": "string"
+                }
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "tokensPerMinute": {
+                  "description": "Input-token budget per minute; the run paces its calls under it.",
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "description": "Fields of the named provider to override, or a new provider (protocol, url, keyEnv and model all required once merged)."
+        }
+      }
+    },
     "concurrency": {
       "description": "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16 (measured: 53.9 rps at 16, zero 429s), max 64.",
       "type": "number"

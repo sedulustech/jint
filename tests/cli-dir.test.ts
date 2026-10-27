@@ -1,7 +1,7 @@
 import { describe, test, jest, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
 
@@ -10,7 +10,7 @@ import { startMockProvider } from "./helpers/mock-provider.ts";
 jest.setTimeout(60_000);
 
 // a key with no reachable provider: the run walks, transport failures stay in-band
-const NO_SERVICE = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: "http://127.0.0.1:1" };
+const NO_SERVICE = mockWire("http://127.0.0.1:1");
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
@@ -166,7 +166,7 @@ describe("cli: dir walk ignores", () => {
       const proc = await runCli(
         ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
         {
-          env: { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl },
+          env: mockWire(provider.baseUrl),
         },
       );
       const report = JSON.parse(proc.stdout);
@@ -184,9 +184,9 @@ describe("cli: dir walk ignores", () => {
   // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
   test("with a real key: ignored files are absent from measurements", async () => {
     if (process.env.RUN_LIVE_TESTS !== "1") return;
-    if (!process.env.TYPESAFE_API_KEY) {
+    if (!process.env.JINT_OPENAI_API_KEY) {
       throw new Error(
-        "RUN_LIVE_TESTS=1 but TYPESAFE_API_KEY is unset - live tests never skip silently",
+        "RUN_LIVE_TESTS=1 but JINT_OPENAI_API_KEY is unset - live tests never skip silently",
       );
     }
     const proc = await runCli(["run", "tests/fixtures/sample-dir", "--json"]);

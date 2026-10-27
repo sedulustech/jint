@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
-import { runCli } from "./helpers/cli.ts";
+import { runCli, mockWire } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockProvider } from "./helpers/mock-provider.ts";
@@ -100,7 +100,7 @@ function setup(name: string, configSource: string): string {
 }
 
 const provider = startMockProvider();
-const MOCK_ENV = { TYPESAFE_API_KEY: "test-key", TYPESAFE_BASE_URL: provider.baseUrl };
+const MOCK_ENV = mockWire(provider.baseUrl);
 afterAll(() => {
   provider.stop();
   rmScratchTree(DIR);
@@ -201,13 +201,13 @@ describe("cli: custom rules end-to-end", () => {
 
   test("a TS config that fails at load is fatal: exit 2, the file is named", async () => {
     const dir = setup("loadfail", 'throw new Error("boom");');
-    const r = await runIn(dir);
+    const r = await runIn(dir, { MOCK_PROVIDER_URL: undefined });
     expectContract(r, { exit: 2, stderr: [/jint\.config\.ts/, "boom"] });
   });
 
   test("an import-gate rejection is fatal at e2e too: exit 2, the specifier is named", async () => {
     const dir = setup("gatefail", 'import kleur from "kleur";\nexport default {};');
-    const r = await runIn(dir);
+    const r = await runIn(dir, { MOCK_PROVIDER_URL: undefined });
     expectContract(r, { exit: 2, stderr: [/kleur/, /only "jint:\*"/] });
   });
 
