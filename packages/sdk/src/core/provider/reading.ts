@@ -4,6 +4,8 @@
  * live ones.
  */
 
+import { ClassifyError, type Ask } from "../types.ts";
+import { wireName } from "./protocol.ts";
 import type { SystemOneQuestion } from "./protocol.ts";
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
@@ -64,4 +66,34 @@ export function fromDecisions(q: SystemOneQuestion, a: DecisionsAnswer): unknown
     return { type: "score", score: r.value, legend, probabilities: r.probabilities };
   }
   return { type: "choice", choice: r.choice, probabilities: r.probabilities };
+}
+
+/**
+ * Each question's answer from a reply's answers, found by wire name; a missing or wrong-shaped one
+ * is a PROVIDER_RESPONSE_INVALID for the whole ask.
+ */
+export function readAnswers(
+  ask: Ask,
+  find: (wire: string) => DecisionsAnswer | undefined,
+): Record<string, ClassifiedAnswer | Refusal> {
+  const input = ask.state.path;
+  const out: Record<string, ClassifiedAnswer | Refusal> = {};
+  Object.entries(ask.questions).forEach(([name, spec], i) => {
+    const a = find(wireName(i));
+    const answer = a === undefined ? undefined : readAnswer(spec, a);
+    // A missing answer, or a noul outside [0, 1], is the model's reply failing the contract.
+    const outOfRange =
+      spec.type === "noul" && answer !== undefined && "value" in answer
+        ? !(answer.value >= 0 && answer.value <= 1)
+        : false;
+    if (answer === undefined || outOfRange) {
+      throw new ClassifyError(
+        "PROVIDER_RESPONSE_INVALID",
+        input,
+        `provider answer '${name}' failed shape validation: expected ${spec.type}, got ${JSON.stringify(a)}`,
+      );
+    }
+    out[name] = answer;
+  });
+  return out;
 }

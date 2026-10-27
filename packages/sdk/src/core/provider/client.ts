@@ -37,6 +37,7 @@ import {
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
 import { ADAPTERS } from "./adapters.ts";
 import { ID_HEADER, inCall, recordRequests, tapWire } from "./debug.ts";
+import { decisionModelAdapter } from "./decision-model.ts";
 import { decisionsAdapter } from "./decisions.ts";
 import { protocolFetch } from "./protocol.ts";
 import {
@@ -132,11 +133,15 @@ function makeClassifier(
   input: string,
 ): Classifier {
   const route = { provider: provider.name, host: urlHost(provider.spec.url) };
-  if (provider.spec.protocol === "decisions") {
+  if (provider.spec.protocol === "decisions" || provider.spec.protocol === "decision-model") {
     // A missing key fails here, naming keyEnv, before anything is built or recorded.
     if (provider.apiKey === undefined) throw missingKey(provider, input);
     const recorded = recordRequests({ ...config, model: provider.model }, route);
-    const adapter = decisionsAdapter(provider, { fetch: recorded.fetch!, log });
+    const transport = { fetch: recorded.fetch!, log };
+    const adapter =
+      provider.spec.protocol === "decisions"
+        ? decisionsAdapter(provider, transport)
+        : decisionModelAdapter(provider, transport);
     return async (state, questions) => {
       // The id is jint's handle, not something to judge: a fresh id each run would make identical
       // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays

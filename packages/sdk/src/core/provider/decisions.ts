@@ -16,11 +16,11 @@
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
 import { wireName, type Fetch, type SystemOneQuestion, type WireAsk } from "./protocol.ts";
-import { NONE, readAnswer, fromDecisions, type DecisionsAnswer } from "./reading.ts";
+import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
+import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 import type { ResolvedProvider } from "./providers.ts";
 
 export { fromDecisions, readAnswer, type DecisionsAnswer };
-import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 import type { Decision, DecisionCreateParams } from "openai/resources/decisions";
 
 type Question = DecisionCreateParams["questions"][number];
@@ -85,10 +85,6 @@ function baseUrl(provider: ResolvedProvider): string {
   return url.slice(0, -"/decisions".length);
 }
 
-/** Per attempt, as the vendor client's own default. */
-const ATTEMPT_TIMEOUT_MS = 10_000;
-const MAX_RETRIES = 2;
-
 /**
  * The official client reads OPENAI_* variables (key, base url, org, project, webhook secret, admin
  * key, log level, custom headers) when it is built. Its options are passed explicitly, and the
@@ -107,32 +103,12 @@ function withoutOpenAIEnv<T>(build: () => T): T {
 /** The ClassifyError a failed call is, by the client's error type; a ClassifyError passes as is. */
 export function mapDecisionsError(e: unknown, input: string): ClassifyError {
   if (e instanceof ClassifyError) return e;
-  if (e instanceof OpenAI.AuthenticationError || e instanceof OpenAI.PermissionDeniedError) {
-    return new ClassifyError(
-      "PROVIDER_AUTH",
-      input,
-      `provider rejected the API key: ${e.message}`,
-      { cause: e },
-    );
-  }
-  if (e instanceof OpenAI.BadRequestError || e instanceof OpenAI.UnprocessableEntityError) {
-    return new ClassifyError(
-      "PROVIDER_REQUEST_INVALID",
-      input,
-      `provider rejected the request: ${e.message}`,
-      { cause: e },
-    );
-  }
   if (e instanceof OpenAI.APIConnectionError) {
     return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unreachable: ${e.message}`, {
       cause: e,
     });
   }
-  if (e instanceof OpenAI.APIError) {
-    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unavailable: ${e.message}`, {
-      cause: e,
-    });
-  }
+  if (e instanceof OpenAI.APIError) return statusError(e.status, e.message, input, e);
   const detail = e instanceof Error ? e.message : String(e);
   return new ClassifyError("INTERNAL", input, `unexpected provider transport error: ${detail}`, {
     cause: e,
@@ -153,26 +129,7 @@ export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
 /** Each question's answer from the reply, matched by wire name; a wrong-shaped one is invalid. */
 function answersOf(reply: Decision, ask: Ask): Asked["answers"] {
   const byName = new Map(reply.answers.map((a) => [a.name, a]));
-  const input = ask.state.path;
-  const out: Record<string, ClassifiedAnswer | Refusal> = {};
-  Object.entries(ask.questions).forEach(([name, spec], i) => {
-    const a = byName.get(wireName(i));
-    const answer = a === undefined ? undefined : readAnswer(spec, a);
-    // A missing answer, or a noul outside [0, 1], is the model's reply failing the contract.
-    const outOfRange =
-      spec.type === "noul" && answer !== undefined && "value" in answer
-        ? !(answer.value >= 0 && answer.value <= 1)
-        : false;
-    if (answer === undefined || outOfRange) {
-      throw new ClassifyError(
-        "PROVIDER_RESPONSE_INVALID",
-        input,
-        `provider answer '${name}' failed shape validation: expected ${spec.type}, got ${JSON.stringify(a)}`,
-      );
-    }
-    out[name] = answer;
-  });
-  return out;
+  return readAnswers(ask, (wire) => byName.get(wire));
 }
 
 /**
