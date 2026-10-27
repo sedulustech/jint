@@ -15,7 +15,7 @@
 
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
-import { wireName, type Fetch, type SystemOneQuestion, type WireAsk } from "./protocol.ts";
+import { wireName, type Fetch, type SystemOneQuestion } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 import type { ResolvedProvider } from "./providers.ts";
@@ -54,23 +54,6 @@ export function toDecisions(name: string, q: SystemOneQuestion): Question {
     instructions,
     choices: [...choices, { value: NONE, description: "None of these fits" }],
   };
-}
-
-/**
- * Per question, in System One's shape. The model refuses a score none of whose levels fits
- * (complexity of a plain data object); that question alone becomes a refusal.
- */
-export function answersByName(
-  ask: WireAsk,
-  find: (wire: string) => DecisionsAnswer | undefined,
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.keys(ask.questions).map((name, i) => {
-      const a = find(wireName(i));
-      if (a?.type === "refusal") return [name, { type: "refusal" }];
-      return [name, a === undefined ? undefined : fromDecisions(ask.questions[name]!, a)];
-    }),
-  );
 }
 
 /** The setup error for a url the client cannot be pointed at: it takes a root, we hold an endpoint. */

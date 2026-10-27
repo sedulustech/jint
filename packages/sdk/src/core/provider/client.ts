@@ -35,13 +35,10 @@ import {
   type Questions,
 } from "@typesafe-ai/sdk";
 import { ClassifyError, type Classifier, type QuestionSchema } from "../types.ts";
-import { ADAPTERS } from "./adapters.ts";
 import { ID_HEADER, inCall, recordRequests, tapWire } from "./debug.ts";
 import { decisionModelAdapter } from "./decision-model.ts";
 import { decisionsAdapter } from "./decisions.ts";
-import { protocolFetch } from "./protocol.ts";
 import {
-  PROVIDERS,
   resolveProvider,
   urlHost,
   type ProviderChoice,
@@ -122,9 +119,7 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
 
 /**
  * The classifier for one provider. A provider whose protocol has an adapter of its own
- * (`decisions`) is asked through it, its client called directly; the others go through the vendor
- * client in System One's shape, a translating fetch beneath it where the protocol is not System
- * One.
+ * (`decisions`, `decision-model`) is asked through it; `systemone` goes through the vendor client.
  */
 function makeClassifier(
   config: ClassifierConfig | undefined,
@@ -182,19 +177,19 @@ const missingKey = (provider: ResolvedProvider, input: string): ClassifyError =>
   );
 
 /**
- * The classifier config the recorder and the client run on: the resolved model, the provider's key,
- * and, for a protocol with a translating adapter, the translating fetch. System One goes as is.
+ * The classifier config the recorder and the vendor client run on: the resolved model and the
+ * provider's key, the wire tap at the lowest fetch (what it sees is what goes to the network).
  */
 function routeProvider(
   config: ClassifierConfig | undefined,
   provider: ResolvedProvider,
 ): ClassifierConfig {
-  const routed = { ...config, model: provider.model, apiKey: provider.apiKey };
-  const adapter = ADAPTERS[provider.spec.protocol];
-  // The wire tap sits at the lowest fetch: what it sees is what goes to the network.
-  const wire = tapWire(config?.fetch);
-  if (adapter === undefined) return { ...routed, fetch: wire };
-  return { ...routed, fetch: protocolFetch(adapter, provider.spec, wire) };
+  return {
+    ...config,
+    model: provider.model,
+    apiKey: provider.apiKey,
+    fetch: tapWire(config?.fetch),
+  };
 }
 
 function makeClient(
@@ -209,9 +204,7 @@ function makeClient(
   try {
     return new TypeSafeClient({
       apiKey: config.apiKey,
-      // A translated protocol is still asked in System One's shape beneath the translating fetch
-      baseURL:
-        provider.spec.protocol === "systemone" ? provider.spec.url : PROVIDERS.systemone!.url,
+      baseURL: provider.spec.url,
       defaultModel: provider.model,
       fetch: config?.fetch,
       // Surface the vendor retry layer: the SDK logs "retrying in Xms (retry n/N) after reason"

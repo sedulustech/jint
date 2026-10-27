@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { ClassifyError, type ClassifyErrorCode, type QuestionSchema } from "../types.ts";
-import { createClassifier } from "./client.ts";
-import { decisionModel, decisionModelAdapter } from "./decision-model.ts";
-import { protocolFetch, type Fetch } from "./protocol.ts";
+import { decisionModelAdapter } from "./decision-model.ts";
 import { PROVIDERS } from "./providers.ts";
+import type { Fetch } from "./protocol.ts";
 
 const SPEC = { url: "https://ai-gateway.vercel.sh/v4/ai/decision-model" };
 
@@ -20,122 +19,6 @@ function fake(reply: unknown, status = 200) {
   };
   return { sent, fetch };
 }
-
-const ask = (api: ReturnType<typeof fake>, questions: unknown) =>
-  protocolFetch(
-    decisionModel,
-    SPEC,
-    api.fetch,
-  )("https://api.typesafe.ai/v1/systemone", {
-    method: "POST",
-    headers: { Authorization: "Bearer k" },
-    body: JSON.stringify({
-      model: "openai/gpt-6-luna-decisions",
-      state: { path: "a.ts", content: "x" },
-      questions,
-    }),
-  });
-
-describe("decision-model protocol", () => {
-  test("the request carries the version headers, the model id and V4 questions", async () => {
-    const api = fake({ answers: {} });
-    await ask(api, {
-      "rule in L1-L9": {
-        type: "noul",
-        instructions: "Is it?",
-        criteria: { true: "yes", false: "no" },
-      },
-      sized: { type: "score", instructions: "How?", criteria: ["low", "high"] },
-      pick: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "" } },
-    });
-    const [call] = api.sent;
-    expect(call!.url).toBe(SPEC.url);
-    expect(call!.headers).toMatchObject({
-      authorization: "Bearer k",
-      "ai-gateway-protocol-version": "0.0.1",
-      "ai-decision-model-specification-version": "4",
-      "ai-model-id": "openai/gpt-6-luna-decisions",
-    });
-    expect(call!.body).toEqual({
-      stateParts: [{ type: "text", text: '{"path":"a.ts","content":"x"}' }],
-      questions: {
-        q0: { type: "boolean", instructions: "Is it?\n\nYes: yes\nNo: no" },
-        q1: { type: "score", instructions: "How?", criteria: ["low", "high"] },
-        q2: {
-          type: "choice",
-          instructions: "Which?",
-          criteria: { a: "A", b: "b", none_of_these: "None of these fits" },
-        },
-      },
-    });
-  });
-
-  test("answers read from probability maps; usage and the gateway cost ride along", async () => {
-    const api = fake({
-      model: "gpt-6-luna",
-      answers: {
-        q0: { type: "boolean", probability: 0.14 },
-        q1: { type: "score", probabilities: { "0": 0.5, "1": 0.25, "2": 0.25 } },
-        q2: { type: "choice", choice: "a", probabilities: { a: 0.6, b: 0.2, none_of_these: 0.2 } },
-      },
-      usage: { inputTokens: 12, outputTokens: 3 },
-      providerMetadata: {
-        openai: { usage: { input_tokens: 99, input_tokens_details: { cached_tokens: 5 } } },
-        gateway: { cost: "0.0042" },
-      },
-    });
-    const body: any = await (
-      await ask(api, {
-        n: { type: "noul", instructions: "Is it?" },
-        s: { type: "score", instructions: "How?", criteria: ["low", "mid", "high"] },
-        c: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "B" } },
-      })
-    ).json();
-    expect(body.answers.n).toEqual({ type: "noul", noul: 0.14 });
-    expect(body.answers.s.score).toBeCloseTo(0.75);
-    expect(body.answers.s.legend).toEqual({ "0": "low", "1": "mid", "2": "high" });
-    expect(body.answers.c.choice).toBe("a");
-    expect(body.answers.c.probabilities.a).toBeCloseTo(0.75);
-    expect(body.usage).toEqual({
-      input_tokens: 12,
-      output_tokens: 3,
-      cached_input_tokens: 5,
-      gateway_cost: 0.0042,
-    });
-  });
-
-  test("usage falls back to the provider's own count; no cost reported means no cost field", async () => {
-    const api = fake({
-      answers: { q0: { type: "boolean", probability: 0.3 } },
-      providerMetadata: { openai: { usage: { input_tokens: 99 } } },
-    });
-    const body: any = await (
-      await ask(api, { r: { type: "noul", instructions: "Is it?" } })
-    ).json();
-    expect(body.usage).toEqual({ input_tokens: 99, output_tokens: 0, cached_input_tokens: 0 });
-  });
-
-  test("a refusal marks only its own question", async () => {
-    const api = fake({
-      answers: { q0: { type: "refusal" }, q1: { type: "boolean", probability: 0.3 } },
-    });
-    const body: any = await (
-      await ask(api, {
-        refused: { type: "score", instructions: "How?", criteria: ["low", "high"] },
-        kept: { type: "noul", instructions: "Is it?" },
-      })
-    ).json();
-    expect(body.answers).toEqual({
-      refused: { type: "refusal" },
-      kept: { type: "noul", noul: 0.3 },
-    });
-  });
-
-  test("an API error passes through with its status", async () => {
-    const api = fake({ error: { message: "slow down" } }, 429);
-    expect((await ask(api, { r: { type: "noul", instructions: "Is it?" } })).status).toBe(429);
-  });
-});
 
 describe("decision-model adapter", () => {
   const PROVIDER = {
@@ -212,6 +95,15 @@ describe("decision-model adapter", () => {
       gateway_cost: 0.0042,
     });
     expect(asked.model).toBe("gpt-6-luna");
+  });
+
+  test("usage falls back to the model provider's count; no reported cost means no cost field", async () => {
+    const api = fake({
+      answers: { q0: { type: "boolean", probability: 0.3 } },
+      providerMetadata: { openai: { usage: { input_tokens: 99 } } },
+    });
+    const asked = await adapterOver(api.fetch).ask({ state, questions: { n: questions.n! } });
+    expect(asked.usage).toEqual({ input_tokens: 99, output_tokens: 0, cached_input_tokens: 0 });
   });
 
   test("a refusal keeps its place; a missing answer is PROVIDER_RESPONSE_INVALID", async () => {
@@ -306,44 +198,11 @@ describe("decision-model adapter", () => {
   });
 });
 
-describe("decision-model adapter against the old path", () => {
-  /** A gateway that answers each question by its type, deterministically; records the bytes. */
-  function gateway() {
-    const sent: { url: string; headers: Record<string, string>; body: string }[] = [];
-    const fetch: Fetch = async (url, init) => {
-      const body = String(init?.body);
-      const headers = Object.fromEntries(new Headers(init?.headers));
-      sent.push({ url, headers, body });
-      const asked = JSON.parse(body).questions as Record<
-        string,
-        { type: string; criteria?: object }
-      >;
-      const answers = Object.fromEntries(
-        Object.entries(asked).map(([wire, q], i) => {
-          if (i === 3) return [wire, { type: "refusal" }];
-          if (q.type === "boolean") return [wire, { type: "boolean", probability: 0.31 }];
-          if (q.type === "score") {
-            return [wire, { type: "score", probabilities: { "0": 0.1, "1": 0.2, "2": 0.7 } }];
-          }
-          return [
-            wire,
-            { type: "choice", choice: "b", probabilities: { a: 0.2, b: 0.5, none_of_these: 0.3 } },
-          ];
-        }),
-      );
-      return new Response(
-        JSON.stringify({
-          model: "gpt-6-luna",
-          answers,
-          usage: { inputTokens: 40, outputTokens: 4 },
-          providerMetadata: { gateway: { cost: "0.001" } },
-        }),
-      );
-    };
-    return { sent, fetch };
-  }
+describe("decision-model adapter keeps what the TypeSafe-translated path sent and read", () => {
+  // Captured from that path (the translating fetch under the vendor client) on the same asks.
+  const BODY =
+    '{"stateParts":[{"type":"text","text":"{\\"path\\":\\"src/a.ts\\",\\"content\\":\\"export const x = 1;\\\\n\\"}"}],"questions":{"q0":{"type":"boolean","instructions":"Is it ok?\\n\\nYes: ok\\nNo: not ok"},"q1":{"type":"score","instructions":"How readable?","criteria":["bad","fair","good"]},"q2":{"type":"choice","instructions":"What kind?","criteria":{"a":"A","b":"B","none_of_these":"None of these fits"}},"q3":{"type":"score","instructions":"Unscorable?","criteria":["x","y"]}}}';
 
-  const state = { path: "src/a.ts", content: "export const x = 1;\n", id: "wire-id" };
   const questions: Record<string, QuestionSchema> = {
     "is_ok in L1-L2": {
       type: "noul",
@@ -355,38 +214,44 @@ describe("decision-model adapter against the old path", () => {
     refused: { type: "score", instructions: "Unscorable?", criteria: ["x", "y"] },
   };
 
-  test("the same request bytes and the same readings as the translated TypeSafe path", async () => {
-    const oldGateway = gateway();
-    const newGateway = gateway();
-    const apiKey = "gw-secret-key";
+  test("the request bytes and the readings for a predicate, a score, a choice and a refusal", async () => {
+    const api = fake({
+      model: "gpt-6-luna",
+      answers: {
+        q0: { type: "boolean", probability: 0.31 },
+        q1: { type: "score", probabilities: { "0": 0.1, "1": 0.2, "2": 0.7 } },
+        q2: { type: "choice", choice: "b", probabilities: { a: 0.2, b: 0.5, none_of_these: 0.3 } },
+        q3: { type: "refusal" },
+      },
+    });
     const model = "openai/gpt-6-luna-decisions";
-    const old = await createClassifier({
-      provider: "systemone",
-      apiKey,
-      model,
-      fetch: protocolFetch(decisionModel, SPEC, oldGateway.fetch),
-      log: () => {},
-    })(state, questions);
-    const { id: _id, ...judged } = state;
     const asked = await decisionModelAdapter(
-      { name: "vercel", model, apiKey, notes: [], spec: { ...PROVIDERS.vercel!, url: SPEC.url } },
-      { fetch: newGateway.fetch, log: () => {} },
-    ).ask({ state: judged, questions });
+      {
+        name: "vercel",
+        model,
+        apiKey: "k",
+        notes: [],
+        spec: { ...PROVIDERS.vercel!, url: SPEC.url },
+      },
+      { fetch: api.fetch, log: () => {} },
+    ).ask({ state: { path: "src/a.ts", content: "export const x = 1;\n" }, questions });
 
-    expect(newGateway.sent).toHaveLength(1);
-    expect(newGateway.sent[0]!.url).toBe(oldGateway.sent[0]!.url);
-    expect(newGateway.sent[0]!.body).toBe(oldGateway.sent[0]!.body);
-    for (const h of [
-      "authorization",
-      "content-type",
-      "ai-gateway-protocol-version",
-      "ai-decision-model-specification-version",
-      "ai-model-id",
-    ]) {
-      expect(newGateway.sent[0]!.headers[h]).toBe(oldGateway.sent[0]!.headers[h]);
-    }
-    expect(asked.answers).toEqual(old);
-    expect(asked.answers["refused"]).toEqual({ refused: true });
-    expect(asked.answers["kind"]).toMatchObject({ choice: "b" });
+    expect(JSON.stringify(api.sent[0]!.body)).toBe(BODY);
+    expect(api.sent[0]!.url).toBe(SPEC.url);
+    expect(api.sent[0]!.headers).toMatchObject({
+      "ai-gateway-protocol-version": "0.0.1",
+      "ai-decision-model-specification-version": "4",
+      "ai-model-id": model,
+    });
+    expect(asked.answers).toEqual({
+      "is_ok in L1-L2": { value: 0.31 },
+      readable: { value: 1.5999999999999999, probabilities: { "0": 0.1, "1": 0.2, "2": 0.7 } },
+      kind: {
+        value: 0.7142857142857143,
+        choice: "b",
+        probabilities: { a: 0.28571428571428575, b: 0.7142857142857143 },
+      },
+      refused: { refused: true },
+    });
   });
 });
