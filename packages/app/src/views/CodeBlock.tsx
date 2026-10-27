@@ -73,6 +73,15 @@ export function CodeBlock({ code, path }: { code: string; path: string }) {
   return <HighlightedCode code={code} path={path} />;
 }
 
+/** Highlights JSON text to HTML; an unhighlightable text falls back to escaped plain text. */
+export function highlightJson(code: string): string {
+  try {
+    return hljs.highlight(code, { language: "json" }).value;
+  } catch {
+    return code.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  }
+}
+
 function HighlightedCode({ code, path }: { code: string; path: string }) {
   const html = useMemo(() => {
     const lang = langOf(path);

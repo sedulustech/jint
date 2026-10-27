@@ -4,6 +4,7 @@ import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
+import { ParsedJson } from "./ParsedJson";
 import { spanLabel } from "./RequestTable";
 import type { RequestFile } from "../types";
 import { Button } from "@/components/ui/button";
@@ -70,25 +71,37 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   // The request view shows what the model was sent: the recorded wire body. A recording from
   // before wire capture holds only jint's own request shape, shown with a note saying so.
   const [view, setView] = useState<"code" | "request">("code");
+  // the request reads parsed by default; raw is the wire body as sent
+  const [form, setForm] = useState<"parsed" | "raw">("parsed");
   const panelId = useId();
   const hasWire = request?.wire?.body !== undefined;
   const requestText = useMemo(
     () => JSON.stringify(hasWire ? request?.wire?.body : request?.request, null, 2) ?? "",
     [hasWire, request],
   );
-  const viewButton = (mode: "code" | "request") => (
+  const requestBody = hasWire ? request?.wire?.body : request?.request;
+  const toggleButton = <T extends string>(
+    current: T,
+    mode: T,
+    set: (m: T) => void,
+    testid: string,
+  ) => (
     <Button
       variant="secondary"
       size="sm"
-      onClick={() => setView(mode)}
-      aria-pressed={view === mode}
+      onClick={() => set(mode)}
+      aria-pressed={current === mode}
       aria-controls={panelId}
-      data-testid={`pair-view-${mode}`}
-      className={view === mode ? "text-body" : "border border-input text-body"}
+      data-testid={testid}
+      className={current === mode ? "text-body" : "border border-input text-body"}
     >
       {mode}
     </Button>
   );
+  const viewButton = (mode: "code" | "request") =>
+    toggleButton(view, mode, setView, `pair-view-${mode}`);
+  const formButton = (mode: "parsed" | "raw") =>
+    toggleButton(form, mode, setForm, `pair-request-${mode}`);
 
   return (
     <section className="detail-pane flex h-full w-full min-h-0 min-w-0 flex-col border-t border-border bg-background overflow-auto lg:border-l lg:border-t-0">
@@ -159,6 +172,16 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
             {viewButton("code")}
             {viewButton("request")}
           </div>
+          {view === "request" && (
+            <div
+              role="group"
+              aria-label="request form"
+              className="flex items-center gap-related px-rail pb-siblings"
+            >
+              {formButton("parsed")}
+              {formButton("raw")}
+            </div>
+          )}
           <div id={panelId} data-testid="pair-view" className="relative bg-muted">
             {view === "code" && code !== null && (
               <>
@@ -181,7 +204,19 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
                     recorded before wire capture: this is jint's request shape, not the bytes sent
                   </p>
                 )}
-                <CodeBlock code={requestText} path="request.json" />
+                {form === "parsed" ? (
+                  <>
+                    <p
+                      data-testid="pair-request-parsed-note"
+                      className="px-rail pt-siblings text-caption text-muted-foreground"
+                    >
+                      input is expanded for reading; the copy button gives the exact body
+                    </p>
+                    <ParsedJson value={requestBody} />
+                  </>
+                ) : (
+                  <CodeBlock code={requestText} path="request.json" />
+                )}
               </div>
             )}
           </div>
