@@ -631,6 +631,8 @@ function findingFor(
     note: outcome.message,
     undecided: outcome.undecided,
     probabilities: event.probabilities,
+    // the provider's number rides along; no handle reads it
+    confidence: event.confidence,
     choice: event.choice,
     // Literal ternary branches, NOT conditional spreads: this literal sits under
     // excess-property checking — an undeclared field is a compile error.

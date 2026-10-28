@@ -145,6 +145,7 @@ function measurementFields(rule: string, input: string, answer: ClassifiedAnswer
     input,
     value: answer.value,
     probabilities: answer.probabilities,
+    confidence: answer.confidence,
     choice: answer.choice,
   };
 }

@@ -66,6 +66,7 @@ export interface RequestFile {
         type?: string;
         noul?: number;
         score?: number;
+        confidence?: number;
         legend?: Record<string, string>;
         probabilities?: Record<string, number>;
         choice?: string;

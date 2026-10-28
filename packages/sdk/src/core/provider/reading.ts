@@ -17,14 +17,23 @@ export type DecisionsAnswer = {
   type: string;
   name: string | null;
   choice?: string | boolean;
+  /** The provider's own number on a score or choice answer; absent when it sent none. */
+  confidence?: number;
   probability?: number;
   probabilities?: { value: string | boolean | number; probability: number }[];
 };
 
+/** The provider's confidence as sent, or nothing: never computed, never defaulted. */
+const confidenceOf = (a: DecisionsAnswer): { confidence?: number } =>
+  typeof a.confidence === "number" && Number.isFinite(a.confidence)
+    ? { confidence: a.confidence }
+    : {};
+
 /**
  * The answer the rules read for one Decisions answer. A noul is its probability, a score the
  * expected level over its distribution, a choice the selected option's share once the fallback
- * option's mass is dropped and the rest renormalized.
+ * option's mass is dropped and the rest renormalized. A score or choice carries the provider's
+ * `confidence` when it sent one.
  */
 export function readAnswer(
   q: QuestionSpec,
@@ -37,7 +46,7 @@ export function readAnswer(
   if (q.type === "noul") return { value: a.probability ?? 0 };
   if (q.type === "score") {
     const value = Object.entries(shares).reduce((sum, [level, p]) => sum + Number(level) * p, 0);
-    return { value, probabilities: shares };
+    return { value, probabilities: shares, ...confidenceOf(a) };
   }
   delete shares[NONE];
   const total = Object.values(shares).reduce((s, p) => s + p, 0);
@@ -50,7 +59,7 @@ export function readAnswer(
     a.choice !== undefined && String(a.choice) in probabilities
       ? String(a.choice)
       : options.reduce((b, o) => (probabilities[o]! > probabilities[b]! ? o : b));
-  return { value: probabilities[choice] ?? 0, choice, probabilities };
+  return { value: probabilities[choice] ?? 0, choice, probabilities, ...confidenceOf(a) };
 }
 
 /** The run view's answer shape for one Decisions answer (what the recorded `response` is read as). */
@@ -63,9 +72,20 @@ export function fromDecisions(q: QuestionSpec, a: DecisionsAnswer): unknown {
     const legend = Object.fromEntries(
       (q.criteria as readonly string[]).map((text, i) => [String(i), text]),
     );
-    return { type: "score", score: r.value, legend, probabilities: r.probabilities };
+    return {
+      type: "score",
+      score: r.value,
+      legend,
+      probabilities: r.probabilities,
+      ...confidenceOf(a),
+    };
   }
-  return { type: "choice", choice: r.choice, probabilities: r.probabilities };
+  return {
+    type: "choice",
+    choice: r.choice,
+    probabilities: r.probabilities,
+    ...confidenceOf(a),
+  };
 }
 
 /**

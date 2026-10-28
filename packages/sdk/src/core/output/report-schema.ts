@@ -82,6 +82,8 @@ export const MEASUREMENT_SCHEMA = Type.Union([
     // Score and choice rules only: the distribution the value summarizes, per level or per option.
     // Noul's probability IS the value — no separate distribution field.
     probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
+    // Score and choice rules only: the provider's own number (0-1); absent when it sent none.
+    confidence: Type.Optional(Type.Number()),
     // Choice rules only: the selected option's label; value is that option's probability.
     choice: Type.Optional(Type.String()),
   }),
@@ -97,6 +99,8 @@ export const FINDING_SCHEMA = Type.Object({
   input: Type.String(),
   value: Type.Number(),
   severity: SEVERITY_SCHEMA,
+  // The provider's own number on a score or choice answer; absent when it sent none.
+  confidence: Type.Optional(Type.Number()),
   // Choice rules only: the selected option's label; value is that option's probability.
   choice: Type.Optional(Type.String()),
   // The reading was too close to call and the rule's undecided tier fired.

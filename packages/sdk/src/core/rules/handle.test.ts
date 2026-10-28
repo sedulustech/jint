@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { InternalError, type RuleKind } from "../types.ts";
 import {
   checkNoulHandler,
   compileDataHandle,
+  compileChoiceHandler,
   compileNoulHandler,
   compileScoreHandler,
   type HandlerData,
@@ -125,5 +127,50 @@ describe("compileDataHandle - choice", () => {
     expect(() => compile({ error: { greater_than: 0.6 } }, "choice")).toThrow(
       /a noul handler on a choice rule/,
     );
+  });
+});
+
+// The provider's confidence is reported beside a reading and never decides one: a verdict is the
+// same with it, without it, and at either extreme.
+describe("confidence is never an input to a verdict", () => {
+  const score = compileScoreHandler({ map: ["pass", { level: "warn", message: "mid" }, "error"] });
+  const choice = compileChoiceHandler({
+    choices: { good: "pass", bad: "error", worse: "error" },
+    undecided: { level: "warn", margin: 0.2 },
+  });
+  const confidences = [undefined, 0, 0.36, 1] as const;
+
+  test("a score's severity is identical for every confidence", () => {
+    for (const value of [0.2, 1.0, 1.6]) {
+      const probabilities = { "0": 0.2, "1": 0.3, "2": 0.5 };
+      const base = score({ value, probabilities });
+      for (const confidence of confidences) {
+        expect(score({ value, probabilities, confidence })).toEqual(base);
+      }
+    }
+  });
+
+  test("a choice's severity and undecided are identical for every confidence", () => {
+    // 0.47 vs 0.53 on the two tiers: undecided under margin 0.2
+    const cases = [
+      { choice: "good", probabilities: { good: 0.47, bad: 0.3, worse: 0.23 } },
+      { choice: "good", probabilities: { good: 0.9, bad: 0.05, worse: 0.05 } },
+    ];
+    for (const { choice: picked, probabilities } of cases) {
+      const value = probabilities[picked as keyof typeof probabilities];
+      const base = choice({ value, choice: picked, probabilities });
+      for (const confidence of confidences) {
+        expect(choice({ value, choice: picked, probabilities, confidence })).toEqual(base);
+      }
+    }
+    expect(
+      choice({ value: 0.47, choice: "good", probabilities: { good: 0.47, bad: 0.3, worse: 0.23 } }),
+    ).toMatchObject({ undecided: true });
+  });
+
+  test("the verdict code does not mention confidence", () => {
+    for (const file of ["../rules/handle.ts", "../../../../contract/src/handlers.ts"]) {
+      expect(readFileSync(new URL(file, import.meta.url), "utf8")).not.toMatch(/confidence/i);
+    }
   });
 });

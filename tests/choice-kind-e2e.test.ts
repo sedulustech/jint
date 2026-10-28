@@ -37,8 +37,12 @@ function writeFixture(rule: object = CHOICE_RULE): { config: string; source: str
   return { config, source };
 }
 
-async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
-  const provider = startMockDecisions({ choice });
+async function runAgainst(
+  choice: string,
+  rule: object = CHOICE_RULE,
+  confidence?: Record<string, number>,
+) {
+  const provider = startMockDecisions({ choice, confidence });
   try {
     const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
@@ -55,6 +59,18 @@ async function runAgainst(choice: string, rule: object = CHOICE_RULE) {
 }
 
 describe("choice rules", () => {
+  test.concurrent("--json carries the provider's confidence on the measurement and the finding", async () => {
+    const { report } = await runAgainst("contradicted", CHOICE_RULE, { q0: 0.22 });
+    expect(report.measurements[0].confidence).toBe(0.22);
+    expect(report.findings[0].confidence).toBe(0.22);
+  });
+
+  test.concurrent("--json omits confidence when the provider sent none", async () => {
+    const { report } = await runAgainst("contradicted");
+    expect(report.measurements[0]).not.toHaveProperty("confidence");
+    expect(report.findings[0]).not.toHaveProperty("confidence");
+  });
+
   test.concurrent("the wire carries a choice question with the option labels", async () => {
     const { questions } = await runAgainst("justified");
     // the request carries only the rule's question, named by position

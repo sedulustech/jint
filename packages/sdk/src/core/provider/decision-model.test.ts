@@ -76,7 +76,7 @@ describe("decision-model adapter", () => {
   const status = (code: number, headers?: Record<string, string>) =>
     new Response(JSON.stringify({ error: { message: "nope" } }), { status: code, headers });
 
-  test("sends the key and the version headers; answers carry no confidence", async () => {
+  test("sends the key and the version headers; the gateway sends no confidence, so answers carry none", async () => {
     const api = fake(reply);
     const asked = await adapterOver(api.fetch).ask({ state, questions });
     expect(api.sent[0]!.headers).toMatchObject({

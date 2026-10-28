@@ -188,6 +188,57 @@ describe("decisions adapter", () => {
     });
   });
 
+  test("a score and a choice carry the provider's confidence as sent; absent stays absent", async () => {
+    const api = fake({
+      answers: [
+        {
+          type: "score",
+          name: "q0",
+          confidence: 0.36,
+          probabilities: [
+            { value: "0", probability: 0.6 },
+            { value: "1", probability: 0.37 },
+            { value: "2", probability: 0.03 },
+          ],
+        },
+        {
+          type: "choice",
+          name: "q1",
+          choice: "a",
+          confidence: 0.22,
+          probabilities: [
+            { value: "a", probability: 0.5 },
+            { value: "b", probability: 0.5 },
+          ],
+        },
+        { type: "predicate", name: "q2", confidence: 0.9, probability: 0.4 },
+        {
+          type: "score",
+          name: "q3",
+          probabilities: [
+            { value: "0", probability: 1 },
+            { value: "1", probability: 0 },
+          ],
+        },
+      ],
+    });
+    const asked = await adapterOver(api.fetch).ask(
+      ask(
+        {
+          s: { type: "score", instructions: "How?", criteria: ["low", "mid", "high"] },
+          c: { type: "choice", instructions: "Which?", criteria: { a: "A", b: "B" } },
+          n: { type: "noul", instructions: "Is it?", criteria: { true: "y", false: "n" } },
+          u: { type: "score", instructions: "How?", criteria: ["low", "high"] },
+        },
+        { path: "a.ts", source: "x" },
+      ),
+    );
+    expect(asked.answers.s).toMatchObject({ confidence: 0.36 });
+    expect(asked.answers.c).toMatchObject({ confidence: 0.22 });
+    expect(asked.answers.n).toEqual({ value: 0.4 });
+    expect(asked.answers.u).not.toHaveProperty("confidence");
+  });
+
   test("a refusal marks only its own question; the others keep their readings", async () => {
     const api = fake({
       answers: [

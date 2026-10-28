@@ -127,6 +127,23 @@ describe("normalizeRequestFile", () => {
     expect(Object.keys(file.request?.questions ?? {})).toEqual(["q0", "q1", "q2", "q3"]);
   });
 
+  test("a recorded score or choice answer keeps the provider's confidence; none stays none", () => {
+    const answers = decisions.response.answers.map((a) =>
+      a.type === "score" || a.type === "choice" ? { ...a, confidence: 0.36 } : a,
+    );
+    const file = normalizeRequestFile({
+      ...decisions,
+      response: { ...decisions.response, answers },
+    });
+    const read = file.response?.answers;
+    expect(read?.["s in L1"]?.confidence).toBe(0.36);
+    expect(read?.["c in L1"]?.confidence).toBe(0.36);
+    expect(read?.["p in L1"]).not.toHaveProperty("confidence");
+    const plain = normalizeRequestFile(decisions).response?.answers;
+    expect(plain?.["s in L1"]).not.toHaveProperty("confidence");
+    expect(plain?.["c in L1"]).not.toHaveProperty("confidence");
+  });
+
   const native = {
     ts: "t",
     url: "https://ai-gateway.vercel.sh/v4/ai/decision-model",

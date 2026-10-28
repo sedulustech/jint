@@ -39,6 +39,7 @@ export function renderJson(report: LintReport): string {
                   value: m.value,
                   // score and choice rules only: the distribution the value summarizes
                   probabilities: m.probabilities,
+                  confidence: m.confidence,
                   choice: m.choice,
                   element: m.element,
                 },
@@ -54,6 +55,7 @@ export function renderJson(report: LintReport): string {
             value: s.value,
             severity: s.severity,
             probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
+            confidence: s.confidence !== undefined ? s.confidence : undefined,
             choice: s.choice !== undefined ? s.choice : undefined,
             undecided: s.undecided !== undefined ? s.undecided : undefined,
             message: s.message !== undefined ? s.message : undefined,

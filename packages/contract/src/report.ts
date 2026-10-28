@@ -139,6 +139,11 @@ export type Element =
 export interface ClassifiedAnswer {
   readonly value: number;
   readonly probabilities?: Record<string, number>;
+  /**
+   * The provider's own number, 0-1, on a score or choice answer. Never derived from the
+   * probabilities and never read by a handler; absent when the provider sent none.
+   */
+  readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
 }
@@ -163,6 +168,11 @@ export interface ValuedMeasurement extends MeasurementBase {
    * rules. Noul has no separate distribution — its probability IS the value.
    */
   readonly probabilities?: Record<string, number>;
+  /**
+   * The provider's own number, 0-1, on a score or choice answer. Never derived from the
+   * probabilities and never read by a handler; absent when the provider sent none.
+   */
+  readonly confidence?: number;
   /**
    * The selected option's label, choice rules only. The value is that option's probability and
    * probabilities are keyed by option label.
@@ -199,6 +209,11 @@ export interface Finding {
   readonly severity: Severity;
   /** The full distribution the value summarizes (one probability per criterion option). */
   readonly probabilities?: Record<string, number>;
+  /**
+   * The provider's own number, 0-1, on a score or choice answer. Never derived from the
+   * probabilities and never read by a handler; absent when the provider sent none.
+   */
+  readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
   /** The reading was too close to call and the rule's undecided tier fired. */

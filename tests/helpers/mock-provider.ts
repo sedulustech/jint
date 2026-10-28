@@ -24,6 +24,8 @@ export interface MockDecisionsOptions {
   level?: number;
   /** Selected value for choice questions. Default: the first value. */
   choice?: string;
+  /** The `confidence` answered to a score or choice question, by name (q0, q1 ...). Default: none. */
+  confidence?: Readonly<Record<string, number>>;
   /** Names of questions (q0, q1 ...) answered with a refusal. */
   refuse?: readonly string[];
   /** Answered to every request instead of answers: an HTTP status with an error body. */
@@ -57,6 +59,8 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
       if (opts.status !== undefined) {
         return Response.json({ error: { message: "mock failure" } }, { status: opts.status });
       }
+      const withConfidence = (name: string) =>
+        opts.confidence?.[name] !== undefined ? { confidence: opts.confidence[name] } : {};
       const answers = body.questions.map((q) => {
         const name = String(q.name);
         if (opts.refuse?.includes(name)) return { type: "refusal", name };
@@ -67,6 +71,7 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
           return {
             type: "score",
             name,
+            ...withConfidence(name),
             probabilities: levels.map((value, i) => ({
               value,
               probability: i === at ? 0.8 : rest,
@@ -80,6 +85,7 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
             type: "choice",
             name,
             choice,
+            ...withConfidence(name),
             probabilities: values.map((value) => ({
               value,
               probability: value === choice ? 0.7 : 0.3 / (values.length - 1),

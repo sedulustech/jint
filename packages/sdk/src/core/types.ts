@@ -233,6 +233,8 @@ export interface Finding {
   readonly severity: Severity;
   /** The full distribution the value summarizes: one probability per criterion option. */
   readonly probabilities?: Record<string, number>;
+  /** The provider's own number on a score or choice answer; absent when it sent none. */
+  readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
   /** The reading was too close to call and the rule's undecided tier fired. */

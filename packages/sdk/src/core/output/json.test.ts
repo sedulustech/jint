@@ -117,6 +117,28 @@ describe("renderJson", () => {
     expect(parsed.findings[1]).not.toHaveProperty("probabilities");
   });
 
+  test("measurements and findings carry the provider's confidence; the key omits otherwise", () => {
+    const withConfidence: LintReport = {
+      ...report,
+      measurements: [
+        { rule: "r", input: "src/a.ts", value: 1.2, probabilities: { "1": 1 }, confidence: 0.36 },
+        { rule: "q", input: "src/a.ts", value: 0.5 },
+        { rule: "z", input: "src/a.ts", refused: true },
+      ],
+      findings: [
+        { rule: "r", input: "src/a.ts", value: 1.2, severity: "warn", confidence: 0.36 },
+        { rule: "q", input: "src/a.ts", value: 0.5, severity: "warn" },
+      ],
+    };
+    const parsed = JSON.parse(renderJson(withConfidence));
+    expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
+    expect(parsed.measurements[0].confidence).toBe(0.36);
+    expect(parsed.measurements[1]).not.toHaveProperty("confidence");
+    expect(parsed.measurements[2]).not.toHaveProperty("confidence");
+    expect(parsed.findings[0].confidence).toBe(0.36);
+    expect(parsed.findings[1]).not.toHaveProperty("confidence");
+  });
+
   test("output contains no ANSI escape codes", () => {
     expect(renderJson(report)).not.toContain("\x1b");
   });
