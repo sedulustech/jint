@@ -32,7 +32,8 @@ export interface ScoreHandlerData {
 /**
  * The tier for an undecided reading: it fires when the winning tier's probability leads the
  * runner-up tier's by less than `margin` (0 < margin < 1). The margin is in probability units, the
- * same units as jev's run-to-run variation, so it can be set from measured reruns.
+ * same units as the model's run-to-run variation (measured on jev, which varied between runs; luna
+ * is deterministic), so it can be set from measured reruns.
  */
 export interface UndecidedTier extends ScoreTier {
   readonly margin: number;

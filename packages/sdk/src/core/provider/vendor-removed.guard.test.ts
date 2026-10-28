@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// The vendor classifier (its provider, SDK, key variable and wire format) is gone: jint asks its
-// questions through the Decisions adapters only. This guard fails the suite when its name comes
-// back in any tracked file - code, config, lockfile, generated docs or skills. The allowlist is
+// The vendor client (its SDK package, key variable and provider id) is gone: jint asks its
+// questions through the Decisions adapters only. "System One" still names the model family and is
+// fine to write. This guard fails the suite when the removed pieces come back in any tracked file - code, config, lockfile, generated docs or skills. The allowlist is
 // the places where the past is the point: calibration records, the reader of legacy recordings
 // (and the recordings it reads), and this file.
 
 const ROOT = join(import.meta.dir, "../../../../..");
 
-const VENDOR = /typesafe|systemone|system one/i;
+const VENDOR = /@typesafe-ai|typesafe_api_key|systemone/i;
 
 const ALLOWED: string[] = [
   "docs/calibration/", // historical calibration records

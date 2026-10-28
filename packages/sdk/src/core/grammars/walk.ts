@@ -141,13 +141,13 @@ export function charsToTokens(chars: number): number {
  * source exceeds this is emitted with oversized: true and skipped by the classifier - ordinary code
  * can never crash the run with an oversized judgment request. Chunking is rejected.
  *
- * Why 30k: measured against the live API (2026-10-05), jev accepts ~32k tokens and rejects ~48k
- * with 400 max_tokens_exceeded - and that budget is SHARED by the element source and the batched
- * questions (instructions + criteria). The default 11-rule batch costs ~2,080 estimated tokens
- * (7,879 chars, measured), so a 30k element lands just under the measured pass line: the 2k margin
- * between this cap and the ~32k ceiling IS the criteria reserve. It is deliberately NOT subtracted
- * per run - adding rules beyond the default set eats it. Two estimates stacked (chars/4 against a
- * measured ceiling): a margin, not a guarantee.
+ * Why 30k: measured against the live API (2026-10-05) on jev, the classifier before luna: it
+ * accepted ~32k tokens and rejected ~48k with 400 max_tokens_exceeded - and that budget is SHARED
+ * by the element source and the batched questions (instructions + criteria). The default 11-rule
+ * batch costs ~2,080 estimated tokens (7,879 chars, measured), so a 30k element lands just under
+ * the measured pass line: the 2k margin between this cap and the ~32k ceiling IS the criteria
+ * reserve. It is deliberately NOT subtracted per run - adding rules beyond the default set eats it.
+ * Two estimates stacked (chars/4 against a measured ceiling): a margin, not a guarantee.
  */
 export const MAX_ELEMENT_TOKENS = 30_000;
 

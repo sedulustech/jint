@@ -354,7 +354,7 @@ function dashPositionalError(token: string): string {
 }
 
 /** The full help text; the Options section is DERIVED from FLAGS. Exported for the derivation tests. */
-export const HELP = `jint  - jev lint: classifies code with AI-classifier judgments; rules in, findings out.
+export const HELP = `jint  - lint by AI-classifier judgments (formerly calibrated on jev): classifies code with AI-classifier judgments; rules in, findings out.
 
 Usage:
 ${helpRows([
