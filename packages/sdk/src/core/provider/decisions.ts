@@ -1,5 +1,5 @@
 /**
- * The `decisions` protocol: OpenAI's POST /v1/decisions, called through the official `openai`
+ * The Decisions adapter: OpenAI-style POST /v1/decisions, called through the official `openai`
  * client directly. The adapter turns each ask into the Decisions format and each reply into the
  * answers the rules read.
  *
@@ -15,13 +15,16 @@
 
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
+import { MISSING_KEY_MESSAGE, type Endpoint } from "./endpoint.ts";
 import { wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
-import type { ResolvedProvider } from "./providers.ts";
 
 export { fromDecisions, readAnswer, type DecisionsAnswer };
 import type { Decision, DecisionCreateParams } from "openai/resources/decisions";
+
+/** The model id the Decisions API requires in the body: one constant, not configuration. */
+export const MODEL = "gpt-6-luna";
 
 type Question = DecisionCreateParams["questions"][number];
 
@@ -57,12 +60,11 @@ export function toDecisions(name: string, q: QuestionSpec): Question {
 }
 
 /** The setup error for a url the client cannot be pointed at: it takes a root, we hold an endpoint. */
-function baseUrl(provider: ResolvedProvider): string {
-  const { url } = provider.spec;
+function baseUrl({ url }: Endpoint): string {
   if (!url.endsWith("/decisions")) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `provider '${provider.name}': url must end in /decisions (got ${url}) - set providers.${provider.name}.url or JINT_PROVIDER_URL`,
+      `url must end in /decisions (got ${url}) - set the config key url or JINT_PROVIDER_URL`,
     );
   }
   return url.slice(0, -"/decisions".length);
@@ -116,22 +118,21 @@ function answersOf(reply: Decision, ask: Ask): Asked["answers"] {
 }
 
 /**
- * The adapter for a provider speaking the `decisions` protocol. `fetch` is the client's transport
- * (the recorder sits there); the client retries and times out per attempt. A reply, a refusal, or a
- * failure all leave as an Asked or a ClassifyError.
+ * The adapter for the Decisions endpoint. `fetch` is the client's transport (the recorder sits
+ * there); the client retries and times out per attempt. A reply, a refusal, or a failure all leave
+ * as an Asked or a ClassifyError.
  */
 export function decisionsAdapter(
-  provider: ResolvedProvider,
+  endpoint: Endpoint,
   transport: {
     fetch: Fetch;
     log: (line: string) => void;
     limits?: { timeoutMs: number; maxRetries: number };
   },
 ): Adapter {
-  const baseURL = baseUrl(provider);
-  const apiKey = provider.apiKey;
-  if (apiKey === undefined)
-    throw new SetupError("CONFIG_INVALID", `no ${provider.spec.keyEnv} set`);
+  const baseURL = baseUrl(endpoint);
+  const apiKey = endpoint.apiKey;
+  if (apiKey === undefined) throw new SetupError("CONFIG_INVALID", MISSING_KEY_MESSAGE);
   const limits = transport.limits ?? { timeoutMs: ATTEMPT_TIMEOUT_MS, maxRetries: MAX_RETRIES };
   const client = withoutOpenAIEnv(
     () =>
@@ -166,12 +167,11 @@ export function decisionsAdapter(
   return {
     async ask(ask, options) {
       try {
-        const reply = await client.decisions.create(decisionsParams(provider.model, ask), {
-          headers: provider.spec.headers,
+        const reply = await client.decisions.create(decisionsParams(MODEL, ask), {
           signal: options?.signal,
         });
         return {
-          model: reply.model ?? provider.model,
+          model: reply.model ?? MODEL,
           answers: answersOf(reply, ask),
           usage: {
             input_tokens: reply.usage?.input_tokens ?? 0,

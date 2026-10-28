@@ -27,7 +27,7 @@ import {
   runsBase,
   selectRules,
   validateRuleSelection,
-  assertProviderKey,
+  assertEndpointKey,
   knownLanguages,
   lint,
   loadConfig,
@@ -803,7 +803,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // anywhere, the run aborts anyway - surface it before the rubric block so the one
     // actionable line is never buried under it.
     if (effective.length + (resolvedConfig.customRules?.length ?? 0) > 0) {
-      assertProviderKey(resolvedConfig);
+      assertEndpointKey(resolvedConfig);
     }
     printRules(effective, resolvedConfig.customRules?.length ?? 0);
     // The lint input, statement-resolved (no conditional spreads): with no flags and no stdin pass

@@ -1,6 +1,6 @@
 /**
  * The run knobs at the classifier seam: limit (wall-clock), timeout (liveness), and the token
- * budget (the provider's tokensPerMinute).
+ * budget (TOKENS_PER_MINUTE).
  *
  * - Concurrency bounds IN-FLIGHT calls run-wide (the wall-clock knob; measured: 53.9 rps at 16 with
  *   realistic payloads, zero 429s, median 283ms / p95 380ms latency). Arrivals are not paced: the
@@ -10,16 +10,18 @@
  *   PROVIDER_TIMEOUT failure instead of holding a run-wide slot forever (default 30s - generous
  *   against the measured p95 of 380ms; the SDK's own retries have their own budget and this is NOT
  *   a retry layer).
- * - The token budget spaces ARRIVALS by the provider's `limits.tokensPerMinute` (providers.ts): a
- *   call waits while the estimated input tokens of the last minute plus its own would exceed the
- *   budget, so a long run stays under a provider's rate limit instead of living on its 429s. A
- *   provider with no budget is not paced.
+ * - The token budget spaces ARRIVALS by TOKENS_PER_MINUTE: a call waits while the estimated input
+ *   tokens of the last minute plus its own would exceed the budget, so a long run stays under the
+ *   endpoint's rate limit instead of living on its 429s.
  *
  * Composition order is load-bearing: withLimit(withTimeout(raw)) - the timeout fires while holding
  * a slot so a hang frees the slot instead of pinning it.
  */
 
 import { ClassifyError, type AnyState, type Classifier, type QuestionSchema } from "../types.ts";
+
+/** The endpoint's input-token budget per minute; the run paces its calls under it. */
+export const TOKENS_PER_MINUTE = 10_000_000;
 
 /** The measured/default knob values (probe evidence, not guesses). */
 export const DEFAULT_CONCURRENCY = 16;

@@ -31,15 +31,16 @@ import {
 } from "./input/stats.ts";
 import { createClassifier } from "./provider/client.ts";
 import { recordSummary } from "./provider/debug.ts";
+import { assertEndpointKey, resolveEndpoint } from "./provider/endpoint.ts";
 import {
   checkRunKnobs,
   DEFAULT_CONCURRENCY,
   DEFAULT_TIMEOUT,
   withLimit,
   withTimeout,
+  TOKENS_PER_MINUTE,
   withTokenRate,
 } from "./provider/pacer.ts";
-import { assertProviderKey, resolveProvider } from "./provider/providers.ts";
 import {
   classifyFile,
   elementWireId,
@@ -257,7 +258,7 @@ function assertInputSelected(
 }
 
 function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
-  if (ruleCount > 0 && options.classifier === undefined) assertProviderKey(options.config);
+  if (ruleCount > 0 && options.classifier === undefined) assertEndpointKey(options.config);
 }
 
 /**
@@ -286,16 +287,11 @@ function pacedClassifier(
     injected ??
     createClassifier({
       apiKey: options.config.apiKey,
-      provider: options.config.provider,
-      model: options.config.model,
-      providers: options.config.providers,
+      url: options.config.url,
       log: options.log,
     });
-  // An injected classifier is not a provider's: no provider budget applies to it.
-  const budget =
-    injected === undefined
-      ? resolveProvider(options.config).spec.limits?.tokensPerMinute
-      : undefined;
+  // An injected classifier is not the endpoint's: no token budget applies to it.
+  const budget = injected === undefined ? TOKENS_PER_MINUTE : undefined;
   return withTokenRate(
     withLimit(withTimeout(classifier, knobs.timeout), knobs.concurrency),
     budget,
@@ -355,9 +351,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     })),
   };
   assertApiKeyForRules(rules.length + customRules.length, options);
-  // An override of the provider's url or key is visible, never silent (names only, no key value).
+  // An override of the url or key is visible, never silent (names only, no key value).
   if (options.classifier === undefined && rules.length + customRules.length > 0) {
-    for (const note of resolveProvider(options.config).notes) yield { type: "note", note };
+    for (const note of resolveEndpoint(options.config).notes) yield { type: "note", note };
   }
   const knobs = resolveRunKnobs(options);
   const classifier = pacedClassifier(options, knobs);

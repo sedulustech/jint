@@ -3,24 +3,12 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ClassifyError, type Ask, type UnitState } from "../types.ts";
 import { createClassifier } from "./client.ts";
-import { decisionsAdapter } from "./decisions.ts";
+import { decisionsAdapter, MODEL } from "./decisions.ts";
+import type { Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
-import type { ResolvedProvider } from "./providers.ts";
 
 const URL_ = "https://api.openai.com/v1/decisions";
-const PROVIDER: ResolvedProvider = {
-  name: "openai",
-  spec: {
-    protocol: "decisions",
-    url: URL_,
-    keyEnv: "JINT_OPENAI_API_KEY",
-    model: "gpt-6-luna",
-    headers: { "x-extra": "1" },
-  },
-  model: "gpt-6-luna",
-  apiKey: "k",
-  notes: [],
-};
+const PROVIDER: Endpoint = { url: URL_, apiKey: "k", notes: [] };
 const adapterOver = (
   fetch: Fetch,
   provider = PROVIDER,
@@ -79,10 +67,9 @@ describe("decisions adapter", () => {
     );
     expect(api.sent[0]!.url).toBe(URL_);
     expect(api.sent[0]!.auth).toBe("Bearer k");
-    expect(api.sent[0]!.headers["x-extra"]).toBe("1");
     expect(api.sent[0]!.raw).toBe(
       JSON.stringify({
-        model: "gpt-6-luna",
+        model: MODEL,
         input: [{ role: "user", content: [{ type: "input_json", data: STATE }] }],
         questions: [{ type: "predicate", name: "q0", instructions: "Is it?\n\nYes: yes\nNo: no" }],
       }),
@@ -312,7 +299,7 @@ describe("decisions adapter", () => {
   });
 
   test("a url that does not end in /decisions is a setup error naming the field", () => {
-    const odd = { ...PROVIDER, spec: { ...PROVIDER.spec, url: "http://x.test/v1/answers" } };
+    const odd = { ...PROVIDER, url: "http://x.test/v1/answers" };
     expect(() => adapterOver(fake({}).fetch, odd)).toThrow(/url must end in \/decisions/);
   });
 });
@@ -379,7 +366,7 @@ describe("through createClassifier", () => {
       const files = await recorded(async () => {
         const answers = await createClassifier({
           apiKey: "configured-key",
-          providers: { openai: { url: `http://127.0.0.1:${server.port}/v1/decisions` } },
+          url: `http://127.0.0.1:${server.port}/v1/decisions`,
         })(unit, noul);
         expect((answers.is_readable as { value: number }).value).toBe(0.4);
       });

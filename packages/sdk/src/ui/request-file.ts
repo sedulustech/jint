@@ -16,7 +16,6 @@
  * decisions form, anything else legacy.
  */
 
-import { asDecisions, type NativeReply } from "../core/provider/decision-model.ts";
 import {
   fromDecisions,
   NONE,
@@ -24,6 +23,33 @@ import {
   type DecisionsAnswer,
 } from "../core/provider/reading.ts";
 import type { QuestionSpec } from "../core/provider/protocol.ts";
+
+/** A recorded reply of the gateway's decision-model shape (old recordings only; no live adapter). */
+type NativeReply = {
+  model?: string;
+  answers?: Record<
+    string,
+    { type: string; choice?: string; probability?: number; probabilities?: Record<string, number> }
+  >;
+  usage?: { inputTokens?: number; outputTokens?: number };
+  providerMetadata?: {
+    gateway?: { cost?: string | number };
+    [modelProvider: string]: unknown;
+  };
+};
+
+/** A native answer in the Decisions shape: the probabilities map becomes a value/probability list. */
+const asDecisions = (
+  name: string,
+  a: NonNullable<NativeReply["answers"]>[string],
+): DecisionsAnswer => ({
+  ...a,
+  name,
+  probabilities: Object.entries(a.probabilities ?? {}).map(([value, probability]) => ({
+    value,
+    probability,
+  })),
+});
 
 /**
  * The view model of one recorded classifier request file, as served by this module: one stable

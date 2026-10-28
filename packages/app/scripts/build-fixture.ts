@@ -232,7 +232,6 @@ export async function main(outDirOverride?: string): Promise<void> {
         inputType: "dir",
         classifier: named(
           createClassifier({
-            provider: "openai",
             apiKey: "fixture-key",
             fetch: stubFetch(),
           }),

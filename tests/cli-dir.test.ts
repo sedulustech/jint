@@ -184,9 +184,9 @@ describe("cli: dir walk ignores", () => {
   // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
   test("with a real key: ignored files are absent from measurements", async () => {
     if (process.env.RUN_LIVE_TESTS !== "1") return;
-    if (!process.env.JINT_OPENAI_API_KEY) {
+    if (!process.env.JINT_PROVIDER_KEY) {
       throw new Error(
-        "RUN_LIVE_TESTS=1 but JINT_OPENAI_API_KEY is unset - live tests never skip silently",
+        "RUN_LIVE_TESTS=1 but JINT_PROVIDER_KEY is unset - live tests never skip silently",
       );
     }
     const proc = await runCli(["run", "tests/fixtures/sample-dir", "--json"]);

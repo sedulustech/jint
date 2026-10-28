@@ -55,13 +55,12 @@ export { compileRule } from "./config/load.ts";
 export { registerCustomRuleLoader } from "./core/rules/custom/loader.ts";
 export { selectRules, validateRuleSelection } from "./core/lint.ts";
 export {
-  assertProviderKey,
-  resolveProvider,
-  PROVIDERS,
-  type ProviderChoice,
-  type ProviderSpec,
-  type ResolvedProvider,
-} from "./core/provider/providers.ts";
+  assertEndpointKey,
+  resolveEndpoint,
+  DEFAULT_URL,
+  type EndpointChoice,
+  type Endpoint,
+} from "./core/provider/endpoint.ts";
 export { renderInputSummary, type InputSummary, type InputStats } from "./core/input/stats.ts";
 export { walkScopes, configScopeAdmits, type OwnedScope } from "./core/scope.ts";
 export { validateCustomRule } from "./core/rules/custom/schema.ts";

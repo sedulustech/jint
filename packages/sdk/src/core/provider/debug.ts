@@ -9,7 +9,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
-import { upstreamUsage } from "./reading.ts";
 import type { ClassifierConfig } from "./client.ts";
 
 /**
@@ -29,10 +28,10 @@ export interface RequestRecordSummary {
 let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
 let usageTotals = { input: 0, output: 0, cached: 0 };
-/** The model the run asks, from the classifier config: readings differ between models. */
+/** The model the run sent (the reply's own once one arrives): readings differ between models. */
 let runModel: string | undefined;
-/** The provider name and url host the run asked (a host only: never a path, userinfo or key). */
-let runRoute: { provider: string; host: string } | undefined;
+/** The url host the run asked (a host only: never a path, userinfo or key). */
+let runHost: string | undefined;
 
 /** A url without userinfo or query: a recorded request must never carry a credential. */
 function redactUrl(input: string): string {
@@ -93,33 +92,22 @@ export function inCall<T>(
 }
 
 /**
- * The tokens a recorded reply reports, whichever shape it has: the Decisions API's usage
- * (input_tokens, input_tokens_details), the neutral shape's (cached_input_tokens), or the AI
- * gateway's (inputTokens, the model provider's own count under providerMetadata).
+ * The tokens a recorded reply reports: the Decisions API's usage (input_tokens,
+ * input_tokens_details).
  */
 function tokensOf(response: unknown): { input: number; output: number; cached: number } {
   const reply = (typeof response === "object" && response !== null ? response : {}) as {
     usage?: {
       input_tokens?: number;
       output_tokens?: number;
-      cached_input_tokens?: number;
       input_tokens_details?: { cached_tokens?: number };
-      inputTokens?: number;
-      outputTokens?: number;
     };
-    providerMetadata?: unknown;
   };
   const usage = reply.usage;
-  const provider = upstreamUsage(reply.providerMetadata);
-  if (usage === undefined && provider === undefined) return { input: 0, output: 0, cached: 0 };
   return {
-    input: usage?.input_tokens ?? usage?.inputTokens ?? provider?.input_tokens ?? 0,
-    output: usage?.output_tokens ?? usage?.outputTokens ?? 0,
-    cached:
-      usage?.cached_input_tokens ??
-      usage?.input_tokens_details?.cached_tokens ??
-      provider?.input_tokens_details?.cached_tokens ??
-      0,
+    input: usage?.input_tokens ?? 0,
+    output: usage?.output_tokens ?? 0,
+    cached: usage?.input_tokens_details?.cached_tokens ?? 0,
   };
 }
 
@@ -175,8 +163,7 @@ export function recordRunManifest(manifest: {
       ...manifest,
       durationMs: Date.now() - runStartedAt,
       model: runModel,
-      provider: runRoute?.provider,
-      providerHost: runRoute?.host,
+      providerHost: runHost,
       usage: { ...usageTotals },
     };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
@@ -211,14 +198,14 @@ export function recordRunReport(json: string): void {
  */
 export function recordRequests(
   config: ClassifierConfig | undefined,
-  route?: { provider: string; host: string },
+  route?: { model: string; host: string },
 ): ClassifierConfig {
   // The run id IS the run's start, and the run dir's name - one timestamp, one identity.
   const runId = Date.now();
   runStartedAt = runId;
   usageTotals = { input: 0, output: 0, cached: 0 };
-  runModel = config?.model;
-  runRoute = route;
+  runModel = route?.model;
+  runHost = route?.host;
   const base = runsBase();
   const dir = `${base}/${runId}`;
   runSummary = {
@@ -257,6 +244,8 @@ export function recordRequests(
         request: body,
         response: asJson(responseText),
       };
+      const replied = (record.response as { model?: unknown } | null)?.model;
+      if (typeof replied === "string") runModel = replied;
       const counted = tokensOf(record.response);
       usageTotals.input += counted.input;
       usageTotals.output += counted.output;

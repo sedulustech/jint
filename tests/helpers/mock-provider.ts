@@ -1,8 +1,7 @@
 /**
- * Shared mocks of the provider wires: the Decisions API (startMockDecisions, the `openai` provider)
- * and the AI gateway's decision-model endpoint (startMockGateway, the `vercel` provider). Point the
- * CLI at one via mockDecisionsWire(baseUrl) (tests/helpers/cli.ts) and every classification is
- * answered locally — the suite runs fully keyless.
+ * Shared mock of the Decisions API (startMockDecisions). Point the CLI at it via
+ * mockDecisionsWire(baseUrl) (tests/helpers/cli.ts) and every classification is answered locally —
+ * the suite runs fully keyless.
  *
  * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
  * everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see tests/README.md.
@@ -103,74 +102,6 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
   });
   return {
     baseUrl: `http://localhost:${server.port}`,
-    stop: () => server.stop(true),
-    requests,
-  };
-}
-
-export interface MockGatewayRequest {
-  /** The full parsed request body: stateParts and the questions keyed by wire name. */
-  body: { stateParts: { type: string; text: string }[]; questions: Record<string, any> };
-  headers: Record<string, string>;
-  /** The state: the text parts, parsed. */
-  state: Record<string, unknown>;
-}
-
-/**
- * Mock of the AI gateway's native decision-model endpoint (POST /v4/ai/decision-model) for the
- * `vercel` provider: answers each question by its type, keyed by wire name.
- */
-export function startMockGateway(opts: { predicate?: number } = {}) {
-  const requests: MockGatewayRequest[] = [];
-  const server = Bun.serve({
-    port: 0,
-    async fetch(req) {
-      const body = (await req.json()) as MockGatewayRequest["body"];
-      requests.push({
-        body,
-        headers: Object.fromEntries(req.headers),
-        state: JSON.parse(body.stateParts.map((p) => p.text).join("")),
-      });
-      const answers = Object.fromEntries(
-        Object.entries(body.questions).map(([wire, q]) => {
-          if (q.type === "score") {
-            const levels = (q.criteria as string[]).map((_, i) => String(i));
-            return [
-              wire,
-              {
-                type: "score",
-                probabilities: Object.fromEntries(
-                  levels.map((l, i) => [l, i === 1 ? 0.8 : 0.2 / Math.max(levels.length - 1, 1)]),
-                ),
-              },
-            ];
-          }
-          if (q.type === "choice") {
-            const values = Object.keys(q.criteria);
-            return [
-              wire,
-              {
-                type: "choice",
-                choice: values[0],
-                probabilities: Object.fromEntries(
-                  values.map((v, i) => [v, i === 0 ? 0.7 : 0.3 / Math.max(values.length - 1, 1)]),
-                ),
-              },
-            ];
-          }
-          return [wire, { type: "boolean", probability: opts.predicate ?? 0.8 }];
-        }),
-      );
-      return Response.json({
-        model: "gpt-6-luna",
-        answers,
-        usage: { inputTokens: 5, outputTokens: 2 },
-      });
-    },
-  });
-  return {
-    /** The provider url: the endpoint itself. */
-    url: `http://localhost:${server.port}/v4/ai/decision-model`,
     stop: () => server.stop(true),
     requests,
   };

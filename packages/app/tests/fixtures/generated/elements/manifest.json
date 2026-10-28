@@ -94,7 +94,6 @@
   },
   "durationMs": 0,
   "model": "gpt-6-luna",
-  "provider": "openai",
   "providerHost": "api.openai.com",
   "usage": {
     "input": 1000,

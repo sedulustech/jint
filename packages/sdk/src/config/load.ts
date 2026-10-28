@@ -20,7 +20,6 @@ import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
 import { SetupError, type Rule } from "../core/types.ts";
-import type { ProviderSpec } from "../core/provider/providers.ts";
 
 export const DEFAULT_CONFIG_PATH = "jint.config.json";
 
@@ -147,58 +146,14 @@ export const CONFIG_SCHEMA = Type.Object({
   apiKey: Type.Optional(
     Type.String({
       description:
-        "The API key. Precedence: this, else $JINT_PROVIDER_KEY, else the selected provider's key variable (JINT_OPENAI_API_KEY, JINT_AI_GATEWAY_API_KEY).",
+        "The API key. Precedence: this, else $JINT_PROVIDER_KEY. Never written to a run record.",
     }),
   ),
-  provider: Type.Optional(
+  url: Type.Optional(
     Type.String({
       description:
-        "The provider asked: a name from the provider table or from providers. Precedence: this, else $JINT_PROVIDER, else openai. A provider is a route to a model: openai and vercel serve the same one.",
+        "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_PROVIDER_URL, else https://api.openai.com/v1/decisions.",
     }),
-  ),
-  model: Type.Optional(
-    Type.String({
-      description:
-        "The model id asked. Precedence: this, else $JINT_MODEL, else the provider's model.",
-    }),
-  ),
-  providers: Type.Optional(
-    Type.Record(
-      Type.String(),
-      Type.Partial(
-        Type.Object({
-          protocol: Type.Union([Type.Literal("decisions"), Type.Literal("decision-model")], {
-            description: "The wire format the provider speaks.",
-          }),
-          url: Type.String({
-            description:
-              "The endpoint the questions are posted to. Precedence: this, else $JINT_PROVIDER_URL, else the table url.",
-          }),
-          keyEnv: Type.String({
-            description: "The environment variable holding the provider's API key.",
-          }),
-          model: Type.String({ description: "The model id asked by default." }),
-          headers: Type.Record(Type.String(), Type.String(), {
-            description: "Extra request headers, sent with every call.",
-          }),
-          limits: Type.Partial(
-            Type.Object({
-              tokensPerMinute: Type.Number({
-                description: "Input-token budget per minute; the run paces its calls under it.",
-              }),
-            }),
-          ),
-        }),
-        {
-          description:
-            "Fields of the named provider to override, or a new provider (protocol, url, keyEnv and model all required once merged).",
-        },
-      ),
-      {
-        description:
-          "Per-name overrides of the provider table entries (openai, vercel), or new providers.",
-      },
-    ),
   ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
   // cross-field checks so the error names the field.
@@ -228,12 +183,8 @@ export interface ResolvedConfig {
   /** The walk's secret-shaped denylist (config override; default = the built-in denylist). */
   readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
-  /** The provider asked (a table or `providers` name); absent: $JINT_PROVIDER, then the default. */
-  readonly provider?: string;
-  /** The model id asked; absent: $JINT_MODEL, then the provider's model. */
-  readonly model?: string;
-  /** Per-name overrides of provider table entries, or new providers. */
-  readonly providers?: Readonly<Record<string, Partial<ProviderSpec>>>;
+  /** The Decisions endpoint asked; absent: $JINT_PROVIDER_URL, then the default. */
+  readonly url?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes PROVIDER_TIMEOUT. */
@@ -508,9 +459,7 @@ export function validateConfig(
     exclude: string[];
     secretDenylist?: string[];
     apiKey?: string;
-    provider?: string;
-    model?: string;
-    providers?: Record<string, Partial<ProviderSpec>>;
+    url?: string;
     concurrency?: number;
     timeout?: number;
     warnings?: string[];
@@ -524,9 +473,7 @@ export function validateConfig(
   if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
-  if (parsed.provider !== undefined) resolved.provider = parsed.provider;
-  if (parsed.model !== undefined) resolved.model = parsed.model;
-  if (parsed.providers !== undefined) resolved.providers = parsed.providers;
+  if (parsed.url !== undefined) resolved.url = parsed.url;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,

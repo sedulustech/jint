@@ -22,36 +22,27 @@ const questions: Record<string, QuestionSchema> = {
 };
 
 describe("createClassifier", () => {
-  test("a missing key fails loud PROVIDER_AUTH at first call, naming the provider's keyEnv, not at import", async () => {
+  test("a missing key fails loud PROVIDER_AUTH at first call, naming JINT_PROVIDER_KEY, not at import", async () => {
     const saved = { ...process.env };
-    // the provider's client variable must never stand in for the provider's key
+    // the client's own variable must never stand in for the key
     process.env.OPENAI_API_KEY = "stray";
+    delete process.env.JINT_PROVIDER_KEY;
     try {
-      for (const [provider, keyEnv] of [
-        ["openai", "JINT_OPENAI_API_KEY"],
-        ["vercel", "JINT_AI_GATEWAY_API_KEY"],
-      ] as const) {
-        delete process.env[keyEnv];
-        const classifier = createClassifier({ provider }); // construction must not throw
-        try {
-          await classifier(state, questions);
-          expect.unreachable();
-        } catch (e) {
-          expect(e).toBeInstanceOf(ClassifyError);
-          expect((e as ClassifyError).code).toBe("PROVIDER_AUTH");
-          expect((e as ClassifyError).message).toContain(keyEnv);
-        }
+      const classifier = createClassifier(); // construction must not throw
+      try {
+        await classifier(state, questions);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ClassifyError);
+        expect((e as ClassifyError).code).toBe("PROVIDER_AUTH");
+        expect((e as ClassifyError).message).toContain("JINT_PROVIDER_KEY");
       }
     } finally {
       process.env = saved;
     }
   });
 
-  test("an unknown provider fails at construction as a setup error", () => {
-    expect(() => createClassifier({ provider: "nope" })).toThrow(/unknown provider 'nope'/);
-  });
-
-  test("the default provider asks the Decisions API at the table's url, with the provider's key", async () => {
+  test("the classifier asks the Decisions API at the url, with the key", async () => {
     const seen: { url: string; auth: string | null; body: any }[] = [];
     const probe = async (url: string, init?: RequestInit) => {
       seen.push({
@@ -67,12 +58,12 @@ describe("createClassifier", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     };
-    const saved = process.env.JINT_OPENAI_API_KEY;
-    process.env.JINT_OPENAI_API_KEY = "env-key";
+    const saved = process.env.JINT_PROVIDER_KEY;
+    process.env.JINT_PROVIDER_KEY = "env-key";
     try {
       const answers = await createClassifier({
         fetch: probe,
-        providers: { openai: { url: "http://127.0.0.1:1/v1/decisions" } },
+        url: "http://127.0.0.1:1/v1/decisions",
       })(state, { is_readable: { type: "noul", instructions: "Is it?" } });
       expect((answers.is_readable as ClassifiedAnswer).value).toBe(0.25);
       expect(seen[0]!.url).toBe("http://127.0.0.1:1/v1/decisions");
@@ -85,8 +76,8 @@ describe("createClassifier", () => {
         },
       ]);
     } finally {
-      if (saved === undefined) delete process.env.JINT_OPENAI_API_KEY;
-      else process.env.JINT_OPENAI_API_KEY = saved;
+      if (saved === undefined) delete process.env.JINT_PROVIDER_KEY;
+      else process.env.JINT_PROVIDER_KEY = saved;
     }
   });
 });

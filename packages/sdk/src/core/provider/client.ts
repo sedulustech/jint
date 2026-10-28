@@ -1,7 +1,7 @@
 /**
- * The classifier factory: resolves the provider, builds the adapter for its protocol and wraps it
- * in the run recorder. This is the swappable-backend seam: the lint pipeline accepts any
- * classifier, tests fake it.
+ * The classifier factory: resolves the endpoint, builds the Decisions adapter and wraps it in the
+ * run recorder. This is the swappable-backend seam: the lint pipeline accepts any classifier, tests
+ * fake it.
  *
  * Transport failures map onto the project's error taxonomy once, in each adapter: auth failures
  * fail loud at the first call (never at import), rejected requests, rate limits and outages surface
@@ -13,22 +13,11 @@
 
 import { ClassifyError, type Classifier } from "../types.ts";
 import { inCall, recordRequests } from "./debug.ts";
-import { decisionModelAdapter } from "./decision-model.ts";
-import { decisionsAdapter } from "./decisions.ts";
-import {
-  resolveProvider,
-  urlHost,
-  type ProviderChoice,
-  type ResolvedProvider,
-} from "./providers.ts";
+import { decisionsAdapter, MODEL } from "./decisions.ts";
+import { resolveEndpoint, urlHost, type Endpoint, type EndpointChoice } from "./endpoint.ts";
 
-export interface ClassifierConfig extends ProviderChoice {
-  /**
-   * The model id; defaults to $JINT_MODEL, then the selected provider's model. The provider is
-   * chosen by `provider`, else $JINT_PROVIDER, else the default (see providers.ts).
-   */
-  model?: string;
-  /** Custom fetch for tests (the transport the provider's client calls). */
+export interface ClassifierConfig extends EndpointChoice {
+  /** Custom fetch for tests (the transport the client calls). */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /**
    * The transport log sink (client backoff/warn/error visibility): one UNPREFIXED line per event.
@@ -39,31 +28,26 @@ export interface ClassifierConfig extends ProviderChoice {
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
-  const provider = resolveProvider(config);
+  const endpoint = resolveEndpoint(config);
   const log = config?.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   let classifier: Classifier | null = null;
   return async (state, questions) => {
-    classifier ??= makeClassifier(config, provider, log, state.path);
+    classifier ??= makeClassifier(config, endpoint, log, state.path);
     return classifier(state, questions);
   };
 }
 
-/** The classifier for one provider: asked through the adapter its protocol names. */
+/** The classifier for the endpoint, asked through the Decisions adapter. */
 function makeClassifier(
   config: ClassifierConfig | undefined,
-  provider: ResolvedProvider,
+  endpoint: Endpoint,
   log: (line: string) => void,
   input: string,
 ): Classifier {
-  // A missing key fails here, naming keyEnv, before anything is built or recorded.
-  if (provider.apiKey === undefined) throw missingKey(provider, input);
-  const route = { provider: provider.name, host: urlHost(provider.spec.url) };
-  const recorded = recordRequests({ ...config, model: provider.model }, route);
-  const transport = { fetch: recorded.fetch!, log };
-  const adapter =
-    provider.spec.protocol === "decisions"
-      ? decisionsAdapter(provider, transport)
-      : decisionModelAdapter(provider, transport);
+  // A missing key fails here, before anything is built or recorded.
+  if (endpoint.apiKey === undefined) throw missingKey(input);
+  const recorded = recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) });
+  const adapter = decisionsAdapter(endpoint, { fetch: recorded.fetch!, log });
   return async (state, questions) => {
     // The id is jint's handle, not something to judge: a fresh id each run would make identical
     // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays
@@ -76,9 +60,9 @@ function makeClassifier(
   };
 }
 
-const missingKey = (provider: ResolvedProvider, input: string): ClassifyError =>
+const missingKey = (input: string): ClassifyError =>
   new ClassifyError(
     "PROVIDER_AUTH",
     input,
-    `provider unavailable at startup: no API key — set ${provider.spec.keyEnv} to a valid key`,
+    "provider unavailable at startup: no API key — set JINT_PROVIDER_KEY to a valid key",
   );

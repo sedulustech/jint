@@ -11,7 +11,6 @@ import { Value } from "@sinclair/typebox/value";
 import { checkRuleScope } from "../../scope.ts";
 import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler } from "../handle.ts";
-import type { ProviderSpec } from "../../provider/providers.ts";
 
 /** The element a rule sees: the walk inventory materialized for TS rules, parent chain included. */
 export interface CustomElement {
@@ -134,9 +133,7 @@ export interface TsConfig {
   readonly exclude?: readonly string[];
   readonly disable?: readonly string[];
   readonly apiKey?: string;
-  readonly provider?: string;
-  readonly model?: string;
-  readonly providers?: Readonly<Record<string, Partial<ProviderSpec>>>;
+  readonly url?: string;
   readonly concurrency?: number;
   readonly timeout?: number;
 }
@@ -348,9 +345,7 @@ const CONFIG_KEYS: ReadonlySet<string> = new Set([
   "exclude",
   "disable",
   "apiKey",
-  "provider",
-  "model",
-  "providers",
+  "url",
   "concurrency",
   "timeout",
 ]);

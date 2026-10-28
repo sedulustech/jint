@@ -262,7 +262,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // classified, so stdout stays empty — no machine document
     expectContract(r, {
       exit: 2,
-      stderr: ["CONFIG_INVALID", "no JINT_OPENAI_API_KEY set - measurements need a valid key"],
+      stderr: ["CONFIG_INVALID", "no JINT_PROVIDER_KEY set - measurements need a valid key"],
       stdout: "empty",
     });
     expect(r.stderr).not.toContain("failed to classify");
@@ -271,7 +271,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("default raw-line stdout without a key: same exit 2, no unit failures", async () => {
     const r = await run(["run", "tests/fixtures/sample-file.ts"], NO_KEY);
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("no JINT_OPENAI_API_KEY set");
+    expect(r.stderr).toContain("no JINT_PROVIDER_KEY set");
     expect(r.stderr).not.toContain("failed to classify");
     expect(r.stdout).not.toContain("PROVIDER_AUTH");
   });
@@ -645,15 +645,15 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
 });
 
 // Live round trips assert MODEL BEHAVIOR (calibration), not contract — the mocked twins above own
-// every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND JINT_OPENAI_API_KEY. A run that asks
+// every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND JINT_PROVIDER_KEY. A run that asks
 // for live tests without a key fails loud; the old silent skip hid a regression once already.
-describe("cli: live provider round trip (opt-in: RUN_LIVE_TESTS=1 + JINT_OPENAI_API_KEY)", () => {
+describe("cli: live provider round trip (opt-in: RUN_LIVE_TESTS=1 + JINT_PROVIDER_KEY)", () => {
   const liveRequested = process.env.RUN_LIVE_TESTS === "1";
   function requireLive(): boolean {
     if (!liveRequested) return false;
-    if (!process.env.JINT_OPENAI_API_KEY) {
+    if (!process.env.JINT_PROVIDER_KEY) {
       throw new Error(
-        "RUN_LIVE_TESTS=1 but JINT_OPENAI_API_KEY is unset - live tests never skip silently; unset RUN_LIVE_TESTS for the mocked suite",
+        "RUN_LIVE_TESTS=1 but JINT_PROVIDER_KEY is unset - live tests never skip silently; unset RUN_LIVE_TESTS for the mocked suite",
       );
     }
     return true;

@@ -386,8 +386,8 @@ export interface AskOptions {
 }
 
 /**
- * A protocol's adapter in the shape the classifier consumes: asks the provider the questions and
- * returns answers the rules read. It throws ClassifyError for every failure (transport, status,
+ * The adapter in the shape the classifier consumes: asks the provider the questions and returns
+ * answers the rules read. It throws ClassifyError for every failure (transport, status,
  * wrong-shaped reply); nothing of the provider's client escapes.
  */
 export interface Adapter {

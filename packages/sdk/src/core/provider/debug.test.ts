@@ -176,22 +176,32 @@ describe("recordRequests", () => {
       for (const secret of ["sk-secret", "Bearer", "pw@"]) expect(t).not.toContain(secret);
   });
 
-  test("the run's token totals read the AI gateway's usage shape too", async () => {
-    const config = recordRequests({
-      fetch: async () =>
-        new Response(
-          JSON.stringify({
-            answers: {},
-            usage: { inputTokens: 40, outputTokens: 4 },
-            providerMetadata: { openai: { usage: { input_tokens_details: { cached_tokens: 8 } } } },
-          }),
-        ),
-    });
+  test("the run's token totals read the Decisions usage shape; the manifest records the model sent and the host", async () => {
+    const config = recordRequests(
+      {
+        fetch: async () =>
+          new Response(
+            JSON.stringify({
+              model: "m-reply",
+              answers: [],
+              usage: {
+                input_tokens: 40,
+                output_tokens: 4,
+                input_tokens_details: { cached_tokens: 8 },
+              },
+            }),
+          ),
+      },
+      { model: "m-sent", host: "api.test" },
+    );
     await inCall({ id: "L1", path: "src/a.ts", source: "x" }, ["r"], () =>
-      config.fetch!("https://gw.test/v4/ai/decision-model", { method: "POST", body: "{}" }),
+      config.fetch!("https://api.test/v1/decisions", { method: "POST", body: "{}" }),
     );
     recordRunManifest({ configPath: null, cwd: ".", argv: [], ts: "t" });
     const manifest = JSON.parse(readFileSync(`${recordSummary()!.dir}/manifest.json`, "utf8"));
     expect(manifest.usage).toEqual({ input: 40, output: 4, cached: 8 });
+    expect(manifest.model).toBe("m-reply");
+    expect(manifest.providerHost).toBe("api.test");
+    expect(manifest).not.toHaveProperty("provider");
   });
 });

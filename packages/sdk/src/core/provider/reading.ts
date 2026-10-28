@@ -12,7 +12,10 @@ import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 /** The fallback option a choice is asked with; its mass is dropped from the reading. */
 export const NONE = "none_of_these";
 
-/** The shape of an answer the conversion reads: the client's typed answers, and the vercel route's. */
+/**
+ * The shape of an answer the conversion reads: the client's typed answers, and old recordings'
+ * gateway-shaped ones.
+ */
 export type DecisionsAnswer = {
   type: string;
   name: string | null;

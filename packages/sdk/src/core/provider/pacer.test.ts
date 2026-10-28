@@ -2,8 +2,14 @@ import { describe, expect, test } from "bun:test";
 import type { AnyState, Classifier } from "../types.ts";
 
 const state = { path: "x", content: "", id: "L1" } as AnyState;
-import { checkRunKnobs, estimateTokens, withLimit, withTimeout, withTokenRate } from "./pacer.ts";
-import { resolveProvider } from "./providers.ts";
+import {
+  TOKENS_PER_MINUTE,
+  checkRunKnobs,
+  estimateTokens,
+  withLimit,
+  withTimeout,
+  withTokenRate,
+} from "./pacer.ts";
 
 describe("checkRunKnobs", () => {
   test("each failure names the exact field", () => {
@@ -68,11 +74,8 @@ describe("withTokenRate", () => {
   const call = (n: number) => ({ path: "a.ts", content: "x".repeat(n), id: "L1" }) as AnyState;
   const ok: Classifier = async () => ({ q: { value: 1 } });
 
-  test("identity when the provider has no budget", () => {
+  test("identity when there is no budget", () => {
     expect(withTokenRate(ok, undefined)).toBe(ok);
-    expect(
-      resolveProvider({ provider: "vercel" }, {}).spec.limits?.tokensPerMinute,
-    ).toBeUndefined();
   });
 
   test("calls under the budget are not delayed", async () => {
@@ -103,9 +106,7 @@ describe("withTokenRate", () => {
     expect(clock.slept).toEqual([60_000]);
   });
 
-  test("the budget is the selected provider's: table default, config override", () => {
-    expect(resolveProvider({}, {}).spec.limits?.tokensPerMinute).toBe(10_000_000);
-    const override = { providers: { openai: { limits: { tokensPerMinute: 123 } } } };
-    expect(resolveProvider(override, {}).spec.limits?.tokensPerMinute).toBe(123);
+  test("the budget is the one constant", () => {
+    expect(TOKENS_PER_MINUTE).toBe(10_000_000);
   });
 });
