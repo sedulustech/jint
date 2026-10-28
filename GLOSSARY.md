@@ -46,6 +46,8 @@ demands action.
   element reads as a wrapper's payload and collapses into it unless the tail distance is real (the per-grammar capture directives over the shared defaults).
 - **choice** — a rule kind whose question selects one named option; the answer is the selected
   option's label, with a probability per option.
+- **confidence** — the provider's own number, 0-1, on a score or choice answer. Not derived from the
+  probabilities and never an input to a verdict; absent when the provider returns none.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **scope** — a path selection with an owner: include/exclude patterns that select which files

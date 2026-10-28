@@ -1,4 +1,4 @@
-# Confidence
+# Decidedness and confidence
 
 A choice reading has two axes:
 
@@ -7,17 +7,30 @@ A choice reading has two axes:
 | tier        | What is the verdict?   | the tier with the most probability                    |
 | decidedness | Is the verdict stable? | the top tier's mass against the runner-up tier's mass |
 
-A tier's mass is the sum of its options' probabilities. jev's `confidence` measures the top
-option. jint measures the top tier, because the tier is the verdict.
+A tier's mass is the sum of its options' probabilities. jint measures the top tier, because the
+tier is the verdict.
+
+## The provider's confidence
+
+A score or choice answer can carry `confidence`: the provider's own number, 0 to 1. It is not
+the top probability. It is not derived from the probabilities, and its formula is undocumented.
+In live checks, a clear score gave 1.0, a split 0.60 / 0.37 / 0.03 gave 0.36, and an ambiguous
+choice split 0.43 / 0.09 / 0.48 gave 0.22.
+
+jint reports it beside the reading: on the measurement and the finding in `--json`, and as a
+caption on the run view's answer card. It is absent when the provider returns none, as the
+gateway's native endpoint does. No verdict reads it. Decidedness, computed from the tier
+masses, is the only measure of whether a verdict is stable.
 
 ## Undecided
 
 A reading is undecided when the top tier's mass leads the runner-up tier's mass by less than
 `margin`. With two tiers, `margin: 0.2` makes a top tier under 0.60 undecided.
 
-The margin is in probability units, the same units as jev's variation. jev does not return the
+The margin is in probability units, the same units as the variation measured on the earlier
+classifier, jev. jev did not return the
 same probabilities for the same request: a byte-identical request moves by about 0.02. Across
-reruns of one test, the margin moves by:
+reruns of one test on jev, the margin moved by:
 
 | percentile | is_comment_justified (913 pairs) | is_class_cohesive (33 pairs) |
 | ---------- | -------------------------------- | ---------------------------- |
