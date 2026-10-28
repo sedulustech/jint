@@ -17,7 +17,12 @@
  */
 
 import { asDecisions, type NativeReply } from "../core/provider/decision-model.ts";
-import { fromDecisions, NONE, type DecisionsAnswer } from "../core/provider/reading.ts";
+import {
+  fromDecisions,
+  NONE,
+  upstreamUsage,
+  type DecisionsAnswer,
+} from "../core/provider/reading.ts";
 import type { QuestionSpec } from "../core/provider/protocol.ts";
 
 /**
@@ -167,7 +172,7 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
         : fromDecisions(question, asDecisions(wire, answer));
   });
   const usage = isObj(response.usage) ? response.usage : undefined;
-  const provider = (response as NativeReply).providerMetadata?.openai?.usage;
+  const provider = upstreamUsage((response as NativeReply).providerMetadata);
   return {
     ts: raw.ts as string | undefined,
     url: raw.url as string | undefined,

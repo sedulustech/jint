@@ -11,7 +11,7 @@
 import { SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
 import { toDecisions, type DecisionsAnswer } from "./decisions.ts";
 import { wireName, type Fetch, type Usage } from "./protocol.ts";
-import { readAnswers } from "./reading.ts";
+import { readAnswers, upstreamUsage } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, postJson, type Limits } from "./transport.ts";
 import type { ResolvedProvider } from "./providers.ts";
 
@@ -42,10 +42,8 @@ export type NativeReply = {
   >;
   usage?: { inputTokens?: number; outputTokens?: number };
   providerMetadata?: {
-    openai?: {
-      usage?: { input_tokens?: number; input_tokens_details?: { cached_tokens?: number } };
-    };
     gateway?: { cost?: string | number };
+    [modelProvider: string]: unknown;
   };
 };
 
@@ -84,13 +82,13 @@ export function decisionModelBody(ask: Ask): unknown {
 
 /** What a reply used: the gateway's counts, falling back to the model provider's own. */
 function usageOf(reply: NativeReply): Usage {
-  const openai = reply.providerMetadata?.openai?.usage;
+  const upstream = upstreamUsage(reply.providerMetadata);
   const rawCost = reply.providerMetadata?.gateway?.cost;
   const cost = rawCost === undefined || rawCost === null ? NaN : Number(rawCost);
   const usage: Usage = {
-    input_tokens: reply.usage?.inputTokens ?? openai?.input_tokens ?? 0,
+    input_tokens: reply.usage?.inputTokens ?? upstream?.input_tokens ?? 0,
     output_tokens: reply.usage?.outputTokens ?? 0,
-    cached_input_tokens: openai?.input_tokens_details?.cached_tokens ?? 0,
+    cached_input_tokens: upstream?.input_tokens_details?.cached_tokens ?? 0,
   };
   if (Number.isFinite(cost)) usage.gateway_cost = cost;
   return usage;

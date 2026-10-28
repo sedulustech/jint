@@ -97,3 +97,24 @@ export function readAnswers(
   });
   return out;
 }
+
+/** The token counts the model's own provider reports, as a gateway relays them. */
+export type UpstreamUsage = {
+  input_tokens?: number;
+  input_tokens_details?: { cached_tokens?: number };
+};
+
+/**
+ * A gateway reply's `providerMetadata` is keyed by who produced each part: the gateway's own entry
+ * (`gateway`, cost) and the model provider's (its name, usage). The model provider's name is data,
+ * so this takes the first entry that is not the gateway's and carries usage.
+ */
+export function upstreamUsage(metadata: unknown): UpstreamUsage | undefined {
+  if (typeof metadata !== "object" || metadata === null) return undefined;
+  for (const [name, entry] of Object.entries(metadata)) {
+    if (name === "gateway" || typeof entry !== "object" || entry === null) continue;
+    const usage = (entry as { usage?: unknown }).usage;
+    if (typeof usage === "object" && usage !== null) return usage as UpstreamUsage;
+  }
+  return undefined;
+}

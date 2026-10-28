@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { upstreamUsage } from "./reading.ts";
 import type { ClassifierConfig } from "./client.ts";
 
 /**
@@ -106,14 +107,10 @@ function tokensOf(response: unknown): { input: number; output: number; cached: n
       inputTokens?: number;
       outputTokens?: number;
     };
-    providerMetadata?: {
-      openai?: {
-        usage?: { input_tokens?: number; input_tokens_details?: { cached_tokens?: number } };
-      };
-    };
+    providerMetadata?: unknown;
   };
   const usage = reply.usage;
-  const provider = reply.providerMetadata?.openai?.usage;
+  const provider = upstreamUsage(reply.providerMetadata);
   if (usage === undefined && provider === undefined) return { input: 0, output: 0, cached: 0 };
   return {
     input: usage?.input_tokens ?? usage?.inputTokens ?? provider?.input_tokens ?? 0,
