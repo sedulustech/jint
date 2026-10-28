@@ -56,35 +56,28 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint
 
 ## How to use
 
-jint asks its questions of a provider. The default is `openai` (OpenAI's Decisions API); `vercel`
-(the AI gateway's native decision-model endpoint) is built in.
+jint asks its questions of one endpoint: the Decisions API (POST /v1/decisions). The url selects
+the endpoint; there is no other setting to choose a service. The model id is fixed in the adapter
+(`gpt-6-luna`).
 
 ```bash
-export JINT_OPENAI_API_KEY=...   # the default provider's key; each provider names its own variable
+export JINT_PROVIDER_KEY=...   # the endpoint's API key
 ```
 
-A provider is a route to a model, not a different model: `openai` and `vercel` serve the same one
-(`gpt-6-luna`, through the AI gateway as `openai/gpt-6-luna-decisions`) and differ in route, key and
-latency. Each setting resolves on its own axis, config first, then the environment, then the
-built-in table; an empty variable counts as unset:
+Each setting resolves on its own axis, config first, then the environment, then the default; an
+empty variable counts as unset:
 
 ```
-provider: config provider          > JINT_PROVIDER      > openai
-model:    config model             > JINT_MODEL         > the provider's model
-url:      config providers[name].url > JINT_PROVIDER_URL > the provider's table url
-key:      config apiKey            > JINT_PROVIDER_KEY  > the provider's key variable
+url:  config url     > JINT_PROVIDER_URL > https://api.openai.com/v1/decisions
+key:  config apiKey  > JINT_PROVIDER_KEY (no default; a run with rules and no key fails at setup)
 ```
 
-`JINT_PROVIDER_URL` and `JINT_PROVIDER_KEY` apply to whichever provider is selected, so switching
-`JINT_PROVIDER` keeps using them. A run that moves the url off the table's, or reads the key from
-`JINT_PROVIDER_KEY`, says so in a run note (provider name and url host only, never the key).
-A provider is data: `providers` overrides a table entry's `protocol`, `url`, `keyEnv`, `model`,
-`headers` and `limits`, or adds a provider.
+The url must end in `/decisions`. A run that moves the url off the default, or reads the key from
+`JINT_PROVIDER_KEY`, says so in a run note (url host only, never the key).
 
 ```ts
 export default {
-  provider: "vercel", // key: JINT_AI_GATEWAY_API_KEY
-  providers: { vercel: { model: "openai/gpt-6-luna-decisions" } },
+  url: "http://localhost:8080/v1/decisions",
 };
 ```
 

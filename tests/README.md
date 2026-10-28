@@ -7,15 +7,15 @@ under `src/`; shared fixtures live in `tests/fixtures/`. Run: `bun test --parall
 
 **Mocked tests assert CONTRACT and run everywhere.** A contract is what the CLI owes its callers:
 exit codes, stderr messages, and the stdout document shape — plus the wire shape
-on the provider boundary (state content, compiled instructions and criteria). Every mocked test runs
+on the Decisions boundary (state content, compiled instructions and criteria). Every mocked test runs
 against `tests/helpers/mock-provider.ts` (`startMockDecisions()`), which serves canned Decisions API answers
-on port 0 (`startMockGateway()` does the same for the vercel provider); point a spawned CLI at it with `mockDecisionsWire(baseUrl)` (tests/helpers/cli.ts), which sets the openai provider, its url and a throwaway key in the env. Assertions go through
+on port 0; point a spawned CLI at it with `mockDecisionsWire(baseUrl)` (tests/helpers/cli.ts), which sets its url and a throwaway key in the env. Assertions go through
 `tests/helpers/contract.ts` (`expectContract(r, { exit, stderr, stdout })`), which names all three
-surfaces on failure. The mocked suite must be fully green with **no** `JINT_OPENAI_API_KEY`.
+surfaces on failure. The mocked suite must be fully green with **no** `JINT_PROVIDER_KEY`.
 
 **Live tests assert MODEL BEHAVIOR and run opt-in.** Calibration, real reading distributions, real
 model failure modes. These verify what a mock cannot: the model. They run only when BOTH
-`RUN_LIVE_TESTS=1` and `JINT_OPENAI_API_KEY` are set. Requesting live tests without a key must fail
+`RUN_LIVE_TESTS=1` and `JINT_PROVIDER_KEY` are set. Requesting live tests without a key must fail
 loud, never skip silently — a silent `if (!key) return;` once hid a regression.
 
 ## Rules

@@ -15,7 +15,7 @@ and, for most rules, a fixer message that states the exact fix.
 ## Run it
 
 Install: https://github.com/sedulustech/jint#install.
-The selected provider's key (`JINT_OPENAI_API_KEY` by default) must be in
+The API key (`JINT_PROVIDER_KEY`, or `apiKey` in the config) must be in
 the environment. Every flag, including output
 formats and scoping, lives in `jint --help` - the tool's own contract, not
 duplicated here.
