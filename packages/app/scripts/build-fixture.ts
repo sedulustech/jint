@@ -97,6 +97,15 @@ const SCORE_PROBABILITIES: Record<string, Record<string, number>> = {
 };
 
 /**
+ * The provider's own confidence, set on a few score answers only: the rest carry none, as an answer
+ * does when the provider sends none. A bimodal split reads low, a concentrated answer high.
+ */
+const CONFIDENCE: Record<string, number> = {
+  is_cognitively_complex: 0.36,
+  is_readable: 1,
+};
+
+/**
  * The distribution whose expected level is `value`: the mass sits on the two levels around it, so
  * the reading the rules take back is the designed value exactly.
  */
@@ -133,6 +142,7 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
         return {
           type: "score",
           name: q.name,
+          confidence: CONFIDENCE[rule],
           probabilities: levels.map((label) => ({
             value: label,
             probability: distribution[label] ?? 0,

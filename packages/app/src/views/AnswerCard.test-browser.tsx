@@ -128,3 +128,26 @@ test("a refused score question lists its levels without bars", () => {
   expect(levels).toHaveLength(3);
   expect(levels[1]!.textContent).toContain("some repeat");
 });
+
+test("score and choice answers show the provider's confidence as a caption when present", () => {
+  const score = render(
+    <AnswerCard qa={{ ...scoreQA, answer: { ...scoreQA.answer, confidence: 0.36 } }} sev="warn" />,
+  );
+  expect(score.getByTestId("answer-confidence").textContent).toContain("0.36");
+  cleanup();
+  const choice = render(
+    <AnswerCard
+      qa={{ ...choiceQA, answer: { ...choiceQA.answer, confidence: 0.22 } }}
+      sev="error"
+    />,
+  );
+  expect(choice.getByTestId("answer-confidence").textContent).toContain("0.22");
+});
+
+test("an answer without a confidence shows no caption", () => {
+  const score = render(<AnswerCard qa={scoreQA} sev="warn" />);
+  expect(score.queryByTestId("answer-confidence")).toBeNull();
+  cleanup();
+  const choice = render(<AnswerCard qa={choiceQA} sev="error" />);
+  expect(choice.queryByTestId("answer-confidence")).toBeNull();
+});

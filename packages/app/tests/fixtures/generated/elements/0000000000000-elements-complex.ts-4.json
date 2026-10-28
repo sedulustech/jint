@@ -84,6 +84,7 @@
       {
         "type": "score",
         "name": "q1",
+        "confidence": 0.36,
         "probabilities": [
           {
             "value": "0",

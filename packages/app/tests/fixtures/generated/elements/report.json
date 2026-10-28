@@ -90,6 +90,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "function",
         "span": {
@@ -210,6 +211,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "function",
         "span": {
@@ -335,6 +337,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "class",
         "span": {
@@ -389,6 +392,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "method",
         "span": {
@@ -445,6 +449,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "binding",
         "span": {
@@ -628,6 +633,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "type",
         "span": {
@@ -682,6 +688,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "type",
         "span": {
@@ -736,6 +743,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "element": {
         "kind": "function",
         "span": {
@@ -859,6 +867,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
         "span": {
@@ -907,6 +916,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
         "span": {
@@ -955,6 +965,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
         "span": {
@@ -982,6 +993,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
         "span": {
@@ -1009,6 +1021,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
         "span": {
@@ -1036,6 +1049,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
         "span": {
@@ -1063,6 +1077,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
         "span": {
@@ -1090,6 +1105,7 @@
         "1": 0.05,
         "2": 0.75
       },
+      "confidence": 0.36,
       "location": {
         "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
         "span": {

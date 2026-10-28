@@ -120,6 +120,7 @@
       {
         "type": "score",
         "name": "q4",
+        "confidence": 0.36,
         "probabilities": [
           {
             "value": "0",

@@ -115,6 +115,7 @@
       {
         "type": "score",
         "name": "q3",
+        "confidence": 0.36,
         "probabilities": [
           {
             "value": "0",

@@ -25,6 +25,7 @@ export interface QA {
     noul?: number;
     score?: number;
     choice?: string;
+    confidence?: number;
     legend?: Record<string, string>;
     probabilities?: Record<string, number>;
   };
@@ -155,6 +156,11 @@ export function AnswerCard({
             </span>
             <span className="whitespace-nowrap text-caption text-muted-foreground">
               score {qa.answer?.score?.toFixed(2)}
+              {qa.answer?.confidence !== undefined && (
+                <span data-testid="answer-confidence">
+                  {` \u00b7 confidence ${qa.answer.confidence.toFixed(2)}`}
+                </span>
+              )}
             </span>
           </span>
         )}
@@ -174,6 +180,11 @@ export function AnswerCard({
               {tierRead !== null
                 ? tierRead.tiers.map((t) => `${t} ${tierRead.mass[t].toFixed(2)}`).join(" vs ")
                 : `p ${(probabilities[choice] ?? 0).toFixed(2)}`}
+              {qa.answer?.confidence !== undefined && (
+                <span data-testid="answer-confidence">
+                  {` \u00b7 confidence ${qa.answer.confidence.toFixed(2)}`}
+                </span>
+              )}
             </span>
           </span>
         )}
