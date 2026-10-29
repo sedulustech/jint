@@ -83,6 +83,16 @@ async function served(p: Project, index: number) {
   const files = readdirSync(join(p.runs, id)).filter((f) => !/manifest|report/.test(f));
   const requests = await Promise.all(files.map((f) => get(`/api/runs/${id}/requests/${f}`)));
   return {
+    // what the view shows of a yes/no question: its instructions and what a yes and a no mean
+    noul: [
+      ...new Set(
+        requests.flatMap((r) =>
+          Object.values<any>(r.request.questions)
+            .filter((q) => q.type === "noul")
+            .map((q) => JSON.stringify([q.instructions, q.criteria])),
+        ),
+      ),
+    ].sort(),
     cells: Object.values(run.cells).map(perRun).sort(),
     requestCount: run.requestCount,
     // each request file served: how many questions it asks and how many answers it holds
@@ -134,6 +144,12 @@ describe("answer cache", () => {
     const [fresh, cached] = [await served(p, 0), await served(p, 1)];
     expect(fresh.cells.length).toBeGreaterThan(0);
     expect(cached.cells).toEqual(fresh.cells);
+    // a yes/no question reads as its instructions and its meanings, not as one folded text
+    const meaning = { true: "it holds", false: "it does not hold" };
+    expect(fresh.noul).toEqual(
+      ["Is it named well?", "Is it short?"].map((q) => JSON.stringify([q, meaning])),
+    );
+    expect(cached.noul).toEqual(fresh.noul);
     expect(cached.requestCount).toBe(fresh.requestCount);
     expect(cached.shapes.sort()).toEqual(fresh.shapes.sort());
     // every request in it is answered: no question without its answer

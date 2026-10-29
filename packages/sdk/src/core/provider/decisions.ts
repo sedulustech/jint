@@ -17,7 +17,7 @@ import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask } from "../types.ts";
 import { hashOf, type AnswerStore, type StoredAnswer } from "./answer-cache.ts";
 import { type Endpoint } from "./endpoint.ts";
-import { wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
+import { foldCriteria, wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 
@@ -41,9 +41,7 @@ export function toDecisions(name: string, q: QuestionSpec): Question {
     return { type: "score", name, instructions, levels };
   }
   if (q.type === "noul") {
-    const c = (q.criteria ?? {}) as Record<string, string>;
-    const meaning = [c.true && `Yes: ${c.true}`, c.false && `No: ${c.false}`].filter(Boolean);
-    const asked = meaning.length ? `${instructions}\n\n${meaning.join("\n")}` : instructions;
+    const asked = foldCriteria(instructions, (q.criteria ?? {}) as Record<string, string>);
     return { type: "predicate", name, instructions: asked };
   }
   const choices = Object.entries(q.criteria as Record<string, string>).map(

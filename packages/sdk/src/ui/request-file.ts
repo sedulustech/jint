@@ -16,13 +16,13 @@
  * decisions form, anything else legacy.
  */
 
+import { unfoldCriteria, type QuestionSpec } from "../core/provider/protocol.ts";
 import {
   fromDecisions,
   NONE,
   upstreamUsage,
   type DecisionsAnswer,
 } from "../core/provider/reading.ts";
-import type { QuestionSpec } from "../core/provider/protocol.ts";
 
 /** A recorded reply of the gateway's decision-model shape (old recordings only; no live adapter). */
 type NativeReply = {
@@ -150,8 +150,18 @@ function questionOf(q: DecisionsQuestion): QuestionSpec {
       criteria: Object.fromEntries(options.map((c) => [String(c.value), c.description ?? ""])),
     };
   }
-  // a predicate's Yes/No meaning is already folded into its instructions
-  return { type: "noul", instructions: q.instructions };
+  return noulOf(q.instructions);
+}
+
+/**
+ * The view model's yes/no question for a predicate's wire text: its Yes/No meaning is folded into
+ * its instructions on the wire (both forms), and the view shows the two apart.
+ */
+function noulOf(wireText: string | undefined): QuestionSpec {
+  const { instructions, criteria } = unfoldCriteria(wireText ?? "");
+  return criteria === undefined
+    ? { type: "noul", instructions }
+    : { type: "noul", instructions, criteria };
 }
 
 type NativeQuestion = {
@@ -189,7 +199,7 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
                 Object.entries(asked.criteria ?? {}).filter(([value]) => value !== NONE),
               ),
             }
-          : { type: "noul", instructions: asked.instructions };
+          : noulOf(asked.instructions);
     questions[key] = question;
     const answer = received[wire] as NonNullable<NativeReply["answers"]>[string] | undefined;
     if (answer === undefined) return;

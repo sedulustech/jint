@@ -87,7 +87,11 @@ describe("normalizeRequestFile", () => {
     expect(file.request?.state).toEqual(STATE);
     expect(file.request?.model).toBe("gpt-6-luna");
     expect(file.request?.questions).toEqual({
-      "p in L1": { type: "noul", instructions: "Is it?\n\nYes: a\nNo: b" },
+      "p in L1": {
+        type: "noul",
+        instructions: "Is it?",
+        criteria: { true: "a", false: "b" },
+      },
       "s in L1": { type: "score", instructions: "How?", criteria: ["low", "high"] },
       "c in L1": { type: "choice", instructions: "Which?", criteria: { a: "A" } },
       "refused in L1": { type: "noul", instructions: "Refused?" },
