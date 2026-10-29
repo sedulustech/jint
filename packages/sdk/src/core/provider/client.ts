@@ -45,7 +45,7 @@ function makeClassifier(
   input: string,
 ): Classifier {
   // A missing key fails here, before anything is built or recorded.
-  if (endpoint.apiKey === undefined) throw missingKey(input);
+  if (endpoint.apiKey === undefined) throw missingKey(input, endpoint);
   const recorded = recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) });
   const adapter = decisionsAdapter(endpoint, { fetch: recorded.fetch!, log });
   return async (state, questions) => {
@@ -60,9 +60,5 @@ function makeClassifier(
   };
 }
 
-const missingKey = (input: string): ClassifyError =>
-  new ClassifyError(
-    "PROVIDER_AUTH",
-    input,
-    "provider unavailable at startup: no API key — set JINT_PROVIDER_KEY to a valid key",
-  );
+const missingKey = (input: string, { unusable }: Endpoint): ClassifyError =>
+  new ClassifyError("PROVIDER_AUTH", input, `provider unavailable at startup: ${unusable}`);

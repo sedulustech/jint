@@ -140,7 +140,7 @@ demands action.
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
   `jint run ./capture`).
-- **provider** — the service at the Decisions endpoint that jint asks its questions of. The url selects it (config `url` > JINT_PROVIDER_URL > the default); the key is config `apiKey` > JINT_PROVIDER_KEY. An overridden url or key is reported in a run note.
+- **provider** — the service at the Decisions endpoint that jint asks its questions of. The key you export selects it: JINT_API_KEY (with JINT_API_URL) opens the Jint endpoint, OPENAI_API_KEY opens the default url, and a key is only ever sent to the url it is paired with. Config `url` and `apiKey` override per run. An overridden url or an environment key is reported in a run note.
 - **question** — one classified judgment request sent to the model about one state.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.

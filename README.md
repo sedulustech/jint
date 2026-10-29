@@ -56,24 +56,26 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint
 
 ## How to use
 
-jint asks its questions of one endpoint: the Decisions API (POST /v1/decisions). The url selects
-the endpoint; there is no other setting to choose a service. The model id is fixed in the adapter
-(`gpt-6-luna`).
+jint asks its questions of one endpoint: the Decisions API (POST /v1/decisions). The key you
+export selects where the questions go; there is no provider or model setting. The model id is
+fixed in the adapter (`gpt-6-luna`).
 
 ```bash
-export JINT_PROVIDER_KEY=...   # the endpoint's API key
+export OPENAI_API_KEY=...      # ask OpenAI directly (api.openai.com)
+# or
+export JINT_API_KEY=...        # ask a Jint endpoint
+export JINT_API_URL=...        #   its url (must end in /decisions)
 ```
 
-Each setting resolves on its own axis, config first, then the environment, then the default; an
-empty variable counts as unset:
+If both keys are set, `JINT_API_KEY` wins: the `JINT_` variable is a deliberate choice, and
+`OPENAI_API_KEY` is often exported for other tools. A key is only ever sent to the url it is
+paired with: `OPENAI_API_KEY` goes to api.openai.com and nowhere else, so pointing
+`JINT_API_URL` elsewhere without `JINT_API_KEY` fails at setup instead of sending your OpenAI key
+to another host. With neither key set, a run with rules fails at setup.
 
-```
-url:  config url     > JINT_PROVIDER_URL > https://api.openai.com/v1/decisions
-key:  config apiKey  > JINT_PROVIDER_KEY (no default; a run with rules and no key fails at setup)
-```
-
-The url must end in `/decisions`. A run that moves the url off the default, or reads the key from
-`JINT_PROVIDER_KEY`, says so in a run note (url host only, never the key).
+Config `url` and `apiKey` override the environment for one run. The url must end in `/decisions`.
+A run that moves the url off the default, or reads its key from the environment, says so in a run
+note (variable name and url host, never the key).
 
 ```ts
 export default {

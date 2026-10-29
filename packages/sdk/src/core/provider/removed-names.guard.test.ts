@@ -5,14 +5,15 @@ import { join } from "node:path";
 // jint talks to the Decisions API only, and the url is the selector: no provider table, no
 // provider or model switch, no per-provider key variable, no gateway adapter. This guard fails the
 // suite when a removed name comes back in any tracked file - code, config, lockfile, generated docs
-// or skills. JINT_PROVIDER_URL and JINT_PROVIDER_KEY stay; the bare JINT_PROVIDER does not. The
+// or skills. The key you export picks the destination (JINT_API_KEY, OPENAI_API_KEY), so every
+// JINT_PROVIDER variable is gone. The
 // allowlist is where the past is the point: calibration records, the reader of recorded
 // gateway-shaped files (and its tests, and the recordings), and this file.
 
 const ROOT = join(import.meta.dir, "../../../../..");
 
 const REMOVED =
-  /JINT_PROVIDER(?![A-Za-z_])|JINT_MODEL|JINT_OPENAI_API_KEY|JINT_AI_GATEWAY_API_KEY|decision-model|decisionModelAdapter|resolveProvider|assertProviderKey|ai-gateway\.vercel|startMockGateway/;
+  /JINT_PROVIDER|JINT_MODEL|JINT_OPENAI_API_KEY|JINT_AI_GATEWAY_API_KEY|decision-model|decisionModelAdapter|resolveProvider|assertProviderKey|ai-gateway\.vercel|startMockGateway/;
 
 const ALLOWED: string[] = [
   "docs/calibration/", // historical calibration records

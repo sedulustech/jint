@@ -16,8 +16,8 @@ test("a url and key override is noted and recorded without the key", async () =>
     ["run", "packages/cli/src/logger.ts", "--rule", "is_greppable", "--json"],
     {
       env: {
-        JINT_PROVIDER_URL: `http://user:pw@${provider.baseUrl.replace("http://", "")}/x/v1/decisions`,
-        JINT_PROVIDER_KEY: key,
+        JINT_API_URL: `http://user:pw@${provider.baseUrl.replace("http://", "")}/x/v1/decisions`,
+        JINT_API_KEY: key,
         JINT_RUNS_DIR: runs,
       },
     },
@@ -26,7 +26,7 @@ test("a url and key override is noted and recorded without the key", async () =>
   const host = new URL(provider.baseUrl).host;
   const report = JSON.parse(proc.stdout);
   expect(report.notes).toContain(`url overridden, host ${host}`);
-  expect(report.notes).toContain("key from JINT_PROVIDER_KEY");
+  expect(report.notes).toContain("key from JINT_API_KEY");
 
   const dir = join(runs, readdirSync(runs)[0]!);
   const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
@@ -52,7 +52,7 @@ test("the run asks POST /v1/decisions; the recording is the real exchange, witho
     {
       env: {
         ...mockDecisionsWire(provider.baseUrl),
-        JINT_PROVIDER_KEY: key,
+        JINT_API_KEY: key,
         JINT_RUNS_DIR: runs,
       },
     },

@@ -22,11 +22,10 @@ const questions: Record<string, QuestionSchema> = {
 };
 
 describe("createClassifier", () => {
-  test("a missing key fails loud PROVIDER_AUTH at first call, naming JINT_PROVIDER_KEY, not at import", async () => {
+  test("a missing key fails loud PROVIDER_AUTH at first call, naming the key variables, not at import", async () => {
     const saved = { ...process.env };
-    // the client's own variable must never stand in for the key
-    process.env.OPENAI_API_KEY = "stray";
-    delete process.env.JINT_PROVIDER_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.JINT_API_KEY;
     try {
       const classifier = createClassifier(); // construction must not throw
       try {
@@ -35,7 +34,7 @@ describe("createClassifier", () => {
       } catch (e) {
         expect(e).toBeInstanceOf(ClassifyError);
         expect((e as ClassifyError).code).toBe("PROVIDER_AUTH");
-        expect((e as ClassifyError).message).toContain("JINT_PROVIDER_KEY");
+        expect((e as ClassifyError).message).toContain("JINT_API_KEY or OPENAI_API_KEY");
       }
     } finally {
       process.env = saved;
@@ -58,8 +57,8 @@ describe("createClassifier", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     };
-    const saved = process.env.JINT_PROVIDER_KEY;
-    process.env.JINT_PROVIDER_KEY = "env-key";
+    const saved = process.env.JINT_API_KEY;
+    process.env.JINT_API_KEY = "env-key";
     try {
       const answers = await createClassifier({
         fetch: probe,
@@ -76,8 +75,8 @@ describe("createClassifier", () => {
         },
       ]);
     } finally {
-      if (saved === undefined) delete process.env.JINT_PROVIDER_KEY;
-      else process.env.JINT_PROVIDER_KEY = saved;
+      if (saved === undefined) delete process.env.JINT_API_KEY;
+      else process.env.JINT_API_KEY = saved;
     }
   });
 });

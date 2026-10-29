@@ -146,13 +146,13 @@ export const CONFIG_SCHEMA = Type.Object({
   apiKey: Type.Optional(
     Type.String({
       description:
-        "The API key. Precedence: this, else $JINT_PROVIDER_KEY. Never written to a run record.",
+        "The API key. Precedence: this, else $JINT_API_KEY, else $OPENAI_API_KEY (which only opens the default url). Never written to a run record.",
     }),
   ),
   url: Type.Optional(
     Type.String({
       description:
-        "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_PROVIDER_URL, else https://api.openai.com/v1/decisions.",
+        "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_API_URL, else the url the exported key opens (https://api.openai.com/v1/decisions for $OPENAI_API_KEY).",
     }),
   ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
@@ -183,7 +183,7 @@ export interface ResolvedConfig {
   /** The walk's secret-shaped denylist (config override; default = the built-in denylist). */
   readonly secretDenylist?: readonly string[];
   readonly apiKey?: string;
-  /** The Decisions endpoint asked; absent: $JINT_PROVIDER_URL, then the default. */
+  /** The Decisions endpoint asked; absent: $JINT_API_URL, then the url the exported key opens. */
   readonly url?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;

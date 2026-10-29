@@ -1,7 +1,7 @@
 import { describe, test, jest, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsWire, hasLiveKey } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -184,9 +184,9 @@ describe("cli: dir walk ignores", () => {
   // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
   test("with a real key: ignored files are absent from measurements", async () => {
     if (process.env.RUN_LIVE_TESTS !== "1") return;
-    if (!process.env.JINT_PROVIDER_KEY) {
+    if (!hasLiveKey()) {
       throw new Error(
-        "RUN_LIVE_TESTS=1 but JINT_PROVIDER_KEY is unset - live tests never skip silently",
+        "RUN_LIVE_TESTS=1 but no API key opens the endpoint - live tests never skip silently",
       );
     }
     const proc = await runCli(["run", "tests/fixtures/sample-dir", "--json"]);

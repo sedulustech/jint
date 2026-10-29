@@ -9,6 +9,7 @@
  *   request), so a tight ceiling kills healthy runs.
  */
 import { join } from "node:path";
+import { resolveEndpoint } from "../../packages/sdk/src/core/provider/endpoint.ts";
 
 export const CLI_SRC = "packages/cli/src/cli.ts";
 
@@ -58,13 +59,17 @@ function childEnv(extra?: Record<string, string | undefined>): Record<string, st
  * `url` or `apiKey` still wins over them.
  */
 export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
-  JINT_PROVIDER_URL: `${baseUrl}/v1/decisions`,
-  JINT_PROVIDER_KEY: "test",
+  JINT_API_URL: `${baseUrl}/v1/decisions`,
+  JINT_API_KEY: "test",
 });
+
+/** Whether the environment holds a key that opens the endpoint a live run asks. */
+export const hasLiveKey = (): boolean => resolveEndpoint({}, process.env).apiKey !== undefined;
 
 /** The env for a run with no key. */
 export const NO_KEY_WIRE = {
-  JINT_PROVIDER_KEY: "",
+  JINT_API_KEY: "",
+  OPENAI_API_KEY: "",
 };
 
 export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<RunCliResult> {

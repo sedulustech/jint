@@ -1179,11 +1179,11 @@
       }
     },
     "apiKey": {
-      "description": "The API key. Precedence: this, else $JINT_PROVIDER_KEY. Never written to a run record.",
+      "description": "The API key. Precedence: this, else $JINT_API_KEY, else $OPENAI_API_KEY (which only opens the default url). Never written to a run record.",
       "type": "string"
     },
     "url": {
-      "description": "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_PROVIDER_URL, else https://api.openai.com/v1/decisions.",
+      "description": "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_API_URL, else the url the exported key opens (https://api.openai.com/v1/decisions for $OPENAI_API_KEY).",
       "type": "string"
     },
     "concurrency": {

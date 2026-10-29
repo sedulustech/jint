@@ -283,7 +283,7 @@ export function renderSkillFollow(specs: readonly RuleSchema[]): string {
     "## Run it",
     "",
     "Install: https://github.com/sedulustech/jint#install.",
-    "The API key (`JINT_PROVIDER_KEY`, or `apiKey` in the config) must be in",
+    "The API key (`JINT_API_KEY` or `OPENAI_API_KEY`, or `apiKey` in the config) must be in",
     "the environment. Every flag, including output",
     "formats and scoping, lives in `jint --help` - the tool's own contract, not",
     "duplicated here.",

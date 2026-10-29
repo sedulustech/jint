@@ -15,7 +15,7 @@
 
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask, type Asked } from "../types.ts";
-import { MISSING_KEY_MESSAGE, type Endpoint } from "./endpoint.ts";
+import { type Endpoint } from "./endpoint.ts";
 import { wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
@@ -64,7 +64,7 @@ function baseUrl({ url }: Endpoint): string {
   if (!url.endsWith("/decisions")) {
     throw new SetupError(
       "CONFIG_INVALID",
-      `url must end in /decisions (got ${url}) - set the config key url or JINT_PROVIDER_URL`,
+      `url must end in /decisions (got ${url}) - set the config key url or JINT_API_URL`,
     );
   }
   return url.slice(0, -"/decisions".length);
@@ -132,7 +132,8 @@ export function decisionsAdapter(
 ): Adapter {
   const baseURL = baseUrl(endpoint);
   const apiKey = endpoint.apiKey;
-  if (apiKey === undefined) throw new SetupError("CONFIG_INVALID", MISSING_KEY_MESSAGE);
+  if (apiKey === undefined)
+    throw new SetupError("CONFIG_INVALID", endpoint.unusable ?? "no API key");
   const limits = transport.limits ?? { timeoutMs: ATTEMPT_TIMEOUT_MS, maxRetries: MAX_RETRIES };
   const client = withoutOpenAIEnv(
     () =>
