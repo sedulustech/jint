@@ -597,8 +597,6 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
       "--config",
       "tests/fixtures/configs/scopes-open.json",
       "--rule",
-      "is_name_purposeful",
-      "--rule",
       "is_function_srp",
       "--rule",
       "is_vocabulary_consistent",

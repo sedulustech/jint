@@ -225,14 +225,14 @@ describe("cli: custom rules end-to-end", () => {
     const dir = setup(
       "duptier",
       [
-        'import { is_name_purposeful } from "jint:defaults";',
+        'import { is_greppable } from "jint:defaults";',
         'import { defineConfig } from "jint:sdk";',
         "export default defineConfig({",
         '  input: "fixture.ts",',
         "  rules: [",
-        "    is_name_purposeful,",
+        "    is_greppable,",
         "    {",
-        '      name: "is_name_purposeful",',
+        '      name: "is_greppable",',
         '      target: "comments",',
         '      classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),',
         "      handle: { warn: { greater_than: 0.5 } },",
@@ -242,6 +242,6 @@ describe("cli: custom rules end-to-end", () => {
       ].join("\n"),
     );
     const r = await runIn(dir);
-    expectContract(r, { exit: 2, stderr: [/is_name_purposeful/, /duplicate rule name/] });
+    expectContract(r, { exit: 2, stderr: [/is_greppable/, /duplicate rule name/] });
   });
 });

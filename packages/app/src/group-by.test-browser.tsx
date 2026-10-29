@@ -361,19 +361,19 @@ test("generated fixture: an element cell click resolves to the element capture b
     { timeout: 20_000 },
   );
   modeButton("rule").click();
-  await ruleGroupsReady(11);
-  // is_name_purposeful targets definitions: expanding it reveals ONLY element cells.
+  await ruleGroupsReady(10);
+  // is_cognitively_complex targets definitions: expanding it reveals ONLY element cells.
   // Rule-mode children name the FILE (complex.ts / helpers.ts) with the SPAN in the
   // location cell - the span label from Element.span, never the uuid.
-  groupRow("rule:is_name_purposeful").click();
+  groupRow("rule:is_cognitively_complex").click();
   await waitFor(
     () => {
-      if (cellRows("is_name_purposeful@complex.ts").length === 0)
+      if (cellRows("is_cognitively_complex@complex.ts").length === 0)
         throw new Error("element cells not expanded");
     },
     { timeout: 2_000 },
   );
-  const cells = cellRows("is_name_purposeful@complex.ts");
+  const cells = cellRows("is_cognitively_complex@complex.ts");
   // cells render the span label from Element.span ("L9" / "L12-L20"), never the uuid
   for (const c of cells) expect(c.textContent).toMatch(/L\d+(-L\d+)?/);
   cells[0]!.click();
@@ -383,13 +383,13 @@ test("generated fixture: an element cell click resolves to the element capture b
       if (pane.includes("no answer for")) {
         throw new Error("pair fell back to a capture without the rule: " + pane.slice(0, 120));
       }
-      if (!pane.includes("is_name_purposeful")) throw new Error("rule heading missing");
+      if (!pane.includes("is_cognitively_complex")) throw new Error("rule heading missing");
     },
     { timeout: 2_000 },
   );
-  // the addressed element's OWN answer is present. is_name_purposeful became a SCORE rule in
-  // the defaults: the protagonist renders the rounded level INDEX (0), the caption carries the
-  // raw score (0.25) - both come from the same deterministic stub
+  // the addressed element's OWN answer is present. is_cognitively_complex is a SCORE rule: the
+  // protagonist renders the rounded level INDEX (2), the caption carries the raw score (1.55) -
+  // both come from the same deterministic stub
   let answer: string | null = null;
   await waitFor(
     () => {
@@ -398,8 +398,8 @@ test("generated fixture: an element cell click resolves to the element capture b
     },
     { timeout: 2_000 },
   );
-  expect(answer).toBe("0");
-  expect(q(".detail-pane")?.textContent).toContain("0.25");
+  expect(answer).toBe("2");
+  expect(q(".detail-pane")?.textContent).toContain("1.55");
   // the pane title names the element's file + its span label (Element.span), proving the
   // element capture won - the uuid stays a key, never a display string
   const loc = all(".detail-pane span")
@@ -419,7 +419,7 @@ test("a bimodal score answer renders its distribution", async () => {
     { timeout: 20_000 },
   );
   modeButton("rule").click();
-  await ruleGroupsReady(11);
+  await ruleGroupsReady(10);
   // the fixture's bimodal rule: expected level 1.55 (error fires) with mass split between the
   // distant levels 0 and 2
   groupRow("rule:is_cognitively_complex").click();

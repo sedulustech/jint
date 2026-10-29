@@ -84,7 +84,7 @@ describe("defaults targets: the union is identical to the definitions shorthand"
 
   test("every rewritten default carries the exact five-capture union", () => {
     const rewritten = defaultRules.filter((r) => Array.isArray(r.target));
-    expect(rewritten.length).toBeGreaterThanOrEqual(2);
+    expect(rewritten.length).toBeGreaterThanOrEqual(1);
     for (const rule of rewritten) {
       expect(rule.target, rule.name).toEqual([
         "functions",

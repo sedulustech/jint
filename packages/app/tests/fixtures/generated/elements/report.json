@@ -154,33 +154,6 @@
       }
     },
     {
-      "rule": "is_name_purposeful",
-      "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 4,
-            "column": 0
-          },
-          "end": {
-            "line": 10,
-            "column": 1
-          },
-          "startByte": 180,
-          "endByte": 499
-        },
-        "label": "d0",
-        "name": "computeInvoiceTotal"
-      }
-    },
-    {
       "rule": "will_error_lose_cause",
       "input": "complex.ts#056348f6-5f99-41f3-8efe-6888f986b7d0",
       "value": 0.5,
@@ -278,34 +251,6 @@
       }
     },
     {
-      "rule": "is_name_purposeful",
-      "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 6,
-            "column": 2
-          },
-          "end": {
-            "line": 8,
-            "column": 3
-          },
-          "startByte": 356,
-          "endByte": 448
-        },
-        "label": "d1",
-        "parent": "d0",
-        "name": "roundToCents"
-      }
-    },
-    {
       "rule": "will_error_lose_cause",
       "input": "complex.ts#149046d5-405d-4221-870c-d1f86baeb866",
       "value": 0.5,
@@ -357,33 +302,6 @@
       }
     },
     {
-      "rule": "is_name_purposeful",
-      "input": "complex.ts#14fae634-efa0-4298-8cf6-188858843779",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
-      "element": {
-        "kind": "class",
-        "span": {
-          "start": {
-            "line": 12,
-            "column": 0
-          },
-          "end": {
-            "line": 21,
-            "column": 1
-          },
-          "startByte": 501,
-          "endByte": 842
-        },
-        "label": "d2",
-        "name": "InvoicePrinter"
-      }
-    },
-    {
       "rule": "is_cognitively_complex",
       "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
       "value": 1.55,
@@ -393,34 +311,6 @@
         "2": 0.75
       },
       "confidence": 0.36,
-      "element": {
-        "kind": "method",
-        "span": {
-          "start": {
-            "line": 15,
-            "column": 2
-          },
-          "end": {
-            "line": 20,
-            "column": 3
-          },
-          "startByte": 556,
-          "endByte": 840
-        },
-        "label": "d3",
-        "parent": "d2",
-        "name": "render"
-      }
-    },
-    {
-      "rule": "is_name_purposeful",
-      "input": "complex.ts#50093cc0-daaf-4f5d-82b5-59308b82a12a",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
       "element": {
         "kind": "method",
         "span": {
@@ -494,33 +384,6 @@
       "rule": "is_comment_patching_readability",
       "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
       "value": 0.1,
-      "element": {
-        "kind": "binding",
-        "span": {
-          "start": {
-            "line": 24,
-            "column": 0
-          },
-          "end": {
-            "line": 24,
-            "column": 37
-          },
-          "startByte": 940,
-          "endByte": 977
-        },
-        "label": "d4",
-        "name": "DEFAULT_TAX_RATE"
-      }
-    },
-    {
-      "rule": "is_name_purposeful",
-      "input": "complex.ts#3dd2d3ea-1d76-4e0a-8c50-ba378e0bf101",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
       "element": {
         "kind": "binding",
         "span": {
@@ -653,33 +516,6 @@
       }
     },
     {
-      "rule": "is_name_purposeful",
-      "input": "helpers.ts#f47090a5-dcba-4163-8592-047dc54925ab",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
-      "element": {
-        "kind": "type",
-        "span": {
-          "start": {
-            "line": 1,
-            "column": 0
-          },
-          "end": {
-            "line": 1,
-            "column": 59
-          },
-          "startByte": 0,
-          "endByte": 59
-        },
-        "label": "d0",
-        "name": "Invoice"
-      }
-    },
-    {
       "rule": "is_cognitively_complex",
       "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
       "value": 1.55,
@@ -689,33 +525,6 @@
         "2": 0.75
       },
       "confidence": 0.36,
-      "element": {
-        "kind": "type",
-        "span": {
-          "start": {
-            "line": 2,
-            "column": 0
-          },
-          "end": {
-            "line": 2,
-            "column": 81
-          },
-          "startByte": 60,
-          "endByte": 141
-        },
-        "label": "d1",
-        "name": "InvoiceLine"
-      }
-    },
-    {
-      "rule": "is_name_purposeful",
-      "input": "helpers.ts#3d39c8bc-2b27-4ba3-8084-61b9a5ac1bc5",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
       "element": {
         "kind": "type",
         "span": {
@@ -788,33 +597,6 @@
       "rule": "is_greppable",
       "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
       "value": 0.9,
-      "element": {
-        "kind": "function",
-        "span": {
-          "start": {
-            "line": 4,
-            "column": 0
-          },
-          "end": {
-            "line": 6,
-            "column": 1
-          },
-          "startByte": 143,
-          "endByte": 278
-        },
-        "label": "d2",
-        "name": "mergeInvoices"
-      }
-    },
-    {
-      "rule": "is_name_purposeful",
-      "input": "helpers.ts#11c0d374-51b0-40c4-8928-cdedfc7a22b4",
-      "value": 0.25,
-      "probabilities": {
-        "0": 0.75,
-        "1": 0.25,
-        "2": 0
-      },
       "element": {
         "kind": "function",
         "span": {
@@ -1148,17 +930,6 @@
   "errors": [],
   "notes": [],
   "rules": [
-    {
-      "name": "is_name_purposeful",
-      "criteria": [
-        "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-        "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-        "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds."
-      ],
-      "handle": {
-        "map": ["pass", "warn", "error"]
-      }
-    },
     {
       "name": "is_vocabulary_consistent",
       "criteria": {

@@ -26,9 +26,6 @@ const sev = (rule: Rule | undefined, v: number): string | null =>
 //   drift would push the band into warn, which a polarity-only test cannot see.
 describe("handles the corpus gates cannot see", () => {
   test("score-map order: the top level stays error, not re-tiered to pass", () => {
-    expect(sev(defaultRules.is_name_purposeful, 2)).toBe("error");
-    expect(sev(defaultRules.is_name_purposeful, 1)).toBe("warn");
-    expect(sev(defaultRules.is_name_purposeful, 0)).toBeNull();
     expect(sev(defaultRules.is_cognitively_complex, 1.7)).toBe("error");
     expect(sev(defaultRules.is_cognitively_complex, 1.2)).toBe("warn");
     expect(sev(defaultRules.is_cognitively_complex, 0.4)).toBeNull();

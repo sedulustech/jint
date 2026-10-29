@@ -7,20 +7,6 @@ description: The default rule set, rendered from the default rules. Generated - 
 
 Rendered verbatim from the spec package (@jint/defaults). Instructions are the yes/no question the classifier answers per element; criteria pins what each answer means; the target is the element role the rule judges; the handle turns readings into findings. Editing any of these in the specs is a recalibration event. Regenerate: `bun run schema`.
 
-## `is_name_purposeful`
-
-| kind  | target                                       | handle                         |
-| ----- | -------------------------------------------- | ------------------------------ |
-| score | functions, classes, methods, types, bindings | score map: pass → warn → error |
-
-**Instructions.** Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.
-
-**Score 0.** Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.
-
-**Score 1.** Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.
-
-**Score 2.** Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds.
-
 ## `is_vocabulary_consistent`
 
 | kind | target | handle                                   |

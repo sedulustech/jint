@@ -76,27 +76,6 @@ export type RuleSchema = NoulRuleSchema | ScoreRuleSchema | ChoiceRuleSchema;
  * (the handle only decides when readings surface), never a null handle.
  */
 
-export const isNamePurposeful: ScoreRuleSchema = {
-  name: "is_name_purposeful",
-  kind: "score",
-  instructions:
-    "Judge, in order: this unit's declared name, then its parameters, then its locals. A name fails when it is a bare generic word that could label anything (data, handler, util, temp), truncates its words into abbreviations a reader must decode (calc, proc, usr), names the mechanism instead of the purpose, or misleads.",
-  criteria: [
-    "Purposeful: every name states what its thing does or holds - a reader can tell each thing's purpose from the name alone, without opening the body.",
-    "Mostly purposeful: the names carry the unit's meaning overall, but at least one falls short - generic, truncated, mechanism-named, or misleading - so a reader must sometimes open the body to know what a thing is.",
-    "Names carry no meaning: the unit's names are habitually generic or opaque, so a reader must read the body for nearly everything the unit does or holds.",
-  ],
-  // Explicit union, not the definitions shorthand (owner decision: new rules prefer specific
-  // targets) - the SAME measured set, pinned identical by the defaults-parity test.
-  target: ["functions", "classes", "methods", "types", "bindings"],
-  // Score, not probability: the old noul form asked for P(no bad name) and hedged near 0.5 on
-  // healthy code (walker dogfood, 2026-10-12: identical names scored 0.23-0.43 run to run),
-  // while the criteria itself counts violations. Levels are bounded 0..2; the map makes one
-  // bad name a warn and pervasive bad naming an error - a single offender no longer fails a
-  // whole unit. Re-probe on a second language before v1.0.0 (issue 001's two-language bar).
-  handle: { map: ["pass", "warn", "error"] },
-};
-
 export const isFunctionSrp: NoulRuleSchema = {
   name: "is_function_srp",
   instructions:
@@ -253,7 +232,7 @@ export const isCognitivelyComplex: ScoreRuleSchema = {
     "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
     "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
   ],
-  // Explicit union, not the definitions shorthand - same measured set (see is_name_purposeful).
+  // Explicit union, not the definitions shorthand - same measured set, pinned identical by the defaults-parity test.
   target: ["functions", "classes", "methods", "types", "bindings"],
   // Calibrated 2026-09-29 (two-language: app/src + cobra, healthy/defective fixtures):
   // scores are bounded 0..2; error at round>=2 (>=1.5) sits between cobra healthy-max 1.46
@@ -276,7 +255,6 @@ export const isCognitivelyComplex: ScoreRuleSchema = {
  * consumption: `rules: defaultRules`; spread to compose (`...defaultRules, myRule`), never mutate.
  */
 export const defaultRules: readonly RuleSchema[] = Object.freeze([
-  isNamePurposeful,
   isVocabularyConsistent,
   isNamingConventionConsistent,
   isGreppable,
@@ -292,7 +270,6 @@ export const defaultRules: readonly RuleSchema[] = Object.freeze([
 // Snake-case aliases, one per rule - the pick-and-override consumption: a config takes the
 // rules it wants and spreads overrides over them ({ ...is_greppable, include: ["src/**"] }).
 // The alias name IS the rule name, so a config reads identically to the JSON tier's entries.
-export const is_name_purposeful = isNamePurposeful;
 export const is_vocabulary_consistent = isVocabularyConsistent;
 export const is_naming_convention_consistent = isNamingConventionConsistent;
 export const is_greppable = isGreppable;

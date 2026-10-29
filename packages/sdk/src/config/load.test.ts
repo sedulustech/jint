@@ -99,12 +99,12 @@ describe("validateConfig / defaultConfig", () => {
   test("the baseline carries every default rule and no input", () => {
     const config = defaultConfig();
     expect(config.input).toBe("");
-    expect(config.rules).toHaveLength(11);
+    expect(config.rules).toHaveLength(10);
   });
 
   test("no rules key = all defaults; strings select defaults; objects override by name (last wins)", () => {
     const all = validateConfig({ input: "x" }, "inline", defaultRules);
-    expect(all.rules).toHaveLength(11);
+    expect(all.rules).toHaveLength(10);
 
     const selected = validateConfig(
       { input: "x", rules: ["is_greppable"] },
@@ -457,6 +457,6 @@ describe("validateConfig / defaultConfig", () => {
       defaultRules,
     );
     expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");
-    expect(config.rules).toHaveLength(10);
+    expect(config.rules).toHaveLength(9);
   });
 });

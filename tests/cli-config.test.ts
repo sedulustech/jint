@@ -38,7 +38,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
+      JSON.stringify({ rules: ["is_function_srp", "will_comment_drift"], exclude: [] }),
     );
 
     const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: NO_KEY_WIRE });
@@ -46,7 +46,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     expect(proc.stderr).toBe("");
     const err = proc.stdout;
     expect(err).toContain("jint: measuring with 2 rules");
-    expect(err).toContain("is_name_purposeful  [functions,classes,methods,types,bindings]");
+    expect(err).toContain("is_function_srp  [functions]");
     expect(err).toContain("will_comment_drift  [comments]");
     expect(err).toContain("asks: "); // full criteria prose, not just names
     expect(err).not.toContain("is_greppable"); // third rule never declared, never printed
@@ -62,10 +62,10 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun-disable");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_name_purposeful", "will_comment_drift"], exclude: [] }),
+      JSON.stringify({ rules: ["is_function_srp", "will_comment_drift"], exclude: [] }),
     );
 
-    const proc = await runCli(["run", "--dry-run", "--disable", "is_name_purposeful"], {
+    const proc = await runCli(["run", "--dry-run", "--disable", "is_function_srp"], {
       cwd: tmpDir,
       env: NO_KEY_WIRE,
     });
@@ -73,7 +73,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const err = proc.stdout;
     expect(err).toContain("jint: measuring with 1 rule");
     expect(err).toContain("will_comment_drift");
-    expect(err).not.toContain("is_name_purposeful");
+    expect(err).not.toContain("is_function_srp");
     rmScratchTree(tmpDir);
   });
 
@@ -81,7 +81,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun-json");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_name_purposeful"], exclude: [] }),
+      JSON.stringify({ rules: ["is_function_srp"], exclude: [] }),
     );
 
     const proc = await runCli(["run", "--dry-run", "--json"], {
@@ -91,7 +91,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     expect(proc.code).toBe(0);
     // byte-clean stdout: exactly one JSON document (the declared rule set), banner on stderr
     const doc = JSON.parse(proc.stdout) as { rules: { name: string }[]; customRules: number };
-    expect(doc.rules.map((r) => r.name)).toEqual(["is_name_purposeful"]);
+    expect(doc.rules.map((r) => r.name)).toEqual(["is_function_srp"]);
     expect(proc.stderr).toContain("jint: measuring with 1 rule");
     expect(proc.stdout).not.toContain("jint:");
     rmScratchTree(tmpDir);

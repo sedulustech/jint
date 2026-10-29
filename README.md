@@ -105,7 +105,7 @@ jint capture src/a.ts                     # extraction only: grammar, kind, span
 jint capture src/ --queries wip.scm       # your own .scm drives extraction (--grammar <dir>: your own grammar)
 jint capture src/a.ts --json              # the element array as one JSON document
 jint capture                              # no target: walks the config's input, like run
-jint capture --rule is_name_purposeful    # preview: mark the population one rule will judge (nothing is classified)
+jint capture --rule is_greppable          # preview: mark the population one rule will judge (nothing is classified)
 jint serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
 

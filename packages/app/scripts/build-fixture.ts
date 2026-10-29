@@ -68,8 +68,6 @@ const stagingDir = resolve(appRoot, "../..", "tmp/fixtures-gen");
  * warns (will_error_lose_cause 0.5 > warn_at 0.4), the rest in-band.
  */
 const VALUES: Record<string, number> = {
-  // is_name_purposeful 0.25 -> error (less_than 0.3); the defect-pole noul: low P(good) is bad.
-  is_name_purposeful: 0.25,
   // the rest sit inside the healthy band of their handles; will_error_lose_cause 0.5 -> warn
   // (greater_than 0.4), is_readable score 2 -> warn (score map: 0,1 pass; 2 warn; 3 error).
   is_function_srp: 0.5,
