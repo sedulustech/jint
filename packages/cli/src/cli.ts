@@ -246,7 +246,8 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 export const VERBS = {
   run: {
     example: "jint run src/",
-    blurb: "classify an input: paths, the str/paths stdin nouns, or the discovered config",
+    blurb:
+      "classify an input: paths, the str/paths stdin nouns, or the discovered config; needs OPENAI_API_KEY (or JINT_API_KEY with JINT_API_URL) in the environment",
   },
   serve: {
     example: "jint serve",

@@ -19,6 +19,12 @@ for editor autocomplete via `$schema`.
 | `disable`                                | rule names removed after composition                                                   |
 | `exclude`                                | input exclusion globs, on top of the walker's defaults                                 |
 | `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                  |
+| `url`                                    | the Decisions endpoint asked (must end in `/decisions`); overrides `JINT_API_URL`      |
+| `apiKey`                                 | the key for this run; overrides `JINT_API_KEY` and `OPENAI_API_KEY`                    |
+
+`url` and `apiKey` choose where a run asks. Without them, the key you export picks the endpoint:
+`OPENAI_API_KEY` asks the default url, and `JINT_API_KEY` asks `JINT_API_URL`
+(the [README](../README.md#how-to-use) has the full table). Keep `apiKey` out of a committed config.
 
 A rule object is a [default-rule-shaped spec](rules.md): `name`, `instructions`, `criteria`
 (`{true, false}` for noul, an ordered rubric for `kind: "score"`, named options for

@@ -63,7 +63,7 @@ fixed in the adapter (`gpt-6-luna`).
 ```bash
 export OPENAI_API_KEY=...      # ask OpenAI directly (api.openai.com)
 # or
-export JINT_API_KEY=...        # ask a Jint endpoint
+export JINT_API_KEY=...        # ask another Decisions endpoint (a proxy or service you run)
 export JINT_API_URL=...        #   its url (must end in /decisions)
 ```
 
@@ -78,10 +78,17 @@ A run that moves the url off the default, or reads its key from the environment,
 note (variable name and url host, never the key).
 
 ```ts
+// asks a local endpoint; its key comes from JINT_API_KEY (an exported OPENAI_API_KEY is not sent here)
 export default {
   url: "http://localhost:8080/v1/decisions",
 };
 ```
+
+**Caching.** The endpoint caches repeated input on its side: an input of 1,024 tokens or more is
+kept for about 30 minutes. jint sends each element's code first and its questions after, so
+rerunning unchanged code inside that window (after editing a rule's wording, say) reads the code
+back from the cache, and the run header reports the cached token count. An element under 1,024
+tokens never caches. jint keeps no cache of its own.
 
 ```bash
 jint run src/                             # a directory tree
