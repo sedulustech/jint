@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SetupError } from "../types.ts";
-import { DEFAULT_URL, assertEndpointKey, resolveEndpoint } from "./endpoint.ts";
+import { DEFAULT_URL, assertEndpointKey, resolveEndpoint, urlIdentity } from "./endpoint.ts";
 
 const JINT = "https://jint.test/v1/decisions";
 
@@ -123,5 +123,15 @@ describe("assertEndpointKey", () => {
     } finally {
       process.env = saved;
     }
+  });
+});
+
+describe("urlIdentity", () => {
+  test("names scheme, host and path; a credential in userinfo or query never counts", () => {
+    const named = urlIdentity("https://gw.test/a/v1/decisions");
+    expect(named).toBe("https://gw.test/a/v1/decisions");
+    expect(urlIdentity("https://user:pw@gw.test/a/v1/decisions?token=q")).toBe(named);
+    expect(urlIdentity("https://gw.test/b/v1/decisions")).not.toBe(named);
+    expect(urlIdentity("not a url")).toBe("unparseable");
   });
 });

@@ -11,26 +11,30 @@ minutes). That one saves tokens on a request that still goes out. This one remov
 One entry per question. The key is the SHA-256 of
 
 ```
-<endpoint host> "\n" <the request body this question would be sent alone>
+<endpoint: scheme, host and path> "\n" <the request body this question would be sent alone>
 ```
 
 The body is exactly what jint posts: `model`, then `input` (the state as one `input_json` part:
 `path` and the element's `source`, or the file's `content`), then `questions` holding this one
 question, named `q0`.
 
-| Moves the key                                         | Does not move the key                      |
-| ----------------------------------------------------- | ------------------------------------------ |
-| the question's wording, criteria or levels            | the API key                                |
-| the code the question is about                        | where the question sits among its siblings |
-| the file path (the model reads it)                    | the question's name (the rule's name)      |
-| the model id                                          | a line number: jint sends none             |
-| the endpoint host (never its path, userinfo or query) | the run, the time, the element's run id    |
-| any change to how jint builds the request             | a reorder of the rules in the config       |
+| Moves the key                                                 | Does not move the key                      |
+| ------------------------------------------------------------- | ------------------------------------------ |
+| the question's wording, criteria or levels                    | the API key                                |
+| the code the question is about                                | where the question sits among its siblings |
+| the file path (the model reads it)                            | the question's name (the rule's name)      |
+| the model id                                                  | a line number: jint sends none             |
+| the endpoint: scheme, host and path (never userinfo or query) | the run, the time, the element's run id    |
+| any change to how jint builds the request                     | a reorder of the rules in the config       |
 
 Because the key is the hash of the request itself, there is no version number to maintain. A change
 to the wire format changes every key, and the old entries are never read again.
 
-The path is in the key on purpose. Rules such as `is_filename_fitting` judge it, so a renamed file
+The endpoint's path is in the key too: one host can route to different backends by path (a gateway,
+an API version), and an answer is only the same where the backend is. Userinfo and query stay out,
+because they can carry a credential.
+
+The path of the file is in the key on purpose. Rules such as `is_filename_fitting` judge it, so a renamed file
 is a new question.
 
 ## Why one key per question, not per request

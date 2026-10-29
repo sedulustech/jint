@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ClassifyError, type Ask, type UnitState } from "../types.ts";
+import { hashOf, type AnswerStore } from "./answer-cache.ts";
 import { createClassifier } from "./client.ts";
 import { decisionsAdapter, MODEL, questionKey } from "./decisions.ts";
-import type { Endpoint } from "./endpoint.ts";
+import { urlIdentity, type Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
 
 const URL_ = "https://api.openai.com/v1/decisions";
@@ -488,6 +489,7 @@ describe("through createClassifier", () => {
 });
 
 describe("questionKey", () => {
+  const api = urlIdentity("https://api.test/v1/decisions");
   const q = (instructions: string) => ({
     type: "noul" as const,
     instructions,
@@ -496,24 +498,41 @@ describe("questionKey", () => {
   const state = { path: "a.ts", source: "function a() {}" };
 
   test("a question has one key wherever it sits among the others, and under any name", () => {
-    const alone = questionKey("api.test", state, "x", q("Is it short?"));
-    expect(questionKey("api.test", state, "other name", q("Is it short?"))).toBe(alone);
-    // the same question as the third of an element's rules is the same question
-    expect(questionKey("api.test", state, "third", q("Is it short?"))).toBe(alone);
+    const alone = questionKey(api, state, "x", q("Is it short?"));
+    expect(questionKey(api, state, "another name", q("Is it short?"))).toBe(alone);
   });
 
-  test("anything the model reads moves the key: the question, the code, the path, the host", () => {
-    const base = questionKey("api.test", state, "x", q("Is it short?"));
+  test("anything the model reads moves the key: the question, the code, the path, the endpoint", () => {
+    const base = questionKey(api, state, "x", q("Is it short?"));
     const moved = [
-      questionKey("api.test", state, "x", q("Is it brief?")),
-      questionKey("api.test", { ...state, source: "function b() {}" }, "x", q("Is it short?")),
-      questionKey("api.test", { ...state, path: "b.ts" }, "x", q("Is it short?")),
-      questionKey("other.test", state, "x", q("Is it short?")),
-      questionKey("api.test", state, "x", {
+      questionKey(api, state, "x", q("Is it brief?")),
+      questionKey(api, { ...state, source: "function b() {}" }, "x", q("Is it short?")),
+      questionKey(api, { ...state, path: "b.ts" }, "x", q("Is it short?")),
+      questionKey(urlIdentity("https://other.test/v1/decisions"), state, "x", q("Is it short?")),
+      questionKey(urlIdentity("https://api.test/v2/decisions"), state, "x", q("Is it short?")),
+      questionKey(api, state, "x", {
         ...q("Is it short?"),
         criteria: { true: "yes", false: "no" },
       }),
     ];
     expect(new Set([base, ...moved]).size).toBe(moved.length + 1);
+  });
+
+  test("the key hashes the bytes that were sent, and nothing outside the body shapes the call", async () => {
+    const wire = fake({ answers: [{ type: "predicate", name: "q0", probability: 0.3 }] });
+    const stored: string[] = [];
+    const store: AnswerStore = { get: () => undefined, put: (key) => void stored.push(key) };
+    await decisionsAdapter(PROVIDER, {
+      fetch: wire.fetch,
+      log: () => {},
+      cache: { store, endpoint: urlIdentity(URL_) },
+    }).ask(ask({ r: q("Is it short?") }, state));
+
+    // the stored key is the hash of the exact request body the endpoint received
+    expect(stored).toEqual([hashOf(`${urlIdentity(URL_)}\n${wire.sent[0]!.raw}`)]);
+    // a header or option that could shape the answer would not be in that hash: the call carries
+    // the client's own headers and the key, nothing of jint's
+    const names = Object.keys(wire.sent[0]!.headers).filter((h) => !h.startsWith("x-stainless-"));
+    expect(names.sort()).toEqual(["accept", "authorization", "content-type", "user-agent"]);
   });
 });

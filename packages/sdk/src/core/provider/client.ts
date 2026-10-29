@@ -15,7 +15,13 @@ import { ClassifyError, type Classifier } from "../types.ts";
 import { cacheDir, fileStore } from "./answer-cache.ts";
 import { inCall, inQuestions, recordCacheHit, recordRequests } from "./debug.ts";
 import { decisionsAdapter, MODEL } from "./decisions.ts";
-import { resolveEndpoint, urlHost, type Endpoint, type EndpointChoice } from "./endpoint.ts";
+import {
+  resolveEndpoint,
+  urlHost,
+  urlIdentity,
+  type Endpoint,
+  type EndpointChoice,
+} from "./endpoint.ts";
 
 export interface ClassifierConfig extends EndpointChoice {
   /** Custom fetch for tests (the transport the client calls). */
@@ -53,13 +59,12 @@ function makeClassifier(
   // A missing key fails here, before anything is built or recorded.
   if (endpoint.apiKey === undefined) throw missingKey(input, endpoint);
   const recorded = recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) });
-  const host = urlHost(endpoint.url);
   const cache =
     config?.cache === false
       ? undefined
       : {
           store: fileStore(cacheDir()),
-          host,
+          endpoint: urlIdentity(endpoint.url),
           scope: inQuestions,
           hit: (names: string[], exchange: { request: unknown; response: unknown }) =>
             recordCacheHit(endpoint.url, names, exchange),

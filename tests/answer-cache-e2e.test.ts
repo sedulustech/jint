@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { serveApiRequest } from "../packages/sdk/src/ui/api.ts";
 import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
@@ -67,6 +68,31 @@ function runDirs(p: Project) {
     });
 }
 
+/** One run as the run view serves it, with what differs per run (element ids, file names) erased. */
+async function served(p: Project, index: number) {
+  const get = async (path: string) =>
+    (await serveApiRequest(new Request(`http://view${path}`), {
+      root: p.runs,
+    }))!.json() as Promise<any>;
+  const id = readdirSync(p.runs).sort()[index]!;
+  const run = await get(`/api/runs/${id}`);
+  const perRun = (value: unknown) =>
+    JSON.stringify(value)
+      .replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, "ID")
+      .replace(/\d{13}-[a-z]+-[^"]+\.json/g, "FILE");
+  const files = readdirSync(join(p.runs, id)).filter((f) => !/manifest|report/.test(f));
+  const requests = await Promise.all(files.map((f) => get(`/api/runs/${id}/requests/${f}`)));
+  return {
+    cells: Object.values(run.cells).map(perRun).sort(),
+    requestCount: run.requestCount,
+    // each request file served: how many questions it asks and how many answers it holds
+    shapes: requests.map((r) => [
+      Object.keys(r.request.questions).length,
+      Object.keys(r.response.answers).length,
+    ]),
+  };
+}
+
 describe("answer cache", () => {
   test("a rerun of unchanged code sends nothing, reads the same, and records the hits", async () => {
     const provider = startMockDecisions({ predicate: 0.62 });
@@ -95,6 +121,25 @@ describe("answer cache", () => {
     expect(rerun!.manifest.usage).toEqual({ input: 0, output: 0, cached: 0 });
   });
 
+  test("the run view reads a run served from the cache like the run that filled it", async () => {
+    const provider = startMockDecisions({ predicate: 0.62 });
+    const p = project([
+      rule("is_alpha_probe", "Is it short?"),
+      rule("is_beta_probe", "Is it named well?"),
+    ]);
+    await run(p, provider.baseUrl);
+    await run(p, provider.baseUrl);
+    provider.stop();
+
+    const [fresh, cached] = [await served(p, 0), await served(p, 1)];
+    expect(fresh.cells.length).toBeGreaterThan(0);
+    expect(cached.cells).toEqual(fresh.cells);
+    expect(cached.requestCount).toBe(fresh.requestCount);
+    expect(cached.shapes.sort()).toEqual(fresh.shapes.sort());
+    // every request in it is answered: no question without its answer
+    for (const [asked, answered] of cached.shapes) expect(answered).toBe(asked);
+  });
+
   test("editing one rule's wording asks only that rule's question", async () => {
     const provider = startMockDecisions({ predicate: 0.7 });
     const p = project([
@@ -121,6 +166,11 @@ describe("answer cache", () => {
       Object.entries(r).filter(([k]) => k.startsWith("is_alpha_probe"));
     expect(unchanged(readings(second.stdout))).toEqual(unchanged(readings(first.stdout)));
     expect(second.stderr).toMatch(/\d+ answers from the cache/);
+
+    // the run that mixed hits and misses reads whole in the view: every cell, every question answered
+    const [before, mixed] = [await served(p, 0), await served(p, 1)];
+    expect(mixed.cells).toEqual(before.cells);
+    for (const [asked, answered] of mixed.shapes) expect(answered).toBe(asked);
   });
 
   test("--no-cache asks everything again", async () => {

@@ -60,6 +60,20 @@ export function urlHost(url: string): string {
   }
 }
 
+/**
+ * Which endpoint a url names, for the answer-cache key: scheme, host and path. Userinfo and query
+ * stay out (they can carry a credential), but the path stays in: one host can route to different
+ * backends by path, and an answer is only the same where the backend is.
+ */
+export function urlIdentity(url: string): string {
+  try {
+    const { protocol, host, pathname } = new URL(url);
+    return `${protocol}//${host}${pathname}`;
+  } catch {
+    return "unparseable";
+  }
+}
+
 const keyVars = DESTINATIONS.map((d) => d.keyVar).join(" or ");
 
 const notes = (url: string, keyVar?: string): string[] => [

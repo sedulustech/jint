@@ -14,7 +14,7 @@ demands action.
 
 - **answer** — what the model returns per question: a calibrated probability, or a refusal.
 - **answer cache** — jint's store of answers on disk, one entry per question, keyed by the request
-  that question would be sent alone plus the endpoint host (docs/answer-cache.md). A hit sends
+  that question would be sent alone plus the endpoint (docs/answer-cache.md). A hit sends
   nothing. It is not the endpoint's own input cache, which only makes a sent request cheaper.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
 - **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp

@@ -114,25 +114,26 @@ export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
 
 /**
  * The answer-cache key of one question: the hash of the request that question would be sent alone
- * (named q0, the state first) and the endpoint host. Whatever the request carries moves the key;
- * the position of the question among its element's others and the API key do not. The Decisions API
- * answers a question the same alone as in a batch (docs/answer-cache.md), so one key per question
- * is sound.
+ * (named q0, the state first) and the endpoint (urlIdentity: scheme, host and path). Whatever the
+ * request carries moves the key; the position of the question among its element's others and the
+ * API key do not. The Decisions API answers a question the same alone as in a batch
+ * (docs/answer-cache.md), so one key per question is sound.
  */
 export function questionKey(
-  host: string,
+  endpoint: string,
   state: Ask["state"],
   name: string,
   q: Ask["questions"][string],
 ) {
   const alone = decisionsParams(MODEL, { state, questions: { [name]: q } });
-  return hashOf(`${host}\n${JSON.stringify(alone)}`);
+  return hashOf(`${endpoint}\n${JSON.stringify(alone)}`);
 }
 
-/** What the answer cache needs of its caller: the store, the endpoint host, and the hit recorder. */
+/** What the answer cache needs of its caller: the store, the endpoint, and the hit recorder. */
 export interface AnswerCaching {
   store: AnswerStore;
-  host: string;
+  /** UrlIdentity of the endpoint asked. */
+  endpoint: string;
   /** Runs a call that carries only the questions `names` (the recorder names its positions). */
   scope?: <T>(names: string[], body: () => Promise<T>) => Promise<T>;
   /** Called with the questions a hit covers and the exchange it stands for (request, stored reply). */
@@ -206,7 +207,7 @@ export function decisionsAdapter(
       try {
         const names = Object.keys(ask.questions);
         const keys = cache
-          ? names.map((n) => questionKey(cache.host, ask.state, n, ask.questions[n]!))
+          ? names.map((n) => questionKey(cache.endpoint, ask.state, n, ask.questions[n]!))
           : [];
         const held = names.map((n, i) =>
           cache ? stored(keys[i]!, wireName(i), ask.questions[n]!) : undefined,
