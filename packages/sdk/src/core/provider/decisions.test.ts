@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ClassifyError, type Ask, type UnitState } from "../types.ts";
 import { createClassifier } from "./client.ts";
-import { decisionsAdapter, MODEL } from "./decisions.ts";
+import { decisionsAdapter, MODEL, questionKey } from "./decisions.ts";
 import type { Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
 
@@ -365,6 +365,7 @@ describe("through createClassifier", () => {
     try {
       const files = await recorded(async () => {
         const answers = await createClassifier({
+          cache: false,
           apiKey: "configured-key",
           url: `http://127.0.0.1:${server.port}/v1/decisions`,
         })(unit, noul);
@@ -391,7 +392,7 @@ describe("through createClassifier", () => {
   });
 
   const through = (fetch: Fetch) =>
-    createClassifier({ apiKey: "k", fetch })(unit, noul).then(
+    createClassifier({ apiKey: "k", fetch, cache: false })(unit, noul).then(
       () => undefined,
       (e: unknown) => e as ClassifyError,
     );
@@ -430,6 +431,7 @@ describe("through createClassifier", () => {
 
   test("a refusal becomes a refused measurement", async () => {
     const answers = await createClassifier({
+      cache: false,
       apiKey: "k",
       fetch: async () =>
         Response.json({
@@ -450,6 +452,7 @@ describe("through createClassifier", () => {
     };
     const files = await recorded(async () => {
       await createClassifier({
+        cache: false,
         apiKey: "k",
         fetch: async (_url, init) => {
           sent.push({
@@ -481,5 +484,36 @@ describe("through createClassifier", () => {
     expect(Object.keys(sent[0]!.headers).some((h) => /jint/i.test(h))).toBe(false);
     const manifest = files.find((f) => f.name === "manifest.json");
     expect(manifest).toBeUndefined(); // written by the CLI, not the classifier
+  });
+});
+
+describe("questionKey", () => {
+  const q = (instructions: string) => ({
+    type: "noul" as const,
+    instructions,
+    criteria: { true: "holds", false: "does not" },
+  });
+  const state = { path: "a.ts", source: "function a() {}" };
+
+  test("a question has one key wherever it sits among the others, and under any name", () => {
+    const alone = questionKey("api.test", state, "x", q("Is it short?"));
+    expect(questionKey("api.test", state, "other name", q("Is it short?"))).toBe(alone);
+    // the same question as the third of an element's rules is the same question
+    expect(questionKey("api.test", state, "third", q("Is it short?"))).toBe(alone);
+  });
+
+  test("anything the model reads moves the key: the question, the code, the path, the host", () => {
+    const base = questionKey("api.test", state, "x", q("Is it short?"));
+    const moved = [
+      questionKey("api.test", state, "x", q("Is it brief?")),
+      questionKey("api.test", { ...state, source: "function b() {}" }, "x", q("Is it short?")),
+      questionKey("api.test", { ...state, path: "b.ts" }, "x", q("Is it short?")),
+      questionKey("other.test", state, "x", q("Is it short?")),
+      questionKey("api.test", state, "x", {
+        ...q("Is it short?"),
+        criteria: { true: "yes", false: "no" },
+      }),
+    ];
+    expect(new Set([base, ...moved]).size).toBe(moved.length + 1);
   });
 });

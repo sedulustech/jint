@@ -233,6 +233,7 @@ export async function main(outDirOverride?: string): Promise<void> {
         classifier: named(
           createClassifier({
             apiKey: "fixture-key",
+            cache: false,
             fetch: stubFetch(),
           }),
         ),

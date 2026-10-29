@@ -124,7 +124,12 @@ describe("recordRequests", () => {
 
   test("summary: dir + written count after recording (override location flagged)", async () => {
     const config = recordRequests({ fetch: passthrough() });
-    expect(recordSummary()).toEqual({ dir: expect.any(String), count: 0, override: true });
+    expect(recordSummary()).toEqual({
+      dir: expect.any(String),
+      count: 0,
+      cached: 0,
+      override: true,
+    });
 
     await recordOnce(config, { path: "a.ts", content: "x" });
     await recordOnce(config, { path: "a.ts", content: "x" });

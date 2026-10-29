@@ -382,7 +382,8 @@ Consequences, each deliberate:
   because registry values may serve different wasms under one language id. The parser/language
   memos re-keyed the same way (wasm path, not language id). DECISION RECORDED (owner): no cache
   beyond these memos, nothing on disk (~/.jint or elsewhere), no caching infrastructure - it is a
-  rabbit hole and nothing needs it yet.
+  rabbit hole and nothing needs it yet. (Scope: grammar loading. The answer cache of docs/answer-cache.md
+  is a separate, later decision.)
 - The public surface is unchanged (`knownLanguages()` answers the embedded base - the static
   build truth; run code reads its own registry value).
 

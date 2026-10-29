@@ -105,6 +105,11 @@ export interface LintOptions {
    */
   log?: (line: string) => void;
   /**
+   * Whether the default classifier serves answers from the answer cache (CLI --no-cache; default
+   * true). Only reaches the default classifier.
+   */
+  cache?: boolean;
+  /**
    * One in-memory str unit (the CLI's piped-stdin form): judged whole under `path` (default
    * "str:stdin"); bypasses input resolution entirely. Its own inventory — every rule judges the
    * whole input, no grammar is ever inferred, and it never WALK_FAILEDs.
@@ -289,6 +294,7 @@ function pacedClassifier(
       apiKey: options.config.apiKey,
       url: options.config.url,
       log: options.log,
+      cache: options.cache,
     });
   // An injected classifier is not the endpoint's: no token budget applies to it.
   const budget = injected === undefined ? TOKENS_PER_MINUTE : undefined;

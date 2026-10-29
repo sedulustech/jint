@@ -61,6 +61,7 @@ describe("createClassifier", () => {
     process.env.JINT_API_KEY = "env-key";
     try {
       const answers = await createClassifier({
+        cache: false,
         fetch: probe,
         url: "http://127.0.0.1:1/v1/decisions",
       })(state, { is_readable: { type: "noul", instructions: "Is it?" } });

@@ -22,6 +22,8 @@ import type { ClassifierConfig } from "./client.ts";
 export interface RequestRecordSummary {
   dir: string;
   count: number;
+  /** Answers served from the answer cache instead of a call (each also leaves a record file). */
+  cached: number;
   override: boolean;
 }
 
@@ -89,6 +91,16 @@ export function inCall<T>(
     kind: state.source === undefined ? "files" : "elements",
   };
   return callSlot.run(call, body);
+}
+
+/**
+ * Runs `body` as a call that carries only the questions `ids`, in that order: when part of a
+ * state's questions come from the answer cache, the request holds the rest, and its record must
+ * name those positions.
+ */
+export function inQuestions<T>(ids: string[], body: () => Promise<T>): Promise<T> {
+  const call = callSlot.getStore();
+  return call === undefined ? body() : callSlot.run({ ...call, questionIds: ids }, body);
 }
 
 /**
@@ -192,6 +204,56 @@ export function recordRunReport(json: string): void {
   }
 }
 
+/** One exchange as its own file in the run dir, named by kind and the file it concerns. */
+function writeRecordFile(
+  dir: string,
+  call: CallContext | undefined,
+  state: Record<string, unknown>,
+  record: unknown,
+): void {
+  mkdirSync(dir, { recursive: true });
+  const kind = call?.kind ?? ("source" in state ? "elements" : "files");
+  const name = (call?.path ?? String(state.path ?? "state")).split("/").pop();
+  const stamp = Date.now();
+  let file = `${dir}/${stamp}-${kind}-${name}.json`;
+  for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
+  writeFileSync(file, JSON.stringify(record, null, 2));
+}
+
+/**
+ * Records the answers a call took from the answer cache as an exchange of their own: the request
+ * they stand for and the reply as stored, with no usage (nothing was sent). The run view reads it
+ * like any other request file; `cached: true` marks it.
+ */
+export function recordCacheHit(
+  url: string,
+  ids: string[],
+  exchange: { request: unknown; response: unknown },
+): void {
+  if (runSummary === null) return;
+  const stored = callSlot.getStore();
+  const call = stored === undefined ? undefined : { ...stored, questionIds: ids };
+  try {
+    const record = {
+      ts: new Date().toISOString(),
+      url: redactUrl(url),
+      id: call?.id,
+      durationMs: 0,
+      questionIds: call?.questionIds,
+      status: 200,
+      cached: true,
+      request: exchange.request,
+      response: exchange.response,
+    };
+    writeRecordFile(runSummary.dir, call, {}, record);
+    runSummary.cached += (exchange.response as { answers: unknown[] }).answers.length;
+  } catch (err) {
+    process.emitWarning(
+      `jint: could not record a cached answer in ${runSummary.dir}: ${errorMessage(err)}`,
+    );
+  }
+}
+
 /**
  * Wrap the classifier's fetch so every call records. Calling this IS the start of a recorded run.
  * JINT_RUNS_DIR never changes WHETHER — only WHERE the run dir lands.
@@ -211,6 +273,7 @@ export function recordRequests(
   runSummary = {
     dir,
     count: 0,
+    cached: 0,
     override: process.env.JINT_RUNS_DIR !== undefined,
   };
   const baseFetch = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
@@ -250,14 +313,8 @@ export function recordRequests(
       usageTotals.input += counted.input;
       usageTotals.output += counted.output;
       usageTotals.cached += counted.cached;
-      mkdirSync(dir, { recursive: true });
       const state = (body as { state?: Record<string, unknown> } | null)?.state ?? {};
-      const kind = call?.kind ?? ("source" in state ? "elements" : "files");
-      const name = (call?.path ?? String(state.path ?? "state")).split("/").pop();
-      const stamp = Date.now();
-      let file = `${dir}/${stamp}-${kind}-${name}.json`;
-      for (let i = 1; existsSync(file); i++) file = `${dir}/${stamp}-${kind}-${name}-${i}.json`;
-      writeFileSync(file, JSON.stringify(record, null, 2));
+      writeRecordFile(dir, call, state, record);
       runSummary!.count += 1;
     } catch (err) {
       // Recording never breaks the call it observes: the call's own bytes are still stored

@@ -136,6 +136,12 @@ export const FLAGS = {
     blurb:
       "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
   },
+  "--no-cache": {
+    type: "boolean",
+    blurb:
+      "run: ask every question instead of serving stored answers (the answer cache is $JINT_CACHE_DIR, else ~/.jint/cache)",
+    verbs: ["run"],
+  },
   "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
   "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
   "--version": { type: "boolean", blurb: "print the version" },
@@ -447,7 +453,8 @@ export function recordNotice(): string {
   const record = recordSummary();
   if (record === null) return "";
   const override = record.override ? " (override: JINT_RUNS_DIR)" : "";
-  return `requests -> ${record.dir} (${record.count} calls)${override}`;
+  const cached = record.cached > 0 ? `, ${record.cached} answers from the cache` : "";
+  return `requests -> ${record.dir} (${record.count} calls${cached})${override}`;
 }
 /**
  * Input resolution precedence: command noun > stdin > config.input > error. A positional path's
@@ -837,6 +844,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         config: resolvedConfig,
         ...lintInputOptions,
         exclude: cliArgs.exclude,
+        cache: cliArgs["no-cache"] === true ? false : undefined,
         disable: cliArgs.disable,
         only: cliArgs.rule,
         log: providerLog,

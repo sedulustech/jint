@@ -22,6 +22,13 @@ const ROOT = join(import.meta.dir, "..", "..");
  */
 export const RUNS_DIR = join(ROOT, "tmp", `provider-test-runs-${process.pid}`);
 
+/**
+ * The scratch answer-cache root for this test process, pid-scoped like the runs store. Each spawned
+ * run gets its own dir under it, so a mock's canned answers are never served to another test; the
+ * preload points in-process tests at CACHE_DIR/in-process.
+ */
+export const CACHE_DIR = join(ROOT, "tmp", `provider-test-cache-${process.pid}`);
+
 export interface RunCliResult {
   code: number;
   stdout: string;
@@ -50,7 +57,9 @@ function stdinValue(payload: StdinPayload | undefined) {
 }
 
 function childEnv(extra?: Record<string, string | undefined>): Record<string, string | undefined> {
-  return { ...process.env, JINT_RUNS_DIR: RUNS_DIR, ...extra };
+  // a fresh answer cache per spawn: a mock's canned answers must never be served to another test
+  const cache = join(CACHE_DIR, crypto.randomUUID());
+  return { ...process.env, JINT_RUNS_DIR: RUNS_DIR, JINT_CACHE_DIR: cache, ...extra };
 }
 
 /**

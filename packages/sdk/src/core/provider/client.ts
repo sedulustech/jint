@@ -12,7 +12,8 @@
  */
 
 import { ClassifyError, type Classifier } from "../types.ts";
-import { inCall, recordRequests } from "./debug.ts";
+import { cacheDir, fileStore } from "./answer-cache.ts";
+import { inCall, inQuestions, recordCacheHit, recordRequests } from "./debug.ts";
 import { decisionsAdapter, MODEL } from "./decisions.ts";
 import { resolveEndpoint, urlHost, type Endpoint, type EndpointChoice } from "./endpoint.ts";
 
@@ -25,6 +26,11 @@ export interface ClassifierConfig extends EndpointChoice {
    * Default writes bare lines to stderr.
    */
   log?: (line: string) => void;
+  /**
+   * Whether to serve answers from the answer cache (default true; false asks every question). The
+   * store is $JINT_CACHE_DIR, else ~/.jint/cache.
+   */
+  cache?: boolean;
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
@@ -47,7 +53,18 @@ function makeClassifier(
   // A missing key fails here, before anything is built or recorded.
   if (endpoint.apiKey === undefined) throw missingKey(input, endpoint);
   const recorded = recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) });
-  const adapter = decisionsAdapter(endpoint, { fetch: recorded.fetch!, log });
+  const host = urlHost(endpoint.url);
+  const cache =
+    config?.cache === false
+      ? undefined
+      : {
+          store: fileStore(cacheDir()),
+          host,
+          scope: inQuestions,
+          hit: (names: string[], exchange: { request: unknown; response: unknown }) =>
+            recordCacheHit(endpoint.url, names, exchange),
+        };
+  const adapter = decisionsAdapter(endpoint, { fetch: recorded.fetch!, log, cache });
   return async (state, questions) => {
     // The id is jint's handle, not something to judge: a fresh id each run would make identical
     // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays
