@@ -2,7 +2,7 @@
 name: jint-follow
 description: >
   Run jint on a path and resolve its findings. Use when measuring code quality,
-  naming, or comments and fixing what jint flags. Triggers: jint, jev lint.
+  naming, or comments and fixing what jint flags. Triggers: jint, semantic lint.
 ---
 
 <!-- Generated - do not edit. Regenerate with: bun run schema -->
@@ -19,6 +19,11 @@ The API key (`JINT_API_KEY` or `OPENAI_API_KEY`, or `apiKey` in the config) must
 the environment. Every flag, including output
 formats and scoping, lives in `jint --help` - the tool's own contract, not
 duplicated here.
+
+jint runs only the rules a config names: with no config (or one with no rules) it
+exits 2 and prints every rule domain, the rules in each, and a working example.
+Write `jint.config.ts` from that list, choosing the rules that suit the codebase
+you are in. A run that measures nothing exits 4 and says, per rule, why.
 
 A whole path: `jint run <path>`. One element: `jint run <path>@L<line> --rule
 <rule>`. The CLI echoes which element an @L selector captured - verify that

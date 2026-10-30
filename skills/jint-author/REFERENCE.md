@@ -27,7 +27,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 ## Noul example: a two-sided criteria contract
 
-Rendered from the live default spec `is_greppable` (always the current
+Rendered from the live spec `is_greppable` (always the current
 wire shape):
 
 ```json

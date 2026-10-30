@@ -170,13 +170,13 @@ export const CONFIG_SCHEMA = Type.Object({
   concurrency: Type.Optional(
     Type.Number({
       description:
-        "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16 (measured: 53.9 rps at 16, zero 429s), max 64.",
+        "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16, max 64.",
     }),
   ),
   timeout: Type.Optional(
     Type.Number({
       description:
-        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30 (~80x the measured p95 of 380ms). A hung call becomes a per-element PROVIDER_TIMEOUT failure.",
+        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30, far above a normal call. A hung call becomes a per-element PROVIDER_TIMEOUT failure.",
     }),
   ),
 });

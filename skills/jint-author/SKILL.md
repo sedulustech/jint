@@ -52,7 +52,7 @@ Handles, one form per kind - direction lives in the handle, never in prose:
 
 Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.
 
-A live config example, serialized from real default specs (always the current
+A live config example, serialized from real shipped specs (always the current
 wire shape):
 
 ```json
