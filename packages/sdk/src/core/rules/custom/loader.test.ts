@@ -128,6 +128,20 @@ describe("loadTsConfig (the TS config tier)", () => {
     expect(async () => await loadTsConfig(path)).toThrow(/no earlier rule is named 'is_greppable'/);
   });
 
+  test("importing a domain that does not exist names the ones that do", async () => {
+    const path = write(
+      "unknown-domain.config.ts",
+      'import { rules } from "jint:rules/nope";\nexport default { rules };\n',
+    );
+    try {
+      await loadTsConfig(path);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toContain("unknown rule domain");
+      expect((e as Error).message).toContain("jint:rules/naming: is_vocabulary_consistent");
+    }
+  });
+
   test("a config with no rules names every domain and the rules in it", async () => {
     const path = write(
       "empty.config.ts",

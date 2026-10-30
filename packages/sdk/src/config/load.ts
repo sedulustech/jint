@@ -15,7 +15,7 @@ import {} from "../core/grammars/grammars.ts";
 import {} from "../core/grammars/query.ts";
 import { closestName } from "../core/lint.ts";
 import { checkRunKnobs } from "../core/provider/pacer.ts";
-import { importConfigModule, registeredRuleDomains } from "../core/rules/custom/loader.ts";
+import { importConfigModule, noRulesAdvice } from "../core/rules/custom/loader.ts";
 import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
@@ -378,28 +378,6 @@ function throwConfigInvalid(raw: unknown, source: string): never {
     {
       detail,
     },
-  );
-}
-
-/**
- * What a config with no rules is told: the domains a config can import from and the rules each
- * holds, with the smallest working config. Written for the agent that reads the error and writes
- * the config - every name it needs is in the message.
- */
-export function noRulesAdvice(): string {
-  const domains = registeredRuleDomains();
-  const listing = Object.entries(domains)
-    .map(([key, names]) => `  jint:rules/${key}: ${names.join(", ")}`)
-    .join("\n");
-  const first = Object.entries(domains)[0];
-  const example =
-    first === undefined
-      ? ""
-      : `\nexample jint.config.ts:\n  import { ${first[1][0]} } from "jint:rules/${first[0]}";\n  import { defineConfig } from "jint:sdk";\n  export default defineConfig({ rules: [${first[1][0]}] });\nA jint.config.json names a rule as a string: { "rules": ["${first[1][0]}"] }.`;
-  return (
-    "pick the rules to run from the domains below" +
-    (listing === "" ? "" : "\n" + listing) +
-    example
   );
 }
 

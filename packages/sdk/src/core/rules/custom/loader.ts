@@ -62,6 +62,28 @@ export function registeredRuleDomains(): Record<string, string[]> {
 }
 
 /**
+ * What a config with no rules is told: the domains a config can import from and the rules each
+ * holds, with the smallest working config. Written for the agent that reads the error and writes
+ * the config - every name it needs is in the message.
+ */
+export function noRulesAdvice(): string {
+  const domains = registeredRuleDomains();
+  const listing = Object.entries(domains)
+    .map(([key, names]) => `  jint:rules/${key}: ${names.join(", ")}`)
+    .join("\n");
+  const first = Object.entries(domains)[0];
+  const example =
+    first === undefined
+      ? ""
+      : `\nexample jint.config.ts:\n  import { ${first[1][0]} } from "jint:rules/${first[0]}";\n  import { defineConfig } from "jint:sdk";\n  export default defineConfig({ rules: [${first[1][0]}] });\nA jint.config.json names a rule as a string: { "rules": ["${first[1][0]}"] }.`;
+  return (
+    "pick the rules to run from the domains below" +
+    (listing === "" ? "" : "\n" + listing) +
+    example
+  );
+}
+
+/**
  * True when a scanned import may pass the gate: a jint:* virtual module, or a relative/absolute
  * file. Bare npm specifiers and node:* builtins stay rejected - the sandbox line is unchanged.
  */
@@ -110,8 +132,15 @@ export async function importConfigModule(abs: string): Promise<unknown> {
   } catch (thrown) {
     if (thrown instanceof SetupError) throw thrown;
     const detail = thrown instanceof Error ? thrown.message : String(thrown);
-    throw new SetupError("CONFIG_INVALID", "config module failed to load: " + abs + ": " + detail, {
-      cause: thrown,
-    });
+    // an import of a domain that does not exist resolves to nothing: name the ones that do
+    const unknownDomain = detail.match(/Cannot find package '(jint:rules[^']*)'/);
+    const hint = unknownDomain !== null ? ` - unknown rule domain; ${noRulesAdvice()}` : "";
+    throw new SetupError(
+      "CONFIG_INVALID",
+      "config module failed to load: " + abs + ": " + detail + hint,
+      {
+        cause: thrown,
+      },
+    );
   }
 }

@@ -53,7 +53,7 @@ export { REPORT_SCHEMA, LINE_SCHEMA } from "./core/output/report-schema.ts";
 export { describeRule, describeRules } from "./core/output/rules.ts";
 export { compileRule } from "./config/load.ts";
 export { registerCustomRuleLoader } from "./core/rules/custom/loader.ts";
-export { noRulesAdvice } from "./config/load.ts";
+export { noRulesAdvice } from "./core/rules/custom/loader.ts";
 export { selectRules, validateRuleSelection } from "./core/lint.ts";
 export {
   assertEndpointKey,
