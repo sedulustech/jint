@@ -18,7 +18,8 @@
  * GENERATED_OUTPUTS).
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { allRules as allSpecs, domains } from "@jint/rules";
 import { CONFIG_SCHEMA } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
@@ -772,8 +773,13 @@ export function renderDirectivesDoc(
 // Edge: the only code that touches the filesystem. Everything above is pure.
 // ---------------------------------------------------------------------------
 
-function repoPath(rel: string): string {
-  return new URL("../" + rel, import.meta.url).pathname;
+const REPO_ROOT = new URL("../", import.meta.url).pathname;
+
+/** Where an output lands under an output root: the repo itself, or a directory a caller owns. */
+function outPath(root: string, rel: string): string {
+  const path = join(root, rel);
+  mkdirSync(dirname(path), { recursive: true });
+  return path;
 }
 
 const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
@@ -833,23 +839,30 @@ function directiveUsageByGrammar(): Map<string, string[]> {
   return usage;
 }
 
-function writeGeneratedOutputs() {
-  const schemaOut = repoPath(GENERATED_OUTPUTS[0]!);
+/**
+ * Writes every generated output under `root` (the repo by default). A test passes a temp directory
+ * so regenerating never rewrites the tracked files other processes may be reading. The formatter
+ * runs ONCE over the files that need it, from the repo root so it finds the repo's formatter
+ * config.
+ */
+function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
+  const root = resolve(rootArg);
+  const formatted: string[] = [];
+  const schemaOut = outPath(root, GENERATED_OUTPUTS[0]!);
   writeFileSync(schemaOut, renderSchemaJson());
-  // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
-  Bun.spawnSync(["bunx", "oxfmt", schemaOut]);
+  formatted.push(schemaOut);
   process.stdout.write("wrote " + schemaOut + "\n");
 
-  const mdxOut = repoPath(GENERATED_OUTPUTS[1]!);
+  const mdxOut = outPath(root, GENERATED_OUTPUTS[1]!);
   writeFileSync(mdxOut, renderRulesDoc(domains));
   process.stdout.write("wrote " + mdxOut + "\n");
 
-  const followOut = repoPath(GENERATED_OUTPUTS[2]!);
+  const followOut = outPath(root, GENERATED_OUTPUTS[2]!);
   writeFileSync(followOut, renderSkillFollow(allSpecs));
-  Bun.spawnSync(["bunx", "oxfmt", followOut]);
+  formatted.push(followOut);
   process.stdout.write("wrote " + followOut + "\n");
 
-  const authorOut = repoPath(GENERATED_OUTPUTS[3]!);
+  const authorOut = outPath(root, GENERATED_OUTPUTS[3]!);
   const example = {
     $schema: "./jint.schema.json",
     rules: [
@@ -866,7 +879,7 @@ function writeGeneratedOutputs() {
   );
   process.stdout.write("wrote " + authorOut + "\n");
 
-  const referenceOut = repoPath(GENERATED_OUTPUTS[4]!);
+  const referenceOut = outPath(root, GENERATED_OUTPUTS[4]!);
   writeFileSync(
     referenceOut,
     renderReference(
@@ -874,21 +887,23 @@ function writeGeneratedOutputs() {
       allSpecs.find((spec) => spec.name === "is_cognitively_complex")!,
     ),
   );
-  Bun.spawnSync(["bunx", "oxfmt", authorOut, referenceOut]);
+  formatted.push(authorOut, referenceOut);
   process.stdout.write("wrote " + referenceOut + "\n");
 
-  const targetsOut = repoPath(GENERATED_OUTPUTS[5]!);
+  const targetsOut = outPath(root, GENERATED_OUTPUTS[5]!);
   writeFileSync(targetsOut, renderTargetsDoc(captureCensus(), knownLanguages()));
-  Bun.spawnSync(["bunx", "oxfmt", targetsOut]);
+  formatted.push(targetsOut);
   process.stdout.write("wrote " + targetsOut + "\n");
 
-  const directivesOut = repoPath(GENERATED_OUTPUTS[6]!);
+  const directivesOut = outPath(root, GENERATED_OUTPUTS[6]!);
   writeFileSync(
     directivesOut,
     renderDirectivesDoc(directiveVocabulary(), directiveUsageByGrammar()),
   );
-  Bun.spawnSync(["bunx", "oxfmt", directivesOut]);
+  formatted.push(directivesOut);
+  // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
+  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + directivesOut + "\n");
 }
 
-if (import.meta.main) writeGeneratedOutputs();
+if (import.meta.main) writeGeneratedOutputs(process.argv[2]);

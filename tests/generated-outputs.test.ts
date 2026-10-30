@@ -1,21 +1,27 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GENERATED_OUTPUTS } from "../scripts/generate-schema.ts";
 
-// Generic freshness e2e: regenerate ONCE, then assert every generated output is byte-identical
-// to the committed file. The output list comes from the generator's GENERATED_OUTPUTS export, so
-// a new output is covered the moment the generator declares it - no hardcoded path list to fall
-// behind.
+// Generic freshness e2e: regenerate ONCE into a temp directory, then assert every generated output
+// is byte-identical to the committed file. The generator never writes the tracked files here, so no
+// other test process can read one half-written, and a killed run leaves the working tree clean. The
+// output list comes from the generator's GENERATED_OUTPUTS export, so a new output is covered the
+// moment the generator declares it - no hardcoded path list to fall behind.
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-const committed = new Map<string, string>();
+const outDir = mkdtempSync(join(tmpdir(), "jint-generated-"));
 let generatorStatus: number | null = null;
 
 beforeAll(() => {
-  for (const rel of GENERATED_OUTPUTS) committed.set(rel, readFileSync(repoRoot + rel, "utf8"));
-  generatorStatus = spawnSync("bun", ["scripts/generate-schema.ts"], { cwd: repoRoot }).status;
+  generatorStatus = spawnSync("bun", ["scripts/generate-schema.ts", outDir], {
+    cwd: repoRoot,
+  }).status;
 }, 30_000); // one generator process: well past the 5s hook default when the machine is busy
+
+afterAll(() => rmSync(outDir, { recursive: true, force: true }));
 
 describe("generated outputs", () => {
   test("the generator exits cleanly", () => {
@@ -23,7 +29,7 @@ describe("generated outputs", () => {
   });
 
   test.each(GENERATED_OUTPUTS)("%s regenerates byte-identical", (rel) => {
-    expect(readFileSync(repoRoot + rel, "utf8")).toBe(committed.get(rel));
+    expect(readFileSync(join(outDir, rel), "utf8")).toBe(readFileSync(repoRoot + rel, "utf8"));
   });
 
   // An output the generator stops writing keeps its committed file and still passes the check
