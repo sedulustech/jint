@@ -10,9 +10,9 @@ How the workspace packages relate to releases and versions, now and when publish
 
 ## What exists today
 
-Five workspace packages, all `private: true`: `contract` (pure types, zero deps), `defaults`
-(declarative rules; source of the engine baseline), `sdk` (the engine - measurement
-semantics), `cli` (thin composition of sdk + defaults + contract), `app` (the UI - embedded into
+Workspace packages, all `private: true`: `contract` (pure types, zero deps), one `rules-<domain>`
+per rule domain plus `rules` (the aggregate the cli bundles), `sdk` (the engine - measurement
+semantics), `cli` (thin composition of sdk + rules + contract), `app` (the UI - embedded into
 the cli binary at compile time, never a package). Internal dependencies are `workspace:*`. The
 release process (tag push -> draft GitHub release with compiled binaries -> human edits notes ->
 publish) ships the binary only; npm publish does not exist yet.
@@ -24,8 +24,8 @@ config-composing package user) forces exactly one split - and then that split is
 
 `cli` stays `private` permanently: it ships as the compiled binary, a built artifact, not an npm
 install. The tag version is the canon version - the binary release is the face. `app` stays
-`private` permanently (embedded in the binary); `contract` publishes only beside `sdk`; `defaults`
-stays private until a config author needs the package form.
+`private` permanently (embedded in the binary); `contract` publishes only beside `sdk`; the rule packages
+stay private until a config author needs the package form.
 
 `sdk` is the publish candidate - but the need it would serve is already met, for now, by the
 virtual modules: rules authored against `jint:sdk` load and execute on jint's own runtime, so a
@@ -40,7 +40,7 @@ The two possible splits, when their consumer appears:
 
 - `sdk` - an embedder (or external-tooling rule author) needs the package form and
   measurement-semantics versioning independent of cli features.
-- `defaults` - a config-composing user needs rule-content versioning independent of the engine.
+- the rule packages - a config-composing user needs rule-content versioning independent of the engine.
   Publishing it adopts semver-for-rule-content: a threshold or instruction edit that changes
   findings is breaking.
 
@@ -49,12 +49,12 @@ boundary that opens.
 
 ## Rejections
 
-| what                                                             | why                                                                                                                                                                                                                                           |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Independent per-package versions (changesets-style) from day one | A version matrix across coupled packages is a matrix of untested compatible-range combinations; for a measuring instrument it is a matrix of results. Bookkeeping cost with no consumer to pay for it.                                        |
-| Pre-splitting sdk AND defaults speculatively                     | Two independent drift axes from one cli is the untested matrix again. Drift is demand-driven, not potential-driven.                                                                                                                           |
-| Publishing `defaults` now with exact pins in the cli             | A permanent obligation (semver for rule content, a second release narrative) bought for a composition-skew that does not bite: past runs self-attribute, and `jint:defaults` already carries the compiled-in version authority in every home. |
-| Aligning directory structure with publish boundaries             | Organization and publishing are independent axes; `private: true` is the only switch that decides what publishes. The tree stays shaped for the build.                                                                                        |
+| what                                                             | why                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Independent per-package versions (changesets-style) from day one | A version matrix across coupled packages is a matrix of untested compatible-range combinations; for a measuring instrument it is a matrix of results. Bookkeeping cost with no consumer to pay for it.                                              |
+| Pre-splitting sdk AND the rule domains speculatively             | Two independent drift axes from one cli is the untested matrix again. Drift is demand-driven, not potential-driven.                                                                                                                                 |
+| Publishing the rule domains now with exact pins in the cli       | A permanent obligation (semver for rule content, a second release narrative) bought for a composition-skew that does not bite: past runs self-attribute, and `jint:rules/<domain>` already carries the compiled-in version authority in every home. |
+| Aligning directory structure with publish boundaries             | Organization and publishing are independent axes; `private: true` is the only switch that decides what publishes. The tree stays shaped for the build.                                                                                              |
 
 ## Definitions
 
@@ -112,5 +112,5 @@ npm exact pin, or the plain releases URL.
 #### Which package could drift first?
 
 Unknown until a consumer exists (2026-10-11). `sdk` is the likelier (embedding is the broader
-use); `defaults` needs the narrower config-author scenario. The first consumer decides, and that
+use); the rule packages need the narrower config-author scenario. The first consumer decides, and that
 split is then the only one.

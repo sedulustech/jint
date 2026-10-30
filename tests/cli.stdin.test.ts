@@ -37,7 +37,7 @@ afterAll(() => provider.stop());
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
   const path = `/tmp/jint-probe-config-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
-  await Bun.write(path, JSON.stringify(config));
+  await Bun.write(path, JSON.stringify({ rules: ["is_greppable"], ...config }));
   return path;
 }
 

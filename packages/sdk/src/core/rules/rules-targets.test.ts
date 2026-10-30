@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { defaultRules } from "@jint/defaults";
+import { allRules } from "@jint/rules";
 import { matchesTarget } from "../rules/classify.ts";
 import type { InventoryElement } from "../grammars/walk.ts";
 
-// THE DEFAULTS-IDENTICAL PIN (owner decision: defaults rewritten as explicit target lists with
-// identical behavior). Every default that used to say target: "definitions" now says the
+// THE RULES-IDENTICAL PIN (owner decision: rules rewritten as explicit target lists with
+// identical behavior). Every rule that used to say target: "definitions" now says the
 // five-capture union; this test proves the two forms measure the SAME set on an inventory that
 // spans every definition capture, so the rewrite is provably a no-op for the measured set.
 
-describe("defaults targets: the union is identical to the definitions shorthand", () => {
+describe("rule targets: the union is identical to the definitions shorthand", () => {
   const inventory: InventoryElement[] = [
     {
       label: "f",
@@ -83,7 +83,7 @@ describe("defaults targets: the union is identical to the definitions shorthand"
   ];
 
   test("every rewritten default carries the exact five-capture union", () => {
-    const rewritten = defaultRules.filter((r) => Array.isArray(r.target));
+    const rewritten = allRules.filter((r) => Array.isArray(r.target));
     expect(rewritten.length).toBeGreaterThanOrEqual(1);
     for (const rule of rewritten) {
       expect(rule.target, rule.name).toEqual([
@@ -97,7 +97,7 @@ describe("defaults targets: the union is identical to the definitions shorthand"
   });
 
   test("the union measures the same elements the definitions shorthand measures", () => {
-    for (const rule of defaultRules) {
+    for (const rule of allRules) {
       if (!Array.isArray(rule.target)) continue;
       for (const element of inventory) {
         const union = rule.target.some((t) => matchesTarget(t, element));
@@ -109,7 +109,7 @@ describe("defaults targets: the union is identical to the definitions shorthand"
   });
 
   test("no default rule still uses the definitions shorthand", () => {
-    for (const rule of defaultRules) {
+    for (const rule of allRules) {
       expect(rule.target === "definitions", rule.name).toBe(false);
     }
   });

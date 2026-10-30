@@ -58,6 +58,8 @@ demands action.
   include/exclude and claims across the config exclude. The denylist and gitignore are not
   scopes: they exclude, and always win.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
+- **domain** — a named group of rules, one package, imported as jint:rules/<domain>. A domain is a subject a rule belongs to: a property judged (comments, naming) or a technology (typescript, react). A domain holds rules and may nest subdomains; it is not a dimension (one property inside one rule) and not a scope (a path selection).
+- **subdomain** — a domain nested in another, a refinement of it (comments/typescript under comments): it adds rules or examples for one technology and never rewords its parent's questions. It is a subpath of the parent's package, never a package of its own.
 - **descent default** — the per-capture policy for what a captured element's interior yields: a
   @type interior surfaces (a method is an element of its own); a @function or @binding interior
   is opaque to different captures (a local binding in a body is implementation), while a
@@ -175,7 +177,7 @@ demands action.
   comment element never matches separately, so a narration rule fires exactly once per documented
   definition. The name is deliberately shared with @comment in the sanctioned singular/plural
   split: the capture names ONE comment element, the target plural addresses the documentation
-  units a rule judges. Default rules target this, not loose-comments.
+  units a rule judges. The shipped comment rules target this, not loose-comments.
 - **loose-comments** — the complement of comments: comment elements NO definition owns (standalone
   runs, and inline comments outside any definition). Together with comments it is disjoint and
   jointly exhaustive over comment text, so a rule can measure a comment under exactly one target
@@ -187,11 +189,11 @@ demands action.
 - **rule target** — which unit instances a rule judges; resolves over the two namespaces
   (FILE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
   types, bindings, definitions, comments, loose-comments, imports). Declarative: a name or an
-  explicit list; the defaults use the list form. 'noun' stays CLI-owned - it names a declared
+  explicit list; the shipped rules use the list form. 'noun' stays CLI-owned - it names a declared
   input read, never a capture.
 - **definitions (target)** — the umbrella shorthand for every definition capture at once
   (functions, classes, methods, types, bindings): the same measured set as the explicit union.
-  Demoted to shorthand — new rules prefer the specific targets; the defaults no longer use it.
+  Demoted to shorthand — new rules prefer the specific targets; the shipped rules no longer use it.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
 - **walker / walk** — the pass that turns parsed sources into inventory elements (and the
   directory pass that turns an on-disk tree into file units).

@@ -34,7 +34,7 @@
                 "required": ["name", "instructions", "criteria", "target", "handle"],
                 "properties": {
                   "name": {
-                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+                    "description": "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
                     "type": "string"
                   },
                   "kind": {
@@ -403,6 +403,10 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "override": {
+                    "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
+                    "type": "boolean"
                   }
                 }
               },
@@ -411,7 +415,7 @@
                 "required": ["name", "kind", "criteria", "instructions", "target", "handle"],
                 "properties": {
                   "name": {
-                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+                    "description": "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
                     "type": "string"
                   },
                   "kind": {
@@ -773,6 +777,10 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "override": {
+                    "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
+                    "type": "boolean"
                   }
                 }
               },
@@ -781,7 +789,7 @@
                 "required": ["name", "kind", "criteria", "instructions", "target", "handle"],
                 "properties": {
                   "name": {
-                    "description": "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+                    "description": "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
                     "type": "string"
                   },
                   "kind": {
@@ -1146,6 +1154,10 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "override": {
+                    "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
+                    "type": "boolean"
                   }
                 }
               }

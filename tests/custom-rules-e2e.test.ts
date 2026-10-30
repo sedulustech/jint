@@ -225,7 +225,7 @@ describe("cli: custom rules end-to-end", () => {
     const dir = setup(
       "duptier",
       [
-        'import { is_greppable } from "jint:defaults";',
+        'import { is_greppable } from "jint:rules/naming";',
         'import { defineConfig } from "jint:sdk";',
         "export default defineConfig({",
         '  input: "fixture.ts",',

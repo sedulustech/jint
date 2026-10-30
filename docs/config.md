@@ -81,16 +81,16 @@ keys a config file takes, minus `customRules` — there is no `customRules` key 
 
 Rule sources importable from the config:
 
-| source                | what it is                                                     | versioning                                      |
-| --------------------- | -------------------------------------------------------------- | ----------------------------------------------- |
-| `jint:sdk`            | `defineConfig` — the typed config entry                        | virtual module, compiled-in                     |
-| `jint:defaults`       | the declarative default specs (`defaultRules` + named exports) | virtual module; its version IS the CLI baseline |
-| `@jint/defaults`      | the same specs as a real package                               | workspace / install-versioned                   |
-| `./`, `../`, absolute | your own files                                                 | —                                               |
+| source                | what it is                                                              | versioning                               |
+| --------------------- | ----------------------------------------------------------------------- | ---------------------------------------- |
+| `jint:sdk`            | `defineConfig` — the typed config entry                                 | virtual module, compiled-in              |
+| `jint:rules/<domain>` | one domain's declarative specs (`rules` + each rule under its own name) | virtual module; its version IS the CLI's |
+| `./`, `../`, absolute | your own files                                                          | —                                        |
 
-Bare npm specifiers and `node:*` builtins are rejected before execution. External users and
-compiled binaries use `jint:defaults` (no install needed); workspace consumers may prefer
-`@jint/defaults` to pin their own version.
+Bare npm specifiers and `node:*` builtins are rejected before execution. The domains are
+`comments`, `complexity`, `errors` and `naming`; [rules.md](rules.md) lists every rule in each.
+jint runs only the rules the config names: a config with no rules fails with the domain list.
+A rule name that appears twice is an error unless the later entry sets `override: true`.
 
 ### Inline custom rules
 
@@ -100,14 +100,14 @@ inventories, free state composition) while declarative entries around it compile
 seam as the JSON tier. This is the repo-root pattern:
 
 ```ts
-import { defaultRules, type RuleSchema } from "@jint/defaults";
-import { defineConfig } from "jint:sdk";
+import { rules as naming } from "jint:rules/naming";
+import { defineConfig, type RuleSchema } from "jint:sdk";
 
 const is_literal_shared: RuleSchema = {/* a full declarative spec, authored in-file */};
 
 export default defineConfig({
   rules: [
-    ...defaultRules,
+    ...naming,
     is_literal_shared,
     {
       name: "is_comment_paired_with_code",

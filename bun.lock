@@ -5,7 +5,7 @@
     "": {
       "name": "jint",
       "dependencies": {
-        "@jint/defaults": "workspace:*",
+        "@jint/rules": "workspace:*",
       },
       "devDependencies": {
         "@jint/sdk": "workspace:*",
@@ -25,7 +25,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
-        "@jint/defaults": "workspace:*",
+        "@jint/rules": "workspace:*",
         "@tanstack/react-query": "^5.59.0",
         "@tanstack/react-router": "^1.170.41",
         "class-variance-authority": "^0.7.1",
@@ -67,7 +67,7 @@
         "jint": "./dist/cli.js",
       },
       "dependencies": {
-        "@jint/defaults": "workspace:*",
+        "@jint/rules": "workspace:*",
         "@jint/sdk": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
       },
@@ -76,8 +76,40 @@
       "name": "@jint/contract",
       "version": "0.1.0",
     },
-    "packages/defaults": {
-      "name": "@jint/defaults",
+    "packages/rules": {
+      "name": "@jint/rules",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+        "@jint/rules-comments": "workspace:*",
+        "@jint/rules-complexity": "workspace:*",
+        "@jint/rules-errors": "workspace:*",
+        "@jint/rules-naming": "workspace:*",
+      },
+    },
+    "packages/rules-comments": {
+      "name": "@jint/rules-comments",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+      },
+    },
+    "packages/rules-complexity": {
+      "name": "@jint/rules-complexity",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+      },
+    },
+    "packages/rules-errors": {
+      "name": "@jint/rules-errors",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+      },
+    },
+    "packages/rules-naming": {
+      "name": "@jint/rules-naming",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
@@ -96,7 +128,7 @@
         "web-tree-sitter": "^0.27.0",
       },
       "devDependencies": {
-        "@jint/defaults": "workspace:*",
+        "@jint/rules": "workspace:*",
       },
     },
   },
@@ -231,7 +263,15 @@
 
     "@jint/contract": ["@jint/contract@workspace:packages/contract"],
 
-    "@jint/defaults": ["@jint/defaults@workspace:packages/defaults"],
+    "@jint/rules": ["@jint/rules@workspace:packages/rules"],
+
+    "@jint/rules-comments": ["@jint/rules-comments@workspace:packages/rules-comments"],
+
+    "@jint/rules-complexity": ["@jint/rules-complexity@workspace:packages/rules-complexity"],
+
+    "@jint/rules-errors": ["@jint/rules-errors@workspace:packages/rules-errors"],
+
+    "@jint/rules-naming": ["@jint/rules-naming@workspace:packages/rules-naming"],
 
     "@jint/sdk": ["@jint/sdk@workspace:packages/sdk"],
 

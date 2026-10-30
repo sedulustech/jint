@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { ClassifyError, InternalError, SetupError, lint, type ClassifyErrorCode } from "@jint/sdk";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
-import { defaultConfig } from "./baseline.ts";
+import { catalog } from "./baseline.ts";
+
+const allRulesConfig = () => ({
+  input: "",
+  rules: Object.values(catalog),
+  customRules: [],
+  include: [],
+  exclude: ["**/fixtures/**"],
+});
 import {
   CLI_ARGS_SCHEMA,
   exitForThrown,
@@ -18,7 +26,7 @@ import { emit } from "./output.ts";
 
 describe("cli: in-process unit tests", () => {
   test("config disable: is_vocabulary_consistent not called", async () => {
-    const config = { ...defaultConfig(), input: "tests/fixtures/sample-file.ts" };
+    const config = { ...allRulesConfig(), input: "tests/fixtures/sample-file.ts" };
     const asked: string[] = [];
     const fakeJudge = async (state: any, _questions: any) => {
       Object.keys(_questions ?? {}).forEach((k) => asked.push(k));
@@ -45,7 +53,7 @@ describe("cli: in-process unit tests", () => {
   });
 
   test("exclude propagation: path excluded not called", async () => {
-    const config = { ...defaultConfig(), input: "tests/fixtures/sample-dir" };
+    const config = { ...allRulesConfig(), input: "tests/fixtures/sample-dir" };
     const asked: string[] = [];
     const fakeJudge = async (state: any, _questions: any) => {
       asked.push(state.path);

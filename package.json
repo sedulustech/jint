@@ -26,7 +26,7 @@
     "ui:dev": "bun run --cwd packages/app dev"
   },
   "dependencies": {
-    "@jint/defaults": "workspace:*"
+    "@jint/rules": "workspace:*"
   },
   "devDependencies": {
     "@jint/sdk": "workspace:*",

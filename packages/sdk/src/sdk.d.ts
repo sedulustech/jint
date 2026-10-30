@@ -103,9 +103,9 @@ declare module "jint:sdk" {
   }
 
   /**
-   * A TS config: the same keys a top-level config takes, minus customRules. Entries in rules
-   * compose last-wins by name: declarative specs (jint:defaults exports and their
-   * spread-and-overrides) or inline callback CustomRules.
+   * A TS config: the same keys a top-level config takes, minus customRules. Entries in rules are
+   * declarative specs (jint:rules/<domain> exports and their spread-and-overrides) or inline
+   * callback CustomRules. A repeated name is an error unless the later entry sets override: true.
    */
   export interface TsConfig {
     readonly $schema?: string;
@@ -120,6 +120,9 @@ declare module "jint:sdk" {
     readonly concurrency?: number;
     readonly timeout?: number;
   }
+
+  /** A declarative rule spec - what a jint:rules/<domain> export is, and what a config entry takes. */
+  export type RuleSchema = import("@jint/contract").RuleSchema;
 
   /** The typed TS-config entry. */
   export function defineConfig(config: TsConfig): TsConfig;

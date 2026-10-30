@@ -1728,7 +1728,7 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
     const measured = events.filter(
       (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
     );
-    // the regression: is_filename_fitting-shaped unscoped files rule measures NOTHING on the
+    // the regression: has_filename_mismatch-shaped unscoped files rule measures NOTHING on the
     // scope-excluded operand (run 1792428499081 measured it before the fix)
     expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
     // one line, the unscoped-rule note vocabulary - never silence

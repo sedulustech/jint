@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { defaultRules, type NoulRuleSchema } from "@jint/defaults";
+import { allRules } from "@jint/rules";
+import type { NoulRuleSchema } from "@jint/contract";
 
 describe("error-tier fixer messages", () => {
   it("will_comment_drift's error tier is decisive: remove, no fork", () => {
-    const drift = defaultRules.find((r) => r.name === "will_comment_drift") as NoulRuleSchema;
+    const drift = allRules.find((r) => r.name === "will_comment_drift") as NoulRuleSchema;
     expect(drift).toBeDefined();
     const error = drift.handle.error as { message?: string };
     expect(error.message).toBe("Remove this comment.");

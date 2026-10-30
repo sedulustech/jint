@@ -1,0 +1,16 @@
+{
+  "name": "@jint/rules",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@jint/contract": "workspace:*",
+    "@jint/rules-comments": "workspace:*",
+    "@jint/rules-complexity": "workspace:*",
+    "@jint/rules-errors": "workspace:*",
+    "@jint/rules-naming": "workspace:*"
+  }
+}

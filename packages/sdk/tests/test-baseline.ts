@@ -1,23 +1,23 @@
-import { defaultRules as defaultSpecs } from "@jint/defaults";
+import { allRules as allSpecs } from "@jint/rules";
 import { compileRule } from "../src/config/load.ts";
 import type { Rule } from "../src/core/types.ts";
 
 /**
- * The compiled default baseline for tests: the specs compiled through the public seam, exactly as
- * the CLI's baseline compiles them. Test-time only — the sdk source itself knows no rules.
+ * The compiled rule catalog for tests: the specs compiled through the public seam, exactly as the
+ * CLI's baseline compiles them. Test-time only — the sdk source itself knows no rules.
  */
-export const defaultRules: Record<string, Rule> = Object.fromEntries(
-  defaultSpecs.map((spec) => {
-    const rule = compileRule(spec as never, "@jint/defaults");
+export const catalog: Record<string, Rule> = Object.fromEntries(
+  allSpecs.map((spec) => {
+    const rule = compileRule(spec as never, "@jint/rules");
     return [rule.name, rule];
   }),
 );
 
-/** The configless config carrying the baseline — what the CLI's no-config path uses. */
-export function defaultConfig() {
+/** A config carrying every catalog rule - the shape a config naming all rules resolves to. */
+export function catalogConfig() {
   return Object.freeze({
     input: "",
-    rules: Object.freeze(Object.values(defaultRules)),
+    rules: Object.freeze(Object.values(catalog)),
     customRules: Object.freeze([]),
     exclude: Object.freeze(["**/fixtures/**"]),
   });

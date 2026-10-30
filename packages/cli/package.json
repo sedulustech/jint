@@ -10,7 +10,7 @@
     ".": "./src/cli.ts"
   },
   "dependencies": {
-    "@jint/defaults": "workspace:*",
+    "@jint/rules": "workspace:*",
     "@jint/sdk": "workspace:*",
     "@sinclair/typebox": "^0.34.52"
   }

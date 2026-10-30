@@ -31,7 +31,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { defaultRules as defaultSpecs } from "@jint/defaults";
+import { allRules as allSpecs } from "@jint/rules";
 import {
   collectReport,
   compileRule,
@@ -74,7 +74,7 @@ const VALUES: Record<string, number> = {
   will_error_lose_cause: 0.5,
   is_vocabulary_consistent: 0.9,
   is_naming_convention_consistent: 0.9,
-  is_filename_fitting: 0.3,
+  has_filename_mismatch: 0.3,
   is_greppable: 0.9,
   is_comment_narration: 0.1,
   is_comment_patching_readability: 0.1,
@@ -161,13 +161,13 @@ function stubFetch(): NonNullable<ClassifierConfig["fetch"]> {
 }
 
 /**
- * The baseline compiled from the defaults package through the sdk's public seam — the same compile
- * packages/cli/src/baseline.ts performs. defaultConfig is NOT on the sdk surface (it is a
- * cli/baseline concept), so the script builds the configless config itself.
+ * The catalog compiled from the rules packages through the sdk's public seam — the same compile
+ * packages/cli/src/baseline.ts performs. no config object is on the sdk surface, so the script
+ * builds its own.
  */
 const baseline: Record<string, Rule> = Object.fromEntries(
-  defaultSpecs.map((spec) => {
-    const rule = compileRule(spec as never, "@jint/defaults");
+  allSpecs.map((spec) => {
+    const rule = compileRule(spec as never, "@jint/rules");
     return [rule.name, rule];
   }),
 );

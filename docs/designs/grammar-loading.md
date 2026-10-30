@@ -35,7 +35,7 @@ produces the same report, with no network, no registry, no version drift in the 
 
 The why: the agent-authored field trials replaced the hypothetical bring-your-own-grammar user.
 Ten real grammars went through trials, review rounds, and ported parity corpora; the vocabulary
-grew through releases with two-language calibration (the is_filename_fitting precedent), never
+grew through releases with two-language calibration (the has_filename_mismatch precedent), never
 by user minting. A user grammar dir stays the seam for the long tail, and it is the SAME three-file
 shape as embedded - wasm + extensions.json + queries.scm - so the custom-grammar path exercises the
 identical code the binary ships.

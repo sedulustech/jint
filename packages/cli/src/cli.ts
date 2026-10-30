@@ -21,6 +21,7 @@ import {
   ClassifyError,
   InternalError,
   SetupError,
+  noRulesAdvice,
   captureFor,
   checkRunKnobs,
   collectReport,
@@ -50,7 +51,7 @@ import {
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
-import { defaultConfig, defaultRules, provideVirtualModules } from "./baseline.ts";
+import { catalog, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
   captureJson,
@@ -631,27 +632,46 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
   };
 }
 
+/** The config capture runs under when no config file exists: no rules, the usual fixtures exclude. */
+function structureOnlyConfig(): ResolvedConfig {
+  return Object.freeze({
+    input: "",
+    rules: Object.freeze([]),
+    customRules: Object.freeze([]),
+    include: Object.freeze([]),
+    exclude: Object.freeze(["**/fixtures/**"]),
+  }) as unknown as ResolvedConfig;
+}
+
 /**
- * The CLI's ONE config scope, shared by run and capture: --config > discovered jint.config.* >
- * built-in defaults, loaded through the SDK loader with the bundled baseline (string rule names
- * resolve), so both verbs see the same rules, input, and excludes - and a config that cannot load
- * fails identically through either verb. configPath is the file that ran (absolute); null when the
- * built-in defaults answered (no config file exists).
+ * The CLI's ONE config scope, shared by run and capture: --config > discovered jint.config.*,
+ * loaded through the SDK loader with the bundled rule catalog (string rule names resolve), so both
+ * verbs see the same rules, input, and excludes - and a config that cannot load fails identically
+ * through either verb. No config file is an error that lists the rule domains: jint runs nothing
+ * the config does not name. Capture classifies nothing, so it needs no rules: with no config file
+ * it gets the structure-only config, and a config without rules loads. configPath is the file that
+ * ran (absolute), null for the structure-only config.
  */
-async function loadCliConfig(cliArgs: CliArgs): Promise<{
+async function loadCliConfig(
+  cliArgs: CliArgs,
+  needsRules = true,
+): Promise<{
   resolvedConfig: ResolvedConfig;
   configPath: string | null;
 }> {
-  const foundConfig = findConfigFile();
-  const resolvedConfig =
-    cliArgs.config !== undefined
-      ? await loadConfig(cliArgs.config, { baseline: defaultRules })
-      : foundConfig !== null
-        ? await loadConfig(foundConfig, { baseline: defaultRules })
-        : defaultConfig();
+  const foundConfig = cliArgs.config !== undefined ? resolve(cliArgs.config) : findConfigFile();
+  if (foundConfig === null && !needsRules) {
+    return { resolvedConfig: structureOnlyConfig(), configPath: null };
+  }
+  if (foundConfig === null) {
+    throw new SetupError(
+      "CONFIG_NO_RULES",
+      `no jint config found - jint runs only the rules a config names; create jint.config.ts (or jint.config.json) or pass --config; ${noRulesAdvice()}`,
+    );
+  }
   return {
-    resolvedConfig,
-    configPath: cliArgs.config !== undefined ? resolve(cliArgs.config) : foundConfig,
+    resolvedConfig: await loadConfig(foundConfig, { catalog, rulesOptional: !needsRules }),
+    configPath: foundConfig,
   };
 }
 
@@ -1005,7 +1025,7 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
   let resolvedConfig: ResolvedConfig;
   let configPath: string | null;
   try {
-    ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
+    ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs, cliArgs.rule !== undefined));
   } catch (thrown) {
     // the same scope, the same message: a config run cannot load, capture cannot either
     return exitForThrown(thrown);

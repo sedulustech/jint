@@ -2,12 +2,12 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Docs/rules.md from the default rules (packages/defaults/src/index.ts)
+ * - Docs/rules.md from the rule domain packages (packages/rules-comments, rules-complexity, ...)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
  * - Docs/targets.md from the target vocabulary and each embedded grammar's queries.scm census
  * - Docs/directives.md from the loader's directive vocabulary and each embedded grammar's use of it
  *
- * Run after any config-schema, default-rule, or skill change: bun run schema (wired into bun run
+ * Run after any config-schema, rule-domain, or skill change: bun run schema (wired into bun run
  * validate). Outputs are checked in so editors resolve "$schema" without running jint and docs stay
  * browsable, and CI diffs them against this output to catch drift - generated means never stale.
  *
@@ -19,13 +19,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
-import {
-  defaultRules as defaultSpecs,
-  type ChoiceRuleSchema,
-  type NoulRuleSchema,
-  type RuleSchema,
-  type ScoreRuleSchema,
-} from "@jint/defaults";
+import { allRules as allSpecs, domains } from "@jint/rules";
 import { CONFIG_SCHEMA } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import { VERBS } from "../packages/cli/src/cli.ts";
@@ -39,6 +33,7 @@ import {
   type DirectiveRow,
 } from "../packages/sdk/src/core/grammars/query.ts";
 import { isSharedCapture } from "../packages/sdk/src/core/grammars/shared.ts";
+import type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "@jint/contract";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
@@ -103,9 +98,9 @@ export function renderHandleCell(spec: RuleSchema): string {
     : renderThresholdHandle(spec.handle as NoulRuleSchema["handle"]);
 }
 
-export function renderRuleSection(spec: RuleSchema): string {
+export function renderRuleSection(spec: RuleSchema, heading = "##"): string {
   const out: string[] = [];
-  out.push(`## \`${spec.name}\`\n\n`);
+  out.push(`${heading} \`${spec.name}\`\n\n`);
   const handle = renderHandleCell(spec);
   // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
   const cells = [
@@ -134,21 +129,26 @@ export function renderRuleSection(spec: RuleSchema): string {
   return out.join("");
 }
 
-export function renderRulesDoc(specs: readonly RuleSchema[]): string {
+export function renderRulesDoc(
+  domainSpecs: Readonly<Record<string, readonly RuleSchema[]>>,
+): string {
   const frontmatter =
     "---\n" +
     "title: Rules\n" +
-    "description: The default rule set, rendered from the default rules. Generated - do not edit.\n" +
+    "description: Every rule domain, rendered from the domain packages. Generated - do not edit.\n" +
     "---\n\n";
   const out = [
     frontmatter,
-    "# Default rules\n\n",
-    "Rendered verbatim from the spec package (@jint/defaults). Instructions are the yes/no question " +
+    "# Rules\n\n",
+    "Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`. Rendered verbatim from the domain packages. Instructions are the yes/no question " +
       "the classifier answers per element; criteria pins what each answer means; the target is the " +
       "element role the rule judges; the handle turns readings into findings. Editing any of these in " +
       "the specs is a recalibration event. Regenerate: `bun run schema`.\n\n",
   ];
-  for (const spec of specs) out.push(renderRuleSection(spec));
+  for (const [domain, specs] of Object.entries(domainSpecs)) {
+    out.push(`## \`jint:rules/${domain}\`\n\n`);
+    for (const spec of specs) out.push(renderRuleSection(spec, "###"));
+  }
   return out.join("").replace(/\n+$/, "\n");
 }
 
@@ -169,7 +169,7 @@ export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
 }
 
 const FALLBACK_DESCRIPTIONS: Record<string, string> = {
-  name: "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+  name: "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   criteria:
     "The answer contract: noul carries {true, false}; score carries an ordered rubric (score 0..N); choice carries named options (label -> meaning). The handle decides which answers fire.",
   target:
@@ -445,7 +445,7 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
     "  not a rule.",
     "",
     'AGENTS.md ("Adding defaults") is the authority for this ritual, including the',
-    "precedent (is_filename_fitting, issue 006: TS test 0.36/0.88, Go test",
+    "precedent (has_filename_mismatch, issue 006: TS test 0.36/0.88, Go test",
     "0.25/0.72). Defer to it; do not restate thresholds here.",
     "",
   ];
@@ -797,11 +797,11 @@ function writeGeneratedOutputs() {
   process.stdout.write("wrote " + schemaOut + "\n");
 
   const mdxOut = repoPath(GENERATED_OUTPUTS[1]!);
-  writeFileSync(mdxOut, renderRulesDoc(defaultSpecs));
+  writeFileSync(mdxOut, renderRulesDoc(domains));
   process.stdout.write("wrote " + mdxOut + "\n");
 
   const followOut = repoPath(GENERATED_OUTPUTS[2]!);
-  writeFileSync(followOut, renderSkillFollow(defaultSpecs));
+  writeFileSync(followOut, renderSkillFollow(allSpecs));
   Bun.spawnSync(["bunx", "oxfmt", followOut]);
   process.stdout.write("wrote " + followOut + "\n");
 
@@ -809,8 +809,8 @@ function writeGeneratedOutputs() {
   const example = {
     $schema: "./jint.schema.json",
     rules: [
-      defaultSpecs.find((spec) => spec.name === "is_greppable"),
-      defaultSpecs.find((spec) => spec.name === "is_cognitively_complex"),
+      allSpecs.find((spec) => spec.name === "is_greppable"),
+      allSpecs.find((spec) => spec.name === "is_cognitively_complex"),
     ],
   };
   writeFileSync(
@@ -826,8 +826,8 @@ function writeGeneratedOutputs() {
   writeFileSync(
     referenceOut,
     renderReference(
-      defaultSpecs.find((spec) => spec.name === "is_greppable")!,
-      defaultSpecs.find((spec) => spec.name === "is_cognitively_complex")!,
+      allSpecs.find((spec) => spec.name === "is_greppable")!,
+      allSpecs.find((spec) => spec.name === "is_cognitively_complex")!,
     ),
   );
   Bun.spawnSync(["bunx", "oxfmt", authorOut, referenceOut]);

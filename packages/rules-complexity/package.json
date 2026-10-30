@@ -1,5 +1,5 @@
 {
-  "name": "@jint/defaults",
+  "name": "@jint/rules-complexity",
   "version": "0.1.0",
   "private": true,
   "type": "module",

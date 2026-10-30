@@ -1,12 +1,12 @@
 import { describe, test, expect } from "bun:test";
-import { defaultConfig, defaultRules } from "../../tests/test-baseline.ts";
+import { catalogConfig, catalog } from "../../tests/test-baseline.ts";
 import { SetupError } from "../core/types.ts";
 import { loadConfig, validateConfig } from "./load.ts";
 
 describe("loadConfig", () => {
   test("loads a valid JSON config: disable + exclude applied", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.json", {
-      baseline: defaultRules,
+      catalog,
     });
     expect(config.input).toBe("tests/fixtures/sample-dir");
     expect(config.rules.map((s) => s.name)).not.toContain("will_comment_drift");
@@ -57,24 +57,24 @@ describe("loadConfig", () => {
     }
   });
 
-  test("unknown rule name -> CONFIG_INVALID (and it names the missing baseline)", () => {
+  test("unknown rule name -> CONFIG_INVALID (and it names the missing catalog)", () => {
     expect(() =>
-      validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline", defaultRules),
+      validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline", catalog),
     ).toThrow(/unknown rule name/);
     expect(() => validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline")).toThrow(
-      /no defaults baseline was provided/,
+      /no rule catalog was provided/,
     );
   });
 
-  test("unknown rule name detail: the baseline vocabulary + closest match as data", () => {
+  test("unknown rule name detail: the catalog vocabulary + closest match as data", () => {
     try {
-      validateConfig({ input: "x", rules: ["is_greppble"] }, "inline", defaultRules);
+      validateConfig({ input: "x", rules: ["is_greppble"] }, "inline", catalog);
       expect.unreachable();
     } catch (e) {
       const detail = (e as SetupError).detail;
       expect(detail?.kind).toBe("unknown-rule");
       if (detail?.kind === "unknown-rule") {
-        expect(detail.valid.length).toBe(defaultRules ? Object.keys(defaultRules).length : 0);
+        expect(detail.valid.length).toBe(catalog ? Object.keys(catalog).length : 0);
         expect(detail.suggest).toBe("is_greppable");
       }
     }
@@ -90,27 +90,22 @@ describe("loadConfig", () => {
     }
   });
 
-  test("a rules-less config without a baseline is a named setup error", () => {
-    expect(() => validateConfig({ input: "x" }, "inline")).toThrow(/no defaults baseline/);
+  test("a rules-less config is a named setup error", () => {
+    expect(() => validateConfig({ input: "x" }, "inline")).toThrow(/declares no rules/);
   });
 });
 
-describe("validateConfig / defaultConfig", () => {
-  test("the baseline carries every default rule and no input", () => {
-    const config = defaultConfig();
+describe("validateConfig / catalogConfig", () => {
+  test("the catalog carries every domain rule and no input", () => {
+    const config = catalogConfig();
     expect(config.input).toBe("");
     expect(config.rules).toHaveLength(10);
   });
 
-  test("no rules key = all defaults; strings select defaults; objects override by name (last wins)", () => {
-    const all = validateConfig({ input: "x" }, "inline", defaultRules);
-    expect(all.rules).toHaveLength(10);
+  test("no rules key is an error that lists the domains; strings select catalog rules; objects declare their own", () => {
+    expect(() => validateConfig({ input: "x" }, "inline", catalog)).toThrow(/no rules to run/);
 
-    const selected = validateConfig(
-      { input: "x", rules: ["is_greppable"] },
-      "inline",
-      defaultRules,
-    );
+    const selected = validateConfig({ input: "x", rules: ["is_greppable"] }, "inline", catalog);
     expect(selected.rules.map((r) => r.name)).toEqual(["is_greppable"]);
 
     const overridden = validateConfig(
@@ -297,9 +292,9 @@ describe("validateConfig / defaultConfig", () => {
 
   test("$schema and unknown top-level keys are accepted and ignored", () => {
     const config = validateConfig(
-      { $schema: "./jint.schema.json", note: "mine", input: "x" },
+      { $schema: "./jint.schema.json", note: "mine", input: "x", rules: ["is_greppable"] },
       "inline",
-      defaultRules,
+      catalog,
     );
     expect(config.input).toBe("x");
   });
@@ -402,7 +397,7 @@ describe("validateConfig / defaultConfig", () => {
 
   test("run knobs validate with the field named; flags/config precedence lives above", () => {
     const config = (overrides: Record<string, unknown>) =>
-      validateConfig({ input: "x", ...overrides }, "inline", defaultRules);
+      validateConfig({ input: "x", rules: ["is_greppable"], ...overrides }, "inline", catalog);
     expect(config({ concurrency: 8 }).concurrency).toBe(8);
     expect(() => config({ concurrency: 0 })).toThrow(/concurrency: must be an integer >= 1/);
     expect(() => config({ concurrency: 65 })).toThrow(/concurrency: must be <= 64/);
@@ -410,7 +405,7 @@ describe("validateConfig / defaultConfig", () => {
 
   test("url loads; a wrong-typed url is rejected", () => {
     const config = (overrides: Record<string, unknown>) =>
-      validateConfig({ input: "x", ...overrides }, "inline", defaultRules);
+      validateConfig({ input: "x", rules: ["is_greppable"], ...overrides }, "inline", catalog);
     expect(config({ url: "http://x/v1/decisions", apiKey: "k" }).url).toBe("http://x/v1/decisions");
     expect(() => config({ url: 3 })).toThrow();
   });
@@ -452,11 +447,10 @@ describe("validateConfig / defaultConfig", () => {
 
   test("disable removes by name after assembly", () => {
     const config = validateConfig(
-      { input: "x", disable: ["is_greppable"] },
+      { input: "x", rules: ["is_greppable", "is_function_srp"], disable: ["is_greppable"] },
       "inline",
-      defaultRules,
+      catalog,
     );
-    expect(config.rules.map((r) => r.name)).not.toContain("is_greppable");
-    expect(config.rules).toHaveLength(9);
+    expect(config.rules.map((r) => r.name)).toEqual(["is_function_srp"]);
   });
 });

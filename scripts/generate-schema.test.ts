@@ -8,7 +8,7 @@ import {
   renderRuleSection,
   renderTargetsDoc,
 } from "./generate-schema.ts";
-import type { ChoiceRuleSchema, NoulRuleSchema, ScoreRuleSchema } from "@jint/defaults";
+import type { ChoiceRuleSchema, NoulRuleSchema, ScoreRuleSchema } from "@jint/contract";
 
 // Unit tests for the generator's pure renderers, fed SYNTHETIC specs. Freshness tests cannot
 // catch a wrong-but-deterministic renderer (it regenerates the same wrong text), so the shapes

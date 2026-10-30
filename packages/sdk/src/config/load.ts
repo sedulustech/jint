@@ -15,7 +15,7 @@ import {} from "../core/grammars/grammars.ts";
 import {} from "../core/grammars/query.ts";
 import { closestName } from "../core/lint.ts";
 import { checkRunKnobs } from "../core/provider/pacer.ts";
-import { importConfigModule } from "../core/rules/custom/loader.ts";
+import { importConfigModule, registeredRuleDomains } from "../core/rules/custom/loader.ts";
 import { validateCustomRule, type CustomRule } from "../core/rules/custom/schema.ts";
 import { HANDLER_SCHEMA, compileDataHandle } from "../core/rules/handle.ts";
 import { checkRuleScope, ruleMeasuresNothing } from "../core/scope.ts";
@@ -59,6 +59,13 @@ const TARGET_SCHEMA = Type.Union([
 // validated eagerly so the error names the exact field.
 const SCOPE_SCHEMA = Type.Array(Type.String());
 
+const OVERRIDE_SCHEMA = Type.Optional(
+  Type.Boolean({
+    description:
+      "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
+  }),
+);
+
 // Discriminated on kind: noul rules carry {true,false}, score rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N), choice rules carry named options (>= two labels). kind stays optional in the noul branch (noul IS
 // the default; the loader fills it). The question and the handle are both REQUIRED (policy:
@@ -67,7 +74,7 @@ const SCOPE_SCHEMA = Type.Array(Type.String());
 const NOUL_RULE_SCHEMA = Type.Object({
   name: Type.String({
     description:
-      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
   kind: Type.Optional(Type.Literal("noul")),
   instructions: Type.String({
@@ -85,12 +92,13 @@ const NOUL_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  override: OVERRIDE_SCHEMA,
 });
 
 const SCORE_RULE_SCHEMA = Type.Object({
   name: Type.String({
     description:
-      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
   kind: Type.Literal("score"),
   criteria: Type.Array(Type.String(), { minItems: 2 }),
@@ -99,12 +107,13 @@ const SCORE_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  override: OVERRIDE_SCHEMA,
 });
 
 const CHOICE_RULE_SCHEMA = Type.Object({
   name: Type.String({
     description:
-      "The rule id: findings join back to it; config rules later in the array override same-named earlier ones.",
+      "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
   kind: Type.Literal("choice"),
   criteria: Type.Record(Type.String(), Type.String(), {
@@ -117,6 +126,7 @@ const CHOICE_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  override: OVERRIDE_SCHEMA,
 });
 
 const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, SCORE_RULE_SCHEMA, CHOICE_RULE_SCHEMA]);
@@ -200,10 +210,12 @@ export interface ResolvedConfig {
  */
 export interface LoadOptions {
   /**
-   * The compiled defaults baseline: resolves string rule names and the rules-less config. The sdk
-   * knows no rules - the entry point supplies its own bundled set.
+   * The compiled rule catalog: resolves a rule named by a bare string (the JSON tier). The sdk
+   * knows no rules - the entry point supplies the catalog of every domain.
    */
-  baseline?: Record<string, Rule>;
+  catalog?: Record<string, Rule>;
+  /** True: a config with no rules is valid (the structure-only verbs never classify). */
+  rulesOptional?: boolean;
 }
 
 export function loadConfig(
@@ -239,7 +251,7 @@ export async function loadDeclarativeConfig(
       { cause: e },
     );
   }
-  return validateConfig(raw, path, options?.baseline);
+  return validateConfig(raw, path, options?.catalog, undefined, options?.rulesOptional);
 }
 
 /**
@@ -266,7 +278,13 @@ export async function loadTsConfig(path: string, options?: LoadOptions): Promise
       return false;
     });
   }
-  const resolved = validateConfig(declarative, path, options?.baseline, customRules);
+  const resolved = validateConfig(
+    declarative,
+    path,
+    options?.catalog,
+    customRules,
+    options?.rulesOptional,
+  );
   // names are global across the two rule forms: a callback rule shadowing a declarative one (or
   // vice versa) in the same array is a config contradiction, fatal and named
   const declarativeNames = new Set(resolved.rules.map((rule) => rule.name));
@@ -364,36 +382,75 @@ function throwConfigInvalid(raw: unknown, source: string): never {
 }
 
 /**
- * Entries to compiled rules, last wins per name: a bare name selects a compiled baseline default,
- * an object declares a full rule through the single compile seam. No entries means the baseline IS
- * the rule set. An unknown name is a config error that suggests the closest known one — names are
- * how a consumer selects defaults, so a near-miss deserves a pointer, not just a rejection.
+ * What a config with no rules is told: the domains a config can import from and the rules each
+ * holds, with the smallest working config. Written for the agent that reads the error and writes
+ * the config - every name it needs is in the message.
+ */
+export function noRulesAdvice(): string {
+  const domains = registeredRuleDomains();
+  const listing = Object.entries(domains)
+    .map(([key, names]) => `  jint:rules/${key}: ${names.join(", ")}`)
+    .join("\n");
+  const first = Object.entries(domains)[0];
+  const example =
+    first === undefined
+      ? ""
+      : `\nexample jint.config.ts:\n  import { ${first[1][0]} } from "jint:rules/${first[0]}";\n  import { defineConfig } from "jint:sdk";\n  export default defineConfig({ rules: [${first[1][0]}] });\nA jint.config.json names a rule as a string: { "rules": ["${first[1][0]}"] }.`;
+  return (
+    "pick the rules to run from the domains below" +
+    (listing === "" ? "" : "\n" + listing) +
+    example
+  );
+}
+
+/**
+ * Entries to compiled rules. A bare name selects a compiled catalog rule, an object declares a full
+ * rule through the single compile seam. A repeated name is a config error naming both entries -
+ * nothing wins silently - unless the later entry sets override: true, which replaces the earlier
+ * one and is itself an error when there is nothing to replace. No entries is a config error that
+ * lists the domains. An unknown name suggests the closest known one - names are how a consumer
+ * selects rules, so a near-miss deserves a pointer, not just a rejection.
  */
 function resolveRules(
   entries: readonly (string | Static<typeof RULE_SCHEMA>)[] | undefined,
-  baseline: Record<string, Rule> | undefined,
+  catalog: Record<string, Rule> | undefined,
   source: string,
+  rulesOptional: boolean,
 ): Map<string, Rule> {
   const byName = new Map<string, Rule>();
+  const at = new Map<string, number>();
   if (entries === undefined) {
-    if (baseline === undefined) {
+    if (rulesOptional) return byName;
+    throw new SetupError(
+      "CONFIG_NO_RULES",
+      `invalid config ${source}: no rules to run - the config declares no rules; ${noRulesAdvice()}`,
+    );
+  }
+  entries.forEach((entry, index) => {
+    const name = typeof entry === "string" ? entry : entry.name;
+    const override = typeof entry !== "string" && entry.override === true;
+    const earlier = at.get(name);
+    if (earlier !== undefined && !override) {
       throw new SetupError(
-        "CONFIG_NO_RULES",
-        `invalid config ${source}: no rules to run - the config declares no rules and no defaults baseline was provided`,
+        "CONFIG_INVALID",
+        `invalid config ${source}: rule '${name}' is declared twice (rules[${earlier}] and rules[${index}]) - drop one, or set override: true on rules[${index}] to replace rules[${earlier}]`,
       );
     }
-    for (const rule of Object.values(baseline)) byName.set(rule.name, rule);
-    return byName;
-  }
-  for (const entry of entries) {
+    if (earlier === undefined && override) {
+      throw new SetupError(
+        "CONFIG_INVALID",
+        `invalid config ${source}: rules[${index}] sets override: true but no earlier rule is named '${name}' - drop override`,
+      );
+    }
+    at.set(name, index);
     if (typeof entry === "string") {
-      const rule = baseline?.[entry];
+      const rule = catalog?.[entry];
       if (rule === undefined) {
-        const valid = Object.keys(baseline ?? {});
+        const valid = Object.keys(catalog ?? {});
         const suggest = closestName(entry, new Set(valid));
         throw new SetupError(
           "CONFIG_INVALID",
-          `invalid config ${source}: unknown rule name '${entry}'${baseline === undefined ? " - no defaults baseline was provided" : ""}`,
+          `invalid config ${source}: unknown rule name '${entry}'${catalog === undefined ? " - no rule catalog was provided" : ""}`,
           {
             detail: {
               kind: "unknown-rule",
@@ -405,9 +462,10 @@ function resolveRules(
       }
       byName.set(entry, rule);
     } else {
-      byName.set(entry.name, compileRule(entry, source));
+      const { override: _override, ...spec } = entry;
+      byName.set(entry.name, compileRule(spec as typeof entry, source));
     }
-  }
+  });
   return byName;
 }
 
@@ -418,16 +476,17 @@ function resolveRules(
 export function validateConfig(
   raw: unknown,
   source: string,
-  baseline?: Record<string, Rule>,
+  catalog?: Record<string, Rule>,
   customRules: readonly CustomRule[] = [],
+  rulesOptional = false,
 ): ResolvedConfig {
   if (!Value.Check(CONFIG_SCHEMA, raw)) throwConfigInvalid(raw, source);
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
-  const byName = resolveRules(parsed.rules, baseline, source);
+  const byName = resolveRules(parsed.rules, catalog, source, rulesOptional);
   for (const name of parsed.disable ?? []) byName.delete(name);
   // A run that would measure nothing is fatal and named: an empty report must never look like
   // success — the resolved set has to be non-empty across both rule forms.
-  if (byName.size === 0 && customRules.length === 0) {
+  if (byName.size === 0 && customRules.length === 0 && !rulesOptional) {
     throw new SetupError(
       "CONFIG_NO_RULES",
       `invalid config ${source}: no rules to run - declare at least one rule, or drop the disable list`,

@@ -24,16 +24,17 @@ never state the element kind yourself. Changing instructions is a recalibration
 event. Criteria pin what each answer means; for score rules the ordered
 criteria list is the score legend (score 0..N).
 
-| key            | meaning                                                                                                                                               |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | The rule id: findings join back to it; config rules later in the array override same-named earlier ones.                                              |
-| `kind`         | noul                                                                                                                                                  |
-| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading. |
-| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                |
-| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                               |
-| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                |
-| `include`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                |
-| `exclude`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                |
+| key            | meaning                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                       |
+| `kind`         | noul                                                                                                                                                          |
+| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.         |
+| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                        |
+| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                       |
+| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                        |
+| `include`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                        |
+| `exclude`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                        |
+| `override`     | true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too. |
 
 Handles, one form per kind - direction lives in the handle, never in prose:
 
@@ -143,5 +144,5 @@ conventions.
   not a rule.
 
 AGENTS.md ("Adding defaults") is the authority for this ritual, including the
-precedent (is_filename_fitting, issue 006: TS test 0.36/0.88, Go test
+precedent (has_filename_mismatch, issue 006: TS test 0.36/0.88, Go test
 0.25/0.72). Defer to it; do not restate thresholds here.

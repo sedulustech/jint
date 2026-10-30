@@ -19,7 +19,7 @@
   },
   "measurements": [
     {
-      "rule": "is_filename_fitting",
+      "rule": "has_filename_mismatch",
       "input": "complex.ts",
       "value": 0.3,
       "element": {
@@ -425,7 +425,7 @@
       }
     },
     {
-      "rule": "is_filename_fitting",
+      "rule": "has_filename_mismatch",
       "input": "helpers.ts",
       "value": 0.3,
       "element": {
@@ -931,66 +931,6 @@
   "notes": [],
   "rules": [
     {
-      "name": "is_vocabulary_consistent",
-      "criteria": {
-        "true": "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
-        "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
-      },
-      "handle": {
-        "warn": {
-          "less_than": 0.75
-        },
-        "error": {
-          "less_than": 0.6
-        }
-      }
-    },
-    {
-      "name": "is_naming_convention_consistent",
-      "criteria": {
-        "true": "Identifiers of the same kind follow one casing convention.",
-        "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
-      },
-      "handle": {
-        "warn": {
-          "less_than": 0.75
-        },
-        "error": {
-          "less_than": 0.65
-        }
-      }
-    },
-    {
-      "name": "is_greppable",
-      "criteria": {
-        "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
-        "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
-      },
-      "handle": {
-        "warn": {
-          "less_than": 0.75
-        },
-        "error": {
-          "less_than": 0.6
-        }
-      }
-    },
-    {
-      "name": "is_filename_fitting",
-      "criteria": {
-        "true": "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
-        "false": "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
-      },
-      "handle": {
-        "warn": {
-          "greater_than": 0.55
-        },
-        "error": {
-          "greater_than": 0.75
-        }
-      }
-    },
-    {
       "name": "is_comment_narration",
       "criteria": {
         "true": "At least one comment merely narrates the code: it restates what the code already says - translating statements into prose, echoing the identifier's own name, or annotating the obvious (an increment, an assignment, a return) - so removing it loses nothing a reader could not get from the code itself.",
@@ -1038,17 +978,17 @@
       }
     },
     {
-      "name": "will_error_lose_cause",
+      "name": "is_function_srp",
       "criteria": {
-        "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
-        "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+        "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
+        "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
       },
       "handle": {
         "warn": {
-          "greater_than": 0.4
+          "less_than": 0.45
         },
         "error": {
-          "greater_than": 0.7
+          "less_than": 0.3
         }
       }
     },
@@ -1071,17 +1011,77 @@
       }
     },
     {
-      "name": "is_function_srp",
+      "name": "will_error_lose_cause",
       "criteria": {
-        "true": "The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.",
-        "false": "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
+        "true": "Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.",
+        "false": "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
       },
       "handle": {
         "warn": {
-          "less_than": 0.45
+          "greater_than": 0.4
         },
         "error": {
-          "less_than": 0.3
+          "greater_than": 0.7
+        }
+      }
+    },
+    {
+      "name": "is_vocabulary_consistent",
+      "criteria": {
+        "true": "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
+        "false": "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift."
+      },
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.6
+        }
+      }
+    },
+    {
+      "name": "is_naming_convention_consistent",
+      "criteria": {
+        "true": "Identifiers of the same kind follow one casing convention.",
+        "false": "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures."
+      },
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.65
+        }
+      }
+    },
+    {
+      "name": "is_greppable",
+      "criteria": {
+        "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+        "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
+      },
+      "handle": {
+        "warn": {
+          "less_than": 0.75
+        },
+        "error": {
+          "less_than": 0.6
+        }
+      }
+    },
+    {
+      "name": "has_filename_mismatch",
+      "criteria": {
+        "true": "The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.",
+        "false": "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false."
+      },
+      "handle": {
+        "warn": {
+          "greater_than": 0.55
+        },
+        "error": {
+          "greater_than": 0.75
         }
       }
     }

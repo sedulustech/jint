@@ -1,30 +1,30 @@
-import { defaultRules as defaultSpecs } from "@jint/defaults";
+import { domains } from "@jint/rules";
 import { compileRule, registerCustomRuleLoader, type Rule } from "@jint/sdk";
 
 /**
- * The bundled baseline: the defaults package's specs compiled through the sdk's public seam. The
- * sdk itself knows no rules — this module is the only place the two meet, and the only one that
- * names the rules. A new defaults version bumps this package, never the sdk.
+ * The bundled rule catalog: every domain's specs compiled through the sdk's public seam, by rule
+ * name. It resolves a rule named by a bare string (the JSON tier); nothing runs unless a config
+ * lists it. The sdk itself knows no rules - this module is the only place the two meet. A rule name
+ * in two domains is a build-time error: names are global.
  */
-export const defaultRules: Record<string, Rule> = Object.fromEntries(
-  defaultSpecs.map((spec) => {
-    const rule = compileRule(spec as never, "@jint/defaults");
-    return [rule.name, rule];
-  }),
-);
+export const catalog: Record<string, Rule> = (() => {
+  const byName: Record<string, Rule> = {};
+  const owner: Record<string, string> = {};
+  for (const [domain, specs] of Object.entries(domains)) {
+    for (const spec of specs) {
+      if (owner[spec.name] !== undefined) {
+        throw new Error(
+          `rule '${spec.name}' is defined in both jint:rules/${owner[spec.name]} and jint:rules/${domain}`,
+        );
+      }
+      owner[spec.name] = domain;
+      byName[spec.name] = compileRule(spec as never, "jint:rules/" + domain);
+    }
+  }
+  return byName;
+})();
 
-/** The built-in config used when no config file exists: no input, the bundled baseline. */
-export function defaultConfig() {
-  return Object.freeze({
-    input: "",
-    rules: Object.freeze(Object.values(defaultRules)),
-    customRules: Object.freeze([]),
-    include: Object.freeze([]),
-    exclude: Object.freeze(["**/fixtures/**"]),
-  });
-}
-
-/** Registers the virtual modules with the bundled defaults as the jint:defaults provider. */
+/** Registers the virtual modules: one jint:rules/<domain> per bundled domain. */
 export function provideVirtualModules(): void {
-  registerCustomRuleLoader({ defaults: defaultSpecs });
+  registerCustomRuleLoader({ domains });
 }

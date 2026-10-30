@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { defaultRules } from "@jint/defaults";
+import { domains } from "@jint/rules";
 import { loadTsConfig } from "../../../config/load.ts";
 import { registerCustomRuleLoader } from "./loader.ts";
 import { defineConfig, validateCustomRule } from "./schema.ts";
@@ -17,7 +17,7 @@ function write(name: string, code: string): string {
 afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
 const INLINE_RULE_CONFIG = [
-  'import { defaultRules, is_greppable } from "jint:defaults";\n' +
+  'import { is_greppable } from "jint:rules/naming";\n' +
     'import { defineConfig } from "jint:sdk";\n' +
     "export default defineConfig({\n" +
     "  rules: [\n" +
@@ -37,13 +37,13 @@ const INLINE_RULE_CONFIG = [
 ].join("");
 
 describe("loadTsConfig (the TS config tier)", () => {
-  // the provider is the entry point's decision; registered before any jint:defaults import runs
-  registerCustomRuleLoader({ defaults: defaultRules });
+  // the provider is the entry point's decision; registered before any jint:rules import runs
+  registerCustomRuleLoader({ domains });
 
   test("a TS config with an INLINE callback rule loads end to end: declarative compiles, callback validates", async () => {
     const path = write("inline-rule.config.ts", INLINE_RULE_CONFIG);
-    const config = await loadTsConfig(path, { baseline: undefined as never });
-    // the declarative entry (jint:defaults spread-override) compiled through the config seam
+    const config = await loadTsConfig(path, { catalog: undefined as never });
+    // the declarative entry (jint:rules spread-override) compiled through the config seam
     const greppable = config.rules.find((r) => r.name === "is_greppable");
     expect(greppable).toBeDefined();
     expect(greppable?.exclude).toEqual(["**/*.test.ts"]);
@@ -66,7 +66,7 @@ describe("loadTsConfig (the TS config tier)", () => {
     expect(async () => await loadTsConfig(path)).toThrow(/node:fs/);
   });
 
-  test("cross-file composition: relative imports compose, last-wins per name", async () => {
+  test("cross-file composition: relative imports compose, in array order", async () => {
     write(
       "shared.ts",
       "export const sharedRule = {\n" +
@@ -93,18 +93,55 @@ describe("loadTsConfig (the TS config tier)", () => {
     expect(config.customRules!.every((r) => typeof r.classify === "function")).toBe(true);
   });
 
-  test("jint:defaults serves defaultRules plus each rule under its own name", async () => {
+  test("jint:rules/<domain> serves the domain plus each rule under its own name", async () => {
     const path = write(
       "virtual.config.ts",
-      'import { defaultRules, is_greppable } from "jint:defaults";\n' +
+      'import { rules, is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        'export default defineConfig({ rules: [...defaultRules, { ...is_greppable, include: ["src/**"] }] });\n',
+        'export default defineConfig({ rules: [...rules, { ...is_greppable, include: ["src/**"], override: true }] });\n',
     );
     const config = await loadTsConfig(path);
-    // the whole baseline composed, and the named override replaced it (last wins per name)
+    // the whole domain composed, and the explicit override replaced the rule it names
     const greppable = config.rules.find((r) => r.name === "is_greppable");
     expect(greppable?.include).toEqual(["src/**"]);
     expect(config.rules.map((r) => r.name).filter((n) => n === "is_greppable")).toHaveLength(1);
+    expect(config.rules.map((r) => r.name)).toContain("has_filename_mismatch");
+  });
+
+  test("a rule imported twice without override is an error naming both entries", async () => {
+    const path = write(
+      "twice.config.ts",
+      'import { rules, is_greppable } from "jint:rules/naming";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        'export default defineConfig({ rules: [...rules, { ...is_greppable, include: ["src/**"] }] });\n',
+    );
+    expect(async () => await loadTsConfig(path)).toThrow(/'is_greppable' is declared twice/);
+  });
+
+  test("override on a rule that replaces nothing is an error", async () => {
+    const path = write(
+      "override-nothing.config.ts",
+      'import { is_greppable } from "jint:rules/naming";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        "export default defineConfig({ rules: [{ ...is_greppable, override: true }] });\n",
+    );
+    expect(async () => await loadTsConfig(path)).toThrow(/no earlier rule is named 'is_greppable'/);
+  });
+
+  test("a config with no rules names every domain and the rules in it", async () => {
+    const path = write(
+      "empty.config.ts",
+      'import { defineConfig } from "jint:sdk";\nexport default defineConfig({});\n',
+    );
+    try {
+      await loadTsConfig(path);
+      expect.unreachable();
+    } catch (e) {
+      const message = (e as Error).message;
+      expect(message).toContain("jint:rules/comments: ");
+      expect(message).toContain("jint:rules/naming: is_vocabulary_consistent");
+      expect(message).toContain('from "jint:rules/');
+    }
   });
 
   test("a thrown module fails fatal (CONFIG_INVALID), naming the file", async () => {
@@ -126,7 +163,7 @@ describe("loadTsConfig (the TS config tier)", () => {
   test("duplicate names: a callback rule shadowing a declarative one is fatal", async () => {
     const path = write(
       "dup.config.ts",
-      'import { is_greppable } from "jint:defaults";\n' +
+      'import { is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
         "export default defineConfig({ rules: [is_greppable, {\n" +
         '  name: "is_greppable", target: "comments",\n' +

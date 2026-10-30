@@ -1,16 +1,17 @@
-import { defaultRules, type RuleSchema } from "jint:defaults";
-import { defineConfig } from "jint:sdk";
+import { rules as comments } from "jint:rules/comments";
+import { rules as complexity } from "jint:rules/complexity";
+import { rules as errors } from "jint:rules/errors";
+import { rules as naming } from "jint:rules/naming";
+import { defineConfig, type RuleSchema } from "jint:sdk";
 
-// the default package's rules, imported directly - the workspace-consumer path (design
-// config-composition/03): the version is the workspace dependency, not the CLI baseline. The
-// jint:defaults virtual module exists for external users and compiled binaries; this repo is
-// neither. Test files are excluded: the rules calibrate on production code; structural test
-// selectors are not their domain.
+// Every rule domain, through the jint:rules/<domain> virtual modules. Test files are excluded: the
+// rules calibrate on production code; structural test selectors are not their domain.
 //
-// Composition surface: defaultRules is the whole set; individual rules export under their own
-// names for pick-and-override ({ ...is_greppable, include: ["src/**"] }).
+// Composition surface: a domain's `rules` is the whole domain; individual rules export under their
+// own names for pick-and-override ({ ...is_greppable, include: ["src/**"], override: true } when the
+// name is already in the list).
 
-// is_literal_shared: calibrated in packages/app, promoted repo-wide - NOT into the defaults (the
+// is_literal_shared: calibrated in packages/app, promoted repo-wide - NOT into an official domain (the
 // two-language promotion bar in AGENTS.md has not been met). Markdown and lockfiles stay out:
 // prose and lock data are not code with values flowing between sites.
 const is_literal_shared: RuleSchema = {
@@ -29,7 +30,7 @@ const is_literal_shared: RuleSchema = {
 };
 
 // is_doc_stateful: glossary discipline, calibrated in-repo on GLOSSARY.md (2026-10-19, one
-// language - NOT defaults-promoted; the two-language bar in AGENTS.md has not been met). The
+// language - NOT promoted into a domain; the two-language bar in AGENTS.md has not been met). The
 // defect has two species with one remedy: history/session narration, and pinned mutable facts
 // (counts, inventories, defaults) a code change silently falsifies. A score split of the two
 // was tried and reverted: not separable at definition granularity without paying precision,
@@ -90,7 +91,15 @@ const is_headword_consistent: RuleSchema = {
 };
 
 export default defineConfig({
-  rules: [...defaultRules, is_literal_shared, is_doc_stateful, is_headword_consistent],
+  rules: [
+    ...comments,
+    ...complexity,
+    ...errors,
+    ...naming,
+    is_literal_shared,
+    is_doc_stateful,
+    is_headword_consistent,
+  ],
   // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
   // values flowing between sites - the whole walk stops at the config level, not per rule. The
   // glossary rules reach GLOSSARY.md through their OWN rule include (the walk-union: discovery

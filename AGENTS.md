@@ -6,15 +6,15 @@ jint is an AI-classifier lint tool: it measures code with classifier judgments (
 
 CLI -> SDK -> provider; config is a single small typed file. The CLI is a thin client of the SDK — every CLI capability must exist as an SDK option first; nothing is CLI-only.
 
-### Adding defaults
+### Adding rules to a domain
 
-A rule is not promoted to the default set from one corpus: single-language calibration overfits that language's naming and structure conventions.
+A rule is not promoted into an official domain from one corpus: single-language calibration overfits that language's naming and structure conventions.
 
 - Test small on many languages, not big on a couple: a sample of real units per language. A language's conventions show in a few units; another hundred units of the same language add little.
 - Calibrate only on real code: agent-generated code from benchmarks, or existing open-source software. Never on fixtures written for the rule - they match the criteria by construction and prove nothing. Label a sample of the readings by hand: reruns show stability, only labels show correctness.
 - Document the healthy-max / defective-min gap for each language; thresholds must sit inside every measured gap.
 - Validate that the rule's claim survives each language's conventions (naming style, file/package layout) rather than only its syntax.
-- Precedent: is_filename_fitting (issue 006) — TS test 0.36/0.88, Go test 0.25/0.72 (cobra plus fixtures, before fixtures were ruled out), verb-name and package-per-dir conventions checked before promotion.
+- Precedent: has_filename_mismatch, then named is_filename_fitting (issue 006) — TS test 0.36/0.88, Go test 0.25/0.72 (cobra plus fixtures, before fixtures were ruled out), verb-name and package-per-dir conventions checked before promotion.
 
 ## Capture behavior
 

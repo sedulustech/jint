@@ -2,10 +2,10 @@
   "url": "https://api.openai.com/v1/decisions",
   "id": "11c0d374-51b0-40c4-8928-cdedfc7a22b4",
   "questionIds": [
-    "is_greppable",
-    "will_error_lose_cause",
+    "is_function_srp",
     "is_cognitively_complex",
-    "is_function_srp"
+    "will_error_lose_cause",
+    "is_greppable"
   ],
   "status": 200,
   "request": {
@@ -28,16 +28,11 @@
       {
         "type": "predicate",
         "name": "q0",
-        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?\n\nYes: The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.\nNo: At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
-      },
-      {
-        "type": "predicate",
-        "name": "q1",
-        "instructions": "Does this function's error handling lose information about the original failure?\n\nYes: Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.\nNo: Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+        "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?\n\nYes: The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.\nNo: There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
       },
       {
         "type": "score",
-        "name": "q2",
+        "name": "q1",
         "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
         "levels": [
           {
@@ -56,8 +51,13 @@
       },
       {
         "type": "predicate",
+        "name": "q2",
+        "instructions": "Does this function's error handling lose information about the original failure?\n\nYes: Error handling loses information: a caught error is swallowed, rethrown without its cause, or replaced by a message that drops the original failure detail.\nNo: Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently."
+      },
+      {
+        "type": "predicate",
         "name": "q3",
-        "instructions": "Does this unit serve a single cohesive responsibility, every step serving one stated purpose?\n\nYes: The unit performs one cohesive responsibility: all its steps serve a single purpose its name and docblock state.\nNo: There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects."
+        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?\n\nYes: The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.\nNo: At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
       }
     ]
   },
@@ -67,16 +67,11 @@
       {
         "type": "predicate",
         "name": "q0",
-        "probability": 0.9
-      },
-      {
-        "type": "predicate",
-        "name": "q1",
         "probability": 0.5
       },
       {
         "type": "score",
-        "name": "q2",
+        "name": "q1",
         "confidence": 0.36,
         "probabilities": [
           {
@@ -95,8 +90,13 @@
       },
       {
         "type": "predicate",
-        "name": "q3",
+        "name": "q2",
         "probability": 0.5
+      },
+      {
+        "type": "predicate",
+        "name": "q3",
+        "probability": 0.9
       }
     ],
     "usage": {

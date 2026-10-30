@@ -9,6 +9,12 @@ It then turns the classification values into actionable output via per-rule call
 
 [Read the blogpost!](https://sedulus.tech/blog/jint/)
 
+## Why
+
+The best outcome is one where an agent can infer what you expect from the sources you give it, so you go from idea to code without reviewing every step or handholding the agent.
+`jint` is the first step: it verifies what a syntax check cannot see (naming, intent, error handling, comments), and an agent reads its findings to correct itself.
+It is not full verification, and a passing run does not prove the code is right.
+
 Results:
 
 - [jint being used to refactor a component of `jint`'s UI.](https://github.com/sedulustech/jint/commit/084f0af8b08a3261358d0f96d37dd6fa4a77cd36)
@@ -45,9 +51,10 @@ On Linux the only system requirement is glibc (any mainstream distro).
 On musl-based images (Alpine), install a glibc layer first or use a glibc base image.
 
 ```ts
-import { defaultRules } from "jint:defaults";
+import { rules as comments } from "jint:rules/comments";
+import { is_greppable } from "jint:rules/naming";
 
-export default { rules: [...defaultRules] };
+export default { rules: [...comments, is_greppable] };
 ```
 
 ### Skill
@@ -195,16 +202,25 @@ A TS config rule may also carry a callback `handle: (results, ctx) => decisions`
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
 `null` severity is silent (measurement only).
 
-#### Default rules
+#### Rule domains
 
-The rules shipped as default were calibrated and dogfooded against jint's own `src/` and other repositories.
+jint runs only the rules a config names. There is no default set: a run with no config, or a config with no rules, fails with the list of domains and the rules in each, so an agent can read the error and write the config for the codebase it is in.
 
-You can re-declare a default rule by name to override it.
-Omitting `target` on an override keeps the default rule's own target.
+Rules are grouped by domain, one package each, imported as `jint:rules/<domain>`:
 
-Treat default rules as a starting point and tune once you understand how `jint` works and have your own rules to enforce.
+- `comments`: narration, readability patches, drift.
+- `complexity`: cognitive complexity, single responsibility.
+- `errors`: error handling that loses its cause.
+- `naming`: vocabulary, casing, greppability, file names that match their bodies.
 
-The authoritative list of default rules lives in [`packages/defaults/src/index.ts`](packages/defaults/src/index.ts).
+A domain exports each rule under its own name and the whole domain as `rules`.
+A technology is a domain too (`typescript`, `react`), and a domain may nest subdomains (`comments/typescript`).
+The shipped rules were calibrated and dogfooded against jint's own `src/` and other repositories; treat them as a starting point.
+
+A rule name that appears twice in a config is an error naming both entries.
+To replace a rule, spread it, change it, and set `override: true`: `{ ...is_greppable, include: ["src/**"], override: true }`.
+
+The rules live in `packages/rules-<domain>/src/index.ts`; the generated reference is [`docs/rules.md`](docs/rules.md).
 
 ### Custom grammars
 

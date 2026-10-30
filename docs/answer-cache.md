@@ -34,7 +34,7 @@ The endpoint's path is in the key too: one host can route to different backends 
 an API version), and an answer is only the same where the backend is. Userinfo and query stay out,
 because they can carry a credential.
 
-The path of the file is in the key on purpose. Rules such as `is_filename_fitting` judge it, so a renamed file
+The path of the file is in the key on purpose. Rules such as `has_filename_mismatch` judge it, so a renamed file
 is a new question.
 
 ## Why one key per question, not per request

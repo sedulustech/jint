@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { defaultRules } from "../../../tests/test-baseline.ts";
+import { catalog } from "../../../tests/test-baseline.ts";
 import { describeRule, describeRules } from "./rules.ts";
 import type { Rule } from "../types.ts";
 
@@ -74,7 +74,7 @@ describe("describeRules", () => {
   });
 
   test("defaults: every rule renders with name, question, and both criteria sides — nothing trimmed", () => {
-    const all = Object.values(defaultRules) as Rule[];
+    const all = Object.values(catalog) as Rule[];
     const block = describeRules(all);
     for (const rule of all) {
       expect(block).toContain(rule.name);

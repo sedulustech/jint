@@ -58,17 +58,17 @@ The finding's `@L` is pre-edit; re-check at the element's CURRENT line, or re-ru
 ## Custom rules
 
 Custom rules are authored INLINE in a TS config's `rules` array (the config takes the same keys a
-cconfig file takes): a declarative rule composed next to the defaults, or a callback rule for the
+cconfig file takes): a declarative rule composed next to the shipped domains, or a callback rule for the
 cases data can't express.
 
 ```bash
 cat > jint.config.ts <<'EOF'
-import { defaultRules } from "@jint/defaults";
+import { rules as naming } from "jint:rules/naming";
 import { defineConfig } from "jint:sdk";
 
 export default defineConfig({
   rules: [
-    ...defaultRules,
+    ...naming,
     {
       name: "is_error_message_actionable",
       target: "functions",

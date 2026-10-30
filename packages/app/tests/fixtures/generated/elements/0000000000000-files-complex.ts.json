@@ -4,7 +4,7 @@
   "questionIds": [
     "is_vocabulary_consistent in L1-L25",
     "is_naming_convention_consistent in L1-L25",
-    "is_filename_fitting in L1-L25"
+    "has_filename_mismatch in L1-L25"
   ],
   "status": 200,
   "request": {
