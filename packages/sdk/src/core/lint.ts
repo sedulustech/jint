@@ -45,6 +45,8 @@ import {
   classifyFile,
   elementWireId,
   rulesForElement,
+  targetsOf,
+  matchesTarget,
   selectElement,
   selectElements,
   walkUnit,
@@ -451,6 +453,9 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     }
   }
 
+  // readings and errors so far: a run that ends with none explains itself (below)
+  let answered = 0;
+
   // the JSON-rule waves: files classify in bounded waves, each wave's results streamed as they
   // land (measurements before findings)
   for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
@@ -473,7 +478,10 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     for (let j = 0; j < results.length; j++) {
       const result = results[j]!;
       if (result.abort) aborted = true;
-      yield* unitOutcomeEvents(result, units[i + j]!, byName, options);
+      for (const event of unitOutcomeEvents(result, units[i + j]!, byName, options)) {
+        if (event.type === "measurement" || event.type === "error") answered++;
+        yield event;
+      }
     }
   }
 
@@ -481,9 +489,50 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // rule); its findings stream at the end of the run, bound to each target's span.
   if (customResolved !== undefined && !aborted) {
     const phase = await runCustomRules(customRules, customResolved, classifier, () => aborted);
-    for (const event of phase.events) yield event;
+    for (const event of phase.events) {
+      if (event.type === "measurement" || event.type === "error") answered++;
+      yield event;
+    }
     if (phase.fatal) aborted = true;
   }
+  if (answered === 0 && !aborted && options.element === undefined) {
+    for (const note of nothingMeasuredNotes(scopedRules, units, walked)) {
+      yield { type: "note", note };
+    }
+  }
+}
+
+/**
+ * Why a run measured nothing, one note per rule that had nothing to judge: no file reached the run,
+ * or the files hold no element of the rule's target kind (a comment rule over code with no
+ * comments). Rules that did have targets and were scoped out already carry their own scope notes.
+ */
+function nothingMeasuredNotes(
+  rules: readonly Rule[],
+  units: readonly Unit[],
+  walked: ReadonlyMap<number, WalkedUnit>,
+): string[] {
+  if (units.length === 0) return ["no file reached the run, so no rule had anything to judge"];
+  const notes: string[] = [];
+  for (const rule of rules) {
+    const targets = targetsOf(rule);
+    // a rule scoped out of every unit already carries its scope note; one that judges whole units
+    // always has a target
+    const reachable = units.filter((unit) =>
+      ruleInScope(rule, "path" in unit.state ? unit.state.path : ""),
+    );
+    if (reachable.length === 0) continue;
+    if (reachable.some((unit) => judgesWholeUnit(rule, unit.kind))) continue;
+    const found = [...walked.values()].some((w) =>
+      w.inventory.some((element) => targets.some((target) => matchesTarget(target, element))),
+    );
+    if (!found) {
+      notes.push(
+        `rule '${rule.name}' targets ${targets.join(", ")}: no such element in the ${units.length} file${units.length === 1 ? "" : "s"} of this run, so there was nothing to measure`,
+      );
+    }
+  }
+  return notes;
 }
 
 /**

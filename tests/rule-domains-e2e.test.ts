@@ -87,4 +87,15 @@ describe("rule domains: what a run needs", () => {
     expect(r.stderr).toContain("unknown rule domain");
     expect(r.stderr).toContain("jint:rules/errors: will_error_lose_cause");
   });
+
+  test("a run that measures nothing says why, per rule", async () => {
+    const dir = project("nothing-measured", {
+      "a.ts": "function alpha() {}\n",
+      "jint.config.json": JSON.stringify({ rules: ["is_comment_narration"] }),
+    });
+    const r = await runCli(["run", "a.ts"], { cwd: dir });
+    expect(r.code).toBe(4);
+    expect(r.stderr).toContain("rule 'is_comment_narration' targets comments: no such element");
+    expect(r.stderr).toContain("nothing was measured");
+  });
 });
