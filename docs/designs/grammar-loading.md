@@ -131,9 +131,9 @@ vocabulary-growth ledger. DECIDED AND FINAL: capture and target names are FLAT C
 names at either layer (the qualified capture address owns grammar-local addressing).
 
 `definitions` is DEMOTED TO SHORTHAND: the umbrella for functions+classes+methods+types+
-bindings, kept for old rules; new rules prefer the specific targets. The DEFAULTS were rewritten
+bindings, kept for old rules; new rules prefer the specific targets. The shipped rules were rewritten
 to the explicit union with identical measured behavior - pinned element-for-element against the
-shorthand by packages/sdk/src/core/rules/defaults-targets.test.ts.
+shorthand by packages/sdk/src/core/rules/rules-targets.test.ts.
 
 Per-grammar capture census: @class speaks in ts/tsx (class_declaration, abstract_class_declaration),
 python (class_definition), php (class_declaration, NOT anonymous_class), cpp (class_specifier,

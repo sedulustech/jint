@@ -255,10 +255,10 @@ export async function loadDeclarativeConfig(
 }
 
 /**
- * The imperative tier. The import gate allows only the virtual modules, the first-party defaults
- * package (install-time versioned), and relative/absolute files. Inline callback rules are
- * extracted BEFORE the boundary check because they are code, not data: they run through the custom
- * engine at lint time, while the declarative entries around them validate as JSON.
+ * The imperative tier. The import gate allows only the virtual modules, and relative/absolute
+ * files. Inline callback rules are extracted BEFORE the boundary check because they are code, not
+ * data: they run through the custom engine at lint time, while the declarative entries around them
+ * validate as JSON.
  */
 export async function loadTsConfig(path: string, options?: LoadOptions): Promise<ResolvedConfig> {
   const abs = resolve(path);

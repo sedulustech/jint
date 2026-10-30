@@ -996,7 +996,7 @@ async function serveVerb(rest: readonly string[]): Promise<number> {
  * Capture [<target>] [--queries <file.scm>] [--grammar <dir>] [--rule <name>]: a thin print of the
  * SDK's capture scope - input resolution, grammar routing, extraction; no rules run, no classifier,
  * no stdin (a dash target is run's str noun, not capture's). The CONFIG loads exactly like run's
- * (--config > discovered jint.config.* > built-in defaults), so capture measures the same
+ * (--config > discovered jint.config.* > the structure-only config), so capture measures the same
  * population a run will classify: no target walks the config's input; a target walks it under the
  * config's still-applicable scoping (include/exclude/secretDenylist - an explicit single FILE
  * bypasses excludes, as in run); a config that cannot load fails with run's exact error. --rule

@@ -56,7 +56,7 @@ Registration happens at lint start. A user wasm wins over an embedded grammar of
 language; a queries.scm+extensions.json dir without a wasm shadows an embedded grammar. The
 SHARED capture vocabulary is the contract: the seam accepts ANY grammar, and a shared capture
 brings the whole ontology with it - the rules, the target table (docs/targets.md), and every
-default rule work on your language unchanged. Your own captures need only their declaration
+shipped rule work on your language unchanged. Your own captures need only their declaration
 directives. Your .scm decides which of your grammar's node types speak as which capture.
 
 ### What you will meet when validation fails

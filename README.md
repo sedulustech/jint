@@ -131,7 +131,7 @@ either - same error, same message.
 `capture --rule <name>` previews one rule's population before any classification: the elements
 the rule's target and scope globs (`include`/`exclude` lists) would measure render with a
 leading `*` marker column (unmatched lines keep the column as a space), and carry
-`"matches": true` in `--json` - absent otherwise, never `false`. Default rules are addressed
+`"matches": true` in `--json` - absent otherwise, never `false`. Shipped rules are addressed
 by name, config rules by theirs; an unknown name is run's own loud `unknown rule` error.
 Iterate on rules and scopes against this preview, then classify.
 

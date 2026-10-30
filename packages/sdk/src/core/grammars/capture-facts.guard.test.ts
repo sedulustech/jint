@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -26,7 +27,9 @@ const GRAMMARS = join(import.meta.dir);
 const ROOTS = [
   join(REPO, "packages", "sdk", "src", "core"),
   join(REPO, "packages", "contract", "src"),
-  join(REPO, "packages", "defaults", "src"),
+  ...readdirSync(join(REPO, "packages"))
+    .filter((name) => name === "rules" || name.startsWith("rules-"))
+    .map((name) => join(REPO, "packages", name, "src")),
   join(REPO, "packages", "cli", "src"),
 ];
 

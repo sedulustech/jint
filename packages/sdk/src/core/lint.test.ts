@@ -23,8 +23,8 @@ import {
 /**
  * Synthetic rule data, one per kind: schema-shaped entries the engine tests compose from. The
  * engine's behavior (stream order, finding-follows-measurement, aggregation, per-unit failures) is
- * inert to defaults edits - a rule-data change in @jint/defaults cannot move these assertions,
- * because every fixture here derives from the data this file declares.
+ * inert to rule-data edits - a change in any rule domain cannot move these assertions, because
+ * every fixture here derives from the data this file declares.
  */
 const NOUL_DATA = {
   name: "probe_noul",

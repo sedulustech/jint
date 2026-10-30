@@ -1,8 +1,8 @@
 # Configuration
 
 One config file per run, two tiers. Discovery prefers `jint.config.ts` and falls back to
-`jint.config.json`; `--config` overrides discovery; no config file means the built-in defaults
-(all default rules, input from the CLI positional). Both tiers share one validation boundary
+`jint.config.json`; `--config` overrides discovery; a run with no config file fails and lists the rule domains (jint
+runs only the rules a config names; `capture` needs none). Both tiers share one validation boundary
 (`validateConfig`) and resolve to the same `ResolvedConfig` shape.
 
 ## Tier 1: `jint.config.json` — declarative
@@ -12,15 +12,15 @@ executes and no import gate is needed. Loaded by `loadDeclarativeConfig`, valida
 `CONFIG_SCHEMA` — the same schema emitted verbatim as the checked-in [`jint.schema.json`](../jint.schema.json)
 for editor autocomplete via `$schema`.
 
-| key                                      | value                                                                                  |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| `input`                                  | path positional (a file or directory)                                                  |
-| `rules`                                  | default rule **names** or full rule objects; last wins per name; absent = all defaults |
-| `disable`                                | rule names removed after composition                                                   |
-| `exclude`                                | input exclusion globs, on top of the walker's defaults                                 |
-| `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                  |
-| `url`                                    | the Decisions endpoint asked (must end in `/decisions`); overrides `JINT_API_URL`      |
-| `apiKey`                                 | the key for this run; overrides `JINT_API_KEY` and `OPENAI_API_KEY`                    |
+| key                                      | value                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `input`                                  | path positional (a file or directory)                                                                    |
+| `rules`                                  | rule **names** or full rule objects; a repeated name is an error unless `override: true`; absent = error |
+| `disable`                                | rule names removed after composition                                                                     |
+| `exclude`                                | input exclusion globs, on top of the walker's defaults                                                   |
+| `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                                    |
+| `url`                                    | the Decisions endpoint asked (must end in `/decisions`); overrides `JINT_API_URL`                        |
+| `apiKey`                                 | the key for this run; overrides `JINT_API_KEY` and `OPENAI_API_KEY`                                      |
 
 `url` and `apiKey` choose where a run asks. Without them, the key you export picks the endpoint:
 `OPENAI_API_KEY` asks the default url, and `JINT_API_KEY` asks `JINT_API_URL`
@@ -123,7 +123,7 @@ export default defineConfig({
 The pattern above is the complete shape: a callback rule is a config `rules` entry whose
 `classify(self, ctx)` returns the question for that element (instructions, criteria, and a
 free-form `state` object the rule composes - the pairing IS the state); the repo root's own
-`jint.config.ts` mixes defaults with an inline declarative rule the same way.
+`jint.config.ts` mixes the shipped domains with an inline declarative rule the same way.
 
 The `handle` may instead be a `(results, ctx) => decisions` function, called once after
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.

@@ -119,4 +119,4 @@ export {
   type LintEvent,
 } from "./core/types.ts";
 
-/** The default rule surface: select by name in jint.config.json, spread programmatically. */
+/** The rule surface: select by name in jint.config.json, spread programmatically. */
