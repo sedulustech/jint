@@ -303,7 +303,7 @@ The evidence, both directions:
   fact in the runtime (docstring projection, below) is capture-generic.
 - **Measurement:** all three groupers were probed on the nine grammars' parity corpora plus real
   files (cobra command.go, v8 process.cc, quickjs-wasi interface.c, laravel Arr.php, hermes
-  hermes_state.py; `scripts/grouping-probe.ts`). The gap<=1 leading-run rule, innermost-owner
+  hermes_state.py; a one-off probe, not kept). The gap<=1 leading-run rule, innermost-owner
   containment, and run accumulation held everywhere; four defects were engine bugs, not
   language gaps (below). `attach.gap` is applied in NO embedded .scm: after the trailing-side
   fix no measured grammar needs a non-default gap, and the vocabulary ships for the first

@@ -61,6 +61,8 @@ stays stateless.
 ## Testing
 
 Unit tests are colocated next to the source they test (src/**/*.test.ts). The root tests/ directory holds only end-to-end/integration tests (process-spawning, e.g. the CLI binary) and shared helpers. Shared fixtures live in tests/fixtures/; single-consumer fixtures live next to their test. Run: bun test --parallel.
+
+One-off experiments and probes are not tracked: write them in ./tmp, which is gitignored, and delete them or keep them elsewhere when the question is answered. A script in scripts/ is something the repo runs (build, generate, release), never an experiment.
 Browser tests locate controls structurally - role, aria-label, data-testid, aria-controls -
 never by rendered text: copy changes, structure is the contract. Text assertions are for data
 values, and anchor in a structural container.
