@@ -15,7 +15,7 @@ let generatorStatus: number | null = null;
 beforeAll(() => {
   for (const rel of GENERATED_OUTPUTS) committed.set(rel, readFileSync(repoRoot + rel, "utf8"));
   generatorStatus = spawnSync("bun", ["scripts/generate-schema.ts"], { cwd: repoRoot }).status;
-});
+}, 30_000); // one generator process: well past the 5s hook default when the machine is busy
 
 describe("generated outputs", () => {
   test("the generator exits cleanly", () => {

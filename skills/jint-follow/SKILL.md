@@ -73,7 +73,8 @@ the question.
 
 ## Hard rules
 
-- Never edit rules, thresholds, the engine, or config to make a finding pass.
+- Never tamper: do not edit a rule, its thresholds, the config scope, or the engine to
+  make a finding pass. A change to a rule is its own item for the user to review.
 - If you believe a finding is wrong, report it and stop. Do not work around it.
 - Do not read the schema, thresholds, or score numbers. Severity + message is
   all you act on.

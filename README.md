@@ -59,7 +59,7 @@ export default { rules: [...comments, is_greppable] };
 
 ### Skill
 
-Skills for agents live in skills/: jint-follow (run jint, fix findings) and jint-author (author and calibrate rules). Both are generated (bun run schema). Copy or symlink them into your platform skill directory yourself.
+Skills for agents live in skills/: jint-follow (run jint, fix findings), jint-author (author and calibrate rules) and jint-propose (turn what you expect into rules, so the agent can verify its own work). The first two are generated (bun run schema). Copy or symlink them into your platform skill directory yourself.
 
 ## How to use
 

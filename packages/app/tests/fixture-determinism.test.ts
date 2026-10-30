@@ -50,4 +50,4 @@ test("generated fixture is byte-identical across runs", async () => {
     const parsed = JSON.parse(readFileSync(join(a, name), "utf8")) as { ts?: string };
     if (parsed.ts !== undefined) expect(parsed.ts).toBe("1970-01-01T00:00:00.000Z");
   }
-});
+}, 30_000); // two builder processes: well past the 5s default when the machine is busy
