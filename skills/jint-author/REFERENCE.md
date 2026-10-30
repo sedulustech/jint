@@ -8,11 +8,22 @@ The provider is a classifier, not a chat model: it returns calibrated
 probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 - **0.5 is undecided, not medium.** A noul of 0.45 vs 0.55 is not a ranking.
-- **Calibrated middle matters.** Thresholds live in the 0.3-0.8 band; generic
-  LLMs quantize to 0/1 and are useless here (measured: gemini flash-lite).
-- **State shape changes readings.** One state x many questions is valid; the
-  matrix form (many states + many questions in one call) averages everything.
-  jint handles this for you - never stack elements into one state yourself.
+- **Calibrated middle matters.** Thresholds live in the 0.3-0.8 band; a
+  classifier that quantizes to 0/1 is useless here.
+- **Positive phrasing can hide defects.** The model leans yes. A file-name rule
+  asked "does the name fit the body?" read a body named for another subject as
+  fitting (0.97); asked "does the name promise a different subject?" it read the
+  same file as a mismatch (0.96). Another rule, casing consistency, separated
+  its pairs under a positive question (healthy 0.99-1.00, defective 0.02-0.49),
+  so phrase the defect first and let a planted-defect control decide.
+- **Scores hedge onto the middle.** A three-level score put most of its mass on
+  level 1 (mean probabilities 0.37 / 0.52 / 0.12; level 1 on 389 of 448
+  readings; the same property asked as a yes/no also sat near 0.5). Yes/no rules
+  on properties with a clear pole read cleanly. Use a rubric only when the
+  property really is graded.
+- **State shape.** One state x many questions per call is valid and does not
+  move the readings (160 of 160 identical batched and alone). Never stack
+  elements into one state yourself: the frame is the unit.
 
 ## Noul example: a two-sided criteria contract
 
@@ -45,7 +56,8 @@ direction.
 
 ## Score example: the scored rubric
 
-Use a rubric when the property is graded, not yes/no. The instructions carry a
+Use a rubric only when the property is graded, not yes/no (scores hedge: see
+above). The instructions carry a
 scoping sentence ("do not score X here"); the ordered criteria are the score
 legend; levels are descriptions, not true/false. Rendered from the live spec
 `is_cognitively_complex`:
@@ -93,7 +105,8 @@ This shape reads reasonable and fails on a healthy corpus:
 ```
 
 It fails three ways: `false` is generic (name the exact observable condition),
-the claim spans multiple elements - the model compares against names it cannot
-see - and "drift" invites narrating quality instead of checking a condition.
+the claim spans multiple elements - the model sees only its own frame and
+compares against names it cannot see - and "drift" invites narrating quality
+instead of checking a condition.
 The fix is never thresholds; rewrite the criteria until they name an observable
 condition.

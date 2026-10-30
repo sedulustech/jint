@@ -87,7 +87,9 @@ Rule sources importable from the config:
 | `jint:rules/<domain>` | one domain's declarative specs (`rules` + each rule under its own name) | virtual module; its version IS the CLI's |
 | `./`, `../`, absolute | your own files                                                          | —                                        |
 
-Bare npm specifiers and `node:*` builtins are rejected before execution. The domains are
+Bare npm specifiers and `node:*` builtins are rejected in the config file before it runs. The
+gate is a portability fence for the entry file, not a sandbox: it scans that file's static
+imports only, so a relative helper may import anything the runtime offers. The domains are
 `comments`, `complexity`, `errors` and `naming`; [rules.md](rules.md) lists every rule in each.
 jint runs only the rules the config names: a config with no rules fails with the domain list.
 A rule name that appears twice is an error unless the later entry sets `override: true`.

@@ -2,8 +2,8 @@
 name: jint-author
 description: >
   Author and calibrate jint rules: criteria, handles, fixer messages, and the
-  calibration ritual - small tests on many languages - for promoting a rule to the
-  default set.
+  calibration ritual - small tests on many languages - for promoting a rule into an
+  official domain.
   Triggers: rule calibration, jint rules.
 ---
 
@@ -23,6 +23,14 @@ kind sentence ("This unit is a function definition.") to whatever you write, so
 never state the element kind yourself. Changing instructions is a recalibration
 event. Criteria pin what each answer means; for score rules the ordered
 criteria list is the score legend (score 0..N).
+
+Write the question about ONE property, as a yes/no the model can answer from the
+unit alone. Name the rule for what the true side says, so the value reads as the
+name: `has_filename_mismatch` high is bad, `is_greppable` high is good, and the
+handle direction follows. Two properties under one question is two rules: one
+reading cannot say which failed. The model sees only the element's frame (a
+comment rule sees the definition it belongs to), so a claim about code elsewhere
+cannot be judged. REFERENCE.md has what was measured.
 
 | key            | meaning                                                                                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,7 +133,7 @@ grammar's queries.scm, not a rule: see docs/captures.md and docs/directives.md
 
 ## The calibration ritual
 
-A rule is not promoted to the default set from one corpus:
+A rule is not promoted into an official domain from one corpus:
 single-language calibration overfits that language's naming and structure
 conventions.
 
@@ -134,15 +142,32 @@ conventions.
   units of the same language add little.
 - Calibrate only on real code: agent-generated code from benchmarks, or
   existing open-source software. Never on fixtures written for the rule - they
-  match the criteria by construction and prove nothing.
+  match the criteria by construction and prove nothing. A control is real code
+  with ONE mechanical edit that plants the defect (rename one function to another
+  casing, give a file another file's body): the good and the edited unit are a
+  pair, and the rule must separate every pair. A rule that never fires needs
+  this before its silence means anything.
 - Document the healthy-max / defective-min gap for each language; thresholds
   must sit inside every measured gap.
 - Validate that the rule's claim survives each language's conventions (naming
   style, file/package layout), not only its syntax.
+- Read the fire rate on healthy code. A rule that fires on a third of it (measured:
+  an error-handling rule at 10-36% across three repositories) is over-firing or
+  finding real defects, and only labels say which.
 - Label a sample of the readings by hand: reruns show stability, only labels
   show correctness. A rule with no labeled defective example is a hypothesis,
   not a rule.
 
-AGENTS.md ("Adding defaults") is the authority for this ritual, including the
+## Where a rule goes
+
+Rules live in domains, one package each, imported as `jint:rules/<domain>`. A
+domain is the property a rule judges (`comments`, `naming`) or a technology
+(`typescript`, `react`); a domain may nest subdomains (`comments/typescript`)
+that add rules or examples for one technology and never reword the parent's
+question - a reworded question is a different rule with its own calibration. A
+config that lists a rule name twice fails; replace a rule by spreading it with
+`override: true`. Per-rule `include` scopes a rule to the files it is about.
+
+AGENTS.md ("Adding rules to a domain") is the authority for this ritual, including the
 precedent (has_filename_mismatch, issue 006: TS test 0.36/0.88, Go test
 0.25/0.72). Defer to it; do not restate thresholds here.
