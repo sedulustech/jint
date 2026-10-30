@@ -1,8 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli } from "./helpers/cli.ts";
+import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
+import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // The rule-domain contract through the spawned binary: jint runs only the rules a config names, a
 // config with none (or no config at all) is told which domains exist, a name given twice is an
@@ -15,7 +16,7 @@ function project(name: string, files: Record<string, string>): string {
   const dir = join(ROOT_DIR, name);
   rmScratchTree(dir);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "a.ts"), "function alpha() {}\n");
+  writeFileSync(join(dir, "a.ts"), "// returns nothing\nfunction alpha() {}\n");
   for (const [file, text] of Object.entries(files)) writeFileSync(join(dir, file), text);
   return dir;
 }
@@ -56,5 +57,34 @@ describe("rule domains: what a run needs", () => {
     expect((await runCli(["capture", "a.ts"], { cwd: bare })).code).toBe(0);
     const rulesless = project("capture-rulesless", { "jint.config.json": "{}" });
     expect((await runCli(["capture", "a.ts"], { cwd: rulesless })).code).toBe(0);
+  });
+
+  test("the example in the error is a working config: written to disk as given, it runs", async () => {
+    const dir = project("from-the-error", {});
+    const first = await runCli(["run", "a.ts"], { cwd: dir });
+    const example = first.stderr.match(/example jint\.config\.ts:\n((?: {2}.+\n)+)/);
+    expect(example).not.toBeNull();
+    writeFileSync(join(dir, "jint.config.ts"), example![1]!.replace(/^ {2}/gm, ""));
+    const provider = startMockDecisions();
+    try {
+      const r = await runCli(["run", "a.ts", "--json"], {
+        cwd: dir,
+        env: mockDecisionsWire(provider.baseUrl),
+      });
+      expect([0, 1]).toContain(r.code);
+      expect(JSON.parse(r.stdout).measurements.length).toBeGreaterThan(0);
+    } finally {
+      provider.stop();
+    }
+  });
+
+  test("a config importing a domain that does not exist fails naming the ones that do", async () => {
+    const dir = project("unknown-domain", {
+      "jint.config.ts": 'import { rules } from "jint:rules/nope";\nexport default { rules };\n',
+    });
+    const r = await runCli(["run", "a.ts"], { cwd: dir });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("unknown rule domain");
+    expect(r.stderr).toContain("jint:rules/errors: will_error_lose_cause");
   });
 });
