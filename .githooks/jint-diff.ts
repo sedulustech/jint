@@ -1,12 +1,11 @@
 // jint over a commit's changes: measure the staged files with the repo's own rules, then keep only
 // the findings whose element overlaps a line the commit changed. Unchanged elements answer from the
 // answer cache, so the cost is the changed elements. A finding on the whole file (a file-level rule)
-// cannot be tied to a change, so it is not reported. Blocks on error-tier findings in changed code
-// and on a broken run; reports warnings and never blocks on them.
+// overlaps every change, so it is reported whenever the file is in the commit. Blocks on error-tier
+// findings in changed code and on a broken run; reports warnings and never blocks on them.
 //
 // Limit: the diff lines are the staged version; jint reads the working tree, so a file with
 // unstaged edits on top of the staged ones can misplace a span.
-import { readFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -66,9 +65,7 @@ const touched = report.findings.filter((f) => {
   const ranges = changed.get(path);
   if (ranges === undefined) return false;
   const { start, end } = f.location.span;
-  const wholeFile =
-    start.line === 1 && end.line >= readFileSync(path, "utf8").split("\n").length - 1;
-  return !wholeFile && ranges.some(([from, to]) => start.line <= to && end.line >= from);
+  return ranges.some(([from, to]) => start.line <= to && end.line >= from);
 });
 
 for (const f of touched) {
