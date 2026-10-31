@@ -1,4 +1,4 @@
-// jint over a commit's changes: measure the staged files with the repo's own rules, then keep only
+// jint over a commit's changes: measure the staged files with the repo's own config, then keep only
 // the findings whose element overlaps a line the commit changed. Unchanged elements answer from the
 // answer cache, so the cost is the changed elements. A finding on the whole file (a file-level rule)
 // overlaps every change, so it is reported whenever the file is in the commit. Blocks on error-tier
@@ -10,13 +10,12 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const run = (cmd: string[], input?: string) =>
-  Bun.spawnSync(cmd, { stdin: input === undefined ? "ignore" : new TextEncoder().encode(input) });
+const run = (cmd: string[], input?: string, env?: Record<string, string>) =>
+  Bun.spawnSync(cmd, {
+    stdin: input === undefined ? "ignore" : new TextEncoder().encode(input),
+    env: { ...process.env, ...env },
+  });
 const text = (b: Uint8Array) => new TextDecoder().decode(b);
-
-// the files jint.config.ts includes: source and styles, not tests; the glossary has its own rules
-const MEASURED = /(\.(ts|tsx|css)$|^GLOSSARY\.md$)/;
-const SKIPPED = /(\.test\.|\.test-browser\.|(^|\/)tests\/|\.d\.ts$)/;
 
 const diff = text(run(["git", "diff", "--cached", "-U0", "--diff-filter=ACM"]).stdout);
 const changed = new Map<string, [number, number][]>();
@@ -24,8 +23,8 @@ let file: string | undefined;
 for (const line of diff.split("\n")) {
   const header = line.match(/^\+\+\+ b\/(.+)$/);
   if (header) {
-    file = MEASURED.test(header[1]!) && !SKIPPED.test(header[1]!) ? header[1] : undefined;
-    if (file !== undefined) changed.set(file, []);
+    file = header[1];
+    changed.set(file!, []);
     continue;
   }
   const hunk = line.match(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/);
@@ -38,16 +37,6 @@ for (const line of diff.split("\n")) {
 if (changed.size === 0) process.exit(0);
 
 const runs = mkdtempSync(join(tmpdir(), "jint-hook-"));
-const result = Bun.spawnSync(["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"], {
-  stdin: new TextEncoder().encode([...changed.keys()].join("\n") + "\n"),
-  env: { ...process.env, JINT_RUNS_DIR: runs },
-});
-// 0 clean, 1 error findings, 4 nothing measured or a unit failed: all carry a report. 2 and 3 do not.
-if (![0, 1, 4].includes(result.exitCode)) {
-  process.stderr.write(text(result.stderr));
-  process.stderr.write(`jint: the run failed (exit ${result.exitCode}); blocking the commit\n`);
-  process.exit(1);
-}
 type Finding = {
   rule: string;
   value: number;
@@ -55,11 +44,23 @@ type Finding = {
   message?: string;
   location: { input: string; span: { start: { line: number }; end: { line: number } } };
 };
-const report = JSON.parse(text(result.stdout)) as {
-  findings: Finding[];
-  errors: { message: string }[];
-};
-
+// One run over the staged paths, piped as a path list: the caller names the files, so exactly those
+// are measured (a list is caller-curated; a rule's own include still scopes it). A path no grammar
+// claims is a note, not a failure. Exit 0 clean, 1 error findings, 4 nothing measured: all carry a
+// report. 2 and 3 do not.
+const result = run(
+  ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],
+  [...changed.keys()].join("\n"),
+  {
+    JINT_RUNS_DIR: runs,
+  },
+);
+if (![0, 1, 4].includes(result.exitCode)) {
+  process.stderr.write(text(result.stderr));
+  process.stderr.write(`jint: the run failed (exit ${result.exitCode}); blocking the commit\n`);
+  process.exit(1);
+}
+const report = JSON.parse(text(result.stdout)) as { findings: Finding[] };
 const touched = report.findings.filter((f) => {
   const path = f.location.input.split("#")[0]!;
   const ranges = changed.get(path);
