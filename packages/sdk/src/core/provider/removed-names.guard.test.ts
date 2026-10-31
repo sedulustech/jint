@@ -22,7 +22,7 @@ const ALLOWED: string[] = [
   "docs/calibration/", // historical calibration records
   "docs/designs/", // design notes record what was removed and why
   "AGENTS.md", // names the rule's earlier name in the calibration precedent
-  "packages/rules-naming/src/index.ts", // the rename note on has_filename_mismatch
+  "packages/rules/naming/src/index.ts", // the rename note on has_filename_mismatch
   "packages/sdk/src/ui/request-file.ts", // the legacy/gateway-shape reader
   "packages/sdk/src/ui/request-file.test.ts", // its tests
   "packages/app/tests/fixtures/", // recorded runs, legacy shape included

@@ -6,7 +6,8 @@
     "jint": "./packages/cli/dist/cli.js"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/rules/*"
   ],
   "files": [
     "jint.schema.json"

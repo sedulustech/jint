@@ -2,7 +2,8 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Docs/rules.md from the rule domain packages (packages/rules-comments, rules-complexity, ...)
+ * - Docs/rules.md from the rule domain packages (packages/rules/comments, packages/rules/complexity,
+ *   ...)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
  * - Docs/targets.md from the target vocabulary and each embedded grammar's queries.scm census
  * - Docs/directives.md from the loader's directive vocabulary and each embedded grammar's use of it

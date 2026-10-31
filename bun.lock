@@ -87,28 +87,28 @@
         "@jint/rules-naming": "workspace:*",
       },
     },
-    "packages/rules-comments": {
+    "packages/rules/comments": {
       "name": "@jint/rules-comments",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
       },
     },
-    "packages/rules-complexity": {
+    "packages/rules/complexity": {
       "name": "@jint/rules-complexity",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
       },
     },
-    "packages/rules-errors": {
+    "packages/rules/errors": {
       "name": "@jint/rules-errors",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
       },
     },
-    "packages/rules-naming": {
+    "packages/rules/naming": {
       "name": "@jint/rules-naming",
       "version": "0.1.0",
       "dependencies": {
@@ -265,13 +265,13 @@
 
     "@jint/rules": ["@jint/rules@workspace:packages/rules"],
 
-    "@jint/rules-comments": ["@jint/rules-comments@workspace:packages/rules-comments"],
+    "@jint/rules-comments": ["@jint/rules-comments@workspace:packages/rules/comments"],
 
-    "@jint/rules-complexity": ["@jint/rules-complexity@workspace:packages/rules-complexity"],
+    "@jint/rules-complexity": ["@jint/rules-complexity@workspace:packages/rules/complexity"],
 
-    "@jint/rules-errors": ["@jint/rules-errors@workspace:packages/rules-errors"],
+    "@jint/rules-errors": ["@jint/rules-errors@workspace:packages/rules/errors"],
 
-    "@jint/rules-naming": ["@jint/rules-naming@workspace:packages/rules-naming"],
+    "@jint/rules-naming": ["@jint/rules-naming@workspace:packages/rules/naming"],
 
     "@jint/sdk": ["@jint/sdk@workspace:packages/sdk"],
 

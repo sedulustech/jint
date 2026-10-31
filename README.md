@@ -220,7 +220,7 @@ The shipped rules were calibrated and dogfooded against jint's own `src/` and ot
 A rule name that appears twice in a config is an error naming both entries.
 To replace a rule, spread it, change it, and set `override: true`: `{ ...is_greppable, include: ["src/**"], override: true }`.
 
-The rules live in `packages/rules-<domain>/src/index.ts`; the generated reference is [`docs/rules.md`](docs/rules.md).
+The rules live in `packages/rules/<domain>/src/index.ts`; the generated reference is [`docs/rules.md`](docs/rules.md).
 
 ### Custom grammars
 

@@ -27,9 +27,10 @@ const GRAMMARS = join(import.meta.dir);
 const ROOTS = [
   join(REPO, "packages", "sdk", "src", "core"),
   join(REPO, "packages", "contract", "src"),
-  ...readdirSync(join(REPO, "packages"))
-    .filter((name) => name === "rules" || name.startsWith("rules-"))
-    .map((name) => join(REPO, "packages", name, "src")),
+  join(REPO, "packages", "rules", "src"),
+  ...readdirSync(join(REPO, "packages", "rules"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== "src" && entry.name !== "node_modules")
+    .map((entry) => join(REPO, "packages", "rules", entry.name, "src")),
   join(REPO, "packages", "cli", "src"),
 ];
 

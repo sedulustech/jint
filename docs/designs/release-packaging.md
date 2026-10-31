@@ -10,8 +10,8 @@ How the workspace packages relate to releases and versions, now and when publish
 
 ## What exists today
 
-Workspace packages, all `private: true`: `contract` (pure types, zero deps), one `rules-<domain>`
-per rule domain plus `rules` (the aggregate the cli bundles), `sdk` (the engine - measurement
+Workspace packages, all `private: true`: `contract` (pure types, zero deps), one `rules/<domain>`
+package per rule domain plus `rules` (the aggregate the cli bundles), `sdk` (the engine - measurement
 semantics), `cli` (thin composition of sdk + rules + contract), `app` (the UI - embedded into
 the cli binary at compile time, never a package). Internal dependencies are `workspace:*`. The
 release process (tag push -> draft GitHub release with compiled binaries -> human edits notes ->

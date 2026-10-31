@@ -11,7 +11,7 @@ How the shipped rules are grouped, imported and run, now that there is no defaul
 ## Decision
 
 Rules are grouped by domain. A domain is a named group of rules and one workspace package
-(`packages/rules-<domain>`), imported as `jint:rules/<domain>`. A domain exports each rule under
+(`packages/rules/<domain>`, package `@jint/rules-<domain>`), imported as `jint:rules/<domain>`. A domain exports each rule under
 its own name and the whole group as `rules`. The domains are `comments`, `complexity`, `errors`
 and `naming`.
 

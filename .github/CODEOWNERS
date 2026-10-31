@@ -1,2 +1,2 @@
 # The rule domains are calibration-gated data: a threshold move is a measurement event, not an edit.
-/packages/rules*/ @crjm
+/packages/rules/ @crjm
