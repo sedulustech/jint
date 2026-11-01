@@ -67,7 +67,7 @@ import { rules as naming } from "jint:rules/naming";
 import { defineConfig } from "jint:sdk";
 
 export default defineConfig({
-  rules: [
+  rules: { use: [
     ...naming,
     {
       name: "is_error_message_actionable",
@@ -79,7 +79,7 @@ export default defineConfig({
       }),
       handle: { warn: { greater_than: 0.5 } },
     },
-  ],
+  ] },
 });
 EOF
 ```

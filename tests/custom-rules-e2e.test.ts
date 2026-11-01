@@ -29,7 +29,7 @@ const GOOD_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
   input: "fixture.ts",
-  rules: [{
+  rules: { use: [{
     name: "will_ts_rule_fire",
     target: "comments",
     classify: (self, ctx) => ({
@@ -38,7 +38,7 @@ export default defineConfig({
       state: { comment: self.source, targets: ctx.targets.length, composed: { free: true } },
     }),
     handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
-  }],
+  }] },
 });
 `;
 
@@ -46,7 +46,7 @@ const POLICY_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
   input: "fixture.ts",
-  rules: [{
+  rules: { use: [{
     name: "will_policy_decide",
     target: "comments",
     classify: (self) => ({
@@ -73,7 +73,7 @@ export default defineConfig({
             " target)",
         };
       }),
-  }],
+  }] },
 });
 `;
 
@@ -81,12 +81,12 @@ const BAD_SPEC_CONFIG = `
 import { defineConfig } from "jint:sdk";
 export default defineConfig({
   input: "fixture.ts",
-  rules: [{
+  rules: { use: [{
     name: "will_break_contract",
     target: "comments",
     classify: () => ({ instructions: "i", criteria: { true: "t" }, state: {} }),
     handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },
-  }],
+  }] },
 });
 `;
 
@@ -229,7 +229,7 @@ describe("cli: custom rules end-to-end", () => {
         'import { defineConfig } from "jint:sdk";',
         "export default defineConfig({",
         '  input: "fixture.ts",',
-        "  rules: [",
+        "  rules: { use: [",
         "    is_greppable,",
         "    {",
         '      name: "is_greppable",',
@@ -237,7 +237,7 @@ describe("cli: custom rules end-to-end", () => {
         '      classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),',
         "      handle: { warn: { greater_than: 0.5 } },",
         "    },",
-        "  ],",
+        "  ] },",
         "});",
       ].join("\n"),
     );

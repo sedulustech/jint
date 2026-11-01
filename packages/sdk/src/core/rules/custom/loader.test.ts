@@ -20,7 +20,7 @@ const INLINE_RULE_CONFIG = [
   'import { is_greppable } from "jint:rules/naming";\n' +
     'import { defineConfig } from "jint:sdk";\n' +
     "export default defineConfig({\n" +
-    "  rules: [\n" +
+    "  rules: { use: [\n" +
     '    { ...is_greppable, exclude: ["**/*.test.ts"] },\n' +
     "    {\n" +
     '      name: "will_test_fire",\n' +
@@ -32,7 +32,7 @@ const INLINE_RULE_CONFIG = [
     "      }),\n" +
     "      handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.9 } },\n" +
     "    },\n" +
-    "  ],\n" +
+    "  ] },\n" +
     "});\n",
 ].join("");
 
@@ -81,10 +81,10 @@ describe("loadTsConfig (the TS config tier)", () => {
       'import { defineConfig } from "jint:sdk";\n' +
         'import { sharedRule } from "./shared.ts";\n' +
         "export default defineConfig({\n" +
-        "  rules: [\n" +
+        "  rules: { use: [\n" +
         "    sharedRule,\n" +
         '    { name: "a_rule", target: "functions", classify: sharedRule.classify, handle: sharedRule.handle },\n' +
-        "  ],\n" +
+        "  ] },\n" +
         "});\n",
     );
     const config = await loadTsConfig(path);
@@ -98,7 +98,7 @@ describe("loadTsConfig (the TS config tier)", () => {
       "virtual.config.ts",
       'import { rules, is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        'export default defineConfig({ rules: [...rules, { ...is_greppable, include: ["src/**"], override: true }] });\n',
+        'export default defineConfig({ rules: { use: [...rules, { ...is_greppable, include: ["src/**"], override: true }] } });\n',
     );
     const config = await loadTsConfig(path);
     // the whole domain composed, and the explicit override replaced the rule it names
@@ -113,7 +113,7 @@ describe("loadTsConfig (the TS config tier)", () => {
       "twice.config.ts",
       'import { rules, is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        'export default defineConfig({ rules: [...rules, { ...is_greppable, include: ["src/**"] }] });\n',
+        'export default defineConfig({ rules: { use: [...rules, { ...is_greppable, include: ["src/**"] }] } });\n',
     );
     expect(async () => await loadTsConfig(path)).toThrow(/'is_greppable' is declared twice/);
   });
@@ -123,7 +123,7 @@ describe("loadTsConfig (the TS config tier)", () => {
       "override-nothing.config.ts",
       'import { is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        "export default defineConfig({ rules: [{ ...is_greppable, override: true }] });\n",
+        "export default defineConfig({ rules: { use: [{ ...is_greppable, override: true }] } });\n",
     );
     expect(async () => await loadTsConfig(path)).toThrow(/no earlier rule is named 'is_greppable'/);
   });
@@ -179,11 +179,11 @@ describe("loadTsConfig (the TS config tier)", () => {
       "dup.config.ts",
       'import { is_greppable } from "jint:rules/naming";\n' +
         'import { defineConfig } from "jint:sdk";\n' +
-        "export default defineConfig({ rules: [is_greppable, {\n" +
+        "export default defineConfig({ rules: { use: [is_greppable, {\n" +
         '  name: "is_greppable", target: "comments",\n' +
         '  classify: () => ({ instructions: "i", criteria: { true: "t", false: "f" }, state: {} }),\n' +
         "  handle: { warn: { greater_than: 0.5 } },\n" +
-        "}] });\n",
+        "}] } });\n",
     );
     expect(async () => await loadTsConfig(path)).toThrow(/duplicate rule name/);
   });
@@ -194,9 +194,8 @@ describe("defineConfig validation (author-time, fatal)", () => {
     const config = defineConfig({
       input: "src/",
       inputType: "dir",
-      rules: [],
-      include: ["**/*.ts"],
-      exclude: ["**/*.test.ts"],
+      rules: { include: ["**/*.ts"], exclude: ["**/*.test.ts"], use: [] },
+
       disable: ["is_greppable"],
       apiKey: "k",
       concurrency: 8,
@@ -207,7 +206,7 @@ describe("defineConfig validation (author-time, fatal)", () => {
 
   test("rejects keys outside the config surface", () => {
     expect(() => {
-      defineConfig({ rules: [], customRules: ["x"] } as never);
+      defineConfig({ rules: { exclude: ["**/*.md"], use: [] }, customRules: ["x"] } as never);
     }).toThrow(/customRules/);
   });
 
@@ -272,5 +271,15 @@ describe("validateCustomRule (load-time, fatal)", () => {
 
   test("score kind rejected as not-yet-supported", () => {
     expect(() => validateCustomRule({ ...ok, kind: "score" }, "f.ts")).toThrow(/noul/);
+  });
+});
+
+describe("defineConfig scope keys", () => {
+  test("top-level include/exclude name the move under rules", () => {
+    expect(() => defineConfig({ exclude: ["**/*.md"] } as never)).toThrow(
+      /"exclude" moved under rules/,
+    );
+    expect(() => defineConfig({ rules: { exclude: ["**/*.md"], use: [] } })).not.toThrow();
+    expect(() => defineConfig({ rules: [] } as never)).toThrow(/now an object/);
   });
 });

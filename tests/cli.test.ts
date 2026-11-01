@@ -285,7 +285,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 
   test.concurrent("config resolving to zero rules: CONFIG_NO_RULES, exit 2 (an empty run is an error, not a headline)", async () => {
     const configPath = "/tmp/jint-no-rules-config.json";
-    require("node:fs").writeFileSync(configPath, JSON.stringify({ rules: [] }));
+    require("node:fs").writeFileSync(configPath, JSON.stringify({ rules: { use: [] } }));
     const r = await run(
       ["run", "tests/fixtures/sample-file.ts", "--json", "--config", configPath],
       NO_KEY,
@@ -299,10 +299,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("jint paths - reads the stdin path list: the list IS the judged subject", async () => {
-    const proc = await runCli(["run", "paths", "-", "--json", "--rule", "is_greppable"], {
-      env: NO_SERVICE,
-      stdin: "tests/fixtures/sample-file.ts\n",
-    });
+    const proc = await runCli(
+      ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
+      {
+        env: NO_SERVICE,
+        stdin: "tests/fixtures/sample-file.ts\n",
+      },
+    );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
     // the listed file was judged: the transport failure names it (subject came from the list)
@@ -311,10 +314,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("a path-list entry that is not in the walk is a NOTE, never silence", async () => {
-    const proc = await runCli(["run", "paths", "-", "--json", "--rule", "is_greppable"], {
-      env: NO_SERVICE,
-      stdin: "tests/fixtures/sample-file.ts\nno/such/file.ts\n",
-    });
+    const proc = await runCli(
+      ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
+      {
+        env: NO_SERVICE,
+        stdin: "tests/fixtures/sample-file.ts\nno/such/file.ts\n",
+      },
+    );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
     expect(
@@ -327,10 +333,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("jint paths - < file: the piped list IS the judged subject", async () => {
     const list = scratchFile("cli-paths-list") + ".txt";
     require("node:fs").writeFileSync(list, "tests/fixtures/sample-file.ts\n");
-    const proc = await runCli(["run", "paths", "-", "--json", "--rule", "is_greppable"], {
-      env: NO_SERVICE,
-      stdin: { file: list },
-    });
+    const proc = await runCli(
+      ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
+      {
+        env: NO_SERVICE,
+        stdin: { file: list },
+      },
+    );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
     // the transport failure names the listed file: the piped list, not a file argument, selected it
@@ -350,10 +359,13 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
-    const proc = await runCli(["run", "paths", "-", "--json", "--rule", "is_greppable"], {
-      env: NO_SERVICE,
-      stdin: "no/such/a.ts\nno/such/b.ts\n",
-    });
+    const proc = await runCli(
+      ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
+      {
+        env: NO_SERVICE,
+        stdin: "no/such/a.ts\nno/such/b.ts\n",
+      },
+    );
     // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
@@ -504,7 +516,10 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // own config: the root config excludes tests subtree on the config-relative basis (which
     // would correctly empty this walk) - this test asserts walker/gitignore behavior, not that
     const ownConfig = "/tmp/jint-gitignore-contract.json";
-    require("node:fs").writeFileSync(ownConfig, JSON.stringify({ rules: ["is_greppable"] }));
+    require("node:fs").writeFileSync(
+      ownConfig,
+      JSON.stringify({ rules: { use: ["is_greppable"] } }),
+    );
     const r = await run(
       ["run", "tests/fixtures/sample-dir", "--json", "--debug", "--config", ownConfig],
       NO_SERVICE,

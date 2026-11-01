@@ -94,6 +94,12 @@ export interface LintOptions {
   inputType?: InputKind;
   /** Extra input exclusions, unioned with config.exclude. */
   exclude?: readonly string[];
+  /**
+   * Measure named files and a path list as given: the config's rules scope (rules.include/exclude)
+   * is not applied to them. A rule's own include/exclude still is - it records where the rule's
+   * claim holds. Directory walks ignore it.
+   */
+  unscoped?: boolean;
   /** Sensors removed by name (CLI --disable). */
   disable?: readonly string[];
   /** If set, ONLY these rules run (CLI --rule, repeatable). Applied after disable. */
@@ -841,8 +847,9 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 /**
  * One run's input resolution: the units, the walk's admission scopes (config + rule includes -
  * run.input attribution), and the config-scope predicate unscoped rules follow. `configAdmits` is
- * always-true ONLY for str and the paths list (no path semantics to evaluate); dir walks and file
- * operands (including element scope) evaluate the one predicate on their paths.
+ * always-true for str (no path semantics to evaluate) and, under the unscoped option, for named
+ * files and a path list; dir walks, file operands (including element scope) and a path list
+ * otherwise evaluate the one predicate on their paths.
  */
 interface Admission {
   readonly units: Unit[];
@@ -906,14 +913,6 @@ function admittedOperands(
       continue;
     }
     const claim = claimingScope(path);
-    if (!configAdmits(path) && claim === undefined) {
-      // the no-claim note names the emptiness; the operand still RESOLVES below - existence
-      // and grammar failures stay the caller's error, the scopes only decide which rules may
-      // measure (a resolve failure REPLACES this note: explicit consent, one hard error)
-      onWalkNote(
-        `${path}: no rule measures this file - outside the config scope and no rule claims it`,
-      );
-    }
     // scope attribution for operands (run.input.admitted decomposes `included`): the config
     // scope when it admits, else the claiming rule scope - the same first-match order as the walk
     stats.tallyAdmit(configAdmits(path) ? "config" : (claim?.by ?? "config"));
@@ -944,21 +943,23 @@ async function resolveRunUnits(
       configAdmits: () => true,
       scopes: [],
     };
-  if (pathsList !== undefined && (input === undefined || input === "")) {
-    return { units: await unitsFromPathsList(pathsList), configAdmits: () => true, scopes: [] };
-  }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
+  // THE ONE config-scope test (include ∧ ¬exclude), the same predicate for every input kind
+  // below, except str (no real path to evaluate). Named files and a path list evaluate it on each
+  // path unless the run is unscoped; the dir walk enforces it mid-walk and never skips it.
+  const scopeAdmits = configScopeAdmits(options.config.include, exclude);
+  const operandAdmits = options.unscoped === true ? () => true : scopeAdmits;
+  if (pathsList !== undefined && (input === undefined || input === "")) {
+    return {
+      units: await unitsFromPathsList(pathsList),
+      configAdmits: operandAdmits,
+      scopes: [],
+    };
+  }
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
   // (the walk-union scope build puts the config scope first, so attribution names a rule scope only
   // when the config scope did not admit). Each rule still measures only files its own scope admits.
   const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
-  // THE ONE config-scope test (include ∧ ¬exclude), the same predicate for
-  // every input kind below. str and paths-list inputs returned above with always-true (no path
-  // semantics to evaluate: the paths list is caller-curated selection, str has no real path);
-  // dir walks and file operands both use THIS one - the input kind decides where the predicate
-  // runs (the walker enforces it mid-walk for dirs; the operand branch evaluates it on the
-  // named path), never what it means.
-  const configAdmits = configScopeAdmits(options.config.include, exclude);
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
@@ -987,9 +988,9 @@ async function resolveRunUnits(
     const named = Array.isArray(input)
       ? [...input]
       : [elementPinned ? options.element!.path : (input as string)];
-    const kept = admittedOperands(named, options, scopes, configAdmits, stats, onWalkNote);
+    const kept = admittedOperands(named, options, scopes, operandAdmits, stats, onWalkNote);
     const units = kept.length === 0 ? [] : await resolve(kept, "file");
-    return { units, configAdmits, scopes };
+    return { units, configAdmits: operandAdmits, scopes };
   }
   // the dir walk: the walker enforces the same scopes mid-walk (admitting through any scope);
   // configAdmits here is what unscoped rules ride during rule selection
@@ -997,7 +998,7 @@ async function resolveRunUnits(
     input as string | string[],
     options.inputType ?? options.config.inputType,
   );
-  return { units, configAdmits, scopes };
+  return { units, configAdmits: scopeAdmits, scopes };
 }
 
 /** Cheap edit distance for close-match suggestions over rule names. */

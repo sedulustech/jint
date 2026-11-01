@@ -25,6 +25,11 @@ exits 2 and prints every rule domain, the rules in each, and a working example.
 Write `jint.config.ts` from that list, choosing the rules that suit the codebase
 you are in. A run that measures nothing exits 4 and says, per rule, why.
 
+Named files and a piped path list run under the config's `rules` scope (an excluded
+file is skipped, with a note). To measure exactly a changeset, pipe it:
+`git diff --name-only | jint run paths -`. `--unscoped` measures named files and a
+list as given. The run header states which applied.
+
 A whole path: `jint run <path>`. One element: `jint run <path>@L<line> --rule
 <rule>`. The CLI echoes which element an @L selector captured - verify that
 element is the one you mean before fixing anything.

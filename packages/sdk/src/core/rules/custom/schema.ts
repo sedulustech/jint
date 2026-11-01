@@ -128,9 +128,15 @@ export interface TsConfig {
   readonly $schema?: string;
   readonly input?: string;
   readonly inputType?: "file" | "dir";
-  readonly rules?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
-  readonly include?: readonly string[];
-  readonly exclude?: readonly string[];
+  /**
+   * The rules, and the default scope every rule follows (a rule's own include/exclude overrides
+   * it).
+   */
+  readonly rules?: {
+    readonly include?: readonly string[];
+    readonly exclude?: readonly string[];
+    readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
+  };
   readonly disable?: readonly string[];
   readonly apiKey?: string;
   readonly url?: string;
@@ -322,6 +328,15 @@ export function defineConfig(config: TsConfig): TsConfig {
     fail("takes one config object");
   }
   for (const key of Object.keys(config)) {
+    if (key === "include" || key === "exclude") {
+      fail(
+        '"' +
+          key +
+          '" moved under rules: write rules: { ' +
+          key +
+          ": [...], use: [...] } - the default scope of every rule; a rule's own include/exclude still overrides it",
+      );
+    }
     if (!CONFIG_KEYS.has(key)) {
       fail(
         '"' +
@@ -331,7 +346,11 @@ export function defineConfig(config: TsConfig): TsConfig {
     }
   }
   const rules = config.rules;
-  if (rules !== undefined && !Array.isArray(rules)) fail('"rules" must be an array');
+  if (Array.isArray(rules)) fail('"rules" is now an object: write rules: { use: [...] }');
+  if (rules !== undefined && (typeof rules !== "object" || rules === null)) {
+    fail('"rules" must be an object: { include?, exclude?, use? }');
+  }
+  if (rules?.use !== undefined && !Array.isArray(rules.use)) fail('"rules.use" must be an array');
   return config;
 }
 
@@ -341,8 +360,6 @@ const CONFIG_KEYS: ReadonlySet<string> = new Set([
   "input",
   "inputType",
   "rules",
-  "include",
-  "exclude",
   "disable",
   "apiKey",
   "url",

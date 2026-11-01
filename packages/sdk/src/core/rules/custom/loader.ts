@@ -75,7 +75,7 @@ export function noRulesAdvice(): string {
   const example =
     first === undefined
       ? ""
-      : `\nexample jint.config.ts:\n  import { ${first[1][0]} } from "jint:rules/${first[0]}";\n  import { defineConfig } from "jint:sdk";\n  export default defineConfig({ rules: [${first[1][0]}] });\nA jint.config.json names a rule as a string: { "rules": ["${first[1][0]}"] }.`;
+      : `\nexample jint.config.ts:\n  import { ${first[1][0]} } from "jint:rules/${first[0]}";\n  import { defineConfig } from "jint:sdk";\n  export default defineConfig({ rules: { use: [${first[1][0]}] } });\nA jint.config.json names a rule as a string: { "rules": { "use": ["${first[1][0]}"] } }.`;
   return (
     "pick the rules to run from the domains below" +
     (listing === "" ? "" : "\n" + listing) +

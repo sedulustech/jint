@@ -1,5 +1,7 @@
 {
   "input": 42,
-  "rules": [],
-  "exclude": []
+  "rules": {
+    "exclude": [],
+    "use": []
+  }
 }

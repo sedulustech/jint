@@ -250,18 +250,20 @@ describe("compileElementQuestions", () => {
       validateConfig(
         {
           input: "x",
-          rules: [
-            {
-              name: "bare_rule",
-              criteria: { true: "yes", false: "no" },
-              target: "files",
-              handle: { warn: { less_than: 0.4 } },
-            },
-          ],
+          rules: {
+            use: [
+              {
+                name: "bare_rule",
+                criteria: { true: "yes", false: "no" },
+                target: "files",
+                handle: { warn: { less_than: 0.4 } },
+              },
+            ],
+          },
         },
         "inline",
       ),
-    ).toThrow(/\/rules\/0\/instructions/);
+    ).toThrow(/\/rules\/use\/0\/instructions/);
   });
 });
 

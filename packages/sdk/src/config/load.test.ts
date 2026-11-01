@@ -47,7 +47,7 @@ describe("loadConfig", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as SetupError).code).toBe("CONFIG_INVALID");
-      expect((e as SetupError).message).toContain("/rules/0");
+      expect((e as SetupError).message).toContain("/rules/use/0");
       expect((e as SetupError).detail).toEqual({
         kind: "invalid-rule",
         ruleIndex: 0,
@@ -59,16 +59,16 @@ describe("loadConfig", () => {
 
   test("unknown rule name -> CONFIG_INVALID (and it names the missing catalog)", () => {
     expect(() =>
-      validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline", catalog),
+      validateConfig({ input: "x", rules: { use: ["no_such_rule"] } }, "inline", catalog),
     ).toThrow(/unknown rule name/);
-    expect(() => validateConfig({ input: "x", rules: ["no_such_rule"] }, "inline")).toThrow(
-      /no rule catalog was provided/,
-    );
+    expect(() =>
+      validateConfig({ input: "x", rules: { use: ["no_such_rule"] } }, "inline"),
+    ).toThrow(/no rule catalog was provided/);
   });
 
   test("unknown rule name detail: the catalog vocabulary + closest match as data", () => {
     try {
-      validateConfig({ input: "x", rules: ["is_greppble"] }, "inline", catalog);
+      validateConfig({ input: "x", rules: { use: ["is_greppble"] } }, "inline", catalog);
       expect.unreachable();
     } catch (e) {
       const detail = (e as SetupError).detail;
@@ -105,21 +105,27 @@ describe("validateConfig / catalogConfig", () => {
   test("no rules key is an error that lists the domains; strings select catalog rules; objects declare their own", () => {
     expect(() => validateConfig({ input: "x" }, "inline", catalog)).toThrow(/no rules to run/);
 
-    const selected = validateConfig({ input: "x", rules: ["is_greppable"] }, "inline", catalog);
+    const selected = validateConfig(
+      { input: "x", rules: { use: ["is_greppable"] } },
+      "inline",
+      catalog,
+    );
     expect(selected.rules.map((r) => r.name)).toEqual(["is_greppable"]);
 
     const overridden = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "is_greppable",
-            instructions: "q",
-            criteria: { true: "t", false: "f" },
-            target: "files",
-            handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "is_greppable",
+              instructions: "q",
+              criteria: { true: "t", false: "f" },
+              target: "files",
+              handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
+            },
+          ],
+        },
       },
       "inline",
     );
@@ -131,15 +137,17 @@ describe("validateConfig / catalogConfig", () => {
     const firesTrue = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "r",
-            instructions: "q",
-            criteria: { true: "t", false: "f" },
-            target: "files",
-            handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "r",
+              instructions: "q",
+              criteria: { true: "t", false: "f" },
+              target: "files",
+              handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.45 } },
+            },
+          ],
+        },
       },
       "inline",
     );
@@ -152,15 +160,17 @@ describe("validateConfig / catalogConfig", () => {
     const firesFalse = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "r",
-            instructions: "q",
-            criteria: { true: "t", false: "f" },
-            target: "files",
-            handle: { warn: { less_than: 0.6 }, error: { less_than: 0.5 } },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "r",
+              instructions: "q",
+              criteria: { true: "t", false: "f" },
+              target: "files",
+              handle: { warn: { less_than: 0.6 }, error: { less_than: 0.5 } },
+            },
+          ],
+        },
       },
       "inline",
     );
@@ -173,15 +183,17 @@ describe("validateConfig / catalogConfig", () => {
     const banded = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "r",
-            instructions: "q",
-            criteria: { true: "t", false: "f" },
-            target: "files",
-            handle: { warn: { greater_than: 0.3 }, silent_band: [0.4, 0.6] },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "r",
+              instructions: "q",
+              criteria: { true: "t", false: "f" },
+              target: "files",
+              handle: { warn: { greater_than: 0.3 }, silent_band: [0.4, 0.6] },
+            },
+          ],
+        },
       },
       "inline",
     );
@@ -194,15 +206,17 @@ describe("validateConfig / catalogConfig", () => {
   test("handler validation names the rule and the exact field", () => {
     const rule = (handle: unknown) => ({
       input: "x",
-      rules: [
-        {
-          name: "r",
-          instructions: "q",
-          criteria: { true: "t", false: "f" },
-          target: "files",
-          handle,
-        },
-      ],
+      rules: {
+        use: [
+          {
+            name: "r",
+            instructions: "q",
+            criteria: { true: "t", false: "f" },
+            target: "files",
+            handle,
+          },
+        ],
+      },
     });
     expect(() => validateConfig(rule({ warn: { greater_than: 1.5 } }), "inline")).toThrow(
       /rule 'r' handle\.warn: threshold must be within \(0, 1\)/,
@@ -244,16 +258,18 @@ describe("validateConfig / catalogConfig", () => {
       validateConfig(
         {
           input: "x",
-          rules: [
-            {
-              name: "r",
-              kind: "score",
-              instructions: "score it",
-              criteria: ["clear", "opaque"],
-              target: "definitions",
-              handle: { warn: { greater_than: 0.3 } },
-            },
-          ],
+          rules: {
+            use: [
+              {
+                name: "r",
+                kind: "score",
+                instructions: "score it",
+                criteria: ["clear", "opaque"],
+                target: "definitions",
+                handle: { warn: { greater_than: 0.3 } },
+              },
+            ],
+          },
         },
         "inline",
       ),
@@ -265,9 +281,11 @@ describe("validateConfig / catalogConfig", () => {
       validateConfig(
         {
           input: "x",
-          rules: [
-            { name: "r", criteria: { true: "t", false: "f" }, target: "files", handle: null },
-          ],
+          rules: {
+            use: [
+              { name: "r", criteria: { true: "t", false: "f" }, target: "files", handle: null },
+            ],
+          },
         },
         "inline",
       ),
@@ -276,14 +294,16 @@ describe("validateConfig / catalogConfig", () => {
       validateConfig(
         {
           input: "x",
-          rules: [
-            {
-              name: "r",
-              instructions: "q",
-              criteria: { true: "t", false: "f" },
-              target: "files",
-            },
-          ],
+          rules: {
+            use: [
+              {
+                name: "r",
+                instructions: "q",
+                criteria: { true: "t", false: "f" },
+                target: "files",
+              },
+            ],
+          },
         },
         "inline",
       ),
@@ -292,7 +312,12 @@ describe("validateConfig / catalogConfig", () => {
 
   test("$schema and unknown top-level keys are accepted and ignored", () => {
     const config = validateConfig(
-      { $schema: "./jint.schema.json", note: "mine", input: "x", rules: ["is_greppable"] },
+      {
+        $schema: "./jint.schema.json",
+        note: "mine",
+        input: "x",
+        rules: { use: ["is_greppable"] },
+      },
       "inline",
       catalog,
     );
@@ -303,18 +328,20 @@ describe("validateConfig / catalogConfig", () => {
     const config = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "r",
-            kind: "choice",
-            instructions: "which option?",
-            criteria: { justified: "fine", wrong: "contradicted" },
-            target: "comments",
-            handle: {
-              choices: { justified: "pass", wrong: { level: "error", message: "Fix it." } },
+        rules: {
+          use: [
+            {
+              name: "r",
+              kind: "choice",
+              instructions: "which option?",
+              criteria: { justified: "fine", wrong: "contradicted" },
+              target: "comments",
+              handle: {
+                choices: { justified: "pass", wrong: { level: "error", message: "Fix it." } },
+              },
             },
-          },
-        ],
+          ],
+        },
       },
       "inline",
     );
@@ -331,16 +358,18 @@ describe("validateConfig / catalogConfig", () => {
       validateConfig(
         {
           input: "x",
-          rules: [
-            {
-              name: "r",
-              kind: "choice",
-              instructions: "which option?",
-              criteria: { only: "the one option" },
-              target: "comments",
-              handle: { choices: { only: "error" } },
-            },
-          ],
+          rules: {
+            use: [
+              {
+                name: "r",
+                kind: "choice",
+                instructions: "which option?",
+                criteria: { only: "the one option" },
+                target: "comments",
+                handle: { choices: { only: "error" } },
+              },
+            ],
+          },
         },
         "inline",
       ),
@@ -351,16 +380,18 @@ describe("validateConfig / catalogConfig", () => {
     const config = validateConfig(
       {
         input: "x",
-        rules: [
-          {
-            name: "r",
-            kind: "score",
-            instructions: "score it",
-            criteria: ["clear", "opaque"],
-            target: "definitions",
-            handle: { map: ["pass", "warn"] },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "r",
+              kind: "score",
+              instructions: "score it",
+              criteria: ["clear", "opaque"],
+              target: "definitions",
+              handle: { map: ["pass", "warn"] },
+            },
+          ],
+        },
       },
       "inline",
     );
@@ -376,16 +407,18 @@ describe("validateConfig / catalogConfig", () => {
   test("score map length must equal the criteria count; at least one non-ok", () => {
     const rule = (map: string[]) => ({
       input: "x",
-      rules: [
-        {
-          name: "r",
-          kind: "score",
-          instructions: "score it",
-          criteria: ["clear", "opaque"],
-          target: "definitions",
-          handle: { map },
-        },
-      ],
+      rules: {
+        use: [
+          {
+            name: "r",
+            kind: "score",
+            instructions: "score it",
+            criteria: ["clear", "opaque"],
+            target: "definitions",
+            handle: { map },
+          },
+        ],
+      },
     });
     expect(() => validateConfig(rule(["pass", "warn", "error"]), "inline")).toThrow(
       /rule 'r' handle\.map: map has 3 level\(s\) but the criteria has 2/,
@@ -397,7 +430,11 @@ describe("validateConfig / catalogConfig", () => {
 
   test("run knobs validate with the field named; flags/config precedence lives above", () => {
     const config = (overrides: Record<string, unknown>) =>
-      validateConfig({ input: "x", rules: ["is_greppable"], ...overrides }, "inline", catalog);
+      validateConfig(
+        { input: "x", rules: { use: ["is_greppable"] }, ...overrides },
+        "inline",
+        catalog,
+      );
     expect(config({ concurrency: 8 }).concurrency).toBe(8);
     expect(() => config({ concurrency: 0 })).toThrow(/concurrency: must be an integer >= 1/);
     expect(() => config({ concurrency: 65 })).toThrow(/concurrency: must be <= 64/);
@@ -405,7 +442,11 @@ describe("validateConfig / catalogConfig", () => {
 
   test("url loads; a wrong-typed url is rejected", () => {
     const config = (overrides: Record<string, unknown>) =>
-      validateConfig({ input: "x", rules: ["is_greppable"], ...overrides }, "inline", catalog);
+      validateConfig(
+        { input: "x", rules: { use: ["is_greppable"] }, ...overrides },
+        "inline",
+        catalog,
+      );
     expect(config({ url: "http://x/v1/decisions", apiKey: "k" }).url).toBe("http://x/v1/decisions");
     expect(() => config({ url: 3 })).toThrow();
   });
@@ -413,16 +454,18 @@ describe("validateConfig / catalogConfig", () => {
   test("per-rule scoping: validation names rule+field; full cancellation warns, never errors", () => {
     const rule = (scope: Record<string, unknown>) => ({
       input: "x",
-      rules: [
-        {
-          name: "r",
-          instructions: "q",
-          criteria: { true: "t", false: "f" },
-          target: "files",
-          handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
-          ...scope,
-        },
-      ],
+      rules: {
+        use: [
+          {
+            name: "r",
+            instructions: "q",
+            criteria: { true: "t", false: "f" },
+            target: "files",
+            handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
+            ...scope,
+          },
+        ],
+      },
     });
     expect(() => validateConfig(rule({ include: [] }), "inline")).toThrow(
       /rule 'r' include: must be a non-empty array/,
@@ -447,10 +490,49 @@ describe("validateConfig / catalogConfig", () => {
 
   test("disable removes by name after assembly", () => {
     const config = validateConfig(
-      { input: "x", rules: ["is_greppable", "is_function_srp"], disable: ["is_greppable"] },
+      {
+        input: "x",
+        rules: { use: ["is_greppable", "is_function_srp"] },
+        disable: ["is_greppable"],
+      },
       "inline",
       catalog,
     );
     expect(config.rules.map((r) => r.name)).toEqual(["is_function_srp"]);
+  });
+});
+
+describe("retired top-level scope keys", () => {
+  test("top-level include/exclude are a hard error naming the move (extra keys are otherwise ignored)", () => {
+    expect(() =>
+      validateConfig({ rules: { use: [] }, exclude: ["**/*.md"] }, "inline", {}, [], true),
+    ).toThrow(/top-level exclude moved under rules/);
+    expect(() =>
+      validateConfig(
+        { rules: { use: [] }, include: ["src/**"], exclude: [] },
+        "inline",
+        {},
+        [],
+        true,
+      ),
+    ).toThrow(/top-level include and exclude moved under rules/);
+  });
+
+  test("a rules array is a hard error naming the new shape", () => {
+    expect(() => validateConfig({ rules: ["is_greppable"] }, "inline", {}, [], true)).toThrow(
+      /rules is now an object - write rules: \{ use: \[\.\.\.\] \}/,
+    );
+  });
+
+  test("rules.include/exclude resolve to the config scope", () => {
+    const config = validateConfig(
+      { rules: { include: ["src/**"], exclude: ["**/gen/**"], use: [] } },
+      "inline",
+      {},
+      [],
+      true,
+    );
+    expect(config.include).toEqual(["src/**"]);
+    expect(config.exclude).toEqual(["**/gen/**"]);
   });
 });

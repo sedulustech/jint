@@ -91,21 +91,23 @@ const is_headword_consistent: RuleSchema = {
 };
 
 export default defineConfig({
-  rules: [
-    ...comments,
-    ...complexity,
-    ...errors,
-    ...naming,
-    is_literal_shared,
-    is_doc_stateful,
-    is_headword_consistent,
-  ],
-  // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
-  // values flowing between sites - the whole walk stops at the config level, not per rule. The
-  // glossary rules reach GLOSSARY.md through their OWN rule include (the walk-union: discovery
-  // admits a file when the config include OR any rule's include matches); every other md file
-  // stays out by the config exclude, and is_literal_shared needs no per-rule carve-out - it
-  // rides the config door, which never admits md.
-  include: ["**/*.ts", "**/*.tsx", "**/*.css"],
-  exclude: ["**/*.md", "**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.lock"],
+  rules: {
+    // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
+    // values flowing between sites - the whole walk stops at the config level, not per rule. The
+    // glossary rules reach GLOSSARY.md through their OWN rule include (the walk-union: discovery
+    // admits a file when this include OR any rule's include matches); every other md file
+    // stays out by this exclude, and is_literal_shared needs no per-rule carve-out - it
+    // rides the config door, which never admits md.
+    include: ["**/*.ts", "**/*.tsx", "**/*.css"],
+    exclude: ["**/*.md", "**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.lock"],
+    use: [
+      ...comments,
+      ...complexity,
+      ...errors,
+      ...naming,
+      is_literal_shared,
+      is_doc_stateful,
+      is_headword_consistent,
+    ],
+  },
 });

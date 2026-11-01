@@ -54,9 +54,11 @@ demands action.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **scope** — a path selection with an owner: include/exclude patterns that select which files
-  a rule may measure. The config's scope is its include/exclude; a rule's scope is its own
-  include/exclude and claims across the config exclude. The denylist and gitignore are not
-  scopes: they exclude, and always win.
+  a rule may measure. The config's scope is `rules.include`/`rules.exclude`: the default scope of
+  every rule and the walk's file filter. A rule's scope is its own include/exclude: it replaces
+  the config's for that rule and claims its files across the config exclude. `--unscoped` drops
+  the config's scope for named files and a path list, never a rule's own. The denylist and
+  gitignore are not scopes: they exclude, and always win.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
 - **domain** — a named group of rules, one package, imported as jint:rules/<domain>. A domain is a subject a rule belongs to: a property judged (comments, naming) or a technology (typescript, react). A domain holds rules and may nest subdomains; it is not a dimension (one property inside one rule) and not a scope (a path selection).
 - **subdomain** — a domain nested in another, a refinement of it (comments/typescript under comments): it adds rules or examples for one technology and never rewords its parent's questions. It is a subpath of the parent's package, never a package of its own.

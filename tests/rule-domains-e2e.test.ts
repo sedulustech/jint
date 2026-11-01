@@ -44,11 +44,11 @@ describe("rule domains: what a run needs", () => {
 
   test("a rule name given twice is an error naming both entries and the way out", async () => {
     const twice = project("twice", {
-      "jint.config.json": JSON.stringify({ rules: ["is_greppable", "is_greppable"] }),
+      "jint.config.json": JSON.stringify({ rules: { use: ["is_greppable", "is_greppable"] } }),
     });
     const r = await runCli(["run", "a.ts"], { cwd: twice });
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("'is_greppable' is declared twice (rules[0] and rules[1])");
+    expect(r.stderr).toContain("'is_greppable' is declared twice (rules.use[0] and rules.use[1])");
     expect(r.stderr).toContain("override: true");
   });
 
@@ -91,7 +91,7 @@ describe("rule domains: what a run needs", () => {
   test("a run that measures nothing says why, per rule", async () => {
     const dir = project("nothing-measured", {
       "a.ts": "function alpha() {}\n",
-      "jint.config.json": JSON.stringify({ rules: ["is_comment_narration"] }),
+      "jint.config.json": JSON.stringify({ rules: { use: ["is_comment_narration"] } }),
     });
     const r = await runCli(["run", "a.ts"], { cwd: dir });
     expect(r.code).toBe(4);

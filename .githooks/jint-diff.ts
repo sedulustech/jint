@@ -44,9 +44,9 @@ type Finding = {
   message?: string;
   location: { input: string; span: { start: { line: number }; end: { line: number } } };
 };
-// One run over the staged paths, piped as a path list: the caller names the files, so exactly those
-// are measured (a list is caller-curated; a rule's own include still scopes it). A path no grammar
-// claims is a note, not a failure. Exit 0 clean, 1 error findings, 4 nothing measured: all carry a
+// One run over the staged paths, piped as a path list: each is scope-checked by the repo's config,
+// so tests and prose it leaves out are skipped, not judged. A path no grammar claims is a note, not
+// a failure. Exit 0 clean, 1 error findings, 4 nothing measured: all carry a
 // report. 2 and 3 do not.
 const result = run(
   ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],

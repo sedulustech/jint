@@ -8,15 +8,17 @@ import { validateCustomRule } from "@jint/sdk";
 
 const jsonRule = (handle: unknown) => ({
   input: "x",
-  rules: [
-    {
-      name: "r",
-      instructions: "i",
-      criteria: { true: "t", false: "f" },
-      target: "files",
-      handle,
-    },
-  ],
+  rules: {
+    use: [
+      {
+        name: "r",
+        instructions: "i",
+        criteria: { true: "t", false: "f" },
+        target: "files",
+        handle,
+      },
+    ],
+  },
 });
 
 const customRule = (handle: unknown) => ({

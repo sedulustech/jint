@@ -1,12 +1,19 @@
 {
   "input": "src/",
-  "rules": [
-    {
-      "name": "x",
-      "criteria": { "true": "y", "false": "n" },
-      "target": "files",
-      "handle": { "fires_when": "true" }
-    }
-  ],
-  "exclude": []
+  "rules": {
+    "exclude": [],
+    "use": [
+      {
+        "name": "x",
+        "criteria": {
+          "true": "y",
+          "false": "n"
+        },
+        "target": "files",
+        "handle": {
+          "fires_when": "true"
+        }
+      }
+    ]
+  }
 }

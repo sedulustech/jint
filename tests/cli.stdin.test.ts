@@ -37,7 +37,7 @@ afterAll(() => provider.stop());
 /** Rules-only-or-input probe config in a temp dir; returns the path. */
 async function writeProbeConfig(config: Record<string, unknown>): Promise<string> {
   const path = `/tmp/jint-probe-config-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
-  await Bun.write(path, JSON.stringify({ rules: ["is_greppable"], ...config }));
+  await Bun.write(path, JSON.stringify({ rules: { use: ["is_greppable"] }, ...config }));
   return path;
 }
 
@@ -196,6 +196,7 @@ describe("cli: piped stdin str unit", async () => {
       "--json",
       "--rule",
       "is_greppable",
+      "--unscoped",
     ]);
     expect(r.code).toBe(0); // the mock provider classifies the listed file cleanly
     const report = JSON.parse(r.stdout);
@@ -282,16 +283,18 @@ describe("cli: piped stdin str unit", async () => {
     // mapping and WALK_FAILED it (exit 4) — the rule's target conflated with the input kind.
     // The outcome also raced per run; 20 identical spawns must now all measure the piped text.
     const configPath = await writeProbeConfig({
-      rules: [
-        {
-          name: "is_noul_documented",
-          instructions: "Does the unit document the noul value?",
-          criteria: { true: "documents a noul value", false: "it does not" },
-          target: "files",
-          handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.7 } },
-        },
-      ],
-      exclude: [],
+      rules: {
+        exclude: [],
+        use: [
+          {
+            name: "is_noul_documented",
+            instructions: "Does the unit document the noul value?",
+            criteria: { true: "documents a noul value", false: "it does not" },
+            target: "files",
+            handle: { warn: { greater_than: 0.5 }, error: { greater_than: 0.7 } },
+          },
+        ],
+      },
     });
     const before = provider.requests.length;
     const MSG = "- **noul** - the number the model returns per question";

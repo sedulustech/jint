@@ -51,7 +51,7 @@ function setup(name: string, rules: unknown[]): string {
   writeFileSync(join(dir, "doc.md"), FIXTURE);
   writeFileSync(
     join(dir, "jint.config.json"),
-    JSON.stringify({ input: "doc.md", apiKey: "test-key", rules }, null, 2),
+    JSON.stringify({ input: "doc.md", apiKey: "test-key", rules: { use: rules } }, null, 2),
   );
   return dir;
 }

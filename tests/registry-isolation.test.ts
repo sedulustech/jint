@@ -93,15 +93,17 @@ describe("custom registration is a value per call - the impossible leak", () => 
       JSON.stringify({
         input: "doc.md",
         apiKey: "test-key",
-        rules: [
-          {
-            name: "prose_probe",
-            target: "markdown:paragraph",
-            instructions: "Judge the unit.",
-            criteria: { true: "t", false: "f" },
-            handle: { warn: { greater_than: 0.5 } },
-          },
-        ],
+        rules: {
+          use: [
+            {
+              name: "prose_probe",
+              target: "markdown:paragraph",
+              instructions: "Judge the unit.",
+              criteria: { true: "t", false: "f" },
+              handle: { warn: { greater_than: 0.5 } },
+            },
+          ],
+        },
       }),
     );
     const config = await loadConfig(join(dir, "jint.config.json"));

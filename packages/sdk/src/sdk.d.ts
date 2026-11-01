@@ -111,9 +111,15 @@ declare module "jint:sdk" {
     readonly $schema?: string;
     readonly input?: string;
     readonly inputType?: "file" | "dir";
-    readonly rules?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
-    readonly include?: readonly string[];
-    readonly exclude?: readonly string[];
+    /**
+     * The rules, and the default scope every rule follows (a rule's own include/exclude overrides
+     * it).
+     */
+    readonly rules?: {
+      readonly include?: readonly string[];
+      readonly exclude?: readonly string[];
+      readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
+    };
     readonly disable?: readonly string[];
     readonly apiKey?: string;
     readonly url?: string;

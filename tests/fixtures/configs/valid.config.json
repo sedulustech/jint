@@ -1,18 +1,20 @@
 {
   "$schema": "../../../jint.schema.json",
   "input": "tests/fixtures/sample-dir",
-  "exclude": ["**/more.ts"],
   "disable": ["will_comment_drift"],
-  "rules": [
-    "is_comment_narration",
-    "is_comment_patching_readability",
-    "will_comment_drift",
-    "is_function_srp",
-    "is_cognitively_complex",
-    "will_error_lose_cause",
-    "is_vocabulary_consistent",
-    "is_naming_convention_consistent",
-    "is_greppable",
-    "has_filename_mismatch"
-  ]
+  "rules": {
+    "exclude": ["**/more.ts"],
+    "use": [
+      "is_comment_narration",
+      "is_comment_patching_readability",
+      "will_comment_drift",
+      "is_function_srp",
+      "is_cognitively_complex",
+      "will_error_lose_cause",
+      "is_vocabulary_consistent",
+      "is_naming_convention_consistent",
+      "is_greppable",
+      "has_filename_mismatch"
+    ]
+  }
 }

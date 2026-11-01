@@ -30,7 +30,7 @@ function project(rules: ReturnType<typeof rule>[]) {
   writeFileSync(source, SOURCE);
   const config = join(dir, "jint.config.json");
   const setRules = (next: ReturnType<typeof rule>[]) =>
-    writeFileSync(config, JSON.stringify({ input: source, rules: next }));
+    writeFileSync(config, JSON.stringify({ input: source, rules: { use: next } }));
   setRules(rules);
   mkdirSync(join(dir, "cache"));
   return { dir, source, config, cache: join(dir, "cache"), runs: join(dir, "runs"), setRules };

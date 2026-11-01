@@ -12,15 +12,14 @@ executes and no import gate is needed. Loaded by `loadDeclarativeConfig`, valida
 `CONFIG_SCHEMA` — the same schema emitted verbatim as the checked-in [`jint.schema.json`](../jint.schema.json)
 for editor autocomplete via `$schema`.
 
-| key                                      | value                                                                                                    |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `input`                                  | path positional (a file or directory)                                                                    |
-| `rules`                                  | rule **names** or full rule objects; a repeated name is an error unless `override: true`; absent = error |
-| `disable`                                | rule names removed after composition                                                                     |
-| `exclude`                                | input exclusion globs, on top of the walker's defaults                                                   |
-| `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                                    |
-| `url`                                    | the Decisions endpoint asked (must end in `/decisions`); overrides `JINT_API_URL`                        |
-| `apiKey`                                 | the key for this run; overrides `JINT_API_KEY` and `OPENAI_API_KEY`                                      |
+| key                                      | value                                                                                                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input`                                  | path positional (a file or directory)                                                                                                                                                                         |
+| `rules`                                  | `{ include?, exclude?, use }`: `use` holds rule **names** or full rule objects (a repeated name is an error unless `override: true`); `include`/`exclude` are the default scope of every rule; absent = error |
+| `disable`                                | rule names removed after composition                                                                                                                                                                          |
+| `concurrency` / `rps_budget` / `timeout` | run knobs (in-flight ceiling, request-start budget, per-call timeout)                                                                                                                                         |
+| `url`                                    | the Decisions endpoint asked (must end in `/decisions`); overrides `JINT_API_URL`                                                                                                                             |
+| `apiKey`                                 | the key for this run; overrides `JINT_API_KEY` and `OPENAI_API_KEY`                                                                                                                                           |
 
 `url` and `apiKey` choose where a run asks. Without them, the key you export picks the endpoint:
 `OPENAI_API_KEY` asks the default url, and `JINT_API_KEY` asks `JINT_API_URL`
@@ -46,32 +45,46 @@ judge independent defects that can co-occur, write one noul rule per defect. Eac
 message, and one unit can fail several at once. The rules on one unit batch into one classifier
 call, so separate questions add no calls.
 
-**Walk-union discovery: scopes and admission.** A file is walked when the config `include`
+**The rules scope.** `rules: { include, exclude, use }` - `include` and `exclude` answer two
+questions: which files the walk reads, and which files a rule measures when it declares no `include`
+of its own. A rule's own `include`/`exclude` overrides them for that rule. Top-level `include`/`exclude`
+keys and a bare `rules` array no longer exist: a config that still has them fails with the move named.
+
+**Walk-union discovery: scopes and admission.** A file is walked when `rules.include`
 OR any rule's `include` matches. A rule claims a file when its `include` names it AND its own
-`exclude` does not subtract it: the claim carries across the config `exclude` (the more specific
-scope wins, gitignore style). Consequence: a BROAD rule `include` makes the config exclude soft
+`exclude` does not subtract it: the claim carries across `rules.exclude` (the more specific
+scope wins, gitignore style). Consequence: a BROAD rule `include` makes `rules.exclude` soft
 for what it names — only the denylist (and gitignore) stay walls; narrow the rule `include`
 where the exclude must win. Each rule then measures only files its own scope admits: unscoped
 rules (no `include` of their own) follow the config scope and never measure a file only a rule
 include claimed. `run.input.admitted` attributes every included file to its scope (`config` or
 `rule:<name>`) — for walked discovery AND named operands alike.
 
-**File operands honor the same scopes.** `jint run <file>` evaluates the one config-scope
-test (include whitelist AND not excluded) on the named path: a named file inside the config
-scope is measured by unscoped rules exactly as a walked file is; a named file the config
-scope excludes is skipped by every unscoped rule, and a rule `include` claims it across the
-config exclude as in the walk. A named file nothing claims measures nothing, with a note
-saying so — never silence. A scope-excluded operand that also fails to RESOLVE throws its hard
-error (missing path, no grammar) instead of printing the note: naming a broken file is explicit
-consent to hear about the break, and the scopes only decide which rules may measure. The
-secret denylist is not a scope — it is an always-win exclusion and applies to named operands
-too (naming a secret-shaped path does not hand its contents to the classifier; pattern-level
-— the PEM content sniff stays walk-only, an innocent-named operand is explicit consent like
-piped source). The `str` and `paths` nouns keep always-true (no path semantics to evaluate:
-the paths list is caller-curated selection; str has no real path); an element-scope run pins
-its selector file, which scope-checks like any operand. Capture's explicit FILE target still
-bypasses the walk scoping (it prints structure, no classifier) — but its `--rule` preview
-marker applies the same scope predicate.
+**Named files and a path list mean the same thing.** `jint run <file>` and `jint run paths -`
+(a piped list) are both scope-checked: each path is tested against the one config-scope test
+(include whitelist AND not excluded). A path inside the config scope is measured by unscoped
+rules exactly as a walked file is. A path the scope excludes is skipped by every unscoped rule,
+with one note naming the file and the way out; a rule `include` claims it across the config
+exclude, as in the walk. A path nothing claims measures nothing - a note, never silence. The run
+header states the scope in effect and which of these applied.
+
+**`--unscoped` measures them as given.** The flag drops the config scope for named files and a
+path list: you named the files, so those are the files. A rule's own `include`/`exclude` still
+scopes that rule, because it records where the rule's claim holds, and a calibrated rule does not
+judge files it was never calibrated on. A directory walk is always scoped; `--unscoped` on one is
+a usage error. The SDK option is `unscoped`.
+
+**Resolve failures and the denylist.** A named file that fails to RESOLVE (missing path, no
+grammar) throws its hard error: naming a broken file is explicit consent to hear about the break.
+A path-list entry that is missing or that no grammar claims becomes a note and the run goes on.
+The secret denylist is not a scope - it is an always-win exclusion and applies to named paths
+too (naming a secret-shaped path does not hand its contents to the classifier; pattern-level -
+the PEM content sniff stays walk-only, an innocent-named operand is explicit consent like piped
+source). The `str` noun has no real path, so no scope applies; an element-scope run pins its
+selector file, which scope-checks like any operand. Capture's explicit FILE target bypasses the
+walk scoping (it prints structure, no classifier) - but its `--rule` preview marker applies the
+same scope predicate. `jint run paths -` is how to measure exactly a changeset
+(`git diff --name-only | jint run paths -`); the pre-commit hook does.
 
 ## Tier 2: `jint.config.ts` — imperative composition
 
@@ -108,17 +121,19 @@ import { defineConfig, type RuleSchema } from "jint:sdk";
 const is_literal_shared: RuleSchema = {/* a full declarative spec, authored in-file */};
 
 export default defineConfig({
-  rules: [
-    ...naming,
-    is_literal_shared,
-    {
-      name: "is_comment_paired_with_code",
-      target: "comments",
-      classify: (self, ctx) => ({/* free state composition */}),
-      handle: { warn: { less_than: 0.4 }, error: { less_than: 0.15 } },
-    },
-  ],
-  include: ["**/*.ts", "**/*.css"],
+  rules: {
+    include: ["**/*.ts", "**/*.css"],
+    use: [
+      ...naming,
+      is_literal_shared,
+      {
+        name: "is_comment_paired_with_code",
+        target: "comments",
+        classify: (self, ctx) => ({/* free state composition */}),
+        handle: { warn: { less_than: 0.4 }, error: { less_than: 0.15 } },
+      },
+    ],
+  },
 });
 ```
 
@@ -135,20 +150,29 @@ classification with one decision per reading: `{ severity: "error" | "warn" | nu
 
 - Composition is **in-file**: one module, one default export. No `extends`, no cross-file merge —
   rejected by design; a config that needs variants is two configs (`--config` picks one).
-- Entries compose **last wins by rule name**: re-declaring a name replaces the earlier entry, so
+- A rule name that appears twice is an error naming both entries; replace a rule by spreading it and
+  setting `override: true`:
   ```ts
   export default defineConfig({
-    rules: [
-      is_greppable,
-      { ...is_greppable, include: ["src/**"], handle: { warn: { less_than: 0.8 } } },
-    ],
+    rules: {
+      use: [
+        is_greppable,
+        {
+          ...is_greppable,
+          include: ["src/**"],
+          handle: { warn: { less_than: 0.8 } },
+          override: true,
+        },
+      ],
+    },
   });
   ```
   runs one `is_greppable`, the tighter one.
 - Names are global across the two rule forms: a callback rule re-declaring a declarative entry's
   name (or vice versa) is a fatal `RULE_INVALID`, not an override.
-- `disable` removes by name after composition; `rules: []` alone is `CONFIG_NO_RULES` (a run that
+- `disable` removes by name after composition; `rules: { use: [] }` alone is `CONFIG_NO_RULES` (a run that
   would measure nothing is a config error).
-- Scoping is per rule: each entry's own `include`/`exclude` globs (exclude always wins). A rule
-  `include` is also a DISCOVERY scope (walk-union, above) - a rule wanting a file type the config
-  `include` excludes admits it by naming it; no global carve-out is ever needed.
+- Scoping is per rule: each entry's own `include`/`exclude` globs (exclude always wins) replace the
+  rules scope for that rule. A rule `include` is also a DISCOVERY scope (walk-union, above) - a rule
+  wanting a file type `rules.include` excludes admits it by naming it; no global carve-out is
+  ever needed.

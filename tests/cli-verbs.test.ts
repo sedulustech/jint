@@ -99,7 +99,7 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
     writeFileSync(join(dir, "one.ts"), "function one() {}\n");
     writeFileSync(join(dir, "data.json"), '{"a":1}\n');
     // cwd INSIDE the scratch dir: capture loads the config scope now, and the repo root's own
-    // config (include: **/*.ts) would filter the .json out before the walk - the sweep note this
+    // config (defaults.include: **/*.ts) would filter the .json out before the walk - the sweep note this
     // test pins only fires where no config scoping removes the stray first
     const r = await runCli(["capture", dir], { cwd: dir, timeout: 60_000 });
     // the strays never kill the run: the claimed file's elements are the payload (exit 0)

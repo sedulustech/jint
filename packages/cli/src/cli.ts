@@ -60,7 +60,9 @@ import {
   printSelection,
   emitLines,
   providerLog,
+  type InputForm,
   printRules,
+  scopeLines,
   printRulesJson,
   printRulesStdout,
   usageError,
@@ -136,6 +138,12 @@ export const FLAGS = {
     type: "boolean",
     blurb:
       "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
+  },
+  "--unscoped": {
+    type: "boolean",
+    blurb:
+      "run: measure named files and a path list as given - the config's rules scope (rules.include/exclude) is not applied; a rule's own include/exclude still is",
+    verbs: ["run"],
   },
   "--no-cache": {
     type: "boolean",
@@ -265,7 +273,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb:
-      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its excludes always); an explicit FILE target bypasses the config's include/exclude walk scoping (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
+      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its rules.exclude always); an explicit FILE target bypasses the config's rules scope (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
 } as const;
@@ -383,6 +391,10 @@ payload, its next positional is the payload, and nothing follows the payload:
   jint run -- --weird.ts         -- ends flag parsing for dash-paths
 Nouns never resolve to paths (a file named str: jint run ./str); anything after a
 noun's payload is a usage error naming the correct form.
+
+Scope - named files and a path list are scope-checked: the config's rules scope
+(rules.include/exclude) applies to them, and a file it excludes is skipped with a note.
+--unscoped measures them as given; a rule's own include/exclude still applies.
 
 Element-scoped runs - address one element directly:
   jint run src/a.ts@L58          the element whose span contains line 58 (one call)
@@ -687,22 +699,45 @@ function configScopeBase(configPath: string | null, input: string): string | und
   return base.startsWith("..") ? undefined : base;
 }
 
-export async function runCli(cliArgv: string[]): Promise<number> {
-  provideVirtualModules();
+/** How this run's files were named, for the scope header; undefined when nothing names an input. */
+function inputFormOf(
+  stdinStr: { content: string } | undefined,
+  pathsContent: string | undefined,
+  target: string | string[] | undefined,
+  unscoped: boolean,
+): InputForm | undefined {
+  if (stdinStr !== undefined) return { kind: "str" };
+  if (pathsContent !== undefined) {
+    const count = pathsContent.split("\n").filter((l) => l.trim() !== "").length;
+    return { kind: "paths", count, unscoped };
+  }
+  if (Array.isArray(target)) return { kind: "named", paths: target, unscoped };
+  if (target === undefined || target === "") return undefined;
+  return existsSync(target) && statSync(target).isDirectory()
+    ? { kind: "walk", input: target }
+    : { kind: "named", paths: [target], unscoped };
+}
+
+/** The first thing runCli learns: the parsed flags and verb, or the exit code of an early answer. */
+type Dispatch =
+  | { readonly exit: number }
+  | { readonly cliArgs: CliArgs; readonly verb: NonNullable<ReturnType<typeof resolveVerb>> };
+
+function dispatch(cliArgv: string[]): Dispatch {
   const parsedCliArgs = parseCliArgs(cliArgv);
   if (parsedCliArgs.outcome === "usage-error") {
     usageError(parsedCliArgs.usageMessage);
-    return 2;
+    return { exit: 2 };
   }
   const cliArgs = parsedCliArgs.cliArgs;
 
   if (cliArgs.help === true) {
     process.stdout.write(HELP);
-    return 0;
+    return { exit: 0 };
   }
   if (cliArgs.version === true) {
     process.stdout.write(`${packageJson.version}\n`);
-    return 0;
+    return { exit: 0 };
   }
   // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
   // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a bare '-' names the
@@ -714,7 +749,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     !existsSync(firstPositional)
   ) {
     usageError(dashPositionalError(firstPositional));
-    return 2;
+    return { exit: 2 };
   }
   // Verb resolution, exactly one level: the FIRST positional IS the command. No implicit verb -
   // a missing or unknown first positional is a usage error naming the `jint run` form.
@@ -726,7 +761,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
         ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path> - see jint --help"
         : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture - see jint --help)`,
     );
-    return 2;
+    return { exit: 2 };
   }
   if (cliArgs.debug === true) setLogLevel("debug");
   // The flat flag set parses whole, for every verb; a flag the verb does not take is a LOUD usage
@@ -734,19 +769,186 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const scopeProblem = verbFlagProblem(verb.name, cliArgs);
   if (scopeProblem !== null) {
     usageError(scopeProblem);
-    return 2;
+    return { exit: 2 };
   }
-  if (verb.name === "serve") return serveVerb(verb.rest);
-  if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
+  return { cliArgs, verb };
+}
+
+type CliInput = Extract<Awaited<ReturnType<typeof resolveCliInput>>, { outcome: "ok" }>;
+
+/**
+ * --unscoped applies to named files and a path list: a walk is always scoped, piped source has no
+ * path.
+ */
+function unscopedProblem(input: CliInput, config: ResolvedConfig): string | null {
+  const form = inputFormOf(
+    input.stdinStr,
+    input.pathsContent,
+    input.lintInput?.input ?? config.input,
+    true,
+  );
+  if (form !== undefined && form.kind !== "str" && form.kind !== "walk") return null;
+  return "--unscoped applies to named files and a path list; a directory is walked under the rules scope and piped source has no path - see jint --help";
+}
+
+/** Everything a run needs once its flags, config and input have resolved and validated. */
+interface RunContext {
+  readonly cliArgs: CliArgs;
+  readonly resolvedConfig: ResolvedConfig;
+  readonly configPath: string | null;
+  readonly input: CliInput;
+  readonly effective: ReturnType<typeof selectRules>["json"];
+  readonly concurrency: number | undefined;
+  readonly timeout: number | undefined;
+}
+
+/**
+ * The lint input, statement-resolved (no conditional spreads): with no flags and no stdin pass NO
+ * input key so lint()'s ?? config.input fallback applies ("" would shadow the config - lint() keeps
+ * the empty-input backstop). Dir inputs walk with paths prefixed by their location relative to the
+ * CONFIG's directory (scopeBase), so the config's scope patterns apply no matter where the walk
+ * starts (git parity); walks outside the config dir keep no prefix.
+ */
+function lintInputOptionsFor(run: RunContext): Record<string, unknown> {
+  const { stdinStr, lintInput } = run.input;
+  const options: Record<string, unknown> = {};
+  if (stdinStr !== undefined) {
+    options.str = stdinStr;
+    options.language = run.cliArgs.language;
+  } else if (lintInput !== undefined) {
+    Object.assign(options, lintInput);
+  }
+  if (lintInput?.input !== undefined && typeof lintInput.input === "string") {
+    const base = configScopeBase(run.configPath, lintInput.input);
+    if (base !== undefined) options.scopeBase = base;
+  }
+  return options;
+}
+
+/** The rubric and the scope header, before any finding: the context the findings are read in. */
+function printRunHeader(run: RunContext): void {
+  const { cliArgs, resolvedConfig, input } = run;
+  printRules(
+    run.effective,
+    resolvedConfig.customRules?.length ?? 0,
+    scopeLines(
+      run.configPath,
+      { include: resolvedConfig.include, exclude: resolvedConfig.exclude },
+      inputFormOf(
+        input.stdinStr,
+        input.pathsContent,
+        input.lintInput?.input ?? resolvedConfig.input,
+        cliArgs.unscoped === true,
+      ),
+    ),
+  );
+}
+
+/** The run's record on disk: its report and the manifest that says how it was invoked. */
+function recordRun(run: RunContext, reportJson: string): void {
+  recordRunReport(reportJson);
+  recordRunManifest({
+    configPath: run.configPath,
+    cwd: process.cwd(),
+    argv: process.argv,
+    ts: new Date().toISOString(),
+    handles: Object.fromEntries(
+      run.resolvedConfig.rules.flatMap((r) =>
+        r.handleData ? [[r.name, r.handleData] as const] : [],
+      ),
+    ),
+  });
+}
+
+/** Persist the report and write it: stdout in the format the flags pick, the run record always. */
+function emitReport(
+  run: RunContext,
+  lintReport: Awaited<ReturnType<typeof collectReport>>,
+  selected: readonly SelectedElement[],
+): void {
+  const { cliArgs } = run;
+  // One canonical artifact: renderJson's bytes ARE report.json AND the --json stdout. The
+  // default stdout is the raw-line projection of the same report (findings only); totals and
+  // run errors stay on stderr. Persistence is NEVER gated on --json — the flag is a stdout
+  // format choice (output-architecture design).
+  if (selected.length > 0) lintReport.selected = [...selected];
+  const reportJson = renderJson(lintReport);
+  const rendered =
+    cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport);
+  recordRun(run, reportJson);
+  process.stdout.write(rendered.stdout);
+  if (rendered.stderr !== "") emitLines(rendered.stderr);
+}
+
+/** Classify the input and write the report: the part of a run that talks to the classifier. */
+async function runLint(run: RunContext): Promise<number> {
+  const { cliArgs, resolvedConfig, input } = run;
+  const { elementScope, pathsContent } = input;
+  // The element-scoped echo: WHICH element each selector captured, printed BEFORE any
+  // measurement - a line that drifted after edits selects a different unit silently, and
+  // nothing in a bare score contradicts the wrong assumption. The SDK resolves the fact
+  // (selectedElements); the CLI owns the rendering. --json keeps stdout a single document:
+  // the same fact rides the report as `selected`.
+  const selected: SelectedElement[] =
+    elementScope !== undefined ? await selectedElements(elementScope) : [];
+  if (elementScope !== undefined && cliArgs.json !== true) printSelection(selected);
+  const lintReport = await collectReport(
+    lint({
+      config: resolvedConfig,
+      ...lintInputOptionsFor(run),
+      exclude: cliArgs.exclude,
+      cache: cliArgs["no-cache"] === true ? false : undefined,
+      unscoped: cliArgs.unscoped === true ? true : undefined,
+      disable: cliArgs.disable,
+      only: cliArgs.rule,
+      log: providerLog,
+      concurrency: run.concurrency,
+      timeout: run.timeout,
+      paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
+      element:
+        elementScope !== undefined
+          ? {
+              path: elementScope.path,
+              anchor: elementScope.anchor,
+              ranges: elementScope.ranges,
+            }
+          : undefined,
+    }),
+  );
+  emitReport(run, lintReport, selected);
+  // The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays
+  // pure finding data). Failure of the run itself already reported — never double-report.
+  if (elementScope !== undefined) {
+    const echo = await selectionEcho(elementScope, lintReport.findings);
+    for (const header of echo.headers) emit({ message: header });
+    if (echo.body !== "") process.stderr.write(echo.body);
+  }
+  const exit = computeExit(lintReport);
+  const notice = recordNotice();
+  if (notice !== "") emit({ message: notice });
+  return exit;
+}
+
+/**
+ * Resolve and validate everything a run needs before it touches the classifier: the grammar flag,
+ * the config, the input, the run knobs, the effective rule set. A problem answers with its exit
+ * code, already reported.
+ */
+async function prepareRun(
+  cliArgs: CliArgs,
+  operands: Parameters<typeof resolveCliInput>[0],
+): Promise<RunContext | { readonly exit: number }> {
   // An unknown grammar is a usage error before any input is touched: the run would stream
   // WALK_FAILED for the unit and still exit clean. Same code and detail as the SDK's
   // unknown-language throws, so a flag-named language and an SDK-resolved one render alike.
   if (cliArgs.language !== undefined && !knownLanguages().includes(cliArgs.language)) {
-    return exitForThrown(
-      new SetupError("MISSING_GRAMMAR", `unknown language '${cliArgs.language}'`, {
-        detail: { kind: "unknown-language", valid: knownLanguages() },
-      }),
-    );
+    return {
+      exit: exitForThrown(
+        new SetupError("MISSING_GRAMMAR", `unknown language '${cliArgs.language}'`, {
+          detail: { kind: "unknown-language", valid: knownLanguages() },
+        }),
+      ),
+    };
   }
 
   // config discovery: TS preferred, JSON fallback; --config overrides discovery - run and
@@ -757,7 +959,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
   } catch (thrown) {
     // Config-load errors are config-origin: no flag label applies.
-    return exitForThrown(thrown);
+    return { exit: exitForThrown(thrown) };
   }
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
@@ -767,14 +969,18 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   // is. A TTY is never read; a TTY with the
   // payload '-' dies here, not blocking on the terminal, and a TTY with no noun and no config
   // input dies in lint()'s empty-input backstop.
-  let selection: Awaited<ReturnType<typeof resolveCliInput>>;
+  let input: Awaited<ReturnType<typeof resolveCliInput>>;
   try {
-    selection = await resolveCliInput(verb.rest);
+    input = await resolveCliInput(operands);
   } catch (thrown) {
-    return exitForThrown(thrown);
+    return { exit: exitForThrown(thrown) };
   }
-  if (selection.outcome === "usage") return 2;
-  const { stdinStr, lintInput, elementScope, pathsContent } = selection;
+  if (input.outcome === "usage") return { exit: 2 };
+  const unscopedError = cliArgs.unscoped === true ? unscopedProblem(input, resolvedConfig) : null;
+  if (unscopedError !== null) {
+    usageError(unscopedError);
+    return { exit: 2 };
+  }
 
   // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
   const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
@@ -782,12 +988,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) {
     usageError(knobProblem + " - see jint --help");
-    return 2;
+    return { exit: 2 };
   }
-
-  // The effective rule set — config rules filtered by --disable/--rule — shared by the stderr
-  // pre-print and --dry-run, so the block always names exactly what the run will classify.
-  const effective = selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json;
 
   // Pre-flight: setup failures surface BEFORE the rubric pre-print - the block names what WILL
   // run, so a run that cannot start prints its error alone (ordering, not volume: the block
@@ -801,31 +1003,56 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     );
   } catch (thrown) {
     // The pre-flight knows which flag filled the names: the emitter labels the origin.
-    return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
+    return { exit: exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig)) };
   }
 
-  // --dry-run: resolve + validate everything (config errors, knobs), print the effective rule
-  // set, and stop BEFORE any input walk or classifier call. No requests dir, no record notice —
-  // the stdout block is the whole payload (the flag's product, pipe-able). With --json the
-  // payload composes: one JSON document on stdout, the banner on stderr (same byte-clean
-  // contract as a run's --json).
+  return {
+    cliArgs,
+    resolvedConfig,
+    configPath,
+    input,
+    // The effective rule set — config rules filtered by --disable/--rule — shared by the stderr
+    // pre-print and --dry-run, so the block always names exactly what the run will classify.
+    effective: selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json,
+    concurrency,
+    timeout,
+  };
+}
+
+/**
+ * --dry-run: everything resolved and validated, the effective rule set printed, and the run stops
+ * BEFORE any input walk or classifier call. No requests dir, no record notice — the stdout block is
+ * the whole payload (the flag's product, pipe-able). With --json the payload composes: one JSON
+ * document on stdout, the banner on stderr (same byte-clean contract as a run's --json).
+ */
+function printDryRun(run: RunContext): void {
+  const customCount = run.resolvedConfig.customRules?.length ?? 0;
+  if (run.cliArgs.json === true) printRulesJson(run.effective, customCount);
+  else printRulesStdout(run.effective, customCount);
+}
+
+export async function runCli(cliArgv: string[]): Promise<number> {
+  provideVirtualModules();
+  const dispatched = dispatch(cliArgv);
+  if ("exit" in dispatched) return dispatched.exit;
+  const { cliArgs, verb } = dispatched;
+  if (verb.name === "serve") return serveVerb(verb.rest);
+  if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
+  const run = await prepareRun(cliArgs, verb.rest);
+  if ("exit" in run) return run.exit;
   if (cliArgs["dry-run"] === true) {
-    if (cliArgs.json === true) {
-      printRulesJson(effective, resolvedConfig.customRules?.length ?? 0);
-    } else {
-      printRulesStdout(effective, resolvedConfig.customRules?.length ?? 0);
-    }
+    printDryRun(run);
     return 0;
   }
-
+  const { resolvedConfig, input, effective } = run;
   try {
     // The rubric lands in the consumer's context BEFORE the findings it interprets:
     // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
     // place their meaning lives in-band (context timing, not artifact embedding — output can
     // be sub-sampled, context cannot). A path input that does not exist fails HERE, so the
     // rubric never prints for a run that cannot start.
-    if (typeof lintInput?.input === "string" && !existsSync(lintInput.input)) {
-      throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${lintInput.input}`);
+    if (typeof input.lintInput?.input === "string" && !existsSync(input.lintInput.input)) {
+      throw new SetupError("ENTRYPOINT_NOT_FOUND", `input not found: ${input.lintInput.input}`);
     }
     // Auth pre-flight (the same check lint() makes): with rules to classify and no key
     // anywhere, the run aborts anyway - surface it before the rubric block so the one
@@ -833,87 +1060,8 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     if (effective.length + (resolvedConfig.customRules?.length ?? 0) > 0) {
       assertEndpointKey(resolvedConfig);
     }
-    printRules(effective, resolvedConfig.customRules?.length ?? 0);
-    // The lint input, statement-resolved (no conditional spreads): with no flags and no stdin pass
-    // NO input key so lint()'s ?? config.input fallback applies ("" would shadow the config —
-    // lint() keeps the empty-input backstop).
-    const lintInputOptions: Record<string, unknown> = {};
-    if (stdinStr !== undefined) {
-      lintInputOptions.str = stdinStr;
-      lintInputOptions.language = cliArgs.language;
-    } else if (lintInput !== undefined) {
-      Object.assign(lintInputOptions, lintInput);
-    }
-    // Config-scope basis (scopeBase): dir inputs walk with paths prefixed by their location
-    // relative to the CONFIG's directory, so the config's scope patterns apply no matter
-    // where the walk starts (git parity). Walks outside the config dir keep no prefix.
-    if (lintInput?.input !== undefined && typeof lintInput.input === "string") {
-      const base = configScopeBase(configPath, lintInput.input);
-      if (base !== undefined) lintInputOptions.scopeBase = base;
-    }
-    // The element-scoped echo: WHICH element each selector captured, printed BEFORE any
-    // measurement - a line that drifted after edits selects a different unit silently, and
-    // nothing in a bare score contradicts the wrong assumption. The SDK resolves the fact
-    // (selectedElements); the CLI owns the rendering. --json keeps stdout a single document:
-    // the same fact rides the report as `selected`.
-    const selected: SelectedElement[] =
-      elementScope !== undefined ? await selectedElements(elementScope) : [];
-    if (elementScope !== undefined && cliArgs.json !== true) printSelection(selected);
-    const lintReport = await collectReport(
-      lint({
-        config: resolvedConfig,
-        ...lintInputOptions,
-        exclude: cliArgs.exclude,
-        cache: cliArgs["no-cache"] === true ? false : undefined,
-        disable: cliArgs.disable,
-        only: cliArgs.rule,
-        log: providerLog,
-        concurrency,
-        timeout,
-        paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
-        element:
-          elementScope !== undefined
-            ? {
-                path: elementScope.path,
-                anchor: elementScope.anchor,
-                ranges: elementScope.ranges,
-              }
-            : undefined,
-      }),
-    );
-    // One canonical artifact: renderJson's bytes ARE report.json AND the --json stdout. The
-    // default stdout is the raw-line projection of the same report (findings only); totals and
-    // run errors stay on stderr. Persistence is NEVER gated on --json — the flag is a stdout
-    // format choice (output-architecture design).
-    if (selected.length > 0) lintReport.selected = selected;
-    const reportJson = renderJson(lintReport);
-    const rendered =
-      cliArgs.json === true ? { stdout: reportJson, stderr: "" } : renderLines(lintReport);
-    recordRunReport(reportJson);
-    recordRunManifest({
-      configPath,
-      cwd: process.cwd(),
-      argv: process.argv,
-      ts: new Date().toISOString(),
-      handles: Object.fromEntries(
-        resolvedConfig.rules.flatMap((r) =>
-          r.handleData ? [[r.name, r.handleData] as const] : [],
-        ),
-      ),
-    });
-    process.stdout.write(rendered.stdout);
-    if (rendered.stderr !== "") emitLines(rendered.stderr);
-    // The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays
-    // pure finding data). Failure of the run itself already reported — never double-report.
-    if (elementScope !== undefined) {
-      const echo = await selectionEcho(elementScope, lintReport.findings);
-      for (const header of echo.headers) emit({ message: header });
-      if (echo.body !== "") process.stderr.write(echo.body);
-    }
-    const exit = computeExit(lintReport);
-    const notice = recordNotice();
-    if (notice !== "") emit({ message: notice });
-    return exit;
+    printRunHeader(run);
+    return await runLint(run);
   } catch (thrown) {
     return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
   }
@@ -998,14 +1146,14 @@ async function serveVerb(rest: readonly string[]): Promise<number> {
  * no stdin (a dash target is run's str noun, not capture's). The CONFIG loads exactly like run's
  * (--config > discovered jint.config.* > the structure-only config), so capture measures the same
  * population a run will classify: no target walks the config's input; a target walks it under the
- * config's still-applicable scoping (include/exclude/secretDenylist - an explicit single FILE
- * bypasses excludes, as in run); a config that cannot load fails with run's exact error. --rule
- * previews ONE rule's population: the elements its target and scope globs would measure carry the
- * marker (matches: true in --json, a leading * column in lines); nothing is classified. --exclude
- * unions on top of the config's excludes - run's mechanism, reused. One target, exactly: a
- * directory covers its whole tree. Lines on stdout, one per element; --json prints the element
- * array under the flag-product convention (one JSON document, errors stay on stderr). Setup
- * failures map through exitForThrown (2): the invocation is broken, not the extraction.
+ * config's still-applicable scoping (rules scope/secretDenylist - an explicit single FILE bypasses
+ * excludes, as in run); a config that cannot load fails with run's exact error. --rule previews ONE
+ * rule's population: the elements its target and scope globs would measure carry the marker
+ * (matches: true in --json, a leading * column in lines); nothing is classified. --exclude unions
+ * on top of the config's excludes - run's mechanism, reused. One target, exactly: a directory
+ * covers its whole tree. Lines on stdout, one per element; --json prints the element array under
+ * the flag-product convention (one JSON document, errors stay on stderr). Setup failures map
+ * through exitForThrown (2): the invocation is broken, not the extraction.
  */
 async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
   if (rest.length > 1) {

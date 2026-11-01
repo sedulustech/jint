@@ -5,6 +5,7 @@
  * module is where they meet the terminal.)
  */
 
+import { relative } from "node:path";
 import { describeRules, type CapturedElement, type Rule, type SelectedElement } from "@jint/sdk";
 
 /**
@@ -46,6 +47,55 @@ function measuringLine(effective: readonly Rule[], customCount: number): string 
   return `measuring with ${effective.length} rule${effective.length === 1 ? "" : "s"}${tsNote}`;
 }
 
+/** How the run's files were named: decides whether the config's rules scope applied to them. */
+export type InputForm =
+  | { readonly kind: "str" }
+  | { readonly kind: "paths"; readonly count: number; readonly unscoped: boolean }
+  | { readonly kind: "named"; readonly paths: readonly string[]; readonly unscoped: boolean }
+  | { readonly kind: "walk"; readonly input: string };
+
+const SHOWN_PATTERNS = 4;
+
+function patternList(patterns: readonly string[]): string {
+  if (patterns.length === 0) return "none";
+  const shown = patterns.slice(0, SHOWN_PATTERNS).join(", ");
+  const more = patterns.length - SHOWN_PATTERNS;
+  return more > 0 ? `${shown} (+${more} more)` : shown;
+}
+
+/**
+ * The run's scope header, two unprefixed lines before the findings: the config consulted with its
+ * rules scope, and how the input was named - because a named file is scope-checked and a path list
+ * is measured as given, and a run that measures nothing for that reason must say so up front.
+ */
+export function scopeLines(
+  configPath: string | null,
+  scope: { readonly include: readonly string[]; readonly exclude: readonly string[] },
+  form: InputForm | undefined,
+): string[] {
+  const config = configPath === null ? "no config file" : relative(process.cwd(), configPath);
+  const lines = [
+    `config ${config} - rules scope: include ${patternList(scope.include)}; exclude ${patternList(scope.exclude)}`,
+  ];
+  if (form === undefined) return lines;
+  if (form.kind === "str") {
+    lines.push("input: piped source - no path, so no scope applies");
+  } else if (form.kind === "walk") {
+    lines.push(`input: ${form.input} - walked under the rules scope`);
+  } else {
+    const what =
+      form.kind === "paths"
+        ? `path list, ${form.count} path${form.count === 1 ? "" : "s"}`
+        : form.paths.join(", ");
+    lines.push(
+      form.unscoped
+        ? `input: ${what} - measured as given (--unscoped): the rules scope is not applied, a rule's own include/exclude still is`
+        : `input: ${what} - scope-checked: the rules scope applies (--unscoped measures them as given)`,
+    );
+  }
+  return lines;
+}
+
 /**
  * The stderr rules pre-print: header + full-prose rule descriptions (SDK describeRules) + a ts-rule
  * count note when the config declares custom-tier rules (their names load at run time, so only the
@@ -53,8 +103,13 @@ function measuringLine(effective: readonly Rule[], customCount: number): string 
  * consumer's context BEFORE the findings; stdout stays untouched. The CLI owns this function's
  * voice; the SDK owns describeRules (same block, neutral).
  */
-export function printRules(effective: readonly Rule[], customCount: number): void {
+export function printRules(
+  effective: readonly Rule[],
+  customCount: number,
+  scope: readonly string[] = [],
+): void {
   emit({ message: measuringLine(effective, customCount) });
+  for (const line of scope) emit({ message: line });
   process.stderr.write("\n" + describeRules(effective));
 }
 

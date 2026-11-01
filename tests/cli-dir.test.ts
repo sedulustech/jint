@@ -32,9 +32,7 @@ describe("cli: dir walk ignores", () => {
       await Bun.write(
         join(tmpRoot, "jint.config.json"),
         JSON.stringify({
-          rules: ["is_greppable"],
-          include: ["**/*.ts"],
-          exclude: ["**/more.ts"],
+          rules: { include: ["**/*.ts"], exclude: ["**/more.ts"], use: ["is_greppable"] },
         }),
       );
       const r = await runCli(
@@ -77,7 +75,7 @@ describe("cli: dir walk ignores", () => {
       await Bun.write(join(tmpRoot, "src", "main.rs"), "fn b() -> u32 { 2 }\n");
       await Bun.write(
         join(tmpRoot, "jint.config.json"),
-        JSON.stringify({ rules: ["is_greppable"], include: ["**/*.py"] }),
+        JSON.stringify({ rules: { include: ["**/*.py"], use: ["is_greppable"] } }),
       );
       const r = await runCli([
         "capture",
@@ -120,7 +118,9 @@ describe("cli: dir walk ignores", () => {
       await Bun.write(join(tmpRoot, "tests", "sub", "x.ts"), "export const x = 1;\n");
       await Bun.write(
         join(tmpRoot, "jint.config.json"),
-        JSON.stringify({ rules: ["is_greppable"], exclude: ["**/tests/**"] }),
+        JSON.stringify({
+          rules: { exclude: ["**/tests/**"], use: ["is_greppable"] },
+        }),
       );
       const r = await runCli(
         ["run", join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
@@ -141,7 +141,9 @@ describe("cli: dir walk ignores", () => {
     const configPath = "/tmp/jint-rules-only-config.json";
     require("node:fs").writeFileSync(
       configPath,
-      JSON.stringify({ rules: ["is_greppable"], exclude: ["**/fixtures/**"] }),
+      JSON.stringify({
+        rules: { exclude: ["**/fixtures/**"], use: ["is_greppable"] },
+      }),
     );
     // No key: the run reaches input resolution and the units (PROVIDER_AUTH, exit 4) — NOT
     // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
@@ -162,7 +164,10 @@ describe("cli: dir walk ignores", () => {
       // own config: the repo root config excludes the tests subtree on the config-relative
       // basis, which would (correctly) empty this walk - this test owns the walker contract
       const ownConfig = "/tmp/jint-walker-contract.json";
-      require("node:fs").writeFileSync(ownConfig, JSON.stringify({ rules: ["is_greppable"] }));
+      require("node:fs").writeFileSync(
+        ownConfig,
+        JSON.stringify({ rules: { use: ["is_greppable"] } }),
+      );
       const proc = await runCli(
         ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
         {

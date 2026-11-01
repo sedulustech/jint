@@ -13,7 +13,6 @@ It then turns the classification values into actionable output via per-rule call
 
 The best outcome is one where an agent can infer what you expect from the sources you give it, so you go from idea to code without reviewing every step or handholding the agent.
 `jint` is the first step: it verifies what a syntax check cannot see (naming, intent, error handling, comments), and an agent reads its findings to correct itself.
-It is not full verification, and a passing run does not prove the code is right.
 
 Results:
 
@@ -54,7 +53,7 @@ On musl-based images (Alpine), install a glibc layer first or use a glibc base i
 import { rules as comments } from "jint:rules/comments";
 import { is_greppable } from "jint:rules/naming";
 
-export default { rules: [...comments, is_greppable] };
+export default { rules: { use: [...comments, is_greppable] } };
 ```
 
 ### Skill
@@ -102,9 +101,9 @@ out reuses the code at a lower cost. An element under 1,024 tokens never caches 
 
 ```bash
 jint run src/                             # a directory tree
-jint run src/a.ts src/b.ts                # explicit files
+jint run src/a.ts src/b.ts                # named files: scope-checked, the rules scope applies
 cat snippet.ts | jint run str -           # piped stdin, one str unit (the only str form)
-jint run paths - < list.txt               # a path LIST from a file, piped
+jint run paths - < list.txt               # a path LIST from a file, piped: scope-checked like named files
 git diff --name-only HEAD~1 | jint run paths -  # a path LIST from your git pipeline
 jint run                                  # no operand: input comes from auto-discovered config
 
@@ -138,27 +137,42 @@ Iterate on rules and scopes against this preview, then classify.
 Every run records its requests to `~/.jint/runs/` (or what's set by `JINT_RUNS_DIR`).
 The custom grammar dir is `~/.jint/grammars` (or what's set by `JINT_GRAMMAR_DIR`) - the bring-your-own-grammar seam, docs/byog.md.
 
+### Scope
+
+`rules: { include, exclude, use }` in the config: `use` holds the rules, and `include`/`exclude` are the default scope of every rule - the files the walk reads, and the files a rule measures when it declares no `include` of its own.
+A rule's own `include`/`exclude` replaces them for that rule.
+How you name files decides whether that scope applies:
+
+- a directory is walked under the rules scope;
+- named files (`jint run src/a.test.ts`) and a piped path list (`jint run paths -`) are scope-checked: a file the rules scope excludes is skipped, with a note that names `--unscoped`;
+- `--unscoped` measures named files and a path list as given: the rules scope does not apply, but a rule's own `include`/`exclude` still scopes that rule.
+
+Every run prints a header with the config it used, its rules scope, and which of these applied.
+Use the path list to measure exactly a changeset: `git diff --name-only | jint run paths -`.
+
 ### Rules
 
 ```ts
 // jint.config.ts
 export default {
   input: "src/",
-  rules: [
-    {
-      name: "is_cognitively_complex",
-      kind: "score",
-      instructions:
-        "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-      criteria: [
-        "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-        "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-        "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
-      ],
-      target: "definitions",
-      handle: { map: ["pass", "warn", "error"] },
-    },
-  ],
+  rules: {
+    use: [
+      {
+        name: "is_cognitively_complex",
+        kind: "score",
+        instructions:
+          "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        criteria: [
+          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
+        ],
+        target: "definitions",
+        handle: { map: ["pass", "warn", "error"] },
+      },
+    ],
+  },
 };
 ```
 

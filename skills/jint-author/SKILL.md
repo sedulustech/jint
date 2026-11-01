@@ -32,17 +32,17 @@ reading cannot say which failed. The model sees only the element's frame (a
 comment rule sees the definition it belongs to), so a claim about code elsewhere
 cannot be judged. REFERENCE.md has what was measured.
 
-| key            | meaning                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                       |
-| `kind`         | noul                                                                                                                                                          |
-| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.         |
-| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                        |
-| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                       |
-| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                        |
-| `include`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                        |
-| `exclude`      | Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.                                        |
-| `override`     | true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too. |
+| key            | meaning                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                                                             |
+| `kind`         | noul                                                                                                                                                                                                |
+| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.                                               |
+| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                                                              |
+| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                                                             |
+| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                                                              |
+| `include`      | Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope. |
+| `exclude`      | Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.                                                                        |
+| `override`     | true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.                                       |
 
 Handles, one form per kind - direction lives in the handle, never in prose:
 
@@ -58,46 +58,48 @@ wire shape):
 ```json
 {
   "$schema": "./jint.schema.json",
-  "rules": [
-    {
-      "name": "is_greppable",
-      "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
-      "criteria": {
-        "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
-        "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
-      },
-      "target": "functions",
-      "handle": {
-        "warn": {
-          "less_than": 0.75
+  "rules": {
+    "use": [
+      {
+        "name": "is_greppable",
+        "instructions": "Are the identifiers in this function searchable with terms a developer would use to find this code?",
+        "criteria": {
+          "true": "The code identifiers judged here are those in the function's declaration and body - its own name, its parameters, its locals, and the names it reads - and they are greppable: written out in full at every occurrence, never split into fragments or dynamically constructed from pieces, never renamed at a boundary, and specific enough that a search hit is genuinely a reference to this thing.",
+          "false": "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule."
         },
-        "error": {
-          "less_than": 0.6
+        "target": "functions",
+        "handle": {
+          "warn": {
+            "less_than": 0.75
+          },
+          "error": {
+            "less_than": 0.6
+          }
+        }
+      },
+      {
+        "name": "is_cognitively_complex",
+        "kind": "score",
+        "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
+        "criteria": [
+          "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
+          "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
+          "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
+        ],
+        "target": ["functions", "classes", "methods", "types", "bindings"],
+        "handle": {
+          "map": [
+            "pass",
+            "warn",
+            {
+              "level": "error",
+              "message": "Decompose this function: extract readable named steps so the main body reads easily."
+            }
+          ]
         }
       }
-    },
-    {
-      "name": "is_cognitively_complex",
-      "kind": "score",
-      "instructions": "How much EFFORT does a reader need to follow this code's logic - effort caused by structure the author chose, not by the problem itself? Ignore length alone: a long linear unit with one job reads as easy. Ignore inherent complexity: cases the data or the domain genuinely force are not this failure. Judge how hard the code's own structure makes it to read top-to-bottom.",
-      "criteria": [
-        "Easy: the logic reads top-to-bottom. A single pass suffices. Any difficulty present is inherent to the problem, not to the structure.",
-        "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
-        "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does."
-      ],
-      "target": ["functions", "classes", "methods", "types", "bindings"],
-      "handle": {
-        "map": [
-          "pass",
-          "warn",
-          {
-            "level": "error",
-            "message": "Decompose this function: extract readable named steps so the main body reads easily."
-          }
-        ]
-      }
-    }
-  ]
+    ]
+  }
 }
 ```
 

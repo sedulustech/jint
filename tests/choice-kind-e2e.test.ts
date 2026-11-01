@@ -32,7 +32,7 @@ function writeFixture(rule: object = CHOICE_RULE): { config: string; source: str
   const dir = scratchDir(`jint-choice-kind-${Math.random().toString(36).slice(2)}`);
   const config = join(dir, "jint.config.json");
   const source = join(dir, "unit.ts");
-  writeFileSync(config, JSON.stringify({ rules: [rule] }));
+  writeFileSync(config, JSON.stringify({ rules: { use: [rule] } }));
   writeFileSync(source, "// returns two\nexport const one = 1;\n");
   return { config, source };
 }

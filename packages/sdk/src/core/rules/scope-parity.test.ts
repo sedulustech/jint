@@ -8,16 +8,18 @@ import { validateCustomRule } from "@jint/sdk";
 
 const jsonRule = (scope: Record<string, unknown>) => ({
   input: "x",
-  rules: [
-    {
-      name: "r",
-      instructions: "i",
-      criteria: { true: "t", false: "f" },
-      target: "files",
-      handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
-      ...scope,
-    },
-  ],
+  rules: {
+    use: [
+      {
+        name: "r",
+        instructions: "i",
+        criteria: { true: "t", false: "f" },
+        target: "files",
+        handle: { warn: { greater_than: 0.3 }, error: { greater_than: 0.7 } },
+        ...scope,
+      },
+    ],
+  },
 });
 
 const customRule = (scope: Record<string, unknown>) => ({
@@ -58,10 +60,10 @@ describe("scope validation parity (JSON tier <-> custom tier)", () => {
   test.each(SCHEMA_SCOPES.map((s) => [JSON.stringify(s), s] as const))(
     "JSON schema rejects %s naming the field; TS checker too",
     (_label, scope) => {
-      // The rule-schema dive names the exact field (e.g. /rules/0/exclude/0), so both tiers
+      // The rule-schema dive names the exact field (e.g. /rules/use/0/exclude/0), so both tiers
       // reject with a field-naming message — parity includes the message shape, not just the set.
       expect(() => validateConfig(jsonRule(scope), "inline")).toThrow(
-        "invalid config inline: /rules/0/exclude/0",
+        "invalid config inline: /rules/use/0/exclude/0",
       );
       expect(() => validateCustomRule(customRule(scope), "f.ts")).toThrow(/"r": exclude:/);
     },

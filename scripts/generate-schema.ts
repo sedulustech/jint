@@ -163,7 +163,11 @@ type SchemaPropertyMeta = {
 };
 
 export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
-  const ruleItems = (CONFIG_SCHEMA.properties.rules as { items: { anyOf: unknown[] } }).items;
+  const ruleItems = (
+    CONFIG_SCHEMA.properties.rules as {
+      properties: { use: { items: { anyOf: unknown[] } } };
+    }
+  ).properties.use.items;
   const ruleObject = ruleItems.anyOf.find(
     (v) => (v as { anyOf?: unknown[] }).anyOf !== undefined,
   ) as { anyOf: Array<{ properties: Record<string, { description?: string; const?: string }> }> };
@@ -178,9 +182,9 @@ const FALLBACK_DESCRIPTIONS: Record<string, string> = {
     "What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.",
   handle: "When readings surface as findings; the shape depends on kind (the descriptions below).",
   include:
-    "Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.",
+    "Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope.",
   exclude:
-    "Rule scoping: glob list over walked paths; replaces any fragment-level scope wholesale. Config exclude stays absolute.",
+    "Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.",
 };
 const callbackHandle =
   'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
@@ -294,6 +298,11 @@ export function renderSkillFollow(specs: readonly RuleSchema[]): string {
     "exits 2 and prints every rule domain, the rules in each, and a working example.",
     "Write `jint.config.ts` from that list, choosing the rules that suit the codebase",
     "you are in. A run that measures nothing exits 4 and says, per rule, why.",
+    "",
+    "Named files and a piped path list run under the config's `rules` scope (an excluded",
+    "file is skipped, with a note). To measure exactly a changeset, pipe it:",
+    "`git diff --name-only | jint run paths -`. `--unscoped` measures named files and a",
+    "list as given. The run header states which applied.",
     "",
     "A whole path: `jint run <path>`. One element: `jint run <path>@L<line> --rule",
     "<rule>`. The CLI echoes which element an @L selector captured - verify that",
@@ -866,10 +875,12 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   const authorOut = outPath(root, GENERATED_OUTPUTS[3]!);
   const example = {
     $schema: "./jint.schema.json",
-    rules: [
-      allSpecs.find((spec) => spec.name === "is_greppable"),
-      allSpecs.find((spec) => spec.name === "is_cognitively_complex"),
-    ],
+    rules: {
+      use: [
+        allSpecs.find((spec) => spec.name === "is_greppable"),
+        allSpecs.find((spec) => spec.name === "is_cognitively_complex"),
+      ],
+    },
   };
   writeFileSync(
     authorOut,

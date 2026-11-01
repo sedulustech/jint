@@ -50,7 +50,7 @@ const PROBE_RULE = {
 };
 
 const PROBE_CONFIG = JSON.stringify(
-  { input: "src", exclude: ["**/gen/**"], rules: [PROBE_RULE] },
+  { input: "src", rules: { exclude: ["**/gen/**"], use: [PROBE_RULE] } },
   null,
   2,
 );
@@ -168,8 +168,8 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
       join(dir, "jint.config.json"),
       JSON.stringify({
         input: "src",
-        exclude: ["**/gen/**"],
-        rules: [{ ...PROBE_RULE, include: ["**/*.ts"] }],
+
+        rules: { exclude: ["**/gen/**"], use: [{ ...PROBE_RULE, include: ["**/*.ts"] }] },
       }),
     );
     await withCwd(dir, async () => {
@@ -224,8 +224,9 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
       [
         "export default {",
         '  input: "src",',
-        '  exclude: ["**/gen/**"],',
-        "  rules: [{",
+        "  rules: {",
+        '    exclude: ["**/gen/**"],',
+        "    use: [{",
         '    name: "pick_functions",',
         '    target: "functions",',
         "    classify: (self) => ({",
@@ -234,7 +235,7 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
         "      state: { src: self.source },",
         "    }),",
         "    handle: () => [],",
-        "  }],",
+        "  }] },",
         "};",
         "",
       ].join("\n"),
@@ -277,8 +278,8 @@ describe("jint capture - the config scope through the spawned binary", () => {
       join(dir, "jint.config.json"),
       JSON.stringify({
         input: "src",
-        exclude: ["**/gen/**"],
-        rules: [{ ...PROBE_RULE, include: ["**/*.ts"] }],
+
+        rules: { exclude: ["**/gen/**"], use: [{ ...PROBE_RULE, include: ["**/*.ts"] }] },
       }),
     );
     const lines = await runCli(["capture", "--rule", "probe_all"], { cwd: dir });
@@ -323,7 +324,7 @@ describe("jint capture - the config scope through the spawned binary", () => {
     writeFileSync(join(dir, "sub", "deep", "gone.ts"), "function gone() {}\n");
     writeFileSync(
       join(dir, "jint.config.json"),
-      JSON.stringify({ exclude: ["sub/deep/**"], rules: [PROBE_RULE] }),
+      JSON.stringify({ rules: { exclude: ["sub/deep/**"], use: [PROBE_RULE] } }),
     );
     const r = await runCli(["capture", "sub"], { cwd: dir });
     expect(r.code).toBe(0);

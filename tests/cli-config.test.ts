@@ -11,7 +11,7 @@ jest.setTimeout(60_000);
 describe("cli: config load errors exit 2", () => {
   test("loads jint.config.json from the current dir", async () => {
     const tmpDir = scratchDir("jint-config-test");
-    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ input: ".", exclude: [] }));
+    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ input: "." }));
 
     // Should exit 2 (CONFIG_INVALID) because key is empty: fail fast, nothing walked
     Bun.write(tmpDir + "/input.ts", "// content");
@@ -38,7 +38,9 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_function_srp", "will_comment_drift"], exclude: [] }),
+      JSON.stringify({
+        rules: { exclude: [], use: ["is_function_srp", "will_comment_drift"] },
+      }),
     );
 
     const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: NO_KEY_WIRE });
@@ -62,7 +64,9 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun-disable");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_function_srp", "will_comment_drift"], exclude: [] }),
+      JSON.stringify({
+        rules: { exclude: [], use: ["is_function_srp", "will_comment_drift"] },
+      }),
     );
 
     const proc = await runCli(["run", "--dry-run", "--disable", "is_function_srp"], {
@@ -81,7 +85,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
     const tmpDir = scratchDir("jint-dryrun-json");
     Bun.write(
       tmpDir + "/jint.config.json",
-      JSON.stringify({ rules: ["is_function_srp"], exclude: [] }),
+      JSON.stringify({ rules: { exclude: [], use: ["is_function_srp"] } }),
     );
 
     const proc = await runCli(["run", "--dry-run", "--json"], {
@@ -99,7 +103,7 @@ describe("cli: --dry-run prints the rules that would run, without classifying", 
 
   test("config resolving to zero rules: CONFIG_NO_RULES, exit 2", async () => {
     const tmpDir = scratchDir("jint-dryrun-empty");
-    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: [], exclude: [] }));
+    Bun.write(tmpDir + "/jint.config.json", JSON.stringify({ rules: { exclude: [], use: [] } }));
 
     const proc = await runCli(["run", "--dry-run"], { cwd: tmpDir, env: NO_KEY_WIRE });
     expect(proc.code).toBe(2);

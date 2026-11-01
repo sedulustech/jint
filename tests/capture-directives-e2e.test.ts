@@ -23,16 +23,18 @@ const DIR = scratchDir("jint-capture-directives-e2e");
 
 const CONFIG = JSON.stringify({
   input: "doc.md",
-  rules: [
-    {
-      name: "probe_block",
-      kind: "noul",
-      target: "markdown:block",
-      instructions: "Is this block titled?",
-      criteria: { true: "Titled.", false: "Not titled." },
-      handle: { warn: { greater_than: 0.99, message: "titled block" } },
-    },
-  ],
+  rules: {
+    use: [
+      {
+        name: "probe_block",
+        kind: "noul",
+        target: "markdown:block",
+        instructions: "Is this block titled?",
+        criteria: { true: "Titled.", false: "Not titled." },
+        handle: { warn: { greater_than: 0.99, message: "titled block" } },
+      },
+    ],
+  },
 });
 
 const GRAMMARS = join(DIR, "grammars", "markdown");

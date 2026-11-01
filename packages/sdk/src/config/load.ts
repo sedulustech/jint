@@ -143,11 +143,16 @@ export const CONFIG_SCHEMA = Type.Object({
   // the run-level backstop still rejects an empty input as a config error.
   input: Type.Optional(Type.String()),
   inputType: Type.Optional(KIND_SCHEMA),
-  rules: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
-  // Config-level include: when set, ONLY matching paths are measured (the walk-wide file
-  // filter; per-rule include narrows further). Symmetrical with exclude, same glob semantics.
-  include: Type.Optional(Type.Array(Type.String())),
-  exclude: Type.Optional(Type.Array(Type.String())),
+  // The rules, and the scope they follow: include/exclude are the default scope of every rule and
+  // the walk's file filter - a rule with no include of its own follows them, and a rule include
+  // claims its files across them (docs/config.md). Same glob semantics as a rule's own scope.
+  rules: Type.Optional(
+    Type.Object({
+      include: Type.Optional(Type.Array(Type.String())),
+      exclude: Type.Optional(Type.Array(Type.String())),
+      use: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
+    }),
+  ),
   // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
   // negations allowed; default = the built-in frozen denylist). For repos that
   // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
@@ -262,7 +267,7 @@ export async function loadDeclarativeConfig(
  */
 export async function loadTsConfig(path: string, options?: LoadOptions): Promise<ResolvedConfig> {
   const abs = resolve(path);
-  const raw = (await importConfigModule(abs)) as { rules?: unknown[] };
+  const raw = (await importConfigModule(abs)) as { rules?: { use?: unknown[] } };
   if (raw === undefined || typeof raw !== "object" || Array.isArray(raw)) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -271,12 +276,16 @@ export async function loadTsConfig(path: string, options?: LoadOptions): Promise
   }
   const customRules: CustomRule[] = [];
   const declarative = { ...(raw as Record<string, unknown>) };
-  if (Array.isArray(declarative.rules)) {
-    declarative.rules = declarative.rules.filter((entry) => {
-      if (!isCallbackRule(entry)) return true;
-      customRules.push(validateCustomRule(entry, path));
-      return false;
-    });
+  const rules = declarative.rules as { use?: unknown[] } | undefined;
+  if (rules !== undefined && Array.isArray(rules.use)) {
+    declarative.rules = {
+      ...rules,
+      use: rules.use.filter((entry) => {
+        if (!isCallbackRule(entry)) return true;
+        customRules.push(validateCustomRule(entry, path));
+        return false;
+      }),
+    };
   }
   const resolved = validateConfig(
     declarative,
@@ -319,6 +328,11 @@ function isCallbackRule(entry: unknown): boolean {
   );
 }
 
+function ruleEntries(raw: unknown): unknown[] | undefined {
+  const entries = (raw as { rules?: { use?: unknown } }).rules?.use;
+  return Array.isArray(entries) ? entries : undefined;
+}
+
 /**
  * Per-entry rule-schema errors, best branch per entry: a rule entry that fails the schema union
  * collapses into one generic message, so each entry is re-validated against its kind's branch here
@@ -326,19 +340,17 @@ function isCallbackRule(entry: unknown): boolean {
  * objects contribute nothing (the generic schema errors cover them).
  */
 function ruleFieldErrors(raw: unknown): string[] {
-  if (!Array.isArray((raw as { rules?: unknown }).rules)) return [];
-  return ((raw as { rules: unknown[] }).rules as unknown[])
+  return (ruleEntries(raw) ?? [])
     .map((entry, i) => {
       if (typeof entry !== "object" || entry === null) return [];
       const branchErrors = [NOUL_RULE_SCHEMA, CHOICE_RULE_SCHEMA].map(
         (branch): [string, string][] =>
           [...Value.Errors(branch, entry)].map(
-            (e) => [`/rules/${i}${e.path}`, e.message] as [string, string],
+            (e) => [`/rules/use/${i}${e.path}`, e.message] as [string, string],
           ),
       );
-      // The branch that failed on FEWER fields is the shape the author intended.
-      const best = branchErrors.sort((a, b) => a.length - b.length)[0] ?? [];
-      return best.map(([p, msg]) => `${p} ${msg}`);
+      const intendedBranch = branchErrors.sort((a, b) => a.length - b.length)[0] ?? [];
+      return intendedBranch.map(([p, msg]) => `${p} ${msg}`);
     })
     .flat();
 }
@@ -353,13 +365,13 @@ function throwConfigInvalid(raw: unknown, source: string): never {
     err.path === "" ? "/ " + err.message : `${err.path} ${err.message}`,
   );
   const ruleErrors = ruleFieldErrors(raw);
-  const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/(\d+)\/(\S+)/);
+  const rulePath = (ruleErrors[0] ?? "").match(/^\/rules\/use\/(\d+)\/(\S+)/);
   const field = rulePath?.[2];
   // present-vs-missing: a field the entry HAS but that failed validation is an INVALID field,
   // not a missing one - the CLI words the two differently (owner ruling: no more missing-target
   // for a target that is present and malformed)
   const ruleIndex = rulePath !== null ? Number(rulePath[1]) : -1;
-  const entry = ruleIndex >= 0 ? (raw as { rules: unknown[] }).rules[ruleIndex] : undefined;
+  const entry = ruleIndex >= 0 ? ruleEntries(raw)?.[ruleIndex] : undefined;
   const present =
     entry !== undefined &&
     field !== undefined &&
@@ -411,13 +423,13 @@ function resolveRules(
     if (earlier !== undefined && !override) {
       throw new SetupError(
         "CONFIG_INVALID",
-        `invalid config ${source}: rule '${name}' is declared twice (rules[${earlier}] and rules[${index}]) - drop one, or set override: true on rules[${index}] to replace rules[${earlier}]`,
+        `invalid config ${source}: rule '${name}' is declared twice (rules.use[${earlier}] and rules.use[${index}]) - drop one, or set override: true on rules.use[${index}] to replace rules.use[${earlier}]`,
       );
     }
     if (earlier === undefined && override) {
       throw new SetupError(
         "CONFIG_INVALID",
-        `invalid config ${source}: rules[${index}] sets override: true but no earlier rule is named '${name}' - drop override`,
+        `invalid config ${source}: rules.use[${index}] sets override: true but no earlier rule is named '${name}' - drop override`,
       );
     }
     at.set(name, index);
@@ -448,6 +460,27 @@ function resolveRules(
 }
 
 /**
+ * Extra top-level keys are ignored by the schema, so a config still written with the old top-level
+ * include/exclude would silently measure files it meant to leave out, and a rules array would read
+ * as a schema error: say so and name the move.
+ */
+function rejectRetiredShapes(raw: unknown, source: string): void {
+  const config = raw as { rules?: unknown };
+  if (Array.isArray(config.rules)) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `invalid config ${source}: rules is now an object - write rules: { use: [...] }; its include/exclude are the default scope of every rule`,
+    );
+  }
+  const retired = ["include", "exclude"].filter((key) => key in (raw as object));
+  if (retired.length === 0) return;
+  throw new SetupError(
+    "CONFIG_INVALID",
+    `invalid config ${source}: top-level ${retired.join(" and ")} moved under rules - write rules: { ${retired.map((key) => `${key}: [...]`).join(", ")}, use: [...] }; they are the default scope of every rule, and a rule's own include/exclude still overrides them`,
+  );
+}
+
+/**
  * The custom-rules argument arrives pre-validated: counted toward the non-empty-run guard, never
  * re-validated here. Static types derive from the same schema the boundary checks.
  */
@@ -458,9 +491,10 @@ export function validateConfig(
   customRules: readonly CustomRule[] = [],
   rulesOptional = false,
 ): ResolvedConfig {
+  rejectRetiredShapes(raw, source);
   if (!Value.Check(CONFIG_SCHEMA, raw)) throwConfigInvalid(raw, source);
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
-  const byName = resolveRules(parsed.rules, catalog, source, rulesOptional);
+  const byName = resolveRules(parsed.rules?.use, catalog, source, rulesOptional);
   for (const name of parsed.disable ?? []) byName.delete(name);
   // A run that would measure nothing is fatal and named: an empty report must never look like
   // success — the resolved set has to be non-empty across both rule forms.
@@ -504,8 +538,8 @@ export function validateConfig(
     input: parsed.input ?? "",
     rules: [...byName.values()],
     customRules,
-    include: parsed.include ?? [],
-    exclude: parsed.exclude ?? [],
+    include: parsed.rules?.include ?? [],
+    exclude: parsed.rules?.exclude ?? [],
   };
   if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
