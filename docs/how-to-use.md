@@ -18,11 +18,13 @@ do not write the rule's logic, only the question and the evidence.
 
 Once a rule is set, the agent has to meet it. A rule is stronger than a rubric. A rubric is text
 the agent reads and applies by its own judgment, and nothing checks that it did. A rule is run by
-jint after the work. It returns a number, and a threshold turns that number into a finding. A
-finding fails the hook and sets the exit code, so the agent cannot skip it where jint runs.
+jint after the work, in CI or in a pre-commit hook. It returns an action for the agent to take:
+the rule's handle gives a severity and a message that says what to do. An error fails the hook
+and sets the exit code, so the agent has to act on it before the work goes through.
 
-A rule is only as good as its calibration. A rule that reads wrongly blocks good work or lets bad
-work pass. See [Calibration](calibration.md) for how to test a rule and edit it until it is right.
+The goal is rules calibrated to your code, so that they fire only when they need to. A rule that
+reads wrongly blocks good work or lets bad work pass. See [Calibration](calibration.md) for how
+to test a rule and edit it until it is right.
 
 ## Ways to run it
 
