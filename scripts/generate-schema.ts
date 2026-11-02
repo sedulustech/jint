@@ -715,11 +715,11 @@ export function renderTargetsDoc(
     "---\n",
     "title: Targets\n",
     "description: The rule-side target table, generated from the live resolution and the grammars' patterns.\n",
+    "sidebar:\n  label: Targets\n",
     "---\n\n",
     "# Rule targets\n\n",
     "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
       "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
-    "sidebar:\n  label: Targets\n",
       "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
       "rule resolves what this table says or the generator fails.\n\n",
     "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
@@ -758,12 +758,12 @@ export function renderDirectivesDoc(
     "---",
     "title: Directives",
     "description: Every #set! directive a grammar's queries.scm may declare, generated from the loader's vocabulary.",
+    "sidebar:",
+    "  label: Directives",
     "---",
     "",
     "# Grammar directives",
     "",
-    "sidebar:",
-    "  label: Directives",
     "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows",
     "come from the directive vocabulary the loader validates against",
     "(`packages/sdk/src/core/grammars/query.ts`); a directive not listed here fails at load.",
