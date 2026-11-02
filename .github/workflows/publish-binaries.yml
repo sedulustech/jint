@@ -1,6 +1,6 @@
 name: Publish binaries
 
-# Mirror a published release to the site's R2 bucket (served by the Pages Function in web/functions/dl).
+# Mirror a published release to the site's R2 bucket (served by the Pages Function in functions/dl).
 # The trigger is the human's Publish click: drafts never fire it, so nothing reaches the mirror early.
 # The bucket keeps GitHub's layout (download/<tag>/<asset>, latest/download/<asset>) so install.sh
 # works against RELEASE_BASE=<site>/dl unchanged. Prereleases mirror under their tag only.

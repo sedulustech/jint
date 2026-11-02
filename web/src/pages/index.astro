@@ -24,7 +24,8 @@ const DOWNLOAD = "/download/";
 >
   <div class="corner"><HeaderTools /></div>
   <main>
-    <img src="/logo.svg" alt="jint" width="240" height="174" />
+    <h1 class="visually-hidden">jint</h1>
+    <img src="/logo.svg" alt="" width="240" height="174" />
     <nav aria-label="jint">
       <a href={DOWNLOAD}>download</a>
       <a href="/docs/">docs</a>
@@ -33,6 +34,14 @@ const DOWNLOAD = "/download/";
 </Layout>
 
 <style>
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .corner {
     position: fixed;
     top: max(var(--s2), env(safe-area-inset-top, 0px));

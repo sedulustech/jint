@@ -1,4 +1,4 @@
-import { keyOf, serveObject, type Bucket } from "../../src/lib/dl.ts";
+import { keyOf, serveObject, type Bucket } from "../../web/src/lib/dl.ts";
 
 interface Env {
   /** The R2 bucket holding the release mirror (wrangler.toml binds it). */

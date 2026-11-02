@@ -1,0 +1,12 @@
+# Cloudflare Pages project "jint" (git-connected, production branch feat/decisions-model). This file and
+# functions/ sit at the repo root because the project's root directory is the repo root: Pages reads both
+# from there. Pages build settings (dashboard, not in this file): build command `bun run web:build`,
+# output directory `web/dist`. functions/dl serves the R2 bucket below under /dl/; the
+# publish-beta and publish-binaries workflows fill it.
+name = "jint"
+pages_build_output_dir = "./web/dist"
+compatibility_date = "2026-10-01"
+
+[[r2_buckets]]
+binding = "BINARIES"
+bucket_name = "jint-releases"
