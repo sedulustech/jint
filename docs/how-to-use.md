@@ -1,11 +1,30 @@
 ---
-title: Use cases
-description: "Common ways to run jint: one snippet from stdin, files, directories, and the SDK."
+title: How to use
+description: "jint is for your agent to verify its own work, with rules you tune in the UI. Ways to run it: stdin, files, directories, and the SDK."
 sidebar:
-  label: Use cases
+  label: How to use
 ---
 
-# Use cases
+# How to use
+
+## Who runs jint
+
+jint is meant to be run by your agent, not by you. The agent writes code, runs jint over it, reads
+the findings, and fixes them before it hands the work back. That is how it checks its own work.
+
+You still have a job: set the rules to your liking. In the run UI you edit a rule's question and
+the code it reads, classify it, and compare the readings until the rule judges what you mean. You
+do not write the rule's logic, only the question and the evidence.
+
+Once a rule is set, the agent has to meet it. A rule is stronger than a rubric. A rubric is text
+the agent reads and applies by its own judgment, and nothing checks that it did. A rule is run by
+jint after the work. It returns a number, and a threshold turns that number into a finding. A
+finding fails the hook and sets the exit code, so the agent cannot skip it where jint runs.
+
+A rule is only as good as its calibration. A rule that reads wrongly blocks good work or lets bad
+work pass. See [Calibration](calibration.md) for how to test a rule and edit it until it is right.
+
+## Ways to run it
 
 Every form exists as an SDK option first; the CLI is a thin client of it.
 
