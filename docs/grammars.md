@@ -1,3 +1,10 @@
+---
+title: Grammars
+description: "The tree-sitter grammars embedded in the binary and the three files a grammar directory holds."
+sidebar:
+  label: Grammars
+---
+
 # Grammars
 
 Parsing is tree-sitter; nine grammars ship embedded with the binary. A grammar is a directory

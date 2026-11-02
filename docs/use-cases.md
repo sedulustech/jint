@@ -1,3 +1,10 @@
+---
+title: Use cases
+description: "Common ways to run jint: one snippet from stdin, files, directories, and the SDK."
+sidebar:
+  label: Use cases
+---
+
 # Use cases
 
 Every form exists as an SDK option first; the CLI is a thin client of it.

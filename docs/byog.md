@@ -1,6 +1,8 @@
 ---
 title: BYOG — bring your own grammar
-description: The custom grammar seam: register any tree-sitter grammar, keep jint's capture vocabulary, and encode domain review questions as rules. Worked example: verilog.
+description: "The custom grammar seam: register any tree-sitter grammar, keep jint's capture vocabulary, and encode domain review questions as rules. Worked example: verilog."
+sidebar:
+  label: BYOG
 ---
 
 # BYOG — bring your own grammar

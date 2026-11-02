@@ -1,3 +1,10 @@
+---
+title: Configuration
+description: "One config file per run: the declarative and TypeScript tiers, the rules block, scope, and every run knob."
+sidebar:
+  label: Config
+---
+
 # Configuration
 
 One config file per run, two tiers. Discovery prefers `jint.config.ts` and falls back to

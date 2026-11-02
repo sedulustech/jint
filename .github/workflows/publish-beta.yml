@@ -1,0 +1,58 @@
+name: Publish beta
+
+# The unversioned beta channel: every push to the beta branch builds all four targets with the
+# same jobs a release uses, then overwrites the beta objects in the site's R2 bucket
+# (download/beta/<asset>). No tag, no GitHub release - the bucket is the only place a beta lives.
+# install.sh reads it with RELEASE_BASE=<site>/dl VERSION=beta.
+
+on:
+  push:
+    branches: [feat/decisions-model]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# a newer push supersedes a running one: the bucket must end on the newest commit
+concurrency:
+  group: publish-beta
+  cancel-in-progress: true
+
+env:
+  BUCKET: jint-releases
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build-binaries.yml
+    secrets: inherit
+
+  publish:
+    name: Overwrite the beta objects in R2
+    needs: [build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: dist
+      - name: Tar the binaries + smoke-test the linux one
+        run: |
+          # same packaging as the release: every tarball carries its member as `jint`
+          cd dist/jint-linux-x64 && tar -czf ../../jint-linux-x64.tar.gz jint && cd ../..
+          cd dist/jint-linux-arm64 && mv jint-linux-arm64 jint && tar -czf ../../jint-linux-arm64.tar.gz jint && cd ../..
+          cd dist/jint-darwin-notarized \
+            && for b in jint-darwin-arm64 jint-darwin-x64; do mv "$b" jint && tar -czf "../../${b}.tar.gz" jint && mv jint "$b"; done && cd ../..
+          rm -rf /tmp/smoke && mkdir -p /tmp/smoke
+          tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
+          chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
+          sha256sum jint-*.tar.gz > checksums.txt && cat checksums.txt
+          # the commit a beta was built from, readable at download/beta/COMMIT
+          echo "$GITHUB_SHA" > COMMIT
+      - name: Overwrite download/beta/
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for f in jint-*.tar.gz checksums.txt COMMIT; do
+            npx --yes wrangler@4 r2 object put "$BUCKET/download/beta/$f" --file "$f" --remote
+          done

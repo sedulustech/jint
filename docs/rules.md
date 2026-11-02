@@ -1,6 +1,8 @@
 ---
 title: Rules
 description: Every rule domain, rendered from the domain packages. Generated - do not edit.
+sidebar:
+  label: Rules
 ---
 
 # Rules

@@ -1,6 +1,8 @@
 ---
 title: Targets
 description: The rule-side target table, generated from the live resolution and the grammars' patterns.
+sidebar:
+  label: Targets
 ---
 
 # Rule targets

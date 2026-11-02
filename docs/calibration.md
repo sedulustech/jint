@@ -1,3 +1,10 @@
+---
+title: Calibration
+description: "How to test a rule and edit it until it is right: tests, reruns, and reading the undecided count."
+sidebar:
+  label: Calibration
+---
+
 # Calibration
 
 Calibration is testing a rule and editing it until it is right. A test is one rule version, run

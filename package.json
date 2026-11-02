@@ -7,7 +7,8 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/rules/*"
+    "packages/rules/*",
+    "web"
   ],
   "files": [
     "jint.schema.json"
@@ -24,7 +25,11 @@
     "fmt:check": "oxfmt --check",
     "build:compile": "bun run scripts/build.ts",
     "ui": "bun run --cwd packages/app build && bun run --cwd packages/app serve",
-    "ui:dev": "bun run --cwd packages/app dev"
+    "ui:dev": "bun run --cwd packages/app dev",
+    "web:build": "bun run web:check && bun run --cwd web build",
+    "web:check": "bun run schema && git diff --exit-code docs && bun test web/src",
+    "web": "bun run --cwd web build && bun run --cwd web preview",
+    "web:dev": "bun run --cwd web dev"
   },
   "dependencies": {
     "@jint/rules": "workspace:*"

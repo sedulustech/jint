@@ -1,3 +1,10 @@
+---
+title: Decidedness and confidence
+description: "The two axes of a choice reading, decidedness and confidence, and what each one tells you."
+sidebar:
+  label: Confidence
+---
+
 # Decidedness and confidence
 
 A choice reading has two axes:

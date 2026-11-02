@@ -1,0 +1,55 @@
+name: Publish binaries
+
+# Mirror a published release to the site's R2 bucket (served by the Pages Function in web/functions/dl).
+# The trigger is the human's Publish click: drafts never fire it, so nothing reaches the mirror early.
+# The bucket keeps GitHub's layout (download/<tag>/<asset>, latest/download/<asset>) so install.sh
+# works against RELEASE_BASE=<site>/dl unchanged. Prereleases mirror under their tag only.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag to mirror"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BUCKET: jint-releases
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  mirror:
+    name: Mirror release assets to R2
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets \
+            --pattern 'jint-*.tar.gz' --pattern checksums.txt
+          ls -l assets
+      - name: Verify the checksums before uploading anything
+        run: cd assets && sha256sum -c checksums.txt
+      - name: Upload under the tag
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for f in assets/*; do
+            npx --yes wrangler@4 r2 object put "$BUCKET/download/$TAG/$(basename "$f")" --file "$f" --remote
+          done
+      - name: Move the latest alias (stable releases only)
+        if: ${{ !github.event.release.prerelease }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for f in assets/*; do
+            npx --yes wrangler@4 r2 object put "$BUCKET/latest/download/$(basename "$f")" --file "$f" --remote
+          done

@@ -1,3 +1,10 @@
+---
+title: Answer cache
+description: "How jint stores each answer and serves it again for the same question about the same code, and how the endpoint's own cache interacts."
+sidebar:
+  label: Answer cache
+---
+
 # Answer cache
 
 jint stores each answer it gets and serves it again when the same question is asked about the same

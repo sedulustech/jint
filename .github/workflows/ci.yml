@@ -1,10 +1,21 @@
 name: CI Build & Test
 
+# paths-ignore lists only what cannot affect the build or the suite: a mistake here costs an
+# extra run, never a missed one. The site is Cloudflare Pages' (its build command is `bun run web:build`: tests,
+# docs freshness, then the build). Everything else,
+# including docs/ (generated, freshness-tested) and the root files, still runs the full matrix.
 on:
   push:
     branches: [main]
+    paths-ignore: &inert
+      - "web/**"
+      - "RELEASING.md"
+      - "LICENSE"
+      - ".github/workflows/publish-beta.yml"
+      - ".github/workflows/publish-binaries.yml"
   pull_request:
     branches: [main]
+    paths-ignore: *inert
   # manual rerun button: the macos arm64 queue can idle for minutes and one green
   # rerun beats an empty commit when a job was transient
   workflow_dispatch:

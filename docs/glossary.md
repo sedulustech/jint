@@ -1,3 +1,10 @@
+---
+title: Glossary
+description: "The pointer to jint's canonical glossary: one vocabulary, one home."
+sidebar:
+  label: Glossary
+---
+
 # Glossary
 
 The canonical vocabulary lives in the repo root: [GLOSSARY.md](../GLOSSARY.md). It is a

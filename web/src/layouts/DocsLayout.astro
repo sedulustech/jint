@@ -1,0 +1,210 @@
+---
+import Layout from "./Layout.astro";
+import { allDocs, labelOf, type Doc } from "../lib/docs";
+import HeaderTools from "../components/HeaderTools.astro";
+
+interface Props {
+  doc: Doc;
+}
+
+const { doc } = Astro.props;
+const current = doc.id;
+const docs = await allDocs();
+const name = doc.data.title;
+const title = `${name} - jint docs`;
+const description = doc.data.description;
+const site = Astro.site ?? new URL("https://jint.sh");
+const pageUrl = new URL(`/docs/${doc.id}/`, site).href;
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: name,
+    description,
+    url: pageUrl,
+    inLanguage: "en",
+    isPartOf: { "@type": "WebSite", name: "jint", url: site.href },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "jint", item: site.href },
+      { "@type": "ListItem", position: 2, name: "docs", item: new URL("/docs/install/", site).href },
+      { "@type": "ListItem", position: 3, name: name, item: pageUrl },
+    ],
+  },
+];
+---
+
+<Layout {title} {description} {jsonLd} type="article" markdown={`/docs/${doc.id}.md`}>
+  <div class="page">
+    <header>
+      <a href="/" aria-label="jint"><img src="/logo.svg" alt="jint" width="64" height="46" /></a>
+      <HeaderTools />
+    </header>
+    <div class="body">
+      <nav aria-label="docs">
+        <ul>
+          {
+            docs.map((entry) => (
+              <li>
+                <a
+                  href={`/docs/${entry.id}/`}
+                  aria-current={entry.id === current ? "page" : undefined}
+                >
+                  {labelOf(entry)}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+      <main>
+        <slot />
+      </main>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .page {
+    max-width: 72rem;
+    margin-inline: auto;
+    padding-block: var(--s3) var(--s6);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  header img {
+    display: block;
+    width: 4rem;
+    height: auto;
+  }
+
+  /* The sidebar is part of the page, not pinned: it scrolls away with the document. */
+  .body {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    gap: var(--s6);
+    padding-top: var(--s4);
+  }
+
+  nav ul {
+    display: grid;
+    gap: var(--s1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+  }
+
+  nav a {
+    display: block;
+    text-decoration: none;
+    color: var(--muted);
+  }
+
+  nav a:hover,
+  nav a:focus-visible {
+    color: var(--fg);
+    outline: none;
+  }
+
+  nav a[aria-current="page"] {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  main {
+    min-width: 0;
+    max-width: 48rem;
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 48rem) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s4);
+    }
+  }
+</style>
+
+<style is:global>
+  main :is(h1, h2, h3) {
+    line-height: 1.3;
+    margin-block: var(--s4) var(--s2);
+  }
+
+  main h1 {
+    margin-top: 0;
+    font-size: 1.5rem;
+  }
+
+  main h2 {
+    font-size: 1.15rem;
+  }
+
+  main h3 {
+    font-size: 1rem;
+  }
+
+  main p,
+  main ul,
+  main ol {
+    margin-block: 0 var(--s2);
+  }
+
+  main pre {
+    overflow-x: auto;
+    margin-block: 0 var(--s2);
+    padding: var(--s2);
+    border: 1px solid var(--rule);
+    background: var(--code-bg);
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+
+  main code {
+    font-size: 0.85em;
+  }
+
+  main table {
+    display: block;
+    overflow-x: auto;
+    margin-block: 0 var(--s2);
+    border-collapse: collapse;
+  }
+
+  main th,
+  main td {
+    border: 1px solid var(--rule);
+    padding: var(--s1) var(--s2);
+    text-align: left;
+  }
+
+  /* Dual-theme highlighting: each token carries both colors, the theme picks one. */
+  .astro-code,
+  .astro-code span {
+    color: var(--shiki-dark);
+  }
+
+  :root[data-theme="light"] .astro-code,
+  :root[data-theme="light"] .astro-code span {
+    color: var(--shiki-light);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .astro-code,
+    :root:not([data-theme="dark"]) .astro-code span {
+      color: var(--shiki-light);
+    }
+  }
+</style>

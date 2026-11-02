@@ -18,113 +18,14 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
-    name: Build (linux-x64)
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.4.x
-      # the global bun install cache (actions/cache's documented Bun recipe), SHA-pinned
-      # like every action in release files; keyed on the lockfile
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-      - run: bun ci
-      # host build + the linux-arm64 cross (the @sedulus/jint-linux-arm64 npm
-      # package needs both linux binaries)
-      - run: |
-          bun scripts/build.ts
-          bun scripts/build.ts linux-arm64
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: jint-linux-x64
-          path: jint
-          if-no-files-found: error
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: jint-linux-arm64
-          path: out/jint-linux-arm64
-          if-no-files-found: error
-
-  build-darwin:
-    name: Build (darwin, sign + notarize)
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.4.x
-      # the global bun install cache (actions/cache's documented Bun recipe), SHA-pinned
-      # like every action in release files; keyed on the lockfile
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-      - run: bun ci
-      # one runner emits both darwin targets (scripts/build.ts cross-compiles)
-      - run: |
-          bun scripts/build.ts darwin-arm64
-          bun scripts/build.ts darwin-x64
-      - name: Import signing identity
-        env:
-          P12_BASE64: ${{ secrets.APPLE_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
-        run: |
-          KEYCHAIN=$RUNNER_TEMP/signing.keychain-db
-          security create-keychain -p "" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "" "$KEYCHAIN"
-          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
-          # -A before -T: without it, codesign cannot read the key and stalls on a GUI prompt
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN"
-          security default-keychain -s "$KEYCHAIN"
-          security list-keychains -d user -s "$KEYCHAIN"
-      - name: Sign
-        env:
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          IDENTITY="Developer ID Application: Julian Cruciani ($TEAM_ID)"
-          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
-            codesign --force --timestamp --options runtime --sign "$IDENTITY" "$f"
-            codesign --verify --strict --verbose=2 "$f"
-          done
-      - name: Notarize
-        env:
-          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
-        run: |
-          KEY="$RUNNER_TEMP/AuthKey_$API_KEY_ID.p8"
-          echo "$API_KEY_BASE64" | base64 --decode > "$KEY"
-          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
-            ditto -c -k --keepParent "$f" "$f.zip"
-            xcrun notarytool submit "$f.zip" --key "$KEY" --key-id "$API_KEY_ID" --issuer "$ISSUER_ID" --wait
-          done
-      - name: Verify Gatekeeper acceptance
-        run: |
-          for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
-            codesign --verify --strict --verbose=2 "$f"
-            spctl -a -vv -t open --context context:primary-signature "$f"
-          done
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: jint-darwin-notarized
-          path: |
-            out/jint-darwin-arm64
-            out/jint-darwin-x64
-          if-no-files-found: error
+  build:
+    name: Build
+    uses: ./.github/workflows/build-binaries.yml
+    secrets: inherit
 
   release:
     name: Draft release
-    needs: [build-linux, build-darwin]
+    needs: [build]
     runs-on: ubuntu-24.04
     steps:
       # full history + tags: the notes seed walks <prev-tag>..<tag>
@@ -188,7 +89,7 @@ jobs:
 
   pack-npm:
     name: Pack npm tarballs
-    needs: [build-linux, build-darwin]
+    needs: [build]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

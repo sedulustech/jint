@@ -1,3 +1,10 @@
+---
+title: Captures
+description: "How a grammar's queries.scm turns a parsed file into elements, and how a capture decides what an element is."
+sidebar:
+  label: Captures
+---
+
 # Captures
 
 A grammar's `queries.scm` turns a parsed file into **elements**. Each pattern assigns a

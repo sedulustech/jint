@@ -1,6 +1,8 @@
 ---
 title: Directives
 description: Every #set! directive a grammar's queries.scm may declare, generated from the loader's vocabulary.
+sidebar:
+  label: Directives
 ---
 
 # Grammar directives

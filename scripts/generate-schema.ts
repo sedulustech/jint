@@ -138,6 +138,7 @@ export function renderRulesDoc(
     "---\n" +
     "title: Rules\n" +
     "description: Every rule domain, rendered from the domain packages. Generated - do not edit.\n" +
+    "sidebar:\n  label: Rules\n" +
     "---\n\n";
   const out = [
     frontmatter,
@@ -718,6 +719,7 @@ export function renderTargetsDoc(
     "# Rule targets\n\n",
     "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
       "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
+    "sidebar:\n  label: Targets\n",
       "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
       "rule resolves what this table says or the generator fails.\n\n",
     "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
@@ -760,6 +762,8 @@ export function renderDirectivesDoc(
     "",
     "# Grammar directives",
     "",
+    "sidebar:",
+    "  label: Directives",
     "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows",
     "come from the directive vocabulary the loader validates against",
     "(`packages/sdk/src/core/grammars/query.ts`); a directive not listed here fails at load.",
