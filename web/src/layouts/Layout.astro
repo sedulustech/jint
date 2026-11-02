@@ -138,6 +138,41 @@ const imageUrl = new URL(image, site).href;
     box-sizing: border-box;
   }
 
+  /* Scrollbars wear the page's own colors. The standard properties cover Firefox, Chromium 121+ and
+     Safari 26.2+; older Safari and Chromium get the -webkit- pseudo-elements, only where the
+     standard ones are missing (when both apply, Chromium ignores the pseudo-elements). */
+  :root {
+    scrollbar-color: var(--muted) var(--bg);
+  }
+
+  /* only where scrollbar-color exists: a non-auto scrollbar-width switches the -webkit- styling off */
+  @supports (scrollbar-color: auto) {
+    * {
+      scrollbar-width: thin;
+    }
+  }
+
+  @supports not (scrollbar-color: auto) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+      background: var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--muted);
+      border: 2px solid var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--fg);
+    }
+  }
+
   /* selection is the page's own two colors, not the browser's blue */
   ::selection {
     background: var(--fg);
