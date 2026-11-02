@@ -6,7 +6,6 @@ import { docLinksPlugin } from "./src/lib/doc-links.ts";
 export default defineConfig({
   // the canonical origin: previews and local builds also canonicalize to it, never to themselves
   site: "https://jint.sh",
-  redirects: { "/docs": "/docs/install/" },
   prefetch: { prefetchAll: true, defaultStrategy: "hover" },
   markdown: {
     processor: satteri({ mdastPlugins: [docLinksPlugin] }),
