@@ -1,6 +1,6 @@
 ---
 /**
- * The centered page: the logo, an optional line under it, and the links. The landing page and the
+ * The centered page: the logo, an optional line over or under it, and the links. The landing page and the
  * 404 share it so they stay identical; pass the links in the "links" slot.
  */
 import HeaderTools from "./HeaderTools.astro";
@@ -8,6 +8,7 @@ import HeaderTools from "./HeaderTools.astro";
 
 <div class="corner"><HeaderTools /></div>
 <main>
+  <slot name="above" />
   <img src="/logo.svg" alt="" width="240" height="174" />
   <slot />
   <nav aria-label="jint">

@@ -1,13 +1,24 @@
 name: Publish beta
 
-# The unversioned beta channel: every push to the beta branch builds all four targets with the
+# The unversioned beta channel: every binary-changing push to the beta branch builds all four targets with the
 # same jobs a release uses, then overwrites the beta objects in the site's R2 bucket
 # (download/beta/<asset>). No tag, no GitHub release - the bucket is the only place a beta lives.
 # install.sh reads it with RELEASE_BASE=<site>/dl VERSION=beta.
 
+# Only what the binary is made of triggers a build: the packages, the build script, the lockfile
+# and manifest, the tsconfig Bun.build reads, and the two workflows that build and publish it.
+# The site (web/), docs and release files do not; dispatch builds on demand.
 on:
   push:
     branches: [feat/decisions-model]
+    paths:
+      - "packages/**"
+      - "scripts/build.ts"
+      - "bun.lock"
+      - "package.json"
+      - "tsconfig.json"
+      - ".github/workflows/build-binaries.yml"
+      - ".github/workflows/publish-beta.yml"
   workflow_dispatch:
 
 permissions:
