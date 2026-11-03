@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { ClassifyError, type Ask, type UnitState } from "../types.ts";
 import { hashOf, type AnswerStore } from "./answer-cache.ts";
 import { createClassifier } from "./client.ts";
-import { decisionsAdapter, MODEL, questionKey } from "./decisions.ts";
+import { decisionsAdapter, decisionsParams, MODEL, questionKey } from "./decisions.ts";
 import { urlIdentity, type Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
 
@@ -17,7 +17,9 @@ const adapterOver = (
   limits?: { timeoutMs: number; maxRetries: number },
 ) => decisionsAdapter(provider, { fetch, log, limits });
 
-const STATE = { path: "a.ts", content: "x" };
+const STATE = { path: "a.ts", content: "x", includePath: true };
+/** What goes over the wire for STATE: the flag stays behind. */
+const SENT = { path: "a.ts", content: "x" };
 /** A reply that makes the client retry at once instead of after its backoff. */
 const QUICK = { "retry-after-ms": "1" };
 
@@ -71,7 +73,7 @@ describe("decisions adapter", () => {
     expect(api.sent[0]!.raw).toBe(
       JSON.stringify({
         model: MODEL,
-        input: [{ role: "user", content: [{ type: "input_json", data: STATE }] }],
+        input: [{ role: "user", content: [{ type: "input_json", data: SENT }] }],
         questions: [{ type: "predicate", name: "q0", instructions: "Is it?\n\nYes: yes\nNo: no" }],
       }),
     );
@@ -103,7 +105,7 @@ describe("decisions adapter", () => {
     expect(api.sent[0]!.raw).toBe(
       JSON.stringify({
         model: "gpt-6-luna",
-        input: [{ role: "user", content: [{ type: "input_json", data: STATE }] }],
+        input: [{ role: "user", content: [{ type: "input_json", data: SENT }] }],
         questions: [
           {
             type: "choice",
@@ -142,7 +144,7 @@ describe("decisions adapter", () => {
     const asked = await adapterOver(api.fetch).ask(
       ask(
         { r: { type: "score", instructions: "How?", criteria: ["low", "mid", "high"] } },
-        { path: "a.ts", source: 'const s = "q\\n";\n' },
+        { path: "a.ts", source: 'const s = "q\\n";\n', includePath: true },
       ),
     );
     expect(api.sent[0]!.raw).toBe(
@@ -317,7 +319,12 @@ const HOSTILE: Record<string, string> = {
   OPENAI_CUSTOM_HEADERS: "X-Hostile: leaked",
 };
 
-const unit: UnitState = { path: "src/a.ts", content: "export const x = 1;\n", id: "L1-L2" };
+const unit: UnitState = {
+  path: "src/a.ts",
+  content: "export const x = 1;\n",
+  id: "L1-L2",
+  includePath: true,
+};
 const noul = { is_readable: { type: "noul", instructions: "Is it?" } } as const;
 
 describe("through createClassifier", () => {
@@ -466,7 +473,17 @@ describe("through createClassifier", () => {
     });
     const file = JSON.parse(files.find((f) => /^\d+-files-a\.ts\.json$/.test(f.name))!.text);
     expect(Object.keys(file).sort()).toEqual(
-      ["durationMs", "id", "questionIds", "request", "response", "status", "ts", "url"].sort(),
+      [
+        "durationMs",
+        "id",
+        "path",
+        "questionIds",
+        "request",
+        "response",
+        "status",
+        "ts",
+        "url",
+      ].sort(),
     );
     expect(file.id).toBe("L1-L2");
     expect(file.questionIds).toEqual(["is_readable"]);
@@ -488,6 +505,35 @@ describe("through createClassifier", () => {
   });
 });
 
+describe("decisionsParams: the path", () => {
+  const question = {
+    type: "noul" as const,
+    instructions: "Is it short?",
+    criteria: { true: "holds", false: "does not" },
+  };
+  const data = (state: Ask["state"]) =>
+    (decisionsParams(MODEL, { state, questions: { x: question } }).input[0] as any).content[0].data;
+
+  test("a rule that does not include the path is asked without it", () => {
+    expect(data({ path: "a.ts", source: "function a() {}", includePath: false })).toEqual({
+      source: "function a() {}",
+    });
+  });
+
+  test("a state that says nothing goes out as it is: a callback rule owns its state", () => {
+    expect(data({ path: "a.ts", source: "function a() {}" })).toEqual({
+      path: "a.ts",
+      source: "function a() {}",
+    });
+  });
+
+  test("includePath hands the model the path, first, and never the flag itself", () => {
+    const sent = data({ path: "a.ts", source: "function a() {}", includePath: true });
+    expect(sent).toEqual({ path: "a.ts", source: "function a() {}" });
+    expect(Object.keys(sent)).toEqual(["path", "source"]);
+  });
+});
+
 describe("questionKey", () => {
   const api = urlIdentity("https://api.test/v1/decisions");
   const q = (instructions: string) => ({
@@ -495,11 +541,18 @@ describe("questionKey", () => {
     instructions,
     criteria: { true: "holds", false: "does not" },
   });
-  const state = { path: "a.ts", source: "function a() {}" };
+  const state = { path: "a.ts", source: "function a() {}", includePath: true };
 
   test("a question has one key wherever it sits among the others, and under any name", () => {
     const alone = questionKey(api, state, "x", q("Is it short?"));
     expect(questionKey(api, state, "another name", q("Is it short?"))).toBe(alone);
+  });
+
+  test("a path the model is not handed does not move the key: the same code is one question wherever it sits", () => {
+    const withoutPath = { path: "a.ts", source: "function a() {}", includePath: false };
+    expect(questionKey(api, withoutPath, "x", q("Is it short?"))).toBe(
+      questionKey(api, { ...withoutPath, path: "elsewhere/b.ts" }, "x", q("Is it short?")),
+    );
   });
 
   test("anything the model reads moves the key: the question, the code, the path, the endpoint", () => {

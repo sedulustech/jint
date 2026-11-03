@@ -12,6 +12,7 @@ const state: UnitState = {
   path: "src/a.ts",
   content: "export const x = 1;\n",
   id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
+  includePath: true,
 };
 const questions: Record<string, QuestionSchema> = {
   is_name_purposeful: {

@@ -35,8 +35,8 @@ export const is_naming_convention_consistent: NoulRuleSchema = {
 /**
  * Promoted from the filename-fit probe (tmp/filename-fit.config.json, issue 006) after a
  * two-language calibration: healthy max 0.33 (Go, cobra) / 0.36 (TS, jint src/) against defective
- * min 0.60 / 0.88 - thresholds sit mid-gap on both. Element rules cannot see the path, so this is
- * the only rule that can catch "json.ts whose body renders HTML reports".
+ * min 0.60 / 0.88 - thresholds sit mid-gap on both. A rule sees the path only when it sets
+ * includePath, and this one does, so it can catch "json.ts whose body renders HTML reports".
  *
  * Named for the defect it measures: the value is the probability that the name promises a subject
  * the body does not deliver, so a high value is bad. It was is_filename_fitting; a positive name
@@ -53,6 +53,8 @@ export const has_filename_mismatch: NoulRuleSchema = {
       "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.",
   },
   target: "files",
+  // The claim is about the name, so the model is handed the path.
+  includePath: true,
   handle: { warn: { greater_than: 0.55 }, error: { greater_than: 0.75 } },
 };
 

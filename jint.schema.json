@@ -419,6 +419,10 @@
                           "type": "string"
                         }
                       },
+                      "includePath": {
+                        "description": "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.",
+                        "type": "boolean"
+                      },
                       "override": {
                         "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
                         "type": "boolean"
@@ -792,6 +796,10 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "includePath": {
+                        "description": "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.",
+                        "type": "boolean"
                       },
                       "override": {
                         "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",
@@ -1169,6 +1177,10 @@
                         "items": {
                           "type": "string"
                         }
+                      },
+                      "includePath": {
+                        "description": "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.",
+                        "type": "boolean"
                       },
                       "override": {
                         "description": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.",

@@ -117,7 +117,7 @@ describe("cli: piped stdin str unit", async () => {
     for (const wire of seen) {
       expect(wire.state.content).toBe(SNIPPET);
       expect(wire.state.source).toBeUndefined();
-      expect(String(wire.state.path)).toBe("str:stdin");
+      expect(wire.state.path).toBeUndefined(); // no rule here includes the path
     }
   });
 
@@ -240,7 +240,7 @@ describe("cli: piped stdin str unit", async () => {
     });
   });
 
-  test("the wire carries the real stdin content, path str:stdin, and the question", async () => {
+  test("the wire carries the real stdin content and the question, and no path", async () => {
     const before = provider.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "run",
@@ -258,7 +258,7 @@ describe("cli: piped stdin str unit", async () => {
     const wire = seen[seen.length - 1]!;
     const state = wire.state;
     expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
-    expect(state.path).toBe("str:stdin");
+    expect(state.path).toBeUndefined(); // is_greppable does not include the path
     expect(wire.questions).toHaveLength(1);
     expect(wire.questions[0]).toMatchObject({ type: "predicate", name: "q0" });
   });
@@ -316,7 +316,7 @@ describe("cli: piped stdin str unit", async () => {
     expect(seen).toHaveLength(20);
     for (const wire of seen) {
       expect(wire.state.content).toBe("- **noul** - the number the model returns per question");
-      expect(wire.state.path).toBe("str:stdin");
+      expect(wire.state.path).toBeUndefined(); // the rule does not include the path
       expect(String(wire.questions[0]!.instructions)).toContain("document the noul value");
     }
   });

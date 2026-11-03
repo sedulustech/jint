@@ -169,7 +169,17 @@ describe("recordRequests", () => {
     const failed = files.find((f) => f.status === 429);
     const ok = files.find((f) => f.status === 200);
     expect(Object.keys(ok).sort()).toEqual(
-      ["durationMs", "id", "questionIds", "request", "response", "status", "ts", "url"].sort(),
+      [
+        "durationMs",
+        "id",
+        "path",
+        "questionIds",
+        "request",
+        "response",
+        "status",
+        "ts",
+        "url",
+      ].sort(),
     );
     expect(ok.id).toBe("L1-L2");
     expect(ok.questionIds).toEqual(["rule in L1-L2"]);

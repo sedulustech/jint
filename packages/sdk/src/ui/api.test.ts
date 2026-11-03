@@ -218,6 +218,60 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
   });
 });
 
+describe("a request whose wire state carries no path", () => {
+  test("the path recorded beside the request still joins it to its reading", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-nopath-"));
+    const file = "1700000000001-elements-fn.ts.json";
+    const id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    try {
+      const dir = join(root, "100");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
+      writeFileSync(
+        join(dir, file),
+        JSON.stringify({
+          ts: "2026-01-01T00:00:00.000Z",
+          id,
+          path: "src/x.ts",
+          request: { state: { source: "export function f() {}" }, questions: { r_a: {} } },
+        }),
+      );
+      writeFileSync(
+        join(dir, "report.json"),
+        JSON.stringify({
+          measurements: [
+            {
+              rule: "r_a",
+              input: `src/x.ts#${id}`,
+              value: 0.1,
+              element: {
+                kind: "function",
+                label: "d0",
+                span: {
+                  start: { line: 1, column: 0 },
+                  end: { line: 1, column: 22 },
+                  startByte: 0,
+                  endByte: 22,
+                },
+              },
+            },
+          ],
+          findings: [],
+          errors: [],
+        }),
+      );
+      const run = (await (await get("/api/runs/100", root)).json()) as {
+        results: { path: string | null; elementId: string | null }[];
+        cells: { rule: string; requestFile?: string }[];
+      };
+      expect(run.results[0]!.path).toBe("src/x.ts");
+      expect(run.cells.find((c) => c.rule === "r_a")!.requestFile).toBe(file);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("getRun kinds", () => {
   test("each rule's kind is its questions' wire type, keyed by the rule name", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-kinds-"));

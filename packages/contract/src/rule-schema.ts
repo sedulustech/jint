@@ -26,6 +26,12 @@ export interface NoulRuleSchema {
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
   /**
+   * True: the model is handed the file's path with the source. Default false: only the source is
+   * sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is
+   * about the path itself.
+   */
+  readonly includePath?: boolean;
+  /**
    * True: replaces an earlier rule of the same name in a config; a repeated name is otherwise an
    * error.
    */
@@ -43,6 +49,12 @@ export interface ScoreRuleSchema {
   /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
+  /**
+   * True: the model is handed the file's path with the source. Default false: only the source is
+   * sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is
+   * about the path itself.
+   */
+  readonly includePath?: boolean;
   /**
    * True: replaces an earlier rule of the same name in a config; a repeated name is otherwise an
    * error.
@@ -62,6 +74,12 @@ export interface ChoiceRuleSchema {
   /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
+  /**
+   * True: the model is handed the file's path with the source. Default false: only the source is
+   * sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is
+   * about the path itself.
+   */
+  readonly includePath?: boolean;
   /**
    * True: replaces an earlier rule of the same name in a config; a repeated name is otherwise an
    * error.

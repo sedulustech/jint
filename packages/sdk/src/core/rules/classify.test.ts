@@ -137,6 +137,22 @@ describe("classifyUnit", () => {
     expect(calls).toHaveLength(1); // one batched call, not one per rule
   });
 
+  test("the path reaches only the rules that include it: one call per group", async () => {
+    const calls: Unit[] = [];
+    const classifier = classifierWith({ probe_noul: 0.7, probe_score: 2 }, calls);
+    const rules: Rule[] = [{ ...noulFile, includePath: true }, scoreFn];
+    const events: (Measurement | ClassifyError)[] = [];
+    for await (const event of classifyUnit(fileUnit, rules, classifier)) events.push(event);
+    expect((events as Measurement[]).map((m) => m.rule).sort()).toEqual([
+      "probe_noul",
+      "probe_score",
+    ]);
+    expect(calls.map((c) => (c.state as { includePath?: boolean }).includePath)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
   test("values pass through untouched", async () => {
     const classifier = classifierWith({ probe_noul: 0.5347219 });
     for await (const event of classifyUnit(fileUnit, [noulFile], classifier)) {

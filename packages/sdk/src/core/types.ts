@@ -163,6 +163,8 @@ interface RuleBase {
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
   readonly exclude?: readonly string[];
+  /** True: the model is handed the file's path with the source (see RuleSchema.includePath). */
+  readonly includePath?: boolean;
 }
 
 /** A noul rule: one yes/no judgment; the value is the yes probability (0..1). */
@@ -281,13 +283,16 @@ export interface FileState {
   readonly content: string;
   /** Wire id for a whole file: its full LOC interval (the same wire-id form elements use). */
   readonly id: string;
+  /** False: `path` stays out of the request. Absent: the state goes out as it is. Never sent. */
+  readonly includePath?: boolean;
 }
 
 /**
- * State for ONE element judgment: the element's source under its own name, plus the file path so
- * the model knows the enclosing context. Never batch elements into an array state - one state x
- * many questions makes the provider answer every question from the file's average (probes: noul
- * pinned 0.61-0.66 across 21 elements whose isolated readings spread 0.60-0.92).
+ * State for ONE element judgment: the element's source under its own name; the file path rides
+ * along for jint's own use and reaches the model only for a rule that asks (includePath). Never
+ * batch elements into an array state - one state x many questions makes the provider answer every
+ * question from the file's average (probes: noul pinned 0.61-0.66 across 21 elements whose isolated
+ * readings spread 0.60-0.92).
  */
 export interface ElementState {
   readonly path: string;
@@ -297,6 +302,8 @@ export interface ElementState {
    * sent to the model: the classifier strips it from the state it sends.
    */
   readonly id: string;
+  /** False: `path` stays out of the request. Absent: the state goes out as it is. Never sent. */
+  readonly includePath?: boolean;
 }
 
 export type UnitState = FileState;

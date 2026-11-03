@@ -32,17 +32,18 @@ reading cannot say which failed. The model sees only the element's frame (a
 comment rule sees the definition it belongs to), so a claim about code elsewhere
 cannot be judged. REFERENCE.md has what was measured.
 
-| key            | meaning                                                                                                                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                                                             |
-| `kind`         | noul                                                                                                                                                                                                |
-| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.                                               |
-| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                                                              |
-| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                                                             |
-| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                                                              |
-| `include`      | Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope. |
-| `exclude`      | Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.                                                                        |
-| `override`     | true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.                                       |
+| key            | meaning                                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                                                                            |
+| `kind`         | noul                                                                                                                                                                                                               |
+| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.                                                              |
+| `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                                                                             |
+| `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                                                                            |
+| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                                                                             |
+| `include`      | Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope.                |
+| `exclude`      | Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.                                                                                       |
+| `includePath`  | true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself. |
+| `override`     | true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.                                                      |
 
 Handles, one form per kind - direction lives in the handle, never in prose:
 

@@ -598,6 +598,13 @@ async function readRequestRow(
       })
       .filter((n): n is number => n !== null);
     const state = requestFile.request?.state ?? {};
+    // the recorded path first: the wire body carries one only for a rule that includes it
+    const statePath =
+      typeof requestFile.path === "string"
+        ? requestFile.path
+        : typeof state.path === "string"
+          ? state.path
+          : null;
     const rules: string[] = [];
     let elementId: string | null =
       typeof requestFile.id === "string"
@@ -614,7 +621,7 @@ async function readRequestRow(
       if (typeof question?.type === "string") kinds.set(rule, question.type);
     }
     const canonical =
-      pathRules !== null && typeof state.path === "string" ? pathRules.get(state.path) : undefined;
+      pathRules !== null && statePath !== null ? pathRules.get(statePath) : undefined;
 
     // severity per rule = finding join first (the report's own verdict, matched by FULL input
     // identity: path#span for elements, bare path for files), else the handle snapshot
@@ -622,10 +629,10 @@ async function readRequestRow(
     // never invents "clean" from absence, and a sibling element's verdict never leaks.
     const SEV_RANK: Record<Severity, number> = { warn: 1, error: 2 };
     const keys =
-      typeof state.path === "string"
+      statePath !== null
         ? elementId !== null
-          ? [`${state.path}#${elementId}`, state.path]
-          : [state.path]
+          ? [`${statePath}#${elementId}`, statePath]
+          : [statePath]
         : [];
     const joinSeverity = (rule: string): Severity | null => {
       for (const key of keys) {
@@ -659,7 +666,7 @@ async function readRequestRow(
       seq: 0,
       ts: requestFile.ts ?? "",
       element: typeof state.source === "string",
-      path: typeof state.path === "string" ? state.path : null,
+      path: statePath,
       elementId,
       rules: canonical ?? [...new Set(rules)],
       questionCount: Object.keys(questions).length,

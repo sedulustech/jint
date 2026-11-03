@@ -60,6 +60,11 @@ export interface RequestFile {
   url?: string;
   /** The state's id, recorded beside the request; older records carry it in request.state. */
   id?: string;
+  /**
+   * The file the call judged, recorded beside the request: the wire body carries a path only for a
+   * rule that includes it, and the run view joins requests to readings by path.
+   */
+  path?: string;
   /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
   durationMs?: number;
   status?: number;
@@ -214,6 +219,7 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
     ts: raw.ts as string | undefined,
     url: raw.url as string | undefined,
     id: raw.id as string | undefined,
+    path: raw.path as string | undefined,
     durationMs: raw.durationMs as number | undefined,
     status: raw.status as number | undefined,
     wire: {
@@ -273,6 +279,7 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
     ts: raw.ts as string | undefined,
     url: raw.url as string | undefined,
     id: raw.id as string | undefined,
+    path: raw.path as string | undefined,
     durationMs: raw.durationMs as number | undefined,
     status: raw.status as number | undefined,
     wire: {

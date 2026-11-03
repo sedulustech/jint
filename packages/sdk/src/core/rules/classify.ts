@@ -158,14 +158,18 @@ export async function* classifyUnit(
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
-  const questionBatch = compileRuleQuestions(rules, unitId);
-  let answers: Record<string, ClassifiedAnswer | Refusal>;
-  try {
-    answers = await classifier(unit.state, questionBatch.questions);
-  } catch (thrown) {
-    yield toClassifyError(unit.state.path, thrown);
+  const reply = await askByPath(
+    unit.state,
+    rules,
+    (group) => compileRuleQuestions(group, unitId).questions,
+    classifier,
+    unit.state.path,
+  );
+  if (reply.error !== null) {
+    yield reply.error;
     return;
   }
+  const answers = reply.answers;
   for (const rule of rules) {
     yield outcomeFor(rule.name, unit.state.path, answers[questionKey(rule.name, unitId)]);
   }
@@ -458,6 +462,34 @@ async function askClassifier(
 }
 
 /**
+ * One classifier call per includePath group: the path reaches only the rules that ask for it, so
+ * every other rule reads the same code the same way wherever the file sits. A unit whose rules all
+ * agree makes the one call it always did.
+ */
+async function askByPath(
+  state: AnyState,
+  rules: readonly Rule[],
+  compile: (group: readonly Rule[]) => Record<string, QuestionSchema>,
+  classifier: Classifier,
+  input: string,
+): Promise<ClassifierReply> {
+  const answers: Record<string, ClassifiedAnswer | Refusal> = {};
+  for (const withPath of [false, true]) {
+    const group = rules.filter((rule) => (rule.includePath === true) === withPath);
+    if (group.length === 0) continue;
+    const reply = await askClassifier(
+      { ...state, includePath: withPath },
+      compile(group),
+      classifier,
+      input,
+    );
+    if (reply.error !== null) return reply;
+    Object.assign(answers, reply.answers);
+  }
+  return { answers, error: null };
+}
+
+/**
  * Emit one unit-level call's answers. Answers are keyed by question id; the rule name is the id's
  * prefix before the block id.
  */
@@ -613,9 +645,10 @@ async function classifyElementJob(
 ): Promise<boolean> {
   const input = `${statePath}#${job.id}`;
   const questions = compileElementQuestions(job.rules, job.element.kind);
-  const elementReply = await askClassifier(
+  const elementReply = await askByPath(
     { path: statePath, source: job.source, id: job.id },
-    questions,
+    job.rules,
+    (group) => compileElementQuestions(group, job.element.kind),
     classifier,
     input,
   );
@@ -673,9 +706,10 @@ async function classifyWholeUnit(
   const wholeRules = wholeUnitRules(rules, state.path, unit.kind, configAdmits);
   if (wholeRules.length === 0) return false;
   const fileId = state.id;
-  const unitReply = await askClassifier(
+  const unitReply = await askByPath(
     state,
-    compileRuleQuestions(wholeRules, fileId).questions,
+    wholeRules,
+    (group) => compileRuleQuestions(group, fileId).questions,
     classifier,
     state.path,
   );

@@ -238,6 +238,7 @@ export function recordCacheHit(
       ts: new Date().toISOString(),
       url: redactUrl(url),
       id: call?.id,
+      path: call?.path,
       durationMs: 0,
       questionIds: call?.questionIds,
       status: 200,
@@ -293,6 +294,7 @@ export function recordRequests(
         ts: new Date().toISOString(),
         url: redactUrl(input),
         id: call?.id,
+        path: call?.path,
         durationMs: Date.now() - startedAt,
       };
       const body = asJson(

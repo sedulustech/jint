@@ -101,9 +101,14 @@ export function mapDecisionsError(e: unknown, input: string): ClassifyError {
 
 /** The Decisions request for one ask: the state as one input_json part, one question per name. */
 export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
+  // A rule that does not include the path (includePath false) is asked without it, so the same
+  // code is the same request wherever the file sits. A state that says nothing goes out as it is:
+  // a callback rule builds its own state and owns what is in it. The flag itself never travels.
+  const { includePath, ...data } = ask.state as Record<string, unknown>;
+  if (includePath === false) delete data.path;
   return {
     model,
-    input: [{ role: "user", content: [{ type: "input_json", data: { ...ask.state } }] }],
+    input: [{ role: "user", content: [{ type: "input_json", data }] }],
     questions: Object.keys(ask.questions).map((name, i) =>
       toDecisions(wireName(i), ask.questions[name]!),
     ),

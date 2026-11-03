@@ -66,6 +66,13 @@ const OVERRIDE_SCHEMA = Type.Optional(
   }),
 );
 
+const INCLUDE_PATH_SCHEMA = Type.Optional(
+  Type.Boolean({
+    description:
+      "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.",
+  }),
+);
+
 // Discriminated on kind: noul rules carry {true,false}, score rules carry an ordered rubric
 // (>= two descriptions indexed by score 0..N), choice rules carry named options (>= two labels). kind stays optional in the noul branch (noul IS
 // the default; the loader fills it). The question and the handle are both REQUIRED (policy:
@@ -92,6 +99,7 @@ const NOUL_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
 
@@ -107,6 +115,7 @@ const SCORE_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
 
@@ -126,6 +135,7 @@ const CHOICE_RULE_SCHEMA = Type.Object({
   handle: HANDLER_SCHEMA,
   include: Type.Optional(SCOPE_SCHEMA),
   exclude: Type.Optional(SCOPE_SCHEMA),
+  includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
 
@@ -583,6 +593,7 @@ export function compileRule(entry: Static<typeof RULE_SCHEMA>, source: string): 
   const scope = {
     include: entry.include,
     exclude: entry.exclude,
+    includePath: entry.includePath,
   };
   const handleSnapshot = entry.handle;
   const common = {

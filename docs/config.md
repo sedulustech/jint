@@ -110,9 +110,14 @@ Rule sources importable from the config:
 Bare npm specifiers and `node:*` builtins are rejected in the config file before it runs. The
 gate is a portability fence for the entry file, not a sandbox: it scans that file's static
 imports only, so a relative helper may import anything the runtime offers. The domains are
-`comments`, `complexity`, `errors` and `naming`; [rules.md](rules.md) lists every rule in each.
-jint runs only the rules the config names: a config with no rules fails with the domain list.
+`comments`, `complexity`, `errors` and `naming`, and the subdomain `react/hooks`;
+[rules.md](rules.md) lists every rule in each. jint runs only the rules the config names, so pull
+the ones you care about: a config with no rules fails with the domain list.
 A rule name that appears twice is an error unless the later entry sets `override: true`.
+
+A rule sees only the source of what it judges. The same code is then the same question wherever the
+file sits. A rule whose claim is about the path itself, such as `has_filename_mismatch`, sets
+`includePath: true`, and the model is handed the file's path with the source.
 
 ### Inline custom rules
 
