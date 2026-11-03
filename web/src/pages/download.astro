@@ -2,17 +2,15 @@
 import Layout from "../layouts/Layout.astro";
 import HeaderTools from "../components/HeaderTools.astro";
 
-// The binaries mirror (functions/dl) serves the newest published release under /dl/latest/download/.
+// The binaries mirror (functions/dl) serves the beta channel under /dl/download/beta/.
 const PLATFORMS = [
   { label: "Linux x64", file: "jint-linux-x64.tar.gz" },
   { label: "Linux arm64", file: "jint-linux-arm64.tar.gz" },
   { label: "macOS Apple silicon", file: "jint-darwin-arm64.tar.gz" },
   { label: "macOS Intel", file: "jint-darwin-x64.tar.gz" },
 ];
-const BASE = "/dl/latest/download";
 // the unversioned beta channel, overwritten on every push to the beta branch
 const BETA = "/dl/download/beta";
-const GITHUB = "https://github.com/sedulustech/jint/releases/latest";
 ---
 
 <Layout
@@ -26,24 +24,6 @@ const GITHUB = "https://github.com/sedulustech/jint/releases/latest";
     </header>
     <main>
       <h1>download</h1>
-      <ul class="platforms">
-        {
-          PLATFORMS.map(({ label, file }) => (
-            <li>
-              <a href={`${BASE}/${file}`}>
-                <span>{label}</span>
-                <span class="file">{file}</span>
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-      <p><a href={`${BASE}/checksums.txt`}>checksums.txt</a> covers every archive.</p>
-      <p>
-        Or run the install script, which checks the checksum for you:
-      </p>
-      <pre><code>curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash</code></pre>
-      <h2>beta</h2>
       <p>
         An unversioned build of the beta branch, overwritten on every push: <a href={`${BETA}/checksums.txt`}>checksums</a> ·
         <a href={`${BETA}/COMMIT`}>commit</a>
@@ -60,9 +40,7 @@ const GITHUB = "https://github.com/sedulustech/jint/releases/latest";
           ))
         }
       </ul>
-      <p>
-        <a href="/docs/install/">install docs</a> · <a href={GITHUB}>GitHub releases</a>
-      </p>
+      <p><a href="/docs/install/">install docs</a></p>
     </main>
   </div>
 </Layout>
@@ -97,12 +75,6 @@ const GITHUB = "https://github.com/sedulustech/jint/releases/latest";
   h1 {
     margin: 0 0 var(--s3);
     font-size: 1.5rem;
-    line-height: 1.3;
-  }
-
-  h2 {
-    margin: var(--s4) 0 var(--s2);
-    font-size: 1.15rem;
     line-height: 1.3;
   }
 
