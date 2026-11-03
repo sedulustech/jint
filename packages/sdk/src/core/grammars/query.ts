@@ -237,7 +237,7 @@ export function scmCode(scm: string): string {
       commentsCut += "\n";
       continue;
     }
-    if (char === '"' || char === "\'") quote = char;
+    if (char === '"' || char === "'") quote = char;
     commentsCut += char;
   }
   return withoutStrings(commentsCut);
@@ -447,7 +447,7 @@ export function scmDirectives(scm: string): ScmDirective[] {
       if (valueMatch !== null) i += valueMatch[0]!.length;
       continue;
     }
-    if (char === '"' || char === "\'") quote = char;
+    if (char === '"' || char === "'") quote = char;
     i++;
   }
   return directives;

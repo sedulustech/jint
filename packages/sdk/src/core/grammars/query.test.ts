@@ -187,7 +187,7 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     // trailing comment: prose, not a directive
     expect(scmSelfNesting('(paragraph) @paragraph ; #set! "selfNesting"')).toBe(false);
     // predicate string: a mention, not a directive
-    expect(scmSelfNesting('(#match? @x "#set! \"selfNesting\"")')).toBe(false);
+    expect(scmSelfNesting('(#match? @x "#set! "selfNesting"")')).toBe(false);
   });
 
   test("malformed or unknown #set forms are loud, naming the line", () => {
@@ -196,7 +196,7 @@ describe("scm directive reading (the shared .scm discipline)", () => {
       /missing its quoted directive name/,
     );
     expect(() => assertScmDirectives('(a) @a (#set! "nesting")', "g")).toThrow(
-      /unknown directive \"nesting\"/,
+      /unknown directive "nesting"/,
     );
     // no throw: known directive, and unknown predicate forms stay tree-sitter's business
     expect(() =>
