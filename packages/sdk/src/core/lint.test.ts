@@ -899,6 +899,7 @@ describe("lint", () => {
     // the derivation is element captures only: markdown's @name never becomes addressable
     // sorted: the open namespace has no registry order to preserve
     expect(emittedCaptures(EMBEDDED, "markdown")).toEqual([
+      "frontmatter",
       "list",
       "list_item",
       "paragraph",

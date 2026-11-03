@@ -56,3 +56,8 @@
 ; so loose prose is the section-direct and quoted forms - the loose-in-list stretch is gone.
 (section (paragraph) @paragraph (#set! "capture.paragraph.definition" "true")) ; @priority
 (block_quote (paragraph) @paragraph)
+
+; frontmatter: the YAML block fenced by --- on the file's first lines (tree-sitter-markdown's
+; minus_metadata). One element per file at most, a leaf the sections never contain: it precedes
+; the first heading, so it is the page's own metadata (title, description), judged whole.
+((minus_metadata) @frontmatter (#set! "capture.frontmatter.definition" "true"))
