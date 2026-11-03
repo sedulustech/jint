@@ -1,55 +1,26 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import HeaderTools from "../components/HeaderTools.astro";
+import Splash from "../components/Splash.astro";
+import PrimaryButton from "../components/PrimaryButton.astro";
 ---
 
 <Layout title="not found - jint" noindex>
-  <div class="corner"><HeaderTools /></div>
-  <main>
-    <a href="/" aria-label="jint"><img src="/logo.svg" alt="jint" width="160" height="116" /></a>
-    <p>404 · page not found</p>
-    <nav aria-label="jint">
-      <a href="/">home</a>
-      <a href="/docs/install/">docs</a>
-    </nav>
-  </main>
+  <Splash>
+    <p>404</p>
+    <Fragment slot="links">
+      <PrimaryButton href="/">Home</PrimaryButton>
+      <PrimaryButton href="/docs/install/">Docs</PrimaryButton>
+    </Fragment>
+  </Splash>
 </Layout>
 
 <style>
-  .corner {
-    position: fixed;
-    top: max(var(--s2), env(safe-area-inset-top, 0px));
-    right: max(var(--s2), env(safe-area-inset-right, 0px));
-  }
-  main {
-    min-height: 100dvh;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: var(--s3);
-  }
-  img {
-    display: block;
-    width: min(160px, 50vw);
-    height: auto;
-  }
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 0.85rem;
-  }
-  nav {
-    display: flex;
-    gap: var(--s4);
-    font-size: 0.85rem;
-  }
-  nav a {
-    text-decoration: none;
-  }
-  nav a:hover,
-  nav a:focus-visible {
-    text-decoration: underline;
-    text-underline-offset: 0.3em;
-    outline: none;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
   }
 </style>

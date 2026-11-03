@@ -1,0 +1,57 @@
+---
+/**
+ * The primary button: the call to action a page leads with. A link whose side rules draw from the
+ * middle out on hover and focus. Reuse it where one action is prominent (the landing page's two
+ * links, the download rows); a page has no use for it when nothing on it is the main action.
+ */
+interface Props {
+  href: string;
+}
+const { href } = Astro.props;
+---
+
+<a class="primary" href={href}><slot /></a>
+
+<style>
+  .primary {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 2.75rem; /* a touch target on a phone */
+    padding-inline: var(--s2);
+    text-decoration: none;
+  }
+  .primary:focus-visible {
+    outline: none;
+  }
+  .primary::before,
+  .primary::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--fg);
+    transform: scaleY(0);
+    transition: transform 0.25s ease;
+  }
+  .primary::before {
+    left: 0;
+  }
+  .primary::after {
+    right: 0;
+  }
+  .primary:hover::before,
+  .primary:hover::after,
+  .primary:focus-visible::before,
+  .primary:focus-visible::after {
+    transform: scaleY(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .primary,
+    .primary::before,
+    .primary::after {
+      transition: none;
+    }
+  }
+</style>

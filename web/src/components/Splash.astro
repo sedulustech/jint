@@ -1,0 +1,43 @@
+---
+/**
+ * The centered page: the logo, an optional line under it, and the links. The landing page and the
+ * 404 share it so they stay identical; pass the links in the "links" slot.
+ */
+import HeaderTools from "./HeaderTools.astro";
+---
+
+<div class="corner"><HeaderTools /></div>
+<main>
+  <img src="/logo.svg" alt="" width="240" height="174" />
+  <slot />
+  <nav aria-label="jint">
+    <slot name="links" />
+  </nav>
+</main>
+
+<style>
+  .corner {
+    position: fixed;
+    top: max(var(--s2), env(safe-area-inset-top, 0px));
+    right: max(var(--s2), env(safe-area-inset-right, 0px));
+  }
+  main {
+    min-height: 100dvh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 2.25rem;
+  }
+  img {
+    display: block;
+    width: min(240px, 70vw);
+    height: auto;
+  }
+  nav {
+    display: flex;
+    justify-content: space-between;
+    width: min(240px, 70vw);
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+</style>

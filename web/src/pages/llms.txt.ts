@@ -19,6 +19,7 @@ export const GET: APIRoute = async ({ site }) => {
     "## Optional",
     "",
     `- [All docs in one file](${url("/llms-full.txt")}): every doc above, concatenated`,
+    `- [Download](${url("/download/")}): beta binaries for Linux and macOS, with checksums`,
     "- [Source and releases](https://github.com/sedulustech/jint): the repository",
     "",
   ].join("\n");

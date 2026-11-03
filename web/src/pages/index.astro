@@ -1,11 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import HeaderTools from "../components/HeaderTools.astro";
+import Splash from "../components/Splash.astro";
+import PrimaryButton from "../components/PrimaryButton.astro";
 
 const DOWNLOAD = "/download/";
 ---
 
-<!-- Draw: the side rules appear on hover, growing from the middle out. -->
 <Layout
   title="jint - semantic linter"
   description="Write linting rules in plain English."
@@ -22,15 +22,13 @@ const DOWNLOAD = "/download/";
     },
   ]}
 >
-  <div class="corner"><HeaderTools /></div>
-  <main>
+  <Splash>
     <h1 class="visually-hidden">jint</h1>
-    <img src="/logo.svg" alt="" width="240" height="174" />
-    <nav aria-label="jint">
-      <a href={DOWNLOAD}>download</a>
-      <a href="/docs/install/">docs</a>
-    </nav>
-  </main>
+    <Fragment slot="links">
+      <PrimaryButton href={DOWNLOAD}>Download</PrimaryButton>
+      <PrimaryButton href="/docs/install/">Docs</PrimaryButton>
+    </Fragment>
+  </Splash>
 </Layout>
 
 <style>
@@ -41,72 +39,5 @@ const DOWNLOAD = "/download/";
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-  .corner {
-    position: fixed;
-    top: max(var(--s2), env(safe-area-inset-top, 0px));
-    right: max(var(--s2), env(safe-area-inset-right, 0px));
-  }
-  main {
-    min-height: 100dvh;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: 2.25rem;
-  }
-  img {
-    display: block;
-    width: min(240px, 70vw);
-    height: auto;
-  }
-  nav {
-    display: flex;
-    justify-content: space-between;
-    width: min(240px, 70vw);
-    font-size: 0.85rem;
-    letter-spacing: 0.02em;
-  }
-  nav a {
-    display: grid;
-    place-items: center;
-    min-height: 2.75rem; /* a touch target on a phone */
-    padding-inline: var(--s2);
-    text-decoration: none;
-  }
-  nav a:focus-visible {
-    outline: none;
-  }
-  nav a {
-    position: relative;
-  }
-  nav a::before,
-  nav a::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--fg);
-    transform: scaleY(0);
-    transition: transform 0.25s ease;
-  }
-  nav a::before {
-    left: 0;
-  }
-  nav a::after {
-    right: 0;
-  }
-  nav a:hover::before,
-  nav a:hover::after,
-  nav a:focus-visible::before,
-  nav a:focus-visible::after {
-    transform: scaleY(1);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    nav a,
-    nav a::before,
-    nav a::after {
-      transition: none;
-    }
   }
 </style>
