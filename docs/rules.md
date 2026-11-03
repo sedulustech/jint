@@ -7,7 +7,7 @@ sidebar:
 
 # Rules
 
-Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`. Rendered verbatim from the domain packages. Instructions are the yes/no question the classifier answers per element; criteria pins what each answer means; the target is the element role the rule judges; the handle turns readings into findings. Editing any of these in the specs is a recalibration event. Regenerate: `bun run schema`.
+Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`, and a subdomain from `jint:rules/<domain>/<subdomain>`. You are not meant to run them all: pull the rules you care about and name only those in `rules.use`. A rule that does not fit your code can be overridden, and a rule for a language jint has no grammar for needs your own: see [Bring your own grammar](byog.md). Rendered verbatim from the domain packages. Instructions are the yes/no question the classifier answers per element; criteria pins what each answer means; the target is the element role the rule judges; the handle turns readings into findings. Editing any of these in the specs is a recalibration event. Regenerate: `bun run schema`.
 
 ## `jint:rules/comments`
 
@@ -138,3 +138,17 @@ Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>
 **True.** The file name promises one subject but the body delivers a different one: the dominant content of the file - its main exports and the logic around them - belongs to a subject the name does not name or names differently (json.ts whose body renders HTML reports, walker.ts whose body parses config files). Judge the basename of the state path, using the directory path only for context; a name may state a role or verb (load, parse, classify, render) and then matches a body whose dominant action is that verb. Judge by the dominant responsibility, not incidental helpers: a small shared helper inside the file is not a mismatch. Generic names (utils, helpers, types, common, index) are exempt from being called too broad, but if a generic name hides one specific subject and the body contradicts that subject, that is a mismatch. Barrel files that only re-export, and test files, are exempt unless they contradict their name.
 
 **False.** The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.
+
+## `jint:rules/react/hooks`
+
+### `is_effect_named`
+
+| kind | target    | handle                                                                          |
+| ---- | --------- | ------------------------------------------------------------------------------- |
+| noul | functions | warn less than 0.6, error less than 0.3, "Name this effect after what it does." |
+
+**Instructions.** Does every effect hook call in this function (useEffect, useLayoutEffect, useInsertionEffect) pass a named function whose name says what the effect does?
+
+**True.** The function calls no effect hook, or every effect hook it calls receives a named function (a named function expression or a reference to a named function) whose name states the purpose of the effect: syncDocumentTitle, subscribeToResize, focusFormWhenOpened.
+
+**False.** At least one effect hook receives an anonymous arrow or anonymous function, or a name that states no purpose (effect, onMount, run, doStuff, handleEffect), or a name that names a different job from the one the body does. A name that states a purpose is enough: an effect that does two things is not this defect.

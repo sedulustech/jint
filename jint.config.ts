@@ -2,6 +2,7 @@ import { rules as comments } from "jint:rules/comments";
 import { rules as complexity } from "jint:rules/complexity";
 import { rules as errors } from "jint:rules/errors";
 import { rules as naming } from "jint:rules/naming";
+import { rules as reactHooks } from "jint:rules/react/hooks";
 import { defineConfig, type RuleSchema } from "jint:sdk";
 
 // Every rule domain, through the jint:rules/<domain> virtual modules. Test files are excluded: the
@@ -105,6 +106,7 @@ export default defineConfig({
       ...complexity,
       ...errors,
       ...naming,
+      ...reactHooks,
       is_literal_shared,
       is_doc_stateful,
       is_headword_consistent,

@@ -13,7 +13,7 @@ How the shipped rules are grouped, imported and run, now that there is no defaul
 Rules are grouped by domain. A domain is a named group of rules and one workspace package
 (`packages/rules/<domain>`, package `@jint/rules-<domain>`), imported as `jint:rules/<domain>`. A domain exports each rule under
 its own name and the whole group as `rules`. The domains are `comments`, `complexity`, `errors`
-and `naming`.
+and `naming`, with one subdomain, `react/hooks`.
 
 A domain is a subject, not a layer. It names a property judged (comments, naming) or a technology
 (typescript, react); a language is a technology, so it is a domain too. A domain may nest
@@ -56,4 +56,4 @@ error too. Nothing wins by position.
   the CLI.
 - What a domain must show to be official: the healthy-max / defective-min gap per language
   (AGENTS.md, "Adding rules to a domain") is the current bar.
-- A check that a subdomain's question text matches its parent's. No subdomain exists yet.
+- A check that a subdomain's question text matches its parent's. The one subdomain, `react/hooks`, has no parent rules to match.

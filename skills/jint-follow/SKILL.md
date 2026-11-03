@@ -50,6 +50,7 @@ uses, so this cannot drift from the messages you will see):
 | `is_comment_narration`   | error    | Remove this comment.                                                                 |
 | `will_comment_drift`     | error    | Remove this comment.                                                                 |
 | `is_cognitively_complex` | error    | Decompose this function: extract readable named steps so the main body reads easily. |
+| `is_effect_named`        | error    | Name this effect after what it does.                                                 |
 
 A finding without a row above carries no fixer message; the finding's own text
 is the instruction.

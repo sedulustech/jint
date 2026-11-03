@@ -29,10 +29,11 @@ describe("jint:rules/* ambient declarations", () => {
   it("declares exactly the aggregate's domains", () => {
     const declared = [
       ...dts.matchAll(
-        /declare module "jint:rules\/([\w/-]+)" \{\s*export \* from "@jint\/rules-([\w-]+)";/g,
+        /declare module "jint:rules\/([\w/-]+)" \{\s*export \* from "@jint\/rules-([\w-]+)(\/[\w-]+)?";/g,
       ),
     ];
     expect(declared.map((m) => m[1]).sort()).toEqual(Object.keys(domains).sort());
-    for (const m of declared) expect(m[2]).toBe(m[1]!);
+    // a subdomain's key is its package's name plus the subpath: react/hooks -> rules-react/hooks
+    for (const m of declared) expect(`${m[2]}${m[3] ?? ""}`).toBe(m[1]!);
   });
 });

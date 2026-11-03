@@ -18,3 +18,6 @@ declare module "jint:rules/errors" {
 declare module "jint:rules/naming" {
   export * from "@jint/rules-naming";
 }
+declare module "jint:rules/react/hooks" {
+  export * from "@jint/rules-react/hooks";
+}

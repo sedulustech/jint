@@ -75,7 +75,7 @@ async function layoutProblems(root: string): Promise<string[]> {
         }
       }
     }
-    if (!aggregate.includes(`from "@jint/rules-${domain}"`)) {
+    if (!aggregate.includes(`from "@jint/rules-${domain}`)) {
       problems.push(
         `${domain}: the aggregate (src/index.ts) does not import @jint/rules-${domain}`,
       );
@@ -86,7 +86,7 @@ async function layoutProblems(root: string): Promise<string[]> {
       );
     }
   }
-  for (const m of aggregate.matchAll(/from "@jint\/rules-([\w-]+)"/g)) {
+  for (const m of aggregate.matchAll(/from "@jint\/rules-([\w-]+)(?:\/[\w-]+)?"/g)) {
     if (!domains.includes(m[1]!)) {
       problems.push(
         `the aggregate imports @jint/rules-${m[1]} but packages/rules/${m[1]} does not exist`,

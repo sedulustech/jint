@@ -143,7 +143,10 @@ export function renderRulesDoc(
   const out = [
     frontmatter,
     "# Rules\n\n",
-    "Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`. Rendered verbatim from the domain packages. Instructions are the yes/no question " +
+    "Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`, and a subdomain from `jint:rules/<domain>/<subdomain>`. " +
+      "You are not meant to run them all: pull the rules you care about and name only those in `rules.use`. " +
+      "A rule that does not fit your code can be overridden, and a rule for a language jint has no grammar for needs your own: see [Bring your own grammar](byog.md). " +
+      "Rendered verbatim from the domain packages. Instructions are the yes/no question " +
       "the classifier answers per element; criteria pins what each answer means; the target is the " +
       "element role the rule judges; the handle turns readings into findings. Editing any of these in " +
       "the specs is a recalibration event. Regenerate: `bun run schema`.\n\n",
