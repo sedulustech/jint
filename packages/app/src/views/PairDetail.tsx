@@ -48,7 +48,7 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
   const answers = request?.response?.answers ?? {};
   const qas: QA[] = Object.entries(questions).map(([key, question]) => {
     const m = key.match(/^(.*) in (.+)$/);
-    return { key, rule: m ? m[1] : key, question, answer: answers[key] };
+    return { key, rule: m?.[1] ?? key, question, answer: answers[key] };
   });
   // the addressed pair is the protagonist; sibling questions of the same request stay accessible
   const pair = qas.find((qa) => qa.rule === rule);

@@ -74,7 +74,11 @@ export function AnswerCard({
   const answeredKey = isChoice ? choice : index !== null ? String(index) : null;
   const ranked = isScore || isChoice;
   // the legend is the rule's own text, read from the question: a model may not echo it back
-  const legend: Record<string, string> = ranked ? { ...qa.question.criteria } : {};
+  const legend: Record<string, string> = ranked
+    ? Object.fromEntries(Object.entries(qa.question.criteria ?? {}))
+    : {};
+  // the true/false pair of a non-ranked question; a list of criteria has neither
+  const truth = qa.question.criteria as Record<string, string> | undefined;
   const probabilities = ranked ? (qa.answer?.probabilities ?? {}) : {};
   // verdict color ONLY from severity; an unprovable answer stays neutral
   const color = sev !== null ? SEVERITY[sev].text : "text-foreground";
@@ -276,13 +280,13 @@ export function AnswerCard({
           <div className="bg-background px-rail py-siblings">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
-              {qa.question.criteria?.true ?? "—"}
+              {truth?.true ?? "—"}
             </p>
           </div>
           <div className="border-l border-dashed border-border bg-background px-rail py-siblings">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
-              {qa.question.criteria?.false ?? "—"}
+              {truth?.false ?? "—"}
             </p>
           </div>
         </div>

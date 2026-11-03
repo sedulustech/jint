@@ -242,7 +242,7 @@ describe("ruleTargets - the runtime face of the RuleTarget union", () => {
   const _all: readonly RuleTarget[] = ruleTargets;
 
   test("every union member is registered exactly once; no extras, no duplicates", () => {
-    expect([...ruleTargets].sort()).toEqual(Object.keys(_exhaustive).sort());
+    expect([...(ruleTargets as readonly string[])].sort()).toEqual(Object.keys(_exhaustive).sort());
     expect(new Set(ruleTargets).size).toBe(ruleTargets.length);
     for (const target of ruleTargets) expect(_exhaustive[target]).toBe(true);
     expect(_all).toBe(ruleTargets);

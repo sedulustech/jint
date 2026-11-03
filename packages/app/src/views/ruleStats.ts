@@ -53,7 +53,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
       if (m.refused) continue;
       const s = stat(m.rule);
       s.measurements += 1;
-      s.histogram[bin(m.rule, m.value)] += 1;
+      s.histogram[bin(m.rule, m.value)]! += 1;
     }
     for (const f of report.findings) stat(f.rule).findings += 1;
     for (const e of report.errors) stat("(" + e.code + ")").errors += 1;
@@ -63,7 +63,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
       for (const rule of r.rules) {
         const s = stat(rule);
         s.measurements += r.answers.length;
-        for (const v of r.answers) s.histogram[bin(rule, v)] += 1;
+        for (const v of r.answers) s.histogram[bin(rule, v)]! += 1;
       }
     }
   }

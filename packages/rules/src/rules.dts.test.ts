@@ -12,12 +12,13 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { domains } from "@jint/rules";
-import type { RuleSchema, NoulRuleSchema } from "jint:rules/comments";
+import type { rules as commentRules } from "jint:rules/comments";
 
-const _schemaCheck: RuleSchema | undefined = undefined;
-const _noulCheck: NoulRuleSchema["kind"] = "noul";
+// the member resolves and carries rule schemas (a lost re-export is a tsc error here)
+const _schemaCheck: ReadonlyArray<{ kind?: string }> | undefined = undefined as
+  | typeof commentRules
+  | undefined;
 void _schemaCheck;
-void _noulCheck;
 
 const dts = readFileSync(new URL("./rules.d.ts", import.meta.url), "utf8");
 

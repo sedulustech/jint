@@ -268,7 +268,7 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
       });
       expect(scores.length).toBeGreaterThanOrEqual(1);
       for (let i = 1; i < scores.length; i++)
-        expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]);
+        expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]!);
     },
     { timeout: 2_000 },
   );

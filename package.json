@@ -18,7 +18,7 @@
     "test": "bun test --parallel",
     "schema": "bun scripts/generate-schema.ts",
     "build": "bun run schema && tsc -p packages/cli && chmod +x packages/cli/dist/cli.js",
-    "typecheck": "tsc --noEmit && tsc -p packages/sdk --noEmit && tsc -p packages/cli --noEmit",
+    "typecheck": "tsc --noEmit",
     "validate": "bun run schema && bun run typecheck && bun run lint && bun run build",
     "lint": "bunx --bun oxlint --type-aware && oxfmt --check",
     "fmt": "oxfmt",

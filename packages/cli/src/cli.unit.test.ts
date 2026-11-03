@@ -297,7 +297,7 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
           "CONFIG_INVALID",
           "invalid config x.json: /rules/0/instructions Expected string",
           {
-            detail: { kind: "invalid-rule", ruleIndex: 0, field: "instructions" },
+            detail: { kind: "invalid-rule", ruleIndex: 0, field: "instructions", present: false },
           },
         ),
       );
