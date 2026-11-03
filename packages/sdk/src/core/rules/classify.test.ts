@@ -11,7 +11,7 @@ import {
   type Unit,
   type UnitState,
 } from "../types.ts";
-import { matchesTarget, selectElement, selectElements } from "./classify.ts";
+import { classifiedState, matchesTarget, selectElement, selectElements } from "./classify.ts";
 import {
   elementWireId,
   compileRuleQuestions,
@@ -669,5 +669,25 @@ describe("THE TARGET CHAIN (single source, exhaustively pinned)", () => {
     expect(() => matchesTarget("funtions", { capture: "function", grammar: "typescript" })).toThrow(
       /unvalidated rule target/,
     );
+  });
+});
+
+describe("classifiedState", () => {
+  test("a file carries its line interval as its id, with the path first", () => {
+    const state = classifiedState({ path: "a.ts", content: "one\ntwo\nthree" });
+    expect(Object.keys(state)).toEqual(["path", "content", "id"]);
+    expect(state.id).toBe("L1-L3");
+  });
+
+  test("an element keeps the id it brings, in the same key order", () => {
+    const state = classifiedState({ path: "a.ts", source: "f()", id: "e1" });
+    expect(Object.keys(state)).toEqual(["path", "source", "id"]);
+    expect(state.id).toBe("e1");
+  });
+
+  test("includePath is set only when the caller decides it", () => {
+    expect("includePath" in classifiedState({ path: "a.ts", content: "x" })).toBe(false);
+    expect(classifiedState({ path: "a.ts", content: "x" }, false).includePath).toBe(false);
+    expect(classifiedState({ path: "a.ts", source: "x", id: "e" }, true).includePath).toBe(true);
   });
 });

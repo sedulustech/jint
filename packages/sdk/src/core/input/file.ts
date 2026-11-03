@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { knownLanguages, languageOf, EMBEDDED, type GrammarRegistry } from "../grammars/walk.ts";
-import { elementWireId } from "../rules/classify.ts";
+import { classifiedState } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 
 export async function fileUnit(
@@ -42,10 +42,6 @@ export async function fileUnit(
   }
   return {
     kind: "file",
-    state: {
-      path,
-      content,
-      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
-    },
+    state: classifiedState({ path, content }),
   };
 }

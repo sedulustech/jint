@@ -24,7 +24,7 @@ import {
   withLimit,
   withTimeout,
 } from "./provider/pacer.ts";
-import { classifyFile, elementWireId, type OversizedElement } from "./rules/classify.ts";
+import { classifiedState, classifyFile, type OversizedElement } from "./rules/classify.ts";
 import {
   SetupError,
   ClassifyError,
@@ -100,11 +100,7 @@ export async function classify(
   }
   const unit: Unit = {
     kind: "file",
-    state: {
-      path,
-      content: str,
-      id: elementWireId({ start: { line: 1 }, end: { line: str.split("\n").length } }),
-    },
+    state: classifiedState({ path, content: str }),
   };
   const result = await classifyFile(
     unit,

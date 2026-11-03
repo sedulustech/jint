@@ -17,7 +17,7 @@
 import { existsSync } from "node:fs";
 import { readdir, open, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { elementWireId } from "../rules/classify.ts";
+import { classifiedState } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
 import { inputStats, SKIP_REASONS, type InputStats } from "./stats.ts";
 import type { Dirent } from "node:fs";
@@ -408,11 +408,10 @@ async function readFileUnit(
   const content = await readTextFile(absolutePath);
   return {
     kind: "file",
-    state: {
+    state: classifiedState({
       path: pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`,
       content,
-      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
-    },
+    }),
   };
 }
 

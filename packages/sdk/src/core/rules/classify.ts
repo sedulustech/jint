@@ -21,6 +21,8 @@ import {
   ClassifyError,
   InternalError,
   type AnyState,
+  type ElementState,
+  type FileState,
   type ClassifiedAnswer,
   type Refusal,
   type Element,
@@ -104,6 +106,41 @@ export function elementWireId(span: {
   return span.start.line === span.end.line
     ? `L${span.start.line}`
     : `L${span.start.line}-L${span.end.line}`;
+}
+
+/**
+ * The state a unit is classified under: the one place its shape and key order are written. The
+ * model reads the same state differently under another key order, so every state a classifier is
+ * asked about - a run's, the one-shot classify's, the run UI's try-it - is built here. A file's id
+ * is its line interval; an element brings its own. `includePath` is set only for a caller that
+ * decides it, and never travels.
+ */
+export function classifiedState(
+  of: { readonly path: string; readonly content: string },
+  includePath?: boolean,
+): FileState;
+export function classifiedState(
+  of: { readonly path: string; readonly source: string; readonly id: string },
+  includePath?: boolean,
+): ElementState;
+export function classifiedState(
+  of: { readonly path: string } & (
+    | { readonly content: string }
+    | { readonly source: string; readonly id: string }
+  ),
+  includePath?: boolean,
+): FileState | ElementState {
+  const flag = includePath === undefined ? {} : { includePath };
+  if ("content" in of) {
+    const lines = of.content.split("\n").length;
+    return {
+      path: of.path,
+      content: of.content,
+      id: elementWireId({ start: { line: 1 }, end: { line: lines } }),
+      ...flag,
+    };
+  }
+  return { path: of.path, source: of.source, id: of.id, ...flag };
 }
 
 export function invalidAnswerError(
@@ -646,7 +683,7 @@ async function classifyElementJob(
   const input = `${statePath}#${job.id}`;
   const questions = compileElementQuestions(job.rules, job.element.kind);
   const elementReply = await askByPath(
-    { path: statePath, source: job.source, id: job.id },
+    classifiedState({ path: statePath, source: job.source, id: job.id }),
     job.rules,
     (group) => compileElementQuestions(group, job.element.kind),
     classifier,

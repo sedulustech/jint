@@ -43,7 +43,7 @@ import {
 } from "./provider/pacer.ts";
 import {
   classifyFile,
-  elementWireId,
+  classifiedState,
   rulesForElement,
   targetsOf,
   matchesTarget,
@@ -814,11 +814,7 @@ async function runUnit(
 function strUnit(content: string, path?: string): Unit {
   return {
     kind: "str",
-    state: {
-      path: path ?? "str:stdin",
-      content,
-      id: elementWireId({ start: { line: 1 }, end: { line: content.split("\n").length } }),
-    },
+    state: classifiedState({ path: path ?? "str:stdin", content }),
   };
 }
 
