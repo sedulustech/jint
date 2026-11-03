@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "bunx --bun vite",
+    "build": "bunx --bun vite build",
     "serve": "bun server.ts",
-    "test:component": "vitest run",
+    "test:component": "bunx --bun vitest run",
     "check:jint": "bun ../../packages/cli/dist/cli.js --config jint.config.json src",
     "fixtures:gen": "bun scripts/build-fixture.ts"
   },
