@@ -72,9 +72,9 @@ export const is_greppable: NoulRuleSchema = {
 };
 
 /** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = Object.freeze([
+export const rules: readonly RuleSchema[] = [
   is_vocabulary_consistent,
   is_naming_convention_consistent,
   is_greppable,
   has_filename_mismatch,
-]);
+];

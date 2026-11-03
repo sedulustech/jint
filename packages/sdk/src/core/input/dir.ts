@@ -30,7 +30,7 @@ const DEFAULT_SKIP_DIRS = new Set(["node_modules", ".git"]);
  * deeper .gitignore/config negation re-admits). The leak audit is the reason none may reach the
  * classifier - gitignored or not.
  */
-export const SECRET_DENYLIST: readonly string[] = Object.freeze([
+export const SECRET_DENYLIST: readonly string[] = [
   ".env",
   ".env.*",
   "*.env",
@@ -43,7 +43,7 @@ export const SECRET_DENYLIST: readonly string[] = Object.freeze([
   "secrets*",
   ".netrc",
   ".pgpass",
-]);
+];
 
 /** First bytes of any PEM armor (a content backstop: overrides even a re-admitting negation). */
 const PEM_HEADER = "-----BEGIN ";

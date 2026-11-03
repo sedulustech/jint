@@ -54,8 +54,8 @@ export const will_comment_drift: NoulRuleSchema = {
 };
 
 /** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = Object.freeze([
+export const rules: readonly RuleSchema[] = [
   is_comment_narration,
   is_comment_patching_readability,
   will_comment_drift,
-]);
+];

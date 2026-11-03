@@ -566,7 +566,7 @@ export function validateConfig(
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
   if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
   if (warnings.length > 0) resolved.warnings = warnings;
-  return Object.freeze(resolved);
+  return resolved;
 }
 
 /**

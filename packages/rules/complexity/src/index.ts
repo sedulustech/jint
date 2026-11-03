@@ -54,7 +54,4 @@ export const is_cognitively_complex: ScoreRuleSchema = {
 };
 
 /** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = Object.freeze([
-  is_function_srp,
-  is_cognitively_complex,
-]);
+export const rules: readonly RuleSchema[] = [is_function_srp, is_cognitively_complex];

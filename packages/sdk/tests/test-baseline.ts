@@ -15,10 +15,10 @@ export const catalog: Record<string, Rule> = Object.fromEntries(
 
 /** A config carrying every catalog rule - the shape a config naming all rules resolves to. */
 export function catalogConfig() {
-  return Object.freeze({
+  return {
     input: "",
-    rules: Object.freeze(Object.values(catalog)),
-    customRules: Object.freeze([]),
-    exclude: Object.freeze(["**/fixtures/**"]),
-  });
+    rules: Object.values(catalog),
+    customRules: [],
+    exclude: ["**/fixtures/**"],
+  };
 }

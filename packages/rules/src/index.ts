@@ -10,12 +10,12 @@ export type { RuleSchema };
  * Every domain, by the path a config imports it from: `jint:rules/<key>`. The one place that names
  * the domains - a new domain package is added here and nowhere else.
  */
-export const domains: Readonly<Record<string, readonly RuleSchema[]>> = Object.freeze({
+export const domains: Readonly<Record<string, readonly RuleSchema[]>> = {
   comments,
   complexity,
   errors,
   naming,
-});
+};
 
 /** Every rule of every domain, in domain order. */
-export const allRules: readonly RuleSchema[] = Object.freeze(Object.values(domains).flat());
+export const allRules: readonly RuleSchema[] = Object.values(domains).flat();

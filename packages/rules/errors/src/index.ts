@@ -20,4 +20,4 @@ export const will_error_lose_cause: NoulRuleSchema = {
 };
 
 /** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = Object.freeze([will_error_lose_cause]);
+export const rules: readonly RuleSchema[] = [will_error_lose_cause];

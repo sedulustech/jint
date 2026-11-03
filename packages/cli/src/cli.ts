@@ -646,13 +646,13 @@ async function resolveCliInput(positionals: readonly string[]): Promise<
 
 /** The config capture runs under when no config file exists: no rules, the usual fixtures exclude. */
 function structureOnlyConfig(): ResolvedConfig {
-  return Object.freeze({
+  return {
     input: "",
-    rules: Object.freeze([]),
-    customRules: Object.freeze([]),
-    include: Object.freeze([]),
-    exclude: Object.freeze(["**/fixtures/**"]),
-  }) as unknown as ResolvedConfig;
+    rules: [],
+    customRules: [],
+    include: [],
+    exclude: ["**/fixtures/**"],
+  } as unknown as ResolvedConfig;
 }
 
 /**

@@ -101,7 +101,7 @@ export function compileRuleScope(keys: ScopeKeys): CompiledScope | undefined {
 const scopeCache = new WeakMap<object, CompiledScope | undefined>();
 
 /**
- * The per-rule predicate, compiled once per rule object (rules are frozen data; the cache rides on
+ * The per-rule predicate, compiled once per rule object (rules are plain data; the cache rides on
  * object identity). Unscoped rules compile to undefined and always pass.
  */
 export function ruleInScope(rule: ScopeKeys, path: string): boolean {
