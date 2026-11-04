@@ -16,19 +16,11 @@ cat snippet.ts | jint run str -                # extensionless: hint the grammar
 cat snippet.go | jint run str - --language go
 ```
 
-The `str` noun declares piped stdin as one str unit (identity `str:stdin`). Its own inventory
-is derived; no grammar is ever inferred and it never `WALK_FAILED`s. SDK: `lint({ str: { content } })`.
-
-## Directory sweep
+## Directories
 
 ```bash
 jint run src/
 ```
-
-The input kind is inferred by shape (exists-as-dir -> dir). The walk turns the tree into file
-units (node_modules, .git, gitignored paths, binaries skipped; `exclude` prunes on top); walk
-happens only where an inventory-scoped rule targets elements. Unsupported extensions are sweep
-coverage, not errors: `parsing ts, tsx, py, go · not parsed (no grammar): .md, .json`.
 
 ## Single file
 
