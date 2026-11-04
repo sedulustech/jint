@@ -5,12 +5,11 @@ sidebar:
   label: Targets
 ---
 
-# Rule targets
+# Targets
 
-A rule names a target. The target resolves to a whole file or to the elements of one or more
-[captures](captures.md). A [grammar](grammars.md)'s own capture takes the form `{grammar}:{capture}`: markdown
-has `markdown:section`, `markdown:paragraph`, `markdown:list_item` and `markdown:list`, and
-typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.
+Rules need to specify what types of text they should target. We ship a few by default, but jint is
+extensible, so you can bring your own [grammar](grammars.md) and [capture](captures.md) your own
+code snippets.
 
 <!-- generated:targets — do not edit. Regenerate with `bun run schema`. -->
 
