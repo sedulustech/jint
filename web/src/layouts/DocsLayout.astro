@@ -1,6 +1,6 @@
 ---
 import Layout from "./Layout.astro";
-import { allDocs, labelOf, type Doc } from "../lib/docs";
+import { docGroups, labelOf, type Doc } from "../lib/docs";
 import HeaderTools from "../components/HeaderTools.astro";
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 
 const { doc } = Astro.props;
 const current = doc.id;
-const docs = await allDocs();
+const groups = await docGroups();
 const name = doc.data.title;
 const title = `${name} - jint docs`;
 const description = doc.data.description;
@@ -30,7 +30,7 @@ const jsonLd = [
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "jint", item: site.href },
-      { "@type": "ListItem", position: 2, name: "docs", item: new URL("/docs/install/", site).href },
+      { "@type": "ListItem", position: 2, name: "docs", item: new URL("/docs/what-is-jint/", site).href },
       { "@type": "ListItem", position: 3, name: name, item: pageUrl },
     ],
   },
@@ -45,20 +45,25 @@ const jsonLd = [
     </header>
     <div class="body">
       <nav aria-label="docs">
-        <ul>
-          {
-            docs.map((entry) => (
-              <li>
-                <a
-                  href={`/docs/${entry.id}/`}
-                  aria-current={entry.id === current ? "page" : undefined}
-                >
-                  {labelOf(entry)}
-                </a>
-              </li>
-            ))
-          }
-        </ul>
+        {
+          groups.map((group) => (
+            <section>
+              <h2>{group.label}</h2>
+              <ul>
+                {group.docs.map((entry) => (
+                  <li>
+                    <a
+                      href={`/docs/${entry.id}/`}
+                      aria-current={entry.id === current ? "page" : undefined}
+                    >
+                      {labelOf(entry)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
       </nav>
       <main>
         <slot />
@@ -94,6 +99,21 @@ const jsonLd = [
     grid-template-columns: 14rem minmax(0, 1fr);
     gap: var(--s6);
     padding-top: var(--s4);
+  }
+
+  nav {
+    display: grid;
+    gap: var(--s4);
+    align-content: start;
+  }
+
+  nav h2 {
+    margin: 0 0 var(--s2);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   nav ul {

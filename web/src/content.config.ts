@@ -9,16 +9,17 @@ import { defineCollection } from "astro:content";
 //   description: the meta description
 //   sidebar:
 //     label: the sidebar entry (defaults to title)
-//     order: position before the alphabetical rest (optional)
+//
+// The order of the sidebar is not front matter: web/sidebar.json lists every doc id in reading order.
 const docs = defineCollection({
-  loader: glob({ pattern: "*.md", base: "../docs" }),
+  // the top-level docs and the use cases (docs/use-cases/<technology>/<name>.md); docs/designs is not site content
+  loader: glob({ pattern: ["*.md", "use-cases/**/*.md"], base: "../docs" }),
   schema: z.object({
     title: z.string().min(1),
     description: z.string().min(1).max(200),
     sidebar: z
       .object({
         label: z.string().min(1).optional(),
-        order: z.number().int().optional(),
       })
       .strict()
       .default({}),

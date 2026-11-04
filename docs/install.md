@@ -3,7 +3,6 @@ title: Install jint
 description: "jint is in beta. Download the binary, check it against the published checksums, and put it on your PATH."
 sidebar:
   label: Install
-  order: 1
 ---
 
 # Install

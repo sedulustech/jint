@@ -1,0 +1,26 @@
+[
+  {
+    "label": "Start",
+    "items": ["what-is-jint", "install", "how-to-use"]
+  },
+  {
+    "label": "Rules",
+    "items": ["what-are-rules", "rules", "targets", "calibration", "confidence"]
+  },
+  {
+    "label": "Elements and grammars",
+    "items": ["captures", "grammars", "directives", "byog"]
+  },
+  {
+    "label": "Running jint",
+    "items": ["config", "pre-commit-and-ci", "answer-cache"]
+  },
+  {
+    "label": "Use cases",
+    "items": ["use-cases/react/always-name-effects"]
+  },
+  {
+    "label": "Reference",
+    "items": ["glossary"]
+  }
+]

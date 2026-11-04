@@ -7,6 +7,23 @@ describe("docLink", () => {
     expect(docLink("./config.md#scope")).toBe("/docs/config/#scope");
   });
 
+  test("a use case links to its siblings and to the docs above it as it is written", () => {
+    const from = "use-cases/react";
+    expect(docLink("../../calibration.md", from)).toBe("/docs/calibration/");
+    expect(docLink("./always-name-effects.md#why", from)).toBe(
+      "/docs/use-cases/react/always-name-effects/#why",
+    );
+    expect(docLink("../../../GLOSSARY.md", from)).toBe(
+      "https://github.com/sedulustech/jint/blob/feat/decisions-model/GLOSSARY.md",
+    );
+  });
+
+  test("a doc under designs/ stays on GitHub, as does any nested doc the site does not render", () => {
+    expect(docLink("designs/rule-domains.md")).toBe(
+      "https://github.com/sedulustech/jint/blob/feat/decisions-model/docs/designs/rule-domains.md",
+    );
+  });
+
   test("a link to a repo file outside docs/ points at it on GitHub", () => {
     expect(docLink("../GLOSSARY.md")).toBe(
       "https://github.com/sedulustech/jint/blob/feat/decisions-model/GLOSSARY.md",
