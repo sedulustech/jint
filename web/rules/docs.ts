@@ -4,7 +4,7 @@
  * matter and body) and is a defect question: a high reading is bad.
  */
 
-import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
+import type { RuleSchema } from "jint:sdk";
 
 const docs = {
   target: "files",
@@ -12,7 +12,7 @@ const docs = {
   exclude: ["designs/**"],
 } as const;
 
-export const has_description_mismatch: NoulRuleSchema = {
+export const has_description_mismatch: RuleSchema = {
   ...docs,
   name: "has_description_mismatch",
   instructions:
@@ -28,7 +28,7 @@ export const has_description_mismatch: NoulRuleSchema = {
   },
 };
 
-export const has_second_subject: NoulRuleSchema = {
+export const has_second_subject: RuleSchema = {
   ...docs,
   name: "has_second_subject",
   instructions:

@@ -4,9 +4,9 @@
  * of an .astro file, or a .css file) and is a defect question: a high reading is bad.
  */
 
-import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
+import type { RuleSchema } from "jint:sdk";
 
-export const has_off_palette_color: NoulRuleSchema = {
+export const has_off_palette_color: RuleSchema = {
   name: "has_off_palette_color",
   target: "files",
   include: ["**/*.astro", "**/*.css"],

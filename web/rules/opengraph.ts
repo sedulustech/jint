@@ -9,14 +9,14 @@
  * true on a file that sets none. A high reading is good.
  */
 
-import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
+import type { RuleSchema } from "jint:sdk";
 
 const files = ["**/*.astro", "**/*.html"];
 
 const NOT_APPLICABLE =
   "This file sets no page title, description or social image, so there is nothing to judge.";
 
-export const has_call_to_action: NoulRuleSchema = {
+export const has_call_to_action: RuleSchema = {
   name: "has_call_to_action",
   instructions:
     "Does the page's description or title tell the reader what to do or what they get next, beyond naming the product?",
@@ -32,7 +32,7 @@ export const has_call_to_action: NoulRuleSchema = {
   },
 };
 
-export const is_description_complete: NoulRuleSchema = {
+export const is_description_complete: RuleSchema = {
   name: "is_description_complete",
   instructions:
     "Does the page's description say what the page is, who or what it is for, and what the reader gets, in a sentence or two?",
@@ -51,7 +51,7 @@ export const is_description_complete: NoulRuleSchema = {
   },
 };
 
-export const is_title_informative: NoulRuleSchema = {
+export const is_title_informative: RuleSchema = {
   name: "is_title_informative",
   instructions:
     "Does the page's title say what the page is about, with more than the product name and a category?",
@@ -65,7 +65,7 @@ export const is_title_informative: NoulRuleSchema = {
   handle: { warn: { less_than: 0.6, message: "Put what this page is about in the title." } },
 };
 
-export const has_image_alt_text: NoulRuleSchema = {
+export const has_image_alt_text: RuleSchema = {
   name: "has_image_alt_text",
   instructions:
     "Does the social image have alt text that says what the image shows, including any text printed on it?",
