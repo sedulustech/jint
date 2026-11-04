@@ -627,7 +627,7 @@ export function renderTargetsTable(): string {
       namespace: CAPTURE_NAMESPACE,
       singular: "definition (the pair frame)",
       resolves:
-        "elements captured as comments, plus the definition each one belongs to (the comments above it, inside it, and its docstring). A module docstring, which has no definition, is its own match. An owned comment never matches separately, so a narration rule fires once per documented definition",
+        "elements captured as comments, plus the definition each one belongs to (the comments above it, inside it, and its docstring)",
       frame: "attached run + inline comments + docstrings + code (the pair frame)",
       scope: "yes",
     },
