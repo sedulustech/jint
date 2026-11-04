@@ -8,7 +8,7 @@ sidebar:
 # Rule targets
 
 A rule names a target. The target resolves to a whole file or to the elements of one or more
-[captures](captures.md). A grammar's own capture takes the form `{grammar}:{capture}`: markdown
+[captures](captures.md). A [grammar](grammars.md)'s own capture takes the form `{grammar}:{capture}`: markdown
 has `markdown:section`, `markdown:paragraph`, `markdown:list_item` and `markdown:list`, and
 typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.
 
