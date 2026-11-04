@@ -8,8 +8,12 @@
     "items": ["what-are-rules", "targets", "calibration", "confidence"]
   },
   {
-    "label": "Elements and grammars",
-    "items": ["captures", "grammars", "directives", "byog"]
+    "label": "Capturing elements",
+    "items": ["captures", "directives"]
+  },
+  {
+    "label": "Grammars",
+    "items": ["grammars", "byog"]
   },
   {
     "label": "Running jint",
