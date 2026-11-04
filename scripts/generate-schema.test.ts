@@ -131,8 +131,7 @@ describe("fixer messages", () => {
 });
 
 describe("renderTargetsTable", () => {
-  // a synthetic census: one grammar that only assigns @function
-  const doc = renderTargetsTable({ synthetic: new Set(["function"]) }, ["synthetic"]);
+  const doc = renderTargetsTable();
   const rows = doc.split("\n").filter((line) => line.startsWith("| `"));
 
   test("one row per target in the vocabulary, no more, no fewer", () => {
@@ -140,12 +139,6 @@ describe("renderTargetsTable", () => {
     for (const target of ruleTargets) {
       expect(rows.some((row) => row.startsWith("| `" + target + "`"))).toBe(true);
     }
-  });
-
-  test("the grammars column follows the census", () => {
-    const row = (target: string) => rows.find((r) => r.startsWith("| `" + target + "`"))!;
-    expect(row("functions")).toContain("| synthetic |");
-    expect(row("imports")).toContain("| none |");
   });
 });
 

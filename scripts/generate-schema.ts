@@ -28,12 +28,9 @@ import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
 import {
   directiveVocabulary,
-  parseScmPatterns,
-  scmCaptureDeclarations,
   scmDirectives,
   type DirectiveRow,
 } from "../packages/sdk/src/core/grammars/query.ts";
-import { isSharedCapture } from "../packages/sdk/src/core/grammars/shared.ts";
 import type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "@jint/contract";
 
 const GENERATION_NOTE =
@@ -559,7 +556,6 @@ interface Row {
   namespace: string;
   singular: string;
   resolves: string;
-  grammars: string;
   frame: string;
   scope: string;
 }
@@ -567,22 +563,13 @@ interface Row {
 const CAPTURE_NAMESPACE = "CAPTURE";
 const FILE_NAMESPACE = "FILE";
 
-export function renderTargetsTable(
-  census: Readonly<Record<string, ReadonlySet<string>>>,
-  grammarOrder: readonly string[],
-): string {
-  /** Grammars whose .scm assigns any of `captures`, in registration order. */
-  const emitting = (...captures: string[]): string =>
-    grammarOrder.filter((language) => captures.some((c) => census[language]?.has(c))).join(", ") ||
-    "none";
-
+export function renderTargetsTable(): string {
   const rows: Row[] = [
     {
       target: "files",
       namespace: FILE_NAMESPACE,
       singular: "file",
       resolves: "the whole unit as source text (no walk)",
-      grammars: "every format (no grammar needed)",
       frame: "the unit's raw content under its path",
       scope: "yes",
     },
@@ -591,7 +578,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "function",
       resolves: "elements captured as functions",
-      grammars: emitting("function"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -600,7 +586,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "class",
       resolves: "elements captured as classes (the @class capture: class-like units)",
-      grammars: emitting("class"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -609,7 +594,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "method",
       resolves: "elements captured as methods (the @method capture: member functions)",
-      grammars: emitting("method"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -618,7 +602,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "type",
       resolves: "elements captured as types (interfaces, structs, enums, aliases)",
-      grammars: emitting("type"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -627,7 +610,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "binding",
       resolves: "elements captured as bindings (a name bound to a value)",
-      grammars: emitting("binding"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -637,7 +619,6 @@ export function renderTargetsTable(
       singular: "definition (umbrella)",
       resolves:
         "SHORTHAND for every definition capture at once (functions, classes, methods, types, bindings) - the same measured set; prefer the specific targets in new rules",
-      grammars: emitting("function", "method", "class", "type", "binding"),
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -647,7 +628,6 @@ export function renderTargetsTable(
       singular: "definition (the pair frame)",
       resolves:
         "the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition",
-      grammars: emitting("comment", "docstring"),
       frame: "attached run + inline comments + docstrings + code (the pair frame)",
       scope: "yes",
     },
@@ -657,7 +637,6 @@ export function renderTargetsTable(
       singular: "comment (element)",
       resolves:
         "comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)",
-      grammars: emitting("comment", "docstring"),
       frame: "the comment's own text under its path",
       scope: "yes",
     },
@@ -666,7 +645,6 @@ export function renderTargetsTable(
       namespace: CAPTURE_NAMESPACE,
       singular: "import (element)",
       resolves: "the one merged import-group element per file",
-      grammars: emitting("import"),
       frame: "the merged import statements",
       scope: "yes",
     },
@@ -688,7 +666,6 @@ export function renderTargetsTable(
   const columns: [string, (r: Row) => string][] = [
     ["target", (r) => "`" + r.target + "`"],
     ["resolves to", (r) => r.resolves],
-    ["grammars emitting it", (r) => r.grammars],
   ];
 
   const table = [
@@ -751,27 +728,6 @@ const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", impor
 
 function readEmbeddedQueriesScm(language: string): string {
   return readFileSync(embeddedDir + language + "/queries.scm", "utf8");
-}
-
-/** Per grammar: which element captures its .scm actually assigns (the keyword census). */
-function captureCensus(): Record<string, Set<string>> {
-  const census: Record<string, Set<string>> = {};
-  for (const language of knownLanguages()) {
-    const scm = readEmbeddedQueriesScm(language);
-    const found = new Set<string>();
-    const declared = scmCaptureDeclarations(scm);
-    for (const pattern of parseScmPatterns(scm)) {
-      // addressable = shared (lingua franca) or declared autonomous (the open namespace):
-      // the census counts what a rule could ADDRESS, declared captures included
-      if (
-        pattern.capture !== null &&
-        (isSharedCapture(pattern.capture) || declared.definitions.has(pattern.capture))
-      )
-        found.add(pattern.capture);
-    }
-    census[language] = found;
-  }
-  return census;
 }
 
 /** The directive reference row a #set! name belongs to, and the capture it names, if any. */
@@ -858,7 +814,7 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
     spliceGenerated(
       readFileSync(REPO_ROOT + GENERATED_OUTPUTS[4]!, "utf8"),
       "targets",
-      renderTargetsTable(captureCensus(), knownLanguages()),
+      renderTargetsTable(),
     ),
   );
   formatted.push(targetsOut);
