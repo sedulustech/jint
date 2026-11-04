@@ -12,6 +12,11 @@ interface Props {
 const { doc } = Astro.props;
 const current = doc.id;
 const groups = await docGroups();
+// The sidebar's order as one ring: the last page's next is the first, the first page's previous the last.
+const ring = groups.flatMap((group) => group.docs);
+const at = ring.findIndex((entry) => entry.id === current);
+const previous = ring.length > 1 ? ring[(at - 1 + ring.length) % ring.length] : undefined;
+const next = ring.length > 1 ? ring[(at + 1) % ring.length] : undefined;
 const name = doc.data.title;
 const title = `${name} - jint docs`;
 const description = doc.data.description;
@@ -72,6 +77,20 @@ const jsonLd = [
       </nav>
       <main>
         <slot />
+        {
+          previous && next && (
+            <footer class="pager" aria-label="pages">
+              <a href={`/docs/${previous.id}/`} rel="prev">
+                <span>Previous</span>
+                {labelOf(previous)}
+              </a>
+              <a href={`/docs/${next.id}/`} rel="next">
+                <span>Next</span>
+                {labelOf(next)}
+              </a>
+            </footer>
+          )
+        }
       </main>
       <CopyCode />
     </div>
@@ -159,6 +178,40 @@ const jsonLd = [
     max-width: 48rem;
     font-size: 0.9rem;
     line-height: 1.7;
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s2);
+    margin-top: var(--s6);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--rule);
+  }
+
+  .pager a {
+    display: grid;
+    gap: 0.25rem;
+    color: var(--fg);
+    text-decoration: none;
+  }
+
+  .pager a:last-child {
+    text-align: right;
+  }
+
+  .pager span {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .pager a:hover,
+  .pager a:focus-visible {
+    text-decoration: underline;
+    outline: none;
   }
 
   @media (max-width: 48rem) {
