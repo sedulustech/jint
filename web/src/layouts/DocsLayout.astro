@@ -202,6 +202,12 @@ const jsonLd = [
     font-size: 0.85em;
   }
 
+  /* inline code takes the code block's background; a block's own <code> stays flat */
+  main :not(pre) > code {
+    padding: 0.1em 0.35em;
+    background: var(--code-bg);
+  }
+
   main table {
     display: block;
     width: fit-content;
