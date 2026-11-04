@@ -3,10 +3,11 @@ import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
   renderFixerTable,
-  renderDirectivesDoc,
+  renderDirectivesTable,
   renderHandleCell,
   renderRuleSection,
-  renderTargetsDoc,
+  renderTargetsTable,
+  spliceGenerated,
 } from "./generate-schema.ts";
 import type { ChoiceRuleSchema, NoulRuleSchema, ScoreRuleSchema } from "@jint/contract";
 
@@ -129,9 +130,9 @@ describe("fixer messages", () => {
   });
 });
 
-describe("renderTargetsDoc", () => {
+describe("renderTargetsTable", () => {
   // a synthetic census: one grammar that only assigns @function
-  const doc = renderTargetsDoc({ synthetic: new Set(["function"]) }, ["synthetic"]);
+  const doc = renderTargetsTable({ synthetic: new Set(["function"]) }, ["synthetic"]);
   const rows = doc.split("\n").filter((line) => line.startsWith("| `"));
 
   test("one row per target in the vocabulary, no more, no fewer", () => {
@@ -148,9 +149,9 @@ describe("renderTargetsDoc", () => {
   });
 });
 
-describe("renderDirectivesDoc", () => {
+describe("renderDirectivesTable", () => {
   test("one row per directive: values escaped for the table, usage or a dash", () => {
-    const doc = renderDirectivesDoc(
+    const doc = renderDirectivesTable(
       [
         { name: "capture.<name>.merge", values: "contiguous | none", summary: "Runs merge." },
         { name: "attach.gap", values: "a whole number", summary: "Blank rows." },
@@ -161,7 +162,6 @@ describe("renderDirectivesDoc", () => {
       "| `capture.<name>.merge` | contiguous \\| none | Runs merge. | typescript (import) |",
     );
     expect(doc).toContain("| `attach.gap` | a whole number | Blank rows. | — |");
-    expect(doc).toContain("GENERATED — do not edit.");
   });
 });
 
@@ -190,5 +190,22 @@ describe("choice rules", () => {
     expect(collectFixerMessages([choice])).toEqual([
       { rule: "synthetic_choice", severity: "error", message: "Rewrite it." },
     ]);
+  });
+});
+
+describe("spliceGenerated", () => {
+  const doc =
+    "# T\n\nprose\n\n<!-- generated:x - the open marker -->\n\nold\n\n<!-- /generated:x -->\n\nmore prose\n";
+
+  test("replaces only the region between the markers", () => {
+    const out = spliceGenerated(doc, "x", "| new |");
+    expect(out).toContain("prose\n\n<!-- generated:x");
+    expect(out).toContain("| new |");
+    expect(out).not.toContain("old");
+    expect(out.endsWith("<!-- /generated:x -->\n\nmore prose\n")).toBe(true);
+  });
+
+  test("a doc without the markers fails loudly", () => {
+    expect(() => spliceGenerated("# T\n", "x", "b")).toThrow("generated:x");
   });
 });

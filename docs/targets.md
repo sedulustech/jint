@@ -1,18 +1,18 @@
 ---
 title: Targets
-description: The rule-side target table, generated from the live resolution and the grammars' patterns.
+description: The targets a rule can name, and what each one resolves to.
 sidebar:
   label: Targets
 ---
 
 # Rule targets
 
-GENERATED — do not edit. Regenerate with `bun run schema`.
-
 A rule names a target. The target resolves to a whole file or to the elements of one or more
 [captures](captures.md). A grammar's own capture takes the form `{grammar}:{capture}`: markdown
 has `markdown:section`, `markdown:paragraph`, `markdown:list_item` and `markdown:list`, and
 typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.
+
+<!-- generated:targets — do not edit. Regenerate with `bun run schema`. -->
 
 | target           | resolves to                                                                                                                                                                                                                                                                                                       | grammars emitting it                          |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
@@ -26,3 +26,5 @@ typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.
 | `comments`       | the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition | typescript, tsx, python, php, go, cpp, c, css |
 | `loose-comments` | comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)                                                                                                                                                                                      | typescript, tsx, python, php, go, cpp, c, css |
 | `imports`        | the one merged import-group element per file                                                                                                                                                                                                                                                                      | typescript, tsx, python, php, go, cpp, c      |
+
+<!-- /generated:targets -->

@@ -3,8 +3,9 @@
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
- * - Docs/targets.md from the target vocabulary and each embedded grammar's queries.scm census
- * - Docs/directives.md from the loader's directive vocabulary and each embedded grammar's use of it
+ * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
+ *   queries.scm census) and docs/directives.md (the loader's directive vocabulary and each embedded
+ *   grammar's use of it): the prose around the markers is hand-written
  *
  * Run after any config-schema, rule-domain, or skill change: bun run schema (wired into bun run
  * validate). Outputs are checked in so editors resolve "$schema" without running jint and docs stay
@@ -566,7 +567,7 @@ interface Row {
 const CAPTURE_NAMESPACE = "CAPTURE";
 const FILE_NAMESPACE = "FILE";
 
-export function renderTargetsDoc(
+export function renderTargetsTable(
   census: Readonly<Record<string, ReadonlySet<string>>>,
   grammarOrder: readonly string[],
 ): string {
@@ -684,20 +685,6 @@ export function renderTargetsDoc(
     );
   }
 
-  const header = [
-    "---\n",
-    "title: Targets\n",
-    "description: The rule-side target table, generated from the live resolution and the grammars' patterns.\n",
-    "sidebar:\n  label: Targets\n",
-    "---\n\n",
-    "# Rule targets\n\n",
-    "GENERATED — do not edit. Regenerate with `bun run schema`.\n\n",
-    "A rule names a target. The target resolves to a whole file or to the elements of one or more\n" +
-      "[captures](captures.md). A grammar's own capture takes the form `{grammar}:{capture}`: markdown\n" +
-      "has `markdown:section`, `markdown:paragraph`, `markdown:list_item` and `markdown:list`, and\n" +
-      "typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.\n\n",
-  ];
-
   const columns: [string, (r: Row) => string][] = [
     ["target", (r) => "`" + r.target + "`"],
     ["resolves to", (r) => r.resolves],
@@ -710,40 +697,40 @@ export function renderTargetsDoc(
     ...rows.map((r) => "| " + columns.map(([, v]) => v(r)).join(" | ") + " |\n"),
   ];
 
-  return header.join("") + table.join("");
+  return table.join("");
 }
 
 // --- docs/directives.md ----------------------------------------------------
-export function renderDirectivesDoc(
+export function renderDirectivesTable(
   rows: readonly DirectiveRow[],
   usage: ReadonlyMap<string, readonly string[]>,
 ): string {
   const escapePipes = (text: string) => text.replaceAll("|", "\\|");
   const lines = [
-    "---",
-    "title: Directives",
-    "description: Every #set! directive a grammar's queries.scm may declare, generated from the loader's vocabulary.",
-    "sidebar:",
-    "  label: Directives",
-    "---",
-    "",
-    "# Grammar directives",
-    "",
-    "GENERATED — do not edit. Regenerate with `bun run schema`.",
-    "",
-    'A directive rides a pattern in `queries.scm`: `(pattern) @capture (#set! "<name>" "<value>")`.',
-    "One name, one setting per file. A `capture.<name>.*` directive must ride a pattern that binds",
-    "`@<name>`. A directive not listed here fails at load. See [captures](captures.md).",
-    "",
     "| directive | values | what it does | declared in |",
     "| --- | --- | --- | --- |",
     ...rows.map(
       (row) =>
         `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} | ${(usage.get(row.name) ?? ["—"]).join(", ")} |`,
     ),
-    "",
   ];
-  return lines.join("\n");
+  return lines.join("\n") + "\n";
+}
+
+/**
+ * Replaces the body between a doc's `<!-- generated:<name> ... -->` and `<!-- /generated:<name>
+ * -->` markers. The prose around the markers is hand-written and stays as it is; the open marker
+ * spells the regenerate command, so a file with a generated region is declared in
+ * GENERATED_OUTPUTS.
+ */
+export function spliceGenerated(doc: string, name: string, body: string): string {
+  const open = doc.match(new RegExp(`<!-- generated:${name}\\b[^\\n]*-->\\n`));
+  const closeTag = `<!-- /generated:${name} -->`;
+  const close = doc.indexOf(closeTag);
+  if (open?.index === undefined || close < open.index + open[0].length) {
+    throw new Error(`doc has no generated:${name} region (open and close markers)`);
+  }
+  return doc.slice(0, open.index + open[0].length) + "\n" + body + "\n" + doc.slice(close);
 }
 
 // ---------------------------------------------------------------------------
@@ -866,14 +853,25 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   process.stdout.write("wrote " + referenceOut + "\n");
 
   const targetsOut = outPath(root, GENERATED_OUTPUTS[4]!);
-  writeFileSync(targetsOut, renderTargetsDoc(captureCensus(), knownLanguages()));
+  writeFileSync(
+    targetsOut,
+    spliceGenerated(
+      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[4]!, "utf8"),
+      "targets",
+      renderTargetsTable(captureCensus(), knownLanguages()),
+    ),
+  );
   formatted.push(targetsOut);
   process.stdout.write("wrote " + targetsOut + "\n");
 
   const directivesOut = outPath(root, GENERATED_OUTPUTS[5]!);
   writeFileSync(
     directivesOut,
-    renderDirectivesDoc(directiveVocabulary(), directiveUsageByGrammar()),
+    spliceGenerated(
+      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[5]!, "utf8"),
+      "directives",
+      renderDirectivesTable(directiveVocabulary(), directiveUsageByGrammar()),
+    ),
   );
   formatted.push(directivesOut);
   // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.

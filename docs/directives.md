@@ -1,17 +1,17 @@
 ---
 title: Directives
-description: Every #set! directive a grammar's queries.scm may declare, generated from the loader's vocabulary.
+description: Every #set! directive a grammar's queries.scm may declare.
 sidebar:
   label: Directives
 ---
 
 # Grammar directives
 
-GENERATED — do not edit. Regenerate with `bun run schema`.
-
 A directive rides a pattern in `queries.scm`: `(pattern) @capture (#set! "<name>" "<value>")`.
 One name, one setting per file. A `capture.<name>.*` directive must ride a pattern that binds
 `@<name>`. A directive not listed here fails at load. See [captures](captures.md).
+
+<!-- generated:directives — do not edit. Regenerate with `bun run schema`. -->
 
 | directive                    | values                         | what it does                                                                                                                                                   | declared in                                                                                                      |
 | ---------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -23,3 +23,5 @@ One name, one setting per file. A `capture.<name>.*` directive must ride a patte
 | `capture.<name>.selfNesting` | true \| false                  | Same-capture candidates nest: a nested one is an element of its own.                                                                                           | markdown (section, list)                                                                                         |
 | `capture.<name>.absorbTail`  | a whole number                 | The largest same-capture wrapper tail, in bytes, that still reads as one element (a trailing `;`).                                                             | —                                                                                                                |
 | `capture.<name>.merge`       | contiguous \| adjacent \| none | A run of same-capture nodes is one element. contiguous: a blank row or another element ends the run; adjacent: only another element ends it; none: no merging. | typescript (import, statement_group), tsx (import, statement_group), python (import), cpp (import), c (import)   |
+
+<!-- /generated:directives -->
