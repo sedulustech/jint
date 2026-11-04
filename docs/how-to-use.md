@@ -32,13 +32,11 @@ coverage, not errors: `parsing ts, tsx, py, go · not parsed (no grammar): .md, 
 
 ## Single file
 
+Explicit paths.
+
 ```bash
 jint run src/a.ts
 ```
-
-Explicit path: the user asked for THIS file, so silence would read as "nothing wrong" — an
-unknown extension fails `MISSING_GRAMMAR` naming the supported grammars (the walker skips
-non-source silently; explicit does not).
 
 ## Path list
 
@@ -47,10 +45,7 @@ git diff --name-only HEAD~1 | jint run paths -
 jint run paths - < list.txt
 ```
 
-One flat list of paths, one per line — the caller's own VCS pipeline; jint never shells out and
-never parses a VCS. Entries are the caller's bytes used verbatim; a malformed list is a named
-`LIST_*` setup error; a listed path that resolves to nothing is a not-in-the-walk note, never a
-silent skip. SDK: `lint({ paths: { content } })`.
+Useful for a pre-commit hook.
 
 ## One element
 
@@ -59,42 +54,3 @@ jint run src/a.ts@L58                # element whose span contains line 58: one 
 jint run src/a.ts@L40-80             # every element fully enclosed in the range
 jint run src/a.ts@L40-80 --rule is_function_srp
 ```
-
-The finding's `@L` is pre-edit; re-check at the element's CURRENT line, or re-run whole.
-
-## Custom rules
-
-Custom rules are authored in a TS config's `rules` array.
-
-```ts
-import { rules as naming } from "jint:rules/naming";
-import { defineConfig } from "jint:sdk";
-
-export default defineConfig({
-  rules: {
-    use: [
-      ...naming,
-      {
-        name: "is_error_message_actionable",
-        target: "functions",
-        classify: (self) => ({
-          instructions: "…",
-          criteria: { true: "…", false: "…" },
-          state: { source: self.source },
-        }),
-        handle: { warn: { greater_than: 0.5 } },
-      },
-    ],
-  },
-});
-```
-
-## Package-scoped configs
-
-```bash
-cd packages/app && bun run check:jint
-```
-
-A package keeps its own `jint.config.json` (input, rule selection, excludes scoped to that
-package) and a `check` script that runs the CLI with it — a repo of packages is a repo of
-configs, not one config with path algebra.
