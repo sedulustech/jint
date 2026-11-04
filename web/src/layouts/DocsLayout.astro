@@ -167,7 +167,11 @@ const jsonLd = [
       gap: var(--s4);
     }
 
-    /* the header stays pinned so the menu button is always reachable */
+    /* the header stays pinned flush to the top, so nothing scrolls above it and the menu button is always reachable */
+    .page {
+      padding-top: 0;
+    }
+
     header {
       position: sticky;
       top: 0;
