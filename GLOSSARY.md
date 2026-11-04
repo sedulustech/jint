@@ -161,7 +161,6 @@ demands action.
   version's. Two runs show the rerun noise. The unit of calibration; not the reserved `test`
   capture.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
-- **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request
