@@ -23,3 +23,13 @@ You want your rules to be precise.
 You can use the local UI to edit a rule's question next to the captured text, classify it, and compare
 the readings until the rule judges what you mean.
 Your agent writes the rule's logic and you write the question and the evidence.
+
+## Controls
+
+A control is a small input with a known answer. Calibrate a rule on a few healthy controls and a few
+defective ones. Where a high reading is good, the healthy ones read high and the defective ones read
+low. Set the handle's thresholds inside the gap between the healthiest defective control and the
+least healthy healthy one.
+
+Controls show that a rule tells the cases apart. They do not show that it fires only when it needs
+to. Run the rule over your real code as well, and spot-check what fires.

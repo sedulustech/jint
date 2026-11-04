@@ -44,5 +44,30 @@ export const has_second_subject: RuleSchema = {
   },
 };
 
+export const has_extra_content: RuleSchema = {
+  name: "has_extra_content",
+  target: "files",
+  include: ["use-cases/**/*.md", "examples/**/*.md"],
+  instructions:
+    "Does this use-case or example page hold anything besides a short account of what the rule does, a short account of why it matters, and the rule itself in a code block?",
+  criteria: {
+    true: "The page has more than those three parts: a section on how the rule was calibrated or measured, tables of readings, a list of limits, a walkthrough of the question's answers, or setup and usage steps.",
+    false:
+      "The page is only a short account of what the rule does, a short account of why it matters, and a code block with the rule.",
+  },
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.7,
+      message:
+        "Keep what it does, why it matters, and the rule in a code block. Move the rest to Calibration.",
+    },
+  },
+};
+
 /** Every rule of this set. */
-export const rules: readonly RuleSchema[] = [has_description_mismatch, has_second_subject];
+export const rules: readonly RuleSchema[] = [
+  has_description_mismatch,
+  has_second_subject,
+  has_extra_content,
+];
