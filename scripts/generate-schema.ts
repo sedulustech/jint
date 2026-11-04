@@ -618,7 +618,7 @@ export function renderTargetsTable(): string {
       namespace: CAPTURE_NAMESPACE,
       singular: "definition (umbrella)",
       resolves:
-        "SHORTHAND for every definition capture at once (functions, classes, methods, types, bindings) - the same measured set; prefer the specific targets in new rules",
+        "elements captured as functions, classes, methods, types or bindings (a shorthand: prefer the specific targets in new rules)",
       frame: "attached run + inline comments + code (the pair frame)",
       scope: "yes",
     },
@@ -627,7 +627,7 @@ export function renderTargetsTable(): string {
       namespace: CAPTURE_NAMESPACE,
       singular: "definition (the pair frame)",
       resolves:
-        "the DOCUMENTATION pair frame: a definition judged together with the comments it owns (attached run, internal notes, docstrings); a module docstring, which has no definition frame, is its own match. An owned comment element never matches separately, so a narration rule fires once per documented definition",
+        "elements captured as definitions, each judged with the comments it owns (attached run, inline notes, docstrings). A module docstring, which has no definition, is its own match. An owned comment never matches separately, so a narration rule fires once per documented definition",
       frame: "attached run + inline comments + docstrings + code (the pair frame)",
       scope: "yes",
     },
@@ -636,7 +636,7 @@ export function renderTargetsTable(): string {
       namespace: CAPTURE_NAMESPACE,
       singular: "comment (element)",
       resolves:
-        "comment elements NO definition owns: standalone runs and inline comments outside any definition (the complement of comments)",
+        "elements captured as comments that no definition owns: standalone runs and inline comments outside any definition",
       frame: "the comment's own text under its path",
       scope: "yes",
     },
@@ -644,7 +644,7 @@ export function renderTargetsTable(): string {
       target: "imports",
       namespace: CAPTURE_NAMESPACE,
       singular: "import (element)",
-      resolves: "the one merged import-group element per file",
+      resolves: "elements captured as imports: one merged import group per file",
       frame: "the merged import statements",
       scope: "yes",
     },
