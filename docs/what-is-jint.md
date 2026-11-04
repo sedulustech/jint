@@ -7,7 +7,7 @@ sidebar:
 
 # What's jint?
 
-jint is a semantic linter.
+jint is an **extensible** semantic linter.
 
 jint reads your files, asks a classifier questions about specific parts of your code
 and turns the number that comes back into a finding when it crosses the configured threshold.
@@ -18,4 +18,4 @@ the shape of a traditional linter, as rules.
 ## Your agent runs jint
 
 jint is meant to be run by your agent, not by you. The agent writes code, runs jint over it, reads
-the findings, and fixes them before it hands the work back. That is how it checks its own work.
+the findings, and fixes them before it hands the work back, allowing it to check its own work.
