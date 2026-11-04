@@ -2,6 +2,7 @@
 import Layout from "./Layout.astro";
 import { docGroups, labelOf, type Doc } from "../lib/docs";
 import HeaderTools from "../components/HeaderTools.astro";
+import CopyCode from "../components/CopyCode.astro";
 
 interface Props {
   doc: Doc;
@@ -68,6 +69,7 @@ const jsonLd = [
       <main>
         <slot />
       </main>
+      <CopyCode />
     </div>
   </div>
 </Layout>
