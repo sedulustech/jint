@@ -9,7 +9,7 @@ import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
 const docs = {
   target: "files",
   include: ["**/*.md"],
-  exclude: ["designs/**", "calibration/**"],
+  exclude: ["designs/**"],
 } as const;
 
 export const has_description_mismatch: NoulRuleSchema = {

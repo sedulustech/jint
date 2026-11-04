@@ -37,8 +37,8 @@ describe("docLink", () => {
   });
 
   test("a non-markdown file inside docs/ points at it on GitHub, not at a page", () => {
-    expect(docLink("calibration/v5.request.json")).toBe(
-      "https://github.com/sedulustech/jint/blob/feat/decisions-model/docs/calibration/v5.request.json",
+    expect(docLink("assets/diagram.png")).toBe(
+      "https://github.com/sedulustech/jint/blob/feat/decisions-model/docs/assets/diagram.png",
     );
   });
 

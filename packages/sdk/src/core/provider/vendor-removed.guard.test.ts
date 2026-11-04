@@ -13,7 +13,6 @@ const ROOT = join(import.meta.dir, "../../../../..");
 const VENDOR = /@typesafe-ai|typesafe_api_key|systemone/i;
 
 const ALLOWED: string[] = [
-  "docs/calibration/", // historical calibration records
   "packages/sdk/src/ui/request-file.ts", // the legacy-shape reader
   "packages/sdk/src/ui/request-file.test.ts", // its tests
   "packages/app/tests/fixtures/", // recorded runs, legacy shape included

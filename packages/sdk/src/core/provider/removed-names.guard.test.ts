@@ -19,7 +19,6 @@ const REMOVED =
   /JINT_PROVIDER|JINT_MODEL|JINT_OPENAI_API_KEY|JINT_AI_GATEWAY_API_KEY|decision-model|decisionModelAdapter|resolveProvider|assertProviderKey|ai-gateway\.vercel|startMockGateway|jint:defaults|@jint\/defaults|packages\/defaults|\bdefaultRules\b|is_filename_fitting/;
 
 const ALLOWED: string[] = [
-  "docs/calibration/", // historical calibration records
   "docs/designs/", // design notes record what was removed and why
   "AGENTS.md", // names the rule's earlier name in the calibration precedent
   "packages/rules/naming/src/index.ts", // the rename note on has_filename_mismatch
