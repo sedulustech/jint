@@ -9,7 +9,7 @@ sidebar:
 
 Rules need to specify what types of text they should target. We ship a few by default, but jint is
 extensible, so you can bring your own [grammar](grammars.md) and [capture](captures.md) your own
-code snippets.
+elements.
 
 <!-- generated:targets — do not edit. Regenerate with `bun run schema`. -->
 
