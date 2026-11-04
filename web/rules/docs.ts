@@ -49,18 +49,18 @@ export const has_extra_content: RuleSchema = {
   target: "files",
   include: ["use-cases/**/*.md", "examples/**/*.md"],
   instructions:
-    "Does this use-case or example page hold anything besides a short account of what the rule does, a short account of why it matters, and the rule itself in a code block?",
+    "Besides its heading and the rule in a code block, does this use-case or example page say more than one short sentence about what the rule does?",
   criteria: {
-    true: "The page has more than those three parts: a section on how the rule was calibrated or measured, tables of readings, a list of limits, a walkthrough of the question's answers, or setup and usage steps.",
+    true: "The page says more than one short sentence of its own: it states where the rule ships or how to import it, shows an example of the code the rule judges, argues why a syntax check cannot do the job, or adds a section on calibration, readings or limits.",
     false:
-      "The page is only a short account of what the rule does, a short account of why it matters, and a code block with the rule.",
+      "Under its heading the page has one short sentence on what the rule does, and then the rule in a code block.",
   },
   handle: {
     warn: { greater_than: 0.5 },
     error: {
       greater_than: 0.7,
       message:
-        "Keep what it does, why it matters, and the rule in a code block. Move the rest to Calibration.",
+        "Say what the rule does in one sentence, then show the rule. Move the rest to Calibration.",
     },
   },
 };

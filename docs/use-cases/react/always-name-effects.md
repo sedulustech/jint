@@ -7,12 +7,7 @@ sidebar:
 
 # Use case: always name React effects
 
-`is_effect_named` flags a `useEffect` whose function is anonymous or named for nothing. It ships in
-`jint:rules/react/hooks`.
-
-`useEffect(function syncDocumentTitle() {...})` reads as a sentence, and a name that is hard to
-write shows the effect does too much. A syntax check cannot tell whether a name says what the body
-does, so the rule asks for that judgment.
+`is_effect_named` flags a `useEffect` whose function is anonymous or named for nothing.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";
