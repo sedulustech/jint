@@ -28,6 +28,7 @@
     if (open) nav.setAttribute("data-open", "");
     else nav.removeAttribute("data-open");
     button.setAttribute("aria-expanded", String(open));
+    document.documentElement.style.overflow = open ? "hidden" : "";
     button.setAttribute("aria-label", open ? "Close menu" : "Menu");
   };
 

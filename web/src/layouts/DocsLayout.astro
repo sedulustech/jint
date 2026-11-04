@@ -167,9 +167,27 @@ const jsonLd = [
       gap: var(--s4);
     }
 
-    /* with scripts on, the menu button reveals the sidebar; without them it stays a plain list */
+    /* the header stays pinned so the menu button is always reachable */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding-block: var(--s2);
+      background: var(--bg);
+    }
+
+    /* with scripts on, the menu button opens the sidebar as a panel over the page; without them it stays a plain list */
     nav[data-collapsible]:not([data-open]) {
       display: none;
+    }
+
+    nav[data-open] {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      overflow-y: auto;
+      padding: 6rem var(--s2) var(--s4);
+      background: var(--bg);
     }
   }
 </style>
