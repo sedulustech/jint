@@ -3,7 +3,7 @@ import { docLink } from "./doc-links.ts";
 
 describe("docLink", () => {
   test("a link to another doc becomes its page, keeping the fragment", () => {
-    expect(docLink("rules.md")).toBe("/docs/rules/");
+    expect(docLink("config.md")).toBe("/docs/config/");
     expect(docLink("./config.md#scope")).toBe("/docs/config/#scope");
   });
 

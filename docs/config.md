@@ -35,7 +35,7 @@ default url. `JINT_API_KEY` asks `JINT_API_URL`.
 ## Rules
 
 A rule object has a `name`, `instructions`, `criteria`, a `target` and a `handle`. It can add
-`include` and `exclude` globs, and exclude always wins. See [Rules](rules.md).
+`include` and `exclude` globs, and exclude always wins. See [What are rules?](what-are-rules.md).
 
 A rule has one of three kinds:
 

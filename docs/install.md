@@ -44,4 +44,4 @@ install a glibc layer first or use a glibc base image.
 
 It runs only the rules a config names, so write a
 `jint.config.ts` first; running `jint run` without one prints every rule domain and a working
-example. See [Configuration](config.md) for the config and [Rules](rules.md) for the rules.
+example. See [Configuration](config.md) for the config and [What are rules?](what-are-rules.md) for the rules.

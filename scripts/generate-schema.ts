@@ -2,8 +2,6 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Docs/rules.md from the rule domain packages (packages/rules/comments, packages/rules/complexity,
- *   ...)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
  * - Docs/targets.md from the target vocabulary and each embedded grammar's queries.scm census
  * - Docs/directives.md from the loader's directive vocabulary and each embedded grammar's use of it
@@ -21,7 +19,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { allRules as allSpecs, domains } from "@jint/rules";
+import { allRules as allSpecs } from "@jint/rules";
 import { CONFIG_SCHEMA } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import { VERBS } from "../packages/cli/src/cli.ts";
@@ -42,7 +40,6 @@ const GENERATION_NOTE =
 
 export const GENERATED_OUTPUTS = [
   "jint.schema.json",
-  "docs/rules.md",
   "skills/jint-follow/SKILL.md",
   "skills/jint-author/SKILL.md",
   "skills/jint-author/REFERENCE.md",
@@ -129,33 +126,6 @@ export function renderRuleSection(spec: RuleSchema, heading = "##"): string {
     out.push(`**False.** ${spec.criteria.false}\n\n`);
   }
   return out.join("");
-}
-
-export function renderRulesDoc(
-  domainSpecs: Readonly<Record<string, readonly RuleSchema[]>>,
-): string {
-  const frontmatter =
-    "---\n" +
-    "title: Rules\n" +
-    "description: Every rule domain, rendered from the domain packages. Generated - do not edit.\n" +
-    "sidebar:\n  label: Rules\n" +
-    "---\n\n";
-  const out = [
-    frontmatter,
-    "# Rules\n\n",
-    "GENERATED — do not edit. Regenerate with `bun run schema`.\n\n",
-    "A config imports a domain from `jint:rules/<domain>` and a subdomain from " +
-      "`jint:rules/<domain>/<subdomain>`. You are not meant to run every rule. Name only the ones you " +
-      "want in `rules.use`. Override a rule that does not fit your code, and for a language without a " +
-      "grammar, [bring your own](byog.md).\n\n" +
-      "Each rule shows its instructions, its criteria, its target and its handle. Editing any of them " +
-      "is a recalibration.\n\n",
-  ];
-  for (const [domain, specs] of Object.entries(domainSpecs)) {
-    out.push(`## \`jint:rules/${domain}\`\n\n`);
-    for (const spec of specs) out.push(renderRuleSection(spec, "###"));
-  }
-  return out.join("").replace(/\n+$/, "\n");
 }
 
 // The rule-schema material, rendered from the same sources as the schema and the specs, so the
@@ -860,16 +830,12 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   formatted.push(schemaOut);
   process.stdout.write("wrote " + schemaOut + "\n");
 
-  const mdxOut = outPath(root, GENERATED_OUTPUTS[1]!);
-  writeFileSync(mdxOut, renderRulesDoc(domains));
-  process.stdout.write("wrote " + mdxOut + "\n");
-
-  const followOut = outPath(root, GENERATED_OUTPUTS[2]!);
+  const followOut = outPath(root, GENERATED_OUTPUTS[1]!);
   writeFileSync(followOut, renderSkillFollow(allSpecs));
   formatted.push(followOut);
   process.stdout.write("wrote " + followOut + "\n");
 
-  const authorOut = outPath(root, GENERATED_OUTPUTS[3]!);
+  const authorOut = outPath(root, GENERATED_OUTPUTS[2]!);
   const example = {
     $schema: "./jint.schema.json",
     rules: {
@@ -888,7 +854,7 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   );
   process.stdout.write("wrote " + authorOut + "\n");
 
-  const referenceOut = outPath(root, GENERATED_OUTPUTS[4]!);
+  const referenceOut = outPath(root, GENERATED_OUTPUTS[3]!);
   writeFileSync(
     referenceOut,
     renderReference(
@@ -899,12 +865,12 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   formatted.push(authorOut, referenceOut);
   process.stdout.write("wrote " + referenceOut + "\n");
 
-  const targetsOut = outPath(root, GENERATED_OUTPUTS[5]!);
+  const targetsOut = outPath(root, GENERATED_OUTPUTS[4]!);
   writeFileSync(targetsOut, renderTargetsDoc(captureCensus(), knownLanguages()));
   formatted.push(targetsOut);
   process.stdout.write("wrote " + targetsOut + "\n");
 
-  const directivesOut = outPath(root, GENERATED_OUTPUTS[6]!);
+  const directivesOut = outPath(root, GENERATED_OUTPUTS[5]!);
   writeFileSync(
     directivesOut,
     renderDirectivesDoc(directiveVocabulary(), directiveUsageByGrammar()),

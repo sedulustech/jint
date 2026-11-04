@@ -5,7 +5,7 @@
   },
   {
     "label": "Rules",
-    "items": ["what-are-rules", "rules", "targets", "calibration", "confidence"]
+    "items": ["what-are-rules", "targets", "calibration", "confidence"]
   },
   {
     "label": "Elements and grammars",
