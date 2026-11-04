@@ -1,0 +1,88 @@
+---
+// The docs menu button on small screens: it shows and hides the sidebar (#docs-nav). The sidebar
+// stays a plain list when scripts are off; this script is what collapses it and reveals the button.
+---
+
+<button
+  id="menu-toggle"
+  type="button"
+  aria-label="Menu"
+  aria-expanded="false"
+  aria-controls="docs-nav"
+>
+  <svg class="icon-open" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"></path>
+  </svg>
+  <svg class="icon-close" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6 18 18 6M6 6l12 12"></path>
+  </svg>
+</button>
+
+<script>
+  const button = document.getElementById("menu-toggle") as HTMLButtonElement;
+  const nav = document.getElementById("docs-nav");
+  const desktop = matchMedia("(width > 48rem)");
+
+  const setOpen = (open: boolean) => {
+    if (!nav) return;
+    if (open) nav.setAttribute("data-open", "");
+    else nav.removeAttribute("data-open");
+    button.setAttribute("aria-expanded", String(open));
+    button.setAttribute("aria-label", open ? "Close menu" : "Menu");
+  };
+
+  if (nav) {
+    nav.setAttribute("data-collapsible", "");
+    button.setAttribute("data-ready", "");
+    button.addEventListener("click", () => setOpen(!nav.hasAttribute("data-open")));
+    addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setOpen(false);
+    });
+    desktop.addEventListener("change", () => setOpen(false));
+  }
+</script>
+
+<style>
+  #menu-toggle {
+    display: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    opacity: 0.75;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #menu-toggle[data-ready] {
+    display: grid;
+  }
+  #menu-toggle:hover,
+  #menu-toggle:focus-visible {
+    opacity: 1;
+  }
+  /* the sidebar is always visible beside the page from this width up */
+  @media (width > 48rem) {
+    #menu-toggle[data-ready] {
+      display: none;
+    }
+  }
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .icon-close,
+  [aria-expanded="true"] .icon-open {
+    display: none;
+  }
+  [aria-expanded="true"] .icon-close {
+    display: block;
+  }
+</style>

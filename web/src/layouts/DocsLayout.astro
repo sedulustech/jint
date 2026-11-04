@@ -3,6 +3,7 @@ import Layout from "./Layout.astro";
 import { docGroups, labelOf, type Doc } from "../lib/docs";
 import HeaderTools from "../components/HeaderTools.astro";
 import CopyCode from "../components/CopyCode.astro";
+import MenuToggle from "../components/MenuToggle.astro";
 
 interface Props {
   doc: Doc;
@@ -42,10 +43,13 @@ const jsonLd = [
   <div class="page">
     <header>
       <a href="/" aria-label="jint"><img src="/logo.svg" alt="jint" width="64" height="46" /></a>
-      <HeaderTools />
+      <div class="header-end">
+        <HeaderTools />
+        <MenuToggle />
+      </div>
     </header>
     <div class="body">
-      <nav aria-label="docs">
+      <nav id="docs-nav" aria-label="docs">
         {
           groups.map((group) => (
             <section>
@@ -87,6 +91,12 @@ const jsonLd = [
     justify-content: space-between;
     padding-bottom: var(--s3);
     border-bottom: 1px solid var(--rule);
+  }
+
+  .header-end {
+    display: flex;
+    align-items: center;
+    gap: var(--s1);
   }
 
   header img {
@@ -155,6 +165,11 @@ const jsonLd = [
     .body {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--s4);
+    }
+
+    /* with scripts on, the menu button reveals the sidebar; without them it stays a plain list */
+    nav[data-collapsible]:not([data-open]) {
+      display: none;
     }
   }
 </style>
