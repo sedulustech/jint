@@ -7,13 +7,11 @@ sidebar:
 
 # Grammar directives
 
-GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows
-come from the directive vocabulary the loader validates against
-(`packages/sdk/src/core/grammars/query.ts`); a directive not listed here fails at load.
+GENERATED — do not edit. Regenerate with `bun run schema`.
 
 A directive rides a pattern in `queries.scm`: `(pattern) @capture (#set! "<name>" "<value>")`.
 One name, one setting per file. A `capture.<name>.*` directive must ride a pattern that binds
-`@<name>`. How captures become elements, and how to check them: docs/captures.md.
+`@<name>`. A directive not listed here fails at load. See [captures](captures.md).
 
 | directive                    | values                         | what it does                                                                                                                                                   | declared in                                                                                                      |
 | ---------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |

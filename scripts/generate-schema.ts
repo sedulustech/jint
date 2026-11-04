@@ -143,13 +143,13 @@ export function renderRulesDoc(
   const out = [
     frontmatter,
     "# Rules\n\n",
-    "Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`, and a subdomain from `jint:rules/<domain>/<subdomain>`. " +
-      "You are not meant to run them all: pull the rules you care about and name only those in `rules.use`. " +
-      "A rule that does not fit your code can be overridden, and a rule for a language jint has no grammar for needs your own: see [Bring your own grammar](byog.md). " +
-      "Rendered verbatim from the domain packages. Instructions are the yes/no question " +
-      "the classifier answers per element; criteria pins what each answer means; the target is the " +
-      "element role the rule judges; the handle turns readings into findings. Editing any of these in " +
-      "the specs is a recalibration event. Regenerate: `bun run schema`.\n\n",
+    "GENERATED — do not edit. Regenerate with `bun run schema`.\n\n",
+    "A config imports a domain from `jint:rules/<domain>` and a subdomain from " +
+      "`jint:rules/<domain>/<subdomain>`. You are not meant to run every rule. Name only the ones you " +
+      "want in `rules.use`. Override a rule that does not fit your code, and for a language without a " +
+      "grammar, [bring your own](byog.md).\n\n" +
+      "Each rule shows its instructions, its criteria, its target and its handle. Editing any of them " +
+      "is a recalibration.\n\n",
   ];
   for (const [domain, specs] of Object.entries(domainSpecs)) {
     out.push(`## \`jint:rules/${domain}\`\n\n`);
@@ -721,25 +721,17 @@ export function renderTargetsDoc(
     "sidebar:\n  label: Targets\n",
     "---\n\n",
     "# Rule targets\n\n",
-    "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows\n" +
-      "come from the target vocabulary (`@jint/contract`), the resolution predicate\n" +
-      "(`packages/sdk/src/core/rules/classify.ts`), and each grammar's own `queries.scm` census — a\n" +
-      "rule resolves what this table says or the generator fails.\n\n",
-    "The two rule-target namespaces are FILE / CAPTURE (`docs/designs/grammar-loading.md`).\n" +
-      "The table below covers the CAPTURE namespace's fixed targets; a grammar's own capture is\n" +
-      "addressed through the qualified `{grammar}:{capture}` form - markdown's four: " +
-      "`markdown:section`, `markdown:paragraph`, `markdown:list_item`, `markdown:list`; " +
-      "typescript's and tsx's top-level code: `typescript:statement_group`, `tsx:statement_group`.\n\n",
+    "GENERATED — do not edit. Regenerate with `bun run schema`.\n\n",
+    "A rule names a target. The target resolves to a whole file or to the elements of one or more\n" +
+      "[captures](captures.md). A grammar's own capture takes the form `{grammar}:{capture}`: markdown\n" +
+      "has `markdown:section`, `markdown:paragraph`, `markdown:list_item` and `markdown:list`, and\n" +
+      "typescript and tsx have `typescript:statement_group` and `tsx:statement_group`.\n\n",
   ];
 
   const columns: [string, (r: Row) => string][] = [
     ["target", (r) => "`" + r.target + "`"],
-    ["namespace", (r) => r.namespace],
-    ["singular", (r) => r.singular],
     ["resolves to", (r) => r.resolves],
     ["grammars emitting it", (r) => r.grammars],
-    ["frame carried", (r) => r.frame],
-    ["scope-coupled", (r) => r.scope],
   ];
 
   const table = [
@@ -767,13 +759,11 @@ export function renderDirectivesDoc(
     "",
     "# Grammar directives",
     "",
-    "GENERATED — do not edit. Regenerate with `bun run schema` (scripts/generate-schema.ts). The rows",
-    "come from the directive vocabulary the loader validates against",
-    "(`packages/sdk/src/core/grammars/query.ts`); a directive not listed here fails at load.",
+    "GENERATED — do not edit. Regenerate with `bun run schema`.",
     "",
     'A directive rides a pattern in `queries.scm`: `(pattern) @capture (#set! "<name>" "<value>")`.',
     "One name, one setting per file. A `capture.<name>.*` directive must ride a pattern that binds",
-    "`@<name>`. How captures become elements, and how to check them: docs/captures.md.",
+    "`@<name>`. A directive not listed here fails at load. See [captures](captures.md).",
     "",
     "| directive | values | what it does | declared in |",
     "| --- | --- | --- | --- |",

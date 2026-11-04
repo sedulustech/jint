@@ -7,7 +7,11 @@ sidebar:
 
 # Rules
 
-Rules are grouped by domain; a config imports a domain from `jint:rules/<domain>`, and a subdomain from `jint:rules/<domain>/<subdomain>`. You are not meant to run them all: pull the rules you care about and name only those in `rules.use`. A rule that does not fit your code can be overridden, and a rule for a language jint has no grammar for needs your own: see [Bring your own grammar](byog.md). Rendered verbatim from the domain packages. Instructions are the yes/no question the classifier answers per element; criteria pins what each answer means; the target is the element role the rule judges; the handle turns readings into findings. Editing any of these in the specs is a recalibration event. Regenerate: `bun run schema`.
+GENERATED — do not edit. Regenerate with `bun run schema`.
+
+A config imports a domain from `jint:rules/<domain>` and a subdomain from `jint:rules/<domain>/<subdomain>`. You are not meant to run every rule. Name only the ones you want in `rules.use`. Override a rule that does not fit your code, and for a language without a grammar, [bring your own](byog.md).
+
+Each rule shows its instructions, its criteria, its target and its handle. Editing any of them is a recalibration.
 
 ## `jint:rules/comments`
 
