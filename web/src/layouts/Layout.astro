@@ -37,7 +37,8 @@ const imageUrl = new URL(image, site).href;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#f1f0ea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content={noindex ? "noindex" : "index, follow"} />
     <link rel="canonical" href={canonical} />
     {markdown && <link rel="alternate" type="text/markdown" href={new URL(markdown, site).href} />}
@@ -98,12 +99,18 @@ const imageUrl = new URL(image, site).href;
     font-display: swap;
   }
 
+  /*
+   * The palette: five tokens, one definition each. light-dark(light, dark) follows color-scheme:
+   * the system's by default, the toggle's data-theme when one is set. A color that is not one of
+   * these five does not belong on the site.
+   */
   :root {
-    --bg: #000;
-    --fg: #fff;
-    --muted: #a3a3a3;
-    --rule: #262626;
-    --code-bg: #0d0d0d;
+    color-scheme: light dark;
+    --bg: light-dark(#f1f0ea, #000); /* the page */
+    --fg: light-dark(#000, #fff); /* text and icons */
+    --muted: light-dark(#5c5c57, #a3a3a3); /* secondary text */
+    --rule: light-dark(#d6d4ca, #333); /* borders and dividers */
+    --code-bg: light-dark(#e8e6dc, #1a1a1a); /* code blocks, inline code and tables */
     --font-body: "IBM Plex Mono", ui-monospace, monospace;
     /* spacing: one 8px grid, every gap and pad is a multiple */
     --s1: 0.5rem;
@@ -111,27 +118,14 @@ const imageUrl = new URL(image, site).href;
     --s3: 1.5rem;
     --s4: 2rem;
     --s6: 3rem;
-    color-scheme: dark;
   }
 
   :root[data-theme="light"] {
-    --bg: #f1f0ea;
-    --fg: #000;
-    --muted: #5c5c57;
-    --rule: #d6d4ca;
-    --code-bg: #e8e6dc;
     color-scheme: light;
   }
 
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      --bg: #f1f0ea;
-      --fg: #000;
-      --muted: #5c5c57;
-      --rule: #d6d4ca;
-      --code-bg: #e8e6dc;
-      color-scheme: light;
-    }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
   }
 
   * {
