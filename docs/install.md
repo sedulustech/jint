@@ -39,9 +39,3 @@ jint asks a classifier endpoint its questions, so it needs an API key in the env
 
 On Linux the only system requirement is glibc. On musl-based images such as Alpine,
 install a glibc layer first or use a glibc base image.
-
-## First run
-
-It runs only the rules a config names, so write a
-`jint.config.ts` first; running `jint run` without one prints every rule domain and a working
-example. See [Configuration](config.md) for the config and [What are rules?](what-are-rules.md) for the rules.
