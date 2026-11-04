@@ -7,7 +7,7 @@ sidebar:
 
 # Grammars
 
-jint parses with tree-sitter and embeds nine grammars in the binary.
+jint uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/index.html) to parse your code and embeds nine grammars in the binary.
 
 A grammar is a directory named for its id. It holds three files:
 
