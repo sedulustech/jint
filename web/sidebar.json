@@ -26,9 +26,5 @@
       "use-cases/css/use-palette-colors",
       "use-cases/docs/keep-use-cases-short"
     ]
-  },
-  {
-    "label": "Reference",
-    "items": ["glossary"]
   }
 ]

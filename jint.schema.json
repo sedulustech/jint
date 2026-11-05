@@ -6,9 +6,13 @@
       "type": "string"
     },
     "input": {
+      "description": "The file or directory to measure. A path given to jint run overrides it.",
+      "examples": ["src/"],
       "type": "string"
     },
     "inputType": {
+      "description": "Whether input is a file or a directory.",
+      "examples": ["dir"],
       "anyOf": [
         {
           "const": "file",
@@ -24,18 +28,24 @@
       "type": "object",
       "properties": {
         "include": {
+          "description": "The files jint reads, and the default scope of every rule.",
+          "examples": [["**/*.ts"]],
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "exclude": {
+          "description": "The files jint skips. Exclude always wins over include.",
+          "examples": [["**/*.test.ts"]],
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "use": {
+          "description": "The rules to run: names from a rule domain, or full rule objects.",
+          "examples": [["is_greppable", "is_function_srp"]],
           "type": "array",
           "items": {
             "anyOf": [
@@ -1196,23 +1206,29 @@
       }
     },
     "secretDenylist": {
+      "description": "Replaces the built-in denylist of secret-shaped files (gitignore patterns).",
+      "examples": [["!.env.example"]],
       "type": "array",
       "items": {
         "type": "string"
       }
     },
     "disable": {
+      "description": "Rule names to remove after the rules are composed.",
+      "examples": [["is_function_srp"]],
       "type": "array",
       "items": {
         "type": "string"
       }
     },
     "concurrency": {
-      "description": "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16, max 64.",
+      "description": "The most classifier calls in flight, run-wide. Default 16, max 64.",
+      "examples": [16],
       "type": "number"
     },
     "timeout": {
-      "description": "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30, far above a normal call. A hung call becomes a per-element PROVIDER_TIMEOUT failure.",
+      "description": "The timeout of one classifier call, in seconds. Default 30.",
+      "examples": [30],
       "type": "number"
     }
   }

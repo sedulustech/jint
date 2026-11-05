@@ -151,35 +151,70 @@ export const CONFIG_SCHEMA = Type.Object({
   $schema: Type.Optional(Type.String()),
   // Optional: rules-only probe configs are valid when the CLI supplies a path positional;
   // the run-level backstop still rejects an empty input as a config error.
-  input: Type.Optional(Type.String()),
-  inputType: Type.Optional(KIND_SCHEMA),
+  input: Type.Optional(
+    Type.String({
+      description: "The file or directory to measure. A path given to jint run overrides it.",
+      examples: ["src/"],
+    }),
+  ),
+  inputType: Type.Optional(
+    Type.Union([Type.Literal("file"), Type.Literal("dir")], {
+      description: "Whether input is a file or a directory.",
+      examples: ["dir"],
+    }),
+  ),
   // The rules, and the scope they follow: include/exclude are the default scope of every rule and
   // the walk's file filter - a rule with no include of its own follows them, and a rule include
   // claims its files across them (docs/config.md). Same glob semantics as a rule's own scope.
   rules: Type.Optional(
     Type.Object({
-      include: Type.Optional(Type.Array(Type.String())),
-      exclude: Type.Optional(Type.Array(Type.String())),
-      use: Type.Optional(Type.Array(Type.Union([Type.String(), RULE_SCHEMA]))),
+      include: Type.Optional(
+        Type.Array(Type.String(), {
+          description: "The files jint reads, and the default scope of every rule.",
+          examples: [["**/*.ts"]],
+        }),
+      ),
+      exclude: Type.Optional(
+        Type.Array(Type.String(), {
+          description: "The files jint skips. Exclude always wins over include.",
+          examples: [["**/*.test.ts"]],
+        }),
+      ),
+      use: Type.Optional(
+        Type.Array(Type.Union([Type.String(), RULE_SCHEMA]), {
+          description: "The rules to run: names from a rule domain, or full rule objects.",
+          examples: [["is_greppable", "is_function_srp"]],
+        }),
+      ),
     }),
   ),
   // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
   // negations allowed; default = the built-in frozen denylist). For repos that
   // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
-  secretDenylist: Type.Optional(Type.Array(Type.String())),
-  disable: Type.Optional(Type.Array(Type.String())),
+  secretDenylist: Type.Optional(
+    Type.Array(Type.String(), {
+      description: "Replaces the built-in denylist of secret-shaped files (gitignore patterns).",
+      examples: [["!.env.example"]],
+    }),
+  ),
+  disable: Type.Optional(
+    Type.Array(Type.String(), {
+      description: "Rule names to remove after the rules are composed.",
+      examples: [["is_function_srp"]],
+    }),
+  ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
   // cross-field checks so the error names the field.
   concurrency: Type.Optional(
     Type.Number({
-      description:
-        "Max in-flight classifier calls, run-wide (the wall-clock knob). Default 16, max 64.",
+      description: "The most classifier calls in flight, run-wide. Default 16, max 64.",
+      examples: [16],
     }),
   ),
   timeout: Type.Optional(
     Type.Number({
-      description:
-        "Per-call classifier timeout, seconds (liveness, not retry - the SDK owns retries). Default 30, far above a normal call. A hung call becomes a per-element PROVIDER_TIMEOUT failure.",
+      description: "The timeout of one classifier call, in seconds. Default 30.",
+      examples: [30],
     }),
   ),
 });

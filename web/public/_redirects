@@ -6,3 +6,5 @@
 /docs/rules/ /docs/what-are-rules/ 301
 /docs/pre-commit-and-ci /docs/how-to-use/ 301
 /docs/pre-commit-and-ci/ /docs/how-to-use/ 301
+/docs/glossary https://github.com/sedulustech/jint/blob/feat/decisions-model/GLOSSARY.md 301
+/docs/glossary/ https://github.com/sedulustech/jint/blob/feat/decisions-model/GLOSSARY.md 301

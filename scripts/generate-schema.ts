@@ -43,6 +43,7 @@ export const GENERATED_OUTPUTS = [
   "skills/jint-author/REFERENCE.md",
   "docs/targets.md",
   "docs/directives.md",
+  "docs/config.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -694,6 +695,62 @@ export function renderDirectivesTable(
   return lines.join("\n") + "\n";
 }
 
+// --- docs/config.md ---------------------------------------------------------
+type ConfigNode = {
+  description?: string;
+  examples?: readonly unknown[];
+  properties?: Record<string, ConfigNode>;
+};
+
+/** `text` as `// ` comment lines wrapped to `width` columns, at `indent`. */
+function commentLines(text: string, indent: string, width = 90): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    if (line !== "" && (indent + "// " + line + " " + word).length > width) {
+      lines.push(indent + "// " + line);
+      line = word;
+    } else line = line === "" ? word : line + " " + word;
+  }
+  return [...lines, indent + "// " + line];
+}
+
+function renderConfigKeys(properties: Record<string, ConfigNode>, indent: string): string[] {
+  const lines: string[] = [];
+  for (const [key, node] of Object.entries(properties)) {
+    if (key === "$schema") continue;
+    if (node.description === undefined && node.properties === undefined) {
+      throw new Error(`config key ${key} has no description in CONFIG_SCHEMA`);
+    }
+    if (node.description !== undefined) lines.push(...commentLines(node.description, indent));
+    if (node.properties !== undefined) {
+      lines.push(
+        `${indent}${key}: {`,
+        ...renderConfigKeys(node.properties, indent + "  "),
+        `${indent}},`,
+      );
+      continue;
+    }
+    if (node.examples?.[0] === undefined) throw new Error(`config key ${key} has no example`);
+    lines.push(`${indent}${key}: ${JSON.stringify(node.examples[0])},`);
+  }
+  return lines;
+}
+
+/** The config file with every key, each with its description as a comment above it. */
+export function renderConfigExample(): string {
+  const keys = renderConfigKeys(CONFIG_SCHEMA.properties as Record<string, ConfigNode>, "  ");
+  return [
+    "```ts",
+    'import { defineConfig } from "jint:sdk";',
+    "",
+    "export default defineConfig({",
+    ...keys,
+    "});",
+    "```",
+  ].join("\n");
+}
+
 /**
  * Replaces the body between a doc's `<!-- generated:<name> ... -->` and `<!-- /generated:<name>
  * -->` markers. The prose around the markers is hand-written and stays as it is; the open marker
@@ -830,6 +887,17 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
     ),
   );
   formatted.push(directivesOut);
+  const configOut = outPath(root, GENERATED_OUTPUTS[6]!);
+  writeFileSync(
+    configOut,
+    spliceGenerated(
+      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[6]!, "utf8"),
+      "config",
+      renderConfigExample(),
+    ),
+  );
+  formatted.push(configOut);
+  process.stdout.write("wrote " + configOut + "\n");
   // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + directivesOut + "\n");

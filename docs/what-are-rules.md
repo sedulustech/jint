@@ -45,8 +45,7 @@ export default {
 
 A rule reads the files its scope allows. `rules.include` and `rules.exclude` set the default scope
 for every rule. A rule's own `include` and `exclude` replace it for that rule, and exclude always
-wins. A rule about React components, for example, can read only `**/*.tsx`. See
-[Configuration](config.md#scope).
+wins. A rule about React components, for example, can read only `**/*.tsx`.
 
 ## Custom rules
 
@@ -54,6 +53,9 @@ A declarative rule asks the same question of every element. When the question ne
 write `classify(self, ctx)`. It runs once for each captured element and returns the instructions,
 the criteria and a `state`: anything you want the classifier to see, such as the element's source,
 its parent or its siblings.
+
+A rule with a `classify` function, a function `target` or a function `handle` is a custom rule. It
+works only in `jint.config.ts`, and declarative rules beside it compile as usual.
 
 ```ts
 import { defineConfig } from "jint:sdk";
@@ -82,6 +84,9 @@ export default defineConfig({
 });
 ```
 
+A `handle` function, `(results, ctx) => decisions`, runs once after classification. It returns one
+decision per reading: `{ severity: "error" | "warn" | null, message? }`. A `null` severity is
+silent, and the `message` tells the caller how to fix the finding.
+
 On a Python class `Invoice`, the classifier reads `def total` as part of the invoice and
-`def send_email` as a different job. A declarative rule cannot see the class. See
-[Configuration](config.md#inline-custom-rules).
+`def send_email` as a different job. A declarative rule cannot see the class.
