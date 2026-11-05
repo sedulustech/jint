@@ -1,27 +1,25 @@
 ---
 title: Install jint
-description: "jint is in beta. Download the binary, check it against the published checksums, and put it on your PATH."
+description: "jint is in beta. Install it with one command, or download the binary and check it against the published checksums."
 sidebar:
   label: Install
 ---
 
 # Install
 
-jint is in beta. Download it from the [download page](/download/). That is the only way to install it
-for now.
+jint is in beta. Install the current build with the script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
+```
+
+The script picks the archive for your platform, checks it against the published checksums and puts
+`jint` in `~/.local/bin`. Add that directory to your `PATH` if it is not there.
 
 ## Download a binary
 
-Each release carries one archive per platform and a `checksums.txt` that covers all of them:
-
-| Platform            | Archive                    |
-| ------------------- | -------------------------- |
-| Linux x64           | `jint-linux-x64.tar.gz`    |
-| Linux arm64         | `jint-linux-arm64.tar.gz`  |
-| macOS Apple silicon | `jint-darwin-arm64.tar.gz` |
-| macOS Intel         | `jint-darwin-x64.tar.gz`   |
-
-Check the archive, unpack it, and put the `jint` binary on your `PATH`:
+Take the archive for your platform and `checksums.txt` from the [download page](/download/). Check the
+archive, unpack it, and put the `jint` binary on your `PATH`:
 
 ```sh
 sha256sum -c --ignore-missing checksums.txt   # on macOS: shasum -a 256 -c --ignore-missing checksums.txt
