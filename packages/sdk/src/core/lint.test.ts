@@ -1198,7 +1198,7 @@ describe("lint", () => {
         "good.ts",
         "Makefile",
         "README.md",
-        "data.toml",
+        "data.ini",
         ...[...inputs].filter((i) => i.includes("#")),
       ]),
     );
@@ -1212,11 +1212,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc · not parsed (no grammar): (extensionless), .toml",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml · not parsed (no grammar): (extensionless), .ini",
     );
   });
 
@@ -1225,7 +1225,7 @@ describe("lint", () => {
       lint({
         config: {
           ...baseConfig,
-          input: "tests/fixtures/sample-dir/data.toml",
+          input: "tests/fixtures/sample-dir/data.ini",
           inputType: "file",
           rules: [probeFiles],
         },
@@ -1253,11 +1253,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc · not parsed (no grammar): (extensionless), .toml",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc, toml, yaml, yml · not parsed (no grammar): (extensionless), .ini",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });
