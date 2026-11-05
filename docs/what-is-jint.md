@@ -13,7 +13,7 @@ jint reads your files, asks a classifier questions about specific parts of your 
 and turns the number that comes back into a finding when it crosses the configured threshold.
 
 What you ask, the captured code and how to handle the result of the classification is embedded in
-the shape of a traditional linter, as rules.
+the shape of a traditional linter, as [rules](what-are-rules.md).
 
 ## Your agent runs jint
 

@@ -45,7 +45,7 @@ export default {
 
 A rule reads the files its scope allows. `rules.include` and `rules.exclude` set the default scope
 for every rule. A rule's own `include` and `exclude` replace it for that rule, and exclude always
-wins. A rule about React components, for example, can read only `**/*.tsx`.
+wins. A rule about React components, for example, should only read `**/*.tsx` files.
 
 ## Custom rules
 
