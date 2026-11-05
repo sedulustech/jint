@@ -7,16 +7,18 @@ sidebar:
 
 # Replacing code reviews
 
-A code review catches what a reader notices after the code is written. jint moves the check
-earlier: a reviewer's judgment becomes a rule, and the rule runs on every change, as the code is
-generated.
-
-Review comments repeat. "This name says nothing." "This comment repeats the code." Each one is a
+We use memory or skills to prevent an agent from making mistakes and to guide its output.
+Instead of preventing, we need to enforce and verify.
+"This name says nothing." "This comment repeats the code." Each one is a
 question about the code, so each one can be a [rule](what-are-rules.md). When you write the same
 comment a second time, write the rule instead.
 
-A rule runs after generation, in a [pre-commit hook or in CI](how-to-use.md#pre-commit-and-ci). An
-error fails the hook, and the rule's message tells the agent what to fix. The agent corrects the
+jint moves the code review to the implementing agent.
+A reviewer's judgment becomes a rule, and the rule runs on every change, as the code is
+generated.
+
+If you use jint in a [pre-commit hook or in CI](how-to-use.md#pre-commit-and-ci), a violated rule
+fails the hook, and the rule's message tells the agent what to fix. The agent corrects the
 code before a reviewer sees it, so the output is correct from the start.
 
 A person still chooses the rules and checks that they judge what was meant. See

@@ -7,7 +7,7 @@ sidebar:
 
 # What's jint?
 
-jint is an **extensible** semantic linter.
+jint is an **extensible** semantic linter. A tool to replace code reviews.
 
 jint reads your files, asks a classifier questions about specific parts of your code
 and turns the number that comes back into a finding when it crosses the configured threshold.
