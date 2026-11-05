@@ -150,6 +150,36 @@ const is_comment_stateful: RuleSchema = {
   },
 };
 
+// has_sensitive_value: a secret or personal value written in plain text in a data file. Target
+// files, over the three data grammars (json, toml, yaml). NOT in an official domain: the defective
+// side is synthetic. Calibrated with planted controls in copies of real files, never a real leak: 5 of 5 planted secrets read 1.0 (a
+// GitHub token in a workflow, an npm token in package.json, an API key in a json config, a
+// credentialed url in bunfig.toml, an AWS key pair in yaml), 3 of 3 decoys read 0 (${{ secrets.X }},
+// ${ENV}, <your-api-key>, changeme, an empty value, a secret-file path), and 0 of 48 real config
+// files in this repo fired.
+const has_sensitive_value: RuleSchema = {
+  name: "has_sensitive_value",
+  kind: "noul",
+  target: "files",
+  instructions:
+    "This unit is one configuration or data file. Does it hold a real secret or personal value written in plain text: a credential, key, token, password or private key, or personal data such as an email address, phone number or home address?",
+  criteria: {
+    true: "At least one value is a live-looking secret or personal datum written in the file: an API key or token with a vendor prefix or high-entropy body, a password, a private key block, a connection string with embedded credentials, an access key pair, or a real person's contact details. A key NAME alone does not count; the value must be present and look real.",
+    false:
+      "No value is a secret or personal datum: values are placeholders (changeme, <token>, ${ENV_VAR}, an empty string), references to a secret store or environment variable, public identifiers (a package name, a url without credentials, a hash of public content, a version), or example data that is plainly fake.",
+  },
+  include: ["**/*.json", "**/*.jsonc", "**/*.toml", "**/*.yaml", "**/*.yml"],
+  exclude: ["**/bun.lock", "**/package-lock.json", "web/dist/**", "**/fixtures/**"],
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.8,
+      message:
+        "Remove the secret from the file and rotate it: read it from the environment or a secret store.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -171,6 +201,7 @@ export default defineConfig({
       is_headword_consistent,
       is_comment_contradictory,
       is_comment_stateful,
+      has_sensitive_value,
     ],
   },
 });
