@@ -4,8 +4,9 @@ import { capture, type CapturedElement } from "../../index.ts";
 /**
  * THE markdown shape contract, pinned both ways over a synthetic corpus (markdown-shapes.md,
  * single-consumer fixture beside this test): every shape the grammar meets, one element inventory
- * asserting kind + exact span, and the deliberate ABSENCES (fenced code, tables, thematic breaks,
- * link references - transit under every mapping per the grammar's own queries.scm ledger).
+ * asserting kind + exact span, and the deliberate ABSENCES (fenced code, thematic breaks, link
+ * references - transit under every mapping per the grammar's own queries.scm ledger). A pipe table
+ * is one element, whole.
  *
  * Why an exact inventory: an off-by-one span analysis once went unchallenged because no test stated
  * the expected shape. This table is that statement - a grammar patch that moves any boundary fails
@@ -24,7 +25,7 @@ interface Row {
 
 // The whole inventory, document order. Line/column pairs are 1-based line, 0-based column - the
 // span's own wire shape. parent references labels (d1 = "Top section", d4 = "Nested section",
-// d19 = "Sibling section") so nesting is pinned too.
+// d20 = "Sibling section") so nesting is pinned too.
 const INVENTORY: readonly Row[] = [
   // the headingless preamble: its PARAGRAPH captures, its section never does (queries.scm: the
   // section carrier requires an atx_heading) - so this paragraph has no parent
@@ -59,6 +60,8 @@ const INVENTORY: readonly Row[] = [
   { kind: "list", start: [24, 2], end: [27, 0], parent: "d8" },
   { kind: "list_item", start: [24, 4], end: [25, 2], parent: "d13" },
   { kind: "list_item", start: [25, 4], end: [26, 0], parent: "d13" },
+  // the pipe table: ONE element, header + delimiter row + body, ending where the next block starts
+  { kind: "table", start: [35, 0], end: [38, 0], parent: "d4" },
   // blockquotes: the paragraph inside captures, FIRST "> " marker stripped (col 2) - a
   // continuation line's "> " stays in the TEXT (only the opening marker belongs to the wrapper)
   { kind: "paragraph", start: [41, 2], end: [42, 0], parent: "d4" },
@@ -68,7 +71,7 @@ const INVENTORY: readonly Row[] = [
   // the LAST sibling section is boundary-coincident with its parent's tail: it starts exactly
   // where the nested section ended (L50 col 0) and runs to EOF - the selfNesting case
   { kind: "section", start: [50, 0], end: [53, 0], name: "Sibling section", parent: "d1" },
-  { kind: "paragraph", start: [52, 0], end: [53, 0], parent: "d19" },
+  { kind: "paragraph", start: [52, 0], end: [53, 0], parent: "d20" },
 ];
 
 describe("markdown shape corpus: the element contract, both ways", () => {
@@ -88,13 +91,20 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     }
   });
 
-  test("markdown emits exactly four kinds - section, paragraph, list, list_item", () => {
+  test("markdown emits exactly five kinds - section, paragraph, list, list_item, table", () => {
     expect([...new Set(captured.map((e) => e.kind))].sort()).toEqual([
       "list",
       "list_item",
       "paragraph",
       "section",
+      "table",
     ]);
+  });
+
+  test("a pipe table is one element holding its header, delimiter row and body", () => {
+    const tables = captured.filter((e) => e.kind === "table");
+    expect(tables).toHaveLength(1);
+    expect(tables[0]!.text.trim()).toBe("| col a | col b |\n| ----- | ----- |\n| 1     | 2     |");
   });
 
   test("a section's name is its heading text with the marker stripped", () => {
@@ -142,15 +152,14 @@ describe("markdown shape corpus: the element contract, both ways", () => {
     expect(para.text).toContain("Inline `code spans` ride");
   });
 
-  // THE DELIBERATE ABSENCES (queries.scm transit ledger): fenced code (both fence styles), pipe
-  // tables, thematic breaks, link reference definitions, and the atx heading itself produce NO
-  // element - nothing starts on those fixture lines, and no element's span is the fence/table
-  // body. If a future capture grows (the ledger's code-block candidate), these rows fail by name.
-  test("transit shapes capture nothing: fences, tables, breaks, link references", () => {
+  // THE DELIBERATE ABSENCES (queries.scm transit ledger): fenced code (both fence styles), thematic
+  // breaks, link reference definitions, and the atx heading itself produce NO element - nothing
+  // starts on those fixture lines, and no element's span is the fence body. If a future capture
+  // grows (the ledger's code-block candidate), these rows fail by name.
+  test("transit shapes capture nothing: fences, breaks, link references", () => {
     const transitLines = new Set<number>([
       ...range(27, 29), // ```ts fence (info string)
       ...range(31, 33), // ~~~ fence
-      ...range(35, 37), // pipe table (header, delimiter, row)
       39, // thematic break
       48, // [ref]: link_reference_definition
     ]);

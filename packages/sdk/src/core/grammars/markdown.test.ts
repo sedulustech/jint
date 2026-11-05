@@ -7,6 +7,14 @@ import { describe, expect, test } from "bun:test";
 import { decompose } from "./walk.ts";
 
 describe("decompose — markdown", () => {
+  test("a pipe table is one element, whole: header, delimiter and every row", async () => {
+    const table = "| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |";
+    const inv = await decompose(`# T\n\nintro\n\n${table}\n\n| c |\n| - |\n| 5 |\n`, "markdown");
+    const tables = inv.definitions.filter((d) => d.capture === "table");
+    expect(tables.map((t) => t.content.trim())).toEqual([table, "| c |\n| - |\n| 5 |"]);
+    expect(tables.every((t) => t.parent === "d0")).toBe(true);
+  });
+
   test("sections capture with their heading text and nest inside each other", async () => {
     const inv = await decompose("# A\n\ntext\n\n## B\n\nmore\n\n# C\n\ntail\n", "markdown");
     const sections = inv.definitions.filter((d) => d.capture === "section");

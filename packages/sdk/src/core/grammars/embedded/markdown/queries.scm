@@ -1,9 +1,11 @@
 ; markdown: extraction patterns over tree-sitter-markdown 0.5.3 (block grammar; `inline`
 ; parses as empty external stubs and is transit anyway).
 ;
-; FOUR honest captures exist: the section, the paragraph (loose prose), the list_item (one
-; entry's text) and the list (the whole list - the headword rule judges the list whole, the
-; stateful rule judges each entry; the two granularities are two rules' questions, not one). A heading plus everything under it is
+; FIVE honest captures exist: the section, the paragraph (loose prose), the list_item (one
+; entry's text), the list (the whole list - the headword rule judges the list whole, the
+; stateful rule judges each entry; the two granularities are two rules' questions, not one) and
+; the table (the whole pipe table: a cell, a row or a column is read against its header and its
+; siblings, so only the whole table is a unit a rule can judge). A heading plus everything under it is
 ; markdown's container-with-body; it captures @section - markdown's OWN element capture, not a
 ; shared capture (the @type stretch was reversed, owner decision: a code capture lying about prose is
 ; worse than a grammar-autonomous capture). Its name is its heading text (atx_heading > inline) -
@@ -31,8 +33,9 @@
 ;   an embedded machine-read unit deserves its own capture.
 ; - link_reference_definition: the trial stretched it to import; it is not a code import and
 ;   would vanish into the merge-run anyway.
-; - pipe_table*, thematic_break, atx_heading: transit under every mapping so far - none is a
-;   judged unit under any capture, and a table row judged alone is noise.
+; - pipe_table_row, pipe_table_cell, thematic_break, atx_heading: transit under every mapping so
+;   far - none is a judged unit under any capture, and a row or cell judged alone is noise. The
+;   table is judged whole (the @table capture below).
 
 ; @priority section over the prose captures it carries: the outer element wins (the .scm's
 ; own order statement - see the pattern-order validator)
@@ -61,3 +64,7 @@
 ; minus_metadata). One element per file at most, a leaf the sections never contain: it precedes
 ; the first heading, so it is the page's own metadata (title, description), judged whole.
 ((minus_metadata) @frontmatter (#set! "capture.frontmatter.definition" "true"))
+
+; table: the WHOLE pipe table as one element - header row, delimiter row and every body row. One
+; per table; a table in a list entry or a quote is the same node and is captured the same way.
+((pipe_table) @table (#set! "capture.table.definition" "true"))

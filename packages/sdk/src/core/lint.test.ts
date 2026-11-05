@@ -904,6 +904,7 @@ describe("lint", () => {
       "list_item",
       "paragraph",
       "section",
+      "table",
     ]);
   });
 
