@@ -7,7 +7,7 @@ sidebar:
 
 # Install
 
-jint is in beta. Install the current build with the script:
+jint is in beta. Install the current build with the [install script](../install.sh):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
