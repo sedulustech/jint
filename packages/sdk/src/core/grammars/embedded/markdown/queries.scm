@@ -1,4 +1,4 @@
-; markdown: extraction patterns over tree-sitter-markdown 0.5.3 (block grammar; `inline`
+; markdown: extraction patterns over tree-sitter-markdown 0.5.4 (block grammar; `inline`
 ; parses as empty external stubs and is transit anyway).
 ;
 ; FIVE honest captures exist: the section, the paragraph (loose prose), the list_item (one
