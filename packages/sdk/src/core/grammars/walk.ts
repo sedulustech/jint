@@ -14,6 +14,7 @@
  */
 
 import { InternalError, type DocstringOwner, type Element, type Span } from "../types.ts";
+import { extendQueries, isExtension } from "./extends.ts";
 import {
   grammar,
   grammarExtensions,
@@ -628,8 +629,13 @@ export async function decompose(
   // extraction and goes through the SAME loud compile checks, uncached (one call, one compile).
   // The one entry that may carry an empty-queries marker (registered alongside an override) can
   // never reach here override-less: it exists only inside the call's own registry value.
-  const scm = options.queries ?? entry.queries;
-  const query = options.queries
+  // a query file that starts with `; extends` adds to the registered queries instead of replacing
+  const override =
+    options.queries !== undefined && isExtension(options.queries)
+      ? extendQueries(language, options.queries, entry.queries)
+      : options.queries;
+  const scm = override ?? entry.queries;
+  const query = override
     ? await compileQuery(language, scm, lang)
     : await queryFor(entry, scm, lang);
   const tree = parser.parse(source);

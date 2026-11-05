@@ -44,6 +44,13 @@ import { SetupError, type Span } from "../types.ts";
 import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
 
 /**
+ * The comment between an extension and the grammar's own patterns (see extends.ts). Pattern-order
+ * validation reads it: each side states its own order, and the extension's patterns win over the
+ * base's on purpose.
+ */
+export const BASE_MARKER = "; --- the grammar's own queries.scm, extended above ---";
+
+/**
  * A capture name: a shared capture, or one the owning grammar's .scm declares with a
  * `capture.<name>.definition` directive. A capture that is neither fails at load, naming the fix.
  * `docstring` is comment-kind: the definition that encloses it owns it.
@@ -608,6 +615,15 @@ export function assertPatternCount(language: string, scm: string, compiledCount:
  * order is the point.
  */
 export function validatePatternOrder(language: string, scm: string): void {
+  // An extended file (see extends.ts) states the order of each side separately: the extension's
+  // patterns win over the grammar's own on purpose, and the grammar's own file is not the user's to
+  // edit.
+  const cut = scm.indexOf(BASE_MARKER);
+  if (cut >= 0) {
+    validatePatternOrder(language, scm.slice(0, cut));
+    validatePatternOrder(language, scm.slice(cut + BASE_MARKER.length));
+    return;
+  }
   const patterns = parseScmPatterns(scm);
   const byRoot = new Map<string, ScmPattern[]>();
   for (const p of patterns) {

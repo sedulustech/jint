@@ -250,3 +250,46 @@ describe("cli verbs e2e - skills export", () => {
     }
   });
 });
+
+describe("cli verbs e2e - a grammar dir that extends the embedded queries", () => {
+  const dir = scratchDir("extends-grammars");
+  const source = join(dir, "main.py");
+  const run = (queries: string) => {
+    mkdirSync(join(dir, "python"), { recursive: true });
+    writeFileSync(join(dir, "python", "extensions.json"), '[".py"]');
+    writeFileSync(join(dir, "python", "queries.scm"), queries);
+    writeFileSync(
+      source,
+      "import sys\n\ndef helper(x):\n    return x\n\nfor line in sys.stdin:\n    helper(line)\n",
+    );
+    return runCli(["capture", source], { env: { JINT_GRAMMAR_DIR: dir } });
+  };
+
+  test("an extension adds a capture and keeps the grammar's own", async () => {
+    const r = await run(
+      '; extends\n(module (for_statement) @statement_group (#set! "capture.statement_group.definition" "true")) ; @priority\n',
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("python function");
+    expect(r.stdout).toContain("python import");
+    expect(r.stdout).toContain("python statement_group");
+  });
+
+  test("an extension overrides a capture of the grammar's own", async () => {
+    const r = await run(
+      "; extends\n(function_definition name: (identifier) @name) @binding ; @priority\n",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("python binding");
+    expect(r.stdout).not.toContain("python function");
+  });
+
+  test("without the first line, the file replaces the grammar's own queries", async () => {
+    const r = await run(
+      '(module (for_statement) @statement_group (#set! "capture.statement_group.definition" "true"))\n',
+    );
+    expect(r.stdout).toContain("python statement_group");
+    expect(r.stdout).not.toContain("python function");
+    rmSync(dir, { recursive: true, force: true });
+  });
+});

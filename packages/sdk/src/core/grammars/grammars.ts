@@ -56,6 +56,7 @@ import tsxWasm from "./embedded/tsx/tsx.wasm" with { type: "file" };
 import typescriptExtensions from "./embedded/typescript/extensions.json" with { type: "json" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
+import { extendQueries, isExtension } from "./extends.ts";
 
 /** Which grammar served a parse: the embedded asset, or a user wasm by path. */
 export type GrammarProvenance =
@@ -384,6 +385,10 @@ async function readCustomGrammar(
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
+  // a queries.scm that starts with `; extends` adds to the embedded grammar's own queries
+  if (isExtension(queries)) {
+    queries = extendQueries(grammarId, queries, embeddedEntry?.queries ?? "");
+  }
   if (!hasWasm && embeddedEntry === undefined) {
     throw new SetupError(
       "CONFIG_INVALID",

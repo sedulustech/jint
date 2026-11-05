@@ -37,27 +37,30 @@ One pattern and one directive make a new element. This one captures the top-leve
 conditionals of a Python script, which no shipped capture covers:
 
 ```scheme
+; extends
 (module
   [(for_statement) (while_statement) (if_statement)] @statement_group
   (#set! "capture.statement_group.definition" "true")
   (#set! "capture.statement_group.merge" "adjacent")) ; @priority
 ```
 
-`; @priority` says the pattern order is deliberate. A pattern needs it when another pattern shares
-its root node type, as Python's docstring pattern shares `module`.
+The first line, `; extends`, adds the file to the grammar's own `queries.scm`. Without it, the file
+replaces the grammar's queries whole. Your patterns come first, and the earlier pattern wins when two
+match one node, so a pattern of yours can also override a capture of the grammar's. A directive you
+set replaces the same directive in the grammar's file.
 
-To try it, add the pattern to a copy of the grammar's own `queries.scm`, which lives in the repo
-under `packages/sdk/src/core/grammars/embedded/<id>/`, and run it:
+`; @priority` says the pattern order is deliberate. A pattern needs it when another pattern in your
+file shares its root node type.
+
+To try it, run:
 
 ```bash
 jint capture main.py --queries extra.scm
 ```
 
-To use it in a run, put the grammar where jint looks for grammars: `$JINT_GRAMMAR_DIR/python/`,
-by default `~/.jint/grammars/python/`. It holds the grammar's `extensions.json` and the edited
-`queries.scm`. The embedded grammar's parser is reused. Your `queries.scm` replaces the embedded one
-whole, which is why you start from a copy. A rule targets the new capture as
-`python:statement_group`. See [BYOG](byog.md).
+To use it in a run, save it as `queries.scm` in `$JINT_GRAMMAR_DIR/python/`, by default
+`~/.jint/grammars/python/`, next to an `extensions.json` such as `[".py"]`. The embedded grammar's
+parser is reused. A rule targets the new capture as `python:statement_group`. See [BYOG](byog.md).
 
 Other directives shape the element: `opaque`, `merge` and `selfNesting`. See
 [directives](directives.md).
