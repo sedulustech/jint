@@ -91,7 +91,7 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
-// has_comment_mismatch: a comment that states something the code in the same file contradicts,
+// is_comment_contradictory: a comment that states something the code in the same file contradicts,
 // first seen when install.sh's header still described GitHub releases after the code fetched the
 // site. Target files, because the comments targets measure only comments a definition owns: a
 // file header is a loose comment, so no comments rule ever saw it. Calibrated on bash only (the
@@ -100,8 +100,8 @@ const is_headword_consistent: RuleSchema = {
 // fixed), defective 0.98 (the stale header) and 0.64 (a stub comment gone stale in
 // verify-install.sh), and 1 fire in 10 real scripts (0.79, a trailing comment naming a GUI the
 // call runs without). The error bar sits at 0.9 so only a blatant contradiction errors.
-const has_comment_mismatch: RuleSchema = {
-  name: "has_comment_mismatch",
+const is_comment_contradictory: RuleSchema = {
+  name: "is_comment_contradictory",
   kind: "noul",
   target: "files",
   instructions:
@@ -141,7 +141,7 @@ export default defineConfig({
       is_literal_shared,
       is_doc_stateful,
       is_headword_consistent,
-      has_comment_mismatch,
+      is_comment_contradictory,
     ],
   },
 });

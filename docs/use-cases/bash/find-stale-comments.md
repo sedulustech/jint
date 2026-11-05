@@ -1,19 +1,19 @@
 ---
-title: "Use case: keep comments true"
-description: "A rule that reviews this repo's own shell scripts: a comment never states something the code in the same file contradicts."
+title: "Use case: find stale comments"
+description: "A rule that reviews this repo's own shell scripts: it finds a stale comment, one that states something the code in the same file contradicts."
 sidebar:
-  label: Keep comments true
+  label: Find stale comments
 ---
 
-# Use case: keep comments true
+# Use case: find stale comments
 
-`has_comment_mismatch` flags a comment that states something the code in the same file contradicts.
+`is_comment_contradictory` finds a stale comment: one that states something the code in the same file contradicts.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";
 
-const has_comment_mismatch: RuleSchema = {
-  name: "has_comment_mismatch",
+const is_comment_contradictory: RuleSchema = {
+  name: "is_comment_contradictory",
   kind: "noul",
   target: "files",
   include: ["**/*.sh"],
