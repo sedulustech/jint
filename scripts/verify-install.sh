@@ -4,8 +4,8 @@
 #   scripts/verify-install.sh                          # stages the beta build from https://jint.sh/dl
 #   RELEASE_STAGE=dir scripts/verify-install.sh        # stages from a local directory
 #
-# Stages the beta tarballs + checksums behind a local http server (stand-in for the site's
-# download/beta/), then drives install.sh through every branch: happy path,
+# Stages the beta tarballs + checksums + COMMIT pointer behind a local http server (stand-in for
+# the site's download/beta-<sha6>/ and download/beta/COMMIT), then drives install.sh through every branch: happy path,
 # wget-only PATH, tampered tarball, darwin x64 selection, Rosetta translation,
 # musl rejection, broken/missing ldd, --help. Non-running tarballs (arm64, darwin)
 # are re-tarred with a stub `jint` member so each branch completes on a linux host.
@@ -20,16 +20,18 @@ INSTALL="$SCRIPT_DIR/../install.sh"
 work=$(mktemp -d)
 SERVER_PID=""
 trap 'kill $SERVER_PID 2>/dev/null || true; rm -rf "$work"' EXIT
-stage="$work/download/beta"
-mkdir -p "$stage"
+COMMIT_SHA=0123456789abcdef0123456789abcdef01234567
+stage="$work/download/beta-${COMMIT_SHA:0:6}"
+mkdir -p "$stage" "$work/download/beta"
+echo "$COMMIT_SHA" > "$work/download/beta/COMMIT"
 
 if [ -n "${RELEASE_STAGE:-}" ]; then
   echo "staging from $RELEASE_STAGE"
-  cp "$RELEASE_STAGE"/* "$stage/"
+  cp "$RELEASE_STAGE"/*.tar.gz "$RELEASE_STAGE"/checksums.txt "$stage/"
 else
   echo "staging the beta build from $SITE"
   for f in jint-linux-x64.tar.gz jint-linux-arm64.tar.gz jint-darwin-x64.tar.gz jint-darwin-arm64.tar.gz checksums.txt; do
-    url="$SITE/download/beta/$f"
+    url="$SITE/download/beta/$f"   # the site redirects this to the current build
     curl -fsSL "$url" -o "$stage/$f" || { echo "FAIL: cannot stage $f ($url)"; exit 1; }
   done
 fi

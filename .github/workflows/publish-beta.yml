@@ -1,9 +1,11 @@
 name: Publish beta
 
-# The unversioned beta channel: every binary-changing push to the beta branch builds all four targets with the
-# same jobs a release uses, then overwrites the beta objects in the site's R2 bucket
-# (download/beta/<asset>). No tag, no GitHub release - the bucket is the only place a beta lives.
-# install.sh reads it with RELEASE_BASE=<site>/dl VERSION=beta.
+# The beta channel: every binary-changing push to the beta branch builds all four targets with the
+# same jobs a release uses, then publishes them to the site's R2 bucket under
+# download/beta-<first 6 of the commit>/. Exactly one build exists at a time: the publish deletes
+# the previous one. download/beta/COMMIT names the current commit, and the site redirects
+# download/beta/<asset> to that build. No tag, no GitHub release - the bucket is the only place a
+# beta lives. install.sh reads the pointer, then the build, from RELEASE_BASE=<site>/dl.
 
 # Everything triggers a build except what plainly never reaches the binary: the site and its
 # function, the docs and their generator, demos, root tests, the npm and release
@@ -60,7 +62,7 @@ jobs:
     secrets: inherit
 
   publish:
-    name: Overwrite the beta objects in R2
+    name: Publish the beta build to R2
     needs: [build]
     runs-on: ubuntu-24.04
     steps:
@@ -78,13 +80,25 @@ jobs:
           tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
           chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
           sha256sum jint-*.tar.gz > checksums.txt && cat checksums.txt
-          # the commit a beta was built from, readable at download/beta/COMMIT
+          # the commit a beta was built from; the pointer download/beta/COMMIT holds it
           echo "$GITHUB_SHA" > COMMIT
-      - name: Overwrite download/beta/
+      - name: Publish download/beta-<sha6>/, point at it, delete the previous build
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          for f in jint-*.tar.gz checksums.txt COMMIT; do
-            npx --yes wrangler@4 r2 object put "$BUCKET/download/beta/$f" --file "$f" --remote
-          done
+          r2() { npx --yes wrangler@4 r2 object "$@" --remote; }
+          assets="jint-darwin-arm64.tar.gz jint-darwin-x64.tar.gz jint-linux-arm64.tar.gz jint-linux-x64.tar.gz checksums.txt"
+          dir="download/beta-${GITHUB_SHA:0:6}"
+          # the build that is current now, if any: read before the pointer moves
+          if r2 get "$BUCKET/download/beta/COMMIT" --file previous-commit 2>/dev/null; then
+            previous="download/beta-$(head -c 6 previous-commit)"
+          else
+            previous=""
+          fi
+          for f in $assets; do r2 put "$BUCKET/$dir/$f" --file "$f"; done
+          r2 put "$BUCKET/download/beta/COMMIT" --file COMMIT
+          # exactly one build exists: drop the one the pointer just left (never the one just written)
+          if [ -n "$previous" ] && [ "$previous" != "$dir" ]; then
+            for f in $assets; do r2 delete "$BUCKET/$previous/$f" || true; done
+          fi

@@ -3,12 +3,13 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 #
-# jint is in beta, and the beta channel is the only one: the script downloads the build the
-# download page serves (https://jint.sh/dl/download/beta/), verifies its sha256 against
-# checksums.txt, and installs the binary into ~/.local/bin. The script carries no version.
+# jint is in beta, and the beta channel is the only one. The site keeps one build, in
+# download/beta-<sha6>/, and download/beta/COMMIT names its commit. The script reads that pointer,
+# downloads the build it names, verifies the sha256 against checksums.txt, and installs the binary
+# into ~/.local/bin. The script carries no version.
 #
 # RELEASE_BASE is the test hook (defaults to https://jint.sh/dl): point it at a local file:// or
-# http directory that holds download/beta/ to stand in for the site.
+# http directory that holds download/beta/COMMIT and download/beta-<sha6>/ to stand in for the site.
 
 set -euo pipefail
 
@@ -19,7 +20,7 @@ jint installer
 Usage:
   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 
-Installs the jint beta build from https://jint.sh/dl/download/beta/ into ~/.local/bin.
+Installs the current jint beta build from https://jint.sh/dl into ~/.local/bin.
 EOF
 }
 
@@ -40,7 +41,7 @@ main() {
     -h|--help) usage; return 0 ;;
   esac
 
-  local base="${RELEASE_BASE:-https://jint.sh/dl}/download/beta"
+  local site="${RELEASE_BASE:-https://jint.sh/dl}" base commit
 
   # tmp is deliberately NOT local: the EXIT trap (below) still needs it after main returns
   local tarball bin_dir
@@ -91,6 +92,15 @@ main() {
 
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
+  # one pointer read picks the build; every file then comes from that build's own directory
+  download "${site}/download/beta/COMMIT" "${tmp}/COMMIT"
+  read -r commit < "${tmp}/COMMIT" || true
+  commit="${commit:0:6}"
+  if [ "${#commit}" -ne 6 ]; then
+    echo "jint install: the beta pointer is unreadable" >&2
+    return 1
+  fi
+  base="${site}/download/beta-${commit}"
   echo "downloading ${base}/${tarball}"
   download "${base}/${tarball}" "${tmp}/${tarball}"
   download "${base}/checksums.txt" "${tmp}/checksums.txt"

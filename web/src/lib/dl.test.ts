@@ -59,19 +59,43 @@ describe("serveObject", () => {
     expect(res.headers.get("etag")).toBe('"abc"');
   });
 
-  test("the latest alias caches for a minute and checksums read as text", async () => {
+  test("the latest alias revalidates on every use and checksums read as text", async () => {
     const k = "latest/download/checksums.txt";
     const res = await serveObject(get(k), bucket, k);
-    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
     expect(res.headers.get("content-type")).toContain("text/plain");
     expect(res.headers.get("content-disposition")).toBeNull();
   });
 
-  test("the beta channel is overwritten in place, so it caches for a minute, not forever", async () => {
-    const k = "download/beta/jint-linux-x64.tar.gz";
+  test("the beta pointer is overwritten in place, so a cache revalidates it every time", async () => {
+    const k = "download/beta/COMMIT";
     const res = await serveObject(get(k), bucketOf({ [k]: () => object(k) }), k);
-    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  test("a versioned beta build is immutable", async () => {
+    const k = "download/beta-a1b2c3/jint-linux-x64.tar.gz";
+    const res = await serveObject(get(k), bucketOf({ [k]: () => object(k) }), k);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(res.headers.get("content-disposition")).toContain("jint-linux-x64.tar.gz");
+  });
+
+  test("a beta asset redirects to the build the pointer names, never cached", async () => {
+    const pointer = "download/beta/COMMIT";
+    const bucket = bucketOf({
+      [pointer]: () => object(pointer, { body: new Response("a1b2c3d4e5f6\n").body! }),
+    });
+    const k = "download/beta/checksums.txt";
+    const res = await serveObject(get(k), bucket, k);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/dl/download/beta-a1b2c3/checksums.txt");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  test("a beta asset with no pointer is a 404", async () => {
+    const k = "download/beta/checksums.txt";
+    expect((await serveObject(get(k), bucketOf({}), k)).status).toBe(404);
   });
 
   test("a range request is a 206 with its content-range", async () => {
