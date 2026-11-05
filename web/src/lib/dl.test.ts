@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { keyOf, serveObject, type Bucket, type BucketObject } from "./dl.ts";
+import {
+  keyOf,
+  serveCached,
+  serveObject,
+  type Bucket,
+  type BucketObject,
+  type EdgeCache,
+} from "./dl.ts";
 
 const bytes = new TextEncoder().encode("0123456789");
 
@@ -153,5 +160,59 @@ describe("serveObject", () => {
     const res = await serveObject(get(key, { method: "POST" }), bucket, key);
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("GET, HEAD");
+  });
+});
+
+describe("serveCached", () => {
+  const immutable = "download/beta-a1b2c3/jint-linux-x64.tar.gz";
+
+  /** A bucket that counts reads, an edge cache keyed by URL, and the work waitUntil was handed. */
+  function rig() {
+    let reads = 0;
+    const bucket: Bucket = {
+      get: async (k, options) => {
+        reads += 1;
+        if (k !== immutable && k !== "download/beta/COMMIT") return null;
+        // like R2: a read handed a Range header reports the range it served
+        return options?.range?.has("range")
+          ? object(k, { range: { offset: 0, length: 4 }, body: new Response("0123").body! })
+          : object(k);
+      },
+      head: async (k) => (k === immutable ? { ...object(k), body: undefined } : null),
+    };
+    const stored = new Map<string, Response>();
+    const cache: EdgeCache = {
+      match: async (r) => stored.get(r.url)?.clone(),
+      put: async (r, res) => {
+        stored.set(r.url, res);
+      },
+    };
+    const pending: Promise<unknown>[] = [];
+    const call = (path: string, init: RequestInit = {}) =>
+      serveCached(get(path, init), bucket, path, cache, (w) => pending.push(w));
+    return { call, stored, reads: () => reads, settle: () => Promise.all(pending) };
+  }
+
+  test("a miss answers from the bucket and stores the response; the next GET never reads the bucket", async () => {
+    const r = rig();
+    const first = await r.call(immutable);
+    expect(first.status).toBe(200);
+    expect(await first.text()).toBe("0123456789");
+    await r.settle();
+    expect(r.stored.size).toBe(1);
+    const second = await r.call(immutable);
+    expect(second.status).toBe(200);
+    expect(await second.text()).toBe("0123456789");
+    expect(r.reads()).toBe(1);
+  });
+
+  test("a range request, a HEAD, the pointer and a missing object are never stored", async () => {
+    const r = rig();
+    await r.call(immutable, { headers: { range: "bytes=0-3" } });
+    await r.call(immutable, { method: "HEAD" });
+    await r.call("download/beta/COMMIT");
+    await r.call("download/beta-a1b2c3/missing.tar.gz");
+    await r.settle();
+    expect(r.stored.size).toBe(0);
   });
 });

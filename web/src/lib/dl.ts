@@ -29,6 +29,16 @@ const REVALIDATE = "no-cache";
 const BETA_POINTER = "download/beta/COMMIT";
 const isMoving = (key: string): boolean => key.startsWith("latest/") || key === BETA_POINTER;
 
+/** The slice of Cloudflare's edge cache (the Cache API) this uses. */
+export interface EdgeCache {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+/** Keys that never change once written: tagged releases and `download/beta-<sha6>/` builds. */
+export const isImmutable = (key: string): boolean =>
+  !isMoving(key) && !key.startsWith("download/beta/");
+
 /** The directory a beta build lives in: the first 6 characters of its commit. */
 export const betaDir = (commit: string): string => `download/beta-${commit.trim().slice(0, 6)}`;
 
@@ -41,6 +51,28 @@ export function keyOf(segments: readonly string[] | string | undefined): string 
   if (parts.length === 0 || parts.some((p) => p === "" || p === "." || p === "..")) return null;
   if (parts.some((p) => p.includes("\\") || p.includes("\0"))) return null;
   return parts.join("/");
+}
+
+/**
+ * ServeObject behind the edge cache, for immutable keys only: a full GET that misses is stored
+ * after it answers, and a hit never reaches the bucket. Ranges, HEADs, redirects, the pointer,
+ * `latest/` and every non-200 answer pass through uncached.
+ */
+export async function serveCached(
+  request: Request,
+  bucket: Bucket,
+  key: string,
+  cache: EdgeCache,
+  waitUntil: (work: Promise<unknown>) => void,
+): Promise<Response> {
+  const cacheable = request.method === "GET" && isImmutable(key);
+  if (cacheable) {
+    const hit = await cache.match(request);
+    if (hit !== undefined) return hit;
+  }
+  const response = await serveObject(request, bucket, key);
+  if (cacheable && response.status === 200) waitUntil(cache.put(request, response.clone()));
+  return response;
 }
 
 export async function serveObject(
