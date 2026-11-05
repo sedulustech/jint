@@ -160,6 +160,10 @@ conventions.
 - Label a sample of the readings by hand: reruns show stability, only labels
   show correctness. A rule with no labeled defective example is a hypothesis,
   not a rule.
+- Aim for orthogonal rules: a rule's reading should not depend on what another rule
+  reads, so two rules should not ask nearly the same question. When a new rule
+  overlaps an existing one, merge them or reword one until it judges a different
+  dimension.
 
 ## Where a rule goes
 

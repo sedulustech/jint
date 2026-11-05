@@ -447,6 +447,10 @@ export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string):
     "- Label a sample of the readings by hand: reruns show stability, only labels",
     "  show correctness. A rule with no labeled defective example is a hypothesis,",
     "  not a rule.",
+    "- Aim for orthogonal rules: a rule's reading should not depend on what another rule",
+    "  reads, so two rules should not ask nearly the same question. When a new rule",
+    "  overlaps an existing one, merge them or reword one until it judges a different",
+    "  dimension.",
     "",
     "## Where a rule goes",
     "",
@@ -690,10 +694,6 @@ export function renderGrammarsTable(): string {
   return ["| grammar | extensions |", "| --- | --- |", ...rows].join("\n");
 }
 
-    "| directive | values | what it does |",
-    "| --- | --- | --- |",
-    ...rows.map(
-      (row) => `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} |`,
 // --- embedded/SOURCES.md ---------------------------------------------------
 const EMBEDDED_DIR = "packages/sdk/src/core/grammars/embedded/";
 
@@ -733,6 +733,10 @@ export function renderGrammarSources(): string {
 export function renderDirectivesTable(rows: readonly DirectiveRow[]): string {
   const escapePipes = (text: string) => text.replaceAll("|", "\\|");
   const lines = [
+    "| directive | values | what it does |",
+    "| --- | --- | --- |",
+    ...rows.map(
+      (row) => `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} |`,
     ),
   ];
   return lines.join("\n") + "\n";
