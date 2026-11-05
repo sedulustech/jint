@@ -15,8 +15,9 @@ import type { ClassifierConfig } from "./client.ts";
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
  * request body, response status + body: the real exchange, nothing else), named
  * <unixts>-<kind>-<file>.json, under the run dir <base>/<runId>/ (base = $JINT_RUNS_DIR, else
- * <homedir>/.jint/runs; runId = unix timestamp of the run's first request; past runs are never
- * overwritten). The kind (elements / files) is derived from the request's state shape.
+ * <homedir>/.jint/runs; runId = unix timestamp of the run's start, bumped to the next free
+ * millisecond when another run took it; past runs are never overwritten). The kind (elements /
+ * files) is derived from the request's state shape.
  */
 /** What this run recorded. Null before the recorder starts (never in a run that classifies). */
 export interface RequestRecordSummary {
@@ -34,6 +35,29 @@ let usageTotals = { input: 0, output: 0, cached: 0 };
 let runModel: string | undefined;
 /** The url host the run asked (a host only: never a path, userinfo or key). */
 let runHost: string | undefined;
+
+/**
+ * Claims the run's own directory: the first millisecond at or after `start` that no other run
+ * holds. mkdir without `recursive` fails with EEXIST atomically, so two runs that start in the same
+ * millisecond (parallel processes) can never share a dir, and a run never writes into a past one.
+ * An unwritable store is not claimable and is not an error here: the dir is returned as named and
+ * each write warns, as ever - recording never breaks the run it observes.
+ */
+function claimRunDir(base: string, start: number): string {
+  try {
+    mkdirSync(base, { recursive: true });
+    for (let id = start; ; id++) {
+      try {
+        mkdirSync(`${base}/${id}`);
+        return `${base}/${id}`;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      }
+    }
+  } catch {
+    return `${base}/${start}`;
+  }
+}
 
 /** A url without userinfo or query: a recorded request must never carry a credential. */
 function redactUrl(input: string): string {
@@ -263,14 +287,13 @@ export function recordRequests(
   config: ClassifierConfig | undefined,
   route?: { model: string; host: string },
 ): ClassifierConfig {
-  // The run id IS the run's start, and the run dir's name - one timestamp, one identity.
-  const runId = Date.now();
-  runStartedAt = runId;
+  // The run id is the run's start, claimed as the run dir's name: one timestamp, one identity. A
+  // run that starts in the same millisecond as another takes the next free one.
+  runStartedAt = Date.now();
   usageTotals = { input: 0, output: 0, cached: 0 };
   runModel = route?.model;
   runHost = route?.host;
-  const base = runsBase();
-  const dir = `${base}/${runId}`;
+  const dir = claimRunDir(runsBase(), runStartedAt);
   runSummary = {
     dir,
     count: 0,

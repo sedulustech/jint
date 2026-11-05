@@ -1,8 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { inCall, recordRequests, recordRunManifest, recordSummary } from "./debug.ts";
 
 const DIR = "tmp/provider-record-test";
+/** RunsBase() resolves the store to an absolute path. */
+const ABS = resolve(DIR);
 
 function listRequests(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -52,12 +55,24 @@ afterEach(() => {
 
 describe("recordRequests", () => {
   test("records by default, no env required: the run dir sits under the homedir store", () => {
-    delete process.env.JINT_RUNS_DIR;
-    recordRequests({ fetch: passthrough() });
-    // dir is computed lazily; nothing is written until the first call, so this asserts the
-    // default LOCATION without touching the real ~/.jint/runs
-    expect(recordSummary()!.dir).toMatch(/^.*\/\.jint\/runs\/\d+$/);
-    expect(recordSummary()!.override).toBe(false);
+    // The run dir is claimed at the start and Bun reads HOME once, so this runs in a child with its
+    // own HOME and no JINT_RUNS_DIR: nothing lands in the real ~/.jint/runs.
+    const home = `${ABS}/home`;
+    const { JINT_RUNS_DIR: _pinned, ...env } = process.env;
+    const child = Bun.spawnSync(
+      [
+        process.execPath,
+        "-e",
+        `import { recordRequests, recordSummary } from "${import.meta.dir}/debug.ts";
+         recordRequests({ fetch: async () => new Response("{}") });
+         const s = recordSummary();
+         console.log(JSON.stringify({ dir: s.dir, override: s.override }));`,
+      ],
+      { env: { ...env, HOME: home } },
+    );
+    const summary = JSON.parse(child.stdout.toString()) as { dir: string; override: boolean };
+    expect(summary.dir).toMatch(new RegExp(`^${home}/\\.jint/runs/\\d+$`));
+    expect(summary.override).toBe(false);
   });
 
   test("a JINT_RUNS_DIR override moves the run dir; recording is always on", async () => {
@@ -91,6 +106,59 @@ describe("recordRequests", () => {
     const list = listRequests(DIR);
     expect(list.some((f) => f.endsWith("-elements-a.ts.json"))).toBe(true);
     expect(list.some((f) => f.endsWith("-files-b.ts.json"))).toBe(true);
+  });
+
+  test("two runs that start in the same millisecond get different run dirs", async () => {
+    const clock = spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    try {
+      const first = recordRequests({ fetch: passthrough() });
+      const firstDir = recordSummary()!.dir;
+      const second = recordRequests({ fetch: passthrough() });
+      const secondDir = recordSummary()!.dir;
+      expect(secondDir).not.toBe(firstDir);
+      expect(firstDir).toBe(`${ABS}/1700000000000`);
+      // the next free millisecond: still a timestamp, still sorts after the first
+      expect(secondDir).toBe(`${ABS}/1700000000001`);
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test("eight runs in one millisecond each keep their own requests and manifest", async () => {
+    const clock = spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    try {
+      const dirs: string[] = [];
+      for (let i = 0; i < 8; i++) {
+        const config = recordRequests({ fetch: passthrough() });
+        dirs.push(recordSummary()!.dir);
+        await recordOnce(config, { path: `run${i}.ts`, content: "x" });
+        recordRunManifest({ configPath: null, cwd: `/run${i}`, argv: [], ts: "t" });
+      }
+      expect(new Set(dirs).size).toBe(8);
+      for (let i = 0; i < 8; i++) {
+        const files = readdirSync(dirs[i]!);
+        expect(files.filter((f) => f.endsWith("-files-run" + i + ".ts.json"))).toHaveLength(1);
+        expect(files.filter((f) => f.endsWith(".json") && f !== "manifest.json")).toHaveLength(1);
+        expect(JSON.parse(readFileSync(`${dirs[i]}/manifest.json`, "utf8")).cwd).toBe(`/run${i}`);
+      }
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test("a run never takes over a dir that already exists", () => {
+    const clock = spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    try {
+      mkdirSync(`${DIR}/1700000000000`, { recursive: true });
+      writeFileSync(`${DIR}/1700000000000/report.json`, "{}");
+      recordRequests({ fetch: passthrough() });
+      expect(recordSummary()!.dir).toBe(`${ABS}/1700000000001`);
+      expect(readdirSync(`${DIR}/1700000000000`)).toEqual(["report.json"]);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test("same-millisecond collisions get a suffix, never concatenated", async () => {
