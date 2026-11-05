@@ -6,6 +6,11 @@ name: Build binaries
 
 on:
   workflow_call:
+    inputs:
+      # a beta build prints beta-<sha6> for `jint --version`; a release build keeps the package version
+      beta:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,6 +19,8 @@ jobs:
   build-linux:
     name: Build (linux-x64)
     runs-on: ubuntu-24.04
+    env:
+      JINT_BETA: ${{ inputs.beta && '1' || '' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -47,6 +54,8 @@ jobs:
   build-darwin:
     name: Build (darwin, sign + notarize)
     runs-on: macos-26
+    env:
+      JINT_BETA: ${{ inputs.beta && '1' || '' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

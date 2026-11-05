@@ -22,8 +22,11 @@ const CROSS_TARGETS: Record<
 const cross = process.argv[2] ? CROSS_TARGETS[process.argv[2]] : undefined;
 if (process.argv[2] && !cross) throw new Error(`unknown build target: ${process.argv[2]}`);
 
-const buildVersion = (await $`git rev-parse --short HEAD`.text()).trim();
-console.log(`building jint (${buildVersion})${cross ? ` for ${cross.target}` : ""}`);
+// A beta build names itself by its commit, the first 6 characters the site's beta directory uses:
+// `jint --version` prints beta-<sha6>. Every other build keeps the package version.
+const commit = (await $`git rev-parse --short=6 HEAD`.text()).trim();
+const buildVersion = process.env.JINT_BETA ? `beta-${commit}` : undefined;
+console.log(`building jint (${buildVersion ?? commit})${cross ? ` for ${cross.target}` : ""}`);
 
 // Every compile path embeds a fresh UI dist (compile assets: served from $bunfs at runtime via
 // startUi's resolveDistDir) - build it here, never rely on a leftover. The warning is only for
@@ -48,6 +51,7 @@ const result = await Bun.build({
   minify: true,
   target: "bun",
   compile,
+  define: buildVersion === undefined ? {} : { JINT_BUILD_VERSION: JSON.stringify(buildVersion) },
 });
 
 if (!result.success) {

@@ -59,6 +59,8 @@ jobs:
   build:
     name: Build
     uses: ./.github/workflows/build-binaries.yml
+    with:
+      beta: true
     secrets: inherit
 
   publish:
@@ -79,6 +81,8 @@ jobs:
           rm -rf /tmp/smoke && mkdir -p /tmp/smoke
           tar -xzf jint-linux-x64.tar.gz -C /tmp/smoke
           chmod +x /tmp/smoke/jint && /tmp/smoke/jint --version
+          # the binary names its build: beta-<sha6>, the directory this publish writes
+          test "$(/tmp/smoke/jint --version)" = "beta-${GITHUB_SHA:0:6}"
           sha256sum jint-*.tar.gz > checksums.txt && cat checksums.txt
           # the commit a beta was built from; the pointer download/beta/COMMIT holds it
           echo "$GITHUB_SHA" > COMMIT

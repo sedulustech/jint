@@ -52,6 +52,10 @@ import {
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import packageJson from "../package.json";
+
+/** Set at compile time by scripts/build.ts for a beta build (`beta-<sha6>`); absent everywhere else. */
+declare const JINT_BUILD_VERSION: string | undefined;
+const version = typeof JINT_BUILD_VERSION === "string" ? JINT_BUILD_VERSION : packageJson.version;
 import { catalog, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
@@ -744,7 +748,7 @@ function dispatch(cliArgv: string[]): Dispatch {
     return { exit: 0 };
   }
   if (cliArgs.version === true) {
-    process.stdout.write(`${packageJson.version}\n`);
+    process.stdout.write(`${version}\n`);
     return { exit: 0 };
   }
   // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
