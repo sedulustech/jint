@@ -4,8 +4,8 @@
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
  * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
- *   queries.scm census) and docs/directives.md (the loader's directive vocabulary and each embedded
- *   grammar's use of it): the prose around the markers is hand-written
+ *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
+ *   around the markers is hand-written
  *
  * Run after any config-schema, rule-domain, or skill change: bun run schema (wired into bun run
  * validate). Outputs are checked in so editors resolve "$schema" without running jint and docs stay
@@ -25,12 +25,7 @@ import { CONFIG_SCHEMA } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import { VERBS } from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
-import { knownLanguages } from "../packages/sdk/src/core/grammars/grammars.ts";
-import {
-  directiveVocabulary,
-  scmDirectives,
-  type DirectiveRow,
-} from "../packages/sdk/src/core/grammars/query.ts";
+import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
 import type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "@jint/contract";
 
 const GENERATION_NOTE =
@@ -679,17 +674,13 @@ export function renderTargetsTable(): string {
 }
 
 // --- docs/directives.md ----------------------------------------------------
-export function renderDirectivesTable(
-  rows: readonly DirectiveRow[],
-  usage: ReadonlyMap<string, readonly string[]>,
-): string {
+export function renderDirectivesTable(rows: readonly DirectiveRow[]): string {
   const escapePipes = (text: string) => text.replaceAll("|", "\\|");
   const lines = [
-    "| directive | values | what it does | declared in |",
-    "| --- | --- | --- | --- |",
+    "| directive | values | what it does |",
+    "| --- | --- | --- |",
     ...rows.map(
-      (row) =>
-        `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} | ${(usage.get(row.name) ?? ["—"]).join(", ")} |`,
+      (row) => `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} |`,
     ),
   ];
   return lines.join("\n") + "\n";
@@ -780,42 +771,6 @@ function outPath(root: string, rel: string): string {
   return path;
 }
 
-const embeddedDir = new URL("../packages/sdk/src/core/grammars/embedded/", import.meta.url)
-  .pathname;
-
-function readEmbeddedQueriesScm(language: string): string {
-  return readFileSync(embeddedDir + language + "/queries.scm", "utf8");
-}
-
-/** The directive reference row a #set! name belongs to, and the capture it names, if any. */
-function directiveRowOf(name: string): { row: string; capture?: string } {
-  const knob = name.match(/^capture\.([^.]+)\.(.+)$/);
-  return knob === null ? { row: name } : { row: `capture.<name>.${knob[2]}`, capture: knob[1] };
-}
-
-/** Per directive row: the embedded grammars declaring it, as "grammar" or "grammar (captures)". */
-function directiveUsageByGrammar(): Map<string, string[]> {
-  const capturesByGrammarByRow = new Map<string, Map<string, Set<string>>>();
-  for (const language of knownLanguages()) {
-    for (const directive of scmDirectives(readEmbeddedQueriesScm(language))) {
-      const { row, capture } = directiveRowOf(directive.name);
-      const byGrammar = capturesByGrammarByRow.get(row) ?? new Map<string, Set<string>>();
-      const captures = byGrammar.get(language) ?? new Set<string>();
-      if (capture !== undefined) captures.add(capture);
-      byGrammar.set(language, captures);
-      capturesByGrammarByRow.set(row, byGrammar);
-    }
-  }
-  const usage = new Map<string, string[]>();
-  for (const [row, byGrammar] of capturesByGrammarByRow) {
-    const grammars = [...byGrammar].map(([language, captures]) =>
-      captures.size === 0 ? language : `${language} (${[...captures].join(", ")})`,
-    );
-    usage.set(row, grammars);
-  }
-  return usage;
-}
-
 /**
  * Writes every generated output under `root` (the repo by default). A test passes a temp directory
  * so regenerating never rewrites the tracked files other processes may be reading. The formatter
@@ -883,7 +838,7 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
     spliceGenerated(
       readFileSync(REPO_ROOT + GENERATED_OUTPUTS[5]!, "utf8"),
       "directives",
-      renderDirectivesTable(directiveVocabulary(), directiveUsageByGrammar()),
+      renderDirectivesTable(directiveVocabulary()),
     ),
   );
   formatted.push(directivesOut);

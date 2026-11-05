@@ -143,18 +143,14 @@ describe("renderTargetsTable", () => {
 });
 
 describe("renderDirectivesTable", () => {
-  test("one row per directive: values escaped for the table, usage or a dash", () => {
-    const doc = renderDirectivesTable(
-      [
-        { name: "capture.<name>.merge", values: "contiguous | none", summary: "Runs merge." },
-        { name: "attach.gap", values: "a whole number", summary: "Blank rows." },
-      ],
-      new Map([["capture.<name>.merge", ["typescript (import)"]]]),
-    );
-    expect(doc).toContain(
-      "| `capture.<name>.merge` | contiguous \\| none | Runs merge. | typescript (import) |",
-    );
-    expect(doc).toContain("| `attach.gap` | a whole number | Blank rows. | — |");
+  test("one row per directive: name, values escaped for the table, what it does", () => {
+    const doc = renderDirectivesTable([
+      { name: "capture.<name>.merge", values: "contiguous | none", summary: "Runs merge." },
+      { name: "attach.gap", values: "a whole number", summary: "Blank rows." },
+    ]);
+    expect(doc).toContain("| `capture.<name>.merge` | contiguous \\| none | Runs merge. |");
+    expect(doc).toContain("| `attach.gap` | a whole number | Blank rows. |");
+    expect(doc).not.toContain("declared in");
   });
 });
 
