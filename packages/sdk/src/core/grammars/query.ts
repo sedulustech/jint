@@ -336,11 +336,7 @@ export function directiveVocabulary(): readonly DirectiveRow[] {
   const fileWide = Object.entries(DIRECTIVES).map(([name, d]) => ({
     name,
     values:
-      d.kind === "presence"
-        ? "no value"
-        : d.kind === "number"
-          ? "a whole number"
-          : d.values.join(" | "),
+      d.kind === "presence" ? "-" : d.kind === "number" ? "a whole number" : d.values.join(" | "),
     summary: d.summary,
   }));
   const perCapture = Object.entries(CAPTURE_KNOBS).map(([knob, k]) => ({

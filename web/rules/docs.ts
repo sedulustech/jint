@@ -65,9 +65,32 @@ export const has_extra_content: RuleSchema = {
   },
 };
 
+export const has_wordy_empty_cell: RuleSchema = {
+  name: "has_wordy_empty_cell",
+  kind: "noul",
+  target: "markdown:table",
+  include: ["**/*.md"],
+  exclude: ["designs/**"],
+  instructions:
+    "This unit is one markdown table. Does any cell say in words or symbols that it has no value, instead of holding a single hyphen (-)?",
+  criteria: {
+    true: "A cell stands for a missing or empty value but is written as something other than a single hyphen: the words none, n/a, no value or empty, a parenthesized (none), a dash such as an em dash, a blank cell, or a placeholder such as TBD.",
+    false:
+      "Every cell either holds a real value or holds a single hyphen for no value. A cell whose real value is the word none, such as an option or mode named none, is a value, not an empty cell.",
+  },
+  handle: {
+    warn: { greater_than: 0.4 },
+    error: {
+      greater_than: 0.7,
+      message: "Write a single hyphen (-) in a cell that has no value.",
+    },
+  },
+};
+
 /** Every rule of this set. */
 export const rules: readonly RuleSchema[] = [
   has_description_mismatch,
   has_second_subject,
   has_extra_content,
+  has_wordy_empty_cell,
 ];
