@@ -46,3 +46,10 @@ jint run src/a.ts@L58                # element whose span contains line 58: one 
 jint run src/a.ts@L40-80             # every element fully enclosed in the range
 jint run src/a.ts@L40-80 --rule is_function_srp
 ```
+
+## Pre-commit and CI
+
+jint is a CLI, so you can embed it in the part of the pipeline you find most suitable: CI or a pre-commit hook.
+A pre-commit hook is advised as it returns an action for the agent to take: the rule's handle gives a severity and
+a message that says what to do. An error fails the hook and sets the exit code, so the agent has
+to act on it before the work goes through.

@@ -17,7 +17,7 @@
   },
   {
     "label": "Running jint",
-    "items": ["config", "pre-commit-and-ci", "answer-cache"]
+    "items": ["config", "answer-cache"]
   },
   {
     "label": "Use cases",
