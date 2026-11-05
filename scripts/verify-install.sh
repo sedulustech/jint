@@ -41,8 +41,8 @@ else
   done
 fi
 
-# the running tarball (linux-x64) is used as-is; the others get a stub member so
-# the final --version exec works on a linux host (checksums regenerated to match)
+# the running tarball (linux-x64) is used as-is, unless STAGE_STUBS stubs it too; the others get a
+# stub member so the final --version exec works on a linux host (checksums regenerated to match)
 stub=$work/stub-jint
 printf '#!/bin/sh\necho "stub 0.0.0"\n' > "$stub"
 chmod +x "$stub"

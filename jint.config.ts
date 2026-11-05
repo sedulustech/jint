@@ -91,6 +91,37 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
+// has_comment_mismatch: a comment that states something the code in the same file contradicts,
+// first seen when install.sh's header still described GitHub releases after the code fetched the
+// site. Target files, because the comments targets measure only comments a definition owns: a
+// file header is a loose comment, so no comments rule ever saw it. Calibrated on bash only (the
+// two-language bar in AGENTS.md has not been met, so NOT in an official domain), with the rule
+// scoped to .sh until a second language is measured: healthy 0.03 and 0.29 (the two repo scripts,
+// fixed), defective 0.98 (the stale header) and 0.64 (a stub comment gone stale in
+// verify-install.sh), and 1 fire in 10 real scripts (0.79, a trailing comment naming a GUI the
+// call runs without). The error bar sits at 0.9 so only a blatant contradiction errors.
+const has_comment_mismatch: RuleSchema = {
+  name: "has_comment_mismatch",
+  kind: "noul",
+  target: "files",
+  instructions:
+    "This unit is one source file. Does any comment in this file state something about what the code does, where it reads from, or how it is used, that the code in this same file contradicts?",
+  criteria: {
+    true: "At least one comment makes a claim the code in this file contradicts: it names a source, destination, default, option, command or behavior that the code does not have or has changed - a header describing an old download location, a usage line for a flag the code no longer reads, a doc comment promising a return the body never makes. A comment that is merely vague, narrates the obvious, or is out of date about something the file does not show is not a contradiction.",
+    false:
+      "Every comment is consistent with the code: what it claims about behavior, defaults, options and usage is what the code does, or it makes no checkable claim about the code at all.",
+  },
+  include: ["**/*.sh"],
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.9,
+      message:
+        "A comment says something the code in this file contradicts: fix the comment or the code.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -99,7 +130,7 @@ export default defineConfig({
     // admits a file when this include OR any rule's include matches); every other md file
     // stays out by this exclude, and is_literal_shared needs no per-rule carve-out - it
     // rides the config door, which never admits md.
-    include: ["**/*.ts", "**/*.tsx", "**/*.css"],
+    include: ["**/*.ts", "**/*.tsx", "**/*.css", "**/*.sh"],
     exclude: ["**/*.md", "**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.lock"],
     use: [
       ...comments,
@@ -110,6 +141,7 @@ export default defineConfig({
       is_literal_shared,
       is_doc_stateful,
       is_headword_consistent,
+      has_comment_mismatch,
     ],
   },
 });
