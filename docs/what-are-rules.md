@@ -40,3 +40,48 @@ export default {
   },
 };
 ```
+
+## Scope
+
+A rule reads the files its scope allows. `rules.include` and `rules.exclude` set the default scope
+for every rule. A rule's own `include` and `exclude` replace it for that rule, and exclude always
+wins. A rule about React components, for example, can read only `**/*.tsx`. See
+[Configuration](config.md#scope).
+
+## Custom rules
+
+A declarative rule asks the same question of every element. When the question needs more context,
+write `classify(self, ctx)`. It runs once for each captured element and returns the instructions,
+the criteria and a `state`: anything you want the classifier to see, such as the element's source,
+its parent or its siblings.
+
+```ts
+import { defineConfig } from "jint:sdk";
+
+export default defineConfig({
+  rules: {
+    use: [
+      {
+        name: "is_method_in_its_class",
+        target: "methods",
+        classify: (self) => ({
+          instructions: "Does this method belong in the class that contains it?",
+          criteria: {
+            true: "The method works on what the class models.",
+            false: "The method does a different job from the one the class models.",
+          },
+          state: {
+            method: self.source,
+            class: self.parent?.source.split("\n")[0],
+          },
+        }),
+        handle: { warn: { less_than: 0.6 }, error: { less_than: 0.3 } },
+      },
+    ],
+  },
+});
+```
+
+On a Python class `Invoice`, the classifier reads `def total` as part of the invoice and
+`def send_email` as a different job. A declarative rule cannot see the class. See
+[Configuration](config.md#inline-custom-rules).
