@@ -29,6 +29,9 @@ import { Language, Parser, type Language as LanguageType } from "web-tree-sitter
 // ($bunfs) path inside the compiled binary — Bun.file reads both, one loader serves both modes.
 import treeSitterWasm from "web-tree-sitter/web-tree-sitter.wasm" with { type: "file" };
 import { InternalError, SetupError } from "../types.ts";
+import bashWasm from "./embedded/bash/bash.wasm" with { type: "file" };
+import bashExtensions from "./embedded/bash/extensions.json" with { type: "json" };
+import bashScm from "./embedded/bash/queries.scm" with { type: "text" };
 import cWasm from "./embedded/c/c.wasm" with { type: "file" };
 import cExtensions from "./embedded/c/extensions.json" with { type: "json" };
 import cScm from "./embedded/c/queries.scm" with { type: "text" };
@@ -142,6 +145,13 @@ export const EMBEDDED: GrammarRegistry = {
     extensions: cExtensions,
     wasmPath: cWasm,
     queries: cScm,
+    provenance: { source: "embedded" },
+  },
+  bash: {
+    language: "bash",
+    extensions: bashExtensions,
+    wasmPath: bashWasm,
+    queries: bashScm,
     provenance: { source: "embedded" },
   },
   css: {

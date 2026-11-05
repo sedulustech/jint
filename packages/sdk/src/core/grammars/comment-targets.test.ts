@@ -11,6 +11,7 @@ import { decompose } from "./walk.ts";
 // asserted explicitly rather than skipped.
 
 const SOURCES: Record<string, string> = {
+  bash: '# bash doc\nadd() {\n  # inline note\n  echo "$1"\n}\n\n# bash loose\n',
   c: "// c doc\nint add(int a, int b) {\n  // inline note\n  return a + b;\n}\n\n// c loose\n",
   cpp: "// cpp doc\nint add(int a, int b) {\n  // inline note\n  return a + b;\n}\n\n// cpp loose\n",
   css: "/* css doc, no definitions in css */\nbody { color: red; }\n\n/* css loose */\n",
@@ -24,7 +25,7 @@ const SOURCES: Record<string, string> = {
     "// ts doc\nexport function add(a: number): number {\n  // inline note\n  return a;\n}\n\n// ts loose\n",
 };
 
-describe("comment-target pair split across all nine grammars", () => {
+describe("comment-target pair split across all ten grammars", () => {
   test("every grammar is registered with a probe source", () => {
     expect(Object.keys(SOURCES).sort()).toEqual([...knownLanguages()].sort());
   });

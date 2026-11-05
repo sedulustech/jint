@@ -7,7 +7,7 @@ sidebar:
 
 # Grammars
 
-jint uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/index.html) to parse your code and embeds nine grammars in the binary.
+jint uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/index.html) to parse your code and embeds ten grammars in the binary.
 
 A grammar is a directory named for its id. It holds three files:
 
@@ -34,6 +34,7 @@ grammar. See [Bring your own grammar](byog.md).
 | `css`        | `.css`                              |
 | `markdown`   | `.md`                               |
 | `php`        | `.php`                              |
+| `bash`       | `.sh`, `.bash`                      |
 
 Both `c` and `cpp` claim `.h`. Registration order decides, and `cpp` serves it.
 
