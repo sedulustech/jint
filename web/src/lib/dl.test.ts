@@ -86,6 +86,30 @@ describe("serveObject", () => {
     expect(await res.text()).toBe("2345");
   });
 
+  test("a read with no Range header is a 200 even when the bucket reports a range", async () => {
+    const reports = bucketOf({
+      [key]: () => object(key, { range: { offset: 0, length: 10 } }),
+    });
+    const res = await serveObject(get(key), reports, key);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
+    expect(res.headers.get("content-length")).toBe("10");
+  });
+
+  test("HEAD is a 200 even when it sends a Range header", async () => {
+    const reports = bucketOf({
+      [key]: () => object(key, { range: { offset: 0, length: 4 } }),
+    });
+    const res = await serveObject(
+      get(key, { method: "HEAD", headers: { range: "bytes=0-3" } }),
+      reports,
+      key,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
+    expect(res.headers.get("content-length")).toBe("10");
+  });
+
   test("a met precondition is a 304 with no body", async () => {
     const cached = bucketOf({ [key]: () => object(key, { body: undefined }) });
     const res = await serveObject(get(key, { headers: { "if-none-match": '"abc"' } }), cached, key);

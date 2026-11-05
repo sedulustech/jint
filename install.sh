@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
-# Install the jint binary from GitHub releases.
+# Install the jint beta binary.
 #
-#   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
-#   curl -fsSL .../install.sh | VERSION=v1.2.3 bash   # pin to a release
+#   curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 #
-# VERSIONLESS by design: the script carries no version literal - it resolves
-# releases/latest/download/ (GitHub's permanent redirect to the newest published
-# release; drafts never resolve), verifies the sha256 against checksums.txt, and
-# installs the binary into ~/.local/bin.
+# jint is in beta, and the beta channel is the only one: the script downloads the build the
+# download page serves (https://jint.sh/dl/download/beta/), verifies its sha256 against
+# checksums.txt, and installs the binary into ~/.local/bin. The script carries no version.
 #
-# RELEASE_BASE is the test hook (defaults to https://github.com/sedulustech/jint/releases):
-# point it at a local file:// or http directory to stand in for GitHub releases.
-# URLs are built as ${RELEASE_BASE}/latest/download/... or, with VERSION pinned,
-# ${RELEASE_BASE}/download/${VERSION}/...
+# RELEASE_BASE is the test hook (defaults to https://jint.sh/dl): point it at a local file:// or
+# http directory that holds download/beta/ to stand in for the site.
 
 set -euo pipefail
 
@@ -21,11 +17,9 @@ usage() {
 jint installer
 
 Usage:
-  curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
-  curl -fsSL .../install.sh | VERSION=v1.2.3 bash    # pin to a release (env on the bash side of the pipe)
+  curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 
-Environment:
-  VERSION    release tag to install (default: latest)
+Installs the jint beta build from https://jint.sh/dl/download/beta/ into ~/.local/bin.
 EOF
 }
 
@@ -46,12 +40,7 @@ main() {
     -h|--help) usage; return 0 ;;
   esac
 
-  local base="${RELEASE_BASE:-https://github.com/sedulustech/jint/releases}"
-  if [ -n "${VERSION:-}" ]; then
-    base="${base}/download/${VERSION}"
-  else
-    base="${base}/latest/download"
-  fi
+  local base="${RELEASE_BASE:-https://jint.sh/dl}/download/beta"
 
   # tmp is deliberately NOT local: the EXIT trap (below) still needs it after main returns
   local tarball bin_dir

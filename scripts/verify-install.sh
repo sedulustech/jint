@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # One-off verification of install.sh - run after touching it or before a release.
 #
-#   scripts/verify-install.sh [tag]                    # stages from GitHub (default: latest)
-#   RELEASE_STAGE=dir scripts/verify-install.sh tag    # stages from a local directory
+#   scripts/verify-install.sh                          # stages the beta build from https://jint.sh/dl
+#   RELEASE_STAGE=dir scripts/verify-install.sh        # stages from a local directory
 #
-# Stages the release tarballs + checksums behind a local http server (stand-in for
-# GitHub releases), then drives install.sh through every branch: happy path,
+# Stages the beta tarballs + checksums behind a local http server (stand-in for the site's
+# download/beta/), then drives install.sh through every branch: happy path,
 # wget-only PATH, tampered tarball, darwin x64 selection, Rosetta translation,
 # musl rejection, broken/missing ldd, --help. Non-running tarballs (arm64, darwin)
 # are re-tarred with a stub `jint` member so each branch completes on a linux host.
@@ -13,24 +13,23 @@
 
 set -euo pipefail
 
-REPO=${GITHUB_REPOSITORY_OVERRIDE:-sedulustech/jint}
+SITE=${SITE_OVERRIDE:-https://jint.sh/dl}
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 INSTALL="$SCRIPT_DIR/../install.sh"
-TAG=${1:-latest}
 
 work=$(mktemp -d)
 SERVER_PID=""
 trap 'kill $SERVER_PID 2>/dev/null || true; rm -rf "$work"' EXIT
-stage="$work/download/$TAG"
-mkdir -p "$stage" "$work/latest/download"
+stage="$work/download/beta"
+mkdir -p "$stage"
 
 if [ -n "${RELEASE_STAGE:-}" ]; then
   echo "staging from $RELEASE_STAGE"
   cp "$RELEASE_STAGE"/* "$stage/"
 else
-  echo "staging $TAG from github.com/$REPO"
+  echo "staging the beta build from $SITE"
   for f in jint-linux-x64.tar.gz jint-linux-arm64.tar.gz jint-darwin-x64.tar.gz jint-darwin-arm64.tar.gz checksums.txt; do
-    url="https://github.com/$REPO/releases/download/$TAG/$f"
+    url="$SITE/download/beta/$f"
     curl -fsSL "$url" -o "$stage/$f" || { echo "FAIL: cannot stage $f ($url)"; exit 1; }
   done
 fi
@@ -45,7 +44,6 @@ for t in linux-arm64 darwin-x64 darwin-arm64; do
   tar -czf "$stage/jint-$t.tar.gz" -C "$retar" jint
 done
 (cd "$stage" && sha256sum *.tar.gz > checksums.txt)
-cp "$stage"/* "$work/latest/download/"
 
 # stub-bin trees that steer install.sh's platform/libc detection:
 # real tools first (symlinks), then stubs overwrite what a branch needs
@@ -86,7 +84,7 @@ pass=0; fail=0
 run() { # run <name> <want-exit> <want-grep|-> <path-dir> [extra env VAR=val...]
   local name=$1 want=$2 pattern=$3 dir=$4; shift 4
   local out code
-  out=$(env -i HOME="$HOME_OVERRIDE" RELEASE_BASE="$BASE" VERSION="$TAG" PATH="$work/$dir" "$@" bash "$INSTALL" 2>&1) && code=0 || code=$?
+  out=$(env -i HOME="$HOME_OVERRIDE" RELEASE_BASE="$BASE" PATH="$work/$dir" "$@" bash "$INSTALL" 2>&1) && code=0 || code=$?
   if [ "$code" = "$want" ] && { [ "$pattern" = - ] || echo "$out" | grep -q "$pattern"; }; then
     echo "PASS $name"; pass=$((pass+1))
   else

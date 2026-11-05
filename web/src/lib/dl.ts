@@ -46,10 +46,16 @@ export async function serveObject(
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
   }
+  // Only a GET that sends a Range header is a range request. R2 reports a range on any read it was
+  // handed the request headers for, so a plain GET, and every HEAD, would otherwise answer 206.
+  const wantsRange = request.method === "GET" && request.headers.has("range");
   const object =
     request.method === "HEAD"
       ? await bucket.head(key)
-      : await bucket.get(key, { range: request.headers, onlyIf: request.headers });
+      : await bucket.get(key, {
+          range: wantsRange ? request.headers : undefined,
+          onlyIf: request.headers,
+        });
   if (object === null) return new Response("not found", { status: 404 });
 
   const headers = new Headers();
@@ -58,12 +64,13 @@ export async function serveObject(
   headers.set("accept-ranges", "bytes");
   headers.set("content-type", contentType(key));
   headers.set("cache-control", isMoving(key) ? LATEST : IMMUTABLE);
-  headers.set("content-length", String(object.range?.length ?? object.size));
+  const range = wantsRange ? object.range : undefined;
+  headers.set("content-length", String(range?.length ?? object.size));
   if (key.endsWith(".tar.gz")) {
     headers.set("content-disposition", `attachment; filename="${key.split("/").pop()}"`);
   }
-  if (object.range !== undefined) {
-    const { offset, length } = object.range;
+  if (range !== undefined) {
+    const { offset, length } = range;
     headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
   }
   // an unmet precondition returns the object without a body: the client's copy is current
@@ -72,7 +79,7 @@ export async function serveObject(
     return new Response(null, { status: 304, headers });
   }
   return new Response(request.method === "HEAD" ? null : object.body, {
-    status: object.range !== undefined ? 206 : 200,
+    status: range !== undefined ? 206 : 200,
     headers,
   });
 }

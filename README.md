@@ -31,14 +31,10 @@ npx @sedulus/jint@rc --version
 Or through an install script:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 ```
 
-You can also set a specific version:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/main/install.sh | VERSION=v1.2.3 bash
-```
+The script installs the beta build, the only channel for now, and checks it against its checksums.
 
 To build from source, see [Development](#development).
 
