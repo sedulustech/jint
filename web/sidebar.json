@@ -28,7 +28,8 @@
     "items": [
       "use-cases/react/always-name-effects",
       "use-cases/css/use-palette-colors",
-      "use-cases/docs/keep-use-cases-short"
+      "use-cases/docs/keep-use-cases-short",
+      "use-cases/bash/keep-comments-true"
     ]
   }
 ]
