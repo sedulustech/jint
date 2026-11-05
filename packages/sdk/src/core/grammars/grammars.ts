@@ -44,6 +44,9 @@ import cssScm from "./embedded/css/queries.scm" with { type: "text" };
 import goExtensions from "./embedded/go/extensions.json" with { type: "json" };
 import goWasm from "./embedded/go/go.wasm" with { type: "file" };
 import goScm from "./embedded/go/queries.scm" with { type: "text" };
+import jsonExtensions from "./embedded/json/extensions.json" with { type: "json" };
+import jsonWasm from "./embedded/json/json.wasm" with { type: "file" };
+import jsonScm from "./embedded/json/queries.scm" with { type: "text" };
 import markdownExtensions from "./embedded/markdown/extensions.json" with { type: "json" };
 import markdownWasm from "./embedded/markdown/markdown.wasm" with { type: "file" };
 import markdownScm from "./embedded/markdown/queries.scm" with { type: "text" };
@@ -159,6 +162,13 @@ export const EMBEDDED: GrammarRegistry = {
     extensions: cssExtensions,
     wasmPath: cssWasm,
     queries: cssScm,
+    provenance: { source: "embedded" },
+  },
+  json: {
+    language: "json",
+    extensions: jsonExtensions,
+    wasmPath: jsonWasm,
+    queries: jsonScm,
     provenance: { source: "embedded" },
   },
 };

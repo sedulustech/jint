@@ -7,7 +7,7 @@ sidebar:
 
 # Grammars
 
-jint uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/index.html) to parse your code and embeds ten grammars in the binary.
+jint uses [tree-sitter](https://tree-sitter.github.io/tree-sitter/index.html) to parse your code and embeds the grammars listed below in the binary.
 
 A grammar is a directory named for its id. It holds three files:
 
@@ -23,22 +23,27 @@ grammar. See [Bring your own grammar](byog.md).
 
 ## Embedded grammars
 
+<!-- generated:grammars — do not edit. Regenerate with `bun run schema`. -->
+
 | grammar      | extensions                          |
 | ------------ | ----------------------------------- |
 | `typescript` | `.ts`, `.mts`, `.cts`               |
 | `tsx`        | `.tsx`                              |
 | `python`     | `.py`                               |
-| `go`         | `.go`                               |
-| `c`          | `.c`, `.h`                          |
-| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` |
-| `css`        | `.css`                              |
 | `markdown`   | `.md`                               |
 | `php`        | `.php`                              |
+| `go`         | `.go`                               |
+| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.h` |
+| `c`          | `.c`, `.h`                          |
 | `bash`       | `.sh`, `.bash`                      |
+| `css`        | `.css`                              |
+| `json`       | `.json`, `.jsonc`                   |
+
+<!-- /generated:grammars -->
 
 Both `c` and `cpp` claim `.h`. Registration order decides, and `cpp` serves it.
 
-`css` captures comments only, because the code captures have no honest reading of css.
+`css` captures comments only, because the code captures have no honest reading of css. `json` is the same: data has no functions or types, so the grammar exists to route `.json` files to `files` rules.
 
 ## Walk
 

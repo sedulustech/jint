@@ -25,6 +25,7 @@ import { CONFIG_SCHEMA } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import { VERBS } from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
 import type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "@jint/contract";
 
@@ -39,6 +40,7 @@ export const GENERATED_OUTPUTS = [
   "docs/targets.md",
   "docs/directives.md",
   "docs/config.md",
+  "docs/grammars.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -677,6 +679,19 @@ export function renderTargetsTable(): string {
 export function renderDirectivesTable(rows: readonly DirectiveRow[]): string {
   const escapePipes = (text: string) => text.replaceAll("|", "\\|");
   const lines = [
+// --- docs/grammars.md ------------------------------------------------------
+/**
+ * The embedded grammars, one row each in registration order (the order that settles a shared
+ * extension).
+ */
+export function renderGrammarsTable(): string {
+  const rows = Object.values(EMBEDDED).map((entry) => {
+    const extensions = entry.extensions.map((e) => "`." + e.replace(/^\./, "") + "`").join(", ");
+    return `| \`${entry.language}\` | ${extensions} |`;
+  });
+  return ["| grammar | extensions |", "| --- | --- |", ...rows].join("\n");
+}
+
     "| directive | values | what it does |",
     "| --- | --- | --- |",
     ...rows.map(
@@ -859,3 +874,15 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
 }
 
 if (import.meta.main) writeGeneratedOutputs(process.argv[2]);
+
+  const grammarsOut = outPath(root, GENERATED_OUTPUTS[7]!);
+  writeFileSync(
+    grammarsOut,
+    spliceGenerated(
+      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[7]!, "utf8"),
+      "grammars",
+      renderGrammarsTable(),
+    ),
+  );
+  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), grammarsOut], { cwd: REPO_ROOT });
+  process.stdout.write("wrote " + grammarsOut + "\n");

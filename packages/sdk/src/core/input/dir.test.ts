@@ -42,7 +42,7 @@ describe("walkDir", () => {
 
   test("non-source files yield raw units: measured or covered by lint, never dropped here", async () => {
     const paths = await collect("tests/fixtures/sample-dir");
-    expect(paths).toContain("data.json"); // unmapped extension: a unit, lint decides its fate
+    expect(paths).toContain("data.toml"); // unmapped extension: a unit, lint decides its fate
     expect(paths).toContain("README.md"); // unmapped extension
     expect(paths).toContain("Makefile"); // extensionless
     expect(paths).toContain("good.ts"); // sources unaffected
@@ -56,7 +56,7 @@ describe("walkDir", () => {
 
   test("config exclude patterns prune on top of defaults", async () => {
     const paths = await collect("tests/fixtures/sample-dir", ["**/more.ts"]);
-    expect(paths).toEqual(["Makefile", "README.md", "data.json", "good.ts"]);
+    expect(paths).toEqual(["Makefile", "README.md", "data.toml", "good.ts"]);
   });
 
   test("the input accounting: every scope counts, first-match attribution per glob", async () => {

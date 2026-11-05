@@ -1198,7 +1198,7 @@ describe("lint", () => {
         "good.ts",
         "Makefile",
         "README.md",
-        "data.json",
+        "data.toml",
         ...[...inputs].filter((i) => i.includes("#")),
       ]),
     );
@@ -1212,11 +1212,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css · not parsed (no grammar): (extensionless), .json",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc · not parsed (no grammar): (extensionless), .toml",
     );
   });
 
@@ -1225,7 +1225,7 @@ describe("lint", () => {
       lint({
         config: {
           ...baseConfig,
-          input: "tests/fixtures/sample-dir/data.json",
+          input: "tests/fixtures/sample-dir/data.toml",
           inputType: "file",
           rules: [probeFiles],
         },
@@ -1253,11 +1253,11 @@ describe("lint", () => {
       (e): e is Extract<LintEvent, { type: "note" }> =>
         e.type === "note" &&
         e.note.startsWith(
-          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css",
+          "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc",
         ),
     );
     expect(coverage?.note).toBe(
-      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css · not parsed (no grammar): (extensionless), .json",
+      "parsing ts, mts, cts, tsx, py, md, php, go, cpp, cc, cxx, hpp, h, c, sh, bash, css, json, jsonc · not parsed (no grammar): (extensionless), .toml",
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
   });

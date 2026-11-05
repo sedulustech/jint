@@ -5,7 +5,7 @@ import { fileUnit } from "./file.ts";
 
 describe("fileUnit (explicit --file path)", () => {
   test("file with no grammar -> MISSING_GRAMMAR setup error, not silence", async () => {
-    const thrown = await fileUnit("tests/fixtures/sample-dir/data.json").then(
+    const thrown = await fileUnit("tests/fixtures/sample-dir/data.toml").then(
       () => null,
       (e) => e,
     );

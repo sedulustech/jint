@@ -98,7 +98,7 @@ describe("capture() e2e — the exported sdk surface", () => {
   test("a dir with files no grammar claims succeeds: elements from the claimable, one event per skip", async () => {
     const dir = setup("sweep", {
       "a.md": DOC,
-      "data.json": '{"a":1}\n',
+      "data.toml": "a = 1\n",
       Makefile: "all:\n\techo hi\n",
     });
     const skips: { file: string; extension: string }[] = [];
@@ -109,7 +109,7 @@ describe("capture() e2e — the exported sdk surface", () => {
     // file + extension token, no aggregate, no parsed list
     expect(skips).toEqual([
       { file: "Makefile", extension: "(extensionless)" },
-      { file: "data.json", extension: ".json" },
+      { file: "data.toml", extension: ".toml" },
     ]);
   });
 

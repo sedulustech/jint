@@ -136,7 +136,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
   test("a DIR survives files no grammar claims: ONE onSkip event per file, no aggregate", async () => {
     const dir = scratch("mixed-claim", {
       "a.md": MARKDOWN,
-      "data.json": '{"a":1}\n',
+      "data.toml": "a = 1\n",
       Makefile: "all:\n\techo hi\n",
     });
     const skips: { file: string; extension: string }[] = [];
@@ -147,7 +147,7 @@ describe("capture (verb) - extraction with the classifier unplugged", () => {
     // nothing parsed, nothing folded - the caller owns aggregation (the CLI folds)
     expect(skips).toEqual([
       { file: "Makefile", extension: "(extensionless)" },
-      { file: "data.json", extension: ".json" },
+      { file: "data.toml", extension: ".toml" },
     ]);
     // a fully claimable dir reports nothing - the events are signal about skips, not noise
     const clean = scratch("clean-claim", { "a.md": MARKDOWN });
