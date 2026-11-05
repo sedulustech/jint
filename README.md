@@ -222,6 +222,7 @@ Rules are grouped by domain, one package each, imported as `jint:rules/<domain>`
 - `complexity`: cognitive complexity, single responsibility.
 - `errors`: error handling that loses its cause.
 - `naming`: vocabulary, casing, greppability, file names that match their bodies.
+- `security`: a secret or personal value in plain text in a json, toml or yaml file.
 
 A domain exports each rule under its own name and the whole domain as `rules`.
 A technology is a domain too (`typescript`, `react`), and a domain may nest subdomains (`comments/typescript`).

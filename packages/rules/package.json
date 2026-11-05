@@ -12,6 +12,7 @@
     "@jint/rules-complexity": "workspace:*",
     "@jint/rules-errors": "workspace:*",
     "@jint/rules-naming": "workspace:*",
-    "@jint/rules-react": "workspace:*"
+    "@jint/rules-react": "workspace:*",
+    "@jint/rules-security": "workspace:*"
   }
 }

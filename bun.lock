@@ -86,6 +86,7 @@
         "@jint/rules-errors": "workspace:*",
         "@jint/rules-naming": "workspace:*",
         "@jint/rules-react": "workspace:*",
+        "@jint/rules-security": "workspace:*",
       },
     },
     "packages/rules/comments": {
@@ -118,6 +119,13 @@
     },
     "packages/rules/react": {
       "name": "@jint/rules-react",
+      "version": "0.1.0",
+      "dependencies": {
+        "@jint/contract": "workspace:*",
+      },
+    },
+    "packages/rules/security": {
+      "name": "@jint/rules-security",
       "version": "0.1.0",
       "dependencies": {
         "@jint/contract": "workspace:*",
@@ -433,6 +441,8 @@
     "@jint/rules-naming": ["@jint/rules-naming@workspace:packages/rules/naming"],
 
     "@jint/rules-react": ["@jint/rules-react@workspace:packages/rules/react"],
+
+    "@jint/rules-security": ["@jint/rules-security@workspace:packages/rules/security"],
 
     "@jint/sdk": ["@jint/sdk@workspace:packages/sdk"],
 

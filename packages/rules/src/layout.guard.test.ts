@@ -149,8 +149,8 @@ describe("packages/rules layout", () => {
   });
 
   test("a directory with no package is reported", async () => {
-    const problems = await problemsAfter((r) => mkdirSync(join(r, "security")));
-    expect(problems).toContain("security: no package.json");
+    const problems = await problemsAfter((r) => mkdirSync(join(r, "billing")));
+    expect(problems).toContain("billing: no package.json");
   });
 
   test("a stray file beside the domains is reported", async () => {

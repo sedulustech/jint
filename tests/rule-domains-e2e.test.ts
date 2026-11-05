@@ -27,7 +27,7 @@ describe("rule domains: what a run needs", () => {
     const r = await runCli(["run", "a.ts"], { cwd: dir });
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("no jint config found");
-    for (const domain of ["comments", "complexity", "errors", "naming"]) {
+    for (const domain of ["comments", "complexity", "errors", "naming", "security"]) {
       expect(r.stderr).toContain(`jint:rules/${domain}: `);
     }
     expect(r.stderr).toContain("has_filename_mismatch");
