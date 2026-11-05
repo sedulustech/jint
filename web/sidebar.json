@@ -1,7 +1,11 @@
 [
   {
     "label": "Start",
-    "items": ["what-is-jint", "install", "how-to-use"]
+    "items": ["what-is-jint", "replacing-code-reviews", "install"]
+  },
+  {
+    "label": "CLI",
+    "items": ["how-to-use"]
   },
   {
     "label": "Rules",
