@@ -259,18 +259,19 @@ export function scmCode(scm: string): string {
 const DIRECTIVES = {
   selfNesting: {
     kind: "presence",
-    summary: "Every capture's same-capture candidates nest (the grammar-wide form).",
+    summary:
+      "Nested nodes of a capture become elements of their own, for every capture. The file-wide form of `capture.<name>.selfNesting`.",
   },
   "attach.gap": {
     kind: "number",
     summary:
-      "A comment run attaches to the next definition across at most this many blank rows; 0 means the capture takes no attached run. Default 1.",
+      "Rows a comment may end above a definition and still attach to it. 1 means directly above, 2 allows one blank row, 0 attaches nothing. Default 1.",
   },
   "docstring.owner": {
     kind: "enum",
     values: ["next", "enclosing"],
     summary:
-      "Who a docstring documents: the definition that follows it, or the one that contains it. Default enclosing.",
+      "Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it. Default `enclosing`.",
   },
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
@@ -300,26 +301,27 @@ const CAPTURE_KNOBS: Readonly<
   definition: {
     shape: "boolean",
     summary:
-      "The capture is an element rules can target. A grammar's own capture must declare it; shared captures are definitions by default.",
+      "Makes the capture an element a rule can target. Default true for function, method, class, type and binding; false for comment, import and docstring. A capture of your own must set this.",
   },
   opaque: {
     shape: "boolean",
     summary:
-      "A different-capture candidate strictly inside is implementation and produces no element.",
+      "Hides every other capture inside this one, so they produce no elements. Default true for function, method and binding; false for the rest.",
   },
   selfNesting: {
     shape: "boolean",
-    summary: "Same-capture candidates nest: a nested one is an element of its own.",
+    summary:
+      "A node nested in another of the same capture becomes an element of its own. Default false.",
   },
   absorbTail: {
     shape: "number",
     summary:
-      "The largest same-capture wrapper tail, in bytes, that still reads as one element (a trailing `;`).",
+      "Bytes a wrapper node may add after the capture, such as a final `;`, and still read as the same element. Default 2 for class, type and binding; otherwise 0.",
   },
   merge: {
     shape: MERGE_MODES,
     summary:
-      "A run of same-capture nodes is one element. contiguous: a blank row or another element ends the run; adjacent: only another element ends it; none: no merging.",
+      "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`.",
   },
 };
 
@@ -335,7 +337,7 @@ export function directiveVocabulary(): readonly DirectiveRow[] {
     name,
     values:
       d.kind === "presence"
-        ? "(none)"
+        ? "no value"
         : d.kind === "number"
           ? "a whole number"
           : d.values.join(" | "),
@@ -492,7 +494,7 @@ export function assertScmDirectives(scm: string, grammarId: string): void {
       if (!bound) {
         throw new SetupError(
           "CONFIG_INVALID",
-          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" rides a pattern that does not bind @${capture} - attach it to a pattern that does (a directive naming one capture while riding another's pattern is a silent retarget)`,
+          `grammar ${grammarId} queries.scm line ${directive.line}: directive "${directive.name}" is on a pattern that does not bind @${capture} - move it onto a pattern that does (a directive that names one capture on another capture's pattern silently retargets)`,
         );
       }
       const shape = CAPTURE_KNOBS[knob]!.shape;

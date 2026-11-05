@@ -236,7 +236,7 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     // pattern): a silent retarget the emitted check alone cannot catch
     const scm = "(x) @lane " + D("capture.chunk.definition", "true") + " (y) @chunk";
     expect(() => assertScmDirectives(scm, "g")).toThrow(
-      /rides a pattern that does not bind @chunk - attach it to a pattern that does/,
+      /is on a pattern that does not bind @chunk - move it onto a pattern that does/,
     );
     // the same directive, riding ITS OWN pattern, passes
     const ok = "(x) @chunk " + D("capture.chunk.definition", "true") + " (y) @lane";

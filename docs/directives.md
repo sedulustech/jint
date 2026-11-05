@@ -7,21 +7,27 @@ sidebar:
 
 # Grammar directives
 
-A directive rides a pattern in `queries.scm`: `(pattern) @capture (#set! "<name>" "<value>")`.
-One name, one setting per file. A `capture.<name>.*` directive must ride a pattern that binds
-`@<name>`. A directive not listed here fails at load. See [captures](captures.md).
+A directive is a `#set!` line in a grammar's `queries.scm` that changes how a capture behaves.
+Write it inside the pattern it applies to:
+
+```scheme
+(pattern) @capture (#set! "<name>" "<value>")
+```
+
+A `capture.<name>.*` directive must sit on a pattern that binds `@<name>`. Set each name once per
+file. A directive not in the table fails at load. See [captures](captures.md).
 
 <!-- generated:directives — do not edit. Regenerate with `bun run schema`. -->
 
-| directive                    | values                         | what it does                                                                                                                                                   |
-| ---------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `selfNesting`                | (none)                         | Every capture's same-capture candidates nest (the grammar-wide form).                                                                                          |
-| `attach.gap`                 | a whole number                 | A comment run attaches to the next definition across at most this many blank rows; 0 means the capture takes no attached run. Default 1.                       |
-| `docstring.owner`            | next \| enclosing              | Who a docstring documents: the definition that follows it, or the one that contains it. Default enclosing.                                                     |
-| `capture.<name>.definition`  | true \| false                  | The capture is an element rules can target. A grammar's own capture must declare it; shared captures are definitions by default.                               |
-| `capture.<name>.opaque`      | true \| false                  | A different-capture candidate strictly inside is implementation and produces no element.                                                                       |
-| `capture.<name>.selfNesting` | true \| false                  | Same-capture candidates nest: a nested one is an element of its own.                                                                                           |
-| `capture.<name>.absorbTail`  | a whole number                 | The largest same-capture wrapper tail, in bytes, that still reads as one element (a trailing `;`).                                                             |
-| `capture.<name>.merge`       | contiguous \| adjacent \| none | A run of same-capture nodes is one element. contiguous: a blank row or another element ends the run; adjacent: only another element ends it; none: no merging. |
+| directive                    | values                         | what it does                                                                                                                                                                                                                          |
+| ---------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `selfNesting`                | no value                       | Nested nodes of a capture become elements of their own, for every capture. The file-wide form of `capture.<name>.selfNesting`.                                                                                                        |
+| `attach.gap`                 | a whole number                 | Rows a comment may end above a definition and still attach to it. 1 means directly above, 2 allows one blank row, 0 attaches nothing. Default 1.                                                                                      |
+| `docstring.owner`            | next \| enclosing              | Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it. Default `enclosing`.                                                                                                            |
+| `capture.<name>.definition`  | true \| false                  | Makes the capture an element a rule can target. Default true for function, method, class, type and binding; false for comment, import and docstring. A capture of your own must set this.                                             |
+| `capture.<name>.opaque`      | true \| false                  | Hides every other capture inside this one, so they produce no elements. Default true for function, method and binding; false for the rest.                                                                                            |
+| `capture.<name>.selfNesting` | true \| false                  | A node nested in another of the same capture becomes an element of its own. Default false.                                                                                                                                            |
+| `capture.<name>.absorbTail`  | a whole number                 | Bytes a wrapper node may add after the capture, such as a final `;`, and still read as the same element. Default 2 for class, type and binding; otherwise 0.                                                                          |
+| `capture.<name>.merge`       | contiguous \| adjacent \| none | Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`. |
 
 <!-- /generated:directives -->
