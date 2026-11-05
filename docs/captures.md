@@ -54,9 +54,10 @@ jint capture main.py --queries extra.scm
 ```
 
 To use it in a run, put the grammar where jint looks for grammars: `$JINT_GRAMMAR_DIR/python/`,
-by default `~/.jint/grammars/python/`. It holds the grammar's `python.wasm`, its `extensions.json`
-and the edited `queries.scm`. A user grammar wins over the embedded one of the same id, and a rule
-targets the new capture as `python:statement_group`. See [BYOG](byog.md).
+by default `~/.jint/grammars/python/`. It holds the grammar's `extensions.json` and the edited
+`queries.scm`. The embedded grammar's parser is reused. Your `queries.scm` replaces the embedded one
+whole, which is why you start from a copy. A rule targets the new capture as
+`python:statement_group`. See [BYOG](byog.md).
 
 Other directives shape the element: `opaque`, `merge` and `selfNesting`. See
 [directives](directives.md).

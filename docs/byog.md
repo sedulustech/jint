@@ -20,12 +20,11 @@ A grammar is one directory under `$JINT_GRAMMAR_DIR`, default `~/.jint/grammars`
 is the grammar id. It holds three files:
 
 - `<id>.wasm` is the compiled grammar. Build it with `tree-sitter generate && tree-sitter build
---wasm`. Its export must be `tree_sitter_<id>`.
+--wasm`. Its export must be `tree_sitter_<id>`. Leave it out for an embedded id, such as `python`,
+  and your `queries.scm` replaces the embedded one while the embedded parser is reused.
 - `extensions.json` is a bare JSON array of dot-prefixed extensions, such as `[".v", ".sv"]`.
 - `queries.scm` holds the patterns that assign [captures](captures.md) and the `#set!`
   [directives](directives.md).
-
-A grammar of an embedded id, such as `python`, wins over the embedded one.
 
 ## Captures
 
