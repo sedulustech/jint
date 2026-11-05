@@ -168,18 +168,6 @@ export const CONFIG_SCHEMA = Type.Object({
   // legitimately lint secret-shaped files (e.g. .env.example): list the exceptions.
   secretDenylist: Type.Optional(Type.Array(Type.String())),
   disable: Type.Optional(Type.Array(Type.String())),
-  apiKey: Type.Optional(
-    Type.String({
-      description:
-        "The API key. Precedence: this, else $JINT_API_KEY, else $OPENAI_API_KEY (which only opens the default url). Never written to a run record.",
-    }),
-  ),
-  url: Type.Optional(
-    Type.String({
-      description:
-        "The Decisions endpoint the questions are posted to; it must end in /decisions. Precedence: this, else $JINT_API_URL, else the url the exported key opens (https://api.openai.com/v1/decisions for $OPENAI_API_KEY).",
-    }),
-  ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
   // cross-field checks so the error names the field.
   concurrency: Type.Optional(
@@ -207,9 +195,6 @@ export interface ResolvedConfig {
   readonly exclude: readonly string[];
   /** The walk's secret-shaped denylist (config override; default = the built-in denylist). */
   readonly secretDenylist?: readonly string[];
-  readonly apiKey?: string;
-  /** The Decisions endpoint asked; absent: $JINT_API_URL, then the url the exported key opens. */
-  readonly url?: string;
   /** In-flight classifier-call ceiling (the wall-clock knob; default 16, max 64). */
   readonly concurrency?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes PROVIDER_TIMEOUT. */
@@ -482,6 +467,13 @@ function rejectRetiredShapes(raw: unknown, source: string): void {
       `invalid config ${source}: rules is now an object - write rules: { use: [...] }; its include/exclude are the default scope of every rule`,
     );
   }
+  const endpoint = ["apiKey", "url"].filter((key) => key in (raw as object));
+  if (endpoint.length > 0) {
+    throw new SetupError(
+      "CONFIG_INVALID",
+      `invalid config ${source}: ${endpoint.join(" and ")}: not config keys, because a config is committed - export JINT_API_KEY and JINT_API_URL (or OPENAI_API_KEY) instead`,
+    );
+  }
   const retired = ["include", "exclude"].filter((key) => key in (raw as object));
   if (retired.length === 0) return;
   throw new SetupError(
@@ -539,8 +531,6 @@ export function validateConfig(
     include: string[];
     exclude: string[];
     secretDenylist?: string[];
-    apiKey?: string;
-    url?: string;
     concurrency?: number;
     timeout?: number;
     warnings?: string[];
@@ -553,8 +543,6 @@ export function validateConfig(
   };
   if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
   if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
-  if (parsed.apiKey !== undefined) resolved.apiKey = parsed.apiKey;
-  if (parsed.url !== undefined) resolved.url = parsed.url;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,

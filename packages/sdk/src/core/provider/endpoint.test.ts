@@ -41,10 +41,10 @@ describe("resolveEndpoint: the key you export picks the destination", () => {
     expect(r.unusable).toMatch(/JINT_API_KEY is set but no url.*JINT_API_URL/);
   });
 
-  test("neither key: no usable key, naming both variables and the config key", () => {
+  test("neither key: no usable key, naming both variables", () => {
     const r = resolveEndpoint({}, {});
     expect(r).toMatchObject({ url: DEFAULT_URL, apiKey: undefined, notes: [] });
-    expect(r.unusable).toMatch(/JINT_API_KEY or OPENAI_API_KEY.*apiKey/);
+    expect(r.unusable).toBe("no API key set - export JINT_API_KEY or OPENAI_API_KEY");
   });
 
   test("an empty variable is unset", () => {
@@ -53,8 +53,8 @@ describe("resolveEndpoint: the key you export picks the destination", () => {
   });
 });
 
-describe("resolveEndpoint: config overrides the run", () => {
-  test("config apiKey beats every environment key and asks the default url without one", () => {
+describe("resolveEndpoint: a caller of the SDK overrides the run", () => {
+  test("a passed apiKey beats every environment key and asks the default url without one", () => {
     const env = { JINT_API_KEY: "j", OPENAI_API_KEY: "o", JINT_API_URL: JINT };
     expect(resolveEndpoint({ apiKey: "cfg" }, env)).toMatchObject({ url: JINT, apiKey: "cfg" });
     expect(resolveEndpoint({ apiKey: "cfg" }, {})).toMatchObject({
@@ -64,7 +64,7 @@ describe("resolveEndpoint: config overrides the run", () => {
     expect(resolveEndpoint({ apiKey: "" }, {}).apiKey).toBeUndefined();
   });
 
-  test("config url beats JINT_API_URL; the key still has to be paired with it", () => {
+  test("a passed url beats JINT_API_URL; the key still has to be paired with it", () => {
     const env = { JINT_API_KEY: "j", JINT_API_URL: JINT };
     expect(resolveEndpoint({ url: "https://cfg.test/y/decisions" }, env).url).toBe(
       "https://cfg.test/y/decisions",
@@ -118,7 +118,9 @@ describe("assertEndpointKey", () => {
         thrown = e;
       }
       expect(thrown).toBeInstanceOf(SetupError);
-      expect((thrown as SetupError).message).toMatch(/JINT_API_KEY or OPENAI_API_KEY.*apiKey/);
+      expect((thrown as SetupError).message).toBe(
+        "no API key set - export JINT_API_KEY or OPENAI_API_KEY",
+      );
       expect(() => assertEndpointKey({ apiKey: "k" })).not.toThrow();
     } finally {
       process.env = saved;

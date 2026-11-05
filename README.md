@@ -79,7 +79,7 @@ paired with: `OPENAI_API_KEY` goes to api.openai.com and nowhere else, so pointi
 `JINT_API_URL` elsewhere without `JINT_API_KEY` fails at setup instead of sending your OpenAI key
 to another host. With neither key set, a run with rules fails at setup.
 
-Config `url` and `apiKey` override the environment for one run. The url must end in `/decisions`.
+The url must end in `/decisions`. A config holds neither a key nor a url, because a config is committed.
 A run that moves the url off the default, or reads its key from the environment, says so in a run
 note (variable name and url host, never the key).
 

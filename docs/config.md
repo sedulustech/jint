@@ -23,14 +23,11 @@ The declarative tier is plain data. Nothing in it executes. Its schema is
   name is an error unless the later entry sets `override: true`. `include` and `exclude` are the
   default scope.
 - `disable`: rule names to remove after composition.
-- `concurrency`, `rps_budget`, `timeout`: the in-flight ceiling, the request-start budget and the
-  per-call timeout.
-- `url`: the Decisions endpoint. It must end in `/decisions` and overrides `JINT_API_URL`.
-- `apiKey`: the key for this run. It overrides `JINT_API_KEY` and `OPENAI_API_KEY`. Keep it out of a
-  committed config.
+- `concurrency`, `timeout`: the in-flight ceiling and the per-call timeout.
 
-Without `url` and `apiKey`, the key you export picks the endpoint. `OPENAI_API_KEY` asks the
-default url. `JINT_API_KEY` asks `JINT_API_URL`.
+A config holds no key and no url, because a config is committed. The key you export picks the
+endpoint. `OPENAI_API_KEY` asks the default url. `JINT_API_KEY` asks `JINT_API_URL`, which must end
+in `/decisions`. A config that sets `apiKey` or `url` is an error.
 
 ## Rules
 

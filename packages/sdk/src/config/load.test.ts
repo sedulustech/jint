@@ -440,15 +440,15 @@ describe("validateConfig / catalogConfig", () => {
     expect(() => config({ concurrency: 65 })).toThrow(/concurrency: must be <= 64/);
   });
 
-  test("url loads; a wrong-typed url is rejected", () => {
+  test("a config that sets apiKey or url is rejected, naming the variables to export instead", () => {
     const config = (overrides: Record<string, unknown>) =>
       validateConfig(
         { input: "x", rules: { use: ["is_greppable"] }, ...overrides },
         "inline",
         catalog,
       );
-    expect(config({ url: "http://x/v1/decisions", apiKey: "k" }).url).toBe("http://x/v1/decisions");
-    expect(() => config({ url: 3 })).toThrow();
+    expect(() => config({ apiKey: "k" })).toThrow(/apiKey: not config keys.*JINT_API_KEY/);
+    expect(() => config({ url: "http://x/v1/decisions" })).toThrow(/url: not config keys/);
   });
 
   test("per-rule scoping: validation names rule+field; full cancellation warns, never errors", () => {

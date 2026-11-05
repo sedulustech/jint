@@ -271,7 +271,7 @@ function assertInputSelected(
 }
 
 function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
-  if (ruleCount > 0 && options.classifier === undefined) assertEndpointKey(options.config);
+  if (ruleCount > 0 && options.classifier === undefined) assertEndpointKey();
 }
 
 /**
@@ -299,8 +299,6 @@ function pacedClassifier(
   const classifier =
     injected ??
     createClassifier({
-      apiKey: options.config.apiKey,
-      url: options.config.url,
       log: options.log,
       cache: options.cache,
     });
@@ -367,7 +365,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   assertApiKeyForRules(rules.length + customRules.length, options);
   // An override of the url or key is visible, never silent (names only, no key value).
   if (options.classifier === undefined && rules.length + customRules.length > 0) {
-    for (const note of resolveEndpoint(options.config).notes) yield { type: "note", note };
+    for (const note of resolveEndpoint().notes) yield { type: "note", note };
   }
   const knobs = resolveRunKnobs(options);
   const classifier = pacedClassifier(options, knobs);

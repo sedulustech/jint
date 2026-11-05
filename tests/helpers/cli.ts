@@ -64,8 +64,7 @@ function childEnv(extra?: Record<string, string | undefined>): Record<string, st
 
 /**
  * The env for a run answered by a Decisions mock at `baseUrl` (startMockDecisions, or a dead
- * address): its url and a throwaway key, through the same env overrides a user has. A config's own
- * `url` or `apiKey` still wins over them.
+ * address): its url and a throwaway key, through the same env overrides a user has.
  */
 export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
   JINT_API_URL: `${baseUrl}/v1/decisions`,

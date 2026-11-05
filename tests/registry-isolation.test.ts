@@ -92,7 +92,6 @@ describe("custom registration is a value per call - the impossible leak", () => 
       join(dir, "jint.config.json"),
       JSON.stringify({
         input: "doc.md",
-        apiKey: "test-key",
         rules: {
           use: [
             {

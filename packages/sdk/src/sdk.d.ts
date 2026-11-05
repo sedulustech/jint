@@ -121,8 +121,6 @@ declare module "jint:sdk" {
       readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
     };
     readonly disable?: readonly string[];
-    readonly apiKey?: string;
-    readonly url?: string;
     readonly concurrency?: number;
     readonly timeout?: number;
   }

@@ -138,8 +138,6 @@ export interface TsConfig {
     readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
   };
   readonly disable?: readonly string[];
-  readonly apiKey?: string;
-  readonly url?: string;
   readonly concurrency?: number;
   readonly timeout?: number;
 }
@@ -361,8 +359,6 @@ const CONFIG_KEYS: ReadonlySet<string> = new Set([
   "inputType",
   "rules",
   "disable",
-  "apiKey",
-  "url",
   "concurrency",
   "timeout",
 ]);

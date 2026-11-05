@@ -1058,7 +1058,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
     // anywhere, the run aborts anyway - surface it before the rubric block so the one
     // actionable line is never buried under it.
     if (effective.length + (resolvedConfig.customRules?.length ?? 0) > 0) {
-      assertEndpointKey(resolvedConfig);
+      assertEndpointKey();
     }
     printRunHeader(run);
     return await runLint(run);

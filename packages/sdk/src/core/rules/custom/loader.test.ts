@@ -197,7 +197,6 @@ describe("defineConfig validation (author-time, fatal)", () => {
       rules: { include: ["**/*.ts"], exclude: ["**/*.test.ts"], use: [] },
 
       disable: ["is_greppable"],
-      apiKey: "k",
       concurrency: 8,
       timeout: 30,
     });

@@ -3,9 +3,11 @@
  * it. The key you export picks the destination, and a key only ever goes to the host it is paired
  * with: a run never sends one service's key to another service's url.
  *
- * Selection (config > environment), an empty variable is unset:
+ * Selection, an empty variable is unset. A config file names neither: a key does not belong in a
+ * file that gets committed. A caller of the SDK may pass both to `createClassifier`, which then
+ * win.
  *
- * - Config `apiKey` / `url` win for the run; a config key with no url asks DEFAULT_URL.
+ * - A caller's `apiKey` / `url` win for the run; a key with no url asks DEFAULT_URL.
  * - Else the first DESTINATIONS row whose key variable is set picks the key (and its own url);
  *   $JINT_API_URL moves the url, and then only a row without a fixed url (the Jint row) may send.
  */
@@ -93,7 +95,7 @@ export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.
   const chosen = DESTINATIONS.find((d) => fromEnv(env, d.keyVar) !== undefined);
   if (chosen === undefined) {
     const url = urlOverride ?? DEFAULT_URL;
-    const unusable = `no API key set - export ${keyVars} (override per run: --config with apiKey)`;
+    const unusable = `no API key set - export ${keyVars}`;
     return { url, apiKey: undefined, unusable, notes: notes(url) };
   }
   const url = urlOverride ?? chosen.url ?? DEFAULT_URL;
@@ -104,20 +106,18 @@ export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.
     notes: notes(url),
   });
   if (chosen.url === undefined && urlOverride === undefined) {
-    return withheld(
-      `${chosen.keyVar} is set but no url - set ${URL_VAR} (or config url) to the endpoint it opens`,
-    );
+    return withheld(`${chosen.keyVar} is set but no url - set ${URL_VAR} to the endpoint it opens`);
   }
   if (chosen.url !== undefined && url !== chosen.url) {
     return withheld(
-      `${URL_VAR} or config url points at ${urlHost(url)}, and ${chosen.keyVar} only goes to ${urlHost(chosen.url)} - set JINT_API_KEY for this url`,
+      `${URL_VAR} points at ${urlHost(url)}, and ${chosen.keyVar} only goes to ${urlHost(chosen.url)} - set JINT_API_KEY for this url`,
     );
   }
   return { url, apiKey: fromEnv(env, chosen.keyVar), notes: notes(url, chosen.keyVar) };
 }
 
 /** Fails the run at setup when it has no usable key. */
-export function assertEndpointKey(choice: EndpointChoice): void {
+export function assertEndpointKey(choice: EndpointChoice = {}): void {
   const { apiKey, unusable } = resolveEndpoint(choice);
   if (apiKey === undefined) throw new SetupError("CONFIG_INVALID", unusable!);
 }
