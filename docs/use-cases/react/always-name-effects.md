@@ -1,11 +1,11 @@
 ---
-title: "Use case: always name React effects"
+title: "Always name React effects"
 description: "A rule from a team convention: every React effect gets a function named for what it does. What the rule does, why it matters, and the rule."
 sidebar:
   label: Always name effects
 ---
 
-# Use case: always name React effects
+# Always name React effects
 
 `is_effect_named` flags a `useEffect` whose function is anonymous or named for nothing.
 

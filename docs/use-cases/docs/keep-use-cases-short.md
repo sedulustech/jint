@@ -1,11 +1,11 @@
 ---
-title: "Use case: keep use cases short"
+title: "Keep use cases short"
 description: "A rule that reviews this site's own docs: a use case says what the rule does in one sentence and shows the rule."
 sidebar:
   label: Keep use cases short
 ---
 
-# Use case: keep use cases short
+# Keep use cases short
 
 `has_extra_content` flags a use-case or example page that says more than one sentence before the rule.
 

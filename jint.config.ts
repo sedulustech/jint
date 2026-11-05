@@ -122,6 +122,34 @@ const is_comment_contradictory: RuleSchema = {
   },
 };
 
+// is_comment_stateful: a comment that reads true only today - now, currently, no longer, a date, a
+// review, the old X. Target comments, so a reading names the definition to rewrite. Calibrated on
+// TypeScript only (the two-language bar in AGENTS.md has not been met, so NOT in an official
+// domain; scoped to .ts/.tsx): 10 of 170 definitions fire (0.52 to 1.0) over seven core files as
+// they stood before their comments were stripped, and all 10 carry a date, a review id, a retired
+// name or a "was/old" history. No healthy unit crossed 0.5 (next highest 0.44).
+const is_comment_stateful: RuleSchema = {
+  name: "is_comment_stateful",
+  kind: "noul",
+  target: "comments",
+  instructions:
+    "Does any comment in this unit depend on when it is read? Judge only the comments, not the code.",
+  criteria: {
+    true: "At least one comment is stateful: it says now, currently, recently, no longer, used to, previously or we just, or it narrates history (a rename, a removed feature, a past bug, a review or a date, the old X) instead of what the code is. Read a year later, or by someone who never saw the change, it would be wrong or meaningless.",
+    false:
+      "Every comment is stateless: it says what the code does or why, in terms that hold at any time and need no memory of how the code got here.",
+  },
+  include: ["**/*.ts", "**/*.tsx"],
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.8,
+      message:
+        "Rewrite this comment so it reads the same at any time: no now, currently or no longer, no history of the change.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -142,6 +170,7 @@ export default defineConfig({
       is_doc_stateful,
       is_headword_consistent,
       is_comment_contradictory,
+      is_comment_stateful,
     ],
   },
 });

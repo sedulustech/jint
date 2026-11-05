@@ -29,7 +29,8 @@
       "use-cases/react/always-name-effects",
       "use-cases/css/use-palette-colors",
       "use-cases/docs/keep-use-cases-short",
-      "use-cases/bash/find-stale-comments"
+      "use-cases/bash/remove-stale-comments",
+      "use-cases/typescript/rewrite-stateful-comments"
     ]
   }
 ]

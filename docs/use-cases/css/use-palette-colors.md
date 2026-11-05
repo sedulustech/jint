@@ -1,11 +1,11 @@
 ---
-title: "Use case: use palette colors"
+title: "Use palette colors"
 description: "A rule that reviews this site's own styles: every color comes from a palette token, never a literal."
 sidebar:
   label: Use palette colors
 ---
 
-# Use case: use palette colors
+# Use palette colors
 
 `has_off_palette_color` flags a style rule that sets a color from a literal instead of a palette token.
 
