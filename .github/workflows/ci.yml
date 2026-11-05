@@ -21,6 +21,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  # install.sh against every branch it has (platform and libc detection, checksum failure, wget-only);
+  # stub binaries, a local server, no network: the script, not the binary, is what is under test
+  install-script:
+    name: install.sh
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Verify install.sh
+        run: STAGE_STUBS=1 bash scripts/verify-install.sh
+
   matrix-build:
     name: Build & Test (${{ matrix.os }} - Bun ${{ matrix.bun-version }})
     strategy:

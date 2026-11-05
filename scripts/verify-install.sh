@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# One-off verification of install.sh - run after touching it or before a release.
+# Verifies install.sh. CI runs it (the install-script job) on every change that is not inert;
+# run it by hand after touching install.sh too.
 #
+#   STAGE_STUBS=1 scripts/verify-install.sh            # stub binaries for all four platforms (CI)
 #   scripts/verify-install.sh                          # stages the beta build from https://jint.sh/dl
 #   RELEASE_STAGE=dir scripts/verify-install.sh        # stages from a local directory
 #
 # Stages the beta tarballs + checksums + COMMIT pointer behind a local http server (stand-in for
-# the site's download/beta-<sha6>/ and download/beta/COMMIT), then drives install.sh through every branch: happy path,
-# wget-only PATH, tampered tarball, darwin x64 selection, Rosetta translation,
-# musl rejection, broken/missing ldd, --help. Non-running tarballs (arm64, darwin)
-# are re-tarred with a stub `jint` member so each branch completes on a linux host.
+# the site's download/beta-<sha6>/ and download/beta/COMMIT), then drives install.sh through every
+# branch: happy path, wget-only PATH, tampered tarball, darwin x64 selection, Rosetta translation,
+# musl rejection, broken/missing ldd, --help. Non-running tarballs (arm64, darwin) are re-tarred
+# with a stub `jint` member so each branch completes on a linux host; with STAGE_STUBS the linux
+# x64 one is a stub too, since install.sh never looks inside a tarball but to run --version.
 # Exits nonzero if any branch misbehaves.
 
 set -euo pipefail
@@ -25,7 +28,9 @@ stage="$work/download/beta-${COMMIT_SHA:0:6}"
 mkdir -p "$stage" "$work/download/beta"
 echo "$COMMIT_SHA" > "$work/download/beta/COMMIT"
 
-if [ -n "${RELEASE_STAGE:-}" ]; then
+if [ -n "${STAGE_STUBS:-}" ]; then
+  echo "staging stub binaries"
+elif [ -n "${RELEASE_STAGE:-}" ]; then
   echo "staging from $RELEASE_STAGE"
   cp "$RELEASE_STAGE"/*.tar.gz "$RELEASE_STAGE"/checksums.txt "$stage/"
 else
@@ -42,7 +47,9 @@ stub=$work/stub-jint
 printf '#!/bin/sh\necho "stub 0.0.0"\n' > "$stub"
 chmod +x "$stub"
 retar=$work/retar && mkdir -p "$retar" && cp "$stub" "$retar/jint"
-for t in linux-arm64 darwin-x64 darwin-arm64; do
+stubbed="linux-arm64 darwin-x64 darwin-arm64"
+[ -n "${STAGE_STUBS:-}" ] && stubbed="linux-x64 $stubbed"
+for t in $stubbed; do
   tar -czf "$stage/jint-$t.tar.gz" -C "$retar" jint
 done
 (cd "$stage" && sha256sum *.tar.gz > checksums.txt)
