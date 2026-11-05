@@ -22,8 +22,7 @@ tiers, `margin: 0.2` makes a top tier under 0.60 undecided.
 Undecided is not a severity. It says the reading does not decide, not how bad the code is. The
 response is to recalibrate the rule, not to act on the code. See [calibration](calibration.md).
 
-Set `margin` per rule. On the earlier classifier, the margin moved by 0.04 at p50, 0.12 at p90 and
-0.24 at p99 across reruns of one test.
+Set `margin` per rule, from how far that rule's readings move between reruns.
 
 ## The provider's confidence
 
@@ -35,13 +34,11 @@ returns none.
 
 ## CI
 
-An undecided reading must not fail a build, because its tier changes between runs. In 43 tier
-changes across nine runs, each change had an undecided reading on one side. A build that fails only
-on decided readings does not flake.
+An undecided reading must not fail a build, because its tier can change between runs. A tier
+change needs a near tie, and a near tie is an undecided reading. A build that fails only on decided
+readings does not flake.
 
 ## Limits
 
-- `margin: 0.2` is not fitted to labeled data. We chose it on two TypeScript corpora.
-- The measurements come from `jev-1.13.0`, which jint no longer asks. The default model is
-  `gpt-6-luna`, so recalibrate the margin on its readings.
+- `margin: 0.2` is an example, not a fitted value. Choose a margin per rule from its own reruns.
 - The classifier has no default threshold. Set one per question.
