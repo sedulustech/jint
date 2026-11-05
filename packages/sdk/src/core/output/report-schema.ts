@@ -69,7 +69,6 @@ const MEASUREMENT_BASE = {
   element: Type.Optional(ELEMENT_SCHEMA),
 };
 
-// A refused reading has no value: the model gave no answer, so the question did not apply.
 const REFUSED_MEASUREMENT_SCHEMA = Type.Object({
   ...MEASUREMENT_BASE,
   refused: Type.Literal(true),
@@ -79,12 +78,8 @@ export const MEASUREMENT_SCHEMA = Type.Union([
   Type.Object({
     ...MEASUREMENT_BASE,
     value: Type.Number(),
-    // Score and choice rules only: the distribution the value summarizes, per level or per option.
-    // Noul's probability IS the value — no separate distribution field.
     probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
-    // Score and choice rules only: the provider's own number (0-1); absent when it sent none.
     confidence: Type.Optional(Type.Number()),
-    // Choice rules only: the selected option's label; value is that option's probability.
     choice: Type.Optional(Type.String()),
   }),
   REFUSED_MEASUREMENT_SCHEMA,
@@ -182,9 +177,6 @@ export type Report = Static<typeof REPORT_SCHEMA>;
 
 // Type-level pin: the contract's plain interfaces and the wire schemas cannot drift — in EITHER
 // direction. Assignability both ways, so a field added on one side alone (e.g. wire-only
-// location, or a contract-only note) fails `bun run typecheck` here, where the schemas live —
-// not at the consumer boundary. (Assignability, not the Same<T> identity trick: the contract
-// interfaces are readonly, TypeBox Static is not, and identity treats that as drift.)
 const _pinMeasurement: readonly Measurement[] = [] as Static<typeof MEASUREMENT_SCHEMA>[];
 const _pinMeasurementWire: readonly Static<typeof MEASUREMENT_SCHEMA>[] = [] as Measurement[];
 const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];

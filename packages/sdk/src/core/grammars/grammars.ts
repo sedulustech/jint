@@ -9,8 +9,8 @@
  * never outlive the call that asked for it. A custom grammar dir ($JINT_GRAMMAR_DIR, default
  * ~/.jint/grammars) merges at lint start: a custom wasm wins over embedded for the same language,
  * and a queries.scm+extensions.json dir without a wasm shadows an embedded grammar (override
- * without a parse override). The registry is one line per grammar; the dirs stay pure data, so the
- * custom-grammar seam and the embedded grammars are the same shape.
+ * without a parse override). The dirs stay pure data, so the custom-grammar seam and the embedded
+ * grammars are the same shape.
  *
  * Grammar dir shape: <lang>.wasm - the tree-sitter grammar (absent: shadow an embedded grammar)
  * extensions.json - facts only: [".ts"] - queries.scm - tree-sitter query patterns assigning jint
@@ -86,7 +86,7 @@ export type GrammarRegistry = Readonly<Record<string, GrammarEntry>>;
 
 // ---------------------------------------------------------------------------
 // Embedded grammars: compiled-in registrations through the custom-facing shape.
-// One line per grammar; each embedded/<lang>/ dir owns its data. Static data: the immutable base
+// Each embedded/<lang>/ dir owns its data. Static data: the immutable base
 // every registry value starts from, and the default when a scope has no custom grammars.
 // ---------------------------------------------------------------------------
 
@@ -178,11 +178,6 @@ export function grammarsDir(): string {
     : join(homedir(), ".jint", "grammars");
 }
 
-/**
- * All languages a registry holds. The default is the embedded base — the static answer a caller
- * with no run in hand means (the CLI's --language gate, schema generation); run code passes the
- * registry it built.
- */
 export function knownLanguages(registry: GrammarRegistry = EMBEDDED): string[] {
   return Object.keys(registry);
 }
@@ -197,12 +192,6 @@ export function grammarExtensions(registry: GrammarRegistry): string[] {
   );
 }
 
-/**
- * Extension -> language routing. Collisions resolve by REGISTRATION ORDER, first wins, and the
- * registry lists files in the order the embedded table declares them - cpp precedes c, so .h routes
- * to cpp today. That is a policy choice, not a fact of the languages: it is recorded in the design
- * doc's open questions (grammar-loading: extension conflicts are silent-wins).
- */
 function extensionToLanguage(registry: GrammarRegistry): Record<string, string> {
   const map: Record<string, string> = {};
   for (const [language, entry] of Object.entries(registry)) {
@@ -213,7 +202,6 @@ function extensionToLanguage(registry: GrammarRegistry): Record<string, string> 
   return map;
 }
 
-/** The language for a path by the registry's registered extensions, or null when none claims it. */
 export function languageOf(registry: GrammarRegistry, path: string): string | null {
   const match = path.match(/\.([A-Za-z0-9]+)$/);
   return match ? (extensionToLanguage(registry)[match[1]!.toLowerCase()] ?? null) : null;
@@ -255,7 +243,6 @@ let initPromise: Promise<unknown> | null = null;
 const parsers = new Map<string, Promise<Parser>>();
 const languages = new Map<string, Promise<LanguageType>>();
 
-// The wasm engine initializes once for every grammar; parsers are cached per language.
 function engineReady(): Promise<unknown> {
   initPromise ??= Parser.init({
     // Bun quirk: Emscripten resolves the .wasm relative to the JS shim unless redirected.
@@ -349,11 +336,6 @@ export async function assertWasmMatchesDir(grammarId: string, wasmPath: string):
   }
 }
 
-/**
- * Read one custom grammar dir into a VALIDATED registry entry; loud on every artifact failure.
- * Returns the entry - the caller composes its registry value; nothing is stored, nothing global is
- * touched.
- */
 async function readCustomGrammar(
   grammarId: string,
   dir: string,
@@ -374,17 +356,9 @@ async function readCustomGrammar(
     );
   }
   const extensions = readExtensions(grammarId, await Bun.file(extensionsPath).text());
-  // queriesOptional = an explicit .scm override supplies extraction for THIS call; the dir's own
-  // queries.scm - present or not - is NOT read (it would be unused, and reading it unvalidated
-  // would license a bad .scm through the side path). The entry carries the empty marker; that
-  // marker can never be walked override-less, because the entry lives only in the registry value
-  // the call holding the override builds - the unwind is by construction (2026-10-19: the interim
-  // walker guard for the marker died with the mutable global it papered over).
   let queries = "";
   if (options.queriesOptional !== true && (await Bun.file(queriesPath).exists())) {
     queries = await Bun.file(queriesPath).text();
-    // an EMPTY .scm compiles clean and extracts nothing - the worst failure shape there is. Loud
-    // HERE, at the artifact read, where the dir's other artifact validations live.
     if (queries.trim() === "") {
       throw new SetupError(
         "CONFIG_INVALID",
@@ -395,7 +369,6 @@ async function readCustomGrammar(
   const wasmPath = join(dir, `${grammarId}.wasm`);
   const hasWasm = await Bun.file(wasmPath).exists();
   const embeddedEntry = EMBEDDED[grammarId];
-  // a queries.scm that starts with `; extends` adds to the embedded grammar's own queries
   if (isExtension(queries)) {
     queries = extendQueries(grammarId, queries, embeddedEntry?.queries ?? "");
   }
@@ -405,8 +378,6 @@ async function readCustomGrammar(
       `grammar ${grammarId}: no ${grammarId}.wasm in the dir and no embedded grammar of that name to shadow`,
     );
   }
-  // The wasm that will actually serve parses: the custom's when present, else the shadowed
-  // embedded asset. Either way the export must agree with the directory name.
   const servingWasmPath = hasWasm ? wasmPath : embeddedEntry!.wasmPath;
   await assertWasmMatchesDir(grammarId, servingWasmPath);
   return {

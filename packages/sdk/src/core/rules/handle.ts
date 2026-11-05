@@ -4,15 +4,13 @@
  * - ScoreHandler (score questions, graded criteria levels): { map } — one level per criterion,
  *   direction expressed by the map itself (high-bad: ["pass","pass","warn","error"]; high-good:
  *   ["error","warn","pass","pass"]).
- * - ChoiceHandler (choice questions, named options): { choices } — one tier per option label; the
- *   selected option's tier is the verdict.
+ * - ChoiceHandler (choice questions, named options): { choices } — one tier per option label.
  * - NoulHandler (noul questions, the claim probability P(true)): { warn?, error?, silent_band? }, at
  *   least one tier declared. Each tier carries one comparison operator on the raw value (the
  *   operator IS the defect pole). With both tiers, error is strictly narrower than warn.
  *   silent_band absent = everything surfaces (explicit, no engine default).
  *
- * Handlers are data, never code; compileHandle() is the only place data becomes function; every
- * other consumer — schema, defaults, loader — stays in data.
+ * Handlers are data, never code.
  */
 
 import { checkChoiceHandler, checkNoulHandler, type HandlerData } from "@jint/contract";
@@ -60,31 +58,21 @@ export function compileNoulHandler(data: NoulHandlerData): Handle {
   return (answer) => handleTier(answer.value, data);
 }
 
-/**
- * The single data -> function seam for score rules: the map indexes the score axis (0..N). The
- * fired tier's message (if the author wrote one) rides the outcome as the finding's note.
- */
 export function compileScoreHandler(data: ScoreHandlerData): Handle {
   return (answer) => {
-    // the provider bounds score to the criteria count, so an out-of-scale or NaN score is an impossible
-    // state, not a silent null - fail loud (InternalError: the wire contract broke, not the
-    // invocation), per repo convention (the contract evaluator alone would degrade to silent).
     const index = Math.round(answer.value);
     if (!Number.isInteger(index) || index < 0 || index >= data.map.length) {
       throw new InternalError(
         `score ${answer.value} is outside the criteria scale 0..${data.map.length - 1} - the classifier returned an out-of-bounds score`,
       );
     }
-    // the resolver owns the read; DEFAULT (and only) read is round-to-nearest-level; the fired
-    // tier's author message (if any) rides the outcome as the finding's note
     return resolveScoreTier(answer.value, answer.probabilities, data);
   };
 }
 
 /**
- * The single data -> function seam for choice rules: the selected option's label picks its tier. A
- * missing or unknown label is an impossible state (the request named every option) - fail loud,
- * like an out-of-scale score.
+ * The single data -> function seam for choice rules. A missing or unknown label is an impossible
+ * state (the request named every option) - fail loud, like an out-of-scale score.
  */
 export function compileChoiceHandler(data: ChoiceHandlerData): Handle {
   return (answer) => {

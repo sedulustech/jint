@@ -5,16 +5,6 @@ import { defineConfig } from "./schema.ts";
 let sdkRegistered = false;
 const registeredDomains = new Map<string, string[]>();
 
-/**
- * Registers the virtual modules: "jint:sdk" (the rule-author API) once per process, and one
- * "jint:rules/<domain>" per domain the entry point supplies (the DECLARATIVE specs - never compiled
- * Rule objects; design config-composition/03). A domain's key is its import path under jint:rules/,
- * so a nested domain registers as "comments/typescript". build.module intercepts before any disk
- * lookup, so these resolve inside compiled binaries too, and external users need no install. The
- * scheme specifier is the PORTABLE config-facing spelling; bare @jint/* stays a workspace package
- * form and is NOT intercepted - the design doc on config import specifiers records the
- * deliberation. Calls are cumulative: a domain registers once, the first time its key is supplied.
- */
 export function registerCustomRuleLoader(
   virtuals: { domains?: Readonly<Record<string, readonly unknown[]>> } = {},
 ): void {
@@ -39,8 +29,6 @@ export function registerCustomRuleLoader(
           loader: "object",
         }));
       }
-      // The surface mirrors the domain package: each rule under its own name (the pick-and-override
-      // consumption: { ...is_greppable, include: ["src/**"] }) plus the whole domain as `rules`.
       for (const [key, specs] of fresh) {
         build.module("jint:rules/" + key, () => ({
           exports: {

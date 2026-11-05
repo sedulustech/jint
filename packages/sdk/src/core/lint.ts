@@ -178,7 +178,6 @@ function scopeSkipReason(target: string, element: InventoryElement): string {
   return `is a ${element.capture}`;
 }
 
-/** The honest skip line: element identity, per-requested-rule mismatch, zero calls spent. */
 function scopeSkipNote(path: string, element: InventoryElement, rules: readonly Rule[]): string {
   const span = `L${element.span.start.line}-L${element.span.end.line}`;
   const mismatches = rules
@@ -311,39 +310,25 @@ function pacedClassifier(
 }
 
 export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  // The run's registry VALUE, built once here and threaded through every walk/query entry point:
-  // the grammar dir's customs merge over the embedded base (a custom wasm wins over embedded for
-  // the same id; an .scm + extensions.json dir without a wasm shadows an embedded grammar's
-  // extraction). The value dies with the run - nothing module-level remains to leak between runs.
-  // Scan coverage (loose files, unreadable dirs) surfaces as a note, like the dir-walk notes.
   const grammarNotes: string[] = [];
   const registry = await loadCustomGrammars(undefined, (note) => grammarNotes.push(note));
   for (const note of grammarNotes) {
     yield { type: "note", note };
   }
   assertTargetsAddressable(options.config, registry);
-  // The path list (changeset selection): read and parsed ONCE, before the input guard — the
-  // list IS the input when nothing else selected one.
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
   if (pathsList !== undefined && pathsList.length === 0) {
-    // Fail before the auth gate: an empty list is a caller mistake, not a billing problem.
     throw new SetupError("LIST_EMPTY", "the path list selected no files (empty list)");
   }
   const input: string | string[] | undefined = options.input ?? options.config.input;
   assertInputSelected(options, pathsList, input);
-  // Load-time scope warnings (a rule whose exclude cancels its include): in-band, never silent.
   for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
-  // Inline callback rules come from the config boundary, already validated (load-time duplicates
-  // and scopes are fatal there); lint only selects across both rule forms.
   const { json: rules, custom: customRules } = partitionRules(
     [...options.config.rules],
     options.config.customRules ?? [],
     options.disable,
     options.only,
   );
-  // A str unit has no element inventory: every callback target would resolve to zero elements and
-  // the run would complete silently empty. That combination is rejected at setup, not silently
-  // no-op'd ("no targets found" for the ENTIRE run is user-visible emptiness, not success).
   if (customRules.length > 0 && options.str !== undefined) {
     throw new SetupError(
       "CONFIG_INVALID",
@@ -351,28 +336,20 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
   }
   const scopedRules = scopeElementRules(rules, options);
-  // The report is self-describing about its rules: one digest per rule that ran (defaults +
-  // config-authored custom rules; handle null for callback policies - no declarative tiers).
   yield {
     type: "rules",
     rules: [...rules, ...customRules].map((rule) => ({
       name: rule.name,
-      // a custom callback rule is code policy: no declarative criteria or tier form to publish
       criteria: "criteria" in rule ? rule.criteria : null,
       handle: ("handleData" in rule ? rule.handleData : undefined) ?? null,
     })),
   };
   assertApiKeyForRules(rules.length + customRules.length, options);
-  // An override of the url or key is visible, never silent (names only, no key value).
   if (options.classifier === undefined && rules.length + customRules.length > 0) {
     for (const note of resolveEndpoint().notes) yield { type: "note", note };
   }
   const knobs = resolveRunKnobs(options);
   const classifier = pacedClassifier(options, knobs);
-  // The changeset selection: every listed path is the file's identity verbatim. Entries that
-  // resolve to no walked unit (missing, unreadable, non-source) are SIGNAL — a note names them
-  // below, never silence. Walk coverage notes (the secret-shaped denylist's one-note-per-class
-  // skips) surface here.
   const walkerNotes: string[] = [];
   const stats = inputStats();
   const admission = await resolveRunUnits(
@@ -386,16 +363,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     stats,
   );
   const units = admission.units;
-  // THE config-scope gate for rule selection: unscoped rules follow the config scope
-  // (include whitelist AND not excluded), so they measure exactly the files that scope admits -
-  // never files only a rule scope claimed. Scoped rules (include declared) follow their OWN
-  // include, claiming across the config exclude; the always-true inputs are str and the paths
-  // list only (no path semantics) - file operands and element scope evaluate the real predicate.
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
     ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
-  // The input accounting (run.input): how many files, and why not all measured. Emitted as an
-  // event so the report reads ONE source of truth; the human stderr line rides the
-  // notes channel (same doctrine as the denylist coverage notes) whenever anything was dropped.
   yield { type: "input", summary: stats.summary() };
   for (const line of renderInputSummary(stats.summary(), admission.scopes)) {
     yield { type: "note", note: line };
@@ -403,15 +372,12 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   for (const note of unwalkedListEntryNotes(pathsList, units)) {
     yield { type: "note", note };
   }
-  // the walk's denylist coverage notes (one per class), in walk order - signal, not silence
   for (const note of walkerNotes) {
     yield { type: "note", note };
   }
   const byName = new Map(scopedRules.map((s) => [s.name, s]));
   let aborted = false;
 
-  // WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any
-  // classification, taken only where a consumer exists.
   const { walked, skippedExtensions } = await walkedInventories(
     units,
     options,
@@ -420,20 +386,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     registry,
     inScopeFor,
   );
-  // Sweep coverage: unsupported extensions are expected — reported once, never an error. The
-  // union of what is parsed and what was seen-but-skipped is the run's honesty line.
   if (skippedExtensions.size > 0) {
     yield { type: "note", note: sweepCoverageNote(skippedExtensions, registry) };
   }
-  // Element-scope narrowing, right after the walk: the single file's inventory collapses to the
-  // selected element, so element jobs fan out to ONE classifier call.
   if (options.element !== undefined) {
     const w = walked.get(0);
     if (w === undefined)
       throw new SetupError("ELEMENT_NOT_FOUND", "cannot resolve element: file did not walk");
-    // Elements no scoped rule targets are skipped + named, never failed: the note says WHICH
-    // element, WHICH rules were requested, WHY nothing applies, and that no classifier call was
-    // spent - a scoped run that measured nothing must never read as a clean pass.
     const { selected, skipped } = selectScopedElements(w, options.element, scopedRules);
     for (const element of skipped) {
       yield { type: "note", note: scopeSkipNote(options.element.path, element, scopedRules) };
@@ -446,9 +405,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     });
   }
 
-  // custom-tier resolution ONCE per run over the completed walk, then the retention decision:
-  // content of files with zero selected targets is dropped (logical drop, no re-read) unless a
-  // files-target JSON rule needs every file's text.
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
     customResolved = resolveAllCustomTargets(customRules, elementsByPathOf(units, walked));
@@ -457,11 +413,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     }
   }
 
-  // readings and errors so far: a run that ends with none explains itself (below)
   let answered = 0;
 
-  // the JSON-rule waves: files classify in bounded waves, each wave's results streamed as they
-  // land (measurements before findings)
   for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
     const results = await Promise.all(
       units
@@ -489,8 +442,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     }
   }
 
-  // custom-tier classification runs after the JSON waves (one resolution, fan-out, policy once per
-  // rule); its findings stream at the end of the run, bound to each target's span.
   if (customResolved !== undefined && !aborted) {
     const phase = await runCustomRules(customRules, customResolved, classifier, () => aborted);
     for (const event of phase.events) {
@@ -611,7 +562,6 @@ function targetsFiles(target: Rule["target"]): boolean {
   return Array.isArray(target) ? target.includes("files") : target === "files";
 }
 
-/** Each walked unit's inventory by path: custom-target resolution over the completed walk. */
 function elementsByPathOf(
   units: readonly Unit[],
   walked: ReadonlyMap<number, WalkedUnit>,
@@ -624,10 +574,6 @@ function elementsByPathOf(
   return byPath;
 }
 
-/**
- * The retention decision: content of files with zero selected targets is dropped (logical drop, no
- * re-read) - every file's text stays only when a files-target JSON rule needs it.
- */
 function retainTargetedContent(
   units: Unit[],
   walked: ReadonlyMap<number, WalkedUnit>,

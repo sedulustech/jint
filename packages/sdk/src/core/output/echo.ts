@@ -66,7 +66,6 @@ export interface SelectedElement {
   readonly content: string;
 }
 
-/** The walk once, then anchor + range resolution: the picked elements per selector label. */
 function pickElements(
   selection: EchoSelection,
   inventory: readonly InventoryElement[],

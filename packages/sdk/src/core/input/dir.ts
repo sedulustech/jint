@@ -235,7 +235,6 @@ function flushDenyNotes(deny: DenyState): void {
   }
 }
 
-/** Walk one directory level: scope its gitignore rules, then classify and handle each entry. */
 async function* walkDirectory(
   absDir: string,
   relDir: string,
@@ -338,7 +337,6 @@ async function* descendIntoDirectory(
   );
 }
 
-/** One classified file unit, or null when a walker exclusion skips it. */
 async function readFileUnit(
   entry: Dirent,
   absolutePath: string,
@@ -351,19 +349,9 @@ async function readFileUnit(
   deny: DenyState,
   stats?: InputStats,
 ): Promise<Unit | null> {
-  // walker config, not classified code
   if (entry.name === GITIGNORE_FILENAME) return null;
-  // discovered: the walker opened this file's scopes - every drop below is accounted
   stats?.markDiscovered();
   const scopePath = pathPrefix === "" ? relativePath : `${pathPrefix}/${relativePath}`;
-  // WALK-UNION admission: a rule scope that matches the file CLAIMS JURISDICTION over it -
-  // even where the config exclude would drop it (the more specific scope wins; the denylist
-  // and gitignore scopes below are SAFETY scopes and never yield). Jurisdiction is independent of
-  // the config scope: a rule claims its file whether or not the config include also matches, so
-  // the claim test runs on the rule scopes alone. Attribution stays first-match (config first)
-  // EXCEPT where the claim SAVED the file from the exclude - then the saving scope owns it.
-  // the claim test is the rule-scope claim semantics inlined over the compiled scopes:
-  // include match AND the rule's own exclude does not subtract - one semantics, both consumers
   const claim = scopes.find((scope) => scope.claims(scopePath));
   const excludeMatch = firstExcludeMatch(excludeRules, scopePath, false);
   if (claim === undefined || excludeMatch === -1) {
@@ -378,7 +366,6 @@ async function readFileUnit(
     }
     stats?.tallyAdmit(admittingScope === null ? "config" : admittingScope.by);
   } else {
-    // the rule scope saved this file from the config exclude: it is the admitting scope
     stats?.tallyAdmit(claim.by);
   }
   if (isSecretShaped(relativePath, false, currentScopes, deny)) {
@@ -398,7 +385,6 @@ async function readFileUnit(
     stats?.tallySkip(SKIP_REASONS.binary);
     return null;
   }
-  // PEM content backstop: overrides even a re-admitting negation - the bytes are the secret
   if (sniff.startsWith(PEM_HEADER)) {
     stats?.tallySkip(SKIP_REASONS.denylist);
     deny.pem += 1;
@@ -447,7 +433,6 @@ async function ancestorGitignoreScopes(normalizedRoot: string): Promise<IgnoreSc
   }
   return scopes;
 }
-/** Push this directory's ignore rules (if any) as the deepest scope. */
 async function withGitignore(
   absDir: string,
   relDir: string,
@@ -458,7 +443,6 @@ async function withGitignore(
   try {
     text = await Bun.file(path).text();
   } catch {
-    // no .gitignore here — the catch-and-continue IS the not-present case
     return inheritedScopes;
   }
   const rules = parseGitignore(text);
@@ -576,7 +560,6 @@ export function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
   return false;
 }
 
-/** Index of the FIRST non-negated exclude rule matching (first-match attribution), -1 when none. */
 function firstExcludeMatch(
   rules: IgnoreRule[],
   relativePath: string,
@@ -587,7 +570,6 @@ function firstExcludeMatch(
   );
 }
 
-/** Compile one gitignore-flavored glob to an anchored RegExp over a relative path. */
 export function compilePattern(pattern: string): IgnoreRule {
   let glob = pattern.replace(/^\.\//, "");
   let dirOnly = false;

@@ -81,15 +81,9 @@ export function tsElementsOf(
   return inventory.filter((e) => e.oversized !== true).map(convert);
 }
 
-/**
- * One rule's resolved REQUEST: its slice plus how many requested elements scoping removed, or the
- * RULE_FAILED that replaced selection. scopedOut is SIGNAL (review 396888e finding 3): the custom
- * tier notes skipped elements at run level exactly like the JSON tier notes per unit.
- */
 export type ResolvedCustomTarget =
   | { targets: readonly CustomElement[]; scopedOut: number }
   | { error: ClassifyError };
-/** Resolution for every rule, in declared order. */
 export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 
 /**

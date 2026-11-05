@@ -59,14 +59,6 @@ export interface ClassifyOutcome {
   readonly oversized: readonly OversizedElement[];
 }
 
-/**
- * Classify one str against rules: unit-scoped rules judge the whole str in one call;
- * inventory-scoped rules have the inventory derived internally, the same derivation the file
- * pipeline uses, and judge each element in its own one-element call.
- *
- * Decompose failure (no language resolvable, unparseable) is an in-band WALK_FAILED ClassifyError
- * in errors — never thrown — and inventory is omitted; unit-scoped rules still classify.
- */
 export async function classify(
   str: string,
   rules: readonly Rule[],
@@ -80,11 +72,7 @@ export async function classify(
   const knobProblem = checkRunKnobs({ concurrency, timeout });
   if (knobProblem !== null) throw new SetupError("CONFIG_INVALID", knobProblem);
   const path = options.path ?? "input";
-  // classify() has no config scope, so its registry is the embedded base alone - the grammar-dir
-  // scan belongs to the config-aware seams, never this one-shot call's
   const registry = EMBEDDED;
-  // an element-target rule needs a parsed inventory; when neither the path nor the language
-  // option resolves a grammar there is none - fail at setup, never as a silent empty run
   if (
     options.language === undefined &&
     languageOf(registry, path) === null &&

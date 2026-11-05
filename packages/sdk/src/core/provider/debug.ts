@@ -13,11 +13,10 @@ import type { ClassifierConfig } from "./client.ts";
 
 /**
  * Every raw HTTP request/response pair is written as its own pretty-printed JSON file (ts, url,
- * request body, response status + body: the real exchange, nothing else), named
- * <unixts>-<kind>-<file>.json, under the run dir <base>/<runId>/ (base = $JINT_RUNS_DIR, else
- * <homedir>/.jint/runs; runId = unix timestamp of the run's start, bumped to the next free
- * millisecond when another run took it; past runs are never overwritten). The kind (elements /
- * files) is derived from the request's state shape.
+ * request body, response status + body), named <unixts>-<kind>-<file>.json, under the run dir
+ * <base>/<runId>/ (base = $JINT_RUNS_DIR, else <homedir>/.jint/runs; runId = unix timestamp of the
+ * run's start, bumped to the next free millisecond when another run took it; past runs are never
+ * overwritten). The kind (elements / files) is derived from the request's state shape.
  */
 /** What this run recorded. Null before the recorder starts (never in a run that classifies). */
 export interface RequestRecordSummary {
@@ -31,7 +30,6 @@ export interface RequestRecordSummary {
 let runSummary: RequestRecordSummary | null = null;
 let runStartedAt = 0;
 let usageTotals = { input: 0, output: 0, cached: 0 };
-/** The model the run sent (the reply's own once one arrives): readings differ between models. */
 let runModel: string | undefined;
 /** The url host the run asked (a host only: never a path, userinfo or key). */
 let runHost: string | undefined;
@@ -84,17 +82,8 @@ function asJson(text: string): unknown {
   }
 }
 
-/**
- * The call a request belongs to: the state's run-scoped id and what names its file. Set around each
- * ask, so the recording fetch beneath the client knows whose exchange it sees without the id
- * travelling to the provider.
- */
 export interface CallContext {
   id: string;
-  /**
-   * The question ids in the order the request names them (q0, q1, ...): the request holds only
-   * positions.
-   */
   questionIds: string[];
   path: string;
   kind: "elements" | "files";
@@ -211,11 +200,6 @@ export function recordRunManifest(manifest: {
   }
 }
 
-/**
- * Persist the run's machine report next to the requests: report.json, the EXACT bytes stdout --json
- * prints. Called by the CLI after rendering; a no-op before the recorder has started (never a
- * second write path, never a failure of the run it observes).
- */
 export function recordRunReport(json: string): void {
   if (runSummary === null) return;
   try {
@@ -312,7 +296,6 @@ export function recordRequests(
       const requestInit = init ?? {};
       const requestText = await new Request(input, requestInit).text();
       const responseText = await response.clone().text();
-      // The real exchange: the body sent and the body received, nothing else.
       const common = {
         ts: new Date().toISOString(),
         url: redactUrl(input),
@@ -342,8 +325,7 @@ export function recordRequests(
       writeRecordFile(dir, call, state, record);
       runSummary!.count += 1;
     } catch (err) {
-      // Recording never breaks the call it observes: the call's own bytes are still stored
-      // verbatim, so a failed write costs only the pretty-printed copy.
+      // Recording never breaks the call it observes.
       process.emitWarning(`jint: could not record a request in ${dir}: ${errorMessage(err)}`);
     }
     return response;

@@ -64,8 +64,6 @@ export interface StateSchema {
   readonly state: Record<string, unknown>;
 }
 
-/** The policy's data encoding (data tier, same typed shape as JSON noul rules). */
-// The declarative noul handle for custom rules: the contract's per-threshold operator form.
 export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
 /** One policy decision, positionally paired with the rule's results: what becomes a finding. */
@@ -352,7 +350,6 @@ export function defineConfig(config: TsConfig): TsConfig {
   return config;
 }
 
-/** The keys a TS config may carry: the config surface, minus the custom-rules tier. */
 const CONFIG_KEYS: ReadonlySet<string> = new Set([
   "$schema",
   "input",

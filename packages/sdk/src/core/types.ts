@@ -205,16 +205,9 @@ export interface ScoreRule extends RuleBase {
 /** The options of a choice rule: option label -> what selecting it means; at least two options. */
 export type ChoiceOptions = Readonly<Record<string, string>>;
 
-/**
- * A choice rule: the model selects one named option; the value is that option's probability (0..1)
- * and the verdict is the selected option's tier. Options are unordered - no averaging between
- * them.
- */
 export interface ChoiceRule extends RuleBase {
   readonly kind: "choice";
-  /** The named options; the question text lives in instructions. */
   readonly criteria: ChoiceOptions;
-  /** The question sentence, judged per unit; the compiler prepends the kind sentence to it. */
   readonly instructions: string;
 }
 
@@ -260,7 +253,6 @@ export interface Finding {
 
 /** Exact location of an element: line+col points and byte offsets into the source. */
 export type Span = import("@jint/contract").Span;
-/** The typed subject of a measurement: the closed element union. */
 export type Element = import("@jint/contract").Element;
 /**
  * An element's capture name: THE OPEN NAMESPACE - a shared capture (the lingua franca) or a
@@ -316,13 +308,6 @@ export interface Unit {
   readonly state: UnitState;
 }
 
-/**
- * The documented yes/no question; structurally compatible with the classifier's question shape —
- * the adapter owns the real vendor type. Instructions map unit ids to their task sentences
- * (criteria-as-rule: the rule lives in the criteria, not here); criteria describe what true and
- * false mean. Question ids (the record keys) are never sent to the model — they only correlate
- * answers.
- */
 export interface NoulQuestionSchema {
   readonly type: "noul";
   readonly instructions: string;
@@ -343,11 +328,6 @@ export interface ChoiceQuestionSchema {
 
 export type QuestionSchema = NoulQuestionSchema | ScoreQuestionSchema | ChoiceQuestionSchema;
 
-/**
- * Jint's reexport of the classifier's answer type for a rule: the raw answer, structurally the
- * vendor response shape — the TS policy callback's input, aligned with the rule's targets by index.
- * noul-only in v1.
- */
 export type NoulResult = { readonly type: "noul"; readonly noul: number };
 export type ScoreResult = { readonly type: "score"; readonly score: number };
 export type RuleResult = NoulResult | ScoreResult;
@@ -369,7 +349,6 @@ export interface Ask {
   readonly questions: Record<string, QuestionSchema>;
 }
 
-/** What a call used; `gateway_cost` rides along when the provider reports its charge. */
 export interface Usage {
   input_tokens: number;
   output_tokens: number;
@@ -377,7 +356,6 @@ export interface Usage {
   gateway_cost?: number;
 }
 
-/** What a provider answered: one answer per question name, keyed as asked. */
 export interface Asked {
   readonly answers: Record<
     string,

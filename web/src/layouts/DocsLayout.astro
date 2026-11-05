@@ -284,12 +284,18 @@ const jsonLd = [
     padding: var(--s2);
     border: 1px solid var(--rule);
     background: var(--code-bg);
-    font-size: 0.8rem;
+    font-size: var(--code-size);
     line-height: 1.6;
   }
 
   main code {
     font-size: 0.85em;
+  }
+
+  /* a block's or a table's own code is the block's size, not a smaller one inside it */
+  main pre code,
+  main table code {
+    font-size: inherit;
   }
 
   /* inline code takes the code block's background; a block's own <code> stays flat */
@@ -306,6 +312,7 @@ const jsonLd = [
     margin-block: 0 var(--s2);
     border-collapse: collapse;
     background: var(--code-bg);
+    font-size: var(--code-size);
   }
 
   main th,

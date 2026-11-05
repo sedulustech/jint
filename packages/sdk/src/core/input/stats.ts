@@ -108,7 +108,6 @@ export function inputStats(): InputStats {
   };
 }
 
-/** The skip reason strings (one home, no drift between walker and capture walk). */
 export const SKIP_REASONS = {
   notInInclude: "NOT_IN_INCLUDE",
   binary: "BINARY",

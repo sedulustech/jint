@@ -24,7 +24,6 @@ import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 export { fromDecisions, readAnswer, type DecisionsAnswer };
 import type { DecisionCreateParams } from "openai/resources/decisions";
 
-/** The model id the Decisions API requires in the body: one constant, not configuration. */
 export const MODEL = "gpt-6-luna";
 
 type Question = DecisionCreateParams["questions"][number];
@@ -84,7 +83,6 @@ function withoutOpenAIEnv<T>(build: () => T): T {
   }
 }
 
-/** The ClassifyError a failed call is, by the client's error type; a ClassifyError passes as is. */
 export function mapDecisionsError(e: unknown, input: string): ClassifyError {
   if (e instanceof ClassifyError) return e;
   if (e instanceof OpenAI.APIConnectionError) {
@@ -115,13 +113,6 @@ export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
   };
 }
 
-/**
- * The answer-cache key of one question: the hash of the request that question would be sent alone
- * (named q0, the state first) and the endpoint (urlIdentity: scheme, host and path). Whatever the
- * request carries moves the key; the position of the question among its element's others and the
- * API key do not. The Decisions API answers a question the same alone as in a batch
- * (docs/answer-cache.md), so one key per question is sound.
- */
 export function questionKey(
   endpoint: string,
   state: Ask["state"],

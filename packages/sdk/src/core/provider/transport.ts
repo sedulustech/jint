@@ -5,7 +5,6 @@
 
 import { ClassifyError } from "../types.ts";
 
-/** Per attempt, ms. */
 export const ATTEMPT_TIMEOUT_MS = 10_000;
 export const MAX_RETRIES = 2;
 
@@ -14,7 +13,6 @@ export interface Limits {
   maxRetries: number;
 }
 
-/** The ClassifyError for an HTTP failure status: auth, a rejected request, else unavailable. */
 export function statusError(
   status: number | undefined,
   message: string,

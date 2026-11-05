@@ -174,9 +174,6 @@ function outcomeFor(rule: string, input: string, answer: AskedAnswer): Measureme
 }
 
 function measurementFields(rule: string, input: string, answer: ClassifiedAnswer): Measurement {
-  // Direct optional properties: score and choice rules only (noul's probability IS the value - no
-  // separate distribution); choice also names the selected option. Consumers gate on
-  // !== undefined, identical for absent and present-undefined.
   return {
     rule,
     input,
@@ -302,24 +299,14 @@ export interface TargetableElement {
 export function matchesTarget(target: string, element: TargetableElement): boolean {
   if (element.oversized === true) return false;
   const isCommentElement = element.capture === "comment";
-  // "owns documentation" is about CONTENT, not field presence: every definition carries
-  // internalCommentCount (often 0) and attachedComment may be absent, so the check counts real
-  // comments - otherwise every bare definition would read as a comments match
   const ownsComments =
     (element.attachedComment?.length ?? 0) > 0 ||
     (element.internalCommentCount ?? 0) > 0 ||
     (element.docstringCount ?? 0) > 0;
   switch (target) {
     case "comments":
-      // the PAIR frame: a definition judged together with the comments it owns (attached run,
-      // internal notes, docstrings - the frame carries code + comment). Owned comment ELEMENTS
-      // never match separately - that would judge the same comment twice (narration fires once
-      // per documented definition).
       return ownsComments;
     case "loose-comments":
-      // the complement: a comment element NO definition owns (standalone runs, inline comments
-      // outside any definition, and the module docstring - no definition owns it either).
-      // Disjoint from comments and jointly exhaustive over comment text.
       return (
         isCommentElement &&
         (element.docstringOf === undefined || element.docstringOf.kind === "module")
@@ -335,9 +322,6 @@ export function matchesTarget(target: string, element: TargetableElement): boole
     case "bindings":
       return element.capture === "binding";
     case "definitions":
-      // the umbrella shorthand: the SHARED definition captures at once. New rules prefer the
-      // specific targets - the shorthand stays for old rules. Grammar-autonomous captures
-      // (markdown's @section) are NOT definitions: no code-calibrated default measures them.
       return (
         element.capture === "function" ||
         element.capture === "method" ||
@@ -348,14 +332,8 @@ export function matchesTarget(target: string, element: TargetableElement): boole
     case "imports":
       return element.capture === "import";
     case "files":
-      // whole-unit target: never element-addressable (explicit, not drift - files-target rules
-      // route through wholeUnitRules; this case only sees a validated target that slipped in)
       return false;
     default: {
-      // THE QUALIFIED CAPTURE ADDRESS (the direct-targeting road): {grammar}:{capture} grammar-scoped
-      // - the element must come from THAT grammar AND carry THAT capture. Validation is the loud
-      // gate (schema rejects bare unknowns; load rejects bad addresses), so an unknown name HERE
-      // is an invariant break, never a silent no-match.
       const qualified = target.match(/^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/);
       if (qualified === null) {
         throw new InternalError("unvalidated rule target reached the evaluator: " + target);
@@ -803,18 +781,6 @@ function oversizedElements(inventory: Inventory | undefined): OversizedElement[]
     .map((e) => ({ label: e.label, capture: e.capture, span: e.span, chars: e.content.length }));
 }
 
-/**
- * One pass over a unit, no candidacy: every measurement is a reading the rule's handle judges.
- *
- * No fallback: a file that maps to no elements yields no element classification and its
- * inventory-scoped rules fail with a per-unit walk error. Unit-scoped rules judge the unit itself;
- * their target never needed parsing.
- *
- * REGRESSION BAN — the state x question MATRIX form (array state with many questions) is banned: it
- * makes the judge answer every question from the file's average, not the element (readings pinned
- * 0.61-0.66 across 21 elements whose per-element readings spread 0.60-0.92). Hence ONE element per
- * call, all of that element's rules batched inside, elements fanned out by concurrency.
- */
 export async function classifyFile(
   unit: Unit,
   rules: readonly Rule[],
@@ -825,15 +791,8 @@ export async function classifyFile(
 ): Promise<ClassifyResult> {
   const state = unit.state;
   const events: ClassifyEvent[] = [];
-  // the walk-union gate for rules riding the config scope (absent = bypass input, admitted)
   const configAdmits = options.configAdmits ?? true;
 
-  // The FILE unit needs the same token backstop the elements have: file-scope rules send the
-  // whole content, and the provider rejects over-budget requests with a 400 (the only red errors in the
-  // verilator-cpp sweep). One constant serves both sides - a token is a token to the provider, and the
-  // criteria reserve the margin protects is the same shape for a files-rule batch as an element
-  // batch - so the file unit reuses the element cap rather than growing a second constant.
-  // Skips are a coverage note, never a 400; element rules still measure the file.
   const fileOversized =
     "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;
   const fileOversizedNote =
@@ -842,16 +801,10 @@ export async function classifyFile(
           `file too large for file-scope rules - ${state.content.length} chars over the ${MAX_ELEMENT_TOKENS}-token backstop`,
         ]
       : [];
-  // the oversized-file note rides the same channel as the other coverage notes; the file-scope
-  // call is skipped entirely - no request is ever attempted for an over-cap file unit
   if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events, configAdmits)))
     return { events, fatal: true, oversized: [], notes: [] };
 
-  // Walk-first: lint already walked every file unit; reuse verbatim. Without a passed-in walk
-  // (the one-shot call), walk now. Only file units stream the failure — a str unit has no
-  // grammar to fail on by construction.
   const walkedUnit = walked ?? (await walkUnit(unit, options));
-  // the walk is only load-bearing for inventory-scoped rules; files-tier units measure without it
   const needsInventory = rules.some(
     (rule) =>
       ruleInScope(rule, state.path) &&

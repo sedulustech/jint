@@ -41,10 +41,6 @@ export type CapturedElement = Element & {
   readonly matches?: true;
 };
 
-/**
- * Read the .scm override, loud on a blank path (quoted, never a double space) or an unreadable
- * file.
- */
 async function loadQueryFile(queryPath: string): Promise<string> {
   if (queryPath.trim() === "") {
     throw new SetupError(
@@ -86,34 +82,6 @@ function assertQueriesAuthoredFor(
   }
 }
 
-/**
- * Capture (verb) - run extraction over an input under a chosen grammar and query set, yielding
- * elements; the classifier stays unplugged. It is lint's pipeline with the classifier unplugged:
- * input resolution, grammar registration, walk, inventory - no rules, no provider, no config, no
- * handles. The CLI verb `jint capture` is a thin print of this function (one word, two layers: the
- * SDK function and the CLI verb share the name by design). The config-aware layer below wraps the
- * same walk: run's resolution seams, still no classifier.
- *
- * - TargetPath: a file or dir, through the SAME input resolution lint uses - no new input logic. An
- *   explicit FILE no grammar claims fails loud at resolution; a DIR's unclaimable files are skipped
- *   under lint's sweep-coverage policy, and each skip is ONE onSkip event carrying the file and its
- *   extension token - raw events, no aggregate (what parses is derivable from the returned
- *   elements; the caller folds the events into its own reporting).
- * - QueryPath: an .scm FILE that becomes the extraction source, ALWAYS through the full loud compile
- *   checks (vocabulary, #set! directives, pattern-order conflicts) plus the cross-grammar guard
- *   (unknown node types fail the loud compile; a byte-equal foreign queries.scm fails here). When
- *   both are given, the query file WINS; grammarPath's own queries.scm is ignored for extraction
- *   (grammarPath is still validated for routing and wasm).
- * - GrammarPath: a grammar DIRECTORY (wasm + extensions.json [+ queries.scm]) registered custom for
- *   this call - id from the dir name, wasm tree_sitter_<id> cross-check, extensions.json routing,
- *   every BYOG loud validation. Nothing is installed: the registration is a VALUE in this call's
- *   registry, which dies with the call.
- *
- * Grammar resolution precedence: grammarPath (custom) > embedded. (The JINT_GRAMMAR_DIR scan is the
- * CONFIG scope, exactly as it is lint's.)
- *
- * No filters, no options bag: callers filter the returned array.
- */
 export async function capture(
   targetPath: string,
   queryPath?: string,
@@ -121,13 +89,8 @@ export async function capture(
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
   onStats?: (summary: InputSummary) => void,
 ): Promise<CapturedElement[]> {
-  // THIS CALL's registry value: the embedded base, plus the grammarPath overlay when given. The
-  // value dies with the call - a custom registration can never outlive the capture that asked for
-  // it, so the walk is side-effect-free by construction.
   let registry: GrammarRegistry = EMBEDDED;
   if (grammarPath !== undefined) {
-    // the query file, when present, replaces the dir's own .scm for extraction - registration
-    // still requires routing + wasm, but may skip its queries.scm
     const entry = await registerCustomGrammar(grammarPath, {
       queriesOptional: queryPath !== undefined,
     });
@@ -206,7 +169,6 @@ async function walkAndExtract(
   return { captured, files };
 }
 
-/** Capture() bound to a resolved config: capture's own four params, the config's seams applied. */
 export type ConfiguredCapture = (
   targetPath: string | undefined,
   queryPath?: string,
@@ -284,16 +246,6 @@ function markPreviewPopulation(
   for (const index of marked) captured[index] = { ...captured[index]!, matches: true };
 }
 
-/**
- * The config-aware capture scope: captureFor(config) returns capture's own four-param walker with
- * run's resolution seams applied - the SAME loader output (the config arrives resolved, baseline
- * included, because the sdk cannot resolve default rule names itself), the same input fallback
- * (target > config.input), the same walk scoping (config include/exclude/secretDenylist + extra
- * excludes + scopeBase), the same registry build order (the grammar dir's customs first, then the
- * call's own grammarPath). What never crosses: criteria, handles, question shapes, provider,
- * severity. The classifier stays unplugged - captureFor measures the population a run would
- * classify, nothing else. An unknown rule name fails through the run's own rule-selection scope.
- */
 export function captureFor(
   config: ResolvedConfig,
   options: CaptureForOptions = {},
@@ -306,9 +258,6 @@ export function captureFor(
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
   return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
-    // THIS CALL's registry value, built in the run's registration order: the grammar dir first (a
-    // run measures through it), then the call's own grammarPath (the BYOG path wins last). The
-    // value dies with the call.
     let registry = await loadCustomGrammars(undefined, options.onNote);
     if (grammarPath !== undefined) {
       const entry = await registerCustomGrammar(grammarPath, {
@@ -330,8 +279,6 @@ export function captureFor(
         input,
         inputType: config.inputType,
         exclude: [...config.exclude, ...(options.exclude ?? [])],
-        // walk-union: the config scope + one scope per rule include - capture measures the SAME
-        // population a run will classify
         include: walkScopes(config.include, config.rules),
         scopeBase: options.scopeBase,
         secretDenylist: config.secretDenylist,
@@ -343,9 +290,6 @@ export function captureFor(
       queryPath,
       onSkip,
     );
-    // preview == run population (walk-union): unscoped rules follow the config scope, so the
-    // marker applies the SAME one predicate the run's rule selection applies - over the COMPOSED
-    // exclude (config + the --exclude extra), exactly what the walk below and run compose
     const configAdmits = configScopeAdmits(config.include, [
       ...config.exclude,
       ...(options.exclude ?? []),

@@ -10,7 +10,6 @@ export type { Usage };
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-/** One question as a rule writes it: a type, the claim to judge, and what its answers mean. */
 export type QuestionSpec = {
   type: "noul" | "choice" | "score";
   instructions: unknown;
@@ -54,5 +53,4 @@ export function unfoldCriteria(text: string): {
   return { instructions: text.slice(0, at), criteria };
 }
 
-/** The wire name of the i-th question: rule names carry spaces and ranges, the wire gets positions. */
 export const wireName = (i: number): string => `q${i}`;

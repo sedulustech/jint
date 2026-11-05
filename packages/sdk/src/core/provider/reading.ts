@@ -26,7 +26,6 @@ export type DecisionsAnswer = {
   probabilities?: { value: string | boolean | number; probability: number }[];
 };
 
-/** The provider's confidence as sent, or nothing: never computed, never defaulted. */
 const confidenceOf = (a: DecisionsAnswer): { confidence?: number } =>
   typeof a.confidence === "number" && Number.isFinite(a.confidence)
     ? { confidence: a.confidence }
@@ -91,10 +90,6 @@ export function fromDecisions(q: QuestionSpec, a: DecisionsAnswer): unknown {
   };
 }
 
-/**
- * Each question's answer from a reply's answers, found by wire name; a missing or wrong-shaped one
- * is a PROVIDER_RESPONSE_INVALID for the whole ask.
- */
 export function readAnswers(
   ask: Ask,
   find: (wire: string) => DecisionsAnswer | undefined,
@@ -104,7 +99,6 @@ export function readAnswers(
   Object.entries(ask.questions).forEach(([name, spec], i) => {
     const a = find(wireName(i));
     const answer = a === undefined ? undefined : readAnswer(spec, a);
-    // A missing answer, or a noul outside [0, 1], is the model's reply failing the contract.
     const outOfRange =
       spec.type === "noul" && answer !== undefined && "value" in answer
         ? !(answer.value >= 0 && answer.value <= 1)

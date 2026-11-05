@@ -67,7 +67,6 @@ export async function inferKind(input: string): Promise<InputKind> {
 export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
   const { input, inputType, exclude, include } = options;
   return (async function* () {
-    // explicit file paths bypass exclude
     if (Array.isArray(input)) {
       for (const path of input) {
         const unit = await fileUnit(path, {
@@ -103,7 +102,6 @@ export function resolveInput(options: InputOptions): AsyncIterable<Unit> {
       );
       return;
     }
-    // Unreachable by the type; a guard against a future kind, not a branch.
     throw new SetupError("MISSING_GRAMMAR", `not a source-language file: ${input}`, {
       detail: { kind: "unknown-language", valid: knownLanguages(options.registry ?? EMBEDDED) },
     });

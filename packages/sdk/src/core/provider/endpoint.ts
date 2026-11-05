@@ -7,14 +7,13 @@
  * file that gets committed. A caller of the SDK may pass both to `createClassifier`, which then
  * win.
  *
- * - A caller's `apiKey` / `url` win for the run; a key with no url asks DEFAULT_URL.
+ * - A caller's `apiKey` / `url` win for the run.
  * - Else the first DESTINATIONS row whose key variable is set picks the key (and its own url);
  *   $JINT_API_URL moves the url, and then only a row without a fixed url (the Jint row) may send.
  */
 
 import { SetupError } from "../types.ts";
 
-/** The endpoint asked when nothing names another one. */
 export const DEFAULT_URL = "https://api.openai.com/v1/decisions";
 
 /**
@@ -83,7 +82,6 @@ const notes = (url: string, keyVar?: string): string[] => [
   ...(keyVar !== undefined ? [`key from ${keyVar}`] : []),
 ];
 
-/** Resolves the url and key a run asks. */
 export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.env): Endpoint {
   const configUrl = choice.url === "" ? undefined : choice.url;
   const configKey = choice.apiKey === "" ? undefined : choice.apiKey;
@@ -116,7 +114,6 @@ export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.
   return { url, apiKey: fromEnv(env, chosen.keyVar), notes: notes(url, chosen.keyVar) };
 }
 
-/** Fails the run at setup when it has no usable key. */
 export function assertEndpointKey(choice: EndpointChoice = {}): void {
   const { apiKey, unusable } = resolveEndpoint(choice);
   if (apiKey === undefined) throw new SetupError("CONFIG_INVALID", unusable!);

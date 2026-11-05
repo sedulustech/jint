@@ -10,7 +10,6 @@
  * directives and the engine resolves them at walk time.
  */
 
-/** The shared element captures: the closed lingua franca every grammar may address. */
 export const SHARED_ELEMENT_CAPTURES = [
   "function",
   "method",
@@ -59,19 +58,9 @@ export interface SuppressionShape {
   readonly opaque: boolean;
 }
 
-/**
- * DEFAULT suppression shapes for the shared definition captures (the lingua franca's shape -
- * tier-1): absorbTail is the largest same-capture wrapper tail in BYTES that still reads as
- * prefix-absorb; opaque hides a different-capture candidate strictly inside. A grammar OVERRIDES
- * with `capture.<name>.absorbTail` / `capture.<name>.opaque` in its .scm. The cpp field/prototype
- * and verilog-trial nested-always questions settled these values as DATA; they live here as the
- * shared promise, not as per-grammar branches.
- */
 export const SHARED_POLICY_DEFAULTS: Readonly<Record<string, SuppressionShape>> = {
   function: { absorbTail: 0, opaque: true },
-  // method: function's shape (a nested method with a real body surfaces as a child)
   method: { absorbTail: 0, opaque: true },
-  // class: type's shape (show-through interior - its methods surface as elements)
   class: { absorbTail: 2, opaque: false },
   type: { absorbTail: 2, opaque: false },
   binding: { absorbTail: 2, opaque: true },

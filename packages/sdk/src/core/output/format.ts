@@ -10,7 +10,6 @@
 /** Column widths - consts, not computed per run: cross-run stability is the point. */
 export const PATH_WIDTH = 36;
 export const RULE_WIDTH = 31;
-// "error" is the longest severity.
 export const SEVERITY_WIDTH = 5;
 
 const ELLIPSIS = "...";

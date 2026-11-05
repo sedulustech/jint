@@ -43,11 +43,6 @@ import { Query, type QueryMatch } from "web-tree-sitter";
 import { SetupError, type Span } from "../types.ts";
 import { grammar, knownLanguages, type GrammarRegistry } from "./grammars.ts";
 
-/**
- * The comment between an extension and the grammar's own patterns (see extends.ts). Pattern-order
- * validation reads it: each side states its own order, and the extension's patterns win over the
- * base's on purpose.
- */
 export const BASE_MARKER = "; --- the grammar's own queries.scm, extended above ---";
 
 /**
@@ -80,7 +75,6 @@ export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<Suppr
   return declared;
 }
 
-/** Captures whose same-capture runs merge into one element, with the declared mode. */
 export function scmCaptureMerges(scm: string): ReadonlyMap<string, MergeMode> {
   const merges = new Map<string, MergeMode>();
   for (const directive of scmDirectives(scm)) {
@@ -352,7 +346,6 @@ export function directiveVocabulary(): readonly DirectiveRow[] {
   return [...fileWide, ...perCapture];
 }
 
-/** The capture names a .scm actually emits (any @token that is not @name or a reserved word). */
 export function scmEmittedNames(scm: string): ReadonlySet<string> {
   const code = scmCode(scm);
   const named = new Set([...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
@@ -726,7 +719,6 @@ export async function compileQuery(
   return query;
 }
 
-/** Compile one grammar's .scm; memoized per grammar content. */
 const compiled = new Map<string, Promise<Query>>();
 
 export function queryFor(
@@ -746,7 +738,6 @@ export function queryFor(
   return created;
 }
 
-/** The shape of a syntax node the runtime reads (structural: tests can feed plain objects). */
 export interface QueryNode {
   readonly startIndex: number;
   readonly endIndex: number;
@@ -770,10 +761,6 @@ export interface Candidate {
   readonly properties?: Readonly<Record<string, string | null>>;
 }
 
-/**
- * The element capture of one match (the first capture in the pattern), or null for name-only
- * patterns.
- */
 function elementCaptureOf(match: QueryMatch, addressable: ReadonlySet<string>): Capture | null {
   for (const capture of match.captures) {
     if (addressable.has(capture.name)) {
@@ -783,13 +770,10 @@ function elementCaptureOf(match: QueryMatch, addressable: ReadonlySet<string>): 
   return null;
 }
 
-/** One query match -> a candidate element, or null when the pattern binds no element capture. */
 function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candidate | null {
   const capture = elementCaptureOf(match, addressable);
   if (capture === null) return null;
   const elementNode = match.captures.find((c) => c.name === capture)!.node;
-  // a pattern like (enum_body (property_identifier) @name) @binding binds @name on every member
-  // while the element is the whole container: one element carries one name
   const nameCaptures = match.captures.filter((c) => c.name === NAME_CAPTURE);
   if (nameCaptures.length > 1) {
     throw new SetupError(
@@ -897,10 +881,6 @@ function nestsOf(options: SuppressionOptions, capture: string): boolean {
   return options.selfNestingCaptures.has(capture);
 }
 
-/**
- * THE capture token: what a .scm names a capture with. Shared by every .scm text reader (pattern
- * parsing, emitted-capture derivation) - two regexes for one fact is two facts waiting to drift.
- */
 export const CAPTURE_TOKEN = /@([A-Za-z_][A-Za-z0-9_-]*)/g;
 /** Does the outer candidate hide the inner one? (policy table + .scm #set! facts; ordered) */
 function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions): boolean {
@@ -945,22 +925,9 @@ export function runQuery(
 /** The shared lingua franca alone - a grammar's walk widens it with its declared captures. */
 const DEFAULT_ADDRESSABLE: ReadonlySet<string> = new Set(SHARED_ELEMENT_CAPTURES);
 
-/**
- * The captures a grammar EMITS: derived syntactically from its queries - the .scm IS the grammar's
- * interface, single source, no second authority. SYNTACTIC on purpose: a capture bound only under a
- * predicate still counts as emitted (the .scm names it; predicates gate matching, not vocabulary).
- * Element captures only - @name and reserved tokens are not targets. `;` comment lines are stripped
- * first: prose naming a capture does not emit it.
- */
 export function emittedCaptures(registry: GrammarRegistry, grammarId: string): readonly string[] {
-  // TWO VIEWS OF ONE FILE, deliberately (the boundary): the CODE view (strings blanked,
-  // comments cut) for what the queries EMIT, and the RAW text for what they DECLARE
-  // (a directive's name is a string literal; the code view erases it). The views share this
-  // seam; merging them into one scanner would reshape the three load-bearing readers of these
-  // views for no new fact.
   const raw = grammar(registry, grammarId).queries;
   const named = scmEmittedNames(raw);
-  // addressable = SHARED (the lingua franca) or declared by THIS grammar's .scm (autonomous)
   const declared = scmCaptureDeclarations(raw);
   return [...named]
     .filter(

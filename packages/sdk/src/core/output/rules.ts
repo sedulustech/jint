@@ -52,11 +52,6 @@ function handleLine(rule: Rule): string {
   return messages.length > 0 ? line + " · " + messages.map((m) => '"' + m + '"').join(" · ") : line;
 }
 
-/**
- * Describe one rule in full prose. Every field that defines what the rule measures is present:
- * target (what it judges), instructions (the question), criteria (the boundary), handle (when it
- * fires).
- */
 export function describeRule(rule: Rule): string {
   const lines: string[] = [];
   lines.push(
@@ -73,10 +68,8 @@ export function describeRule(rule: Rule): string {
       lines.push("  1  " + c.true);
       lines.push("  0  " + c.false);
     } else if (Array.isArray(c)) {
-      // score rubric: one line per level
       c.forEach((level, i) => lines.push("  " + i + "  " + level));
     } else {
-      // choice options: one line per option label
       for (const [label, meaning] of Object.entries(c)) lines.push("  " + label + "  " + meaning);
     }
   }

@@ -270,18 +270,6 @@ function innermostContaining(
   return innermost;
 }
 
-/**
- * OWNER LINK (the comment-target pair split): a comment element is DOCUMENTATION when a definition
- * owns it - its text is that definition's attached run, or it sits inside the definition's body (an
- * internal note). Owned comments travel in the definition's pair frame; unowned ones are reported
- * as loose comments. The link reuses docstring ownership, which answers "who this comment
- * documents".
- *
- * DOCSTRING OWNER DIRECTION (the .scm's docstring.owner directive): a grammar whose docstring
- * convention PRECEDES what it documents (a doc attribute above a definition) declares "next" and
- * the owner is the first definition after the docstring; the default "enclosing" is the innermost
- * containing definition (python's string-in-block).
- */
 function ownerOf(
   candidate: Candidate,
   definitions: readonly Candidate[],
@@ -298,14 +286,8 @@ function ownerOf(
         };
   }
   for (const [definition, run] of attachedRuns) {
-    // IDENTITY, not text: the run holds the same candidate objects the comment elements hold -
-    // an equal-text comment elsewhere in the file (two "// namespace" closers, a copied
-    // docblock) can never steal ownership through a text match (process.cc L466/L595).
     if (run.includes(candidate)) {
       return {
-        // LOSSLESS: the owner kind IS the owner capture - the same cast the innermost branch
-        // makes; the old type->class/everything-else->function map was a stale two-kind
-        // collapse the contract's six-kind DocstringOwner had already outgrown.
         kind: definition.capture as DocstringOwner["kind"],
         name: definition.name ?? "",
       };
@@ -315,8 +297,6 @@ function ownerOf(
   if (innermost === undefined)
     return isDocstring(candidate) ? { kind: "module", name: "" } : undefined;
   return {
-    // LOSSLESS: the owner kind IS the owner capture (the old class/function collapse lost type vs class)
-    // a definition capture only (ownerOf scans the grammar's resolved definition set); the lane captures cannot own
     kind: innermost.capture as DocstringOwner["kind"],
     name: innermost.name ?? "",
   };
@@ -354,10 +334,6 @@ function internalCommentCounts(
 // text still lands in the comments bucket below - the run only decides who owns it).
 //
 // TRAILING SIDE: a comment that starts on a row where the previous candidate ENDS is a note
-// on that candidate (interface.c: `static size_t qjs_mem_limit = 0; /* 0 = unlimited */` - the
-// note rode one row down onto the NEXT binding under a row-only gap), so it never joins a
-// pending run. LEADING SIDE: the run's last comment must end strictly ABOVE the definition's
-// first row - a comment sharing the definition's own row is beside it, not above it.
 function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
   const pending: Candidate[] = [];
@@ -378,14 +354,11 @@ function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readon
       continue;
     }
     const latest = pending.at(-1);
-    // attach.gap (rows the run's end may sit above the definition; default 1 - the directly
-    // preceding row; 0 declares the capture takes no attached run)
     const declared = candidate.properties?.["attach.gap"] ?? undefined;
     const allowed = declared === undefined ? 1 : Number.parseInt(declared, 10);
     const latestEnd = latest === undefined ? -1 : effectiveEndRow(latest.node);
     const gap = latest === undefined ? Infinity : startRow - latestEnd;
     if (latest !== undefined && gap <= allowed && latestEnd < startRow) {
-      // a copy: `pending` is reused (cleared) after every claim; the run must not alias it
       attachedRuns.set(candidate, [...pending]);
     }
     pending.length = 0;
@@ -434,7 +407,6 @@ function docstringsOf(candidates: readonly Candidate[]): Candidate[] {
     .sort((a, b) => a.node.startIndex - b.node.startIndex);
 }
 
-/** Parents: the innermost OTHER definition containing this one. */
 function parentLabelOf(
   candidate: Candidate,
   definitions: readonly Candidate[],
@@ -614,22 +586,14 @@ function materialize(
   return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
 }
 
-/** Decompose one source string into its unit inventory; never throws for parse errors. */
 export async function decompose(
   source: string,
   language: string,
   options: { readonly queries?: string; readonly registry?: GrammarRegistry } = {},
 ): Promise<Inventory> {
-  // the registry the walk reads: handed by the scope that owns the run/call (embedded base when a
-  // direct caller names none)
   const registry = options.registry ?? EMBEDDED;
   const entry = grammar(registry, language);
   const [parser, lang] = await Promise.all([parserFor(entry), loadLanguage(entry)]);
-  // an explicit .scm override (capture() with a query file) REPLACES the registered one for
-  // extraction and goes through the SAME loud compile checks, uncached (one call, one compile).
-  // The one entry that may carry an empty-queries marker (registered alongside an override) can
-  // never reach here override-less: it exists only inside the call's own registry value.
-  // a query file that starts with `; extends` adds to the registered queries instead of replacing
   const override =
     options.queries !== undefined && isExtension(options.queries)
       ? extendQueries(language, options.queries, entry.queries)
@@ -639,14 +603,8 @@ export async function decompose(
     ? await compileQuery(language, scm, lang)
     : await queryFor(entry, scm, lang);
   const tree = parser.parse(source);
-  // a null tree is an engine failure, not a parse error (those surface via hasError):
-  // an empty inventory would report success on an unmeasured file
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
-  // SHAPE DIRECTIVES: read syntactically from the .scm through the SHARED reader (strings blanked,
-  // then comments cut - a trailing comment or a predicate string cannot fake a directive). The
-  // grammar's own facts - definitions, suppression shapes, nesting - resolve HERE from its
-  // directives over the tier-1 shared defaults; the engine holds no per-capture table.
   const candidates = resolveCandidates(
     runQuery(query, tree.rootNode, resolveAddressable(scm)),
     resolveSuppression(scm),
@@ -675,12 +633,6 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
-/**
- * Project one inventory element to the wire. SHARED captures carry their typed shapes; an
- * AUTONOMOUS capture rides the generic element shape - its kind is its capture name, its name rides
- * when a pattern binds @name (markdown's section names from its heading text). No engine list
- * enumerates the autonomous names; the .scm that declares the capture defines its wire face.
- */
 export function projectElement(element: InventoryElement): Element {
   const base: ProjectionBase = {
     span: element.span,

@@ -3,9 +3,7 @@
  * budget (TOKENS_PER_MINUTE).
  *
  * - Concurrency bounds IN-FLIGHT calls run-wide (the wall-clock knob; measured: 53.9 rps at 16 with
- *   realistic payloads, zero 429s, median 283ms / p95 380ms latency). Arrivals are not paced: the
- *   vendor SDK retries with backoff and honors Retry-After, so an overshoot is absorbed upstream
- *   (an rps_budget pacer existed and was removed - git history holds it).
+ *   realistic payloads, zero 429s, median 283ms / p95 380ms latency).
  * - Timeout bounds a single call's duration: a hung request converts to a per-element
  *   PROVIDER_TIMEOUT failure instead of holding a run-wide slot forever (default 30s - generous
  *   against the measured p95 of 380ms; the SDK's own retries have their own budget and this is NOT
@@ -20,7 +18,6 @@
 
 import { ClassifyError, type AnyState, type Classifier, type QuestionSchema } from "../types.ts";
 
-/** The endpoint's input-token budget per minute; the run paces its calls under it. */
 export const TOKENS_PER_MINUTE = 10_000_000;
 
 /** The measured/default knob values (probe evidence, not guesses). */
@@ -115,7 +112,6 @@ export function withTimeout(classifier: Classifier, seconds: number | undefined)
     ]);
 }
 
-/** The estimate the budget is spent in: about four characters per token of what the call sends. */
 export const estimateTokens = (
   state: AnyState,
   questions: Record<string, QuestionSchema>,
