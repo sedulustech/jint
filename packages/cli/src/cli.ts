@@ -15,7 +15,7 @@
  */
 
 import { existsSync, fstatSync, readdirSync, statSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import {
   ClassifyError,
@@ -29,6 +29,7 @@ import {
   selectRules,
   validateRuleSelection,
   assertEndpointKey,
+  exportSkills,
   knownLanguages,
   lint,
   loadConfig,
@@ -251,12 +252,13 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 
 /**
  * The verb table — the ONE source for the command vocabulary and the position rule: the FIRST
- * positional IS the command (run, serve, capture); the rest are its operands. There is no implicit
- * verb: a missing or unknown first positional is a usage error naming `jint run <operands>`. Verbs
- * never resolve to paths (a verb token as a later positional is an error; the path is reached as
- * ./<name>). `flags` names the flags the verb accepts beyond the global three (--help, --version,
- * --debug); run takes every unmarked flag (a flag may carry its own `verbs` marker in FLAGS —
- * --queries and --grammar are capture's). `example`/`blurb` render into the help Usage section.
+ * positional IS the command (run, serve, capture, skills); the rest are its operands. There is no
+ * implicit verb: a missing or unknown first positional is a usage error naming `jint run
+ * <operands>`. Verbs never resolve to paths (a verb token as a later positional is an error; the
+ * path is reached as ./<name>). `flags` names the flags the verb accepts beyond the global three
+ * (--help, --version, --debug); run takes every unmarked flag (a flag may carry its own `verbs`
+ * marker in FLAGS — --queries and --grammar are capture's). `example`/`blurb` render into the help
+ * Usage section.
  */
 export const VERBS = {
   run: {
@@ -275,6 +277,12 @@ export const VERBS = {
     blurb:
       "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its rules.exclude always); an explicit FILE target bypasses the config's rules scope (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
+  },
+  skills: {
+    example: "jint skills export .claude/skills",
+    blurb:
+      "write the agent skills that ship with jint (jint-follow, jint-author, jint-propose) into a directory, one folder per skill, replacing files that exist",
+    flags: [],
   },
 } as const;
 
@@ -379,7 +387,7 @@ ${helpRows([
   { left: "jint run", right: "no operand: input comes from the discovered config" },
 ])}
 
-Verbs - the FIRST positional IS the command (run, serve, capture); everything after it is the
+Verbs - the FIRST positional IS the command (run, serve, capture, skills); everything after it is the
 verb's operands. There is no implicit verb: a missing or unknown first positional is a usage
 error naming the jint run form.
 
@@ -758,8 +766,8 @@ function dispatch(cliArgv: string[]): Dispatch {
     const operands = parsedCliArgs.positionals.join(" ");
     usageError(
       operands === ""
-        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path> - see jint --help"
-        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture - see jint --help)`,
+        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path>, jint skills export <path> - see jint --help"
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, skills - see jint --help)`,
     );
     return { exit: 2 };
   }
@@ -1038,6 +1046,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const { cliArgs, verb } = dispatched;
   if (verb.name === "serve") return serveVerb(verb.rest);
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
+  if (verb.name === "skills") return skillsVerb(verb.rest);
   const run = await prepareRun(cliArgs, verb.rest);
   if ("exit" in run) return run.exit;
   if (cliArgs["dry-run"] === true) {
@@ -1119,6 +1128,25 @@ function storeHasRuns(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Skills export <path>: write the agent skills that ship with jint into the directory, a thin print
+ * of the SDK's exportSkills. `export` is the only skills operand and the path is required.
+ */
+function skillsVerb(rest: readonly string[]): number {
+  const [action, path, ...extra] = rest;
+  if (action !== "export" || path === undefined || extra.length > 0) {
+    usageError("jint skills takes: export <path>  - e.g. jint skills export .claude/skills");
+    return 2;
+  }
+  try {
+    for (const file of exportSkills(path)) process.stdout.write(`${join(path, file)}\n`);
+  } catch (error) {
+    usageError(`cannot write the skills to ${path}: ${(error as Error).message}`);
+    return 2;
+  }
+  return 0;
 }
 
 /**

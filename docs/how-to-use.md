@@ -53,3 +53,13 @@ jint is a CLI, so you can embed it in the part of the pipeline you find most sui
 A pre-commit hook is advised as it returns an action for the agent to take: the rule's handle gives a severity and
 a message that says what to do. An error fails the hook and sets the exit code, so the agent has
 to act on it before the work goes through.
+
+## Skills
+
+The CLI carries jint's agent skills: `jint-follow` runs jint and resolves its findings, `jint-author`
+writes and calibrates rules, and `jint-propose` turns what you expect into rules. Write them into
+your agent's skills directory, one folder per skill:
+
+```bash
+jint skills export .claude/skills
+```

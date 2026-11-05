@@ -13,3 +13,7 @@ declare module "*.extensions.json" {
   const extensions: string[];
   export default extensions;
 }
+declare module "*.md" {
+  const text: string;
+  export default text;
+}

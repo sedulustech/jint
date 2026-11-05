@@ -6,7 +6,7 @@ name: Publish beta
 # install.sh reads it with RELEASE_BASE=<site>/dl VERSION=beta.
 
 # Everything triggers a build except what plainly never reaches the binary: the site and its
-# function, the docs and their generator, the agent skills, demos, root tests, the npm and release
+# function, the docs and their generator, demos, root tests, the npm and release
 # packaging, repo-root prose and config, and the other workflows. A new top-level path therefore
 # builds until it is listed here; dispatch builds on demand.
 on:
@@ -17,7 +17,6 @@ on:
       - "functions/**"
       - "wrangler.toml"
       - "docs/**"
-      - "skills/**"
       - "demo/**"
       - "tests/**"
       - "npm/**"

@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { capture } from "../packages/sdk/src/index.ts";
 import { runCli, CLI_SRC as CLI } from "./helpers/cli.ts";
@@ -218,6 +218,35 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
       expect(await proc.exited).toBe(0);
     } finally {
       proc.kill();
+    }
+  });
+});
+
+describe("cli verbs e2e - skills export", () => {
+  test("writes every skill under the path and names each file on stdout", async () => {
+    const dir = scratchDir("skills-export");
+    try {
+      const r = await runCli(["skills", "export", dir]);
+      expect(r.code).toBe(0);
+      for (const file of [
+        "jint-author/REFERENCE.md",
+        "jint-author/SKILL.md",
+        "jint-follow/SKILL.md",
+        "jint-propose/SKILL.md",
+      ]) {
+        expect(existsSync(join(dir, file))).toBe(true);
+        expect(r.stdout).toContain(join(dir, file));
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a missing path or another action is a usage error naming the form", async () => {
+    for (const args of [["skills"], ["skills", "export"], ["skills", "import", "x"]]) {
+      const r = await runCli(args);
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain("jint skills takes: export <path>");
     }
   });
 });

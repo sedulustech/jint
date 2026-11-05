@@ -120,3 +120,6 @@ export {
 } from "./core/types.ts";
 
 /** The rule surface: select by name in jint.config.json, spread programmatically. */
+
+/** The agent skills that ship with jint, and writing them to a directory. */
+export { SKILL_FILES, exportSkills } from "./skills.ts";
