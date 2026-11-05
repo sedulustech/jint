@@ -17,6 +17,8 @@ const SOURCES: Record<string, string> = {
   css: "/* css doc, no definitions in css */\nbody { color: red; }\n\n/* css loose */\n",
   go: "package p\n\n// go doc\nfunc Add(a int) int {\n  // inline note\n  return a\n}\n\n// go loose\n",
   json: '// json doc\n{ "a": 1 }\n\n// json loose\n',
+  toml: "# toml doc\na = 1\n\n# toml loose\n",
+  yaml: "# yaml doc\na: 1\n\n# yaml loose\n",
   markdown: "# Title\n\nSome prose. Markdown has no comment capture (WAITING ledger).\n",
   php: "<?php\n// php doc\nfunction add($a) {\n  // inline note\n  return $a;\n}\n\n// php loose\n",
   python:
@@ -71,7 +73,14 @@ describe("comment-target pair split across every grammar", () => {
     test(
       language + ": a documented definition draws the pair frame ONCE (no double fire)",
       async () => {
-        if (language === "css" || language === "json" || language === "markdown") return; // no definitions / no comments
+        if (
+          language === "css" ||
+          language === "json" ||
+          language === "toml" ||
+          language === "yaml" ||
+          language === "markdown"
+        )
+          return; // no definitions / no comments
         const inv = await decompose(SOURCES[language]!, language);
         const elements = [...inv.definitions, ...inv.comments, ...inv.imports];
         // the leading doc comment text appears in exactly one comments-target frame

@@ -97,9 +97,9 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
   test("capture over a dir holding an unclaimable file: exit 0, elements on stdout, one note on stderr", async () => {
     const dir = scratchDir("jint-capture-sweep");
     writeFileSync(join(dir, "one.ts"), "function one() {}\n");
-    writeFileSync(join(dir, "data.toml"), "a = 1\n");
+    writeFileSync(join(dir, "data.ini"), "a = 1\n");
     // cwd INSIDE the scratch dir: capture loads the config scope now, and the repo root's own
-    // config (defaults.include: **/*.ts) would filter the .toml out before the walk - the sweep note this
+    // config (defaults.include: **/*.ts) would filter the .ini out before the walk - the sweep note this
     // test pins only fires where no config scoping removes the stray first
     const r = await runCli(["capture", dir], { cwd: dir, timeout: 60_000 });
     // the strays never kill the run: the claimed file's elements are the payload (exit 0)
@@ -112,7 +112,7 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
     // counted there): two notes, one per concern - coverage vocabulary, file accounting.
     expect(r.stderr).toBe(
       "jint: note: input: 1 of 2 files (skipped: MISSING_GRAMMAR 1)\n" +
-        "jint: note: not parsed (no grammar): .toml\n",
+        "jint: note: not parsed (no grammar): .ini\n",
     );
   });
 

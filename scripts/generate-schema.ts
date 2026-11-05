@@ -18,6 +18,7 @@
  * GENERATED_OUTPUTS).
  */
 
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { allRules as allSpecs } from "@jint/rules";
@@ -41,6 +42,7 @@ export const GENERATED_OUTPUTS = [
   "docs/directives.md",
   "docs/config.md",
   "docs/grammars.md",
+  "packages/sdk/src/core/grammars/embedded/SOURCES.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -675,10 +677,6 @@ export function renderTargetsTable(): string {
   return table.join("");
 }
 
-// --- docs/directives.md ----------------------------------------------------
-export function renderDirectivesTable(rows: readonly DirectiveRow[]): string {
-  const escapePipes = (text: string) => text.replaceAll("|", "\\|");
-  const lines = [
 // --- docs/grammars.md ------------------------------------------------------
 /**
  * The embedded grammars, one row each in registration order (the order that settles a shared
@@ -696,6 +694,45 @@ export function renderGrammarsTable(): string {
     "| --- | --- | --- |",
     ...rows.map(
       (row) => `| \`${row.name}\` | ${escapePipes(row.values)} | ${escapePipes(row.summary)} |`,
+// --- embedded/SOURCES.md ---------------------------------------------------
+const EMBEDDED_DIR = "packages/sdk/src/core/grammars/embedded/";
+
+/**
+ * Where each embedded wasm came from: the upstream repo and release (embedded/sources.json, the one
+ * hand-written fact) beside the sha256 of the wasm in the tree (read here, so it cannot drift from
+ * the file). Anyone can compare a row with the release asset of the same name.
+ */
+export function renderGrammarSources(): string {
+  const sources = JSON.parse(
+    readFileSync(REPO_ROOT + EMBEDDED_DIR + "sources.json", "utf8"),
+  ) as Record<string, { repo: string; version: string }>;
+  const rows = Object.keys(EMBEDDED).map((id) => {
+    const source = sources[id];
+    if (source === undefined) throw new Error(`embedded/sources.json has no entry for ${id}`);
+    const sha = createHash("sha256")
+      .update(readFileSync(REPO_ROOT + EMBEDDED_DIR + `${id}/${id}.wasm`))
+      .digest("hex");
+    const link = `[${source.repo}](https://github.com/${source.repo}/releases/tag/v${source.version})`;
+    return `| \`${id}\` | ${link} | ${source.version} | \`${sha}\` |`;
+  });
+  return [
+    "<!-- GENERATED FILE — do not edit. Regenerate with: bun run schema (embedded/sources.json is the input). -->",
+    "",
+    "# Embedded grammar sources",
+    "",
+    "Each wasm is the file attached to the upstream release of the same version. Compare a row with `sha256sum` of that asset.",
+    "",
+    "| grammar | repo | release | sha256 of the wasm |",
+    "| --- | --- | --- | --- |",
+    ...rows,
+    "",
+  ].join("\n");
+}
+
+// --- docs/directives.md ----------------------------------------------------
+export function renderDirectivesTable(rows: readonly DirectiveRow[]): string {
+  const escapePipes = (text: string) => text.replaceAll("|", "\\|");
+  const lines = [
     ),
   ];
   return lines.join("\n") + "\n";
@@ -871,9 +908,6 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + directivesOut + "\n");
-}
-
-if (import.meta.main) writeGeneratedOutputs(process.argv[2]);
 
   const grammarsOut = outPath(root, GENERATED_OUTPUTS[7]!);
   writeFileSync(
@@ -884,5 +918,14 @@ if (import.meta.main) writeGeneratedOutputs(process.argv[2]);
       renderGrammarsTable(),
     ),
   );
-  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), grammarsOut], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + grammarsOut + "\n");
+
+  const sourcesOut = outPath(root, GENERATED_OUTPUTS[8]!);
+  writeFileSync(sourcesOut, renderGrammarSources());
+  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), grammarsOut, sourcesOut], {
+    cwd: REPO_ROOT,
+  });
+  process.stdout.write("wrote " + sourcesOut + "\n");
+}
+
+if (import.meta.main) writeGeneratedOutputs(process.argv[2]);

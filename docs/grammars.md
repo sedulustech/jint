@@ -38,12 +38,16 @@ grammar. See [Bring your own grammar](byog.md).
 | `bash`       | `.sh`, `.bash`                      |
 | `css`        | `.css`                              |
 | `json`       | `.json`, `.jsonc`                   |
+| `toml`       | `.toml`                             |
+| `yaml`       | `.yaml`, `.yml`                     |
 
 <!-- /generated:grammars -->
 
 Both `c` and `cpp` claim `.h`. Registration order decides, and `cpp` serves it.
 
-`css` captures comments only, because the code captures have no honest reading of css. `json` is the same: data has no functions or types, so the grammar exists to route `.json` files to `files` rules.
+`css` captures comments only, because the code captures have no honest reading of css. `json`, `toml` and `yaml` are the same: data has no functions or types, so these grammars exist to route their files to `files` rules.
+
+Each wasm is the file attached to an upstream release of `tree-sitter` or `tree-sitter-grammars`. [SOURCES.md](https://github.com/sedulustech/jint/blob/main/packages/sdk/src/core/grammars/embedded/SOURCES.md) lists the release and the sha256 of every one.
 
 ## Walk
 

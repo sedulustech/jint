@@ -56,12 +56,18 @@ import phpScm from "./embedded/php/queries.scm" with { type: "text" };
 import pythonExtensions from "./embedded/python/extensions.json" with { type: "json" };
 import pythonWasm from "./embedded/python/python.wasm" with { type: "file" };
 import pythonScm from "./embedded/python/queries.scm" with { type: "text" };
+import tomlExtensions from "./embedded/toml/extensions.json" with { type: "json" };
+import tomlScm from "./embedded/toml/queries.scm" with { type: "text" };
+import tomlWasm from "./embedded/toml/toml.wasm" with { type: "file" };
 import tsxExtensions from "./embedded/tsx/extensions.json" with { type: "json" };
 import tsxScm from "./embedded/tsx/queries.scm" with { type: "text" };
 import tsxWasm from "./embedded/tsx/tsx.wasm" with { type: "file" };
 import typescriptExtensions from "./embedded/typescript/extensions.json" with { type: "json" };
 import typescriptScm from "./embedded/typescript/queries.scm" with { type: "text" };
 import typescriptWasm from "./embedded/typescript/typescript.wasm" with { type: "file" };
+import yamlExtensions from "./embedded/yaml/extensions.json" with { type: "json" };
+import yamlScm from "./embedded/yaml/queries.scm" with { type: "text" };
+import yamlWasm from "./embedded/yaml/yaml.wasm" with { type: "file" };
 import { extendQueries, isExtension } from "./extends.ts";
 
 /** Which grammar served a parse: the embedded asset, or a user wasm by path. */
@@ -169,6 +175,20 @@ export const EMBEDDED: GrammarRegistry = {
     extensions: jsonExtensions,
     wasmPath: jsonWasm,
     queries: jsonScm,
+    provenance: { source: "embedded" },
+  },
+  toml: {
+    language: "toml",
+    extensions: tomlExtensions,
+    wasmPath: tomlWasm,
+    queries: tomlScm,
+    provenance: { source: "embedded" },
+  },
+  yaml: {
+    language: "yaml",
+    extensions: yamlExtensions,
+    wasmPath: yamlWasm,
+    queries: yamlScm,
     provenance: { source: "embedded" },
   },
 };
