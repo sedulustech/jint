@@ -40,7 +40,8 @@ project in `web/`. The publish-binaries workflow runs on the Publish click, veri
 `RELEASE_BASE=<site>/dl` points `install.sh` at the mirror. The workflow needs the
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
 
-The site's docs links and install command point at the `feat/decisions-model` branch, which
-releases are tagged from for now. When that branch merges, change `BRANCH` in
-`web/src/lib/doc-links.ts` and the install URLs in `docs/install.md` and
-`web/src/pages/download.astro` back to `main`.
+The site's docs links, install command and beta trigger point at the `feat/decisions-model` branch,
+which releases are tagged from for now. When that branch merges, run
+`git grep feat/decisions-model` and change every hit back to `main`. `BRANCH` in
+`web/src/lib/consts.ts` is the one const; the rest are literals (`_redirects`, the install
+URLs, the workflow trigger).

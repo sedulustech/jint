@@ -1,10 +1,8 @@
 import { posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineMdastPlugin } from "satteri";
+import { REPO_BLOB } from "./consts";
 
-// the branch the docs and binaries ship from (the decisions model, ahead of main)
-const BRANCH = "feat/decisions-model";
-const REPO_BLOB = `https://github.com/sedulustech/jint/blob/${BRANCH}/`;
 const DOCS_DIR = "docs";
 const DOCS_ROOT = fileURLToPath(new URL("../../../docs/", import.meta.url));
 // the docs the site renders: the top-level ones and the use cases, nested by technology; docs/designs
