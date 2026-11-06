@@ -1,11 +1,11 @@
 ---
-title: "Remove stale comments"
+title: "Stale comments"
 description: "A rule that reviews this repo's own shell scripts: it finds a stale comment, one that states something the code in the same file contradicts."
 sidebar:
-  label: Remove stale comments
+  label: Stale comments
 ---
 
-# Remove stale comments
+# Stale comments
 
 `is_comment_contradictory` finds a stale comment: one that states something the code in the same file contradicts.
 

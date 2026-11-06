@@ -1,11 +1,11 @@
 ---
-title: "Rewrite stateful comments"
+title: "Stateful comments"
 description: "A rule that reviews this repo's own TypeScript: it finds a stateful comment, one that is true only today, so it can be rewritten to hold at any time."
 sidebar:
-  label: Rewrite stateful comments
+  label: Stateful comments
 ---
 
-# Rewrite stateful comments
+# Stateful comments
 
 `is_comment_stateful` finds a stateful comment: one that says now, currently or no longer, or narrates the history of a change, so it is wrong once the code moves on.
 

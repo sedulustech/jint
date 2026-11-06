@@ -1,11 +1,11 @@
 ---
-title: "Keep secrets out of config"
+title: "Leaking secrets"
 description: "A rule for data files: it finds a secret or personal value written in plain text in a json, toml or yaml file."
 sidebar:
-  label: Keep secrets out of config
+  label: Leaking secrets
 ---
 
-# Keep secrets out of config
+# Leaking secrets
 
 `has_sensitive_value` finds a secret or personal value written in plain text in a json, toml or yaml file. A reference to the environment or a secret store passes.
 
