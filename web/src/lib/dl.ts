@@ -51,6 +51,19 @@ export function keyOf(segments: readonly string[] | string | undefined): string 
 }
 
 /**
+ * The key an object is cached under: a path nobody links, on the site's own origin. The cache never
+ * holds the public `/dl/` URL, so the edge cannot answer a download itself and every request
+ * reaches the function that counts it. A range request keeps its Range header, so a hit can answer
+ * a resumed download.
+ */
+const cacheKeyOf = (request: Request, key: string, ranged: boolean): Request => {
+  const range = ranged ? request.headers.get("range") : null;
+  return new Request(new URL(`/__dl-cache/${key}`, request.url), {
+    headers: range === null ? undefined : { range },
+  });
+};
+
+/**
  * ServeObject behind the edge cache, for immutable keys only: a full GET that misses is stored
  * after it answers, and a hit never reaches the bucket. Ranges, HEADs, redirects, the pointer,
  * `latest/` and every non-200 answer pass through uncached.
@@ -64,11 +77,13 @@ export async function serveCached(
 ): Promise<Response> {
   const cacheable = request.method === "GET" && isImmutable(key);
   if (cacheable) {
-    const hit = await cache.match(request);
+    const hit = await cache.match(cacheKeyOf(request, key, true));
     if (hit !== undefined) return hit;
   }
   const response = await serveObject(request, bucket, key);
-  if (cacheable && response.status === 200) waitUntil(cache.put(request, response.clone()));
+  if (cacheable && response.status === 200) {
+    waitUntil(cache.put(cacheKeyOf(request, key, false), response.clone()));
+  }
   return response;
 }
 

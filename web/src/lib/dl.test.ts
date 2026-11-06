@@ -209,6 +209,25 @@ describe("serveCached", () => {
     expect(r.reads()).toBe(1);
   });
 
+  test("the cache never holds the public URL, so the edge cannot answer a download itself", async () => {
+    const r = rig();
+    await r.call(immutable);
+    await r.settle();
+    const keys = [...r.stored.keys()];
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).not.toBe(get(immutable).url);
+    expect(new URL(keys[0]!).pathname).toBe(`/__dl-cache/${immutable}`);
+  });
+
+  test("a cache hit is still a counted download", async () => {
+    const r = rig();
+    await r.call(immutable);
+    await r.settle();
+    const hit = await r.call(immutable);
+    expect(r.reads()).toBe(1);
+    expect(downloadPoint(get(immutable), immutable, hit)?.doubles[0]).toBe(1);
+  });
+
   test("a range request, a HEAD, the pointer and a missing object are never stored", async () => {
     const r = rig();
     await r.call(immutable, { headers: { range: "bytes=0-3" } });
