@@ -35,5 +35,37 @@ export const is_effect_named: NoulRuleSchema = {
   },
 };
 
+/**
+ * Calibrated on TSX only. Eight pairs from four real React repositories: a real effect that returns
+ * a cleanup (the healthy file) and the same file with only that cleanup removed (the defective
+ * one). Seven of eight defective files read 1.00; one reads 0.00 (a keydown listener in a long
+ * component), so the rule misses some leaks. Every healthy unit read 0.26 or lower: 0.04 or lower
+ * across the eight real files, and 0.26 on a one-line effect that starts nothing. Warn and error
+ * sit between those, and the threshold cannot be cleaner than the miss allows.
+ *
+ * A high reading is bad. A function with no effect hook reads false, so it never fires. What the
+ * rule sees is one function: a cleanup that lives in another file is invisible to it.
+ */
+export const has_effect_without_cleanup: NoulRuleSchema = {
+  name: "has_effect_without_cleanup",
+  instructions:
+    "Does any effect hook call in this function (useEffect, useLayoutEffect, useInsertionEffect) start something that outlives the render, with no cleanup function returned to stop it?",
+  criteria: {
+    true: "At least one effect starts something that keeps running or stays registered after the component re-renders or unmounts - an event listener on window, document or an element, a timer, an interval, a subscription, an observer, an open socket or stream - and the effect returns no cleanup function that removes, clears, unsubscribes or closes it.",
+    false:
+      "The function calls no effect hook, or every effect that starts a listener, timer, subscription, observer or connection returns a cleanup that stops it, or the effect starts nothing that outlives it (it only reads, sets state once, or touches a ref).",
+  },
+  target: "functions",
+  include: ["**/*.tsx"],
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.8,
+      message:
+        "Return a cleanup from this effect that removes the listener, clears the timer or closes the subscription.",
+    },
+  },
+};
+
 /** Every rule of this subdomain, in run order. */
-export const rules: readonly RuleSchema[] = [is_effect_named];
+export const rules: readonly RuleSchema[] = [is_effect_named, has_effect_without_cleanup];

@@ -99,7 +99,7 @@ describe("validateConfig / catalogConfig", () => {
   test("the catalog carries every domain rule and no input", () => {
     const config = catalogConfig();
     expect(config.input).toBe("");
-    expect(config.rules).toHaveLength(12);
+    expect(config.rules).toHaveLength(13);
   });
 
   test("no rules key is an error that lists the domains; strings select catalog rules; objects declare their own", () => {

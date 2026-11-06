@@ -45,13 +45,14 @@ uses, so this cannot drift from the messages you will see):
 
 <!-- generated:fixer-table — do not edit. Regenerate with `bun run schema`. -->
 
-| rule                     | severity | fixer message                                                                                  |
-| ------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
-| `is_comment_narration`   | error    | Remove this comment.                                                                           |
-| `will_comment_drift`     | error    | Remove this comment.                                                                           |
-| `is_cognitively_complex` | error    | Decompose this function: extract readable named steps so the main body reads easily.           |
-| `has_sensitive_value`    | error    | Remove the secret from the file and rotate it: read it from the environment or a secret store. |
-| `is_effect_named`        | error    | Name this effect after what it does.                                                           |
+| rule                         | severity | fixer message                                                                                             |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| `is_comment_narration`       | error    | Remove this comment.                                                                                      |
+| `will_comment_drift`         | error    | Remove this comment.                                                                                      |
+| `is_cognitively_complex`     | error    | Decompose this function: extract readable named steps so the main body reads easily.                      |
+| `has_sensitive_value`        | error    | Remove the secret from the file and rotate it: read it from the environment or a secret store.            |
+| `is_effect_named`            | error    | Name this effect after what it does.                                                                      |
+| `has_effect_without_cleanup` | error    | Return a cleanup from this effect that removes the listener, clears the timer or closes the subscription. |
 
 <!-- /generated:fixer-table -->
 
