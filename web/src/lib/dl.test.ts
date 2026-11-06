@@ -65,7 +65,7 @@ describe("serveObject", () => {
     expect(res.headers.get("content-disposition")).toBe(
       'attachment; filename="jint-linux-x64.tar.gz"',
     );
-    expect(res.headers.get("cache-control")).toContain("immutable");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
     expect(res.headers.get("etag")).toBe('"abc"');
   });
 
@@ -87,7 +87,7 @@ describe("serveObject", () => {
   test("a versioned beta build is immutable", async () => {
     const k = "download/beta-a1b2c3/jint-linux-x64.tar.gz";
     const res = await serveObject(get(k), bucketOf({ [k]: () => object(k) }), k);
-    expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
     expect(res.headers.get("content-disposition")).toContain("jint-linux-x64.tar.gz");
   });
 
@@ -217,6 +217,15 @@ describe("serveCached", () => {
     expect(keys).toHaveLength(1);
     expect(keys[0]).not.toBe(get(immutable).url);
     expect(new URL(keys[0]!).pathname).toBe(`/__dl-cache/${immutable}`);
+  });
+
+  test("the client may not be cached by a shared cache, the stored copy may", async () => {
+    const r = rig();
+    const first = await r.call(immutable);
+    await r.settle();
+    expect(first.headers.get("cache-control")).toStartWith("private");
+    const [stored] = [...r.stored.values()];
+    expect(stored?.headers.get("cache-control")).toStartWith("public");
   });
 
   test("a cache hit is still a counted download", async () => {

@@ -21,7 +21,10 @@ export interface BucketObject {
   writeHttpMetadata(headers: Headers): void;
 }
 
-const IMMUTABLE = "public, max-age=31536000, immutable";
+// private: a shared cache in front of the function must not keep a download, or it answers the next
+// one without the function counting it. A browser still keeps its copy.
+const IMMUTABLE = "private, max-age=31536000, immutable";
+const STORED = "public, max-age=31536000, immutable";
 const REVALIDATE = "no-cache";
 const BETA_POINTER = "download/beta/COMMIT";
 const isMoving = (key: string): boolean => key.startsWith("latest/") || key === BETA_POINTER;
@@ -82,7 +85,9 @@ export async function serveCached(
   }
   const response = await serveObject(request, bucket, key);
   if (cacheable && response.status === 200) {
-    waitUntil(cache.put(cacheKeyOf(request, key, false), response.clone()));
+    const stored = new Response(response.clone().body, response);
+    stored.headers.set("cache-control", STORED);
+    waitUntil(cache.put(cacheKeyOf(request, key, false), stored));
   }
   return response;
 }
