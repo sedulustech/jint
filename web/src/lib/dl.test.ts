@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  clientOf,
+  countDownload,
+  downloadPoint,
   keyOf,
   serveCached,
   serveObject,
@@ -214,5 +217,92 @@ describe("serveCached", () => {
     await r.call("download/beta-a1b2c3/missing.tar.gz");
     await r.settle();
     expect(r.stored.size).toBe(0);
+  });
+});
+
+describe("downloadPoint / countDownload", () => {
+  const tar = "download/beta-ab12cd/jint-linux-x64.tar.gz";
+  const ok = () => new Response("x", { status: 200, headers: { "content-length": "1234" } });
+
+  test("a full GET of a tarball is one download, with no raw user agent", () => {
+    const req = get(tar, { headers: { "user-agent": "curl/8.5.0" } });
+    expect(downloadPoint(req, tar, ok())).toEqual({
+      blobs: ["beta", "beta-ab12cd", "jint-linux-x64.tar.gz", "curl", ""],
+      doubles: [1, 1234],
+      indexes: ["beta-ab12cd"],
+    });
+  });
+
+  test("channels: latest, a tagged release and a beta build", () => {
+    const latest = downloadPoint(
+      get("latest/download/jint-darwin-arm64.tar.gz"),
+      "latest/download/jint-darwin-arm64.tar.gz",
+      ok(),
+    );
+    expect(latest?.blobs.slice(0, 3)).toEqual(["latest", "latest", "jint-darwin-arm64.tar.gz"]);
+    const tagged = downloadPoint(
+      get("download/v0.1.0/jint-linux-x64.tar.gz"),
+      "download/v0.1.0/jint-linux-x64.tar.gz",
+      ok(),
+    );
+    expect(tagged?.blobs.slice(0, 2)).toEqual(["release", "v0.1.0"]);
+  });
+
+  test("HEAD, a resumed range, a 304, a checksum and the beta pointer count nothing", () => {
+    expect(downloadPoint(get(tar, { method: "HEAD" }), tar, ok())).toBeNull();
+    const resumed = new Response("x", {
+      status: 206,
+      headers: { "content-range": "bytes 500-999/1234" },
+    });
+    expect(downloadPoint(get(tar), tar, resumed)).toBeNull();
+    expect(downloadPoint(get(tar), tar, new Response(null, { status: 304 }))).toBeNull();
+    expect(
+      downloadPoint(
+        get("download/beta-ab12cd/checksums.txt"),
+        "download/beta-ab12cd/checksums.txt",
+        ok(),
+      ),
+    ).toBeNull();
+    expect(downloadPoint(get("download/beta/COMMIT"), "download/beta/COMMIT", ok())).toBeNull();
+  });
+
+  test("a range that starts at byte 0 is the start of a download", () => {
+    const first = new Response("x", {
+      status: 206,
+      headers: { "content-range": "bytes 0-499/1234", "content-length": "500" },
+    });
+    expect(downloadPoint(get(tar), tar, first)?.doubles).toEqual([1, 500]);
+  });
+
+  test("client classes", () => {
+    expect([null, "Wget/1.21", "Mozilla/5.0 (X11)", "python-requests/2"].map(clientOf)).toEqual([
+      "other",
+      "wget",
+      "browser",
+      "other",
+    ]);
+  });
+
+  test("countDownload writes once, ignores a missing dataset, and survives a throwing one", () => {
+    const written: unknown[] = [];
+    countDownload({ writeDataPoint: (p) => void written.push(p) }, get(tar), tar, ok());
+    expect(written).toHaveLength(1);
+    expect(() => countDownload(undefined, get(tar), tar, ok())).not.toThrow();
+    const warned: unknown[][] = [];
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => void warned.push(args);
+    try {
+      countDownload(undefined, get(tar), tar, ok());
+      countDownload(undefined, get(tar, { method: "HEAD" }), tar, ok());
+    } finally {
+      console.warn = warn;
+    }
+    expect(warned).toHaveLength(1);
+    const boom = {
+      writeDataPoint: () => {
+        throw new Error("down");
+      },
+    };
+    expect(() => countDownload(boom, get(tar), tar, ok())).not.toThrow();
   });
 });

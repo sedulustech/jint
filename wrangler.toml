@@ -10,3 +10,9 @@ compatibility_date = "2026-10-01"
 [[r2_buckets]]
 binding = "BINARIES"
 bucket_name = "jint-releases"
+
+# One data point per tarball download (see downloadPoint in web/src/lib/dl.ts for the schema). The
+# dataset is created by the first write; query it with scripts/downloads.ts.
+[[analytics_engine_datasets]]
+binding = "DOWNLOADS"
+dataset = "jint_downloads"

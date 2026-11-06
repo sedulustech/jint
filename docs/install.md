@@ -27,6 +27,11 @@ tar -xzf jint-linux-x64.tar.gz
 install -m 755 jint ~/.local/bin/jint
 ```
 
+## Download counts
+
+The download mirror counts tarball downloads by version, client type and country. It stores no IP
+address. [`downloadPoint`](../web/src/lib/dl.ts) defines exactly what is recorded.
+
 ## Requirements
 
 jint carries its own runtime, so you need no JavaScript

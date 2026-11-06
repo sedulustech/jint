@@ -7,7 +7,6 @@
  * or a bookmark never mixes files from two builds.
  */
 
-/** The slice of an R2 bucket this serves from (Cloudflare's own types are not a dependency). */
 export interface Bucket {
   get(key: string, options?: { range?: Headers; onlyIf?: Headers }): Promise<BucketObject | null>;
   head(key: string): Promise<BucketObject | null>;
@@ -23,8 +22,6 @@ export interface BucketObject {
 }
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
-// these keys are overwritten in place (the newest release, the beta pointer): a cache keeps its copy
-// but asks the ETag on every use, so a new publish shows at once and an unchanged file is a 304
 const REVALIDATE = "no-cache";
 const BETA_POINTER = "download/beta/COMMIT";
 const isMoving = (key: string): boolean => key.startsWith("latest/") || key === BETA_POINTER;
@@ -75,6 +72,52 @@ export async function serveCached(
   return response;
 }
 
+async function redirectToBeta(request: Request, bucket: Bucket, key: string): Promise<Response> {
+  const pointer = await bucket.get(BETA_POINTER);
+  if (pointer?.body === undefined) return new Response("not found", { status: 404 });
+  const commit = (await new Response(pointer.body).text()).trim();
+  if (commit.length < 6) return new Response("not found", { status: 404 });
+  const mount = new URL(request.url).pathname.slice(0, -key.length);
+  const rest = key.slice("download/beta/".length);
+  return new Response(null, {
+    status: 302,
+    headers: { location: `${mount}${betaDir(commit)}/${rest}`, "cache-control": REVALIDATE },
+  });
+}
+
+/** The bucket read for a GET or HEAD; only a GET that sends a Range header asks for a range. */
+function readObject(
+  request: Request,
+  bucket: Bucket,
+  key: string,
+  wantsRange: boolean,
+): Promise<BucketObject | null> {
+  if (request.method === "HEAD") return bucket.head(key);
+  return bucket.get(key, {
+    range: wantsRange ? request.headers : undefined,
+    onlyIf: request.headers,
+  });
+}
+
+/** The response headers for an object, and for the byte range of it being served, if any. */
+function objectHeaders(object: BucketObject, key: string, range: BucketObject["range"]): Headers {
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("accept-ranges", "bytes");
+  headers.set("content-type", contentType(key));
+  headers.set("cache-control", isMoving(key) ? REVALIDATE : IMMUTABLE);
+  headers.set("content-length", String(range?.length ?? object.size));
+  if (key.endsWith(".tar.gz")) {
+    headers.set("content-disposition", `attachment; filename="${key.split("/").pop()}"`);
+  }
+  if (range !== undefined) {
+    const { offset, length } = range;
+    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
+  }
+  return headers;
+}
+
 export async function serveObject(
   request: Request,
   bucket: Bucket,
@@ -84,45 +127,14 @@ export async function serveObject(
     return new Response("method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
   }
   if (key.startsWith("download/beta/") && key !== BETA_POINTER) {
-    const pointer = await bucket.get(BETA_POINTER);
-    if (pointer?.body === undefined) return new Response("not found", { status: 404 });
-    const commit = (await new Response(pointer.body).text()).trim();
-    if (commit.length < 6) return new Response("not found", { status: 404 });
-    const mount = new URL(request.url).pathname.slice(0, -key.length);
-    const rest = key.slice("download/beta/".length);
-    return new Response(null, {
-      status: 302,
-      headers: { location: `${mount}${betaDir(commit)}/${rest}`, "cache-control": REVALIDATE },
-    });
+    return redirectToBeta(request, bucket, key);
   }
-  // Only a GET that sends a Range header is a range request. R2 reports a range on any read it was
-  // handed the request headers for, so a plain GET, and every HEAD, would otherwise answer 206.
   const wantsRange = request.method === "GET" && request.headers.has("range");
-  const object =
-    request.method === "HEAD"
-      ? await bucket.head(key)
-      : await bucket.get(key, {
-          range: wantsRange ? request.headers : undefined,
-          onlyIf: request.headers,
-        });
+  const object = await readObject(request, bucket, key, wantsRange);
   if (object === null) return new Response("not found", { status: 404 });
 
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-  headers.set("accept-ranges", "bytes");
-  headers.set("content-type", contentType(key));
-  headers.set("cache-control", isMoving(key) ? REVALIDATE : IMMUTABLE);
   const range = wantsRange ? object.range : undefined;
-  headers.set("content-length", String(range?.length ?? object.size));
-  if (key.endsWith(".tar.gz")) {
-    headers.set("content-disposition", `attachment; filename="${key.split("/").pop()}"`);
-  }
-  if (range !== undefined) {
-    const { offset, length } = range;
-    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
-  }
-  // an unmet precondition returns the object without a body: the client's copy is current
+  const headers = objectHeaders(object, key, range);
   if (request.method === "GET" && object.body === undefined) {
     headers.delete("content-length");
     return new Response(null, { status: 304, headers });
@@ -131,4 +143,76 @@ export async function serveObject(
     status: range !== undefined ? 206 : 200,
     headers,
   });
+}
+
+/** The slice of an Analytics Engine dataset this writes to (`env.DOWNLOADS`). */
+export interface Dataset {
+  writeDataPoint(point: { blobs?: string[]; doubles?: number[]; indexes?: string[] }): void;
+}
+
+export const clientOf = (userAgent: string | null): string => {
+  const agent = (userAgent ?? "").toLowerCase();
+  if (agent.startsWith("curl/")) return "curl";
+  if (agent.startsWith("wget/")) return "wget";
+  return agent.startsWith("mozilla/") ? "browser" : "other";
+};
+
+/**
+ * What one finished request records, or null when it is not a download: a tarball counts once, on
+ * the GET that starts it (a full 200, or the 206 whose range starts at byte 0), so HEADs, resumed
+ * ranges, 304s, checksums and the beta pointer add nothing.
+ *
+ * Schema of the dataset (the order is fixed; add to the end only): index1 version (a tag or the
+ * beta sha6) - the sampling key blob1 channel: beta | latest | release blob2 version blob3 asset,
+ * such as jint-linux-x64.tar.gz blob4 client: curl | wget | browser | other blob5 country (two
+ * letters, empty when unknown) double1 downloads (always 1, so a sampled query sums it) double2
+ * bytes
+ */
+export function downloadPoint(
+  request: Request,
+  key: string,
+  response: Response,
+): { blobs: string[]; doubles: number[]; indexes: string[] } | null {
+  if (request.method !== "GET" || !key.endsWith(".tar.gz")) return null;
+  const startsAtZero = response.headers.get("content-range")?.startsWith("bytes 0-") === true;
+  if (!(response.status === 200 || (response.status === 206 && startsAtZero))) return null;
+  const parts = key.split("/");
+  const asset = parts[parts.length - 1]!;
+  const channel = key.startsWith("latest/")
+    ? "latest"
+    : parts[1]?.startsWith("beta-")
+      ? "beta"
+      : "release";
+  const version = channel === "latest" ? "latest" : (parts[1] ?? "");
+  const country = (request as { cf?: { country?: string } }).cf?.country ?? "";
+  return {
+    blobs: [channel, version, asset, clientOf(request.headers.get("user-agent")), country],
+    doubles: [1, Number(response.headers.get("content-length") ?? 0)],
+    indexes: [version],
+  };
+}
+
+/**
+ * Records a download. Counting never changes the answer: a missing binding or a failed write is
+ * logged with the key, and the download goes on.
+ */
+export function countDownload(
+  dataset: Dataset | undefined,
+  request: Request,
+  key: string,
+  response: Response,
+): void {
+  try {
+    const point = downloadPoint(request, key, response);
+    if (point === null) return;
+    if (dataset === undefined) {
+      // oxlint-disable-next-line no-console
+      console.warn("downloads binding missing, download not counted:", key);
+      return;
+    }
+    dataset.writeDataPoint(point);
+  } catch (error) {
+    // oxlint-disable-next-line no-console
+    console.error("download count failed:", key, error);
+  }
 }
