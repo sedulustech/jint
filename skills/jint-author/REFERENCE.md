@@ -1,7 +1,5 @@
 # jint authoring - reference
 
-Generated - do not edit. Regenerate with: `bun run schema`.
-
 ## What the provider is (read before writing criteria)
 
 The provider is a classifier, not a chat model: it returns calibrated
@@ -27,8 +25,9 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
 
 ## Noul example: a two-sided criteria contract
 
-Rendered from the live spec `is_greppable` (always the current
-wire shape):
+A live spec from the shipped rules (always the current wire shape):
+
+<!-- generated:noul-example — do not edit. Regenerate with `bun run schema`. -->
 
 ```json
 {
@@ -50,6 +49,8 @@ wire shape):
 }
 ```
 
+<!-- /generated:noul-example -->
+
 Note the shape: `true` names the exact observable condition for yes, `false`
 for no, and both sides are exhaustive. The defect side decides the handle
 direction.
@@ -59,8 +60,9 @@ direction.
 Use a rubric only when the property is graded, not yes/no (scores hedge: see
 above). The instructions carry a
 scoping sentence ("do not score X here"); the ordered criteria are the score
-legend; levels are descriptions, not true/false. Rendered from the live spec
-`is_cognitively_complex`:
+legend; levels are descriptions, not true/false. A live spec from the shipped rules:
+
+<!-- generated:score-example — do not edit. Regenerate with `bun run schema`. -->
 
 ```json
 {
@@ -85,6 +87,8 @@ legend; levels are descriptions, not true/false. Rendered from the live spec
   }
 }
 ```
+
+<!-- /generated:score-example -->
 
 ## The criteria shape that fails
 

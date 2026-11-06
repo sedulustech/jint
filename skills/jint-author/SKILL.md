@@ -7,8 +7,6 @@ description: >
   Triggers: rule calibration, jint rules.
 ---
 
-<!-- Generated - do not edit. Regenerate with: bun run schema -->
-
 # jint - author and calibrate rules
 
 jint measures code: rules in, findings out. A **rule** compiles to one question
@@ -32,6 +30,8 @@ reading cannot say which failed. The model sees only the element's frame (a
 comment rule sees the definition it belongs to), so a claim about code elsewhere
 cannot be judged. REFERENCE.md has what was measured.
 
+<!-- generated:rule-schema — do not edit. Regenerate with `bun run schema`. -->
+
 | key            | meaning                                                                                                                                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                                                                            |
@@ -52,9 +52,12 @@ Handles, one form per kind - direction lives in the handle, never in prose:
 - **choice** (named options): `Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { margin, level, message? }: when the top tier's probability leads the runner-up tier's by less than `margin` (between 0 and 1), this tier fires instead - an undecided reading the rule acts on like any other tier.`
 
 Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (measurement only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.
+<!-- /generated:rule-schema -->
 
 A live config example, serialized from real shipped specs (always the current
 wire shape):
+
+<!-- generated:config-example — do not edit. Regenerate with `bun run schema`. -->
 
 ```json
 {
@@ -104,9 +107,12 @@ wire shape):
 }
 ```
 
-Worked examples and failure shapes: REFERENCE.md next to this file.
+<!-- /generated:config-example -->
+
+<!-- generated:run-address — do not edit. Regenerate with `bun run schema`. -->
 
 `jint serve`: the run UI over the store's newest run; it prints its URL. A reading's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the reading's `input` from `--json`. URL-encode `input`: it contains `#`.
+<!-- /generated:run-address -->
 
 ## Fixer messages are decisive
 

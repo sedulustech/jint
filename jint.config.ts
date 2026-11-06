@@ -151,6 +151,34 @@ const is_comment_stateful: RuleSchema = {
   },
 };
 
+// has_generated_prose: a generator that writes prose. A generated file earns its place by what
+// drifts from a source (a table, a schema, a derived example); guidance is written by hand, in the
+// file, with generated regions spliced in. Target files, scoped to the generator, so the whole
+// script is judged. Local and calibrated on one file in its states: the generator when it wrote
+// whole skills (two versions) read 0.99 and 0.93, and after the prose moved into the skills and
+// only the regions stayed generated it reads 0.22.
+const has_generated_prose: RuleSchema = {
+  name: "has_generated_prose",
+  kind: "noul",
+  target: "files",
+  instructions:
+    "This unit is a generator script: code that writes files from their sources so a checked-in file cannot drift from what it describes. A generated file is useful only for what drifts: a table, a schema or an example derived from a source of truth. Does this generator write explanation, instructions or guidance - prose a person would write and edit - instead of only tables and schemas coupled to their source?",
+  criteria: {
+    true: "The generator holds prose as string literals and writes it out: whole documents, paragraphs of guidance, rules of thumb, headings and intros. Prose does not drift from a source, it is edited by hand, so generating it hides it in code where nobody reviews it as writing. A generated file is mostly generated text, not a hand-written file with a region filled in.",
+    false:
+      "The generator writes only what can drift: tables, schemas, lists and examples derived from their source, spliced into marked regions of hand-written files. Short labels and column headers inside a table are part of the table. Any prose around the regions lives in the files, not in the generator.",
+  },
+  include: ["scripts/generate-schema.ts"],
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.8,
+      message:
+        "Move this prose into the file that shows it and generate only the table, schema or example that can drift.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -174,6 +202,7 @@ export default defineConfig({
       is_comment_stateful,
       // the domain rule claims every json, toml and yaml file; lockfiles, the built site and fixtures
       // (fake values on purpose) are not config
+      has_generated_prose,
       {
         ...has_sensitive_value,
         exclude: ["**/bun.lock", "**/package-lock.json", "web/dist/**", "**/fixtures/**"],

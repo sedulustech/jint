@@ -2,7 +2,9 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - Skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md, skills/jint-author/REFERENCE.md
+ * - The generated regions in skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md and
+ *   skills/jint-author/REFERENCE.md: the fixer table, the rule schema, the live examples and the
+ *   run-UI address. The prose around them is hand-written
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
@@ -240,95 +242,6 @@ export function renderFixerTable(messages: readonly FixerMessage[]): string {
   ].join("\n");
 }
 
-// --- skills/jint-follow/SKILL.md -------------------------------------------
-export function renderSkillFollow(specs: readonly RuleSchema[]): string {
-  const fixerTable = renderFixerTable(collectFixerMessages(specs));
-  const follow = [
-    "---",
-    "name: jint-follow",
-    "description: >",
-    "  Run jint on a path and resolve its findings. Use when measuring code quality,",
-    "  naming, or comments and fixing what jint flags. Triggers: jint, semantic lint.",
-    "---",
-    "",
-    "<!-- Generated - do not edit. Regenerate with: bun run schema -->",
-    "",
-    "# jint - run it, fix what it flags",
-    "",
-    "jint measures code with AI-classifier judgments and prints findings: a severity",
-    "and, for most rules, a fixer message that states the exact fix.",
-    "",
-    "## Run it",
-    "",
-    "Install: https://github.com/sedulustech/jint#install.",
-    "The API key (`JINT_API_KEY` or `OPENAI_API_KEY`, or `apiKey` in the config) must be in",
-    "the environment. Every flag, including output",
-    "formats and scoping, lives in `jint --help` - the tool's own contract, not",
-    "duplicated here.",
-    "",
-    "jint runs only the rules a config names: with no config (or one with no rules) it",
-    "exits 2 and prints every rule domain, the rules in each, and a working example.",
-    "Write `jint.config.ts` from that list, choosing the rules that suit the codebase",
-    "you are in. A run that measures nothing exits 4 and says, per rule, why.",
-    "",
-    "Named files and a piped path list run under the config's `rules` scope (an excluded",
-    "file is skipped, with a note). To measure exactly a changeset, pipe it:",
-    "`git diff --name-only | jint run paths -`. `--unscoped` measures named files and a",
-    "list as given. The run header states which applied.",
-    "",
-    "A whole path: `jint run <path>`. One element: `jint run <path>@L<line> --rule",
-    "<rule>`. The CLI echoes which element an @L selector captured - verify that",
-    "element is the one you mean before fixing anything.",
-    "",
-    "Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that",
-    "exists now. After any edit, re-anchor: grep the declaration, re-run.",
-    "",
-    "## Read the findings",
-    "",
-    "A finding carries a severity and a fixer message. Severity + message is the",
-    "whole actionable surface - not the schema, not thresholds, not score numbers.",
-    "",
-    "The canonical fixer message per rule (rendered from the same tables the CLI",
-    "uses, so this cannot drift from the messages you will see):",
-    "",
-    fixerTable,
-    "",
-    "A finding without a row above carries no fixer message; the finding's own text",
-    "is the instruction.",
-    "",
-    "## Spend",
-
-    "Every run costs classifier spend. Measure the smallest surface that answers",
-    "the question.",
-
-    "- Fixing one finding: re-run scoped to that element (`path@L<line>`), not the",
-    "  file, not the tree.",
-    "- Working in one file: run that file, not the directory.",
-    "- A full run is for discovering findings; scoped runs are for verifying a fix.",
-    "## The fix loop",
-    "",
-    "1. Take a finding. Re-query just that unit:",
-    "   `jint run <path>@L<line> --rule <rule>`. One query, one unit, one verdict.",
-    "2. Read the element the CLI echoed. Verify it is the finding's target.",
-    "3. Execute the fixer message EXACTLY. The message is canonical - do not",
-    "   interpret, soften, or improve on it. Do not fork: no partial fix, no",
-    "   rewording that leaves the flagged thing in place.",
-    "4. Edit the source file itself. Captures and request dumps record what was",
-    "   judged, not how the file is written now; their indentation is not source.",
-    "5. Re-anchor at the current line and re-query to confirm the finding is gone.",
-    "",
-    "## Hard rules",
-    "",
-    "- Never tamper: do not edit a rule, its thresholds, the config scope, or the engine to",
-    "  make a finding pass. A change to a rule is its own item for the user to review.",
-    "- If you believe a finding is wrong, report it and stop. Do not work around it.",
-    "- Do not read the schema, thresholds, or score numbers. Severity + message is",
-    "  all you act on.",
-    "",
-  ];
-  return follow.join("\n");
-}
-
 // The run UI and a reading's address in it: the verb and its description come from the CLI, the
 // params from the app router - if the router drops one, generation fails instead of the skill
 // teaching a dead link.
@@ -345,214 +258,13 @@ export function renderRunAddress(): string {
   return `${serve} A reading's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the reading's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
 }
 
-// --- skills/jint-author/SKILL.md -------------------------------------------
-export function renderSkillAuthor(ruleSchemaBlock: string, exampleJson: string): string {
-  const author = [
-    "---",
-    "name: jint-author",
-    "description: >",
-    "  Author and calibrate jint rules: criteria, handles, fixer messages, and the",
-    "  calibration ritual - small tests on many languages - for promoting a rule into an",
-    "  official domain.",
-    "  Triggers: rule calibration, jint rules.",
-    "---",
-    "",
-    "<!-- Generated - do not edit. Regenerate with: bun run schema -->",
-    "",
-    "# jint - author and calibrate rules",
-    "",
-    "jint measures code: rules in, findings out. A **rule** compiles to one question",
-    "for the **provider** (an AI classifier); each answer is a calibrated",
-    "reading; a reading that crosses the rule's thresholds becomes a **finding**.",
-    "",
-    "## Rules are data",
-    "",
-    "Every rule (noul included) may carry `instructions`: the yes/no question the",
-    "model answers, one sentence, stating the claim. The compiler always prepends a",
-    'kind sentence ("This unit is a function definition.") to whatever you write, so',
-    "never state the element kind yourself. Changing instructions is a recalibration",
-    "event. Criteria pin what each answer means; for score rules the ordered",
-    "criteria list is the score legend (score 0..N).",
-    "",
-    "Write the question about ONE property, as a yes/no the model can answer from the",
-    "unit alone. Name the rule for what the true side says, so the value reads as the",
-    "name: `has_filename_mismatch` high is bad, `is_greppable` high is good, and the",
-    "handle direction follows. Two properties under one question is two rules: one",
-    "reading cannot say which failed. The model sees only the element's frame (a",
-    "comment rule sees the definition it belongs to), so a claim about code elsewhere",
-    "cannot be judged. REFERENCE.md has what was measured.",
-    "",
-    ruleSchemaBlock,
-    "",
-    "A live config example, serialized from real shipped specs (always the current",
-    "wire shape):",
-    "",
-    "```json",
-    "AUTHOR_EXAMPLE_PLACEHOLDER",
-    "```",
-    "",
-    "Worked examples and failure shapes: REFERENCE.md next to this file.",
-    "",
-    renderRunAddress(),
-    "",
-    "## Fixer messages are decisive",
-    "",
-    "A handle tier's `message` is the instruction the fixing agent executes. Write",
-    'it imperative and singular: "Remove this comment." One action, no forks, no',
-    'alternatives - a forked message ("remove it, or better, rewrite the function")',
-    "gives the agent a choice, and a choice is where fixes die.",
-    "",
-    "Measured: an agent briefed with extra rule taxonomy kept 34 error-tier",
-    'comments; an agent briefed only with "follow the fixer messages" reached zero.',
-    "The message is the intervention. Everything else is rationalization material.",
-    "",
-    "## Preview the population",
-    "",
-    "Before calibrating, see what the rule will judge. `jint capture` runs the",
-    "extraction only - no classifier calls, no cost:",
-    "",
-    "```bash",
-    "jint capture <path>                  # every element: grammar, capture, span, name",
-    "jint capture <path> --rule <name>    # mark the elements this rule judges",
-    "```",
-    "",
-    "A defect in code that no element covers is invisible to every rule. If the",
-    "construct you want judged is not an element, the fix is a capture in the",
-    "grammar's queries.scm, not a rule: see docs/captures.md and docs/directives.md",
-    "(https://github.com/sedulustech/jint/tree/main/docs).",
-    "",
-    "## The calibration ritual",
-    "",
-    "A rule is not promoted into an official domain from one corpus:",
-    "single-language calibration overfits that language's naming and structure",
-    "conventions.",
-    "",
-    "- Test small on many languages, not big on a couple: a sample of real units",
-    "  per language. A language's conventions show in a few units; another hundred",
-    "  units of the same language add little.",
-    "- Calibrate only on real code: agent-generated code from benchmarks, or",
-    "  existing open-source software. Never on fixtures written for the rule - they",
-    "  match the criteria by construction and prove nothing. A control is real code",
-    "  with ONE mechanical edit that plants the defect (rename one function to another",
-    "  casing, give a file another file's body): the good and the edited unit are a",
-    "  pair, and the rule must separate every pair. A rule that never fires needs",
-    "  this before its silence means anything.",
-    "- Document the healthy-max / defective-min gap for each language; thresholds",
-    "  must sit inside every measured gap.",
-    "- Validate that the rule's claim survives each language's conventions (naming",
-    "  style, file/package layout), not only its syntax.",
-    "- Read the fire rate on healthy code. A rule that fires on a third of it (measured:",
-    "  an error-handling rule at 10-36% across three repositories) is over-firing or",
-    "  finding real defects, and only labels say which.",
-    "- Label a sample of the readings by hand: reruns show stability, only labels",
-    "  show correctness. A rule with no labeled defective example is a hypothesis,",
-    "  not a rule.",
-    "- Aim for orthogonal rules: a rule's reading should not depend on what another rule",
-    "  reads, so two rules should not ask nearly the same question. When a new rule",
-    "  overlaps an existing one, merge them or reword one until it judges a different",
-    "  dimension.",
-    "",
-    "## Where a rule goes",
-    "",
-    "Rules live in domains, one package each, imported as `jint:rules/<domain>`. A",
-    "domain is the property a rule judges (`comments`, `naming`) or a technology",
-    "(`typescript`, `react`); a domain may nest subdomains (`comments/typescript`)",
-    "that add rules or examples for one technology and never reword the parent's",
-    "question - a reworded question is a different rule with its own calibration. A",
-    "config that lists a rule name twice fails; replace a rule by spreading it with",
-    "`override: true`. Per-rule `include` scopes a rule to the files it is about.",
-    "",
-    'AGENTS.md ("Adding rules to a domain") is the authority for this ritual, including the',
-    "precedent (has_filename_mismatch, issue 006: TS test 0.36/0.88, Go test",
-    "0.25/0.72). Defer to it; do not restate thresholds here.",
-    "",
-  ];
-  return author.join("\n").replace("AUTHOR_EXAMPLE_PLACEHOLDER", exampleJson);
-}
+// --- skills ----------------------------------------------------------------
+// The skills are hand-written. Only what drifts from its source is generated into them, as marked
+// regions: the fixer table, the rule schema, the live examples, the run-UI address.
 
-const specJson = (spec: unknown) => JSON.stringify(spec, null, 2);
-
-export function renderReference(noulSpec: RuleSchema, scoreSpec: RuleSchema): string {
-  const reference = [
-    "# jint authoring - reference",
-    "",
-    "Generated - do not edit. Regenerate with: `bun run schema`.",
-    "",
-    "## What the provider is (read before writing criteria)",
-    "",
-    "The provider is a classifier, not a chat model: it returns calibrated",
-    "probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:",
-    "",
-    "- **0.5 is undecided, not medium.** A noul of 0.45 vs 0.55 is not a ranking.",
-    "- **Calibrated middle matters.** Thresholds live in the 0.3-0.8 band; a",
-    "  classifier that quantizes to 0/1 is useless here.",
-    "- **Positive phrasing can hide defects.** The model leans yes. A file-name rule",
-    '  asked "does the name fit the body?" read a body named for another subject as',
-    '  fitting (0.97); asked "does the name promise a different subject?" it read the',
-    "  same file as a mismatch (0.96). Another rule, casing consistency, separated",
-    "  its pairs under a positive question (healthy 0.99-1.00, defective 0.02-0.49),",
-    "  so phrase the defect first and let a planted-defect control decide.",
-    "- **Scores hedge onto the middle.** A three-level score put most of its mass on",
-    "  level 1 (mean probabilities 0.37 / 0.52 / 0.12; level 1 on 389 of 448",
-    "  readings; the same property asked as a yes/no also sat near 0.5). Yes/no rules",
-    "  on properties with a clear pole read cleanly. Use a rubric only when the",
-    "  property really is graded.",
-    "- **State shape.** One state x many questions per call is valid and does not",
-    "  move the readings (160 of 160 identical batched and alone). Never stack",
-    "  elements into one state yourself: the frame is the unit.",
-    "",
-    "## Noul example: a two-sided criteria contract",
-    "",
-    `Rendered from the live spec \`${noulSpec.name}\` (always the current`,
-    "wire shape):",
-    "",
-    "```json",
-    specJson(noulSpec),
-    "```",
-    "",
-    "Note the shape: `true` names the exact observable condition for yes, `false`",
-    "for no, and both sides are exhaustive. The defect side decides the handle",
-    "direction.",
-    "",
-    "## Score example: the scored rubric",
-    "",
-    "Use a rubric only when the property is graded, not yes/no (scores hedge: see",
-    "above). The instructions carry a",
-    'scoping sentence ("do not score X here"); the ordered criteria are the score',
-    "legend; levels are descriptions, not true/false. Rendered from the live spec",
-    `\`${scoreSpec.name}\`:`,
-    "",
-    "```json",
-    specJson(scoreSpec),
-    "```",
-    "",
-    "## The criteria shape that fails",
-    "",
-    "This shape reads reasonable and fails on a healthy corpus:",
-    "",
-    "```json",
-    '  "rules": [',
-    "    {",
-    '      "name": "will_naming_drift",',
-    '      "target": "definitions",',
-    '      "criteria": {',
-    '        "true": "The change introduces naming drift: the same concept is called by different names across the change.",',
-    '        "false": "Naming is consistent."',
-    "      },",
-    '      "handle": { "warn": { "greater_than": 0.5 }, "error": { "greater_than": 0.7 } }',
-    "    }",
-    "  ]",
-    "```",
-    "",
-    "It fails three ways: `false` is generic (name the exact observable condition),",
-    "the claim spans multiple elements - the model sees only its own frame and",
-    'compares against names it cannot see - and "drift" invites narrating quality',
-    "instead of checking a condition.",
-    "The fix is never thresholds; rewrite the criteria until they name an observable",
-    "condition.",
-    "",
-  ];
-  return reference.join("\n");
+/** A live spec as a fenced json block, always the current wire shape. */
+export function renderSpecBlock(spec: unknown): string {
+  return ["```json", JSON.stringify(spec, null, 2), "```"].join("\n");
 }
 
 interface Row {
@@ -841,40 +553,28 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   formatted.push(schemaOut);
   process.stdout.write("wrote " + schemaOut + "\n");
 
-  const followOut = outPath(root, GENERATED_OUTPUTS[1]!);
-  writeFileSync(followOut, renderSkillFollow(allSpecs));
-  formatted.push(followOut);
-  process.stdout.write("wrote " + followOut + "\n");
-
-  const authorOut = outPath(root, GENERATED_OUTPUTS[2]!);
-  const example = {
-    $schema: "./jint.schema.json",
-    rules: {
-      use: [
-        allSpecs.find((spec) => spec.name === "is_greppable"),
-        allSpecs.find((spec) => spec.name === "is_cognitively_complex"),
-      ],
-    },
+  const spliceInto = (index: number, regions: Record<string, string>) => {
+    const out = outPath(root, GENERATED_OUTPUTS[index]!);
+    let doc = readFileSync(REPO_ROOT + GENERATED_OUTPUTS[index]!, "utf8");
+    for (const [name, body] of Object.entries(regions)) doc = spliceGenerated(doc, name, body);
+    writeFileSync(out, doc);
+    formatted.push(out);
+    process.stdout.write("wrote " + out + "\n");
   };
-  writeFileSync(
-    authorOut,
-    renderSkillAuthor(
-      renderRuleSchemaBlock(extractRuleSchemaProps()),
-      JSON.stringify(example, null, 2),
-    ),
-  );
-  process.stdout.write("wrote " + authorOut + "\n");
-
-  const referenceOut = outPath(root, GENERATED_OUTPUTS[3]!);
-  writeFileSync(
-    referenceOut,
-    renderReference(
-      allSpecs.find((spec) => spec.name === "is_greppable")!,
-      allSpecs.find((spec) => spec.name === "is_cognitively_complex")!,
-    ),
-  );
-  formatted.push(authorOut, referenceOut);
-  process.stdout.write("wrote " + referenceOut + "\n");
+  const byName = (name: string) => allSpecs.find((spec) => spec.name === name);
+  spliceInto(1, { "fixer-table": renderFixerTable(collectFixerMessages(allSpecs)) });
+  spliceInto(2, {
+    "rule-schema": renderRuleSchemaBlock(extractRuleSchemaProps()),
+    "config-example": renderSpecBlock({
+      $schema: "./jint.schema.json",
+      rules: { use: [byName("is_greppable"), byName("is_cognitively_complex")] },
+    }),
+    "run-address": renderRunAddress(),
+  });
+  spliceInto(3, {
+    "noul-example": renderSpecBlock(byName("is_greppable")),
+    "score-example": renderSpecBlock(byName("is_cognitively_complex")),
+  });
 
   const targetsOut = outPath(root, GENERATED_OUTPUTS[4]!);
   writeFileSync(
