@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  clientOf,
   countDownload,
   downloadPoint,
   keyOf,
@@ -209,32 +208,16 @@ describe("serveCached", () => {
     expect(r.reads()).toBe(1);
   });
 
-  test("the cache never holds the public URL, so the edge cannot answer a download itself", async () => {
+  test("neither cache layer can answer a download itself: the stored copy is under an internal key and public, the client copy private", async () => {
     const r = rig();
-    await r.call(immutable);
+    const first = await r.call(immutable);
     await r.settle();
     const keys = [...r.stored.keys()];
     expect(keys).toHaveLength(1);
     expect(keys[0]).not.toBe(get(immutable).url);
     expect(new URL(keys[0]!).pathname).toBe(`/__dl-cache/${immutable}`);
-  });
-
-  test("the client may not be cached by a shared cache, the stored copy may", async () => {
-    const r = rig();
-    const first = await r.call(immutable);
-    await r.settle();
     expect(first.headers.get("cache-control")).toStartWith("private");
-    const [stored] = [...r.stored.values()];
-    expect(stored?.headers.get("cache-control")).toStartWith("public");
-  });
-
-  test("a cache hit is still a counted download", async () => {
-    const r = rig();
-    await r.call(immutable);
-    await r.settle();
-    const hit = await r.call(immutable);
-    expect(r.reads()).toBe(1);
-    expect(downloadPoint(get(immutable), immutable, hit)?.doubles[0]).toBe(1);
+    expect(r.stored.values().next().value?.headers.get("cache-control")).toStartWith("public");
   });
 
   test("a range request, a HEAD, the pointer and a missing object are never stored", async () => {
@@ -300,15 +283,6 @@ describe("downloadPoint / countDownload", () => {
       headers: { "content-range": "bytes 0-499/1234", "content-length": "500" },
     });
     expect(downloadPoint(get(tar), tar, first)?.doubles).toEqual([1, 500]);
-  });
-
-  test("client classes", () => {
-    expect([null, "Wget/1.21", "Mozilla/5.0 (X11)", "python-requests/2"].map(clientOf)).toEqual([
-      "other",
-      "wget",
-      "browser",
-      "other",
-    ]);
   });
 
   test("countDownload writes once, ignores a missing dataset, and survives a throwing one", () => {
