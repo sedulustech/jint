@@ -18,35 +18,28 @@ demands action.
   nothing. It is not the endpoint's own input cache, which only makes a sent request cheaper.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
 - **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp
-  class declarations). Split from @type so a rule can judge classes as classes; every other type
+  class declarations). Distinct from @type so a rule can judge classes as classes; every other type
   shape (interfaces, structs, enums, aliases, modules) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
   classifies states, it never generates or transforms them.
 - **capture** — the jint-owned name a grammar's queries assign to a matched node
   (function, method, class, type, binding, comment, import): what one element IS. Singular names
   one element; the plural addresses the group a rule targets. A capture name is an identity,
-  never a label; the names are flat capture names — no dotted names at either layer, decided and final.
-  Replaces role (the living collision).
-- **capture (verb)** - run extraction over an input under a chosen grammar and query set,
-  yielding elements; the classifier stays unplugged. One word, two layers (deliberate duality):
-  the SDK function `capture()` is lint's pipeline with the classifier unplugged, and the CLI
-  verb `jint capture` is a thin print of that function. Its elements carry `text` - the span
-  content truncated at 200 chars (one ellipsis); the span stays the authority for full content.
-  The config-loading variant (`captureFor`, the CLI's default) loads the config like run does, so capture
-  previews the population a rule will judge; capture with --rule marks that population and
-  nothing is classified.
-- **capture vocabulary** — the two tiers the runtime knows: the SHARED CAPTURES (function,
-  method, class, type, binding, comment, import, docstring) every grammar may address, closed and
-  promoted by ceremony, plus the OPEN NAMESPACE of GRAMMAR-AUTONOMOUS captures a grammar's own
-  .scm declares with a `capture.<name>.definition` directive (markdown's section, paragraph,
-  list, list_item; any BYOG future) - no engine registration. A capture that is neither shared
-  nor declared fails the run at setup naming the directive to add. The @name capture renders a
-  definition's name; `test` is RESERVED (a valid token no grammar emits yet, held for the test
-  capture).
+  never a label, and is flat: no dotted names at either layer.
+- **capture verb** — run extraction over an input under a chosen grammar and query set,
+  yielding elements while the classifier stays unplugged. The SDK function `capture()` is lint's
+  pipeline without the classifier, and the CLI verb `jint capture` prints that function's result.
+  Each element carries its span and a text excerpt; the span is the authority for full content.
+  The config-loading variant `captureFor` loads the config like run does, so capture previews the
+  population a rule will judge, and capture with --rule marks that population.
+- **capture vocabulary** — the capture names a run accepts: the shared captures every grammar may
+  address, and the grammar-autonomous captures a grammar's own .scm declares with a
+  `capture.<name>.definition` directive. Any other capture fails the run at setup, naming the
+  directive to add.
 - **directive** — a #set! fact in a queries.scm attached to one pattern declaring how the engine treats what that pattern extracts; validated at load. Naming principle: the prefix names the grouper, the suffix the knob, the value the setting; names never name the node — the pattern is the target.
-- **selfNesting** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
-  (markdown's sections). Absent: a same-capture match inside an existing same-capture
-  element reads as a wrapper's payload and collapses into it unless the tail distance is real (the per-grammar capture directives over the shared defaults).
+- **`selfNesting`** — a grammar's .scm #set! directive (#set! "selfNesting", beside the pattern whose shape it changes): same-capture candidates nest legitimately
+  (markdown's sections). Without it, a same-capture match inside an existing same-capture
+  element reads as a wrapper's payload and collapses into it unless the tail distance is real.
 - **choice** — a rule kind whose question selects one named option; the answer is the selected
   option's label, with a probability per option.
 - **confidence** — the provider's own number, 0-1, on a score or choice answer. Not derived from the
@@ -54,18 +47,16 @@ demands action.
 - **criteria** — the prose on a question describing what each answer means; pins the boundary.
 - **diff** — an input kind: a unified patch, judged as per-file blocks.
 - **scope** — a path selection with an owner: include/exclude patterns that select which files
-  a rule may measure. The config's scope is `rules.include`/`rules.exclude`: the default scope of
-  every rule and the walk's file filter. A rule's scope is its own include/exclude: it replaces
-  the config's for that rule and claims its files across the config exclude. `--unscoped` drops
-  the config's scope for named files and a path list, never a rule's own. The denylist and
-  gitignore are not scopes: they exclude, and always win.
+  a rule may measure. The config's scope is `rules.include`/`rules.exclude`, the default scope of
+  every rule. A rule's scope is its own include/exclude, which replaces the config's for that rule
+  and claims its files across the config exclude. `--unscoped` drops the config's scope for named
+  files and a path list, never a rule's own. The secret denylist and gitignore are exclusions, not
+  scopes, and always win.
 - **dimension** — one semantic property of the measured subject. Orthogonal dimensions of one subject stay separate rules or questions; a criteria stacking several is a rule trying to be two.
 - **domain** — a named group of rules, one package, imported as jint:rules/<domain>. A domain is a subject a rule belongs to: a property judged (comments, naming) or a technology (typescript, react). A domain holds rules and may nest subdomains; it is not a dimension (one property inside one rule) and not a scope (a path selection).
 - **subdomain** — a domain nested in another, a refinement of it (comments/typescript under comments): it adds rules or examples for one technology and never rewords its parent's questions. It is a subpath of the parent's package, never a package of its own.
-- **descent default** — the per-capture policy for what a captured element's interior yields: a
-  @type interior surfaces (a method is an element of its own); a @function or @binding interior
-  is opaque to different captures (a local binding in a body is implementation), while a
-  same-capture nest surfaces as a child of its own unless it is absorb-shaped (nested functions).
+- **descent default** — how a capture treats a match nested inside another match of the same
+  capture: absorbed into it, kept as its child, or measured as an element of its own.
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
   union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
@@ -79,19 +70,19 @@ demands action.
   `markdown:section`, `markdown:paragraph`): the only road to a grammar-autonomous capture. Validated against the
   captures the grammar's queries EMIT (derived syntactically at load - the .scm is the single
   source, no manifest involvement); an unknown grammar or an unemitted capture is a setup error,
-  never a silent no-match. The bare form drifted from the design and is schema-rejected.
+  never a silent no-match. The bare form is schema-rejected.
 - **list** — markdown's whole-list capture (@list, md-only): one element per bullet or ordered
   list, spanning every item, markers kept in its text. Lists nest - a nested list is an element
   of its own (the selfNesting fact) - and a rule judging the list whole sees every sibling
   entry (`markdown:list`).
-- **list_item** — markdown's list-entry capture (@list_item, md-only): the paragraph inside a
+- **`list_item`** — markdown's list-entry capture (@list_item, md-only): the paragraph inside a
   bullet or numbered item - marker stripped, continuations folded in, one element per entry; an
   in-list paragraph is a list_item, never a paragraph (`markdown:list_item`).
 - **paragraph** — markdown's flat prose capture (@paragraph, md-only): a run of body text with
   no heading and no interior structure worth judging alone. Flat by construction - paragraphs
   never nest, so it needs no shape directive - and addressed through the qualified lane
   (`markdown:paragraph`).
-- **statement_group** — typescript's and tsx's top-level code capture (@statement_group,
+- **`statement_group`** — typescript's and tsx's top-level code capture (@statement_group,
   `typescript:statement_group`): executable statements at program level that no definition owns
   (a script's setup calls, a CLI's main loop), one element per run of adjacent statements. Only
   another element ends the run - blank lines and comments ride inside (capture merge
@@ -110,7 +101,7 @@ demands action.
 - **input** — what a run classifies: where the bytes come from, nothing more.
 - **input kind** — how the CLI interprets an input: file, dir, diff, or str. CLI perspective;
   not to be confused with target (rule perspective).
-- **identity vs label** — every tracked entity carries one id: a uuidv4 minted at creation and
+- **identity** — every tracked entity carries one id: a uuidv4 minted at creation and
   propagated unchanged through every payload (request record, measurement input, finding, cell),
   never the state sent to the model: a fresh id each run would make identical code a different
   request. A label ("d0", "L10", a span string) is the renderable part of an entity, never its
@@ -119,7 +110,7 @@ demands action.
   because the run scopes every address.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   unit is). Criteria pins the boundary; editing either is a recalibration event.
-- **inventory** — the set of elements derived from one file.
+- **inventory** — the elements one file yields.
 - **measurement** — the raw reading for one (rule, element) pair; always produced (a value, or
   refused), never actionable by itself.
 - **node** — a tree-sitter syntax node.
@@ -147,8 +138,10 @@ demands action.
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
   `jint run ./capture`).
-- **provider** — the service at the Decisions endpoint that jint asks its questions of. The key you export selects it: JINT_API_KEY (with JINT_API_URL) opens the Jint endpoint, OPENAI_API_KEY opens the default url, and a key is only ever sent to the url it is paired with. An overridden url or an environment key is reported in a run note.
-- **question** — one classified judgment request sent to the model about one state.
+- **provider** — the service at the Decisions endpoint that answers jint's questions. The API key
+  selects it, and a key goes only to the url it is paired with. A run note reports a url
+  moved off the default.
+- **question** — one classified judgment request sent to the model about one state: the claim to judge plus the state it judges.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
 - **request** — the recorded classifier call: the exact bytes sent to the model and the
@@ -161,6 +154,7 @@ demands action.
   version's. Two runs show the rerun noise. The unit of calibration; not the reserved `test`
   capture.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
+- **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request
@@ -171,32 +165,30 @@ demands action.
 - **state** — exactly what the model judges for one question.
 - **strategy** — a model of the state and questions sent to the classifier, balancing
 - **sdk** — the in-process library a consumer calls: the engine layer (config, walk, classify,
-  lint, output) plus its public barrel. Same process as its caller — "SDK" says call-into-me;
-  the retired synonym "engine" implied a separate runtime, which this layer never is.
+  lint, output) plus its public barrel. Same process as its caller: "SDK" says call-into-me, never a separate runtime.
 - **comments** — the rule target for DOCUMENTATION: the pair frame — a definition judged together
   with the comments it owns (its attached run, its internal notes, its docstrings, and its code).
-  A module-level docstring has no definition frame either — it is loose commentary, like any other
+  A module-level docstring has no definition frame either: it is loose commentary, like any other
   unowned run. An owned
   comment element never matches separately, so a narration rule fires exactly once per documented
-  definition. The name is deliberately shared with @comment in the sanctioned singular/plural
+  definition. The name is shared with @comment in the singular/plural
   split: the capture names ONE comment element, the target plural addresses the documentation
-  units a rule judges. The shipped comment rules target this, not loose-comments.
-- **loose-comments** — the complement of comments: comment elements NO definition owns (standalone
+  units a rule judges.
+- **loose comments** — the complement of comments: comment elements NO definition owns (standalone
   runs, and inline comments outside any definition). Together with comments it is disjoint and
   jointly exhaustive over comment text, so a rule can measure a comment under exactly one target
   and none escapes both.
-- **method** — an element that is a member function: the @method capture (ts/tsx
-  method_definition, python class-body function_definitions — the structural-context capture —,
-  go/php receivers and member shapes, cpp in-class and out-of-line K::f definitions). Split from
-  @function so a rule can judge members as members.
+- **method** — an element that is a member function: the @method capture, covering class-body
+  functions, receivers, and in-class or out-of-line member definitions. Distinct from @function
+  so a rule can judge members as members.
 - **rule target** — which unit instances a rule judges; resolves over the two namespaces
   (FILE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
   types, bindings, definitions, comments, loose-comments, imports). Declarative: a name or an
   explicit list; the shipped rules use the list form. 'noun' stays CLI-owned - it names a declared
   input read, never a capture.
-- **definitions (target)** — the umbrella shorthand for every definition capture at once
+- **definitions** — the umbrella shorthand for every definition capture at once
   (functions, classes, methods, types, bindings): the same measured set as the explicit union.
-  Demoted to shorthand — new rules prefer the specific targets; the shipped rules no longer use it.
+  It is shorthand: prefer the specific targets.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
-- **walker / walk** — the pass that turns parsed sources into inventory elements (and the
+- **walk** — the pass that turns parsed sources into inventory elements (and the
   directory pass that turns an on-disk tree into file units).

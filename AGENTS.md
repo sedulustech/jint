@@ -12,6 +12,9 @@ A rule is not promoted into an official domain from one corpus: single-language 
 
 - Test small on many languages, not big on a couple: a sample of real units per language. A language's conventions show in a few units; another hundred units of the same language add little.
 - Calibrate only on real code: agent-generated code from benchmarks, or existing open-source software. Never on fixtures written for the rule - they match the criteria by construction and prove nothing. Label a sample of the readings by hand: reruns show stability, only labels show correctness.
+- Aim for orthogonal rules: a rule's reading should not depend on what another rule reads, so two
+  rules should not ask nearly the same question. When a new rule overlaps an existing one, merge
+  them or reword one until it judges a different dimension.
 - Document the healthy-max / defective-min gap for each language; thresholds must sit inside every measured gap.
 - Validate that the rule's claim survives each language's conventions (naming style, file/package layout) rather than only its syntax.
 - Precedent: has_filename_mismatch, then named is_filename_fitting (issue 006) — TS test 0.36/0.88, Go test 0.25/0.72 (cobra plus fixtures, before fixtures were ruled out), verb-name and package-per-dir conventions checked before promotion.
