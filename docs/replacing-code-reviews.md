@@ -11,8 +11,9 @@ jint moves the code review to the implementing agent.
 
 Developers use memory or skills to guide an agent from making mistakes and to guide its output.
 Instead of guiding, we need to enforce and verify.
-"This name says nothing." "This comment repeats the code." Each one is a
-question about the code, so each one can be a [rule](what-are-rules.md).
+
+"This name says nothing." "This comment repeats the code." Each one is a steering prompt that
+we can convert into a [rule](what-are-rules.md).
 
 Instead of writing the same prompt a second time, write the rule instead.
 The engineer's judgment becomes a rule.
