@@ -31,12 +31,6 @@ const is_literal_shared: RuleSchema = {
   handle: { map: ["pass", "pass", "warn", "error"] },
 };
 
-// is_doc_stateful: glossary discipline, calibrated in-repo on GLOSSARY.md (2026-10-19, one
-// language - NOT promoted into a domain; the two-language bar in AGENTS.md has not been met). The
-// defect has two species with one remedy: history/session narration, and pinned mutable facts
-// (counts, inventories, defaults) a code change silently falsifies. A score split of the two
-// was tried and reverted: not separable at definition granularity without paying precision,
-// and the fixer action is identical - see the handle message.
 const is_doc_stateful: RuleSchema = {
   name: "is_doc_stateful",
   kind: "noul",
@@ -63,9 +57,6 @@ const is_doc_stateful: RuleSchema = {
   },
 };
 
-// is_headword_consistent: same session, same file - the term list mixes shapes (single words,
-// vs-pairs, multi-word phrases) and reads 0.47-0.54 (a true split). Thresholds parked high
-// until a decision on whether mixed headword shapes are a defect or honest vocabulary breadth.
 const is_headword_consistent: RuleSchema = {
   name: "is_headword_consistent",
   kind: "noul",
@@ -92,15 +83,6 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
-// is_comment_contradictory: a comment that states something the code in the same file contradicts,
-// first seen when install.sh's header still described GitHub releases after the code fetched the
-// site. Target files, because the comments targets measure only comments a definition owns: a
-// file header is a loose comment, so no comments rule ever saw it. Calibrated on bash only (the
-// two-language bar in AGENTS.md has not been met, so NOT in an official domain), with the rule
-// scoped to .sh until a second language is measured: healthy 0.03 and 0.29 (the two repo scripts,
-// fixed), defective 0.98 (the stale header) and 0.64 (a stub comment gone stale in
-// verify-install.sh), and 1 fire in 10 real scripts (0.79, a trailing comment naming a GUI the
-// call runs without). The error bar sits at 0.9 so only a blatant contradiction errors.
 const is_comment_contradictory: RuleSchema = {
   name: "is_comment_contradictory",
   kind: "noul",
@@ -123,12 +105,6 @@ const is_comment_contradictory: RuleSchema = {
   },
 };
 
-// is_comment_stateful: a comment that reads true only today - now, currently, no longer, a date, a
-// review, the old X. Target comments, so a reading names the definition to rewrite. Calibrated on
-// TypeScript only (the two-language bar in AGENTS.md has not been met, so NOT in an official
-// domain; scoped to .ts/.tsx): 10 of 170 definitions fire (0.52 to 1.0) over seven core files as
-// they stood before their comments were stripped, and all 10 carry a date, a review id, a retired
-// name or a "was/old" history. No healthy unit crossed 0.5 (next highest 0.44).
 const is_comment_stateful: RuleSchema = {
   name: "is_comment_stateful",
   kind: "noul",
@@ -151,12 +127,6 @@ const is_comment_stateful: RuleSchema = {
   },
 };
 
-// has_generated_prose: a generator that writes prose. A generated file earns its place by what
-// drifts from a source (a table, a schema, a derived example); guidance is written by hand, in the
-// file, with generated regions spliced in. Target files, scoped to the generator, so the whole
-// script is judged. Local and calibrated on one file in its states: the generator when it wrote
-// whole skills (two versions) read 0.99 and 0.93, and after the prose moved into the skills and
-// only the regions stayed generated it reads 0.22.
 const has_generated_prose: RuleSchema = {
   name: "has_generated_prose",
   kind: "noul",

@@ -175,8 +175,6 @@ export const REPORT_SCHEMA = Type.Object({
 
 export type Report = Static<typeof REPORT_SCHEMA>;
 
-// Type-level pin: the contract's plain interfaces and the wire schemas cannot drift — in EITHER
-// direction. Assignability both ways, so a field added on one side alone (e.g. wire-only
 const _pinMeasurement: readonly Measurement[] = [] as Static<typeof MEASUREMENT_SCHEMA>[];
 const _pinMeasurementWire: readonly Static<typeof MEASUREMENT_SCHEMA>[] = [] as Measurement[];
 const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];

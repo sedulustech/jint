@@ -327,13 +327,6 @@ function internalCommentCounts(
   return internalCounts;
 }
 
-// Comment attachment, document order over the candidates NOT inside any definition: comments
-// accumulate as a pending run; a following definition takes the run when the run ends strictly
-// above the definition's first row within the grammar's attach.gap (default: the directly
-// preceding row). Anything else flushes the run as standalone comment elements (every comment
-// text still lands in the comments bucket below - the run only decides who owns it).
-//
-// TRAILING SIDE: a comment that starts on a row where the previous candidate ENDS is a note
 function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
   const pending: Candidate[] = [];
