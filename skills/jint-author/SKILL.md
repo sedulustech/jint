@@ -28,7 +28,7 @@ name: `has_filename_mismatch` high is bad, `is_greppable` high is good, and the
 handle direction follows. Two properties under one question is two rules: one
 reading cannot say which failed. The model sees only the element's frame (a
 comment rule sees the definition it belongs to), so a claim about code elsewhere
-cannot be judged. REFERENCE.md has what was measured.
+cannot be judged.
 
 <!-- generated:rule-schema — do not edit. Regenerate with `bun run schema`. -->
 
