@@ -26,5 +26,4 @@ export const has_off_palette_color: RuleSchema = {
   },
 };
 
-/** Every rule of this set. */
 export const rules: readonly RuleSchema[] = [has_off_palette_color];

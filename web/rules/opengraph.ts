@@ -79,7 +79,6 @@ export const has_image_alt_text: RuleSchema = {
   handle: { warn: { less_than: 0.6, message: "Add alt text for the social image." } },
 };
 
-/** Every rule of this domain. */
 export const rules: readonly RuleSchema[] = [
   has_call_to_action,
   is_description_complete,

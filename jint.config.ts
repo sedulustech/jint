@@ -158,7 +158,14 @@ export default defineConfig({
     // stays out by this exclude, and is_literal_shared needs no per-rule carve-out - it
     // rides the config door, which never admits md.
     include: ["**/*.ts", "**/*.tsx", "**/*.css", "**/*.sh"],
-    exclude: ["**/*.md", "**/*.test.ts", "**/*.test-browser.tsx", "**/tests/**", "**/*.lock"],
+    exclude: [
+      "**/*.md",
+      "**/*.test.ts",
+      "**/*.test-browser.tsx",
+      "**/tests/**",
+      "**/*.lock",
+      "web/.astro/**",
+    ],
     use: [
       ...comments,
       ...complexity,
