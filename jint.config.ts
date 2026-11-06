@@ -64,19 +64,19 @@ const is_headword_consistent: RuleSchema = {
   instructions:
     "This unit is one list of glossary entries: each entry is a dash, a bolded headword, an em dash, then the definition. Headwords are the bolded phrases before the em dashes - the terms the entries define. Do all the headwords in this list share one format?",
   criteria: {
-    true: "At least one headword in this list does not match the format of the other headwords: a different casing style, a multi-word or qualified phrase among single words, a slash-joined pair among plain words, or some other entry whose bolded term is shaped unlike the rest.",
+    true: "Every headword in this list shares the same format: same casing style, same shape (single word, phrase, or pair), so the term list reads as one vocabulary.",
     false:
-      "Every headword in this list shares the same format: same casing style, same shape (single word, phrase, or pair), so the term list reads as one vocabulary.",
+      "At least one headword in this list does not match the format of the other headwords: a different casing style, a multi-word or qualified phrase among single words, a slash-joined pair among plain words, or some other entry whose bolded term is shaped unlike the rest.",
   },
   include: ["GLOSSARY.md"],
   handle: {
     warn: {
-      greater_than: 0.9,
+      less_than: 0.1,
       message:
         "At least one headword is shaped unlike the rest: make the term list one vocabulary - same casing style, same headword shape.",
     },
     error: {
-      greater_than: 0.95,
+      less_than: 0.05,
       message:
         "At least one headword is shaped unlike the rest: make the term list one vocabulary - same casing style, same headword shape.",
     },
