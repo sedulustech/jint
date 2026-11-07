@@ -1,26 +1,72 @@
 ---
-title: Run jint with Lemonade
-description: "Ask a decision model on your own machine: Lemonade in a container, the Laya model on a CPU, and the settings jint needs."
+title: Run a local model
+description: "Ask a decision model on your own machine: what a local server must provide, the settings jint needs, and a tested example."
 sidebar:
-  label: Lemonade
+  label: Local
 ---
 
-# Run jint with Lemonade
+# Run a local model
+
+A decision model on your machine sends no code to a remote service and costs nothing per
+classification. Any local server can answer jint's questions if it speaks one of the two wires. See
+[models and endpoints](endpoints.md).
+
+## What the server must provide
+
+- An endpoint that ends in `/decisions` or in `/v1/systemone`.
+- The question types your rules use: `noul`, `score` and `choice`.
+- Probabilities in each answer. A rule reads the probability, not generated text.
+
+## Point jint at the server
+
+```sh
+export JINT_API_URL=http://127.0.0.1:<port>/v1/systemone
+export JINT_API_MODEL=<model name>
+```
+
+Set no key. A server on your own machine needs none, and jint sends no OpenAI key there. If the
+server needs a key, set `JINT_API_KEY`.
+
+## Set concurrency and timeout
+
+A local server often answers one request at a time. Jint sends 16 calls at once by default. The
+calls queue, and the last ones time out.
+
+Set the two run settings in `jint.config.json`:
+
+```json
+{
+  "concurrency": 1,
+  "timeout": 120
+}
+```
+
+- `concurrency` of 1 sends one call at a time.
+- `timeout` of 120 gives each attempt 40 seconds. A slow server needs more than the default
+  10 seconds for a large input.
+
+See [configuration](config.md#concurrency-and-timeout).
+
+## Know the input limit
+
+A decision model accepts a fixed number of input tokens. The server rejects a larger input. Jint
+reports an error for that classification. Target smaller elements, or exclude large files.
+
+## Example: Lemonade in a container
 
 [Lemonade](https://github.com/lemonade-sdk/lemonade) serves decision models on your machine. Its
-`/v1/systemone` endpoint takes the same question types as jint. A model on your machine sends no
-code to a remote service and costs nothing per classification.
+`/v1/systemone` endpoint takes the same question types as jint.
 
-This page shows a CPU setup that needs no GPU. We tested it with the `edge` image of Lemonade
+This example is a CPU setup that needs no GPU. We tested it with the `edge` image of Lemonade
 (the tip of `main`) and the `Laya-GGUF` model. Lemonade labels this endpoint experimental.
 
-## What you need
+### What you need
 
 - Docker.
 - 1 GB of disk for the image and 0.5 GB for the model.
 - A CPU. The setup below needs no GPU and no NPU.
 
-## Start Lemonade
+### Start Lemonade
 
 1. Pull the image. It is about 760 MB.
 
@@ -62,37 +108,17 @@ This page shows a CPU setup that needs no GPU. We tested it with the `edge` imag
 Lemonade loads the model on the first request. That request takes about 4 seconds longer than
 the next ones.
 
-## Point jint at Lemonade
+### Point jint at Lemonade
 
 ```sh
 export JINT_API_URL=http://127.0.0.1:13305/v1/systemone
 export JINT_API_MODEL=Laya-GGUF
 ```
 
-Set no key. A server on your own machine needs none, and jint sends no OpenAI key there. If you
-start Lemonade with `LEMONADE_API_KEY`, set `JINT_API_KEY` to the same value.
+If you start Lemonade with `LEMONADE_API_KEY`, set `JINT_API_KEY` to the same value. The Lemonade
+container answers one request at a time, so set `concurrency` of 1 and `timeout` of 120.
 
-## Set concurrency and timeout
-
-The Lemonade container answers one request at a time. Jint sends 16 calls at once by default.
-The calls queue, and the last ones time out.
-
-Set the two run settings in `jint.config.json`:
-
-```json
-{
-  "concurrency": 1,
-  "timeout": 120
-}
-```
-
-- `concurrency` of 1 sends one call at a time.
-- `timeout` of 120 gives each attempt 40 seconds. A large file needs more than the default 10
-  seconds on a CPU.
-
-See [configuration](config.md#concurrency-and-timeout).
-
-## Speed
+### Speed
 
 We measured these values on an Intel Core Ultra 7 165H with the CPU backend.
 
@@ -106,7 +132,7 @@ We measured these values on an Intel Core Ultra 7 165H with the CPU backend.
 The cost of a call grows with the number of input tokens. A short function takes about 1 second.
 A whole file of a few thousand tokens takes about 10 seconds.
 
-## Limits
+### Limits
 
 - **Quality.** We checked that the setup works. We did not measure how well Laya separates healthy
   code from defective code. Calibrate each rule before you trust its findings. See
@@ -117,7 +143,7 @@ A whole file of a few thousand tokens takes about 10 seconds.
   larger input with `400 context_length_exceeded`. Jint then reports an error for that
   classification. Target smaller elements, or exclude large files.
 
-## Stop and remove Lemonade
+### Stop and remove Lemonade
 
 ```sh
 docker rm -f lemonade-server

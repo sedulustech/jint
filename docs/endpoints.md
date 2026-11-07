@@ -46,8 +46,8 @@ jint run src
 A Lemonade server on your machine has no key unless its owner set one. If Lemonade runs with
 `LEMONADE_API_KEY`, set `JINT_API_KEY` to the same value.
 
-See [run jint with Lemonade](lemonade.md) for a complete container setup and the run settings a
-local model needs.
+See [run a local model](local.md) for the run settings a local server needs and a complete
+container example.
 
 ## The settings
 

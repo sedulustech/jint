@@ -21,7 +21,7 @@
   },
   {
     "label": "Running jint",
-    "items": ["config", "endpoints", "lemonade"]
+    "items": ["config", "endpoints", "local"]
   },
   {
     "label": "Use cases",
