@@ -111,10 +111,9 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
               navigate({
                 to: errorsOpen ? "/runs/$runId" : ERRORS_ROUTE,
                 params: { runId: run.id },
-                // only report= carries over: rule/input address the pane on the run route and
-                // the dialog on the errors route, so neither survives the switch
-                search: (previousSearch: RunSearch) =>
-                  previousSearch.report === undefined ? {} : { report: previousSearch.report },
+                // rule/input address the pane on the run route and the dialog on the errors
+                // route, so neither survives the switch
+                search: {} as RunSearch,
               })
             }
             className="text-sev-error"

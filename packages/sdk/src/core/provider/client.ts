@@ -37,6 +37,12 @@ export interface ClassifierConfig extends EndpointChoice {
    * store is $JINT_CACHE_DIR, else ~/.jint/cache.
    */
   cache?: boolean;
+  /**
+   * Whether this classifier starts a recorded run in the run store (default true). A caller that
+   * records its own exchanges - the run UI's try-it iterations, filed under the run they edit -
+   * turns it off, and the call leaves no run directory of its own.
+   */
+  record?: boolean;
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
@@ -49,16 +55,18 @@ export function createClassifier(config?: ClassifierConfig): Classifier {
   };
 }
 
-/** The classifier for the endpoint, asked through the Decisions adapter. */
 function makeClassifier(
   config: ClassifierConfig | undefined,
   endpoint: Endpoint,
   log: (line: string) => void,
   input: string,
 ): Classifier {
-  // A missing key fails here, before anything is built or recorded.
   if (endpoint.apiKey === undefined) throw missingKey(input, endpoint);
-  const recorded = recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) });
+  const recording = config?.record !== false;
+  const send = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  const recorded = recording
+    ? recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) }).fetch!
+    : send;
   const cache =
     config?.cache === false
       ? undefined
@@ -66,14 +74,12 @@ function makeClassifier(
           store: fileStore(cacheDir()),
           endpoint: urlIdentity(endpoint.url),
           scope: inQuestions,
-          hit: (names: string[], exchange: { request: unknown; response: unknown }) =>
-            recordCacheHit(endpoint.url, names, exchange),
+          hit: (names: string[], exchange: { request: unknown; response: unknown }) => {
+            if (recording) recordCacheHit(endpoint.url, names, exchange);
+          },
         };
-  const adapter = decisionsAdapter(endpoint, { fetch: recorded.fetch!, log, cache });
+  const adapter = decisionsAdapter(endpoint, { fetch: recorded, log, cache });
   return async (state, questions) => {
-    // The id is jint's handle, not something to judge: a fresh id each run would make identical
-    // code a different request (luna's readings moved by up to 0.55 on unchanged code). It stays
-    // out of the request and reaches the recorder through the call.
     const { id: _id, ...judged } = state;
     const asked = await inCall(state, Object.keys(questions), () =>
       adapter.ask({ state: judged, questions }),

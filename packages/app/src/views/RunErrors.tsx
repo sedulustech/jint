@@ -34,17 +34,12 @@ export function RunErrors({
 }) {
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as RunSearch;
-  // only report= carries over: rule/input on this route address the dialog, not the pane
+  // rule/input on this route address the dialog, not the pane
   const openAt = (pair: { rule: string; input: string } | null) =>
     navigate({
       to: ERRORS_ROUTE,
       params: { runId },
-      search: (previousSearch: RunSearch) => {
-        const next: RunSearch = {};
-        if (previousSearch.report !== undefined) next.report = previousSearch.report;
-        if (pair !== null) Object.assign(next, pair);
-        return next;
-      },
+      search: (): RunSearch => (pair === null ? {} : { ...pair }),
     });
   const addressed = search.rule !== undefined;
   const opened = addressed

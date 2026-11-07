@@ -274,64 +274,6 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
   );
 });
 
-test("a report-panel rule click switches to rule mode, expands + scrolls to the group", async () => {
-  mount();
-  await openRun();
-  const reportRow = q('[data-testid="report-rule-has_nothing in mind"]');
-  expect(reportRow).toBeTruthy();
-  reportRow!.click();
-  await waitFor(
-    () => {
-      if (groupRows() < 1) throw new Error("not in rule mode");
-    },
-    { timeout: 2_000 },
-  );
-  // the clicked rule's group is expanded: children are FILES (rule-mode children name the
-  // file, not the rule - the parent holds the rule), 3 cells all no-verdict silent-band values
-  await waitFor(
-    () => {
-      if (cellRows("has_nothing in mind@src/greedy.ts").length < 1)
-        throw new Error("group not expanded");
-    },
-    { timeout: 2_000 },
-  );
-  // 6 parents + 3 expanded children
-  expect(groupRows()).toBe(RULES);
-});
-
-test("a report-panel rule click resets rule state: closes every group, opens only the chosen rule", async () => {
-  mount();
-  await openRun();
-  modeButton("rule").click();
-  await ruleGroupsReady(RULES);
-  // open a NON-target rule group first (will_comment_drift carries 2 cells: 0.95 error, 0.45 null)
-  groupRow("rule:will_comment_drift").click();
-  await waitFor(
-    () => {
-      if (!cellRows("will_comment_drift@").some((c) => (c.textContent ?? "").includes("0.45")))
-        throw new Error("will_comment_drift children missing");
-    },
-    { timeout: 2_000 },
-  );
-  // now click a DIFFERENT rule in the report panel (has_nothing in mind -> 3 cells)
-  const reportRow = q('[data-testid="report-rule-has_nothing in mind"]');
-  expect(reportRow).toBeTruthy();
-  reportRow!.click();
-  await waitFor(
-    () => {
-      if (cellRows("has_nothing in mind@src/greedy.ts").length < 1)
-        throw new Error("chosen group not expanded");
-    },
-    { timeout: 2_000 },
-  );
-  // the previously-open group is CLOSED: only the 6 parents + 3 chosen children remain
-  expect(groupRows()).toBe(RULES);
-  // ...and its children are gone (the 0.45 cell is no longer on screen)
-  expect(all('tr[data-testid^="cell-"]').some((c) => (c.textContent ?? "").includes("0.45"))).toBe(
-    false,
-  );
-});
-
 test("request rows still drill in: a request click opens the pair detail of its first pair", async () => {
   mount();
   await openRun();

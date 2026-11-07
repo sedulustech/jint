@@ -53,3 +53,31 @@ export function SectionHeading({ children }: { children: ReactNode }) {
     </span>
   );
 }
+
+/**
+ * A passage that edits in place: with onChange it is a textarea that grows with its text and reads
+ * like the passage it replaces; without, it renders the passage untouched. Edits are the caller's
+ * state - nothing here stores them.
+ */
+export function EditableText({
+  value,
+  onChange,
+  testid,
+  children,
+}: {
+  value: string | undefined;
+  onChange?: (text: string) => void;
+  testid: string;
+  children?: ReactNode;
+}) {
+  if (onChange === undefined) return <>{children}</>;
+  return (
+    <textarea
+      data-testid={testid}
+      aria-label={testid}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="block w-full resize-none rounded-xs border border-transparent bg-transparent p-0 text-foreground [field-sizing:content] hover:border-input focus:border-input focus:outline-none"
+    />
+  );
+}

@@ -17,7 +17,9 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
+import { classifyEdited, parseClassifyRequest, type ClassifyOptions } from "./classify.ts";
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
+import { listTries, recordTry } from "./tries.ts";
 import type { Dirent } from "node:fs";
 
 export type { RequestFile } from "./request-file.ts";
@@ -31,7 +33,7 @@ const JSON_SUFFIX = ".json";
 const MISSING_ERRNO = "ENOENT";
 const HTTP_NOT_FOUND = 404;
 
-export interface ApiOptions {
+export interface ApiOptions extends ClassifyOptions {
   /** Absolute requests root. Defaults to the homedir store (~/.jint/runs). */
   root?: string;
 }
@@ -173,9 +175,13 @@ export async function serveApiRequest(
   if (!requestUrl.pathname.startsWith("/api/")) return null;
   const runsRoot = requestsRoot(apiOptions);
   const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
-  if (pathSegments[1] !== "runs" || httpRequest.method !== "GET")
-    return notFound("no such api route");
+  if (pathSegments[1] !== "runs") return notFound("no such api route");
   const routeTail = pathSegments.slice(2);
+  // a pair's iterations live under its run: GET lists them, POST classifies an edit and files it
+  if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "tries") {
+    return serveTries(httpRequest, runsRoot, routeTail.slice(0, -1), apiOptions);
+  }
+  if (httpRequest.method !== "GET") return notFound("no such api route");
   try {
     // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
     // so flat and nested runs route identically.
@@ -249,6 +255,49 @@ function errorMessage(err: unknown): string {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+/**
+ * The tries of one pair under a run. POST classifies an edit, which spends the caller's API key, so
+ * it answers only a same-origin JSON request: a JSON content type forces a CORS preflight and the
+ * Origin check refuses a foreign page that reaches the loopback port anyway.
+ */
+async function serveTries(
+  httpRequest: Request,
+  runsRoot: string,
+  idSegments: string[],
+  apiOptions: ApiOptions,
+): Promise<Response> {
+  const runDir = resolveRunDir(runsRoot, idSegments);
+  if (runDir === null) return badRequest(INVALID_RUN_ID);
+  if ((await stat(runDir).catch(() => null)) === null) return notFound("no such run");
+  if (httpRequest.method === "GET") {
+    const query = new URL(httpRequest.url).searchParams;
+    const rule = query.get("rule");
+    const input = query.get("input");
+    if (rule === null || input === null) return badRequest("rule and input are required");
+    return jsonResponse({ tries: await listTries(runDir, rule, input) });
+  }
+  if (httpRequest.method !== "POST") return notFound("no such api route");
+  const origin = httpRequest.headers.get("origin");
+  if (origin !== null && new URL(origin).host !== httpRequest.headers.get("host"))
+    return jsonResponse({ error: "cross-origin request refused" }, 403);
+  if (!httpRequest.headers.get("content-type")?.startsWith("application/json"))
+    return badRequest("content-type must be application/json");
+  const body = await httpRequest.json().catch(() => null);
+  const parsed = parseClassifyRequest(body);
+  if (typeof parsed === "string") return badRequest(parsed);
+  const { rule, input } = body as { rule?: unknown; input?: unknown };
+  if (typeof rule !== "string" || typeof input !== "string")
+    return badRequest("rule and input must be strings");
+  try {
+    const { answer, wire } = await classifyEdited(parsed, apiOptions);
+    return jsonResponse({
+      try: await recordTry(runDir, { ...parsed, rule, input, answer, wire, by: "manual" }),
+    });
+  } catch (err) {
+    return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 502);
+  }
+}
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {

@@ -13,23 +13,28 @@ export function apiPlugin(opts: { root?: string } = {}): Plugin {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith("/api/")) return next();
         const origin = `http://${req.headers.host ?? "localhost"}`;
-        serveApiRequest(
-          new Request(origin + req.url, {
-            method: req.method,
-            headers: new Headers(req.headers as Record<string, string>),
-          }),
-          { root: opts.root },
-        )
-          .then(async (r) => {
-            if (r === null) return next();
-            res.statusCode = r.status;
-            res.setHeader("content-type", r.headers.get("content-type") ?? "application/json");
-            res.end(await r.text());
-          })
-          .catch((err) => {
-            res.statusCode = 500;
-            res.end(String(err));
-          });
+        const chunks: Buffer[] = [];
+        req.on("data", (chunk: Buffer) => chunks.push(chunk));
+        req.on("end", () => {
+          serveApiRequest(
+            new Request(origin + req.url, {
+              method: req.method,
+              headers: new Headers(req.headers as Record<string, string>),
+              body: req.method === "POST" ? Buffer.concat(chunks) : undefined,
+            }),
+            { root: opts.root },
+          )
+            .then(async (r) => {
+              if (r === null) return next();
+              res.statusCode = r.status;
+              res.setHeader("content-type", r.headers.get("content-type") ?? "application/json");
+              res.end(await r.text());
+            })
+            .catch((err) => {
+              res.statusCode = 500;
+              res.end(String(err));
+            });
+        });
       });
     },
   };

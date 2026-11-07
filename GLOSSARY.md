@@ -155,6 +155,7 @@ demands action.
   capture.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
 - **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
+- **try** — one classification of an edited question or state, filed under its run beside the original reading, the one the run recorded. A try never changes the run. The UI shows the run's own reading as **original** and each try as **#N**, in filing order, so a reader never sees the word try.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
   findings. The unit of observation: every measurement, finding, dump, and request

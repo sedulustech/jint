@@ -4,30 +4,22 @@ import { App } from "./App";
 
 // ---- URL state -------------------------------------------------------------
 // The run selection lives in the path (/runs/$runId); the panel state lives in
-// validated search params. Two panel surfaces exist in the run view and they
-// COEXIST (a report panel and a rule-target detail pane can be open at once),
-// so a single "panel" enum cannot represent the state space:
-//   report=1|0        report panel; absent = follow the run default (open iff report.json exists)
+// validated search params:
 //   rule/input/file   presence of rule opens PairDetail; file is optional
 // The run errors list is a child route (/runs/$runId/errors), not a param: the
 // run view keeps rendering underneath. On that route rule/input address the
 // errors dialog instead of the pane (input holds / and #, so it stays a query
-// value), the pane stays closed, and only report= carries across the switch.
+// value) and the pane stays closed.
 // Everything else (group-by mode, theme, focus) stays local state on purpose.
 
 export type RunSearch = {
-  // 1|0, not boolean: the router JSON-round-trips search values, so the wire
-  // spelling report=1 parses to the NUMBER 1 in state - a boolean would
-  // serialize to ?report=true and drift from the validator. The wire format
-  // stays report=1|0 byte-clean end to end.
-  report?: 1 | 0;
   rule?: string;
   input?: string;
   file?: string;
 };
 
-// the router's default search parser JSON.parses each value, so ?report=1
-// arrives as the NUMBER 1 and ?rule=123 as the number 123 - coerce back to the
+// the router's default search parser JSON.parses each value, so ?rule=123
+// arrives as the number 123 - coerce back to the
 // string wire format or the validator would silently drop valid state
 const asString = (v: unknown): string | undefined => {
   if (typeof v === "string" && v.length > 0) return v;
@@ -38,14 +30,12 @@ const asString = (v: unknown): string | undefined => {
 // Hand-rolled validator (no new validation dep): accept only known keys with
 // known shapes; anything else degrades to absent, never throws.
 export const validateRunSearch = (raw: Record<string, unknown>): RunSearch => {
-  const report = asString(raw.report);
   const rule = asString(raw.rule);
   const input = asString(raw.input);
   const file = asString(raw.file);
   // Statement build, NOT conditional spreads: absent must stay absent here - canonicalizeSearch
   // walks Object.keys(clean), so a present-undefined key would serialize as rule=undefined.
   const clean: RunSearch = {};
-  if (report === "1" || report === "0") clean.report = report === "1" ? 1 : 0;
   if (rule !== undefined) clean.rule = rule;
   if (input !== undefined) clean.input = input;
   if (file !== undefined) clean.file = file;
@@ -53,7 +43,7 @@ export const validateRunSearch = (raw: Record<string, unknown>): RunSearch => {
 };
 
 // Unknown/invalid params must not linger in the address bar: the URL is the
-// state, so retaining ?report=2&bogus=1 after parse means the bar shows state
+// state, so retaining ?bogus=1 after parse means the bar shows state
 // the app dropped. Rewrites the address to the canonical validated form
 // (replaceState: no history entry for a correction). Returns whether it fired.
 export const canonicalizeSearch = (): boolean => {

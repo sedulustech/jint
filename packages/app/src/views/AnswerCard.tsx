@@ -6,7 +6,8 @@ import {
   type HandlerLevel,
 } from "@jint/contract";
 import { SEVERITY, TIER } from "./color";
-import { LabeledText, SectionHeading } from "./LabeledText";
+import { EditableText, LabeledText, SectionHeading } from "./LabeledText";
+import type { ReactNode } from "react";
 
 export interface QA {
   key: string;
@@ -54,12 +55,18 @@ export function AnswerCard({
   sev,
   handle,
   choices,
+  edit,
+  trailing,
 }: {
   qa: QA;
   sev: "error" | "warn" | null;
   handle?: { warn?: Threshold; error?: Threshold };
   /** The choice rule's handle: each option's tier, so the card can show the tier read. */
   choices?: ChoiceHandlerData;
+  /** With it, the instruction and every criteria text edit in place; the caller owns the edits. */
+  edit?: { instructions: (text: string) => void; criteria: (key: string, text: string) => void };
+  /** Sits at the right of the result header, e.g. the classification select. */
+  trailing?: ReactNode;
 }) {
   const refused = qa.answer?.type === "refusal";
   const noul = qa.answer?.noul;
@@ -192,6 +199,12 @@ export function AnswerCard({
             </span>
           </span>
         )}
+        {trailing !== undefined && (
+          <>
+            <span className="flex-1" />
+            {trailing}
+          </>
+        )}
       </div>
       {answeredKey !== null && ranked && (
         <div className="border-b border-border px-rail py-siblings">
@@ -248,7 +261,13 @@ export function AnswerCard({
                   className="py-siblings first:pt-0 last:pb-0"
                 >
                   <LabeledText label={k} dimmed={!answered} marker={bar}>
-                    {legend[k]}
+                    <EditableText
+                      testid={`edit-criteria-${k}`}
+                      value={legend[k]}
+                      onChange={edit && ((t) => edit.criteria(k, t))}
+                    >
+                      {legend[k]}
+                    </EditableText>
                   </LabeledText>
                 </li>
               );
@@ -256,10 +275,16 @@ export function AnswerCard({
           </ul>
         </div>
       )}
-      {qa.question.instructions && (
+      {(qa.question.instructions || edit !== undefined) && (
         <div className="border-b border-border px-rail py-siblings">
           <LabeledText label="instruction" heading>
-            {qa.question.instructions}
+            <EditableText
+              testid="edit-instructions"
+              value={qa.question.instructions}
+              onChange={edit?.instructions}
+            >
+              {qa.question.instructions}
+            </EditableText>
           </LabeledText>
         </div>
       )}
@@ -269,7 +294,15 @@ export function AnswerCard({
           <ul data-testid="refused-criteria" className="mt-siblings flex flex-col gap-siblings">
             {Object.entries(qa.question.criteria ?? {}).map(([k, text]) => (
               <li key={k}>
-                <LabeledText label={k}>{text}</LabeledText>
+                <LabeledText label={k}>
+                  <EditableText
+                    testid={`edit-criteria-${k}`}
+                    value={text}
+                    onChange={edit && ((t) => edit.criteria(k, t))}
+                  >
+                    {text}
+                  </EditableText>
+                </LabeledText>
               </li>
             ))}
           </ul>
@@ -280,13 +313,25 @@ export function AnswerCard({
           <div className="bg-background px-rail py-siblings">
             <span className="text-caption text-sev-clean">true</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
-              {truth?.true ?? "—"}
+              <EditableText
+                testid="edit-criteria-true"
+                value={truth?.true}
+                onChange={edit && ((t) => edit.criteria("true", t))}
+              >
+                {truth?.true ?? "—"}
+              </EditableText>
             </p>
           </div>
           <div className="border-l border-dashed border-border bg-background px-rail py-siblings">
             <span className="text-caption text-sev-error">false</span>
             <p className="mt-related whitespace-pre-wrap break-words text-foreground">
-              {truth?.false ?? "—"}
+              <EditableText
+                testid="edit-criteria-false"
+                value={truth?.false}
+                onChange={edit && ((t) => edit.criteria("false", t))}
+              >
+                {truth?.false ?? "—"}
+              </EditableText>
             </p>
           </div>
         </div>

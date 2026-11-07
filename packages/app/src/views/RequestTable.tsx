@@ -20,9 +20,6 @@ interface Props {
   runId: string;
   mode: Mode;
   onMode: (m: Mode) => void;
-  /** Rule the report panel wants surfaced: switch to rule mode, expand + scroll to it once. */
-  focusRule: string | null;
-  onFocusHandled: () => void;
   selectedFile: string | null;
   onSelectPair: (pair: { rule: string; input: string; requestFile?: string }) => void;
 }
@@ -621,15 +618,7 @@ function EmptyNotice({
   );
 }
 
-export function RequestTable({
-  runId,
-  mode,
-  onMode,
-  focusRule,
-  onFocusHandled,
-  selectedFile,
-  onSelectPair,
-}: Props) {
+export function RequestTable({ runId, mode, onMode, selectedFile, onSelectPair }: Props) {
   const { query, rows, ruleGroups, fileGroups, filter, setFilter, sortKey, sortDir, toggleSort } =
     useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -685,19 +674,6 @@ export function RequestTable({
     return [];
   };
   const grouped = useMemo(buildGroupedModel, [mode, ruleGroups, fileGroups]);
-
-  // a report-panel click is a fresh focus: close every group, expand only the chosen rule
-  const focusReportedRule = () => {
-    if (focusRule === null || mode !== "rule") return;
-    const focusedRuleKey = ruleGroupKey(focusRule);
-    setExpanded(new Set([focusedRuleKey]));
-    const focusedParentIndex = grouped.findIndex((parentRow) => parentRow.key === focusedRuleKey);
-    if (focusedParentIndex >= 0)
-      scrollRef.current?.scrollTo({ top: focusedParentIndex * ROW_HEIGHT });
-    onFocusHandled();
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(focusReportedRule, [focusRule, mode]);
 
   const activeFilterText = filter.text !== "" ? `text "${filter.text}"` : null;
   const activeText = activeFilterText !== null ? `active: ${activeFilterText}` : null;

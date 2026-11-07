@@ -1,11 +1,15 @@
+import { asTier } from "@jint/contract";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useState } from "react";
 import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
+import { classificationRows, type Gates } from "./classificationRows";
+import { ClassificationSelect } from "./ClassificationSelect";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
 import { ParsedJson } from "./ParsedJson";
 import { spanLabel } from "./RequestTable";
+import { useTryIt } from "./TryIt";
 import type { RequestFile } from "../types";
 import { Button } from "@/components/ui/button";
 
@@ -24,7 +28,12 @@ interface Props {
  * only to render the answer's context (code, sampling meta) - severity comes from the run payload's
  * span-aware join for exactly this pair, never from a sibling.
  */
-export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) {
+export function PairDetail(props: Props) {
+  // one edit per pair: another pair starts from its own original, never from this one's edit
+  return <PairDetailBody key={`${props.runId}|${props.rule}|${props.input}`} {...props} />;
+}
+
+function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
   // the element projection rides the run payload's cells; the input keeps the uuid as its key,
   // the user reads the span label
@@ -67,6 +76,39 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
         ? state.source
         : null;
   const meta = request?.response ?? {};
+  // the edit of this pair; the cards below render it and the classify bar asks it
+  const tryIt = useTryIt(
+    { runId, rule, input },
+    pair,
+    state.path,
+    code,
+    typeof state.content === "string" ? "content" : "source",
+  );
+  const [editingCode, setEditingCode] = useState(false);
+  // noul thresholds only: score and choice verdicts read from their own tiers
+  const handleData = run.data?.handles?.[rule];
+  const noulGates: Gates | undefined =
+    handleData !== undefined && !("map" in handleData) && !("choices" in handleData)
+      ? handleData
+      : undefined;
+  // one row per classification; the select is hidden while only the original exists
+  const choiceCriteria = tryIt.edited?.question.criteria;
+  const rows = classificationRows(tryIt.answers, tryIt.filedBy, {
+    gates: noulGates,
+    scoreTiers:
+      handleData !== undefined && "map" in handleData
+        ? handleData.map.map((entry) => asTier(entry).level)
+        : undefined,
+    choices: handleData !== undefined && "choices" in handleData ? handleData : undefined,
+    options:
+      choiceCriteria === undefined || Array.isArray(choiceCriteria)
+        ? []
+        : Object.keys(choiceCriteria),
+  });
+  const select =
+    tryIt.total > 1 ? (
+      <ClassificationSelect rows={rows} position={tryIt.position} onPick={(at) => tryIt.go(at)} />
+    ) : undefined;
 
   // The request view shows what the model was sent: the recorded wire body. A recording from
   // before wire capture holds only jint's own request shape, shown with a note saying so.
@@ -151,19 +193,63 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           </div>
           <div className="flex flex-col">
             <AnswerCard
-              qa={pair}
+              qa={tryIt.edited ?? pair}
+              trailing={select}
+              edit={code !== null ? tryIt.edit : undefined}
               sev={severity}
-              handle={(() => {
-                const h = run.data?.handles?.[rule];
-                // noul thresholds only: score and choice verdicts read from their own tiers
-                return h !== undefined && !("map" in h) && !("choices" in h) ? h : undefined;
-              })()}
+              handle={noulGates}
               choices={(() => {
                 const h = run.data?.handles?.[rule];
                 return h !== undefined && "choices" in h ? h : undefined;
               })()}
             />
           </div>
+          {code !== null && (
+            <div
+              role="group"
+              aria-label="classify"
+              className="flex flex-col gap-sections border-b border-border bg-card px-rail pb-meta pt-sections"
+            >
+              <div className="flex items-center gap-siblings">
+                <span className="flex-1" />
+                {tryIt.ask.isPending && (
+                  <span className="text-caption text-muted-foreground">classifying…</span>
+                )}
+                {tryIt.asked?.stale === true && (
+                  <span data-testid="try-stale" className="text-caption text-sev-warn">
+                    edited since classify
+                  </span>
+                )}
+                {(tryIt.position !== 0 || tryIt.dirty) && (
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    data-testid="try-reset"
+                    onClick={() => {
+                      tryIt.reset();
+                      setEditingCode(false);
+                    }}
+                  >
+                    reset
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="try-classify"
+                  disabled={tryIt.ask.isPending}
+                  onClick={() => tryIt.ask.mutate()}
+                >
+                  classify
+                </Button>
+              </div>
+              {tryIt.ask.isError && (
+                <span data-testid="try-error" className="text-caption text-sev-error">
+                  {String(tryIt.ask.error)}
+                </span>
+              )}
+            </div>
+          )}
           <div
             role="group"
             aria-label="view"
@@ -185,10 +271,30 @@ export function PairDetail({ runId, rule, input, requestFile, onClose }: Props) 
           <div id={panelId} data-testid="pair-view" className="relative bg-muted">
             {view === "code" && code !== null && (
               <>
-                <div className="absolute right-related top-related z-10">
+                <div className="absolute right-related top-related z-10 flex gap-related">
+                  <Button
+                    variant="secondary"
+                    size="icon-xs"
+                    data-testid="try-edit-code"
+                    aria-label="edit code"
+                    aria-pressed={editingCode}
+                    onClick={() => setEditingCode(!editingCode)}
+                  >
+                    ✎
+                  </Button>
                   <CopyButton text={code} label="copy code" icon />
                 </div>
-                <CodeBlock code={code} path={result?.path ?? file} />
+                {editingCode ? (
+                  <textarea
+                    data-testid="edit-code"
+                    aria-label="edit-code"
+                    value={tryIt.text}
+                    onChange={(e) => tryIt.setText(e.target.value)}
+                    className="block min-h-48 w-full resize-y bg-transparent p-rail font-mono text-caption text-foreground [field-sizing:content] focus:outline-none"
+                  />
+                ) : (
+                  <CodeBlock code={tryIt.text} path={result?.path ?? file} />
+                )}
               </>
             )}
             {view === "request" && (

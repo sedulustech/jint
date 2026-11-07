@@ -13,3 +13,10 @@ export const SEVERITY = {
  * theme's --sev-* tokens, the same colors as the verdict text.
  */
 export const TIER = { pass: "bg-sev-clean", warn: "bg-sev-warn", error: "bg-sev-error" } as const;
+
+/** A handler tier's text: the same --sev-* tokens as the verdicts. */
+export const TIER_TEXT = {
+  pass: "text-sev-clean",
+  warn: "text-sev-warn",
+  error: "text-sev-error",
+} as const;

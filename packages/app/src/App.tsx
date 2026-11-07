@@ -2,17 +2,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { fetchReport, fetchRuns } from "./api/client";
+import { fetchRuns } from "./api/client";
 import { NotFound } from "./router";
 import { PairDetail } from "./views/PairDetail";
 import { ReportHeader } from "./views/ReportHeader";
-import { ReportPanel } from "./views/ReportPanel";
 import { RequestTable } from "./views/RequestTable";
 import { ERRORS_ROUTE, useErrorsRoute } from "./views/RunErrors";
 import { RunHeader, baseName, relTime, runLabel } from "./views/RunHeader";
 import { useTheme } from "./views/useTheme";
 import type { RunSearch } from "./router";
-import type { Report, RunSummary } from "./types";
+import type { RunSummary } from "./types";
 import type { Mode } from "./views/useRun";
 import { Logo } from "@/components/Logo";
 import {
@@ -262,9 +261,6 @@ export function App({ runId }: { runId: string | null }) {
       ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
       : null;
   const [viewMode, setViewMode] = useState<Mode>(DEFAULT_MODE);
-  // one-shot: a report-panel click expands + scrolls to the rule's group in rule mode
-  const [focusedRule, setFocusedRule] = useState<string | null>(null);
-  const reportOverride = search.report === undefined ? null : search.report === 1;
   // Poll while a run is in flight: new runs appear mid-run without reopening the picker. The
   // summary fetch is compressed ~10x on the wire, so a short interval is cheap; it stops when the
   // tab is hidden (react-query default) and errors keep the last good list.
@@ -273,15 +269,6 @@ export function App({ runId }: { runId: string | null }) {
     queryFn: fetchRuns,
     refetchInterval: 5_000,
   });
-  const reportQuery = useQuery({
-    queryKey: ["report", runId],
-    queryFn: () => fetchReport(runId ?? ""),
-    enabled: runId !== null,
-  });
-  const reportData =
-    reportQuery.data && !("absent" in reportQuery.data) ? (reportQuery.data as Report) : undefined;
-  // only a fetched report lets the panel open; a URL choice cannot conjure a missing one
-  const reportOpen = reportData !== undefined && (reportOverride ?? true);
   // Shape guard: the endpoint must answer { runs }. A contract slip degrades to an empty
   // list + hint, never a white screen.
   const runList: RunSummary[] = runs.data && Array.isArray(runs.data.runs) ? runs.data.runs : [];
@@ -290,7 +277,6 @@ export function App({ runId }: { runId: string | null }) {
   // a new run resets the user's overrides so the default-open rule applies fresh
   const resetPanelState = () => {
     setViewMode(DEFAULT_MODE);
-    setFocusedRule(null);
   };
   useEffect(resetPanelState, [runId]);
 
@@ -310,18 +296,22 @@ export function App({ runId }: { runId: string | null }) {
   // within a commit window loses the second click). Serialize them so every
   // click lands, in order.
   const editSearch = useSequentialSearchEdit(runId);
-  const setReportOverride = (reportChoice: boolean | null) => {
-    // the report toggle stays on the current route: it must not close the errors list
-    editSearch(
-      { report: reportChoice === null ? undefined : reportChoice ? 1 : 0 },
-      errorsOpen ? ERRORS_ROUTE : RUN_ROUTE,
-    );
-  };
   const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
     editSearch(
       pair === null
         ? { rule: undefined, input: undefined, file: undefined }
         : { rule: pair.rule, input: pair.input, file: pair.requestFile },
+    );
+
+  const detail =
+    selectedPair === null ? null : (
+      <PairDetail
+        runId={runId ?? ""}
+        rule={selectedPair.rule}
+        input={selectedPair.input}
+        requestFile={selectedPair.requestFile}
+        onClose={() => setSelectedPair(null)}
+      />
     );
 
   // the picker lives in the RunHeader strip, left of the run details
@@ -361,24 +351,7 @@ export function App({ runId }: { runId: string | null }) {
         <RunLanding runList={runList} onPick={pickRun} />
       ) : (
         <>
-          {selectedRun !== null && (
-            <ReportHeader
-              runId={runId}
-              reportOpen={reportOpen}
-              onToggleReport={() => setReportOverride(!reportOpen)}
-            />
-          )}
-          {reportOpen && (
-            <div id="report-panel">
-              <ReportPanel
-                runId={runId}
-                onRuleFocus={(rule) => {
-                  setViewMode("rule");
-                  setFocusedRule(rule);
-                }}
-              />
-            </div>
-          )}
+          {selectedRun !== null && <ReportHeader runId={runId} />}
           <ResizablePanelGroup
             direction="horizontal"
             autoSaveId="jint-rules-detail"
@@ -398,8 +371,6 @@ export function App({ runId }: { runId: string | null }) {
                   setViewMode(m);
                   setSelectedPair(null);
                 }}
-                focusRule={focusedRule}
-                onFocusHandled={() => setFocusedRule(null)}
                 selectedFile={selectedPair?.requestFile ?? null}
                 onSelectPair={setSelectedPair}
               />
@@ -414,13 +385,7 @@ export function App({ runId }: { runId: string | null }) {
                   minSize={25}
                   className="flex min-h-0 min-w-0 flex-col overflow-auto"
                 >
-                  <PairDetail
-                    runId={runId}
-                    rule={selectedPair.rule}
-                    input={selectedPair.input}
-                    requestFile={selectedPair.requestFile}
-                    onClose={() => setSelectedPair(null)}
-                  />
+                  {detail}
                 </ResizablePanel>
               </>
             )}

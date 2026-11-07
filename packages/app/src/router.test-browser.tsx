@@ -5,23 +5,11 @@ import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { makeRouter } from "./router";
 
-// the report toggle: selected by testid; its STATE is read from aria-expanded /
-// aria-disabled (state semantics belong to ARIA, selection does not)
-const reportToggle = (state: "open" | "closed" | "no-report") => {
-  const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
-  if (b === null) return undefined;
-  if (state === "no-report") return b.getAttribute("aria-disabled") === "true" ? b : undefined;
-  const expanded = b.getAttribute("aria-expanded") === "true";
-  return expanded === (state === "open") && b.getAttribute("aria-disabled") !== "true"
-    ? b
-    : undefined;
-};
-
 // Router acceptance, automated from the manual browser pass: URL is the state,
 // so every test boots at an address and asserts on what renders + what the bar says.
 
-// staleTime Infinity: focus/interval refetches would flap the report toggle
-// into its disabled (isLoading) state mid-click - fetch-on-mount is all we need
+// staleTime Infinity: focus/interval refetches would flap loading states mid-click -
+// fetch-on-mount is all we need
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Infinity } },
 });
@@ -48,7 +36,15 @@ async function openRun(id: string) {
   await page.getByTestId("run-option-" + id).click();
 }
 
-const reportPanel = () => document.getElementById("report-panel");
+// the run view is rendered once its group-by controls are there
+const runViewReady = () =>
+  waitFor(
+    () => {
+      if (document.querySelector('[data-testid="mode-rule"]') === null)
+        throw new Error("run view not rendered yet");
+    },
+    { timeout: 2_000 },
+  );
 const detailPane = () => document.querySelector(".detail-pane")?.textContent ?? "";
 
 async function expectPath(path: string) {
@@ -70,50 +66,9 @@ test("boot at / shows the run picker, no run selected", async () => {
 
 test("deep link /runs/<id> renders that run", async () => {
   boot("/runs/run-a");
-  await waitFor(
-    () => {
-      if (detailPane() !== "" || reportPanel() === null)
-        throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
+  await runViewReady();
+  expect(detailPane()).toBe("");
   expect(window.location.pathname).toBe("/runs/run-a");
-});
-
-test("?report=1 opens the panel, ?report=0 keeps it closed", async () => {
-  boot("/runs/run-a?report=1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("panel not open");
-    },
-    { timeout: 2_000 },
-  );
-  cleanup();
-
-  boot("/runs/run-a?report=0");
-  await waitFor(
-    () => {
-      if (reportToggle("closed")) return;
-      throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
-  expect(reportPanel()).toBeNull();
-
-  // D1 round trip: toggle writes the SAME spelling the validator accepts, and a
-  // fresh boot (reload) reads it back
-  const toggle = reportToggle("closed")!;
-  toggle.click();
-  await expectPath("/runs/run-a?report=1");
-  cleanup();
-
-  boot("/runs/run-a?report=1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("panel state lost on reload");
-    },
-    { timeout: 2_000 },
-  );
 });
 
 test("?rule+input deep link opens PairDetail and survives reload", async () => {
@@ -136,30 +91,19 @@ test("?rule+input deep link opens PairDetail and survives reload", async () => {
   );
 });
 
-test("history walk: pick another run, back restores the previous run + panel state", async () => {
-  boot("/runs/run-a?report=0");
-  await waitFor(
-    () => {
-      if (!reportToggle("closed")) throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
+test("history walk: pick another run, back restores the previous run", async () => {
+  boot("/runs/run-a");
+  await runViewReady();
 
   await openRun("run-0");
   await expectPath("/runs/run-0");
-  expect(window.location.pathname).toBe("/runs/run-0");
   cleanup();
 
   window.history.back();
-  await expectPath("/runs/run-a?report=0");
+  await expectPath("/runs/run-a");
   mount();
-  await waitFor(
-    () => {
-      if (reportPanel() !== null) throw new Error("panel state not restored from URL");
-    },
-    { timeout: 2_000 },
-  );
-  expect(window.location.pathname + window.location.search).toBe("/runs/run-a?report=0");
+  await runViewReady();
+  expect(window.location.pathname + window.location.search).toBe("/runs/run-a");
 });
 
 test("config-less run carries the default-rules marker", async () => {
@@ -190,7 +134,7 @@ test("unknown path renders inside the app shell, not a bare Not Found", async ()
 });
 
 test("invalid search params are stripped from the address bar", async () => {
-  boot("/runs/run-a?report=2&bogus=1");
+  boot("/runs/run-a?report=1&bogus=1");
   await expectPath("/runs/run-a");
   expect(window.location.search).toBe("");
 });
@@ -212,93 +156,25 @@ test("nonexistent run id renders the shared 404 inside the shell", async () => {
   expect(document.body.textContent).not.toContain("Not Found");
 });
 
-test("absent report.json: closed by default and never overridden open", async () => {
-  // run-0 has no report.json: default = closed (the button reads "no report")
-  boot("/runs/run-0");
-  await waitFor(
-    () => {
-      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
-  expect(reportPanel()).toBeNull();
-  cleanup();
-
-  boot("/runs/run-0?report=0");
-  await waitFor(
-    () => {
-      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
-  expect(reportPanel()).toBeNull();
-  cleanup();
-
-  // ?report=1 cannot conjure a missing report: absence wins over the override
-  boot("/runs/run-0?report=1");
-  await waitFor(
-    () => {
-      if (!reportToggle("no-report")) throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
-  expect(reportPanel()).toBeNull();
-});
-
-test("deep history walk: back x2 + forward restores run, panel state and picker sync", async () => {
-  boot("/runs/run-a?report=0");
-  await waitFor(
-    () => {
-      if (!reportToggle("closed")) throw new Error("run view not rendered yet");
-    },
-    { timeout: 2_000 },
-  );
+test("deep history walk: back x2 + forward restores the run and the picker sync", async () => {
+  boot("/runs/run-a");
+  await runViewReady();
 
   // A -> B -> C: three real pushState entries from the dropdown
   await openRun("run-1");
   await expectPath("/runs/run-1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("run-1 report should default open");
-    },
-    { timeout: 2_000 },
-  );
   await openRun("run-0");
   await expectPath("/runs/run-0");
-  await waitFor(
-    () => {
-      if (reportPanel() !== null) throw new Error("run-0 has no report");
-    },
-    { timeout: 2_000 },
-  );
 
-  // back x2: C -> B -> A, panel state restored from the URL at each step
+  // back x2: C -> B -> A
   window.history.back();
   await expectPath("/runs/run-1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("B panel state not restored");
-    },
-    { timeout: 2_000 },
-  );
   window.history.back();
-  await expectPath("/runs/run-a?report=0");
-  await waitFor(
-    () => {
-      if (reportPanel() !== null) throw new Error("A panel state not restored");
-    },
-    { timeout: 2_000 },
-  );
+  await expectPath("/runs/run-a");
 
   // forward x1: A -> B again
   window.history.forward();
   await expectPath("/runs/run-1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("forward lost B panel state");
-    },
-    { timeout: 2_000 },
-  );
 
   // state-drift edge: the picker's selected value re-syncs with the URL (run-1)
   const trigger = page.getByTestId("run-picker");
@@ -312,10 +188,9 @@ test("deep history walk: back x2 + forward restores run, panel state and picker 
   expect((trigger.element() as HTMLElement).textContent ?? "").toContain("run-1");
 });
 
-// ---- interleaved param-group walk (test #10) --------------------------------
-// report= lives in one param group, rule/input/file in another; independent
-// writers must MERGE, never replace each other. Asserted end to end: clicks,
-// toggles, back/forward, reload, close.
+// ---- pair walk -------------------------------------------------------------
+// rule/input/file address the detail pane. Asserted end to end: a row click, back/forward,
+// reload, close.
 
 function modeButton(mode: string): HTMLElement {
   const b = document.querySelector<HTMLButtonElement>(`[data-testid="mode-${mode}"]`);
@@ -335,27 +210,6 @@ function detailClose(): HTMLElement {
   return b;
 }
 
-// The report toggle races its own history commit under the test harness (a
-// click can land while the previous navigation is still committing); a real
-// user just clicks again. Click until URL + panes agree with the target state.
-async function toggleReport(target: "0" | "1") {
-  await waitFor(
-    () => {
-      const want = target === "1";
-      const settled =
-        decodeURIComponent(window.location.search).includes("report=" + target) &&
-        (reportPanel() !== null) === want &&
-        detailPane() !== "";
-      if (settled) return;
-      // a real user just clicks again when a click races a navigation commit
-      const b = document.querySelector<HTMLButtonElement>('[data-testid="report-toggle"]');
-      if (b !== null && b.getAttribute("aria-disabled") !== "true") b.click();
-      throw new Error("toggle not settled yet: " + window.location.search);
-    },
-    { timeout: 2_000 },
-  );
-}
-
 // RAW comparison: urls under test are already in the router's wire encoding
 async function expectUrl(url: string, tag = "?") {
   await waitFor(() => {
@@ -364,18 +218,11 @@ async function expectUrl(url: string, tag = "?") {
   });
 }
 
-test("interleaved walk: report toggle and pair open merge into one URL across history", async () => {
-  // T1: report open, no pair
-  boot("/runs/run-a?report=1");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("report not open");
-    },
-    { timeout: 2_000 },
-  );
+test("pair walk: a row click opens the pair, back/forward and reload keep it, close clears it", async () => {
+  boot("/runs/run-a");
+  await runViewReady();
   expect(detailPane()).toBe("");
 
-  // T2: a real row click opens the pair; report=1 SURVIVES the merge
   modeButton("request").click();
   await waitFor(
     () => {
@@ -393,90 +240,50 @@ test("interleaved walk: report toggle and pair open merge into one URL across hi
   );
   await waitFor(() => {
     const q = decodeURIComponent(window.location.search);
-    if (!/^\?report=1&rule=is_name_purposeful&input=src\/low\.ts&file=/.test(q))
-      throw new Error("T2 url is " + q);
+    if (!/^\?rule=is_name_purposeful&input=src\/low\.ts&file=/.test(q))
+      throw new Error("url is " + q);
   });
   if (!window.location.search.includes("input=src%2Flow.ts"))
-    throw new Error("T2 wire form lost the encoded input: " + window.location.search);
-  expect(reportPanel()).not.toBeNull();
+    throw new Error("wire form lost the encoded input: " + window.location.search);
+  const opened = window.location.pathname + window.location.search;
 
-  // remember the exact pair group so later steps assert byte-identical merges
-  const pairGroup = window.location.search.replace(/^\?report=1/, "");
-  const urlAt = (report: string) => "?report=" + report + pairGroup;
-
-  // T3: hide report; rule/input/file survive the toggle
-  await toggleReport("0");
-  await expectUrl("/runs/run-a" + urlAt("0"), "T3/T5/T6");
-  await waitFor(
-    () => {
-      if (reportPanel() !== null) throw new Error("report not hidden");
-      if (!detailPane().includes("@ src/low.ts")) throw new Error("pair lost on hide");
-    },
-    { timeout: 2_000 },
-  );
-
-  // T4: show report again - clean round trip
-  await toggleReport("1");
-  await expectUrl("/runs/run-a" + urlAt("1"), "T4/T5b");
-  await waitFor(
-    () => {
-      if (reportPanel() === null) throw new Error("report not reopened");
-    },
-    { timeout: 2_000 },
-  );
-
-  // T5: back x1 -> T3 state; back x2 -> T2 state
+  // back: the pair closes; forward: the same entry returns, nothing collapsed
   window.history.back();
-  await expectUrl("/runs/run-a" + urlAt("0"), "T3/T5/T6");
+  await expectUrl("/runs/run-a");
   await waitFor(
     () => {
-      if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
-        throw new Error("back-1 state wrong");
+      if (detailPane() !== "") throw new Error("back left the pair open");
     },
     { timeout: 2_000 },
   );
-  window.history.back();
-  await expectUrl("/runs/run-a" + urlAt("1"), "T4/T5b");
-  await waitFor(
-    () => {
-      if (reportPanel() === null || !detailPane().includes("@ src/low.ts"))
-        throw new Error("back-2 state wrong");
-    },
-    { timeout: 2_000 },
-  );
-
-  // T6: forward x1 -> T3 state again (distinct entry, nothing collapsed)
   window.history.forward();
-  await expectUrl("/runs/run-a" + urlAt("0"), "T3/T5/T6");
+  await expectUrl(opened);
   await waitFor(
     () => {
-      if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
-        throw new Error("forward state wrong");
+      if (!detailPane().includes("@ src/low.ts")) throw new Error("forward lost the pair");
     },
     { timeout: 2_000 },
   );
 
-  // T7: reload - the full interleaved state survives
+  // reload: the pair survives
   cleanup();
-  boot("/runs/run-a" + urlAt("0"));
+  boot(opened);
   await waitFor(
     () => {
-      if (reportPanel() !== null || !detailPane().includes("@ src/low.ts"))
-        throw new Error("reload lost interleaved state");
+      if (!detailPane().includes("@ src/low.ts")) throw new Error("reload lost the pair");
     },
     { timeout: 2_000 },
   );
 
-  // T8: close the pair -> back to exactly ?report=0, nothing dropped
+  // close: back to the bare run address
   detailClose().click();
-  await expectUrl("/runs/run-a?report=0");
+  await expectUrl("/runs/run-a");
   await waitFor(
     () => {
       if (detailPane() !== "") throw new Error("pair not closed");
     },
     { timeout: 2_000 },
   );
-  expect(reportPanel()).toBeNull();
 });
 
 test("report-less run: grouped modes render the empty state, request mode the rows", async () => {
