@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchTries, postTry, type TryRecord } from "../api/client";
+import { fetchClassifications, postClassification, type ClassificationRecord } from "../api/client";
 import type { QA } from "./AnswerCard";
 
 interface Edit {
@@ -10,13 +10,13 @@ interface Edit {
 }
 
 /**
- * The iterations of one pair. Position 0 is the original; every classify files a try under the run
- * (server side) and becomes the next position, so the iterations cycle. The cards render the draft
- * - the original question and code with the reader's edits laid over them - and moving to an
- * iteration loads its edit and its answer into the draft. The original is never touched: position 0
- * always shows it.
+ * The classifications of one pair. Position 0 is the original; every classify files a
+ * classification under the run (server side) and becomes the next position, so the iterations
+ * cycle. The cards render the draft - the original question and code with the reader's edits laid
+ * over them - and moving to an iteration loads its edit and its answer into the draft. The original
+ * is never touched: position 0 always shows it.
  */
-export function useTryIt(
+export function useClassifications(
   pair: { runId: string; rule: string; input: string },
   qa: QA | undefined,
   path: string | undefined,
@@ -24,9 +24,10 @@ export function useTryIt(
   codeKey: string,
 ) {
   const { runId, rule, input } = pair;
-  const queryKey = ["tries", runId, rule, input];
+  const queryKey = ["classifications", runId, rule, input];
   const client = useQueryClient();
-  const tries = useQuery({ queryKey, queryFn: () => fetchTries(runId, rule, input) }).data ?? [];
+  const classifications =
+    useQuery({ queryKey, queryFn: () => fetchClassifications(runId, rule, input) }).data ?? [];
   const [position, setPosition] = useState(0);
   const [draft, setDraft] = useState<Edit>({ criteria: {} });
   // the reading on show and the edit it answered, so a later edit marks it stale, never hides it
@@ -53,7 +54,7 @@ export function useTryIt(
   const editKey = JSON.stringify(body);
 
   /** Load iteration `at` (0 = the original) into the draft. */
-  const go = (at: number, from: TryRecord[] = tries) => {
+  const go = (at: number, from: ClassificationRecord[] = classifications) => {
     const t = at === 0 ? undefined : from[at - 1];
     setPosition(at);
     if (t === undefined) {
@@ -81,9 +82,9 @@ export function useTryIt(
   };
 
   const ask = useMutation({
-    mutationFn: () => postTry(runId, { rule, input }, body),
+    mutationFn: () => postClassification(runId, { rule, input }, body),
     onSuccess: (filed) => {
-      const next = [...tries, filed];
+      const next = [...classifications, filed];
       client.setQueryData(queryKey, next);
       setPosition(next.length);
       setShown({ answer: filed.answer, baseline: editKey });
@@ -93,11 +94,14 @@ export function useTryIt(
   return {
     ask,
     position,
-    total: tries.length + 1,
-    /** The answer at each position: the original first, then every try. */
-    answers: [qa?.answer, ...tries.map((t) => t.answer)],
+    total: classifications.length + 1,
+    /** The answer at each position: the original first, then every filed classification. */
+    answers: [qa?.answer, ...classifications.map((t) => t.answer)],
     /** Who filed each position: the original has no filer. */
-    filedBy: [undefined, ...tries.map((t) => t.by ?? "manual")] as (TryRecord["by"] | undefined)[],
+    filedBy: [undefined, ...classifications.map((t) => t.by ?? "manual")] as (
+      | ClassificationRecord["by"]
+      | undefined
+    )[],
     go,
     reset: () => go(0),
     /** The new reading on show; stale when the edit moved on after it. */

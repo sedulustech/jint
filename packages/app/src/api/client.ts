@@ -21,8 +21,8 @@ export interface ClassifyBody {
   question: { type: string; instructions: string; criteria?: unknown };
 }
 
-/** One filed try: an edited question and state under its run, with the answer it earned. */
-export interface TryRecord extends ClassifyBody {
+/** One filed classification: an edited question and state under its run, with the answer it earned. */
+export interface ClassificationRecord extends ClassifyBody {
   seq: number;
   ts: string;
   rule: string;
@@ -31,28 +31,35 @@ export interface TryRecord extends ClassifyBody {
   by?: "agent" | "manual";
 }
 
-const triesUrl = (runId: string) => `${RUNS_URL}/${runId}/tries`;
+const classificationsUrl = (runId: string) => `${RUNS_URL}/${runId}/classifications`;
 
-/** The tries filed for one pair, oldest first. */
-export const fetchTries = async (runId: string, rule: string, input: string) =>
+/** The classifications filed for one pair, oldest first. */
+export const fetchClassifications = async (runId: string, rule: string, input: string) =>
   (
-    await get<{ tries: TryRecord[] }>(
-      `${triesUrl(runId)}?rule=${encodeURIComponent(rule)}&input=${encodeURIComponent(input)}`,
+    await get<{ classifications: ClassificationRecord[] }>(
+      `${classificationsUrl(runId)}?rule=${encodeURIComponent(rule)}&input=${encodeURIComponent(input)}`,
     )
-  ).tries;
+  ).classifications;
 
-/** Classify an edit of one pair; the server files it under the run as the pair's next try. */
-export async function postTry(
+/**
+ * Classify an edit of one pair; the server files it under the run as the pair's next
+ * classification.
+ */
+export async function postClassification(
   runId: string,
   pair: { rule: string; input: string },
   body: ClassifyBody,
-): Promise<TryRecord> {
-  const res = await fetch(triesUrl(runId), {
+): Promise<ClassificationRecord> {
+  const res = await fetch(classificationsUrl(runId), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...body, ...pair }),
   });
-  const payload = (await res.json().catch(() => ({}))) as { try?: TryRecord; error?: string };
-  if (!res.ok || payload.try === undefined) throw new Error(payload.error ?? `${res.status}`);
-  return payload.try;
+  const payload = (await res.json().catch(() => ({}))) as {
+    classification?: ClassificationRecord;
+    error?: string;
+  };
+  if (!res.ok || payload.classification === undefined)
+    throw new Error(payload.error ?? `${res.status}`);
+  return payload.classification;
 }

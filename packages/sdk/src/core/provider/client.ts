@@ -39,8 +39,8 @@ export interface ClassifierConfig extends EndpointChoice {
   cache?: boolean;
   /**
    * Whether this classifier starts a recorded run in the run store (default true). A caller that
-   * records its own exchanges - the run UI's try-it iterations, filed under the run they edit -
-   * turns it off, and the call leaves no run directory of its own.
+   * records its own exchanges - the run UI's classifications, filed under the run they edit - turns
+   * it off, and the call leaves no run directory of its own.
    */
   record?: boolean;
 }

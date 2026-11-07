@@ -36,14 +36,14 @@ export function ClassificationSelect({
     <span
       role="group"
       aria-label="classifications"
-      data-testid="try-position"
+      data-testid="classification-position"
       data-position={position}
       className="flex items-center gap-related"
     >
       <Button
         variant="secondary"
         size="icon-xs"
-        data-testid="try-prev"
+        data-testid="classification-prev"
         aria-label="previous classification"
         onClick={() => onPick(rows[(index - 1 + rows.length) % rows.length]!.position)}
       >
@@ -51,7 +51,7 @@ export function ClassificationSelect({
       </Button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          data-testid="try-select"
+          data-testid="classification-select"
           aria-label="choose classification"
           className={buttonVariants({ variant: "secondary", size: "sm" })}
         >
@@ -75,7 +75,7 @@ export function ClassificationSelect({
                   type="button"
                   role="option"
                   aria-selected={current}
-                  data-testid="try-option"
+                  data-testid="classification-option"
                   data-position={r.position}
                   onClick={() => {
                     onPick(r.position);
@@ -98,7 +98,7 @@ export function ClassificationSelect({
       <Button
         variant="secondary"
         size="icon-xs"
-        data-testid="try-next"
+        data-testid="classification-next"
         aria-label="next classification"
         onClick={() => onPick(rows[(index + 1) % rows.length]!.position)}
       >

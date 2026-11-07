@@ -16,19 +16,20 @@ const rows = [0, 1, 2].map((position) => ({
 test("the select reads 'N of M', steps with arrows and jumps from the list", async () => {
   const onPick = vi.fn();
   render(<ClassificationSelect rows={rows} position={1} onPick={onPick} />);
-  const select = () => document.querySelector<HTMLElement>('[data-testid="try-select"]')!;
+  const select = () =>
+    document.querySelector<HTMLElement>('[data-testid="classification-select"]')!;
   expect(select().textContent).toContain("2 of 3");
-  await page.getByTestId("try-next").click();
+  await page.getByTestId("classification-next").click();
   expect(onPick).toHaveBeenLastCalledWith(2);
-  await page.getByTestId("try-prev").click();
+  await page.getByTestId("classification-prev").click();
   expect(onPick).toHaveBeenLastCalledWith(0);
-  await page.getByTestId("try-select").click();
+  await page.getByTestId("classification-select").click();
   await waitFor(() => {
-    if (document.querySelector('[data-testid="try-option"][data-position="2"]') === null)
+    if (document.querySelector('[data-testid="classification-option"][data-position="2"]') === null)
       throw new Error("list not open");
   });
   const option = document.querySelector<HTMLElement>(
-    '[data-testid="try-option"][data-position="2"]',
+    '[data-testid="classification-option"][data-position="2"]',
   )!;
   expect(option.textContent).toContain("#2");
   option.click();
@@ -38,10 +39,10 @@ test("the select reads 'N of M', steps with arrows and jumps from the list", asy
 test("the arrows wrap around at either end", async () => {
   const onPick = vi.fn();
   render(<ClassificationSelect rows={rows} position={0} onPick={onPick} />);
-  await page.getByTestId("try-prev").click();
+  await page.getByTestId("classification-prev").click();
   expect(onPick).toHaveBeenLastCalledWith(2);
   cleanup();
   render(<ClassificationSelect rows={rows} position={2} onPick={onPick} />);
-  await page.getByTestId("try-next").click();
+  await page.getByTestId("classification-next").click();
   expect(onPick).toHaveBeenLastCalledWith(0);
 });

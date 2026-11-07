@@ -17,9 +17,9 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
+import { listClassifications, recordClassification } from "./classifications.ts";
 import { classifyEdited, parseClassifyRequest, type ClassifyOptions } from "./classify.ts";
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
-import { listTries, recordTry } from "./tries.ts";
 import type { Dirent } from "node:fs";
 
 export type { RequestFile } from "./request-file.ts";
@@ -178,8 +178,8 @@ export async function serveApiRequest(
   if (pathSegments[1] !== "runs") return notFound("no such api route");
   const routeTail = pathSegments.slice(2);
   // a pair's iterations live under its run: GET lists them, POST classifies an edit and files it
-  if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "tries") {
-    return serveTries(httpRequest, runsRoot, routeTail.slice(0, -1), apiOptions);
+  if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "classifications") {
+    return serveClassifications(httpRequest, runsRoot, routeTail.slice(0, -1), apiOptions);
   }
   if (httpRequest.method !== "GET") return notFound("no such api route");
   try {
@@ -257,11 +257,11 @@ function errorMessage(err: unknown): string {
 // --- helpers ---------------------------------------------------------------
 
 /**
- * The tries of one pair under a run. POST classifies an edit, which spends the caller's API key, so
- * it answers only a same-origin JSON request: a JSON content type forces a CORS preflight and the
- * Origin check refuses a foreign page that reaches the loopback port anyway.
+ * The classifications of one pair under a run. POST classifies an edit, which spends the caller's
+ * API key, so it answers only a same-origin JSON request: a JSON content type forces a CORS
+ * preflight and the Origin check refuses a foreign page that reaches the loopback port anyway.
  */
-async function serveTries(
+async function serveClassifications(
   httpRequest: Request,
   runsRoot: string,
   idSegments: string[],
@@ -275,7 +275,7 @@ async function serveTries(
     const rule = query.get("rule");
     const input = query.get("input");
     if (rule === null || input === null) return badRequest("rule and input are required");
-    return jsonResponse({ tries: await listTries(runDir, rule, input) });
+    return jsonResponse({ classifications: await listClassifications(runDir, rule, input) });
   }
   if (httpRequest.method !== "POST") return notFound("no such api route");
   const origin = httpRequest.headers.get("origin");
@@ -292,7 +292,14 @@ async function serveTries(
   try {
     const { answer, wire } = await classifyEdited(parsed, apiOptions);
     return jsonResponse({
-      try: await recordTry(runDir, { ...parsed, rule, input, answer, wire, by: "manual" }),
+      classification: await recordClassification(runDir, {
+        ...parsed,
+        rule,
+        input,
+        answer,
+        wire,
+        by: "manual",
+      }),
     });
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 502);
@@ -309,7 +316,7 @@ const notFound = (message: string) => jsonResponse({ error: message }, HTTP_NOT_
 
 /**
  * Resolve name against base, allowing ONLY a single direct child (no traversal, no subdirectory
- * escapes). Returns null when the name tries to leave the base.
+ * escapes). Returns null when the name classifications to leave the base.
  */
 function safeJoin(base: string, name: string): string | null {
   if (name.includes("/") || name.includes("\\") || name.includes("\0") || name.startsWith("."))

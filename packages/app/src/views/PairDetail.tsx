@@ -4,12 +4,12 @@ import { useId, useMemo, useState } from "react";
 import { fetchRequestFile, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { classificationRows, type Gates } from "./classificationRows";
+import { useClassifications } from "./Classifications";
 import { ClassificationSelect } from "./ClassificationSelect";
 import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
 import { ParsedJson } from "./ParsedJson";
 import { spanLabel } from "./RequestTable";
-import { useTryIt } from "./TryIt";
 import type { RequestFile } from "../types";
 import { Button } from "@/components/ui/button";
 
@@ -77,7 +77,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         : null;
   const meta = request?.response ?? {};
   // the edit of this pair; the cards below render it and the classify bar asks it
-  const tryIt = useTryIt(
+  const classifications = useClassifications(
     { runId, rule, input },
     pair,
     state.path,
@@ -92,8 +92,8 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
       ? handleData
       : undefined;
   // one row per classification; the select is hidden while only the original exists
-  const choiceCriteria = tryIt.edited?.question.criteria;
-  const rows = classificationRows(tryIt.answers, tryIt.filedBy, {
+  const choiceCriteria = classifications.edited?.question.criteria;
+  const rows = classificationRows(classifications.answers, classifications.filedBy, {
     gates: noulGates,
     scoreTiers:
       handleData !== undefined && "map" in handleData
@@ -106,8 +106,12 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         : Object.keys(choiceCriteria),
   });
   const select =
-    tryIt.total > 1 ? (
-      <ClassificationSelect rows={rows} position={tryIt.position} onPick={(at) => tryIt.go(at)} />
+    classifications.total > 1 ? (
+      <ClassificationSelect
+        rows={rows}
+        position={classifications.position}
+        onPick={(at) => classifications.go(at)}
+      />
     ) : undefined;
 
   // The request view shows what the model was sent: the recorded wire body. A recording from
@@ -193,9 +197,9 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
           </div>
           <div className="flex flex-col">
             <AnswerCard
-              qa={tryIt.edited ?? pair}
+              qa={classifications.edited ?? pair}
               trailing={select}
-              edit={code !== null ? tryIt.edit : undefined}
+              edit={code !== null ? classifications.edit : undefined}
               sev={severity}
               handle={noulGates}
               choices={(() => {
@@ -212,21 +216,21 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
             >
               <div className="flex items-center gap-siblings">
                 <span className="flex-1" />
-                {tryIt.ask.isPending && (
+                {classifications.ask.isPending && (
                   <span className="text-caption text-muted-foreground">classifying…</span>
                 )}
-                {tryIt.asked?.stale === true && (
-                  <span data-testid="try-stale" className="text-caption text-sev-warn">
+                {classifications.asked?.stale === true && (
+                  <span data-testid="classification-stale" className="text-caption text-sev-warn">
                     edited since classify
                   </span>
                 )}
-                {(tryIt.position !== 0 || tryIt.dirty) && (
+                {(classifications.position !== 0 || classifications.dirty) && (
                   <Button
                     variant="secondary"
                     size="xs"
-                    data-testid="try-reset"
+                    data-testid="classification-reset"
                     onClick={() => {
-                      tryIt.reset();
+                      classifications.reset();
                       setEditingCode(false);
                     }}
                   >
@@ -236,16 +240,16 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
                 <Button
                   variant="secondary"
                   size="sm"
-                  data-testid="try-classify"
-                  disabled={tryIt.ask.isPending}
-                  onClick={() => tryIt.ask.mutate()}
+                  data-testid="classify"
+                  disabled={classifications.ask.isPending}
+                  onClick={() => classifications.ask.mutate()}
                 >
                   classify
                 </Button>
               </div>
-              {tryIt.ask.isError && (
-                <span data-testid="try-error" className="text-caption text-sev-error">
-                  {String(tryIt.ask.error)}
+              {classifications.ask.isError && (
+                <span data-testid="classification-error" className="text-caption text-sev-error">
+                  {String(classifications.ask.error)}
                 </span>
               )}
             </div>
@@ -275,7 +279,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
                   <Button
                     variant="secondary"
                     size="icon-xs"
-                    data-testid="try-edit-code"
+                    data-testid="classification-edit-code"
                     aria-label="edit code"
                     aria-pressed={editingCode}
                     onClick={() => setEditingCode(!editingCode)}
@@ -288,12 +292,12 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
                   <textarea
                     data-testid="edit-code"
                     aria-label="edit-code"
-                    value={tryIt.text}
-                    onChange={(e) => tryIt.setText(e.target.value)}
+                    value={classifications.text}
+                    onChange={(e) => classifications.setText(e.target.value)}
                     className="block min-h-48 w-full resize-y bg-transparent p-rail font-mono text-caption text-foreground [field-sizing:content] focus:outline-none"
                   />
                 ) : (
-                  <CodeBlock code={tryIt.text} path={result?.path ?? file} />
+                  <CodeBlock code={classifications.text} path={result?.path ?? file} />
                 )}
               </>
             )}

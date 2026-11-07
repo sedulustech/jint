@@ -2,8 +2,8 @@ import { createClassifier } from "../core/provider/client.ts";
 import { classifiedState } from "../core/rules/classify.ts";
 import type { Classifier, QuestionSchema } from "../core/types.ts";
 /**
- * The try-it route: classify ONE edited question against ONE edited state and answer, so a reader
- * can reword criteria or change the code in the run UI and see the reading move. Nothing is
+ * The classification route: classify ONE edited question against ONE edited state and answer, so a
+ * reader can reword criteria or change the code in the run UI and see the reading move. Nothing is
  * recorded to the run store and nothing is written to the config: the edit lives in the request.
  */
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
@@ -25,7 +25,10 @@ export interface ClassifyOptions {
   classifier?: Classifier;
 }
 
-/** The exchange of one try, as it went over the wire (absent when the classifier was injected). */
+/**
+ * The exchange of one classification, as it went over the wire (absent when the classifier was
+ * injected).
+ */
 export interface Wire {
   request: unknown;
   response: unknown;
@@ -80,7 +83,7 @@ export function viewAnswer(question: QuestionSchema, answer: ClassifiedAnswer | 
 /**
  * Ask the classifier the one edited question: the answer in the run view's shape and, with the
  * default classifier, the exchange that produced it. Nothing is recorded here - the caller files
- * the try under the run it edits.
+ * the classification under the run it edits.
  */
 export async function classifyEdited(
   request: ClassifyRequest,
@@ -101,7 +104,7 @@ export async function classifyEdited(
       },
     });
   // A state that carries a path is asked with it (the rule includes it); one without is asked
-  // without, so the try is the request the reading was.
+  // without, so the classification is the request the reading was.
   const { path, content, source } = request.state;
   const includePath = path !== undefined;
   const state =

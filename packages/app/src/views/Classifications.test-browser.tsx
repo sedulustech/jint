@@ -21,7 +21,7 @@ type Filed = {
   question: Record<string, unknown>;
   answer: unknown;
 };
-// what the server holds for the run: the tries filed so far, listed back per pair
+// what the server holds for the run: the classifications filed so far, listed back per pair
 let filed: Filed[];
 const sent: Filed[] = [];
 let reply: () => Promise<{ status: number; body: unknown }>;
@@ -37,7 +37,7 @@ beforeEach(() => {
   const realFetch = globalThis.fetch;
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(String(input), "http://localhost");
-    if (url.pathname !== "/api/runs/run-a/tries") return realFetch(input, init);
+    if (url.pathname !== "/api/runs/run-a/classifications") return realFetch(input, init);
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {
         status,
@@ -45,7 +45,7 @@ beforeEach(() => {
       });
     if (init?.method !== "POST") {
       const [rule, pair] = [url.searchParams.get("rule"), url.searchParams.get("input")];
-      return json({ tries: filed.filter((t) => t.rule === rule && t.input === pair) });
+      return json({ classifications: filed.filter((t) => t.rule === rule && t.input === pair) });
     }
     const request = JSON.parse(String(init.body)) as Omit<Filed, "seq" | "answer">;
     const outcome = await reply();
@@ -53,7 +53,7 @@ beforeEach(() => {
     const record = { ...request, seq: filed.length + 1, answer: outcome.body };
     sent.push(record);
     filed.push(record);
-    return json({ try: record });
+    return json({ classification: record });
   });
 });
 
@@ -87,23 +87,28 @@ const ready = () =>
   );
 // the select is the iteration control: open it, pick the row by its position
 const point = async (at: number) => {
-  await page.getByTestId("try-select").click();
+  await page.getByTestId("classification-select").click();
   await waitFor(() => {
-    if (document.querySelector(`[data-testid="try-option"][data-position="${at}"]`) === null)
+    if (
+      document.querySelector(`[data-testid="classification-option"][data-position="${at}"]`) ===
+      null
+    )
       throw new Error("list not open");
   });
-  document.querySelector<HTMLElement>(`[data-testid="try-option"][data-position="${at}"]`)!.click();
+  document
+    .querySelector<HTMLElement>(`[data-testid="classification-option"][data-position="${at}"]`)!
+    .click();
 };
 const classify2 = async (reading: string) => {
-  await page.getByTestId("try-classify").click();
+  await page.getByTestId("classify").click();
   await waitFor(() => {
     if (shown() !== reading) throw new Error("no result yet");
   });
 };
 const classify = async () => {
-  await page.getByTestId("try-classify").click();
+  await page.getByTestId("classify").click();
   await waitFor(() => {
-    if (shown() !== "0.12" && q("try-error") === null) throw new Error("no result yet");
+    if (shown() !== "0.12" && q("classification-error") === null) throw new Error("no result yet");
   });
 };
 
@@ -113,11 +118,11 @@ test("the original reading shows until classify, then the new one replaces it", 
   const original = shown();
   expect(original).not.toBeUndefined();
   expect(original).not.toBe("0.12");
-  expect(q("try-position")).toBeNull();
+  expect(q("classification-position")).toBeNull();
 
   await classify();
   expect(shown()).toBe("0.12");
-  expect(q("try-position")?.dataset.position).toBe("1");
+  expect(q("classification-position")?.dataset.position).toBe("1");
 });
 
 test("the new reading survives switching the view and editing the code", async () => {
@@ -126,7 +131,7 @@ test("the new reading survives switching the view and editing the code", async (
   await classify();
   await page.getByTestId("pair-view-request").click();
   await page.getByTestId("pair-view-code").click();
-  await page.getByTestId("try-edit-code").click();
+  await page.getByTestId("classification-edit-code").click();
   expect(shown()).toBe("0.12");
 });
 
@@ -135,7 +140,7 @@ test("classify sends the edited question, criteria and code under the original p
   await ready();
   await page.getByTestId("edit-instructions").fill("Is the name a verb?");
   await page.getByTestId("edit-criteria-true").fill("It is a verb.");
-  await page.getByTestId("try-edit-code").click();
+  await page.getByTestId("classification-edit-code").click();
   await page.getByTestId("edit-code").fill("export function run() {}");
   await classify();
 
@@ -150,14 +155,14 @@ test("an edit after classify marks the reading stale and keeps it", async () => 
   render(tree("src/borderline.ts"));
   await ready();
   await classify();
-  expect(q("try-stale")).toBeNull();
+  expect(q("classification-stale")).toBeNull();
 
   await page.getByTestId("edit-criteria-false").fill("Anything else.");
-  expect(q("try-stale")).not.toBeNull();
+  expect(q("classification-stale")).not.toBeNull();
   expect(shown()).toBe("0.12");
 
   await classify();
-  expect(q("try-stale")).toBeNull();
+  expect(q("classification-stale")).toBeNull();
   expect(sent).toHaveLength(2);
 });
 
@@ -169,11 +174,11 @@ test("reset restores the original texts, code and reading", async () => {
   await page.getByTestId("edit-instructions").fill("Something else?");
   await classify();
 
-  await page.getByTestId("try-reset").click();
+  await page.getByTestId("classification-reset").click();
   expect(field("edit-instructions").value).toBe(instructions);
   expect(shown()).toBe(original);
-  expect(q("try-position")?.dataset.position).toBe("0");
-  expect(q("try-stale")).toBeNull();
+  expect(q("classification-position")?.dataset.position).toBe("0");
+  expect(q("classification-stale")).toBeNull();
 });
 
 test("another pair starts from its own original, not this pair's edit", async () => {
@@ -185,7 +190,8 @@ test("another pair starts from its own original, not this pair's edit", async ()
 
   view.rerender(tree("src/high.ts"));
   await waitFor(() => {
-    if (q("try-position") !== null) throw new Error("still showing the first pair's tries");
+    if (q("classification-position") !== null)
+      throw new Error("still showing the first pair's classifications");
   });
   expect(field("edit-instructions").value).not.toBe("An edit that belongs to the first pair");
   expect(shown()).not.toBe("0.12");
@@ -199,9 +205,9 @@ test("a failed classify names the failure and keeps every edit", async () => {
   await page.getByTestId("edit-instructions").fill("Still here after the failure?");
   await classify();
 
-  expect(q("try-error")?.textContent).toContain("endpoint down");
+  expect(q("classification-error")?.textContent).toContain("endpoint down");
   expect(field("edit-instructions").value).toBe("Still here after the failure?");
-  expect(q("try-position")).toBeNull();
+  expect(q("classification-position")).toBeNull();
   expect(filed).toHaveLength(0);
 });
 
@@ -213,15 +219,15 @@ test("classify is disabled while the request is in flight", async () => {
     });
   render(tree("src/borderline.ts"));
   await ready();
-  await page.getByTestId("try-classify").click();
+  await page.getByTestId("classify").click();
   await waitFor(() => {
-    if (!(q("try-classify") as HTMLButtonElement).disabled) throw new Error("still enabled");
+    if (!(q("classify") as HTMLButtonElement).disabled) throw new Error("still enabled");
   });
   release();
   await waitFor(() => {
     if (shown() !== "0.12") throw new Error("no result yet");
   });
-  expect((q("try-classify") as HTMLButtonElement).disabled).toBe(false);
+  expect((q("classify") as HTMLButtonElement).disabled).toBe(false);
 });
 
 test("iterations cycle: each classify is a position, and moving loads its edit and reading", async () => {
@@ -236,24 +242,24 @@ test("iterations cycle: each classify is a position, and moving loads its edit a
   await page.getByTestId("edit-instructions").fill("Second wording?");
   reply = answers(0.7);
   await classify2("0.70");
-  expect(q("try-position")?.dataset.position).toBe("2");
+  expect(q("classification-position")?.dataset.position).toBe("2");
 
   await point(1);
   expect(field("edit-instructions").value).toBe("First wording?");
   expect(shown()).toBe("0.20");
-  expect(q("try-stale")).toBeNull();
+  expect(q("classification-stale")).toBeNull();
 
   await point(0);
   expect(field("edit-instructions").value).toBe(originalText);
   expect(shown()).toBe(originalReading);
-  expect(q("try-position")?.dataset.position).toBe("0");
+  expect(q("classification-position")?.dataset.position).toBe("0");
 
   await point(2);
   expect(field("edit-instructions").value).toBe("Second wording?");
   expect(shown()).toBe("0.70");
 });
 
-test("tries filed earlier are there when the pair opens again", async () => {
+test("classifications filed earlier are there when the pair opens again", async () => {
   filed = [
     {
       seq: 1,
@@ -271,9 +277,9 @@ test("tries filed earlier are there when the pair opens again", async () => {
   render(tree("src/borderline.ts"));
   await ready();
   await waitFor(() => {
-    if (q("try-position") === null) throw new Error("tries not loaded");
+    if (q("classification-position") === null) throw new Error("classifications not loaded");
   });
-  expect(q("try-position")?.dataset.position).toBe("0");
+  expect(q("classification-position")?.dataset.position).toBe("0");
   await point(1);
   expect(field("edit-instructions").value).toBe("Filed earlier?");
   expect(shown()).toBe("0.33");

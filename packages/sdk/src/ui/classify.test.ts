@@ -17,7 +17,7 @@ const body = {
   },
 };
 
-describe("a try of an unedited recording", () => {
+describe("a classification of an unedited recording", () => {
   test("goes out as the same wire body the recording was", async () => {
     // a recorded element request: the path leads, one predicate whose text folds the criteria
     // (the classifier keeps the id off the wire, so the bodies are built without it)
@@ -31,7 +31,7 @@ describe("a try of an unedited recording", () => {
       body.question,
     );
     // the run view hands back the state and question the way the recording stored them, and the
-    // try classifies them; the state the classifier is asked about is the one the run would build
+    // a classification asks them; the state the classifier is asked about is the one the run would build
     let asked: Parameters<Classifier>[0] | undefined;
     const classifier: Classifier = async (state, questions) => {
       asked = state;
@@ -48,12 +48,12 @@ describe("a try of an unedited recording", () => {
   });
 });
 
-const root = mkdtempSync(join(tmpdir(), "jint-tries-"));
+const root = mkdtempSync(join(tmpdir(), "jint-classifications-"));
 mkdirSync(join(root, "run-a"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const post = (payload: unknown, headers: Record<string, string> = {}, run = "run-a") =>
-  new Request(`http://localhost:1/api/runs/${run}/tries`, {
+  new Request(`http://localhost:1/api/runs/${run}/classifications`, {
     method: "POST",
     headers: { "content-type": "application/json", host: "localhost:1", ...headers },
     body: JSON.stringify(payload),
@@ -61,40 +61,48 @@ const post = (payload: unknown, headers: Record<string, string> = {}, run = "run
 const address = { rule: "is_small", input: "a.ts#e1" };
 const list = async (query = "rule=is_small&input=a.ts%23e1") =>
   (await (
-    await serveApiRequest(new Request(`http://localhost:1/api/runs/run-a/tries?${query}`), { root })
-  )?.json()) as { tries: { seq: number; answer: unknown; question: { instructions: string } }[] };
+    await serveApiRequest(
+      new Request(`http://localhost:1/api/runs/run-a/classifications?${query}`),
+      { root },
+    )
+  )?.json()) as {
+    classifications: { seq: number; answer: unknown; question: { instructions: string } }[];
+  };
 
-describe("tries under a run", () => {
-  test("a try classifies the edit, files it under the run, and lists back oldest first", async () => {
+describe("classifications under a run", () => {
+  test("a classification asks about the edit, files it under the run, and lists back oldest first", async () => {
     const classifier: Classifier = async () => ({ edited: { value: 0.9 } }) as never;
     const first = await serveApiRequest(post({ ...body, ...address }), { root, classifier });
     expect(first?.status).toBe(200);
-    const filed = ((await first?.json()) as { try: { seq: number; answer: unknown } }).try;
+    const filed = ((await first?.json()) as { classification: { seq: number; answer: unknown } })
+      .classification;
     expect(filed.seq).toBe(1);
     expect(filed.answer).toEqual({ type: "noul", noul: 0.9 });
 
     const edited = { ...body, question: { ...body.question, instructions: "Is it tiny?" } };
     await serveApiRequest(post({ ...edited, ...address }), { root, classifier });
-    const tries = (await list()).tries;
-    expect(tries.map((t) => t.seq)).toEqual([1, 2]);
-    expect(tries[1]!.question.instructions).toBe("Is it tiny?");
+    const classifications = (await list()).classifications;
+    expect(classifications.map((t) => t.seq)).toEqual([1, 2]);
+    expect(classifications[1]!.question.instructions).toBe("Is it tiny?");
   });
 
-  test("a pair lists only its own tries, while the sequence stays run-wide", async () => {
+  test("a pair lists only its own classifications, while the sequence stays run-wide", async () => {
     const classifier: Classifier = async () => ({ edited: { value: 0.4 } }) as never;
     await serveApiRequest(post({ ...body, rule: "is_small", input: "b.ts#e2" }), {
       root,
       classifier,
     });
-    expect((await list("rule=is_small&input=b.ts%23e2")).tries.map((t) => t.seq)).toEqual([3]);
-    expect((await list()).tries.map((t) => t.seq)).toEqual([1, 2]);
+    expect((await list("rule=is_small&input=b.ts%23e2")).classifications.map((t) => t.seq)).toEqual(
+      [3],
+    );
+    expect((await list()).classifications.map((t) => t.seq)).toEqual([1, 2]);
   });
 
   test("the call leaves no run of its own in the store", () => {
     expect(readdirSync(root)).toEqual(["run-a"]);
   });
 
-  test("a try for a run that does not exist is a 404, and nothing is created", async () => {
+  test("a classification for a run that does not exist is a 404, and nothing is created", async () => {
     const res = await serveApiRequest(post({ ...body, ...address }, {}, "run-missing"), { root });
     expect(res?.status).toBe(404);
     expect(readdirSync(root)).toEqual(["run-a"]);
@@ -112,7 +120,7 @@ describe("tries under a run", () => {
   });
 
   test("a non-JSON content type is refused", async () => {
-    const req = new Request("http://localhost:1/api/runs/run-a/tries", {
+    const req = new Request("http://localhost:1/api/runs/run-a/classifications", {
       method: "POST",
       headers: { "content-type": "text/plain", host: "localhost:1" },
       body: JSON.stringify(body),
@@ -120,19 +128,19 @@ describe("tries under a run", () => {
     expect((await serveApiRequest(req, { root }))?.status).toBe(400);
   });
 
-  test("a try without its pair address is refused", async () => {
+  test("a classification without its pair address is refused", async () => {
     expect((await serveApiRequest(post(body), { root }))?.status).toBe(400);
   });
 
   test("a classifier failure is a 502 naming the failure, and files nothing", async () => {
-    const before = (await list()).tries.length;
+    const before = (await list()).classifications.length;
     const classifier: Classifier = async () => {
       throw new Error("endpoint down");
     };
     const res = await serveApiRequest(post({ ...body, ...address }), { root, classifier });
     expect(res?.status).toBe(502);
     expect(await res?.json()).toEqual({ error: "endpoint down" });
-    expect((await list()).tries).toHaveLength(before);
+    expect((await list()).classifications).toHaveLength(before);
   });
 });
 
