@@ -300,6 +300,7 @@ function pacedClassifier(
     createClassifier({
       log: options.log,
       cache: options.cache,
+      timeout: knobs.timeout,
     });
   // An injected classifier is not the endpoint's: no token budget applies to it.
   const budget = injected === undefined ? TOKENS_PER_MINUTE : undefined;

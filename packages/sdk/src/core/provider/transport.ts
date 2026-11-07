@@ -13,6 +13,19 @@ export interface Limits {
   maxRetries: number;
 }
 
+/**
+ * The limits of one attempt for a call that may take `timeoutSeconds` in all. The call is one
+ * attempt and its retries, so an attempt gets an equal share: the default call timeout of 30
+ * seconds is the 10 second attempt and two retries. A slower endpoint raises the one setting.
+ */
+export function limitsFor(timeoutSeconds?: number): Limits {
+  const timeoutMs =
+    timeoutSeconds === undefined
+      ? ATTEMPT_TIMEOUT_MS
+      : Math.ceil((timeoutSeconds * 1000) / (MAX_RETRIES + 1));
+  return { timeoutMs, maxRetries: MAX_RETRIES };
+}
+
 export function statusError(
   status: number | undefined,
   message: string,

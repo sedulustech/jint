@@ -123,7 +123,7 @@ export const FLAGS = {
     type: "string",
     arg: "<secs>",
     blurb:
-      "per-call classifier timeout (default 30; a hung call becomes a per-element PROVIDER_TIMEOUT failure - liveness, not retry)",
+      "per-call classifier timeout in seconds, retries included (default 30; each attempt gets a third of it; a hung call becomes a per-element PROVIDER_TIMEOUT failure)",
   },
   "--queries": {
     type: "string",

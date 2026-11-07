@@ -93,7 +93,10 @@ export async function classify(
   const result = await classifyFile(
     unit,
     rules,
-    withLimit(withTimeout(options.classifier ?? createClassifier(), timeout), concurrency),
+    withLimit(
+      withTimeout(options.classifier ?? createClassifier({ timeout }), timeout),
+      concurrency,
+    ),
     () => false,
     { language: options.language, registry },
   );

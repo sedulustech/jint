@@ -213,7 +213,8 @@ export const CONFIG_SCHEMA = Type.Object({
   ),
   timeout: Type.Optional(
     Type.Number({
-      description: "The timeout of one classifier call, in seconds. Default 30.",
+      description:
+        "The time one classifier call may take, retries included, in seconds. Default 30. Each attempt gets a third of it.",
       examples: [30],
     }),
   ),

@@ -23,6 +23,7 @@ import {
   type EndpointChoice,
 } from "./endpoint.ts";
 import { systemOneAdapter } from "./systemone.ts";
+import { limitsFor } from "./transport.ts";
 
 export interface ClassifierConfig extends EndpointChoice {
   /** Custom fetch for tests (the transport the client calls). */
@@ -44,6 +45,11 @@ export interface ClassifierConfig extends EndpointChoice {
    * it off, and the call leaves no run directory of its own.
    */
   record?: boolean;
+  /**
+   * The seconds one classifier call may take in all, the run's `timeout` setting. An attempt gets a
+   * third of it. Absent keeps the default attempt limit.
+   */
+  timeout?: number;
 }
 
 export function createClassifier(config?: ClassifierConfig): Classifier {
@@ -64,6 +70,7 @@ function makeClassifier(
 ): Classifier {
   if (endpoint.apiKey === undefined && endpoint.keyless !== true) throw missingKey(input, endpoint);
   const systemOne = endpoint.protocol === "systemone";
+  const limits = limitsFor(config?.timeout);
   const recording = config?.record !== false;
   const send = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const recorded = recording
@@ -84,8 +91,8 @@ function makeClassifier(
           },
         };
   const adapter = systemOne
-    ? systemOneAdapter(endpoint, { fetch: recorded, log })
-    : decisionsAdapter(endpoint, { fetch: recorded, log, cache });
+    ? systemOneAdapter(endpoint, { fetch: recorded, log, limits })
+    : decisionsAdapter(endpoint, { fetch: recorded, log, cache, limits });
   return async (state, questions) => {
     const { id: _id, ...judged } = state;
     const asked = await inCall(state, Object.keys(questions), () =>
