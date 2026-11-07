@@ -140,11 +140,11 @@ construct you want judged is not an element, the fix is a capture in the
 grammar's queries.scm, not a rule: see docs/captures.md and docs/directives.md
 (https://github.com/sedulustech/jint/tree/main/docs).
 
-## Re-ask one reading
+## Reclassify
 
-To test a rewording on one real pair, do not start a new run: `jint reclassify`
-asks that pair again and files the answer under the same run as its next
-classification (`#1`, `#2`, ...). The run UI polls, so the reader sees each one
+To test a rewording on one real input, do not start a new run: `jint reclassify`
+asks that rule at that input again and files the answer under the same run as
+its next classification (`#1`, `#2`, ...). The run UI polls, so the reader sees each one
 appear beside the original while you work.
 
 ```bash
