@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { decisionsParams, MODEL } from "../core/provider/decisions.ts";
 import { classifiedState } from "../core/rules/classify.ts";
 import { reclassify, serveApiRequest } from "./api.ts";
+import { listClassifications, recordClassification } from "./classifications.ts";
 import { applyEdit, classifyEdited, parseEdit, viewAnswer } from "./classify.ts";
 import type { Classifier } from "../core/types.ts";
 
@@ -211,6 +212,27 @@ describe("classifications under a run", () => {
     expect(res?.status).toBe(502);
     expect(await res?.json()).toEqual({ error: "endpoint down" });
     expect((await list()).classifications).toHaveLength(before);
+  });
+});
+
+describe("filing", () => {
+  test("actors filing at the same moment each get their own number, none overwritten", async () => {
+    const runDir = join(root, "run-a");
+    const entry = (input: string) => ({
+      rule: "is_small",
+      input,
+      state: { source: "x" },
+      question: { type: "noul", instructions: "?" } as never,
+      answer: { type: "noul", noul: 0.5 },
+    });
+    const filed = await Promise.all(
+      Array.from({ length: 8 }, () => recordClassification(runDir, entry("race.ts#e1"))),
+    );
+    expect(new Set(filed.map((f) => f.seq)).size).toBe(8);
+    expect(filed.map((f) => f.n).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect((await listClassifications(runDir, "is_small", "race.ts#e1")).map((f) => f.n)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
   });
 });
 

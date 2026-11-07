@@ -8,7 +8,7 @@ import {
 } from "../api/client";
 import type { QA } from "./AnswerCard";
 
-const POLL_MS = 3_000;
+const POLL_MS = 1_000;
 
 interface Edit {
   instructions?: string;
