@@ -1,7 +1,7 @@
 import { asTier } from "@jint/contract";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useState } from "react";
-import { fetchRequestFile, fetchRun } from "../api/client";
+import { fetchPair, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { classificationRows, type Gates } from "./classificationRows";
 import { useClassifications } from "./Classifications";
@@ -10,7 +10,6 @@ import { CodeBlock } from "./CodeBlock";
 import { CopyButton } from "./CopyButton";
 import { ParsedJson } from "./ParsedJson";
 import { spanLabel } from "./RequestTable";
-import type { RequestFile } from "../types";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -38,29 +37,23 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
   // the element projection rides the run payload's cells; the input keeps the uuid as its key,
   // the user reads the span label
   const element = run.data?.cells?.find((c) => c.rule === rule && c.input === input)?.element;
-  const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
-  const result =
-    run.data?.results.find((r) => r.file === requestFile) ??
-    // span lookup: element identity is exact; a bare-path pair prefers the file-tier request
-    run.data?.results.find(
-      (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
-    ) ??
-    run.data?.results.find((r) => r.path === file);
+  const file = input.split("#")[0]!;
+  // the server resolves the pair: its request, its row and its own question and answer
   const query = useQuery({
-    queryKey: ["request", runId, result?.file],
-    queryFn: () => fetchRequestFile(runId, result!.file),
-    enabled: result !== undefined,
+    queryKey: ["pair", runId, rule, input, requestFile],
+    queryFn: () => fetchPair(runId, { rule, input, file: requestFile }),
   });
-  const request: RequestFile | undefined = query.data;
-
-  const questions = (request?.request?.questions ?? {}) as Record<string, QA["question"]>;
-  const answers = request?.response?.answers ?? {};
-  const qas: QA[] = Object.entries(questions).map(([key, question]) => {
-    const m = key.match(/^(.*) in (.+)$/);
-    return { key, rule: m?.[1] ?? key, question, answer: answers[key] };
-  });
-  // the addressed pair is the protagonist; sibling questions of the same request stay accessible
-  const pair = qas.find((qa) => qa.rule === rule);
+  const { result, request } = query.data ?? {};
+  const recorded = query.data?.pair;
+  const pair: QA | undefined =
+    recorded === null || recorded === undefined
+      ? undefined
+      : {
+          key: recorded.key,
+          rule,
+          question: recorded.question as QA["question"],
+          answer: recorded.answer as QA["answer"],
+        };
   // per-pair severity from the API's span-aware join; never re-derived client-side
   const severity = result?.severities[rule] ?? null;
 

@@ -31,6 +31,7 @@ import {
   type ClassifyRequest,
 } from "./classify.ts";
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
+import type { QuestionSchema } from "../core/types.ts";
 import type { Dirent } from "node:fs";
 
 export type { RequestFile } from "./request-file.ts";
@@ -81,7 +82,7 @@ interface RunSummary {
   cost?: number;
 }
 
-interface RequestItem {
+export interface RequestItem {
   file: string;
   /** 1-based position in ts order, assigned after parsing. */
   seq: number;
@@ -193,6 +194,20 @@ export async function serveApiRequest(
     return serveClassifications(httpRequest, runsRoot, routeTail.slice(0, -1), apiOptions);
   }
   if (httpRequest.method !== "GET") return notFound("no such api route");
+  if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "pair") {
+    const query = new URL(httpRequest.url).searchParams;
+    const [rule, input] = [query.get("rule"), query.get("input")];
+    if (rule === null || input === null) return badRequest("rule and input are required");
+    try {
+      const file = query.get("file") ?? undefined;
+      return jsonResponse(
+        await readPair(routeTail.slice(0, -1).join("/"), { rule, input, file }, apiOptions),
+      );
+    } catch (err) {
+      if (err instanceof PairError) return jsonResponse({ error: err.message }, err.status);
+      throw err;
+    }
+  }
   try {
     // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
     // so flat and nested runs route identically.
@@ -307,13 +322,13 @@ async function serveClassifications(
     });
     return jsonResponse({ classification });
   } catch (err) {
-    if (err instanceof ReclassifyError) return jsonResponse({ error: err.message }, err.status);
+    if (err instanceof PairError) return jsonResponse({ error: err.message }, err.status);
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 502);
   }
 }
 
-/** A reclassification the caller can fix: the status is the HTTP one the run UI answers with. */
-export class ReclassifyError extends Error {
+/** A request about a pair the caller can fix: the status is the HTTP one the run UI answers with. */
+export class PairError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -322,26 +337,73 @@ export class ReclassifyError extends Error {
   }
 }
 
-/** The request file that read this pair: the report's own join first, else the path and element. */
-function pairRequestFile(
-  run: { results: RequestItem[]; cells?: ApiCell[] },
-  rule: string,
-  input: string,
-): string | undefined {
-  const cell = run.cells?.find((c) => c.rule === rule && c.input === input);
-  if (cell?.requestFile !== undefined) return cell.requestFile;
-  const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
-  return (
+/** One pair as its run recorded it: the request that read it and the pair's own question and answer. */
+export interface PairRead {
+  /** The run's row for the request: its path, element and per-rule severities. */
+  result: RequestItem;
+  /** The recorded request file, normalized. */
+  request: RequestFile;
+  /** The pair's own question and answer inside the request; null when the request lacks the rule. */
+  pair: { key: string; question: QuestionSchema; answer: unknown } | null;
+}
+
+/**
+ * THE lookup of a pair in a run, for everyone: the run view reads it through GET .../pair and
+ * reclassify starts from it. The request is the one named by `file` when given, else the report's
+ * own join for the pair, else the request at the pair's path and element.
+ */
+export async function readPair(
+  runId: string,
+  pair: { rule: string; input: string; file?: string },
+  options: ApiOptions = {},
+): Promise<PairRead> {
+  const root = requestsRoot(options);
+  const runDir = resolveRunDir(root, runId.split("/"));
+  if (runDir === null) throw new PairError(INVALID_RUN_ID, 400);
+  if ((await stat(runDir).catch(() => null)) === null)
+    throw new PairError("no such run", HTTP_NOT_FOUND);
+  const run = (await getRun(root, runDir, runId)) as { results: RequestItem[]; cells?: ApiCell[] };
+  const [path, span] = [
+    pair.input.split("#")[0]!,
+    pair.input.includes("#") ? pair.input.split("#")[1]! : null,
+  ];
+  const cellFile = run.cells?.find(
+    (c) => c.rule === pair.rule && c.input === pair.input,
+  )?.requestFile;
+  const result =
+    run.results.find((r) => r.file === pair.file) ??
+    run.results.find((r) => r.file === cellFile) ??
+    // element identity is exact; a bare-path pair prefers the file-tier request
     run.results.find(
-      (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
-    ) ?? run.results.find((r) => r.path === file)
-  )?.file;
+      (r) => r.path === path && (span !== null ? r.elementId === span : !r.element),
+    ) ??
+    run.results.find((r) => r.path === path);
+  if (result === undefined)
+    throw new PairError(`no recorded request for ${pair.rule} at ${pair.input}`, HTTP_NOT_FOUND);
+  const request = normalizeRequestFile(
+    JSON.parse(await readFile(join(runDir, result.file), READ_ENCODING)),
+  );
+  const entry = Object.entries(request.request?.questions ?? {}).find(
+    ([key]) => (key.match(/^(.*) in (.+)$/)?.[1] ?? key) === pair.rule,
+  );
+  return {
+    result,
+    request,
+    pair:
+      entry === undefined
+        ? null
+        : {
+            key: entry[0],
+            question: entry[1] as QuestionSchema,
+            answer: request.response?.answers?.[entry[0]],
+          },
+  };
 }
 
 /**
  * THE way to classify an edit of a recorded pair, for every actor: the run UI (user) and the CLI
- * (agent) both call this. It reads the pair's original question and state from the run, lays the
- * edit over them, asks the classifier once, and files the answer under the run as the pair's next
+ * (agent) both call this. It reads the pair through readPair, lays the edit over its question and
+ * state, asks the classifier once, and files the answer under the run as the pair's next
  * classification, recording who filed it.
  */
 export async function reclassify(
@@ -350,31 +412,19 @@ export async function reclassify(
   edit: ClassificationEdit,
   options: ApiOptions & { by: NonNullable<ClassificationRecord["by"]> },
 ): Promise<ClassificationRecord> {
-  const root = requestsRoot(options);
-  const runDir = resolveRunDir(root, runId.split("/"));
-  if (runDir === null) throw new ReclassifyError(INVALID_RUN_ID, 400);
-  if ((await stat(runDir).catch(() => null)) === null)
-    throw new ReclassifyError("no such run", HTTP_NOT_FOUND);
-  const run = (await getRun(root, runDir, runId)) as { results: RequestItem[]; cells?: ApiCell[] };
-  const file = pairRequestFile(run, pair.rule, pair.input);
-  const recorded =
-    file === undefined
-      ? undefined
-      : normalizeRequestFile(JSON.parse(await readFile(join(runDir, file), READ_ENCODING)));
-  const entry = Object.entries(recorded?.request?.questions ?? {}).find(
-    ([key]) => (key.match(/^(.*) in (.+)$/)?.[1] ?? key) === pair.rule,
-  );
-  const state = recorded?.request?.state;
-  if (entry === undefined || state === undefined)
-    throw new ReclassifyError(`no recorded pair for ${pair.rule} at ${pair.input}`, HTTP_NOT_FOUND);
-  const original = {
+  const { request, pair: recorded } = await readPair(runId, pair, options);
+  const state = request.request?.state;
+  if (recorded === null || state === undefined)
+    throw new PairError(`no recorded pair for ${pair.rule} at ${pair.input}`, HTTP_NOT_FOUND);
+  const original: ClassifyRequest = {
     state: { path: state.path, content: state.content, source: state.source },
-    question: entry[1],
+    question: recorded.question,
   } as ClassifyRequest;
-  const request = applyEdit(original, edit);
-  if (typeof request === "string") throw new ReclassifyError(request, 400);
-  const { answer, wire } = await classifyEdited(request, options);
-  return recordClassification(runDir, { ...request, ...pair, answer, wire, by: options.by });
+  const edited = applyEdit(original, edit);
+  if (typeof edited === "string") throw new PairError(edited, 400);
+  const { answer, wire } = await classifyEdited(edited, options);
+  const runDir = resolveRunDir(requestsRoot(options), runId.split("/"))!;
+  return recordClassification(runDir, { ...edited, ...pair, answer, wire, by: options.by });
 }
 
 const jsonResponse = (body: unknown, status = 200) =>

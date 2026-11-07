@@ -1,5 +1,6 @@
-import type { RequestFile, Report, RunDetail, RunSummary } from "../types";
+import type { Report, RunDetail, RunSummary } from "../types";
 import type { QA } from "../views/AnswerCard";
+import type { PairRead } from "@jint/sdk/ui/api";
 
 const RUNS_URL = "/api/runs";
 
@@ -11,8 +12,12 @@ async function get<T>(url: string): Promise<T> {
 
 export const fetchRun = (id: string) => get<RunDetail>(`${RUNS_URL}/${id}`);
 export const fetchRuns = () => get<{ runs: RunSummary[] }>(RUNS_URL);
-export const fetchRequestFile = (runId: string, file: string) =>
-  get<RequestFile>(`${RUNS_URL}/${runId}/requests/${file}`);
+/** One pair as its run recorded it; the server resolves which request read it. */
+export const fetchPair = (runId: string, pair: { rule: string; input: string; file?: string }) => {
+  const query = new URLSearchParams({ rule: pair.rule, input: pair.input });
+  if (pair.file !== undefined) query.set("file", pair.file);
+  return get<PairRead>(`${RUNS_URL}/${runId}/pair?${query}`);
+};
 export const fetchReport = (runId: string) =>
   get<Report | { absent: true }>(`${RUNS_URL}/${runId}/report`);
 

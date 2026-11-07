@@ -238,6 +238,7 @@ test("another pair starts from its own original, not this pair's edit", async ()
     if (q("classification-position") !== null)
       throw new Error("still showing the first pair's classifications");
   });
+  await ready();
   expect(field("edit-instructions").value).not.toBe("An edit that belongs to the first pair");
   expect(shown()).not.toBe("0.12");
   expect(instructions).not.toBe("");

@@ -51,7 +51,7 @@ import {
   type SelectedElement,
   parseEdit,
   reclassify,
-  ReclassifyError,
+  PairError,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -1199,7 +1199,7 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     );
     return 0;
   } catch (thrown) {
-    if (thrown instanceof ReclassifyError && thrown.status < 500) {
+    if (thrown instanceof PairError && thrown.status < 500) {
       usageError(thrown.message);
       return 2;
     }

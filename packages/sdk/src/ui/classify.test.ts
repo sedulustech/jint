@@ -215,6 +215,35 @@ describe("classifications under a run", () => {
   });
 });
 
+describe("the pair lookup", () => {
+  const get = (query: string) =>
+    serveApiRequest(new Request(`http://localhost:1/api/runs/run-a/pair?${query}`), { root });
+  test("returns the request that read the pair with the pair's own question and answer", async () => {
+    const res = await get("rule=is_small&input=a.ts%23e1");
+    expect(res?.status).toBe(200);
+    const read = (await res?.json()) as {
+      result: { file: string; path: string };
+      request: { request: { state: { source: string } } };
+      pair: { key: string; question: { instructions: string } };
+    };
+    expect(read.result).toMatchObject({ file: "1700000000001-elements-a.ts.json", path: "a.ts" });
+    expect(read.request.request.state.source).toBe("function f() {}");
+    expect(read.pair).toMatchObject({ key: "is_small in e1", question: body.question });
+  });
+  test("an explicit file wins; a pair the run never recorded is a 404; the address is required", async () => {
+    const named = await get("rule=is_small&input=other.ts&file=1700000000001-elements-a.ts.json");
+    expect(named?.status).toBe(200);
+    expect((await get("rule=is_small&input=nope.ts%23e9"))?.status).toBe(404);
+    expect((await get("rule=is_small"))?.status).toBe(400);
+  });
+  test("a rule the request never asked reads as no pair, not an error", async () => {
+    const read = (await (await get("rule=other_rule&input=a.ts%23e1"))?.json()) as {
+      pair: unknown;
+    };
+    expect(read.pair).toBeNull();
+  });
+});
+
 describe("filing", () => {
   test("actors filing at the same moment each get their own number, none overwritten", async () => {
     const runDir = join(root, "run-a");

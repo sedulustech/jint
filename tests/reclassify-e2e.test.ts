@@ -83,7 +83,7 @@ describe("jint reclassify", () => {
       env,
     });
     expect(unknownPair.code).toBe(2);
-    expect(unknownPair.stderr).toContain("no recorded pair");
+    expect(unknownPair.stderr).toContain("no recorded request");
 
     const notJson = await runCli(["reclassify", runId, input, "--rule", RULE.name, "-"], {
       env,
