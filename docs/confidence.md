@@ -1,13 +1,13 @@
 ---
 title: Decidedness and confidence
-description: "The two axes of a choice reading, decidedness and confidence, and what each one tells you."
+description: "The two axes of a choice classification, decidedness and confidence, and what each one tells you."
 sidebar:
   label: Confidence
 ---
 
 # Decidedness and confidence
 
-A choice reading has a tier and a decidedness.
+A choice classification has a tier and a decidedness.
 
 - **Tier:** the verdict. It is the tier with the most probability. A tier's mass is the sum of its
   options' probabilities.
@@ -16,13 +16,13 @@ A choice reading has a tier and a decidedness.
 
 ## Undecided
 
-A reading is undecided when the top tier leads the runner-up by less than `margin`. With two
+A classification is undecided when the top tier leads the runner-up by less than `margin`. With two
 tiers, `margin: 0.2` makes a top tier under 0.60 undecided.
 
-Undecided is not a severity. It says the reading does not decide, not how bad the code is. The
+Undecided is not a severity. It says the classification does not decide, not how bad the code is. The
 response is to recalibrate the rule, not to act on the code. See [calibration](calibration.md).
 
-Set `margin` per rule, from how far that rule's readings move between reruns.
+Set `margin` per rule, from how far that rule's classifications move between reruns.
 
 ## The provider's confidence
 
@@ -34,9 +34,9 @@ returns none.
 
 ## CI
 
-An undecided reading must not fail a build, because its tier can change between runs. A tier
-change needs a near tie, and a near tie is an undecided reading. A build that fails only on decided
-readings does not flake.
+An undecided classification must not fail a build, because its tier can change between runs. A tier
+change needs a near tie, and a near tie is an undecided classification. A build that fails only on decided
+classifications does not flake.
 
 ## Limits
 

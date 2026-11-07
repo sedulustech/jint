@@ -39,7 +39,7 @@ changes every key, and jint never reads the old entries again.
 A request carries every rule that applies to an element. A key per question re-asks only the rule
 whose wording changed. That is sound only if a question gets the same answer alone as in a batch.
 
-We measured it with `gpt-6-luna` on 164 element-and-rule pairs. All 160 valued readings matched to
+We measured it with `gpt-6-luna` on 164 element-and-rule pairs. All 160 valued classifications matched to
 the digit, and the 4 refused pairs were refused in both runs. Repeat the comparison before you
 trust the cache on another endpoint or model.
 

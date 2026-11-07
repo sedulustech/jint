@@ -85,7 +85,7 @@ export default defineConfig({
 ```
 
 A `handle` function, `(results, ctx) => decisions`, runs once after classification. It returns one
-decision per reading: `{ severity: "error" | "warn" | null, message? }`. A `null` severity is
+decision per classification: `{ severity: "error" | "warn" | null, message? }`. A `null` severity is
 silent, and the `message` tells the caller how to fix the finding.
 
 On a Python class `Invoice`, the classifier reads `def total` as part of the invoice and

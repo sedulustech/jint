@@ -11,7 +11,7 @@ import type {
  * criterion), compiled to the internal function form at module init. Recalibration is now editing
  * numbers in one place — and paste-able into jint.config.json. The declarative config surface
  * requires a real handle; probing is measuring - read the --json classifications and discard
- * findings (the handle only decides when readings surface), never a null handle.
+ * findings (the handle only decides when classifications surface), never a null handle.
  */
 
 /** A binary-claim rule: the {true, false} criteria compile straight into the noul question. */

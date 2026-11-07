@@ -8,7 +8,7 @@
  * pole. A noul handle declares at least one tier - warn, error, or both. When both are present,
  * warn fires the wider region and error the strictly narrower one (same direction), so error
  * implies warn; an error-only handle fires error past its threshold and stays silent otherwise. A
- * silent_band suppresses raw-p readings inside [lo, hi] (inclusive) before any threshold is
+ * silent_band suppresses raw-p classifications inside [lo, hi] (inclusive) before any threshold is
  * consulted - the two-sided suppression window that single comparison operators cannot express.
  */
 
@@ -30,7 +30,7 @@ export interface ScoreHandlerData {
 }
 
 /**
- * The tier for an undecided reading: it fires when the winning tier's probability leads the
+ * The tier for an undecided classification: it fires when the winning tier's probability leads the
  * runner-up tier's by less than `margin` (0 < margin < 1). The margin is in probability units, the
  * same units as the model's run-to-run variation (measured on jev, which varied between runs; luna
  * is deterministic), so it can be set from measured reruns.
@@ -40,10 +40,11 @@ export interface UndecidedTier extends ScoreTier {
 }
 
 /**
- * The choice-type handler: one tier per named option, keyed by the option's label. The reading
- * groups the option probabilities by tier; the tier holding the most probability is the verdict,
- * and its most probable option supplies the message. Options are unordered - nothing is averaged.
- * An optional undecided tier fires instead when the top two tiers are too close to call.
+ * The choice-type handler: one tier per named option, keyed by the option's label. The
+ * classification groups the option probabilities by tier; the tier holding the most probability is
+ * the verdict, and its most probable option supplies the message. Options are unordered - nothing
+ * is averaged. An optional undecided tier fires instead when the top two tiers are too close to
+ * call.
  */
 export interface ChoiceHandlerData {
   readonly choices: Readonly<Record<string, HandlerLevel | ScoreTier>>;
@@ -69,7 +70,7 @@ export interface ThresholdCondition {
 export interface NoulHandlerData {
   readonly warn?: ThresholdCondition;
   readonly error?: ThresholdCondition;
-  /** Raw-p readings inside [lo, hi] (inclusive) stay silent; absent = everything surfaces. */
+  /** Raw-p classifications inside [lo, hi] (inclusive) stay silent; absent = everything surfaces. */
   readonly silent_band?: readonly [number, number];
 }
 
@@ -171,7 +172,7 @@ export function handleSeverity(
   return handleTier(value, data, choice, probabilities)?.severity ?? null;
 }
 
-/** The fired tier: a severity, the author's message, and whether the reading was undecided. */
+/** The fired tier: a severity, the author's message, and whether the classification was undecided. */
 export interface FiredTier {
   readonly severity: Severity;
   readonly message?: string;
@@ -361,8 +362,8 @@ export function checkNoulHandler(data: NoulHandlerData): string | null {
     if (lo >= hi) {
       return `handle.silent_band: must be ordered [lower, upper], got [${lo}, ${hi}]`;
     }
-    // A band covering the whole scale would silence every reading; a band containing a
-    // threshold value would swallow exactly the readings that threshold exists to catch.
+    // A band covering the whole scale would silence every classification; a band containing a
+    // threshold value would swallow exactly the classifications that threshold exists to catch.
     if (lo <= 0 && hi >= 1) {
       return "handle.silent_band: must not cover the whole scale (got [0, 1]) - everything would be silent";
     }

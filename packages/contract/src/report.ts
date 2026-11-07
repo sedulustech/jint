@@ -148,7 +148,7 @@ export interface ClassifiedAnswer {
   readonly choice?: string;
 }
 
-/** The classification fields every reading carries, valued or refused. */
+/** The classification fields every classification carries, valued or refused. */
 interface ClassificationBase {
   readonly rule: string;
   readonly input: string;
@@ -160,7 +160,7 @@ interface ClassificationBase {
   readonly element?: Element;
 }
 
-/** A judged reading: a rule's value at one input (file or element). */
+/** A judged classification: a rule's value at one input (file or element). */
 export interface ValuedClassification extends ClassificationBase {
   readonly value: number;
   /**
@@ -182,14 +182,14 @@ export interface ValuedClassification extends ClassificationBase {
 }
 
 /**
- * A refused reading: the model was asked and gave no answer, so the question did not apply to the
- * element. It has no value, so no handle reads it and no finding follows.
+ * A refused classification: the model was asked and gave no answer, so the question did not apply
+ * to the element. It has no value, so no handle reads it and no finding follows.
  */
 export interface RefusedClassification extends ClassificationBase {
   readonly refused: true;
 }
 
-/** One reading of one (rule, element) pair; narrow on `refused` before reading `value`. */
+/** One classification of a rule at one element; narrow on `refused` before reading `value`. */
 export type Classification = ValuedClassification | RefusedClassification;
 
 /** What a classifier returns for a question the model refused. */
@@ -198,7 +198,7 @@ export interface Refusal {
 }
 
 /**
- * A reading that crossed its handle's threshold: the actionable output. The note is the rule
+ * A classification that crossed its handle's threshold: the actionable output. The note is the rule
  * author's message attached at the fired handle tier (any handle form); absent = a bare finding -
  * classifier-adjacent rubric prose never reaches findings.
  */
@@ -216,7 +216,7 @@ export interface Finding {
   readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
-  /** The reading was too close to call and the rule's undecided tier fired. */
+  /** The classification was too close to call and the rule's undecided tier fired. */
   readonly undecided?: true;
   /**
    * The custom-tier callback's remediation instruction to the caller fixing the finding: severity
@@ -255,12 +255,12 @@ export interface RuleDigest {
   readonly handle: import("./handlers.ts").HandlerData | null;
 }
 
-/** A reading that could not happen: acquisition or classification failed for one input. */
+/** A classification that could not happen: acquisition or classification failed for one input. */
 export interface ClassifyErrorInfo {
   readonly input: string;
   readonly code: string;
   readonly message: string;
-  /** The rule whose reading failed, when the error concerns one rule's answer. */
+  /** The rule whose classification failed, when the error concerns one rule's answer. */
   readonly rule?: string;
 }
 

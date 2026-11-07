@@ -38,7 +38,7 @@ describe("handleSeverity - noul, error-only (no warn tier)", () => {
 });
 
 describe("handleSeverity - noul, less_than (the polarity lives in the operator)", () => {
-  test("low readings fire; high readings pass", () => {
+  test("low classifications fire; high classifications pass", () => {
     expect(handleSeverity(0.4, lt)).toBeNull();
     expect(handleSeverity(0.39, lt)).toBe("warn");
     expect(handleSeverity(0.3, lt)).toBe("warn");

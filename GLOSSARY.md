@@ -119,9 +119,9 @@ demands action.
   run's payload names the read (str, paths). The resource (a path) needs no noun. A noun's next
   positional is its payload.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
-- **pass** — the level a handle returned when a reading needs no action: the score-map or
-  choice tier that never fires (both use pass/warn/error) and the absent-reading state for
-  noul handles. Not a finding, not noise: a reading judged acceptable.
+- **pass** — the level a handle returned when a classification needs no action: the score-map or
+  choice tier that never fires (both use pass/warn/error) and the absent-classification state for
+  noul handles. Not a finding, not noise: a classification judged acceptable.
 - **path list** — one flat list of paths, one per line, read as declared (`jint run paths -`): no
   VCS vocabulary, no path algebra — entries are the caller's bytes used verbatim as file
   identity. A malformed list is a named LIST_* setup error (unreadable bytes, an entry that
@@ -130,7 +130,7 @@ demands action.
 - **payload** — the positional after a noun: always `-`, declaring piped stdin as the read.
   There is no inline payload; a noun followed by anything else is a usage error naming the
   correct form.
-- **undecided** — a reading too close to call: its top tier's probability leads the runner-up
+- **undecided** — a classification too close to call: its top tier's probability leads the runner-up
   tier's by less than the rule's `margin`. The rule maps it to a tier and message like any other.
 - **refused** — a classification with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
