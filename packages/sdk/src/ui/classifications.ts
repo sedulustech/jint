@@ -20,10 +20,10 @@ export interface ClassificationRecord extends ClassifyRequest {
   answer: unknown;
   wire?: Wire;
   /**
-   * Who filed it: the reader in the UI, or the agent. Absent on classifications filed before it
-   * existed, which the UI filed.
+   * The actor that filed it: the user in the UI, or the agent. Absent on classifications filed
+   * before it existed, which the UI filed. The original has no record: its actor is the rule.
    */
-  by?: "agent" | "manual";
+  by?: "agent" | "user";
 }
 
 const classificationsDir = (runDir: string): string => join(runDir, CLASSIFICATIONS_DIR);

@@ -97,10 +97,10 @@ export function useClassifications(
     total: classifications.length + 1,
     /** The answer at each position: the original first, then every filed classification. */
     answers: [qa?.answer, ...classifications.map((t) => t.answer)],
-    /** Who filed each position: the original has no filer. */
-    filedBy: [undefined, ...classifications.map((t) => t.by ?? "manual")] as (
-      | ClassificationRecord["by"]
-      | undefined
+    /** The actor of each position: the rule read the original; the rest were filed. */
+    filedBy: ["rule", ...classifications.map((t) => t.by ?? "user")] as (
+      | "rule"
+      | NonNullable<ClassificationRecord["by"]>
     )[],
     go,
     reset: () => go(0),

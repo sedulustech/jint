@@ -13,7 +13,7 @@ export interface ClassificationRow {
   indicator: ReactNode;
   /** The reading as text, in its tier color. */
   value: ReactNode;
-  by?: "agent" | "manual";
+  by?: "rule" | "agent" | "user";
 }
 
 /**

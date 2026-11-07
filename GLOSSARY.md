@@ -155,6 +155,7 @@ demands action.
   capture.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
 - **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
+- **actor** — who produced a classification: the **rule** (the run's original), the **user** (in the UI) or the **agent**. A filed classification records it as `by`.
 - **classification** — one reading of a pair, by the classifier. The run's own is the **original**; a reader or agent who edits a question or state and classifies again files another under the same run, numbered **#1**, **#2**, … in filing order. A classification never changes the run.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,

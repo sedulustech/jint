@@ -298,7 +298,7 @@ async function serveClassifications(
         input,
         answer,
         wire,
-        by: "manual",
+        by: "user",
       }),
     });
   } catch (err) {

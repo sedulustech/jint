@@ -28,7 +28,7 @@ export interface ClassificationRecord extends ClassifyBody {
   rule: string;
   input: string;
   answer: NonNullable<QA["answer"]>;
-  by?: "agent" | "manual";
+  by?: "agent" | "user";
 }
 
 const classificationsUrl = (runId: string) => `${RUNS_URL}/${runId}/classifications`;

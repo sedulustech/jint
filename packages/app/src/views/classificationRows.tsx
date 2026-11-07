@@ -100,7 +100,7 @@ function rowFor(
 /** One row per classification of a pair: the original first, then every filed one. */
 export function classificationRows(
   answers: Answer[],
-  filedBy: ("agent" | "manual" | undefined)[],
+  filedBy: ("rule" | "agent" | "user" | undefined)[],
   handle: RowHandle,
 ): ClassificationRow[] {
   return answers.map((answer, position) => {
