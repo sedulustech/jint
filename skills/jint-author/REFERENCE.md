@@ -20,7 +20,7 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
   on properties with a clear pole read cleanly. Use a rubric only when the
   property really is graded.
 - **State shape.** One state x many questions per call is valid and does not
-  move the classifications (160 of 160 identical batched and alone). Never stack
+  move the classifications. Never stack
   elements into one state yourself: the frame is the unit.
 
 ## Noul example: a two-sided criteria contract
