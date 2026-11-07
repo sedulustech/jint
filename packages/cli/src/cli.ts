@@ -44,10 +44,14 @@ import {
   selectionEcho,
   selectedElements,
   startUi,
+  type ClassificationEdit,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
   type SelectedElement,
+  parseEdit,
+  reclassify,
+  ReclassifyError,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -107,7 +111,7 @@ export const FLAGS = {
     type: "string[]",
     arg: "<name>",
     blurb:
-      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified)",
+      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified). reclassify: ONE name - the pair's rule (required)",
   },
   "--concurrency": {
     type: "string",
@@ -256,13 +260,13 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 
 /**
  * The verb table — the ONE source for the command vocabulary and the position rule: the FIRST
- * positional IS the command (run, serve, capture, skills); the rest are its operands. There is no
- * implicit verb: a missing or unknown first positional is a usage error naming `jint run
- * <operands>`. Verbs never resolve to paths (a verb token as a later positional is an error; the
- * path is reached as ./<name>). `flags` names the flags the verb accepts beyond the global three
- * (--help, --version, --debug); run takes every unmarked flag (a flag may carry its own `verbs`
- * marker in FLAGS — --queries and --grammar are capture's). `example`/`blurb` render into the help
- * Usage section.
+ * positional IS the command (run, serve, capture, reclassify, skills); the rest are its operands.
+ * There is no implicit verb: a missing or unknown first positional is a usage error naming `jint
+ * run <operands>`. Verbs never resolve to paths (a verb token as a later positional is an error;
+ * the path is reached as ./<name>). `flags` names the flags the verb accepts beyond the global
+ * three (--help, --version, --debug); run takes every unmarked flag (a flag may carry its own
+ * `verbs` marker in FLAGS — --queries and --grammar are capture's). `example`/`blurb` render into
+ * the help Usage section.
  */
 export const VERBS = {
   run: {
@@ -281,6 +285,12 @@ export const VERBS = {
     blurb:
       "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its rules.exclude always); an explicit FILE target bypasses the config's rules scope (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
+  },
+  reclassify: {
+    example: "jint reclassify <run-id> src/a.ts --rule <name> -",
+    blurb:
+      "classify one pair of a recorded run again and file it under that run as the pair's next #N, where the run UI shows it at once; with a trailing - a JSON edit ({instructions, criteria, code}, only what changed) is read from stdin, without it the original question is asked again; needs the endpoint key like run",
+    flags: ["json", "rule"],
   },
   skills: {
     example: "jint skills export .claude/skills",
@@ -391,7 +401,7 @@ ${helpRows([
   { left: "jint run", right: "no operand: input comes from the discovered config" },
 ])}
 
-Verbs - the FIRST positional IS the command (run, serve, capture, skills); everything after it is the
+Verbs - the FIRST positional IS the command (run, serve, capture, reclassify, skills); everything after it is the
 verb's operands. There is no implicit verb: a missing or unknown first positional is a usage
 error naming the jint run form.
 
@@ -770,8 +780,8 @@ function dispatch(cliArgv: string[]): Dispatch {
     const operands = parsedCliArgs.positionals.join(" ");
     usageError(
       operands === ""
-        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path>, jint skills export <path> - see jint --help"
-        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, skills - see jint --help)`,
+        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path>, jint reclassify <run-id> <input> --rule <name>, jint skills export <path> - see jint --help"
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, reclassify, skills - see jint --help)`,
     );
     return { exit: 2 };
   }
@@ -1050,6 +1060,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const { cliArgs, verb } = dispatched;
   if (verb.name === "serve") return serveVerb(verb.rest);
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
+  if (verb.name === "reclassify") return reclassifyVerb(cliArgs, verb.rest);
   if (verb.name === "skills") return skillsVerb(verb.rest);
   const run = await prepareRun(cliArgs, verb.rest);
   if ("exit" in run) return run.exit;
@@ -1138,6 +1149,64 @@ function storeHasRuns(): boolean {
  * Skills export <path>: write the agent skills that ship with jint into the directory, a thin print
  * of the SDK's exportSkills. `export` is the only skills operand and the path is required.
  */
+/** A classification's reading as one short word or number. */
+function readingText(answer: unknown): string {
+  const a = answer as { type?: string; noul?: number; score?: number; choice?: string };
+  if (a.type === "refusal") return "refused";
+  if (typeof a.noul === "number") return a.noul.toFixed(2);
+  if (typeof a.score === "number") return `score ${a.score.toFixed(2)}`;
+  return a.choice ?? "?";
+}
+
+/**
+ * The reclassify verb's tail: one pair of a recorded run, asked again through the SDK's one
+ * reclassify and filed as the agent's. The edit is the stdin payload behind a trailing `-` (the
+ * same declared stdin read as run's nouns); without it the original question is asked again.
+ */
+async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
+  const fromStdin = rest.at(-1) === "-";
+  const [runId, input, ...extra] = fromStdin ? rest.slice(0, -1) : rest;
+  const rules = cliArgs.rule ?? [];
+  if (runId === undefined || input === undefined || extra.length > 0 || rules.length !== 1) {
+    usageError(
+      "jint reclassify takes: <run-id> <input> --rule <name> [-]  - e.g. jint reclassify 1794012105018 src/a.ts --rule is_small -",
+    );
+    return 2;
+  }
+  let edit: ClassificationEdit = {};
+  if (fromStdin) {
+    let body: unknown;
+    try {
+      body = JSON.parse(await Bun.stdin.text());
+    } catch {
+      usageError('the edit on stdin is not JSON  - e.g. {"instructions": "..."}');
+      return 2;
+    }
+    const parsed = parseEdit(body);
+    if (typeof parsed === "string") {
+      usageError(`the edit on stdin: ${parsed}`);
+      return 2;
+    }
+    edit = parsed;
+  }
+  try {
+    assertEndpointKey();
+    const filed = await reclassify(runId, { rule: rules[0]!, input }, edit, { by: "agent" });
+    process.stdout.write(
+      cliArgs.json === true
+        ? `${JSON.stringify(filed)}\n`
+        : `#${filed.n} ${readingText(filed.answer)}  ${filed.rule} @ ${filed.input}  (run ${runId})\n`,
+    );
+    return 0;
+  } catch (thrown) {
+    if (thrown instanceof ReclassifyError && thrown.status < 500) {
+      usageError(thrown.message);
+      return 2;
+    }
+    return exitForThrown(thrown);
+  }
+}
+
 function skillsVerb(rest: readonly string[]): number {
   const [action, path, ...extra] = rest;
   if (action !== "export" || path === undefined || extra.length > 0) {

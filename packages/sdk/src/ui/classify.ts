@@ -34,21 +34,73 @@ export interface Wire {
   response: unknown;
 }
 
-/** The request body as a ClassifyRequest, or the reason it is not one. */
-export function parseClassifyRequest(body: unknown): ClassifyRequest | string {
+/**
+ * What changed against a pair's original: only the fields set differ. Criteria are keyed by option
+ * label (choice, noul) or level index (score).
+ */
+export interface ClassificationEdit {
+  instructions?: string;
+  criteria?: Record<string, string>;
+  code?: string;
+}
+
+/** The body as a ClassificationEdit, or the reason it is not one. */
+export function parseEdit(body: unknown): ClassificationEdit | string {
   if (typeof body !== "object" || body === null) return "body must be a JSON object";
-  const { state, question } = body as Partial<ClassifyRequest>;
-  if (typeof state !== "object" || state === null) return "state must be an object";
-  if (state.path !== undefined && typeof state.path !== "string")
-    return "state.path must be a string when present";
-  if (typeof state.content !== "string" && typeof state.source !== "string")
-    return "state needs content (a file) or source (an element)";
-  if (typeof question !== "object" || question === null) return "question must be an object";
-  if (!["noul", "score", "choice"].includes(question.type))
-    return "question.type must be noul, score or choice";
-  if (typeof question.instructions !== "string" || question.instructions.trim() === "")
-    return "question.instructions must be a non-empty string";
-  return { state, question };
+  const { instructions, criteria, code } = body as Record<string, unknown>;
+  if (
+    instructions !== undefined &&
+    (typeof instructions !== "string" || instructions.trim() === "")
+  )
+    return "instructions must be a non-empty string when present";
+  if (code !== undefined && typeof code !== "string") return "code must be a string when present";
+  if (criteria !== undefined) {
+    if (typeof criteria !== "object" || criteria === null || Array.isArray(criteria))
+      return "criteria must be an object when present";
+    if (!Object.values(criteria).every((text) => typeof text === "string"))
+      return "every criteria text must be a string";
+  }
+  const edit: ClassificationEdit = {};
+  if (instructions !== undefined) edit.instructions = instructions as string;
+  if (criteria !== undefined) edit.criteria = criteria as Record<string, string>;
+  if (code !== undefined) edit.code = code as string;
+  return edit;
+}
+
+/**
+ * The original with the edit laid over it; an edit naming a criterion the original lacks is
+ * refused.
+ */
+export function applyEdit(
+  original: ClassifyRequest,
+  edit: ClassificationEdit,
+): ClassifyRequest | string {
+  const { question, state } = original;
+  const overrides = edit.criteria ?? {};
+  const base = question.criteria as readonly string[] | Record<string, string> | undefined;
+  const known = Array.isArray(base)
+    ? base.map((_, level) => String(level))
+    : Object.keys(base ?? {});
+  const unknown = Object.keys(overrides).filter((key) => !known.includes(key));
+  if (unknown.length > 0)
+    return `no such criteria: ${unknown.join(", ")} (the question has ${known.join(", ")})`;
+  const criteria = Array.isArray(base)
+    ? base.map((text, level) => overrides[String(level)] ?? text)
+    : { ...base, ...overrides };
+  const code = edit.code;
+  return {
+    state:
+      code === undefined
+        ? state
+        : state.content !== undefined
+          ? { ...state, content: code }
+          : { ...state, source: code },
+    question: {
+      ...question,
+      instructions: edit.instructions ?? question.instructions,
+      criteria,
+    } as QuestionSchema,
+  };
 }
 
 /**

@@ -14,6 +14,8 @@ const SEQ_WIDTH = 4;
 /** One filed iteration: the pair it edits, the edit, and what it answered. */
 export interface ClassificationRecord extends ClassifyRequest {
   seq: number;
+  /** The pair's own number: #1 is its first classification after the original. */
+  n: number;
   ts: string;
   rule: string;
   input: string;
@@ -56,11 +58,13 @@ export async function listClassifications(
  */
 export async function recordClassification(
   runDir: string,
-  entry: Omit<ClassificationRecord, "seq" | "ts">,
+  entry: Omit<ClassificationRecord, "seq" | "ts" | "n">,
 ): Promise<ClassificationRecord> {
   await mkdir(classificationsDir(runDir), { recursive: true });
-  const seq = (await readClassifications(runDir)).reduce((max, t) => Math.max(max, t.seq), 0) + 1;
-  const record: ClassificationRecord = { seq, ts: new Date().toISOString(), ...entry };
+  const filed = await readClassifications(runDir);
+  const seq = filed.reduce((max, t) => Math.max(max, t.seq), 0) + 1;
+  const n = filed.filter((t) => t.rule === entry.rule && t.input === entry.input).length + 1;
+  const record: ClassificationRecord = { seq, n, ts: new Date().toISOString(), ...entry };
   await writeFile(
     join(classificationsDir(runDir), `${String(seq).padStart(SEQ_WIDTH, "0")}.json`),
     JSON.stringify(record),

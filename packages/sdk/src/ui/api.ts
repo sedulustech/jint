@@ -17,8 +17,19 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
-import { listClassifications, recordClassification } from "./classifications.ts";
-import { classifyEdited, parseClassifyRequest, type ClassifyOptions } from "./classify.ts";
+import {
+  listClassifications,
+  recordClassification,
+  type ClassificationRecord,
+} from "./classifications.ts";
+import {
+  applyEdit,
+  classifyEdited,
+  parseEdit,
+  type ClassificationEdit,
+  type ClassifyOptions,
+  type ClassifyRequest,
+} from "./classify.ts";
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
 import type { Dirent } from "node:fs";
 
@@ -284,26 +295,86 @@ async function serveClassifications(
   if (!httpRequest.headers.get("content-type")?.startsWith("application/json"))
     return badRequest("content-type must be application/json");
   const body = await httpRequest.json().catch(() => null);
-  const parsed = parseClassifyRequest(body);
-  if (typeof parsed === "string") return badRequest(parsed);
-  const { rule, input } = body as { rule?: unknown; input?: unknown };
+  const { rule, input, ...rest } = (body ?? {}) as Record<string, unknown>;
   if (typeof rule !== "string" || typeof input !== "string")
     return badRequest("rule and input must be strings");
+  const edit = parseEdit(rest);
+  if (typeof edit === "string") return badRequest(edit);
   try {
-    const { answer, wire } = await classifyEdited(parsed, apiOptions);
-    return jsonResponse({
-      classification: await recordClassification(runDir, {
-        ...parsed,
-        rule,
-        input,
-        answer,
-        wire,
-        by: "user",
-      }),
+    const classification = await reclassify(idSegments.join("/"), { rule, input }, edit, {
+      ...apiOptions,
+      by: "user",
     });
+    return jsonResponse({ classification });
   } catch (err) {
+    if (err instanceof ReclassifyError) return jsonResponse({ error: err.message }, err.status);
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 502);
   }
+}
+
+/** A reclassification the caller can fix: the status is the HTTP one the run UI answers with. */
+export class ReclassifyError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** The request file that read this pair: the report's own join first, else the path and element. */
+function pairRequestFile(
+  run: { results: RequestItem[]; cells?: ApiCell[] },
+  rule: string,
+  input: string,
+): string | undefined {
+  const cell = run.cells?.find((c) => c.rule === rule && c.input === input);
+  if (cell?.requestFile !== undefined) return cell.requestFile;
+  const [file, span] = [input.split("#")[0]!, input.includes("#") ? input.split("#")[1]! : null];
+  return (
+    run.results.find(
+      (r) => r.path === file && (span !== null ? r.elementId === span : !r.element),
+    ) ?? run.results.find((r) => r.path === file)
+  )?.file;
+}
+
+/**
+ * THE way to classify an edit of a recorded pair, for every actor: the run UI (user) and the CLI
+ * (agent) both call this. It reads the pair's original question and state from the run, lays the
+ * edit over them, asks the classifier once, and files the answer under the run as the pair's next
+ * classification, recording who filed it.
+ */
+export async function reclassify(
+  runId: string,
+  pair: { rule: string; input: string },
+  edit: ClassificationEdit,
+  options: ApiOptions & { by: NonNullable<ClassificationRecord["by"]> },
+): Promise<ClassificationRecord> {
+  const root = requestsRoot(options);
+  const runDir = resolveRunDir(root, runId.split("/"));
+  if (runDir === null) throw new ReclassifyError(INVALID_RUN_ID, 400);
+  if ((await stat(runDir).catch(() => null)) === null)
+    throw new ReclassifyError("no such run", HTTP_NOT_FOUND);
+  const run = (await getRun(root, runDir, runId)) as { results: RequestItem[]; cells?: ApiCell[] };
+  const file = pairRequestFile(run, pair.rule, pair.input);
+  const recorded =
+    file === undefined
+      ? undefined
+      : normalizeRequestFile(JSON.parse(await readFile(join(runDir, file), READ_ENCODING)));
+  const entry = Object.entries(recorded?.request?.questions ?? {}).find(
+    ([key]) => (key.match(/^(.*) in (.+)$/)?.[1] ?? key) === pair.rule,
+  );
+  const state = recorded?.request?.state;
+  if (entry === undefined || state === undefined)
+    throw new ReclassifyError(`no recorded pair for ${pair.rule} at ${pair.input}`, HTTP_NOT_FOUND);
+  const original = {
+    state: { path: state.path, content: state.content, source: state.source },
+    question: entry[1],
+  } as ClassifyRequest;
+  const request = applyEdit(original, edit);
+  if (typeof request === "string") throw new ReclassifyError(request, 400);
+  const { answer, wire } = await classifyEdited(request, options);
+  return recordClassification(runDir, { ...request, ...pair, answer, wire, by: options.by });
 }
 
 const jsonResponse = (body: unknown, status = 200) =>

@@ -21,6 +21,13 @@ export interface ClassifyBody {
   question: { type: string; instructions: string; criteria?: unknown };
 }
 
+/** What an edit changes against the pair's original; the server holds the original itself. */
+export interface ClassificationEdit {
+  instructions?: string;
+  criteria?: Record<string, string>;
+  code?: string;
+}
+
 /** One filed classification: an edited question and state under its run, with the answer it earned. */
 export interface ClassificationRecord extends ClassifyBody {
   seq: number;
@@ -48,12 +55,12 @@ export const fetchClassifications = async (runId: string, rule: string, input: s
 export async function postClassification(
   runId: string,
   pair: { rule: string; input: string },
-  body: ClassifyBody,
+  edit: ClassificationEdit,
 ): Promise<ClassificationRecord> {
   const res = await fetch(classificationsUrl(runId), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...body, ...pair }),
+    body: JSON.stringify({ ...edit, ...pair }),
   });
   const payload = (await res.json().catch(() => ({}))) as {
     classification?: ClassificationRecord;

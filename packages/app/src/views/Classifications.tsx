@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchClassifications, postClassification, type ClassificationRecord } from "../api/client";
+import {
+  fetchClassifications,
+  postClassification,
+  type ClassificationEdit,
+  type ClassificationRecord,
+} from "../api/client";
 import type { QA } from "./AnswerCard";
+
+const POLL_MS = 3_000;
 
 interface Edit {
   instructions?: string;
@@ -19,15 +26,18 @@ interface Edit {
 export function useClassifications(
   pair: { runId: string; rule: string; input: string },
   qa: QA | undefined,
-  path: string | undefined,
   code: string | null,
-  codeKey: string,
 ) {
   const { runId, rule, input } = pair;
   const queryKey = ["classifications", runId, rule, input];
   const client = useQueryClient();
+  // polled, so a classification filed from outside this page (the agent's) appears while you look
   const classifications =
-    useQuery({ queryKey, queryFn: () => fetchClassifications(runId, rule, input) }).data ?? [];
+    useQuery({
+      queryKey,
+      queryFn: () => fetchClassifications(runId, rule, input),
+      refetchInterval: POLL_MS,
+    }).data ?? [];
   const [position, setPosition] = useState(0);
   const [draft, setDraft] = useState<Edit>({ criteria: {} });
   // the reading on show and the edit it answered, so a later edit marks it stale, never hides it
@@ -42,16 +52,15 @@ export function useClassifications(
   // a score rubric is an array: its index is the level
   const criteria = Array.isArray(original) ? Object.values(merged) : merged;
   const text = draft.code ?? code ?? "";
-  // the state as the model saw it: a path only where the recorded request carried one
-  const stateFor = (code: string): { path?: string; [codeKey: string]: string | undefined } => ({
-    path,
-    [codeKey]: code,
-  });
-  const body = {
-    state: stateFor(text),
-    question: { type: qa?.question.type ?? "noul", instructions, criteria },
+  // what the server is sent: only what differs from the original, which it holds itself
+  const patchOf = (d: Edit): ClassificationEdit => {
+    const patch: ClassificationEdit = {};
+    if (d.instructions !== undefined) patch.instructions = d.instructions;
+    if (Object.keys(d.criteria).length > 0) patch.criteria = d.criteria;
+    if (d.code !== undefined) patch.code = d.code;
+    return patch;
   };
-  const editKey = JSON.stringify(body);
+  const editKey = JSON.stringify(patchOf(draft));
 
   /** Load iteration `at` (0 = the original) into the draft. */
   const go = (at: number, from: ClassificationRecord[] = classifications) => {
@@ -70,19 +79,12 @@ export function useClassifications(
     setDraft(loaded);
     setShown({
       answer: t.answer,
-      baseline: JSON.stringify({
-        state: stateFor(loaded.code ?? ""),
-        question: {
-          type: t.question.type,
-          instructions: t.question.instructions,
-          criteria: t.question.criteria,
-        },
-      }),
+      baseline: JSON.stringify(patchOf(loaded)),
     });
   };
 
   const ask = useMutation({
-    mutationFn: () => postClassification(runId, { rule, input }, body),
+    mutationFn: () => postClassification(runId, { rule, input }, patchOf(draft)),
     onSuccess: (filed) => {
       const next = [...classifications, filed];
       client.setQueryData(queryKey, next);

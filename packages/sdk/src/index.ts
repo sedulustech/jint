@@ -31,6 +31,9 @@ export {
 } from "./core/provider/debug.ts";
 export { checkRunKnobs } from "./core/provider/pacer.ts";
 export { runsBase } from "./core/provider/debug.ts";
+export { reclassify, ReclassifyError } from "./ui/api.ts";
+export { parseEdit, type ClassificationEdit } from "./ui/classify.ts";
+export type { ClassificationRecord } from "./ui/classifications.ts";
 export {
   serveApiRequest,
   requestsRoot,

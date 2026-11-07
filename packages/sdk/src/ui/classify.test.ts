@@ -1,11 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decisionsParams, MODEL } from "../core/provider/decisions.ts";
 import { classifiedState } from "../core/rules/classify.ts";
-import { serveApiRequest } from "./api.ts";
-import { classifyEdited, parseClassifyRequest, viewAnswer } from "./classify.ts";
+import { reclassify, serveApiRequest } from "./api.ts";
+import { applyEdit, classifyEdited, parseEdit, viewAnswer } from "./classify.ts";
 import type { Classifier } from "../core/types.ts";
 
 const body = {
@@ -37,11 +37,10 @@ describe("a classification of an unedited recording", () => {
       asked = state;
       return Object.fromEntries(Object.keys(questions).map((name) => [name, { value: 0.5 }]));
     };
-    const shown = parseClassifyRequest({
+    const shown = {
       state: { source: "function f() {}", path: "a.ts" },
       question: body.question,
-    });
-    if (typeof shown === "string") throw new Error(shown);
+    } as never as Parameters<typeof classifyEdited>[0];
     await classifyEdited(shown, { classifier });
     const tried = wire(asked!, "edited", shown.question);
     expect(JSON.stringify(tried)).toBe(JSON.stringify(recorded));
@@ -49,7 +48,20 @@ describe("a classification of an unedited recording", () => {
 });
 
 const root = mkdtempSync(join(tmpdir(), "jint-classifications-"));
+// one recorded run: the element request the pair "is_small at a.ts#e1" was read from
 mkdirSync(join(root, "run-a"));
+writeFileSync(
+  join(root, "run-a", "1700000000001-elements-a.ts.json"),
+  JSON.stringify({
+    ts: "2026-01-01T00:00:00.000Z",
+    id: "e1",
+    path: "a.ts",
+    request: {
+      state: { source: "function f() {}" },
+      questions: { "is_small in e1": body.question },
+    },
+  }),
+);
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const post = (payload: unknown, headers: Record<string, string> = {}, run = "run-a") =>
@@ -71,39 +83,97 @@ const list = async (query = "rule=is_small&input=a.ts%23e1") =>
 
 describe("classifications under a run", () => {
   test("a classification asks about the edit, files it under the run, and lists back oldest first", async () => {
-    const classifier: Classifier = async () => ({ edited: { value: 0.9 } }) as never;
-    const first = await serveApiRequest(post({ ...body, ...address }), { root, classifier });
+    const asked: unknown[] = [];
+    const classifier: Classifier = async (_state, questions) => {
+      asked.push(questions.edited);
+      return { edited: { value: 0.9 } } as never;
+    };
+    const first = await serveApiRequest(post({ ...address }), { root, classifier });
     expect(first?.status).toBe(200);
-    const filed = ((await first?.json()) as { classification: { seq: number; answer: unknown } })
-      .classification;
+    const filed = (
+      (await first?.json()) as { classification: { seq: number; answer: unknown; by: string } }
+    ).classification;
     expect(filed.seq).toBe(1);
+    expect(filed.by).toBe("user");
     expect(filed.answer).toEqual({ type: "noul", noul: 0.9 });
+    // no edit: the original question went out as recorded
+    expect(asked[0]).toEqual(body.question);
 
-    const edited = { ...body, question: { ...body.question, instructions: "Is it tiny?" } };
-    await serveApiRequest(post({ ...edited, ...address }), { root, classifier });
+    await serveApiRequest(post({ ...address, instructions: "Is it tiny?" }), { root, classifier });
     const classifications = (await list()).classifications;
     expect(classifications.map((t) => t.seq)).toEqual([1, 2]);
     expect(classifications[1]!.question.instructions).toBe("Is it tiny?");
   });
 
+  test("an edit lays over the original: one criterion and the code change, the rest stays", async () => {
+    let asked: { state: Parameters<Classifier>[0]; question: unknown } | undefined;
+    const classifier: Classifier = async (state, questions) => {
+      asked = { state, question: questions.edited };
+      return { edited: { value: 0.2 } } as never;
+    };
+    await serveApiRequest(
+      post({ ...address, criteria: { false: "Huge." }, code: "function g() {}" }),
+      { root, classifier },
+    );
+    expect(asked!.question).toEqual({
+      ...body.question,
+      criteria: { true: "Small.", false: "Huge." },
+    });
+    expect(JSON.stringify(asked!.state)).toContain("function g() {}");
+  });
+
   test("a pair lists only its own classifications, while the sequence stays run-wide", async () => {
     const classifier: Classifier = async () => ({ edited: { value: 0.4 } }) as never;
-    await serveApiRequest(post({ ...body, rule: "is_small", input: "b.ts#e2" }), {
-      root,
-      classifier,
-    });
-    expect((await list("rule=is_small&input=b.ts%23e2")).classifications.map((t) => t.seq)).toEqual(
-      [3],
+    const before = (await list()).classifications.length;
+    // the same recorded element, filed under another pair address
+    await reclassify(
+      "run-a",
+      { rule: "is_small", input: "a.ts#e1" },
+      {},
+      {
+        root,
+        classifier,
+        by: "agent",
+      },
     );
-    expect((await list()).classifications.map((t) => t.seq)).toEqual([1, 2]);
+    expect((await list()).classifications).toHaveLength(before + 1);
+    expect((await list("rule=other&input=a.ts%23e1")).classifications).toEqual([]);
+  });
+
+  test("reclassify records its actor, so the agent and the user share one path", async () => {
+    const classifier: Classifier = async () => ({ edited: { value: 0.6 } }) as never;
+    const filed = await reclassify(
+      "run-a",
+      address,
+      { instructions: "Is it short?" },
+      {
+        root,
+        classifier,
+        by: "agent",
+      },
+    );
+    expect(filed.by).toBe("agent");
+    expect(filed.question.instructions).toBe("Is it short?");
+    expect(filed.rule).toBe("is_small");
   });
 
   test("the call leaves no run of its own in the store", () => {
     expect(readdirSync(root)).toEqual(["run-a"]);
   });
 
+  test("a pair the run never recorded is a 404", async () => {
+    const res = await serveApiRequest(post({ rule: "is_small", input: "nope.ts#e9" }), { root });
+    expect(res?.status).toBe(404);
+  });
+
+  test("an edit naming a criterion the question lacks is a 400 naming it", async () => {
+    const res = await serveApiRequest(post({ ...address, criteria: { maybe: "?" } }), { root });
+    expect(res?.status).toBe(400);
+    expect(JSON.stringify(await res?.json())).toContain("maybe");
+  });
+
   test("a classification for a run that does not exist is a 404, and nothing is created", async () => {
-    const res = await serveApiRequest(post({ ...body, ...address }, {}, "run-missing"), { root });
+    const res = await serveApiRequest(post({ ...address }, {}, "run-missing"), { root });
     expect(res?.status).toBe(404);
     expect(readdirSync(root)).toEqual(["run-a"]);
   });
@@ -112,10 +182,10 @@ describe("classifications under a run", () => {
     const classifier: Classifier = async () => {
       throw new Error("must not be called");
     };
-    const res = await serveApiRequest(
-      post({ ...body, ...address }, { origin: "http://evil.example" }),
-      { root, classifier },
-    );
+    const res = await serveApiRequest(post({ ...address }, { origin: "http://evil.example" }), {
+      root,
+      classifier,
+    });
     expect(res?.status).toBe(403);
   });
 
@@ -123,13 +193,13 @@ describe("classifications under a run", () => {
     const req = new Request("http://localhost:1/api/runs/run-a/classifications", {
       method: "POST",
       headers: { "content-type": "text/plain", host: "localhost:1" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(address),
     });
     expect((await serveApiRequest(req, { root }))?.status).toBe(400);
   });
 
   test("a classification without its pair address is refused", async () => {
-    expect((await serveApiRequest(post(body), { root }))?.status).toBe(400);
+    expect((await serveApiRequest(post({ instructions: "x" }), { root }))?.status).toBe(400);
   });
 
   test("a classifier failure is a 502 naming the failure, and files nothing", async () => {
@@ -137,22 +207,33 @@ describe("classifications under a run", () => {
     const classifier: Classifier = async () => {
       throw new Error("endpoint down");
     };
-    const res = await serveApiRequest(post({ ...body, ...address }), { root, classifier });
+    const res = await serveApiRequest(post({ ...address }), { root, classifier });
     expect(res?.status).toBe(502);
     expect(await res?.json()).toEqual({ error: "endpoint down" });
     expect((await list()).classifications).toHaveLength(before);
   });
 });
 
-describe("parseClassifyRequest", () => {
-  test("names the first missing field", () => {
-    expect(parseClassifyRequest({})).toBe("state must be an object");
-    expect(parseClassifyRequest({ state: { path: "a.ts" }, question: {} })).toBe(
-      "state needs content (a file) or source (an element)",
+describe("parseEdit and applyEdit", () => {
+  test("parseEdit names what is wrong, and keeps only the edit's own fields", () => {
+    expect(parseEdit(null)).toBe("body must be a JSON object");
+    expect(parseEdit({ instructions: " " })).toBe(
+      "instructions must be a non-empty string when present",
     );
-    expect(parseClassifyRequest({ state: body.state, question: { type: "noul" } })).toBe(
-      "question.instructions must be a non-empty string",
-    );
+    expect(parseEdit({ code: 3 })).toBe("code must be a string when present");
+    expect(parseEdit({ criteria: { a: 1 } })).toBe("every criteria text must be a string");
+    expect(parseEdit({ code: "x", extra: 1 })).toEqual({ code: "x" });
+  });
+  test("applyEdit sets a score level by its index", () => {
+    const original = {
+      state: { content: "x" },
+      question: { type: "score", instructions: "?", criteria: ["low", "high"] },
+    } as never as Parameters<typeof applyEdit>[0];
+    expect(applyEdit(original, { criteria: { "1": "very high" } })).toEqual({
+      state: { content: "x" },
+      question: { type: "score", instructions: "?", criteria: ["low", "very high"] },
+    });
+    expect(applyEdit(original, { criteria: { "2": "?" } })).toContain("no such criteria: 2");
   });
 });
 

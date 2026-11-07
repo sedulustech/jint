@@ -77,13 +77,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         : null;
   const meta = request?.response ?? {};
   // the edit of this pair; the cards below render it and the classify bar asks it
-  const classifications = useClassifications(
-    { runId, rule, input },
-    pair,
-    state.path,
-    code,
-    typeof state.content === "string" ? "content" : "source",
-  );
+  const classifications = useClassifications({ runId, rule, input }, pair, code);
   const [editingCode, setEditingCode] = useState(false);
   // noul thresholds only: score and choice verdicts read from their own tiers
   const handleData = run.data?.handles?.[rule];

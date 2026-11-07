@@ -23,7 +23,14 @@ type Filed = {
 };
 // what the server holds for the run: the classifications filed so far, listed back per pair
 let filed: Filed[];
-const sent: Filed[] = [];
+type Sent = {
+  rule: string;
+  input: string;
+  instructions?: string;
+  criteria?: Record<string, string>;
+  code?: string;
+};
+const sent: Sent[] = [];
 let reply: () => Promise<{ status: number; body: unknown }>;
 const answers = (noul: number) => async () => ({
   status: 200,
@@ -47,11 +54,23 @@ beforeEach(() => {
       const [rule, pair] = [url.searchParams.get("rule"), url.searchParams.get("input")];
       return json({ classifications: filed.filter((t) => t.rule === rule && t.input === pair) });
     }
-    const request = JSON.parse(String(init.body)) as Omit<Filed, "seq" | "answer">;
+    // the server holds the original; what arrives is the pair's address and the edit over it
+    const request = JSON.parse(String(init.body)) as Sent;
     const outcome = await reply();
     if (outcome.status !== 200) return json({ error: outcome.body }, outcome.status);
-    const record = { ...request, seq: filed.length + 1, answer: outcome.body };
-    sent.push(record);
+    const record: Filed = {
+      seq: filed.length + 1,
+      rule: request.rule,
+      input: request.input,
+      state: { path: "src/borderline.ts", source: request.code ?? "" },
+      question: {
+        type: "noul",
+        instructions: request.instructions ?? "",
+        criteria: request.criteria ?? {},
+      },
+      answer: outcome.body,
+    };
+    sent.push(request);
     filed.push(record);
     return json({ classification: record });
   });
@@ -135,7 +154,7 @@ test("the new reading survives switching the view and editing the code", async (
   expect(shown()).toBe("0.12");
 });
 
-test("classify sends the edited question, criteria and code under the original path", async () => {
+test("classify sends only the edit, never the original question or state", async () => {
   render(tree("src/borderline.ts"));
   await ready();
   await page.getByTestId("edit-instructions").fill("Is the name a verb?");
@@ -145,10 +164,36 @@ test("classify sends the edited question, criteria and code under the original p
   await classify();
 
   expect(sent).toHaveLength(1);
-  expect(sent[0]!.state.path).toBe("src/borderline.ts");
-  expect(Object.values(sent[0]!.state)).toContain("export function run() {}");
-  expect(sent[0]!.question.instructions).toBe("Is the name a verb?");
-  expect((sent[0]!.question.criteria as Record<string, string>).true).toBe("It is a verb.");
+  expect(sent[0]).toEqual({
+    rule: "is_name_purposeful",
+    input: "src/borderline.ts",
+    instructions: "Is the name a verb?",
+    criteria: { true: "It is a verb." },
+    code: "export function run() {}",
+  });
+});
+
+test("a classification filed from outside appears while the pair is open", async () => {
+  render(tree("src/borderline.ts"));
+  await ready();
+  expect(q("classification-position")).toBeNull();
+  filed.push({
+    seq: 1,
+    rule: "is_name_purposeful",
+    input: "src/borderline.ts",
+    state: { path: "src/borderline.ts", source: "x" },
+    question: { type: "noul", instructions: "Filed by the agent?", criteria: {} },
+    answer: { type: "noul", noul: 0.44 },
+  });
+  await waitFor(
+    () => {
+      if (q("classification-position") === null) throw new Error("not polled in yet");
+    },
+    { timeout: 8_000 },
+  );
+  // the reader stays on the original: a new classification never moves the view
+  expect(q("classification-position")?.dataset.position).toBe("0");
+  expect(q("classification-select")?.textContent).toContain("1 of 2");
 });
 
 test("an edit after classify marks the reading stale and keeps it", async () => {
