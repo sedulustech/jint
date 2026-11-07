@@ -272,7 +272,7 @@ export const VERBS = {
   run: {
     example: "jint run src/",
     blurb:
-      "classify an input: paths, the str/paths stdin nouns, or the discovered config; needs OPENAI_API_KEY (or JINT_API_KEY with JINT_API_URL) in the environment",
+      "classify an input: paths, the str/paths stdin nouns, or the discovered config; needs OPENAI_API_KEY (or JINT_API_URL, with JINT_API_KEY unless the server is local) in the environment",
   },
   serve: {
     example: "jint serve",

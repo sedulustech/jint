@@ -90,6 +90,63 @@ describe("resolveEndpoint: a caller of the SDK overrides the run", () => {
   });
 });
 
+describe("resolveEndpoint: the url picks the wire", () => {
+  test("no url: OpenAI's Decisions endpoint, whatever the model setting", () => {
+    expect(resolveEndpoint({}, { OPENAI_API_KEY: "k" })).toMatchObject({
+      protocol: "decisions",
+      url: DEFAULT_URL,
+      model: undefined,
+    });
+  });
+  test("a url ending in /systemone is the System One wire, a /decisions one is Decisions", () => {
+    const env = { JINT_API_KEY: "k" };
+    const at = (url: string) => resolveEndpoint({ url }, env).protocol;
+    expect(at("https://api.example.test/v1/systemone")).toBe("systemone");
+    expect(at("https://api.example.test/v1/systemone/")).toBe("systemone");
+    expect(at("https://api.example.test/v1/decisions")).toBe("decisions");
+  });
+  test("JINT_API_MODEL names the model; a caller's model wins; empty is unset", () => {
+    const env = { JINT_API_KEY: "k", JINT_API_URL: "https://x.test/v1/systemone" };
+    expect(resolveEndpoint({}, { ...env, JINT_API_MODEL: "d3-lite-FLM" }).model).toBe(
+      "d3-lite-FLM",
+    );
+    expect(
+      resolveEndpoint({ model: "other" }, { ...env, JINT_API_MODEL: "d3-lite-FLM" }).model,
+    ).toBe("other");
+    expect(resolveEndpoint({}, { ...env, JINT_API_MODEL: "" }).model).toBeUndefined();
+  });
+});
+
+describe("resolveEndpoint: a server on this machine may go without a key", () => {
+  test.each(["http://localhost:13305/v1/systemone", "http://127.0.0.1:13305/v1/systemone"])(
+    "%s runs keyless, and an exported OpenAI key is never sent there",
+    (url) => {
+      const asked = resolveEndpoint({}, { JINT_API_URL: url, OPENAI_API_KEY: "sk-openai" });
+      expect(asked).toMatchObject({ keyless: true, apiKey: undefined });
+      expect(asked.unusable).toBeUndefined();
+    },
+  );
+  test("a key that is set still goes", () => {
+    const asked = resolveEndpoint(
+      {},
+      { JINT_API_URL: "http://localhost:13305/v1/systemone", JINT_API_KEY: "secret" },
+    );
+    expect(asked).toMatchObject({ apiKey: "secret" });
+    expect(asked.keyless).toBeUndefined();
+  });
+  test("another host, or a Decisions url, still needs a key", () => {
+    for (const url of [
+      "https://api.example.test/v1/systemone",
+      "http://localhost:8080/v1/decisions",
+    ]) {
+      const asked = resolveEndpoint({}, { JINT_API_URL: url });
+      expect(asked.apiKey).toBeUndefined();
+      expect(asked.keyless).toBeUndefined();
+      expect(asked.unusable).toContain("no API key");
+    }
+  });
+});
+
 describe("resolveEndpoint: removed variables", () => {
   test("provider, model and per-vendor key variables are never read", () => {
     const removed = {

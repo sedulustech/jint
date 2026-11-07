@@ -1,13 +1,17 @@
 /**
- * Where jint asks its questions: one Decisions endpoint (POST /v1/decisions) and the key that opens
- * it. The key you export picks the destination, and a key only ever goes to the host it is paired
- * with: a run never sends one service's key to another service's url.
+ * Where jint asks its questions: one endpoint and the key that opens it. The url's last segment
+ * names the wire: `/decisions` is the OpenAI Decisions API (the default, gpt-6-luna) and
+ * `/systemone` is the System One shape that TypeSafe and Lemonade serve. The key you export picks
+ * the destination, and a key only ever goes to the host it is paired with: a run never sends one
+ * service's key to another service's url.
  *
  * Selection, an empty variable is unset. A config file names neither: a key does not belong in a
  * file that gets committed. A caller of the SDK may pass both to `createClassifier`, which then
  * win.
  *
- * - A caller's `apiKey` / `url` win for the run.
+ * - A caller's `apiKey` / `url` / `model` win for the run; $JINT_API_MODEL names the model otherwise.
+ * - A `/systemone` url on this machine (localhost, 127.0.0.1, ::1) may go without a key: a local
+ *   server has none unless its owner set one. Any other host needs a key.
  * - Else the first DESTINATIONS row whose key variable is set picks the key (and its own url);
  *   $JINT_API_URL moves the url, and then only a row without a fixed url (the Jint row) may send.
  */
@@ -26,17 +30,41 @@ const DESTINATIONS: readonly { keyVar: string; url?: string }[] = [
 ];
 
 const URL_VAR = "JINT_API_URL";
+const MODEL_VAR = "JINT_API_MODEL";
+
+/** The wire an endpoint speaks, from the last segment of its url. */
+export type Protocol = "decisions" | "systemone";
+
+export const protocolOf = (url: string): Protocol =>
+  url.replace(/\/+$/, "").endsWith("/systemone") ? "systemone" : "decisions";
+
+/** Whether the url names this machine, the only place a key may be left out. */
+const isLocal = (url: string): boolean => {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+};
 
 /** What a caller says about the endpoint: every field optional, the environment fills the rest. */
 export interface EndpointChoice {
   url?: string;
   apiKey?: string;
+  /** The model to ask; absent asks the default of the wire (gpt-6-luna) or of the server. */
+  model?: string;
 }
 
 export interface Endpoint {
   url: string;
+  /** The wire the url speaks. */
+  protocol: Protocol;
+  /** The model the caller or $JINT_API_MODEL named; undefined leaves the choice to the wire. */
+  model: string | undefined;
   /** Undefined when no key may go to the url; `unusable` then says why. */
   apiKey: string | undefined;
+  /** True when the run goes without a key on purpose: a /systemone url on this machine. */
+  keyless?: boolean;
   /** Why the run has no usable key, set exactly when `apiKey` is undefined. */
   unusable?: string;
   /**
@@ -82,7 +110,9 @@ const notes = (url: string, keyVar?: string): string[] => [
   ...(keyVar !== undefined ? [`key from ${keyVar}`] : []),
 ];
 
-export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.env): Endpoint {
+type Resolved = Pick<Endpoint, "url" | "apiKey" | "unusable" | "notes">;
+
+function resolveKey(choice: EndpointChoice, env: Env): Resolved {
   const configUrl = choice.url === "" ? undefined : choice.url;
   const configKey = choice.apiKey === "" ? undefined : choice.apiKey;
   const urlOverride = configUrl ?? fromEnv(env, URL_VAR);
@@ -97,7 +127,7 @@ export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.
     return { url, apiKey: undefined, unusable, notes: notes(url) };
   }
   const url = urlOverride ?? chosen.url ?? DEFAULT_URL;
-  const withheld = (unusable: string): Endpoint => ({
+  const withheld = (unusable: string): Resolved => ({
     url,
     apiKey: undefined,
     unusable,
@@ -114,7 +144,20 @@ export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.
   return { url, apiKey: fromEnv(env, chosen.keyVar), notes: notes(url, chosen.keyVar) };
 }
 
+/** The endpoint a run asks: its url and wire, the model if named, and the key that may go there. */
+export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.env): Endpoint {
+  const resolved = resolveKey(choice, env);
+  const protocol = protocolOf(resolved.url);
+  const model = (choice.model === "" ? undefined : choice.model) ?? fromEnv(env, MODEL_VAR);
+  const endpoint: Endpoint = { ...resolved, protocol, model };
+  if (resolved.apiKey === undefined && protocol === "systemone" && isLocal(resolved.url)) {
+    delete endpoint.unusable;
+    endpoint.keyless = true;
+  }
+  return endpoint;
+}
+
 export function assertEndpointKey(choice: EndpointChoice = {}): void {
-  const { apiKey, unusable } = resolveEndpoint(choice);
-  if (apiKey === undefined) throw new SetupError("CONFIG_INVALID", unusable!);
+  const { apiKey, keyless, unusable } = resolveEndpoint(choice);
+  if (apiKey === undefined && keyless !== true) throw new SetupError("CONFIG_INVALID", unusable!);
 }

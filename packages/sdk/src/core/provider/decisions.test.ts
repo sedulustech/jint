@@ -9,7 +9,13 @@ import { urlIdentity, type Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
 
 const URL_ = "https://api.openai.com/v1/decisions";
-const PROVIDER: Endpoint = { url: URL_, apiKey: "k", notes: [] };
+const PROVIDER: Endpoint = {
+  url: URL_,
+  protocol: "decisions",
+  model: undefined,
+  apiKey: "k",
+  notes: [],
+};
 const adapterOver = (
   fetch: Fetch,
   provider = PROVIDER,
@@ -544,26 +550,38 @@ describe("questionKey", () => {
   const state = { path: "a.ts", source: "function a() {}", includePath: true };
 
   test("a question has one key wherever it sits among the others, and under any name", () => {
-    const alone = questionKey(api, state, "x", q("Is it short?"));
-    expect(questionKey(api, state, "another name", q("Is it short?"))).toBe(alone);
+    const alone = questionKey(api, MODEL, state, "x", q("Is it short?"));
+    expect(questionKey(api, MODEL, state, "another name", q("Is it short?"))).toBe(alone);
   });
 
   test("a path the model is not handed does not move the key: the same code is one question wherever it sits", () => {
     const withoutPath = { path: "a.ts", source: "function a() {}", includePath: false };
-    expect(questionKey(api, withoutPath, "x", q("Is it short?"))).toBe(
-      questionKey(api, { ...withoutPath, path: "elsewhere/b.ts" }, "x", q("Is it short?")),
+    expect(questionKey(api, MODEL, withoutPath, "x", q("Is it short?"))).toBe(
+      questionKey(api, MODEL, { ...withoutPath, path: "elsewhere/b.ts" }, "x", q("Is it short?")),
     );
   });
 
   test("anything the model reads moves the key: the question, the code, the path, the endpoint", () => {
-    const base = questionKey(api, state, "x", q("Is it short?"));
+    const base = questionKey(api, MODEL, state, "x", q("Is it short?"));
     const moved = [
-      questionKey(api, state, "x", q("Is it brief?")),
-      questionKey(api, { ...state, source: "function b() {}" }, "x", q("Is it short?")),
-      questionKey(api, { ...state, path: "b.ts" }, "x", q("Is it short?")),
-      questionKey(urlIdentity("https://other.test/v1/decisions"), state, "x", q("Is it short?")),
-      questionKey(urlIdentity("https://api.test/v2/decisions"), state, "x", q("Is it short?")),
-      questionKey(api, state, "x", {
+      questionKey(api, MODEL, state, "x", q("Is it brief?")),
+      questionKey(api, MODEL, { ...state, source: "function b() {}" }, "x", q("Is it short?")),
+      questionKey(api, MODEL, { ...state, path: "b.ts" }, "x", q("Is it short?")),
+      questionKey(
+        urlIdentity("https://other.test/v1/decisions"),
+        MODEL,
+        state,
+        "x",
+        q("Is it short?"),
+      ),
+      questionKey(
+        urlIdentity("https://api.test/v2/decisions"),
+        MODEL,
+        state,
+        "x",
+        q("Is it short?"),
+      ),
+      questionKey(api, MODEL, state, "x", {
         ...q("Is it short?"),
         criteria: { true: "yes", false: "no" },
       }),

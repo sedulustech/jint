@@ -8,6 +8,18 @@ import type { Usage } from "../types.ts";
 
 export type { Usage };
 
+/**
+ * The state as the judge reads it, on either wire. A rule that does not include the path
+ * (includePath false) is asked without it, so the same code is the same request wherever the file
+ * sits. A state that says nothing goes out as it is: a callback rule builds its own state and owns
+ * what is in it. The flag itself never travels.
+ */
+export function stateData(ask: { state: object }): Record<string, unknown> {
+  const { includePath, ...data } = ask.state as Record<string, unknown>;
+  if (includePath === false) delete data.path;
+  return data;
+}
+
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type QuestionSpec = {

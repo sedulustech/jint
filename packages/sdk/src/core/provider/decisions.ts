@@ -17,7 +17,7 @@ import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask } from "../types.ts";
 import { hashOf, type AnswerStore, type StoredAnswer } from "./answer-cache.ts";
 import { type Endpoint } from "./endpoint.ts";
-import { foldCriteria, wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
+import { foldCriteria, stateData, wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
 
@@ -99,11 +99,7 @@ export function mapDecisionsError(e: unknown, input: string): ClassifyError {
 
 /** The Decisions request for one ask: the state as one input_json part, one question per name. */
 export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
-  // A rule that does not include the path (includePath false) is asked without it, so the same
-  // code is the same request wherever the file sits. A state that says nothing goes out as it is:
-  // a callback rule builds its own state and owns what is in it. The flag itself never travels.
-  const { includePath, ...data } = ask.state as Record<string, unknown>;
-  if (includePath === false) delete data.path;
+  const data = stateData(ask);
   return {
     model,
     input: [{ role: "user", content: [{ type: "input_json", data }] }],
@@ -115,11 +111,12 @@ export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
 
 export function questionKey(
   endpoint: string,
+  model: string,
   state: Ask["state"],
   name: string,
   q: Ask["questions"][string],
 ) {
-  const alone = decisionsParams(MODEL, { state, questions: { [name]: q } });
+  const alone = decisionsParams(model, { state, questions: { [name]: q } });
   return hashOf(`${endpoint}\n${JSON.stringify(alone)}`);
 }
 
@@ -151,6 +148,7 @@ export function decisionsAdapter(
   },
 ): Adapter {
   const baseURL = baseUrl(endpoint);
+  const model = endpoint.model ?? MODEL;
   const apiKey = endpoint.apiKey;
   if (apiKey === undefined)
     throw new SetupError("CONFIG_INVALID", endpoint.unusable ?? "no API key");
@@ -201,7 +199,7 @@ export function decisionsAdapter(
       try {
         const names = Object.keys(ask.questions);
         const keys = cache
-          ? names.map((n) => questionKey(cache.endpoint, ask.state, n, ask.questions[n]!))
+          ? names.map((n) => questionKey(cache.endpoint, model, ask.state, n, ask.questions[n]!))
           : [];
         const held = names.map((n, i) =>
           cache ? stored(keys[i]!, wireName(i), ask.questions[n]!) : undefined,
@@ -216,7 +214,7 @@ export function decisionsAdapter(
           names.length > 0 && missing.length === 0
             ? undefined
             : await (cache?.scope ?? ((_names, body) => body()))(missing, () =>
-                client.decisions.create(decisionsParams(MODEL, askMissing), {
+                client.decisions.create(decisionsParams(model, askMissing), {
                   signal: options?.signal,
                 }),
               );
@@ -234,7 +232,7 @@ export function decisionsAdapter(
             if (held[i] === undefined)
               cache.store.put(keys[i]!, {
                 at: now,
-                model: reply?.model ?? MODEL,
+                model: reply?.model ?? model,
                 answer: withoutName(raw[i]!),
               });
           });
@@ -245,7 +243,7 @@ export function decisionsAdapter(
               questions: Object.fromEntries(hits.map((n) => [n, ask.questions[n]!])),
             };
             cache.hit?.(hits, {
-              request: decisionsParams(MODEL, askHits),
+              request: decisionsParams(model, askHits),
               response: {
                 model: held.find((e) => e !== undefined)!.model,
                 answers: names.flatMap((n, i) =>
@@ -258,7 +256,7 @@ export function decisionsAdapter(
           }
         }
         return {
-          model: reply?.model ?? held.find((e) => e !== undefined)?.model ?? MODEL,
+          model: reply?.model ?? held.find((e) => e !== undefined)?.model ?? model,
           answers,
           usage: {
             input_tokens: reply?.usage?.input_tokens ?? 0,

@@ -22,6 +22,7 @@ import {
   type Endpoint,
   type EndpointChoice,
 } from "./endpoint.ts";
+import { systemOneAdapter } from "./systemone.ts";
 
 export interface ClassifierConfig extends EndpointChoice {
   /** Custom fetch for tests (the transport the client calls). */
@@ -61,11 +62,15 @@ function makeClassifier(
   log: (line: string) => void,
   input: string,
 ): Classifier {
-  if (endpoint.apiKey === undefined) throw missingKey(input, endpoint);
+  if (endpoint.apiKey === undefined && endpoint.keyless !== true) throw missingKey(input, endpoint);
+  const systemOne = endpoint.protocol === "systemone";
   const recording = config?.record !== false;
   const send = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const recorded = recording
-    ? recordRequests(config, { model: MODEL, host: urlHost(endpoint.url) }).fetch!
+    ? recordRequests(config, {
+        model: endpoint.model ?? (systemOne ? "server default" : MODEL),
+        host: urlHost(endpoint.url),
+      }).fetch!
     : send;
   const cache =
     config?.cache === false
@@ -78,7 +83,9 @@ function makeClassifier(
             if (recording) recordCacheHit(endpoint.url, names, exchange);
           },
         };
-  const adapter = decisionsAdapter(endpoint, { fetch: recorded, log, cache });
+  const adapter = systemOne
+    ? systemOneAdapter(endpoint, { fetch: recorded, log })
+    : decisionsAdapter(endpoint, { fetch: recorded, log, cache });
   return async (state, questions) => {
     const { id: _id, ...judged } = state;
     const asked = await inCall(state, Object.keys(questions), () =>

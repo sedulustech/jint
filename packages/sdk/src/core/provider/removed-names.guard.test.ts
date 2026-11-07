@@ -5,8 +5,9 @@ import { join } from "node:path";
 // Two removals are guarded here. The default rule set is gone (rules are grouped into domains,
 // imported as jint:rules/<domain>), and is_filename_fitting is has_filename_mismatch.
 //
-// jint talks to the Decisions API only, and the url is the selector: no provider table, no
-// provider or model switch, no per-provider key variable, no gateway adapter. This guard fails the
+// the url is the selector: no provider table, no provider or model switch, no per-provider key
+// variable, no gateway adapter. The wire comes from the url's last segment (/decisions or
+// /systemone), and the model is JINT_API_MODEL beside JINT_API_KEY and JINT_API_URL. This guard fails the
 // suite when a removed name comes back in any tracked file - code, config, lockfile, generated docs
 // or skills. The key you export picks the destination (JINT_API_KEY, OPENAI_API_KEY), so every
 // JINT_PROVIDER variable is gone. The
