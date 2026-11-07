@@ -6,7 +6,7 @@ import { page, userEvent } from "vitest/browser";
 import { makeRouter } from "../router";
 
 // tests/fixtures/run-a/report.json carries one error that names its rule:
-// is_name_purposeful at src/multi.tsx#E1, a pair with a recorded request
+// is_name_purposeful at src/multi.tsx#E1, a classification with a recorded request
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
 afterEach(cleanup);
 
@@ -36,7 +36,8 @@ async function until(check: () => boolean, what: string) {
   );
 }
 
-const pairInDialog = () => dialog()?.querySelector('[data-testid="close-pair"]') != null;
+const classificationInDialog = () =>
+  dialog()?.querySelector('[data-testid="close-classification"]') != null;
 
 test("the warning toggle walks the run route to /errors and back", async () => {
   boot("/runs/run-a");
@@ -61,21 +62,24 @@ test("/errors opens the list without a dialog", async () => {
   expect(document.querySelector('[data-testid="run-error-missing"]')).toBeNull();
 });
 
-test("an error row opens its pair at /errors?rule&input; closing returns to /errors", async () => {
+test("an error row opens its classification at /errors?rule&input; closing returns to /errors", async () => {
   boot("/runs/run-a/errors");
   await page.getByTestId("run-error-open").click();
-  await until(() => url() === "/runs/run-a/errors" + ERROR_ADDRESS, "row did not address the pair");
-  await until(pairInDialog, "pair detail not in the dialog");
+  await until(
+    () => url() === "/runs/run-a/errors" + ERROR_ADDRESS,
+    "row did not address the classification",
+  );
+  await until(classificationInDialog, "classification detail not in the dialog");
 
-  dialog()!.querySelector<HTMLElement>('[data-testid="close-pair"]')!.click();
+  dialog()!.querySelector<HTMLElement>('[data-testid="close-classification"]')!.click();
   await until(() => url() === "/runs/run-a/errors" && dialog() === null, "dialog still open");
   expect(errorList()).not.toBeNull();
 });
 
 test("/errors?rule&input deep-links the dialog; Escape and Back both close it", async () => {
   boot("/runs/run-a/errors" + ERROR_ADDRESS);
-  await until(pairInDialog, "pair detail not in the dialog");
-  // the pair address belongs to the dialog: the pane under it stays closed
+  await until(classificationInDialog, "classification detail not in the dialog");
+  // the classification address belongs to the dialog: the pane under it stays closed
   expect(document.querySelector('[aria-label="resize rules and result panes"]')).toBeNull();
 
   await userEvent.keyboard("{Escape}");
@@ -84,7 +88,7 @@ test("/errors?rule&input deep-links the dialog; Escape and Back both close it", 
 
   window.history.pushState(null, "", "/runs/run-a/errors");
   boot("/runs/run-a/errors" + ERROR_ADDRESS);
-  await until(pairInDialog, "pair detail not in the dialog");
+  await until(classificationInDialog, "classification detail not in the dialog");
   window.history.back();
   await until(() => url() === "/runs/run-a/errors" && dialog() === null, "Back did not close");
   expect(errorList()).not.toBeNull();

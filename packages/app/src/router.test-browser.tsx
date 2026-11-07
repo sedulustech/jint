@@ -71,7 +71,7 @@ test("deep link /runs/<id> renders that run", async () => {
   expect(window.location.pathname).toBe("/runs/run-a");
 });
 
-test("?rule+input deep link opens PairDetail and survives reload", async () => {
+test("?rule+input deep link opens ClassificationDetail and survives reload", async () => {
   boot("/runs/run-a?rule=is_name_purposeful&input=src/low.ts");
   await waitFor(
     () => {
@@ -188,7 +188,7 @@ test("deep history walk: back x2 + forward restores the run and the picker sync"
   expect((trigger.element() as HTMLElement).textContent ?? "").toContain("run-1");
 });
 
-// ---- pair walk -------------------------------------------------------------
+// ---- classification walk -------------------------------------------------------------
 // rule/input/file address the detail pane. Asserted end to end: a row click, back/forward,
 // reload, close.
 
@@ -218,7 +218,7 @@ async function expectUrl(url: string, tag = "?") {
   });
 }
 
-test("pair walk: a row click opens the pair, back/forward and reload keep it, close clears it", async () => {
+test("classification walk: a row click opens the classification, back/forward and reload keep it, close clears it", async () => {
   boot("/runs/run-a");
   await runViewReady();
   expect(detailPane()).toBe("");
@@ -234,7 +234,7 @@ test("pair walk: a row click opens the pair, back/forward and reload keep it, cl
   requestRow("src/low.ts").click();
   await waitFor(
     () => {
-      if (!detailPane().includes("@ src/low.ts")) throw new Error("pair not open");
+      if (!detailPane().includes("@ src/low.ts")) throw new Error("classification not open");
     },
     { timeout: 2_000 },
   );
@@ -247,12 +247,12 @@ test("pair walk: a row click opens the pair, back/forward and reload keep it, cl
     throw new Error("wire form lost the encoded input: " + window.location.search);
   const opened = window.location.pathname + window.location.search;
 
-  // back: the pair closes; forward: the same entry returns, nothing collapsed
+  // back: the classification closes; forward: the same entry returns, nothing collapsed
   window.history.back();
   await expectUrl("/runs/run-a");
   await waitFor(
     () => {
-      if (detailPane() !== "") throw new Error("back left the pair open");
+      if (detailPane() !== "") throw new Error("back left the classification open");
     },
     { timeout: 2_000 },
   );
@@ -260,17 +260,18 @@ test("pair walk: a row click opens the pair, back/forward and reload keep it, cl
   await expectUrl(opened);
   await waitFor(
     () => {
-      if (!detailPane().includes("@ src/low.ts")) throw new Error("forward lost the pair");
+      if (!detailPane().includes("@ src/low.ts"))
+        throw new Error("forward lost the classification");
     },
     { timeout: 2_000 },
   );
 
-  // reload: the pair survives
+  // reload: the classification survives
   cleanup();
   boot(opened);
   await waitFor(
     () => {
-      if (!detailPane().includes("@ src/low.ts")) throw new Error("reload lost the pair");
+      if (!detailPane().includes("@ src/low.ts")) throw new Error("reload lost the classification");
     },
     { timeout: 2_000 },
   );
@@ -280,7 +281,7 @@ test("pair walk: a row click opens the pair, back/forward and reload keep it, cl
   await expectUrl("/runs/run-a");
   await waitFor(
     () => {
-      if (detailPane() !== "") throw new Error("pair not closed");
+      if (detailPane() !== "") throw new Error("classification not closed");
     },
     { timeout: 2_000 },
   );

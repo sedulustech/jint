@@ -51,7 +51,7 @@ import {
   type SelectedElement,
   parseEdit,
   reclassify,
-  PairError,
+  AddressError,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -111,7 +111,7 @@ export const FLAGS = {
     type: "string[]",
     arg: "<name>",
     blurb:
-      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified). reclassify: ONE name - the pair's rule (required)",
+      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified). reclassify: ONE name - the rule to reclassify (required)",
   },
   "--concurrency": {
     type: "string",
@@ -289,7 +289,7 @@ export const VERBS = {
   reclassify: {
     example: "jint reclassify <run-id> src/a.ts --rule <name> -",
     blurb:
-      "classify one pair of a recorded run again and file it under that run as the pair's next #N, where the run UI shows it at once; with a trailing - a JSON edit ({instructions, criteria, code}, only what changed) is read from stdin, without it the original question is asked again; needs the endpoint key like run",
+      "classify one rule at one input of a recorded run again and file it under that run as its next #N, where the run UI shows it at once; with a trailing - a JSON edit ({instructions, criteria, code}, only what changed) is read from stdin, without it the original question is asked again; needs the endpoint key like run",
     flags: ["json", "rule"],
   },
   skills: {
@@ -1159,9 +1159,10 @@ function readingText(answer: unknown): string {
 }
 
 /**
- * The reclassify verb's tail: one pair of a recorded run, asked again through the SDK's one
- * reclassify and filed as the agent's. The edit is the stdin payload behind a trailing `-` (the
- * same declared stdin read as run's nouns); without it the original question is asked again.
+ * The reclassify verb's tail: one rule at one input of a recorded run, asked again through the
+ * SDK's one reclassify and filed as the agent's. The edit is the stdin payload behind a trailing
+ * `-` (the same declared stdin read as run's nouns); without it the original question is asked
+ * again.
  */
 async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
   const fromStdin = rest.at(-1) === "-";
@@ -1199,7 +1200,7 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     );
     return 0;
   } catch (thrown) {
-    if (thrown instanceof PairError && thrown.status < 500) {
+    if (thrown instanceof AddressError && thrown.status < 500) {
       usageError(thrown.message);
       return 2;
     }

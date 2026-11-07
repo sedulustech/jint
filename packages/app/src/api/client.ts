@@ -1,6 +1,6 @@
 import type { Report, RunDetail, RunSummary } from "../types";
 import type { QA } from "../views/AnswerCard";
-import type { PairRead } from "@jint/sdk/ui/api";
+import type { OriginalRead } from "@jint/sdk/ui/api";
 
 const RUNS_URL = "/api/runs";
 
@@ -12,11 +12,14 @@ async function get<T>(url: string): Promise<T> {
 
 export const fetchRun = (id: string) => get<RunDetail>(`${RUNS_URL}/${id}`);
 export const fetchRuns = () => get<{ runs: RunSummary[] }>(RUNS_URL);
-/** One pair as its run recorded it; the server resolves which request read it. */
-export const fetchPair = (runId: string, pair: { rule: string; input: string; file?: string }) => {
-  const query = new URLSearchParams({ rule: pair.rule, input: pair.input });
-  if (pair.file !== undefined) query.set("file", pair.file);
-  return get<PairRead>(`${RUNS_URL}/${runId}/pair?${query}`);
+/** The original classification of an address, as its run recorded it. */
+export const fetchOriginal = (
+  runId: string,
+  address: { rule: string; input: string; file?: string },
+) => {
+  const query = new URLSearchParams({ rule: address.rule, input: address.input });
+  if (address.file !== undefined) query.set("file", address.file);
+  return get<OriginalRead>(`${RUNS_URL}/${runId}/original?${query}`);
 };
 export const fetchReport = (runId: string) =>
   get<Report | { absent: true }>(`${RUNS_URL}/${runId}/report`);
@@ -26,7 +29,7 @@ export interface ClassifyBody {
   question: { type: string; instructions: string; criteria?: unknown };
 }
 
-/** What an edit changes against the pair's original; the server holds the original itself. */
+/** What an edit changes against the original; the server holds the original itself. */
 export interface ClassificationEdit {
   instructions?: string;
   criteria?: Record<string, string>;
@@ -45,7 +48,7 @@ export interface ClassificationRecord extends ClassifyBody {
 
 const classificationsUrl = (runId: string) => `${RUNS_URL}/${runId}/classifications`;
 
-/** The classifications filed for one pair, oldest first. */
+/** The classifications filed for one address, oldest first. */
 export const fetchClassifications = async (runId: string, rule: string, input: string) =>
   (
     await get<{ classifications: ClassificationRecord[] }>(
@@ -54,18 +57,18 @@ export const fetchClassifications = async (runId: string, rule: string, input: s
   ).classifications;
 
 /**
- * Classify an edit of one pair; the server files it under the run as the pair's next
+ * Classify an edit of one address; the server files it under the run as that address's next
  * classification.
  */
 export async function postClassification(
   runId: string,
-  pair: { rule: string; input: string },
+  address: { rule: string; input: string },
   edit: ClassificationEdit,
 ): Promise<ClassificationRecord> {
   const res = await fetch(classificationsUrl(runId), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...edit, ...pair }),
+    body: JSON.stringify({ ...edit, ...address }),
   });
   const payload = (await res.json().catch(() => ({}))) as {
     classification?: ClassificationRecord;

@@ -76,7 +76,7 @@ export function ParsedJson({ value }: { value: unknown }) {
   }, [value]);
   return (
     <div
-      data-testid="pair-request-parsed-panel"
+      data-testid="classification-request-parsed-panel"
       className="hljs overflow-auto bg-transparent! p-inner text-body"
     >
       {chunks.map((c, i) =>
@@ -87,7 +87,7 @@ export function ParsedJson({ value }: { value: unknown }) {
         ) : (
           <pre
             key={i}
-            data-testid="pair-request-text"
+            data-testid="classification-request-text"
             className="m-0 whitespace-pre-wrap text-foreground"
           >
             {c.text}

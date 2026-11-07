@@ -184,7 +184,7 @@ test("file mode parents expand; file-level cells render as explicit (file) rows"
   for (const c of children) expect(c.textContent).toContain("L1-L6");
 });
 
-test("a cell click opens PairDetail addressed by (rule, input)", async () => {
+test("a cell click opens ClassificationDetail addressed by (rule, input)", async () => {
   mount();
   await openRun();
   modeButton("rule").click();
@@ -200,7 +200,8 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
   await waitFor(
     () => {
       const d = document.body.innerText;
-      if (!d.includes("is_name_purposeful @ src/low.ts")) throw new Error("pair detail not open");
+      if (!d.includes("is_name_purposeful @ src/low.ts"))
+        throw new Error("classification detail not open");
     },
     { timeout: 2_000 },
   );
@@ -217,7 +218,7 @@ test("a cell click opens PairDetail addressed by (rule, input)", async () => {
     { timeout: 2_000 },
   );
   // closing returns to the table
-  const close = q("[data-testid='close-pair']");
+  const close = q("[data-testid='close-classification']");
   if (close === null) throw new Error("detail close button missing");
   close.click();
   await waitFor(
@@ -274,16 +275,17 @@ test("grouped parents order by weighted findings: 1 error > 1 warning, 4 warning
   );
 });
 
-test("request rows still drill in: a request click opens the pair detail of its first pair", async () => {
+test("request rows still drill in: a request click opens the classification detail of its first classification", async () => {
   mount();
   await openRun();
   modeButton("request").click();
   await expectCounter("17/17 requests");
-  // exact path: "low.ts" substring-matches src/greedy-low.ts (earlier seq) and opens the wrong pair
+  // exact path: "low.ts" substring-matches src/greedy-low.ts (earlier seq) and opens the wrong classification
   requestRow("src/low.ts").click();
   await waitFor(
     () => {
-      if (!document.body.innerText.includes("@ src/low.ts")) throw new Error("pair detail missing");
+      if (!document.body.innerText.includes("@ src/low.ts"))
+        throw new Error("classification detail missing");
     },
     { timeout: 2_000 },
   );
@@ -323,7 +325,9 @@ test("generated fixture: an element cell click resolves to the element capture b
     () => {
       const pane = q(".detail-pane")?.textContent ?? "";
       if (pane.includes("no answer for")) {
-        throw new Error("pair fell back to a capture without the rule: " + pane.slice(0, 120));
+        throw new Error(
+          "classification fell back to a capture without the rule: " + pane.slice(0, 120),
+        );
       }
       if (!pane.includes("is_cognitively_complex")) throw new Error("rule heading missing");
     },
@@ -396,7 +400,7 @@ test("a bimodal score answer renders its distribution", async () => {
   expect(answered?.className).toContain("bg-foreground/70");
 });
 
-test("a refused cell is muted, sorts after valued cells, and opens a pair view with no verdict", async () => {
+test("a refused cell is muted, sorts after valued cells, and opens a classification view with no verdict", async () => {
   mount();
   await openRun();
   modeButton("rule").click();

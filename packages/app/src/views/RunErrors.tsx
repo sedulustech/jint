@@ -1,5 +1,5 @@
 import { useMatch, useNavigate, useSearch } from "@tanstack/react-router";
-import { PairDetail } from "./PairDetail";
+import { ClassificationDetail } from "./ClassificationDetail";
 import type { RunSearch } from "../router";
 import type { ClassifyErrorInfo } from "../types";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ export const useErrorsRoute = (): boolean =>
  * The expanded run-errors section: setup failures that left part of the run unmeasured. Lives under
  * the run header, open while the address is /runs/$runId/errors. Same row anatomy as the report
  * table: background surface, rail-gutter rows, hairline separators. An error that names its rule
- * opens that pair's request in a dialog: the question asked and the code it was asked about. The
- * dialog's pair is addressed by ?rule&input on the errors route, so Back closes it.
+ * opens that address's request in a dialog: the question asked and the code it was asked about. The
+ * dialog's address is ?rule&input on the errors route, so Back closes it.
  */
 export function RunErrors({
   runId,
@@ -35,11 +35,11 @@ export function RunErrors({
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as RunSearch;
   // rule/input on this route address the dialog, not the pane
-  const openAt = (pair: { rule: string; input: string } | null) =>
+  const openAt = (address: { rule: string; input: string } | null) =>
     navigate({
       to: ERRORS_ROUTE,
       params: { runId },
-      search: (): RunSearch => (pair === null ? {} : { ...pair }),
+      search: (): RunSearch => (address === null ? {} : { ...address }),
     });
   const addressed = search.rule !== undefined;
   const opened = addressed
@@ -94,7 +94,7 @@ export function RunErrors({
               <p className="whitespace-normal text-body text-muted-foreground">{opened.message}</p>
             </div>
             <div className="min-h-0 flex-1">
-              <PairDetail
+              <ClassificationDetail
                 runId={runId}
                 rule={opened.rule}
                 input={opened.input}

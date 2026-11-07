@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
-import { PairDetail } from "./PairDetail";
+import { ClassificationDetail } from "./ClassificationDetail";
 
-// Acceptance: the edit-and-classify flow of the pair view. Controls are located by test id; text
+// Acceptance: the edit-and-classify flow of the classification view. Controls are located by test id; text
 // assertions read data values only.
 
 afterEach(() => {
@@ -21,7 +21,7 @@ type Filed = {
   question: Record<string, unknown>;
   answer: unknown;
 };
-// what the server holds for the run: the classifications filed so far, listed back per pair
+// what the server holds for the run: the classifications filed so far, listed back per rule and input
 let filed: Filed[];
 type Sent = {
   rule: string;
@@ -51,10 +51,10 @@ beforeEach(() => {
         headers: { "content-type": "application/json" },
       });
     if (init?.method !== "POST") {
-      const [rule, pair] = [url.searchParams.get("rule"), url.searchParams.get("input")];
-      return json({ classifications: filed.filter((t) => t.rule === rule && t.input === pair) });
+      const [rule, at] = [url.searchParams.get("rule"), url.searchParams.get("input")];
+      return json({ classifications: filed.filter((t) => t.rule === rule && t.input === at) });
     }
-    // the server holds the original; what arrives is the pair's address and the edit over it
+    // the server holds the original; what arrives is the address and the edit over it
     const request = JSON.parse(String(init.body)) as Sent;
     const outcome = await reply();
     if (outcome.status !== 200) return json({ error: outcome.body }, outcome.status);
@@ -84,7 +84,7 @@ beforeEach(() => {
 
 const tree = (input: string) => (
   <QueryClientProvider client={client}>
-    <PairDetail
+    <ClassificationDetail
       runId="run-a"
       rule="is_name_purposeful"
       input={input}
@@ -148,8 +148,8 @@ test("the new reading survives switching the view and editing the code", async (
   render(tree("src/borderline.ts"));
   await ready();
   await classify();
-  await page.getByTestId("pair-view-request").click();
-  await page.getByTestId("pair-view-code").click();
+  await page.getByTestId("classification-view-request").click();
+  await page.getByTestId("classification-view-code").click();
   await page.getByTestId("classification-edit-code").click();
   expect(shown()).toBe("0.12");
 });
@@ -173,7 +173,7 @@ test("classify sends only the edit, never the original question or state", async
   });
 });
 
-test("a classification filed from outside appears while the pair is open", async () => {
+test("a classification filed from outside appears while the classification detail is open", async () => {
   render(tree("src/borderline.ts"));
   await ready();
   expect(q("classification-position")).toBeNull();
@@ -226,20 +226,20 @@ test("reset restores the original texts, code and reading", async () => {
   expect(q("classification-stale")).toBeNull();
 });
 
-test("another pair starts from its own original, not this pair's edit", async () => {
+test("another address starts from its own original, not this one's edit", async () => {
   const view = render(tree("src/borderline.ts"));
   await ready();
   const instructions = field("edit-instructions").value;
-  await page.getByTestId("edit-instructions").fill("An edit that belongs to the first pair");
+  await page.getByTestId("edit-instructions").fill("An edit that belongs to the first address");
   await classify();
 
   view.rerender(tree("src/high.ts"));
   await waitFor(() => {
     if (q("classification-position") !== null)
-      throw new Error("still showing the first pair's classifications");
+      throw new Error("still showing the first address's classifications");
   });
   await ready();
-  expect(field("edit-instructions").value).not.toBe("An edit that belongs to the first pair");
+  expect(field("edit-instructions").value).not.toBe("An edit that belongs to the first address");
   expect(shown()).not.toBe("0.12");
   expect(instructions).not.toBe("");
 });
@@ -305,7 +305,7 @@ test("iterations cycle: each classify is a position, and moving loads its edit a
   expect(shown()).toBe("0.70");
 });
 
-test("classifications filed earlier are there when the pair opens again", async () => {
+test("classifications filed earlier are there when the detail opens again", async () => {
   filed = [
     {
       seq: 1,

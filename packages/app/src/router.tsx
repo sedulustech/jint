@@ -5,7 +5,7 @@ import { App } from "./App";
 // ---- URL state -------------------------------------------------------------
 // The run selection lives in the path (/runs/$runId); the panel state lives in
 // validated search params:
-//   rule/input/file   presence of rule opens PairDetail; file is optional
+//   rule/input/file   presence of rule opens ClassificationDetail; file is optional
 // The run errors list is a child route (/runs/$runId/errors), not a param: the
 // run view keeps rendering underneath. On that route rule/input address the
 // errors dialog instead of the pane (input holds / and #, so it stays a query

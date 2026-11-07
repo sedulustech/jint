@@ -17,18 +17,18 @@ interface Edit {
 }
 
 /**
- * The classifications of one pair. Position 0 is the original; every classify files a
+ * The classifications of one address. Position 0 is the original; every classify files a
  * classification under the run (server side) and becomes the next position, so the iterations
  * cycle. The cards render the draft - the original question and code with the reader's edits laid
  * over them - and moving to an iteration loads its edit and its answer into the draft. The original
  * is never touched: position 0 always shows it.
  */
 export function useClassifications(
-  pair: { runId: string; rule: string; input: string },
+  address: { runId: string; rule: string; input: string },
   qa: QA | undefined,
   code: string | null,
 ) {
-  const { runId, rule, input } = pair;
+  const { runId, rule, input } = address;
   const queryKey = ["classifications", runId, rule, input];
   const client = useQueryClient();
   // polled, so a classification filed from outside this page (the agent's) appears while you look
@@ -114,7 +114,7 @@ export function useClassifications(
       Object.keys(draft.criteria).length > 0,
     text,
     setText: (code: string) => setDraft((d) => ({ ...d, code })),
-    /** The original pair with the draft applied and, at an iteration, its answer in place. */
+    /** The original with the draft applied and, at an iteration, its answer in place. */
     edited:
       qa === undefined
         ? undefined

@@ -1,8 +1,8 @@
 /**
  * Classifications of edited questions, filed under the run they edit:
  * `<run>/classifications/<seq>.json`. One is an edited question and state with the answer it
- * earned, so a reader can step through a pair's classifications in the run view and the agent can
- * read what changed the reading. The original run itself is untouched.
+ * earned, so a reader can step through an address's classifications in the run view and the agent
+ * can read what changed the reading. The original run itself is untouched.
  */
 import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,10 +11,10 @@ import type { ClassifyRequest, Wire } from "./classify.ts";
 const CLASSIFICATIONS_DIR = "classifications";
 const SEQ_WIDTH = 4;
 
-/** One filed iteration: the pair it edits, the edit, and what it answered. */
+/** One filed iteration: the address it edits, the edit, and what it answered. */
 export interface ClassificationRecord extends ClassifyRequest {
   seq: number;
-  /** The pair's own number: #1 is its first classification after the original. */
+  /** The address's own number: #1 is its first classification after the original. */
   n: number;
   ts: string;
   rule: string;
@@ -30,7 +30,7 @@ export interface ClassificationRecord extends ClassifyRequest {
 
 const classificationsDir = (runDir: string): string => join(runDir, CLASSIFICATIONS_DIR);
 
-/** What a filed record is about: enough to find a pair's records without reading them all. */
+/** What a filed record is about: enough to find an address's records without reading them all. */
 interface Filed {
   seq: number;
   rule: string;
@@ -73,7 +73,7 @@ async function readRecord(path: string): Promise<ClassificationRecord | undefine
   }
 }
 
-/** The classifications filed for one pair - one rule at one input - oldest first. */
+/** The classifications filed for one address - one rule at one input - oldest first. */
 export async function listClassifications(
   runDir: string,
   rule: string,
@@ -89,7 +89,7 @@ export async function listClassifications(
 
 /**
  * File a classification under its run; the sequence is run-wide, so filenames never collide across
- * pairs.
+ * addresses.
  */
 export async function recordClassification(
   runDir: string,

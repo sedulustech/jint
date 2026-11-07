@@ -97,7 +97,7 @@ function rowFor(
   return null;
 }
 
-/** One row per classification of a pair: the original first, then every filed one. */
+/** One row per classification of one address: the original first, then every filed one. */
 export function classificationRows(
   answers: Answer[],
   filedBy: ("rule" | "agent" | "user" | undefined)[],

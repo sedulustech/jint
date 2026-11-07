@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fetchRuns } from "./api/client";
 import { NotFound } from "./router";
-import { PairDetail } from "./views/PairDetail";
+import { ClassificationDetail } from "./views/ClassificationDetail";
 import { ReportHeader } from "./views/ReportHeader";
 import { RequestTable } from "./views/RequestTable";
 import { ERRORS_ROUTE, useErrorsRoute } from "./views/RunErrors";
@@ -254,9 +254,9 @@ export function App({ runId }: { runId: string | null }) {
   const search = useSearch({ strict: false }) as RunSearch;
   // on the errors route rule/input address the errors dialog, not the pane
   const errorsOpen = useErrorsRoute();
-  // the detail pane is addressed by a rule-target pair, never by request identity;
+  // the detail pane is addressed by a rule at an input, never by request identity;
   // its identity lives in the URL (search params) so a pane deep-links + survives reload
-  const selectedPair =
+  const selectedClassification =
     search.rule !== undefined && !errorsOpen
       ? { rule: search.rule, input: search.input ?? "", requestFile: search.file }
       : null;
@@ -296,21 +296,23 @@ export function App({ runId }: { runId: string | null }) {
   // within a commit window loses the second click). Serialize them so every
   // click lands, in order.
   const editSearch = useSequentialSearchEdit(runId);
-  const setSelectedPair = (pair: { rule: string; input: string; requestFile?: string } | null) =>
+  const setSelectedClassification = (
+    address: { rule: string; input: string; requestFile?: string } | null,
+  ) =>
     editSearch(
-      pair === null
+      address === null
         ? { rule: undefined, input: undefined, file: undefined }
-        : { rule: pair.rule, input: pair.input, file: pair.requestFile },
+        : { rule: address.rule, input: address.input, file: address.requestFile },
     );
 
   const detail =
-    selectedPair === null ? null : (
-      <PairDetail
+    selectedClassification === null ? null : (
+      <ClassificationDetail
         runId={runId ?? ""}
-        rule={selectedPair.rule}
-        input={selectedPair.input}
-        requestFile={selectedPair.requestFile}
-        onClose={() => setSelectedPair(null)}
+        rule={selectedClassification.rule}
+        input={selectedClassification.input}
+        requestFile={selectedClassification.requestFile}
+        onClose={() => setSelectedClassification(null)}
       />
     );
 
@@ -369,13 +371,13 @@ export function App({ runId }: { runId: string | null }) {
                 mode={viewMode}
                 onMode={(m) => {
                   setViewMode(m);
-                  setSelectedPair(null);
+                  setSelectedClassification(null);
                 }}
-                selectedFile={selectedPair?.requestFile ?? null}
-                onSelectPair={setSelectedPair}
+                selectedFile={selectedClassification?.requestFile ?? null}
+                onSelectClassification={setSelectedClassification}
               />
             </ResizablePanel>
-            {selectedPair !== null && (
+            {selectedClassification !== null && (
               <>
                 <ResizableHandle withHandle aria-label="resize rules and result panes" />
                 <ResizablePanel

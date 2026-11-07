@@ -49,7 +49,7 @@ describe("a classification of an unedited recording", () => {
 });
 
 const root = mkdtempSync(join(tmpdir(), "jint-classifications-"));
-// one recorded run: the element request the pair "is_small at a.ts#e1" was read from
+// one recorded run: the element request that read "is_small at a.ts#e1"
 mkdirSync(join(root, "run-a"));
 writeFileSync(
   join(root, "run-a", "1700000000001-elements-a.ts.json"),
@@ -123,10 +123,10 @@ describe("classifications under a run", () => {
     expect(JSON.stringify(asked!.state)).toContain("function g() {}");
   });
 
-  test("a pair lists only its own classifications, while the sequence stays run-wide", async () => {
+  test("an address lists only its own classifications, while the sequence stays run-wide", async () => {
     const classifier: Classifier = async () => ({ edited: { value: 0.4 } }) as never;
     const before = (await list()).classifications.length;
-    // the same recorded element, filed under another pair address
+    // the same recorded element, filed under another address
     await reclassify(
       "run-a",
       { rule: "is_small", input: "a.ts#e1" },
@@ -162,7 +162,7 @@ describe("classifications under a run", () => {
     expect(readdirSync(root)).toEqual(["run-a"]);
   });
 
-  test("a pair the run never recorded is a 404", async () => {
+  test("an address the run never recorded is a 404", async () => {
     const res = await serveApiRequest(post({ rule: "is_small", input: "nope.ts#e9" }), { root });
     expect(res?.status).toBe(404);
   });
@@ -199,7 +199,7 @@ describe("classifications under a run", () => {
     expect((await serveApiRequest(req, { root }))?.status).toBe(400);
   });
 
-  test("a classification without its pair address is refused", async () => {
+  test("a classification without its address is refused", async () => {
     expect((await serveApiRequest(post({ instructions: "x" }), { root }))?.status).toBe(400);
   });
 
@@ -215,32 +215,32 @@ describe("classifications under a run", () => {
   });
 });
 
-describe("the pair lookup", () => {
+describe("the original lookup", () => {
   const get = (query: string) =>
-    serveApiRequest(new Request(`http://localhost:1/api/runs/run-a/pair?${query}`), { root });
-  test("returns the request that read the pair with the pair's own question and answer", async () => {
+    serveApiRequest(new Request(`http://localhost:1/api/runs/run-a/original?${query}`), { root });
+  test("returns the request that read the address with its own question and answer", async () => {
     const res = await get("rule=is_small&input=a.ts%23e1");
     expect(res?.status).toBe(200);
     const read = (await res?.json()) as {
       result: { file: string; path: string };
       request: { request: { state: { source: string } } };
-      pair: { key: string; question: { instructions: string } };
+      classification: { key: string; question: { instructions: string } };
     };
     expect(read.result).toMatchObject({ file: "1700000000001-elements-a.ts.json", path: "a.ts" });
     expect(read.request.request.state.source).toBe("function f() {}");
-    expect(read.pair).toMatchObject({ key: "is_small in e1", question: body.question });
+    expect(read.classification).toMatchObject({ key: "is_small in e1", question: body.question });
   });
-  test("an explicit file wins; a pair the run never recorded is a 404; the address is required", async () => {
+  test("an explicit file wins; an address the run never recorded is a 404; the address is required", async () => {
     const named = await get("rule=is_small&input=other.ts&file=1700000000001-elements-a.ts.json");
     expect(named?.status).toBe(200);
     expect((await get("rule=is_small&input=nope.ts%23e9"))?.status).toBe(404);
     expect((await get("rule=is_small"))?.status).toBe(400);
   });
-  test("a rule the request never asked reads as no pair, not an error", async () => {
+  test("a rule the request never asked reads as no classification, not an error", async () => {
     const read = (await (await get("rule=other_rule&input=a.ts%23e1"))?.json()) as {
-      pair: unknown;
+      classification: unknown;
     };
-    expect(read.pair).toBeNull();
+    expect(read.classification).toBeNull();
   });
 });
 

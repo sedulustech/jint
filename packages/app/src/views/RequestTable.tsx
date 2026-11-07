@@ -21,7 +21,7 @@ interface Props {
   mode: Mode;
   onMode: (m: Mode) => void;
   selectedFile: string | null;
-  onSelectPair: (pair: { rule: string; input: string; requestFile?: string }) => void;
+  onSelectClassification: (address: { rule: string; input: string; requestFile?: string }) => void;
 }
 
 /**
@@ -79,7 +79,7 @@ function buildGroupedParents(
 }
 
 /** The click payload for one request-log row: the measured subject, or the file when untargeted. */
-function requestPair(requestRow: RequestItem): {
+function requestAddress(requestRow: RequestItem): {
   rule: string;
   input: string;
   requestFile: string;
@@ -105,7 +105,7 @@ function groupStatsFor(
     : fileGroups.find((group) => fileGroupKey(group.file) === row.key)!.stats;
 }
 
-type Pair = { rule: string; input: string; requestFile?: string };
+type Address = { rule: string; input: string; requestFile?: string };
 
 /** Why the grouped table is empty when the report itself is missing or silent. */
 function emptyStateNote(
@@ -358,7 +358,7 @@ function GroupedNestedTable({
   parentKey,
   cells,
   selectedFile,
-  onSelectPair,
+  onSelectClassification,
   sort,
   onToggle,
 }: {
@@ -367,7 +367,7 @@ function GroupedNestedTable({
   parentKey: string;
   cells: Cell[];
   selectedFile: string | null;
-  onSelectPair: (pair: Pair) => void;
+  onSelectClassification: (address: Address) => void;
   sort: NestedSort | undefined;
   onToggle: (parentKey: string, key: "sev" | "value") => void;
 }) {
@@ -412,7 +412,7 @@ function GroupedNestedTable({
             mode={mode}
             kind={mode === "file" ? (kinds[cell.rule] ?? "-") : undefined}
             selected={selectedFile === cell.file}
-            onSelectPair={onSelectPair}
+            onSelectClassification={onSelectClassification}
           />
         ))}
       </tbody>
@@ -425,14 +425,14 @@ function GroupedChildRow({
   mode,
   kind,
   selected,
-  onSelectPair,
+  onSelectClassification,
 }: {
   cell: Cell;
   mode: Mode;
   /** The child rule's kind when the child is a rule; undefined for a file child. */
   kind: string | undefined;
   selected: boolean;
-  onSelectPair: (pair: Pair) => void;
+  onSelectClassification: (address: Address) => void;
 }) {
   // The child's identity axis follows the parent: in rule mode the parent is the rule, so the
   // child names the file it fired on; in file mode the reverse. Same grid either way.
@@ -442,7 +442,7 @@ function GroupedChildRow({
       ? null
       : spanLabel(cell.element.span);
   const select = () =>
-    onSelectPair({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile });
+    onSelectClassification({ rule: cell.rule, input: cell.input, requestFile: cell.requestFile });
   return (
     <tr
       data-testid={`cell-${cell.rule}@${cell.input}`}
@@ -499,14 +499,14 @@ function GroupedChildRow({
 function RequestLog({
   rows,
   selectedFile,
-  onSelectPair,
+  onSelectClassification,
   sortKey,
   sortDir,
   onToggleSort,
 }: {
   rows: RequestItem[];
   selectedFile: string | null;
-  onSelectPair: (pair: Pair) => void;
+  onSelectClassification: (address: Address) => void;
   sortKey: SortKey;
   sortDir: "asc" | "desc";
   onToggleSort: (key: SortKey) => void;
@@ -522,7 +522,7 @@ function RequestLog({
             height={ROW_HEIGHT}
             selected={requestRow.file === selectedFile}
             severity={requestRow.severity}
-            onSelect={() => onSelectPair(requestPair(requestRow))}
+            onSelect={() => onSelectClassification(requestAddress(requestRow))}
           />
         ))}
       </tbody>
@@ -539,7 +539,7 @@ function GroupedTreeView({
   expanded,
   onToggleExpand,
   selectedFile,
-  onSelectPair,
+  onSelectClassification,
   nestedSorts,
   onToggleNestedSort,
 }: {
@@ -552,7 +552,7 @@ function GroupedTreeView({
   expanded: Set<string>;
   onToggleExpand: (key: string) => void;
   selectedFile: string | null;
-  onSelectPair: (pair: Pair) => void;
+  onSelectClassification: (address: Address) => void;
   nestedSorts: Record<string, NestedSort>;
   onToggleNestedSort: (parentKey: string, key: "sev" | "value") => void;
 }) {
@@ -578,7 +578,7 @@ function GroupedTreeView({
                     parentKey={parentRow.key}
                     cells={parentRow.cells}
                     selectedFile={selectedFile}
-                    onSelectPair={onSelectPair}
+                    onSelectClassification={onSelectClassification}
                     sort={nestedSorts[parentRow.key]}
                     onToggle={onToggleNestedSort}
                   />
@@ -618,7 +618,7 @@ function EmptyNotice({
   );
 }
 
-export function RequestTable({ runId, mode, onMode, selectedFile, onSelectPair }: Props) {
+export function RequestTable({ runId, mode, onMode, selectedFile, onSelectClassification }: Props) {
   const { query, rows, ruleGroups, fileGroups, filter, setFilter, sortKey, sortDir, toggleSort } =
     useRun(runId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -711,7 +711,7 @@ export function RequestTable({ runId, mode, onMode, selectedFile, onSelectPair }
       <RequestLog
         rows={rows}
         selectedFile={selectedFile}
-        onSelectPair={onSelectPair}
+        onSelectClassification={onSelectClassification}
         sortKey={sortKey}
         sortDir={sortDir}
         onToggleSort={(key) => toggleSort(key)}
@@ -726,7 +726,7 @@ export function RequestTable({ runId, mode, onMode, selectedFile, onSelectPair }
         expanded={expanded}
         onToggleExpand={toggleExpand}
         selectedFile={selectedFile}
-        onSelectPair={onSelectPair}
+        onSelectClassification={onSelectClassification}
         nestedSorts={nestedSorts}
         onToggleNestedSort={toggleNestedSort}
       />

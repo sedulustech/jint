@@ -8,7 +8,7 @@ import type { Classifier, QuestionSchema } from "../core/types.ts";
  */
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
-/** The one question name an edited pair is asked under. */
+/** The one question name an edited classification is asked under. */
 const QUESTION_NAME = "edited";
 
 export interface ClassifyRequest {
@@ -35,8 +35,8 @@ export interface Wire {
 }
 
 /**
- * What changed against a pair's original: only the fields set differ. Criteria are keyed by option
- * label (choice, noul) or level index (score).
+ * What changed against the original: only the fields set differ. Criteria are keyed by option label
+ * (choice, noul) or level index (score).
  */
 export interface ClassificationEdit {
   instructions?: string;

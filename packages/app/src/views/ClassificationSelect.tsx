@@ -4,7 +4,7 @@ import { ROW_CURSOR } from "../lib/row";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-/** One classification of a pair in the list: the original, then #1, #2, ... in filing order. */
+/** One classification of an address in the list: the original, then #1, #2, ... in filing order. */
 export interface ClassificationRow {
   position: number;
   /** "original" or "#N". */
@@ -17,9 +17,9 @@ export interface ClassificationRow {
 }
 
 /**
- * Steps through a pair's classifications (the arrows wrap around at either end) and jumps to one:
- * arrows around a select that reads "4 of 5". Rows keep their #N. The caller hides it while only
- * the original exists.
+ * Steps through an address's classifications (the arrows wrap around at either end) and jumps to
+ * one: arrows around a select that reads "4 of 5". Rows keep their #N. The caller hides it while
+ * only the original exists.
  */
 export function ClassificationSelect({
   rows,

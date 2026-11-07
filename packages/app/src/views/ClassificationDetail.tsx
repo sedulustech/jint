@@ -1,7 +1,7 @@
 import { asTier } from "@jint/contract";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useState } from "react";
-import { fetchPair, fetchRun } from "../api/client";
+import { fetchOriginal, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { classificationRows, type Gates } from "./classificationRows";
 import { useClassifications } from "./Classifications";
@@ -14,38 +14,40 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   runId: string;
-  /** The pair address: ONE rule at ONE input. No request identity in the address. */
+  /** The address: ONE rule at ONE input. No request identity in the address. */
   rule: string;
   input: string;
-  /** The request file the pair was clicked from, when known - skips the request lookup. */
+  /** The request file the classification was clicked from, when known - skips the request lookup. */
   requestFile?: string;
   onClose: () => void;
 }
 
 /**
- * Detail view for a single rule-target pair. The ADDRESS is (rule, input); the request is fetched
- * only to render the answer's context (code, sampling meta) - severity comes from the run payload's
- * span-aware join for exactly this pair, never from a sibling.
+ * Detail view for the classifications of one address. The ADDRESS is (rule, input); the request is
+ * fetched only to render the answer's context (code, sampling meta) - severity comes from the run
+ * payload's span-aware join for exactly this address, never from a sibling.
  */
-export function PairDetail(props: Props) {
-  // one edit per pair: another pair starts from its own original, never from this one's edit
-  return <PairDetailBody key={`${props.runId}|${props.rule}|${props.input}`} {...props} />;
+export function ClassificationDetail(props: Props) {
+  // one edit per address: another address starts from its own original, never from this one's edit
+  return (
+    <ClassificationDetailBody key={`${props.runId}|${props.rule}|${props.input}`} {...props} />
+  );
 }
 
-function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
+function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
   // the element projection rides the run payload's cells; the input keeps the uuid as its key,
   // the user reads the span label
   const element = run.data?.cells?.find((c) => c.rule === rule && c.input === input)?.element;
   const file = input.split("#")[0]!;
-  // the server resolves the pair: its request, its row and its own question and answer
+  // the server resolves the original: its request, its row and its own question and answer
   const query = useQuery({
-    queryKey: ["pair", runId, rule, input, requestFile],
-    queryFn: () => fetchPair(runId, { rule, input, file: requestFile }),
+    queryKey: ["original", runId, rule, input, requestFile],
+    queryFn: () => fetchOriginal(runId, { rule, input, file: requestFile }),
   });
   const { result, request } = query.data ?? {};
-  const recorded = query.data?.pair;
-  const pair: QA | undefined =
+  const recorded = query.data?.classification;
+  const original: QA | undefined =
     recorded === null || recorded === undefined
       ? undefined
       : {
@@ -54,7 +56,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
           question: recorded.question as QA["question"],
           answer: recorded.answer as QA["answer"],
         };
-  // per-pair severity from the API's span-aware join; never re-derived client-side
+  // per-address severity from the API's span-aware join; never re-derived client-side
   const severity = result?.severities[rule] ?? null;
 
   const state = (request?.request?.state ?? {}) as {
@@ -69,8 +71,8 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         ? state.source
         : null;
   const meta = request?.response ?? {};
-  // the edit of this pair; the cards below render it and the classify bar asks it
-  const classifications = useClassifications({ runId, rule, input }, pair, code);
+  // the edit of this address; the cards below render it and the classify bar asks it
+  const classifications = useClassifications({ runId, rule, input }, original, code);
   const [editingCode, setEditingCode] = useState(false);
   // noul thresholds only: score and choice verdicts read from their own tiers
   const handleData = run.data?.handles?.[rule];
@@ -132,9 +134,9 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
     </Button>
   );
   const viewButton = (mode: "code" | "request") =>
-    toggleButton(view, mode, setView, `pair-view-${mode}`);
+    toggleButton(view, mode, setView, `classification-view-${mode}`);
   const formButton = (mode: "parsed" | "raw") =>
-    toggleButton(form, mode, setForm, `pair-request-${mode}`);
+    toggleButton(form, mode, setForm, `classification-request-${mode}`);
 
   return (
     <section className="detail-pane flex h-full w-full min-h-0 min-w-0 flex-col border-t border-border bg-background overflow-auto lg:border-l lg:border-t-0">
@@ -149,7 +151,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         <Button
           variant="secondary"
           size="icon-xs"
-          data-testid="close-pair"
+          data-testid="close-classification"
           aria-label="close"
           onClick={onClose}
         >
@@ -160,12 +162,12 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
         <p className="p-rail text-muted-foreground">loading…</p>
       )}
       {query.isError && <p className="p-rail text-sev-error">{String(query.error)}</p>}
-      {pair === undefined && !query.isLoading && (
+      {original === undefined && !query.isLoading && (
         <p className="p-rail text-muted-foreground">
           no answer for {rule} at {input} in the request
         </p>
       )}
-      {request !== undefined && pair !== undefined && (
+      {request !== undefined && original !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-siblings text-caption text-muted-foreground">
             <span>
@@ -184,7 +186,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
           </div>
           <div className="flex flex-col">
             <AnswerCard
-              qa={classifications.edited ?? pair}
+              qa={classifications.edited ?? original}
               trailing={select}
               edit={code !== null ? classifications.edit : undefined}
               sev={severity}
@@ -259,7 +261,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
               {formButton("raw")}
             </div>
           )}
-          <div id={panelId} data-testid="pair-view" className="relative bg-muted">
+          <div id={panelId} data-testid="classification-view" className="relative bg-muted">
             {view === "code" && code !== null && (
               <>
                 <div className="absolute right-related top-related z-10 flex gap-related">
@@ -289,13 +291,13 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
               </>
             )}
             {view === "request" && (
-              <div data-testid="pair-request" data-wire={hasWire}>
+              <div data-testid="classification-request" data-wire={hasWire}>
                 <div className="absolute right-related top-related z-10">
                   <CopyButton text={requestText} label="copy request" icon />
                 </div>
                 {!hasWire && (
                   <p
-                    data-testid="pair-request-note"
+                    data-testid="classification-request-note"
                     className="px-rail pt-siblings text-caption text-muted-foreground"
                   >
                     recorded before wire capture: this is jint's request shape, not the bytes sent
@@ -304,7 +306,7 @@ function PairDetailBody({ runId, rule, input, requestFile, onClose }: Props) {
                 {form === "parsed" ? (
                   <>
                     <p
-                      data-testid="pair-request-parsed-note"
+                      data-testid="classification-request-parsed-note"
                       className="px-rail pt-siblings text-caption text-muted-foreground"
                     >
                       input is expanded for reading; the copy button gives the exact body

@@ -7,7 +7,7 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 jest.setTimeout(60_000);
 
-// reclassify end to end: a real run records a pair, then the verb asks that pair again through the
+// reclassify end to end: a real run records a classification, then the verb asks that rule at that input again through the
 // SDK's one reclassify and files it under the same run as the agent's #N.
 const RULE = {
   name: "is_comment_justified",
@@ -83,11 +83,11 @@ describe("jint reclassify", () => {
     expect(noRule.code).toBe(2);
     expect(noRule.stderr).toContain("jint reclassify takes");
 
-    const unknownPair = await runCli(["reclassify", runId, "nope.ts", "--rule", RULE.name], {
+    const unknownAddress = await runCli(["reclassify", runId, "nope.ts", "--rule", RULE.name], {
       env,
     });
-    expect(unknownPair.code).toBe(2);
-    expect(unknownPair.stderr).toContain("no recorded request");
+    expect(unknownAddress.code).toBe(2);
+    expect(unknownAddress.stderr).toContain("no recorded request");
 
     const notJson = await runCli(["reclassify", runId, input, "--rule", RULE.name, "-"], {
       env,
