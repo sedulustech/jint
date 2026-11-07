@@ -7,22 +7,21 @@ sidebar:
 
 # Calibration
 
-Calibration is testing a rule and editing it until it is right. A test is one rule version, run
-two times on the same inputs. Compare tests by their undecided count. Undecided classifications show
-where the options do not separate the code.
-
-When a rule has many undecided classifications, edit its instructions or criteria. Do not change the
-rule's action.
-
-The goal is rules calibrated to your code, so that they fire only when they need to. A rule that
-reads wrongly blocks good work or lets bad work pass.
-
-Your agent can create rules, but it's better if you did. Think of it as automated steering and verification.
+Calibration is needed when creating a rule.
+General rules (rules that encompass a set of dimensions) are harder to introduce in a codebase.
+It's easier to create a rule that does something very specific in a given that file, than a rule
+that aims to target multiple files simultaneously.
 You want your rules to be precise.
 
+Using a rule that prevents the agent from doing its work is the opposite effect of what we want to achieve.
+There is a need for testing a rule and editing it until the result is beneficial.
+
+When a rule has ambiguous classifications, edit its instructions or criteria. Do not change the
+rule's action.
+
 You can use the local UI to edit a rule's question next to the captured text, classify it, and compare
-the classifications until the rule judges what you mean.
-Your agent writes the rule's logic and you write the question and the evidence.
+the classifications until the rule outputs what you mean.
+In this case, your agent writes the rule's logic and you write the question and the evidence.
 
 ## Controls
 
@@ -32,4 +31,4 @@ low. Set the handle's thresholds inside the gap between the healthiest defective
 least healthy healthy one.
 
 Controls show that a rule tells the cases apart. They do not show that it fires only when it needs
-to. Run the rule over your real code as well, and spot-check what fires.
+to. Run the rule over your real code as well.

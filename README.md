@@ -88,8 +88,7 @@ export default {
 
 **Caching.** jint stores every answer on disk (`$JINT_CACHE_DIR`, else `~/.jint/cache`), one per
 question. Asking the same question about the same code again sends nothing and reads the same.
-Edit one rule and only that rule's questions go out. `jint run --no-cache` asks everything. The
-key and the evidence behind it are in [docs/answer-cache.md](docs/answer-cache.md).
+Edit one rule and only that rule's questions go out. `jint run --no-cache` asks everything.
 
 The endpoint also caches repeated input on its side (an input of 1,024 tokens or more, for about 30
 minutes). jint sends each element's code first and its questions after, so a question that does go
