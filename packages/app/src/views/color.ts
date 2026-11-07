@@ -1,11 +1,12 @@
 /**
- * Triage palette. Dots keep saturated hues (fine as 3:1 marks in both themes); TEXT uses theme
- * tokens so labels clear 4.5:1 on their own surfaces (amber-700/red-700 light, amber-300/ red-400
- * dark). --sev-* defined in index.css.
+ * Triage palette: pass, warn and error each have ONE color, the --sev-* tokens in index.css, used
+ * for text, dots, bars and washes alike (amber-700/red-700/emerald-700 light, amber-300/red-400/
+ * emerald-400 dark, chosen so text clears 4.5:1 on its own surface). Nothing else in the app names
+ * a red, amber or green.
  */
 export const SEVERITY = {
-  error: { dot: "bg-red-500", text: "text-sev-error", row: "bg-red-500/[0.07]" },
-  warn: { dot: "bg-amber-400", text: "text-sev-warn", row: "bg-amber-400/[0.07]" },
+  error: { dot: "bg-sev-error", text: "text-sev-error", row: "bg-sev-error/[0.07]" },
+  warn: { dot: "bg-sev-warn", text: "text-sev-warn", row: "bg-sev-warn/[0.07]" },
 } as const;
 
 /**

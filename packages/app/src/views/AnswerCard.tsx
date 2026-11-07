@@ -5,7 +5,7 @@ import {
   type ChoiceHandlerData,
   type HandlerLevel,
 } from "@jint/contract";
-import { SEVERITY, TIER } from "./color";
+import { SEVERITY, TIER, TIER_TEXT } from "./color";
 import { EditableText, LabeledText, SectionHeading } from "./LabeledText";
 import type { ReactNode } from "react";
 
@@ -181,11 +181,13 @@ export function AnswerCard({
               data-answer={choice}
               data-verdict={tierRead?.verdict}
               className={`text-3xl font-bold leading-none ${
-                tierRead?.verdict === "pass" ? "text-sev-clean" : color
+                tierRead === null || tierRead.verdict === "undecided"
+                  ? color
+                  : TIER_TEXT[tierRead.verdict]
               }`}
               title={sev !== null ? `severity: ${sev}` : undefined}
             >
-              {tierRead?.verdict ?? choice}
+              {choice}
             </span>
             <span className="whitespace-nowrap text-caption text-muted-foreground">
               {tierRead !== null

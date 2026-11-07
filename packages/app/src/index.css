@@ -67,6 +67,9 @@ body {
   --font-sans: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
   --font-heading: "IBM Plex Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
   --color-ring: var(--ring);
+  --color-sev-warn: var(--sev-warn);
+  --color-sev-error: var(--sev-error);
+  --color-sev-clean: var(--sev-clean);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -184,26 +187,6 @@ body {
 }
 *::-webkit-scrollbar-corner {
   background: var(--scrollbar-track);
-}
-
-/* severity utilities */
-.text-sev-error {
-  color: var(--sev-error);
-}
-.text-sev-warn {
-  color: var(--sev-warn);
-}
-.text-sev-clean {
-  color: var(--sev-clean);
-}
-.bg-sev-error {
-  background-color: var(--sev-error);
-}
-.bg-sev-warn {
-  background-color: var(--sev-warn);
-}
-.bg-sev-clean {
-  background-color: var(--sev-clean);
 }
 
 /* github-light highlight theme */
