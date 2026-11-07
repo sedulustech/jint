@@ -77,7 +77,7 @@ const INCLUDE_PATH_SCHEMA = Type.Optional(
 // (>= two descriptions indexed by score 0..N), choice rules carry named options (>= two labels). kind stays optional in the noul branch (noul IS
 // the default; the loader fills it). The question and the handle are both REQUIRED (policy:
 // probes ship real questions and real handles) - a rule without its question would classify
-// under an invented prompt and silently recalibrate every reading.
+// under an invented prompt and silently recalibrate every classification.
 const NOUL_RULE_SCHEMA = Type.Object({
   name: Type.String({
     description:
@@ -86,7 +86,7 @@ const NOUL_RULE_SCHEMA = Type.Object({
   kind: Type.Optional(Type.Literal("noul")),
   instructions: Type.String({
     description:
-      "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.",
+      "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every classification.",
   }),
   criteria: Type.Object(
     { true: Type.String(), false: Type.String() },

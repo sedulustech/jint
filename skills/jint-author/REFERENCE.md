@@ -16,11 +16,11 @@ probabilities (noul, 0..1) or rubric scores, no explanations. Key properties:
   so phrase the defect first and let a planted-defect control decide.
 - **Scores hedge onto the middle.** A three-level score put most of its mass on
   level 1 (mean probabilities 0.37 / 0.52 / 0.12; level 1 on 389 of 448
-  readings; the same property asked as a yes/no also sat near 0.5). Yes/no rules
+  classifications; the same property asked as a yes/no also sat near 0.5). Yes/no rules
   on properties with a clear pole read cleanly. Use a rubric only when the
   property really is graded.
 - **State shape.** One state x many questions per call is valid and does not
-  move the readings (160 of 160 identical batched and alone). Never stack
+  move the classifications (160 of 160 identical batched and alone). Never stack
   elements into one state yourself: the frame is the unit.
 
 ## Noul example: a two-sided criteria contract

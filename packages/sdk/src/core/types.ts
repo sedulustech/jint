@@ -173,7 +173,7 @@ export interface NoulRule extends RuleBase {
   readonly kind?: "noul";
   /**
    * The yes/no question the model answers, specific to the rule's claim. REQUIRED: a generic
-   * fallback question would silently recalibrate every reading. The compiler prepends the
+   * fallback question would silently recalibrate every classification. The compiler prepends the
    * element-kind sentence, so the question never leaves the judged object implicit. Changing a
    * rule's instructions is a recalibration event: readings move.
    */

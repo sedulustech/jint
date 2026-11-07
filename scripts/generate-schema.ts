@@ -154,14 +154,15 @@ const FALLBACK_DESCRIPTIONS: Record<string, string> = {
     "The answer contract: noul carries {true, false}; score carries an ordered rubric (score 0..N); choice carries named options (label -> meaning). The handle decides which answers fire.",
   target:
     "What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.",
-  handle: "When readings surface as findings; the shape depends on kind (the descriptions below).",
+  handle:
+    "When classifications surface as findings; the shape depends on kind (the descriptions below).",
   include:
     "Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope.",
   exclude:
     "Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.",
 };
 const callbackHandle =
-  'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (classification only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
+  'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per classification: { severity: "error" | "warn" | null, message? }. Null severity is silent (classification only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
 
 // Each handle form's description, read from the schema the loader validates against - one source,
 // so the authoring doc cannot describe a handle the loader no longer accepts.
@@ -242,7 +243,7 @@ export function renderFixerTable(messages: readonly FixerMessage[]): string {
   ].join("\n");
 }
 
-// The run UI and a reading's address in it: the verb and its description come from the CLI, the
+// The run UI and a classification's address in it: the verb and its description come from the CLI, the
 // params from the app router - if the router drops one, generation fails instead of the skill
 // teaching a dead link.
 export function renderRunAddress(): string {
@@ -255,7 +256,7 @@ export function renderRunAddress(): string {
     .map((key) => `${key}=<${key}>`)
     .join("&");
   const serve = `\`${VERBS.serve.example}\`: ${VERBS.serve.blurb.split(" - ")[0]}; it prints its URL.`;
-  return `${serve} A reading's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the reading's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
+  return `${serve} A classification's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
 }
 
 // --- skills ----------------------------------------------------------------

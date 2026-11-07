@@ -11,7 +11,8 @@ description: >
 
 jint measures code: rules in, findings out. A **rule** compiles to one question
 for the **provider** (an AI classifier); each answer is a calibrated
-reading; a reading that crosses the rule's thresholds becomes a **finding**.
+classification; a classification that crosses the rule's thresholds becomes a
+**finding**.
 
 ## Rules are data
 
@@ -26,7 +27,7 @@ Write the question about ONE property, as a yes/no the model can answer from the
 unit alone. Name the rule for what the true side says, so the value reads as the
 name: `has_filename_mismatch` high is bad, `is_greppable` high is good, and the
 handle direction follows. Two properties under one question is two rules: one
-reading cannot say which failed. The model sees only the element's frame (a
+classification cannot say which failed. The model sees only the element's frame (a
 comment rule sees the definition it belongs to), so a claim about code elsewhere
 cannot be judged.
 
@@ -36,10 +37,10 @@ cannot be judged.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `name`         | The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.                                                                                            |
 | `kind`         | noul                                                                                                                                                                                                               |
-| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every reading.                                                              |
+| `instructions` | The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every classification.                                                       |
 | `criteria`     | The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.                                                                             |
 | `target`       | What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.                                                                                            |
-| `handle`       | When readings surface as findings; the shape depends on kind (the descriptions below).                                                                                                                             |
+| `handle`       | When classifications surface as findings; the shape depends on kind (the descriptions below).                                                                                                                      |
 | `include`      | Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope.                |
 | `exclude`      | Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.                                                                                       |
 | `includePath`  | true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself. |
@@ -47,11 +48,11 @@ cannot be judged.
 
 Handles, one form per kind - direction lives in the handle, never in prose:
 
-- **noul** (yes/no): `Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p readings inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.`
+- **noul** (yes/no): `Noul handler (noul rules only): per-threshold comparison operators declare the direction. Declare at least one tier - warn, error, or both; a handle with neither is rejected. An error-only handle fires error past its threshold and passes otherwise. When both tiers are present, warn is the wider region and error the strictly narrower one (same direction, ordered toward the defect: greater warn < greater error, or less warn > less error). silent_band [lo, hi] keeps raw-p classifications inside it silent (must be ordered, must not cover the whole scale, must not contain any declared threshold value); absent = everything surfaces.`
 - **score** (scored rubric): `Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.`
-- **choice** (named options): `Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { margin, level, message? }: when the top tier's probability leads the runner-up tier's by less than `margin` (between 0 and 1), this tier fires instead - an undecided reading the rule acts on like any other tier.`
+- **choice** (named options): `Choice handler (choice rules only): one tier per option label, keyed by the label. The option probabilities are summed per tier; the tier with the most probability is the verdict, and its most probable option's message becomes the finding's note. Options are unordered, nothing is averaged. The labels MUST equal the criteria labels and at least one tier must be non-pass. Optional undecided { margin, level, message? }: when the top tier's probability leads the runner-up tier's by less than `margin` (between 0 and 1), this tier fires instead - an undecided classification the rule acts on like any other tier.`
 
-Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per reading: { severity: "error" | "warn" | null, message? }. Null severity is silent (classification only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.
+Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per classification: { severity: "error" | "warn" | null, message? }. Null severity is silent (classification only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.
 <!-- /generated:rule-schema -->
 
 A live config example, serialized from real shipped specs (always the current
@@ -111,7 +112,7 @@ wire shape):
 
 <!-- generated:run-address — do not edit. Regenerate with `bun run schema`. -->
 
-`jint serve`: the run UI over the store's newest run; it prints its URL. A reading's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the reading's `input` from `--json`. URL-encode `input`: it contains `#`.
+`jint serve`: the run UI over the store's newest run; it prints its URL. A classification's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the classification's `input` from `--json`. URL-encode `input`: it contains `#`.
 <!-- /generated:run-address -->
 
 ## Fixer messages are decisive
@@ -156,7 +157,7 @@ EOF
 
 `run.id` and `input` come from `--json`, as for the run UI. Send only what
 changed; criteria are keyed by option label (score: level index). `--json` prints
-the record: `n` is the `#N`, `answer` the reading. It needs the same key as
+the record: `n` is the `#N`, `answer` its answer. It needs the same key as
 `jint run`.
 
 ## The calibration ritual
@@ -182,10 +183,10 @@ conventions.
 - Read the fire rate on healthy code. A rule that fires on a third of it (measured:
   an error-handling rule at 10-36% across three repositories) is over-firing or
   finding real defects, and only labels say which.
-- Label a sample of the readings by hand: reruns show stability, only labels
+- Label a sample of the classifications by hand: reruns show stability, only labels
   show correctness. A rule with no labeled defective example is a hypothesis,
   not a rule.
-- Aim for orthogonal rules: a rule's reading should not depend on what another rule
+- Aim for orthogonal rules: a rule's classification should not depend on what another rule
   reads, so two rules should not ask nearly the same question. When a new rule
   overlaps an existing one, merge them or reword one until it judges a different
   dimension.
