@@ -9,6 +9,8 @@ const PLATFORMS = [
   { label: "Linux arm64", file: "jint-linux-arm64.tar.gz" },
   { label: "macOS Apple silicon", file: "jint-darwin-arm64.tar.gz" },
   { label: "macOS Intel", file: "jint-darwin-x64.tar.gz" },
+  { label: "Checksums", file: "checksums.txt" },
+  { label: "Commit", file: "COMMIT" },
 ];
 // the beta channel: /dl/download/beta/<file> redirects to the one current build
 const BETA = "/dl/download/beta";
@@ -26,10 +28,7 @@ const BETA = "/dl/download/beta";
     </header>
     <main>
       <h1>download</h1>
-      <p>
-        Download the beta version: <a href={`${BETA}/checksums.txt`}>checksums</a> ·
-        <a href={`${BETA}/COMMIT`}>commit</a>
-      </p>
+      <p>Download the beta version.</p>
       <ul class="platforms">
         {
           PLATFORMS.map(({ label, file }) => (
