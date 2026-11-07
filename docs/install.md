@@ -38,7 +38,8 @@ jint carries its own runtime, so you need no JavaScript
 runtime to run it or to write `.ts` rules.
 
 jint asks a classifier endpoint its questions, so it needs an API key in the environment:
-`JINT_API_KEY`, or `OPENAI_API_KEY`.
+`JINT_API_KEY`, or `OPENAI_API_KEY`. A model on your own machine needs no key. See
+[models and endpoints](endpoints.md).
 
 On Linux the only system requirement is glibc. On musl-based images such as Alpine,
 install a glibc layer first or use a glibc base image.

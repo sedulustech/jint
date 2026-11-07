@@ -58,33 +58,21 @@ Skills for agents live in skills/: jint-follow (run jint, fix findings), jint-au
 
 ## How to use
 
-jint asks its questions of one endpoint: the Decisions API (POST /v1/decisions). The key you
-export selects where the questions go; there is no provider or model setting. The model id is
-fixed in the adapter (`gpt-6-luna`).
+jint asks its questions of one endpoint. By default that is OpenAI's Decisions API with the model
+`gpt-6-luna`. To use another endpoint, set its url: the last segment names the wire, `/decisions`
+for the OpenAI Decisions API or `/v1/systemone` for TypeSafe and Lemonade.
 
 ```bash
 export OPENAI_API_KEY=...      # ask OpenAI directly (api.openai.com)
-# or
-export JINT_API_KEY=...        # ask another Decisions endpoint (a proxy or service you run)
-export JINT_API_URL=...        #   its url (must end in /decisions)
+# or another endpoint
+export JINT_API_URL=...        # its url (ends in /decisions or /v1/systemone)
+export JINT_API_KEY=...        # its key (a server on this machine needs none)
+export JINT_API_MODEL=...      # its model (required for /v1/systemone, except on TypeSafe's host)
 ```
 
-If both keys are set, `JINT_API_KEY` wins: the `JINT_` variable is a deliberate choice, and
-`OPENAI_API_KEY` is often exported for other tools. A key is only ever sent to the url it is
-paired with: `OPENAI_API_KEY` goes to api.openai.com and nowhere else, so pointing
-`JINT_API_URL` elsewhere without `JINT_API_KEY` fails at setup instead of sending your OpenAI key
-to another host. With neither key set, a run with rules fails at setup.
-
-The url must end in `/decisions`. A config holds neither a key nor a url, because a config is committed.
-A run that moves the url off the default, or reads its key from the environment, says so in a run
-note (variable name and url host, never the key).
-
-```ts
-// asks a local endpoint; its key comes from JINT_API_KEY (an exported OPENAI_API_KEY is not sent here)
-export default {
-  url: "http://localhost:8080/v1/decisions",
-};
-```
+A key is only ever sent to the url it is paired with: `OPENAI_API_KEY` goes to api.openai.com and
+nowhere else. A config holds none of these, because a config is committed. See
+[models and endpoints](docs/endpoints.md) for local models.
 
 **Caching.** jint stores every answer on disk (`$JINT_CACHE_DIR`, else `~/.jint/cache`), one per
 question. Asking the same question about the same code again sends nothing and reads the same.

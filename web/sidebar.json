@@ -21,7 +21,7 @@
   },
   {
     "label": "Running jint",
-    "items": ["config"]
+    "items": ["config", "endpoints"]
   },
   {
     "label": "Use cases",

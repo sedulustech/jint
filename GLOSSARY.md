@@ -137,9 +137,9 @@ demands action.
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
   `jint run ./capture`).
-- **provider** — the service at the Decisions endpoint that answers jint's questions. The API key
-  selects it, and a key goes only to the url it is paired with. A run note reports a url
-  moved off the default.
+- **provider** — the service at the endpoint that answers jint's questions. The url selects it, its
+  last segment names the wire (`/decisions` or `/v1/systemone`), and a key goes only to the url it
+  is paired with.
 - **question** — one classified judgment request sent to the model about one state: the claim to judge plus the state it judges.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.
