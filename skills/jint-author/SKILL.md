@@ -140,6 +140,25 @@ construct you want judged is not an element, the fix is a capture in the
 grammar's queries.scm, not a rule: see docs/captures.md and docs/directives.md
 (https://github.com/sedulustech/jint/tree/main/docs).
 
+## Re-ask one reading
+
+To test a rewording on one real pair, do not start a new run: `jint reclassify`
+asks that pair again and files the answer under the same run as its next
+classification (`#1`, `#2`, ...). The run UI polls, so the reader sees each one
+appear beside the original while you work.
+
+```bash
+jint reclassify <run.id> <input> --rule <name>        # the original question again
+jint reclassify <run.id> <input> --rule <name> - <<'EOF'
+{"instructions": "...", "criteria": {"true": "..."}, "code": "..."}
+EOF
+```
+
+`run.id` and `input` come from `--json`, as for the run UI. Send only what
+changed; criteria are keyed by option label (score: level index). `--json` prints
+the record: `n` is the `#N`, `answer` the reading. It needs the same key as
+`jint run`.
+
 ## The calibration ritual
 
 A rule is not promoted into an official domain from one corpus:
