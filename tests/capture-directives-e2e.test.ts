@@ -88,13 +88,13 @@ describe("the open path: a new autonomous capture declared entirely in a .scm", 
     });
     expect(proc.code, proc.stderr).toBe(0);
     const report = JSON.parse(proc.stdout);
-    const rules = [...new Set(report.measurements.map((m: any) => m.rule))];
+    const rules = [...new Set(report.classifications.map((m: any) => m.rule))];
     expect(rules).toEqual(["probe_block"]);
-    const kinds = report.measurements.map((m: any) => m.element.kind);
+    const kinds = report.classifications.map((m: any) => m.element.kind);
     // selfNesting declared: the nested and sibling sections surface as their OWN @block elements
     // beside the root that contains them - three blocks, not one collapsed whole
     expect(kinds).toEqual(["block", "block", "block"]);
-    const spans = report.measurements.map(
+    const spans = report.classifications.map(
       (m: any) => `L${m.element.span.start.line}-L${m.element.span.end.line}`,
     );
     expect(spans).toEqual(["L1-L7", "L3-L7", "L7-L8"]);

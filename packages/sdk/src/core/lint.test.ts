@@ -22,8 +22,8 @@ import {
 
 /**
  * Synthetic rule data, one per kind: schema-shaped entries the engine tests compose from. The
- * engine's behavior (stream order, finding-follows-measurement, aggregation, per-unit failures) is
- * inert to rule-data edits - a change in any rule domain cannot move these assertions, because
+ * engine's behavior (stream order, finding-follows-classification, aggregation, per-unit failures)
+ * is inert to rule-data edits - a change in any rule domain cannot move these assertions, because
  * every fixture here derives from the data this file declares.
  */
 const NOUL_DATA = {
@@ -106,12 +106,17 @@ describe("barrel files measure clean (real-jev dogfood defect)", () => {
         classifier: classifierWith({ probe_imports: 0.5 }),
       }),
     );
-    const measurements = events.filter((e) => e.type === "measurement");
-    // the import lane carries the file: the whole-unit files rule plus the element measurement
+    const classifications = events.filter((e) => e.type === "classification");
+    // the import lane carries the file: the whole-unit files rule plus the element classification
     // for the merged re-export element
-    expect(measurements.map((m) => m.measurement.rule)).toEqual(["probe_files", "probe_imports"]);
-    const elementMeasurement = measurements.find((m) => m.measurement.rule === "probe_imports")!;
-    expect(elementMeasurement.measurement.input).toMatch(/#[0-9a-f-]{36}$/);
+    expect(classifications.map((m) => m.classification.rule)).toEqual([
+      "probe_files",
+      "probe_imports",
+    ]);
+    const elementClassification = classifications.find(
+      (m) => m.classification.rule === "probe_imports",
+    )!;
+    expect(elementClassification.classification.input).toMatch(/#[0-9a-f-]{36}$/);
     // the zero-elements failure that dogfood hit must not fire on a legal barrel file
     const failures = events.filter(
       (e) =>
@@ -316,13 +321,13 @@ test("element-scoped run: a function whose only comment is INTERNAL is measured 
 });
 
 // The finding is the actionable output: a score answer's distribution must ride it, copied from
-// its measurement - an agent reading findings alone sees the split.
-test("a score finding carries the measurement's probabilities", async () => {
+// its classification - an agent reading findings alone sees the split.
+test("a score finding carries the classification's probabilities", async () => {
   mkdirSync("tmp", { recursive: true });
   const file = "tmp/lint-bimodal-finding.ts";
   await Bun.write(file, "export function split(x: number): number {\n  return x + 1;\n}\n");
   // value 2 fires the map's error tier; the answer is BIMODAL (0.5/0.5 on distant levels) - the
-  // exact shape that must not hide behind the measurement
+  // exact shape that must not hide behind the classification
   const bimodal: Classifier = async (_state, questions) => {
     const out: Record<string, ClassifiedAnswer> = {};
     for (const key of Object.keys(questions)) {
@@ -339,11 +344,11 @@ test("a score finding carries the measurement's probabilities", async () => {
   expect(findings).toHaveLength(1);
   const f = findings[0]!.finding;
   expect(f.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
-  // and the measurement keeps its own copy (findings never drain the measurement)
+  // and the classification keeps its own copy (findings never drain the classification)
   const m = events.find(
-    (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
+    (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
   )!;
-  expect(!m.measurement.refused && m.measurement.probabilities).toEqual({
+  expect(!m.classification.refused && m.classification.probabilities).toEqual({
     "0": 0.5,
     "1": 0,
     "2": 0.5,
@@ -454,8 +459,8 @@ describe("lint — classification shape", () => {
       // an unparseable file yields no elements and there is no whole-file element judgment.
       expect(log.calls).toHaveLength(1);
       expect(isElementCall(log.calls[0]!.state)).toBe(false);
-      const measurements = events.filter((e) => e.type === "measurement");
-      expect(measurements).toHaveLength(1); // whole-unit rules only: probe_files
+      const classifications = events.filter((e) => e.type === "classification");
+      expect(classifications).toHaveLength(1); // whole-unit rules only: probe_files
       const errors = events.filter(
         (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
       );
@@ -547,7 +552,7 @@ describe("lint", () => {
           },
         }),
       );
-      expect(report.measurements.length).toBeGreaterThanOrEqual(8);
+      expect(report.classifications.length).toBeGreaterThanOrEqual(8);
       // Element ids are per-run uuids (element-identity design): normalize them out, compare
       // everything else byte-for-byte — ordering included.
       return JSON.stringify(report, (key, value) =>
@@ -595,7 +600,7 @@ describe("lint", () => {
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]?.code).toBe("PROVIDER_TIMEOUT");
     expect(report.errors[0]?.input).toMatch(/\/elements\.ts#[0-9a-f-]{36}$/);
-    expect(report.measurements.length).toBeGreaterThanOrEqual(2);
+    expect(report.classifications.length).toBeGreaterThanOrEqual(2);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -622,7 +627,7 @@ describe("lint", () => {
     );
     // zero provider calls: scoping filters at element selection, before rule resolution
     expect(calls).toHaveLength(0);
-    expect(report.measurements).toHaveLength(0);
+    expect(report.classifications).toHaveLength(0);
     expect(report.findings).toHaveLength(0);
     // the gap is signal, not silence: ONE aggregated note per unit names the rule and the count
     expect(report.notes).toHaveLength(1);
@@ -686,7 +691,7 @@ describe("lint", () => {
           Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }])),
       }),
     );
-    expect(report.measurements).toHaveLength(0);
+    expect(report.classifications).toHaveLength(0);
     // layer 1 (global config exclude) closes the CONFIG scope, never the claiming rule's: a
     // rule include claims its file across the exclude (jurisdiction, walk-union) - the claiming
     // rule measures it; an unscoped rule on the same file measures nothing
@@ -702,7 +707,7 @@ describe("lint", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("streams measurement per (rule, unit), finding only when the handle fires", async () => {
+  test("streams classification per (rule, unit), finding only when the handle fires", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -710,12 +715,12 @@ describe("lint", () => {
         classifier: classifierWith({ probe_functions: 1 }),
       }),
     );
-    const measurements = events.filter((e) => e.type === "measurement");
+    const classifications = events.filter((e) => e.type === "classification");
     const findings = events.filter((e) => e.type === "finding");
     // the whole-file call (probe_files) + the docblock-carrying d0 (functions + definitions +
     // comments - the pair frame, ONE comments match) + the bare d1 (functions + definitions).
     // The attached comment element matches NEITHER comment target: the frame speaks for it.
-    expect(measurements).toHaveLength(6);
+    expect(classifications).toHaveLength(6);
     // functions level 1 (warn) fires on BOTH elements - no aggregation, no candidacy
     expect(findings).toHaveLength(2);
     // element identity is a classify-time uuid, not the positional wire id
@@ -801,8 +806,8 @@ describe("lint", () => {
         }),
       );
       // the section element was selected, judged, and carries the section kind
-      expect(report.measurements).toHaveLength(1);
-      expect(report.measurements[0]!.element?.kind).toBe("section");
+      expect(report.classifications).toHaveLength(1);
+      expect(report.classifications[0]!.element?.kind).toBe("section");
       expect(report.findings).toHaveLength(1);
       expect(report.findings[0]!.rule).toBe("probe_section");
       // the shared captures stay addressable when the grammar emits them (typescript emits @comment)
@@ -838,8 +843,8 @@ describe("lint", () => {
           classifier: loggingClassifier({ probe_paragraph: 0.95 }, { calls: [] }),
         }),
       );
-      expect(prose.measurements.length).toBe(1);
-      expect(prose.measurements[0]!.element?.kind).toBe("paragraph");
+      expect(prose.classifications.length).toBe(1);
+      expect(prose.classifications[0]!.element?.kind).toBe("paragraph");
       // the shared nouns do not reach it: 'types' matches nothing on this file now
       const typeProbe = mkRule("noul", { name: "probe_types", target: "types" });
       const empty = await collectReport(
@@ -848,7 +853,7 @@ describe("lint", () => {
           classifier: loggingClassifier({ probe_types: 0.95 }, { calls: [] }),
         }),
       );
-      expect(empty.measurements).toHaveLength(0);
+      expect(empty.classifications).toHaveLength(0);
     } finally {
       rmSync(file, { force: true });
     }
@@ -971,7 +976,7 @@ describe("lint", () => {
     expect(digest.handle).toBeNull();
   });
 
-  test("single pass: every measurement runs its handle, each finding follows its measurement", async () => {
+  test("single pass: every classification runs its handle, each finding follows its classification", async () => {
     const events = await drain(
       lint({
         config: baseConfig,
@@ -981,21 +986,21 @@ describe("lint", () => {
     );
     const kinds = events.map((e) => e.type);
     for (let i = 0; i < events.length; i++) {
-      // no aggregation: a finding directly follows its own measurement
-      if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("measurement");
+      // no aggregation: a finding directly follows its own classification
+      if (kinds[i] === "finding") expect(kinds[i - 1]).toBe("classification");
     }
     // functions level 2 (error) fires on both definitions; comments warn (>0.7) fires ONCE, on
     // the pair frame d0 - narration fires exactly once per documented function (2 + 1)
     expect(events.filter((e) => e.type === "finding")).toHaveLength(3);
     // every classified unit was measured against every in-scope rule (the files rule judged the
     // whole unit once; the three definitions drew their target-matched questions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
-    // findings and measurements name the same rule, adjacent in the stream
+    expect(events.filter((e) => e.type === "classification")).toHaveLength(6);
+    // findings and classifications name the same rule, adjacent in the stream
     for (let i = 0; i < events.length; i++) {
       if (events[i]!.type === "finding") {
-        const measurement = events[i - 1] as Extract<LintEvent, { type: "measurement" }>;
+        const classification = events[i - 1] as Extract<LintEvent, { type: "classification" }>;
         const finding = events[i] as Extract<LintEvent, { type: "finding" }>;
-        expect(measurement.measurement.rule).toBe(finding.finding.rule);
+        expect(classification.classification.rule).toBe(finding.finding.rule);
       }
     }
   });
@@ -1019,7 +1024,7 @@ describe("lint", () => {
     // bare rule-name keys, one element per call
     expect(questionKeys).toEqual(["probe_functions", "probe_functions"]);
     // 2 function elements
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
+    expect(events.filter((e) => e.type === "classification")).toHaveLength(2);
   });
 
   test("the paths list is the input: selection + the missing-entry note (never silence)", async () => {
@@ -1040,8 +1045,10 @@ describe("lint", () => {
     // the subject came from the list: only the listed file was judged
     const inputs = new Set(
       events
-        .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-        .map((e) => e.measurement.input.split("#")[0]!),
+        .filter(
+          (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
+        )
+        .map((e) => e.classification.input.split("#")[0]!),
     );
     expect([...inputs]).toEqual([FILE]);
   });
@@ -1058,8 +1065,10 @@ describe("lint", () => {
     // the subject came from input, never the list: only FILE was judged
     const inputs = new Set(
       events
-        .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-        .map((e) => e.measurement.input.split("#")[0]!),
+        .filter(
+          (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
+        )
+        .map((e) => e.classification.input.split("#")[0]!),
     );
     expect([...inputs]).toEqual([FILE]);
     // entries the walk never saw — a real file outside the input, and a missing one — are
@@ -1100,7 +1109,7 @@ describe("lint", () => {
     expect(errors[0]!.error.code).toBe("PROVIDER_UNAVAILABLE");
     // second unit: 1 whole-file + 2 element question batches (the comment-carrying binding
     // draws bindings + definitions + comments; the bare function draws functions + definitions)
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(6);
+    expect(events.filter((e) => e.type === "classification")).toHaveLength(6);
   });
 
   test("PROVIDER_AUTH aborts the run after surfacing the errors (bounded, no hammering)", async () => {
@@ -1155,7 +1164,8 @@ describe("lint", () => {
         );
         return {
           measured: events.some(
-            (e) => e.type === "measurement" && (e.measurement.input as string) === ".env.example",
+            (e) =>
+              e.type === "classification" && (e.classification.input as string) === ".env.example",
           ),
           notes: events
             .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
@@ -1189,7 +1199,7 @@ describe("lint", () => {
       }),
     );
     const inputs = new Set(
-      events.filter((e) => e.type === "measurement").map((e) => e.measurement.input),
+      events.filter((e) => e.type === "classification").map((e) => e.classification.input),
     );
     // non-source files measure at the file tier (probe_files); their extensions are
     // sweep coverage for the element rules. Element identity is a uuid - assert shape.
@@ -1233,7 +1243,7 @@ describe("lint", () => {
       }),
     );
     expect(events.filter((e) => e.type === "error")).toHaveLength(0);
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(1);
+    expect(events.filter((e) => e.type === "classification")).toHaveLength(1);
   });
 
   test("an inline callback element rule forces the walk: non-source files become sweep coverage", async () => {
@@ -1288,8 +1298,8 @@ describe("lint", () => {
           classifier: loggingClassifier({ custom_md_section: 0.95 }, { calls: [] }),
         }),
       );
-      expect(report.measurements).toHaveLength(1);
-      expect(report.measurements[0]!.element?.kind).toBe("section");
+      expect(report.classifications).toHaveLength(1);
+      expect(report.classifications[0]!.element?.kind).toBe("section");
     } finally {
       rmSync(file, { force: true });
     }
@@ -1305,12 +1315,12 @@ describe("lint", () => {
       }),
     );
     // definitions target: 2 sweep questions, no candidates at 0
-    expect(events.filter((e) => e.type === "measurement")).toHaveLength(2);
+    expect(events.filter((e) => e.type === "classification")).toHaveLength(2);
   });
 });
 
 describe("collectReport", () => {
-  test("drains the stream into measurements/findings/errors", async () => {
+  test("drains the stream into classifications/findings/errors", async () => {
     const report = await collectReport(
       lint({
         config: baseConfig,
@@ -1318,7 +1328,7 @@ describe("collectReport", () => {
         classifier: classifierWith({ probe_functions: 1 }),
       }),
     );
-    expect(report.measurements).toHaveLength(6);
+    expect(report.classifications).toHaveLength(6);
     expect(report.findings).toHaveLength(2);
     expect(report.errors).toHaveLength(0);
   });
@@ -1334,7 +1344,7 @@ describe("lint — unknown rule names", () => {
         classifier: classifierWith({}),
       }),
     );
-    expect(events.some((e) => e.type === "measurement")).toBe(true);
+    expect(events.some((e) => e.type === "classification")).toBe(true);
   });
 
   test("unknown --rule throws SetupError CONFIG_INVALID, not a silent empty run", async () => {
@@ -1449,8 +1459,8 @@ describe("lint — inline callback rules (content retention, the logical content
       }),
     );
     const byRule = new Map<string, string[]>();
-    for (const e of events.filter((e) => e.type === "measurement")) {
-      const m = (e as { measurement: { rule: string; input: string } }).measurement;
+    for (const e of events.filter((e) => e.type === "classification")) {
+      const m = (e as { classification: { rule: string; input: string } }).classification;
       byRule.set(m.rule, [...(byRule.get(m.rule) ?? []), m.input.split("#")[0]!]);
     }
     expect(byRule.get("rule_scope_good")!.every((p) => p === GOOD)).toBe(true);
@@ -1490,15 +1500,15 @@ describe("lint — inline callback rules (content retention, the logical content
     );
     expect(sampleElementCalls.length).toBeGreaterThan(0);
     // The custom rule measured ONLY on its targets (both in good.ts; nothing from sample-file.ts).
-    const tsMeasurements = events.filter(
-      (e) => e.type === "measurement" && e.measurement.rule === "ts_retention_probe",
+    const tsClassifications = events.filter(
+      (e) => e.type === "classification" && e.classification.rule === "ts_retention_probe",
     );
     // the custom rule's targets in good.ts: the binding-carrying element, the function, and the
     // comment element (three-dimension model)
-    expect(tsMeasurements).toHaveLength(3);
+    expect(tsClassifications).toHaveLength(3);
     expect(
-      tsMeasurements.every(
-        (e) => e.type === "measurement" && e.measurement.input.includes("good.ts"),
+      tsClassifications.every(
+        (e) => e.type === "classification" && e.classification.input.includes("good.ts"),
       ),
     ).toBe(true);
   });
@@ -1523,21 +1533,23 @@ describe("lint — walk-first yield ordering (pure JSON)", () => {
     const events = await drain(
       lint({
         config: { ...baseConfig, rules: [FILES_RULE as never] },
-        // The element-free unit is FIRST: its whole-file measurement still yields before the
+        // The element-free unit is FIRST: its whole-file classification still yields before the
         // next unit's classification events (per-wave, per-unit order).
         input: [BROKEN, FILE],
         classifier: classifierWith({ is_files_order_probe: 0.9 }),
       }),
     );
     expect(events.findIndex((e) => e.type === "error" && e.error.code === "WALK_FAILED")).toBe(-1);
-    const measurements = events.filter((e) => e.type === "measurement");
-    expect(measurements.length).toBeGreaterThan(1);
+    const classifications = events.filter((e) => e.type === "classification");
+    expect(classifications.length).toBeGreaterThan(1);
     expect(
       events.findIndex(
-        (e) => e.type === "measurement" && e.measurement.input.includes("sample-file"),
+        (e) => e.type === "classification" && e.classification.input.includes("sample-file"),
       ),
     ).toBeGreaterThan(
-      events.findIndex((e) => e.type === "measurement" && e.measurement.input.includes("empty.ts")),
+      events.findIndex(
+        (e) => e.type === "classification" && e.classification.input.includes("empty.ts"),
+      ),
     );
   });
 });
@@ -1560,9 +1572,9 @@ describe("lint — str unit is its own inventory", () => {
       (e): e is Extract<LintEvent, { type: "error" }> => e.type === "error",
     );
     expect(errors).toHaveLength(0);
-    const measurements = events.filter((e) => e.type === "measurement");
-    expect(measurements).toHaveLength(1);
-    expect(measurements[0]!.measurement.element?.kind).toBe("file");
+    const classifications = events.filter((e) => e.type === "classification");
+    expect(classifications).toHaveLength(1);
+    expect(classifications[0]!.classification.element?.kind).toBe("file");
   });
 
   test("no WALK_FAILED on the str path even with --language; extensionless FILES reject upstream", async () => {
@@ -1609,18 +1621,18 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
       }),
     );
     const md = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> =>
-        e.type === "measurement" && e.measurement.input.endsWith(".md"),
+      (e): e is Extract<LintEvent, { type: "classification" }> =>
+        e.type === "classification" && e.classification.input.endsWith(".md"),
     );
     // the md file IS measured - by the rule whose include claimed it
-    expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
+    expect(md.map((m) => m.classification.rule)).toEqual(["probe_md_only"]);
     // the unscoped files rule NEVER measures the rule-admitted file (it rides the config scope) -
     // it measures only the ts file the config include admitted
     const files = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> =>
-        e.type === "measurement" && e.measurement.rule === "probe_files",
+      (e): e is Extract<LintEvent, { type: "classification" }> =>
+        e.type === "classification" && e.classification.rule === "probe_files",
     );
-    expect(files.map((f) => f.measurement.input)).toEqual(["wu-code.ts"]);
+    expect(files.map((f) => f.classification.input)).toEqual(["wu-code.ts"]);
     // the finding fires on the md file's whole-unit input
     const finding = events.find(
       (e): e is Extract<LintEvent, { type: "finding" }> => e.type === "finding",
@@ -1638,7 +1650,7 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
       }),
     );
     const md = events.filter(
-      (e) => e.type === "measurement" && e.measurement.input.endsWith(".md"),
+      (e) => e.type === "classification" && e.classification.input.endsWith(".md"),
     );
     expect(md).toEqual([]);
     // the accounting owns the drop: NOT_IN_INCLUDE, carried by the run's input summary event
@@ -1662,10 +1674,10 @@ describe("walk-union discovery (config include ∪ rule includes)", () => {
       }),
     );
     const md = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> =>
-        e.type === "measurement" && e.measurement.input.endsWith(".md"),
+      (e): e is Extract<LintEvent, { type: "classification" }> =>
+        e.type === "classification" && e.classification.input.endsWith(".md"),
     );
-    expect(md.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
+    expect(md.map((m) => m.classification.rule)).toEqual(["probe_md_only"]);
   });
 
   test("run.input attributes each admitted file to its scope (flat, config first)", async () => {
@@ -1728,11 +1740,11 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
       }),
     );
     const measured = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
+      (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
     );
     // the regression: has_filename_mismatch-shaped unscoped files rule measures NOTHING on the
     // scope-excluded operand (run 1792428499081 measured it before the fix)
-    expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_md_only"]);
+    expect(measured.map((m) => m.classification.rule)).toEqual(["probe_md_only"]);
     // one line, the unscoped-rule note vocabulary - never silence
     const notes = events.filter(
       (e): e is Extract<LintEvent, { type: "note" }> => e.type === "note",
@@ -1758,9 +1770,9 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
       }),
     );
     const measured = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
+      (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
     );
-    expect(measured.map((m) => m.measurement.input + ":" + m.measurement.rule)).toEqual([
+    expect(measured.map((m) => m.classification.input + ":" + m.classification.rule)).toEqual([
       "tmp/fo-code.ts:probe_files",
     ]);
   });
@@ -1773,7 +1785,7 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
         classifier: classifierWith({ probe_files: 0.5 }),
       }),
     );
-    const measured = events.filter((e) => e.type === "measurement");
+    const measured = events.filter((e) => e.type === "classification");
     expect(measured).toEqual([]);
     const notes = events.filter(
       (e): e is Extract<LintEvent, { type: "note" }> => e.type === "note",
@@ -1792,7 +1804,7 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
         classifier: classifierWith({ probe_files: 0.5 }),
       }),
     );
-    const measured = events.filter((e) => e.type === "measurement");
+    const measured = events.filter((e) => e.type === "classification");
     expect(measured).toEqual([]);
     const notes = events.filter(
       (e): e is Extract<LintEvent, { type: "note" }> => e.type === "note",
@@ -1824,13 +1836,13 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
       }),
     );
     const measured = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> =>
-        e.type === "measurement" && e.measurement.input.endsWith("fo-gen/special.ts"),
+      (e): e is Extract<LintEvent, { type: "classification" }> =>
+        e.type === "classification" && e.classification.input.endsWith("fo-gen/special.ts"),
     );
     // fo-gen/special.ts matches the config include AND the config exclude, and the rule scope
     // claims it: the claim saves it from the exclude, the one predicate says NOT behind the
     // config scope, so only the claiming rule measures it - and run.input credits the savior
-    expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_gen_only"]);
+    expect(measured.map((m) => m.classification.rule)).toEqual(["probe_gen_only"]);
     const summary = events.find(
       (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
     );
@@ -1864,7 +1876,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
         classifier: classifierWith({}),
       }),
     );
-    expect(events.filter((e) => e.type === "measurement")).toEqual([]);
+    expect(events.filter((e) => e.type === "classification")).toEqual([]);
     expect(
       events.some(
         (e): e is Extract<LintEvent, { type: "note" }> =>
@@ -1887,7 +1899,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
       }),
     );
     expect(
-      walk.filter((e) => e.type === "measurement" && e.measurement.input.endsWith(".md")),
+      walk.filter((e) => e.type === "classification" && e.classification.input.endsWith(".md")),
     ).toEqual([]);
     const summary = walk.find(
       (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
@@ -1906,7 +1918,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
         classifier: classifierWith({ probe_files: 0.5 }),
       }),
     );
-    expect(events.filter((e) => e.type === "measurement")).toEqual([]);
+    expect(events.filter((e) => e.type === "classification")).toEqual([]);
     expect(
       events.some(
         (e): e is Extract<LintEvent, { type: "note" }> =>
@@ -1936,18 +1948,18 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
       }),
     );
     const measured = events.filter(
-      (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
+      (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
     );
     // the element run measures ONLY the claiming rule's paragraph; the unscoped files rule
     // (which on main measured such a file) follows the config scope and stays out
-    expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_md_section"]);
+    expect(measured.map((m) => m.classification.rule)).toEqual(["probe_md_section"]);
     // no unscoped note here BY DESIGN: element selection drops the files-target rule before
     // classification (files-target rules cannot run element-scoped), so the scope check's proof
-    // is the measurement set itself - probe_files is absent, probe_md_section measured
+    // is the classification set itself - probe_files is absent, probe_md_section measured
     expect(
       events.some(
-        (e): e is Extract<LintEvent, { type: "measurement" }> =>
-          e.type === "measurement" && e.measurement.rule === "probe_files",
+        (e): e is Extract<LintEvent, { type: "classification" }> =>
+          e.type === "classification" && e.classification.rule === "probe_files",
       ),
     ).toBe(false);
   });
@@ -1968,8 +1980,10 @@ describe("unscoped: named files and a path list measure as given", () => {
   };
   const measuredBy = (events: LintEvent[]) =>
     events
-      .filter((e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement")
-      .map((e) => e.measurement.rule + "@" + e.measurement.input)
+      .filter(
+        (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
+      )
+      .map((e) => e.classification.rule + "@" + e.classification.input)
       .sort();
 
   test("a path list is scope-checked by default: the scope-excluded entry loses the unscoped rule", async () => {

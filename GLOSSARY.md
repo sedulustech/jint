@@ -6,8 +6,8 @@ added here when introduced, and only when necessary.
 
 ## Scope
 
-measurement vs finding: a measurement is always produced (a value, or refused) and never
-actionable; a finding is a measurement its handle judged actionable and is the only output that
+classification vs finding: a classification is always produced (a value, or refused) and never
+actionable; a finding is a classification its handle judged actionable and is the only output that
 demands action.
 
 ## Terms
@@ -59,7 +59,7 @@ demands action.
   capture: absorbed into it, kept as its child, or measured as an element of its own.
 - **element** — the measured subject: one thing a rule can judge — a file, a diff block, or a
   node-derived function, comment, type, binding, or import. Carries its hierarchy (parent). The
-  union of element kinds (FileElement, FunctionElement, ...) is what a measurement references;
+  union of element kinds (FileElement, FunctionElement, ...) is what a classification references;
   the walk-time form additionally carries the element's source. Targets stay rule-side: a rule
   resolves targets, an element is what they land on.
 - **node type** — one grammar's raw tree-sitter node type (node-types.json); grammar-local,
@@ -91,18 +91,18 @@ demands action.
 - **false positive rate**
   — findings a human reviewer would reject as wrong or not actionable,
   over total findings; estimated by span-level spot-checks during calibration.
-- **finding** — a measurement its handle judged actionable; the only output that demands action.
+- **finding** — a classification its handle judged actionable; the only output that demands action.
 - **grammar** — the parser (wasm) plus its extraction half (queries.scm assigning captures);
   shipped embedded, one directory per language, overridable per custom grammar dir.
 - **handle** — the rule's policy: thresholds (declarative) or a policy callback (TS tier) that
-  turns measurements into findings.
+  turns classifications into findings.
 - **headword** — the term a glossary entry defines: the bolded phrase before the em dash.
   The entry describes its headword and nothing outside it.
 - **input** — what a run classifies: where the bytes come from, nothing more.
 - **input kind** — how the CLI interprets an input: file, dir, diff, or str. CLI perspective;
   not to be confused with target (rule perspective).
 - **identity** — every tracked entity carries one id: a uuidv4 minted at creation and
-  propagated unchanged through every payload (request record, measurement input, finding, cell),
+  propagated unchanged through every payload (request record, classification input, finding, cell),
   never the state sent to the model: a fresh id each run would make identical code a different
   request. A label ("d0", "L10", a span string) is the renderable part of an entity, never its
   key, never a join target. The two never meet: ids are keys, labels are display. Positional
@@ -111,8 +111,7 @@ demands action.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   unit is). Criteria pins the boundary; editing either is a recalibration event.
 - **inventory** — the elements one file yields.
-- **measurement** — the raw reading for one (rule, element) pair; always produced (a value, or
-  refused), never actionable by itself.
+- **classification** — one reading of a rule at one element or input, by the classifier; always produced (a value, or refused), never actionable by itself. The run's own is the **original**; a user or agent who edits the question or code and classifies again files **#1**, **#2**, … under the same run, and none of them changes the run.
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
@@ -133,7 +132,7 @@ demands action.
   correct form.
 - **undecided** — a reading too close to call: its top tier's probability leads the runner-up
   tier's by less than the rule's `margin`. The rule maps it to a tier and message like any other.
-- **refused** — a measurement with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
+- **refused** — a classification with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. A verb token is never a path (a file named capture is reached as
@@ -156,10 +155,9 @@ demands action.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
 - **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
 - **actor** — who produced a classification: the **rule** (the run's original), the **user** (in the UI) or the **agent**. A filed classification records it as `by`.
-- **classification** — one reading of a pair, by the classifier. The run's own is the **original**; a reader or agent who edits a question or state and classifies again files another under the same run, numbered **#1**, **#2**, … in filing order. A classification never changes the run.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
-  findings. The unit of observation: every measurement, finding, dump, and request
+  findings. The unit of observation: every classification, finding, dump, and request
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
 - **severity** — what a handle returned: "error" (exit code 1), "warn", or "pass".
 - **span** — the exact location of an element: every element is a slice of source. Rides on the

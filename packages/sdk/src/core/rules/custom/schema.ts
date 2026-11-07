@@ -68,7 +68,7 @@ export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
 /** One policy decision, positionally paired with the rule's results: what becomes a finding. */
 export interface CustomDecision {
-  /** Null = silent (measurement only, no finding). */
+  /** Null = silent (classification only, no finding). */
   readonly severity: "error" | "warn" | null;
   /**
    * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity says
@@ -79,8 +79,8 @@ export interface CustomDecision {
 
 /**
  * A custom rule: name, target (the REQUEST), the per-element state-schema compiler, and its one
- * policy, handle (required — data or a function; a measurement-only rule silences itself with () =>
- * []). classify returns ONE spec per call; jint fans it out across the rule's resolved targets.
+ * policy, handle (required — data or a function; a classification-only rule silences itself with ()
+ * => []). classify returns ONE spec per call; jint fans it out across the rule's resolved targets.
  * noul-only in v1 — the other kinds are rejected at load.
  */
 export interface CustomRule {
@@ -109,7 +109,7 @@ export interface CustomRule {
    * declarative form (JSON-expressible: the typed noul handler, per-threshold comparison
    * operators); a function is the TS-only escape hatch, called ONCE after all classifications
    * (results[i] <-> ctx.targets[i]) and returns one decision per result, aligned by index. The
-   * field either is data or is a function, never both; a measurement-only rule returns [] (or
+   * field either is data or is a function, never both; a classification-only rule returns [] (or
    * all-null severities) from the function form.
    */
   readonly handle:

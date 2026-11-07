@@ -40,7 +40,7 @@ function writeTree(dir: string): void {
 }
 
 // The probe rule: targets EVERY element lane jointly, so lint measures each element exactly once
-// and the preview's marks must equal the measurement set exactly.
+// and the preview's marks must equal the classification set exactly.
 const PROBE_RULE = {
   name: "probe_all",
   instructions: "probe",
@@ -71,7 +71,7 @@ const identity = (e: {
 
 /** The element identities a report measured (input carries the run-scoped uuid suffix). */
 const measuredIdentities = (report: Awaited<ReturnType<typeof collectReport>>) =>
-  report.measurements
+  report.classifications
     .filter((m) => m.element !== undefined)
     .map((m) =>
       identity({
@@ -119,13 +119,13 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
       const elements = await captureFor(config)();
       // FILE-SET parity: capture walked exactly the files the run measured, under the config's
       // input and excludes (not the process cwd)
-      const measuredFiles = new Set(report.measurements.map((m) => m.input.split("#")[0]!));
+      const measuredFiles = new Set(report.classifications.map((m) => m.input.split("#")[0]!));
       expect(new Set(elements.map((e) => e.input))).toEqual(measuredFiles);
       expect(new Set(elements.map((e) => e.input))).toEqual(new Set(["a.ts", "b.py"]));
       // ELEMENT parity, subset direction: every element the run measured is in capture's output,
       // identity for identity (the reverse cannot be exact by design: a pair-frame comment - a
       // comment a definition owns - is measured THROUGH its definition, never as its own element,
-      // so capture lists one element the measurements fold into another)
+      // so capture lists one element the classifications fold into another)
       const identities = new Set(capturedIdentities(elements));
       for (const id of measuredIdentities(report)) expect(identities.has(id)).toBe(true);
       // the pair-frame case itself, pinned: a.ts's owned leading comment is captured, its
@@ -151,8 +151,8 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
       const marked = await captureFor(config, { rule: "probe_all" })();
       const matched = marked.filter((e) => e.matches === true);
 
-      // count parity against the real run's measurements, then identity parity
-      expect(matched.length).toBe(report.measurements.length);
+      // count parity against the real run's classifications, then identity parity
+      expect(matched.length).toBe(report.classifications.length);
       expect(capturedIdentities(matched)).toEqual(measuredIdentities(report));
       // absent, never false: an unmarked element carries no matches key at all
       expect(marked.some((e) => e.matches === false)).toBe(false);

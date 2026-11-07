@@ -1,7 +1,7 @@
 {
   "tool": "jint",
   "version": "0.1.0",
-  "measurements": [
+  "classifications": [
     {
       "rule": "is_name_purposeful",
       "input": "src/borderline.ts",

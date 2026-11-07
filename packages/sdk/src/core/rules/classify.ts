@@ -27,7 +27,7 @@ import {
   type Refusal,
   type Element,
   type Classifier,
-  type Measurement,
+  type Classification,
   type QuestionSchema,
   type Rule,
   type Span,
@@ -163,17 +163,25 @@ export function isRefusal(answer: unknown): answer is Refusal {
 }
 
 /**
- * The outcome of one asked question: a refusal is a refused measurement, a finite value a valued
+ * The outcome of one asked question: a refusal is a refused classification, a finite value a valued
  * one, anything else (missing, malformed) a response-invalid error.
  */
-function outcomeFor(rule: string, input: string, answer: AskedAnswer): Measurement | ClassifyError {
+function outcomeFor(
+  rule: string,
+  input: string,
+  answer: AskedAnswer,
+): Classification | ClassifyError {
   if (isRefusal(answer)) return { rule, input, refused: true };
   if (answer === undefined || typeof answer.value !== "number" || !Number.isFinite(answer.value))
     return invalidAnswerError(input, rule, answer as ClassifiedAnswer | undefined);
-  return measurementFields(rule, input, answer);
+  return classificationFields(rule, input, answer);
 }
 
-function measurementFields(rule: string, input: string, answer: ClassifiedAnswer): Measurement {
+function classificationFields(
+  rule: string,
+  input: string,
+  answer: ClassifiedAnswer,
+): Classification {
   return {
     rule,
     input,
@@ -188,7 +196,7 @@ export async function* classifyUnit(
   unit: Unit,
   rules: readonly Rule[],
   classifier: Classifier,
-): AsyncGenerator<Measurement | ClassifyError> {
+): AsyncGenerator<Classification | ClassifyError> {
   if (rules.length === 0) return;
   // Any acquisition resolves into target instances upstream, so every rule participates.
   const unitId = unit.state.id;
@@ -228,7 +236,7 @@ export function toClassifyError(input: string, thrown: unknown): ClassifyError {
 // ---------------------------------------------------------------------------
 
 export interface ClassifyEvent {
-  readonly event: Measurement | ClassifyError;
+  readonly event: Classification | ClassifyError;
   /** The measured subject; whole-unit readings measure the file itself. */
   readonly element?: Element;
 }
@@ -508,7 +516,7 @@ async function askByPath(
  * Emit one unit-level call's answers. Answers are keyed by question id; the rule name is the id's
  * prefix before the block id.
  */
-function emitWholeUnitMeasurements(
+function emitWholeUnitClassifications(
   events: ClassifyEvent[],
   element: Element,
   unitReply: ClassifierReply,
@@ -671,7 +679,7 @@ async function classifyElementJob(
     events.push({ event: elementReply.error });
     return elementReply.error.code === "PROVIDER_AUTH";
   }
-  // Every question asked gets a measurement or an error: a refusal is a refused measurement, an
+  // Every question asked gets a classification or an error: a refusal is a refused classification, an
   // answer the model never gave is reported, not dropped.
   for (const rule of Object.keys(questions)) {
     events.push({
@@ -728,7 +736,7 @@ async function classifyWholeUnit(
     classifier,
     state.path,
   );
-  emitWholeUnitMeasurements(
+  emitWholeUnitClassifications(
     events,
     fileElement(fileId, state.content),
     unitReply,

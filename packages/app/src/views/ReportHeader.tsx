@@ -7,7 +7,7 @@ interface Props {
   runId: string;
 }
 
-/** The run's stat strip: findings, measurements, errors and warnings. */
+/** The run's stat strip: findings, classifications, errors and warnings. */
 export function ReportHeader({ runId }: Props) {
   const reportQuery = useQuery({ queryKey: ["report", runId], queryFn: () => fetchReport(runId) });
   const runQuery = useQuery({ queryKey: ["run", runId], queryFn: () => fetchRun(runId) });
@@ -19,10 +19,13 @@ export function ReportHeader({ runId }: Props) {
     !isDegradedReport && reportPayload !== undefined && !("absent" in reportPayload);
   const reportRuleStats = ruleStats(hasReport ? (reportPayload as Report) : undefined, runPayload);
   const totalFindings = reportRuleStats.reduce((sum, statRow) => sum + statRow.findings, 0);
-  const totalMeasurements = reportRuleStats.reduce((sum, statRow) => sum + statRow.measurements, 0);
+  const totalClassifications = reportRuleStats.reduce(
+    (sum, statRow) => sum + statRow.classifications,
+    0,
+  );
   const verdicts = verdictCounts(
     hasReport ? (reportPayload as Report).findings : [],
-    totalMeasurements,
+    totalClassifications,
   );
 
   return (
@@ -33,7 +36,7 @@ export function ReportHeader({ runId }: Props) {
           <span className="text-emphasis font-bold">{totalFindings}</span> findings
         </span>
         <span className="text-muted-foreground">
-          <span className="text-emphasis">{totalMeasurements}</span> measurements
+          <span className="text-emphasis">{totalClassifications}</span> classifications
         </span>
         <span className={verdicts.error > 0 ? "text-sev-error" : "text-muted-foreground"}>
           <span className="text-emphasis">{verdicts.error}</span> errors

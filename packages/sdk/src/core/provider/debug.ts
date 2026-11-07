@@ -163,9 +163,9 @@ export function runsBase(): string {
 
 /**
  * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
- * Written for every recorded run, so the measurement UI's picker can show every new run as
- * first-class (pre-migration runs without a manifest carry a legacy flag and only a timestamp — the
- * store handled that; new runs always have one).
+ * Written for every recorded run, so the run UI's picker can show every new run as first-class
+ * (pre-migration runs without a manifest carry a legacy flag and only a timestamp — the store
+ * handled that; new runs always have one).
  */
 export function recordRunManifest(manifest: {
   configPath: string | null;

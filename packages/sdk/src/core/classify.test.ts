@@ -47,14 +47,14 @@ function fakeClassifier(values: Record<string, number>, states: unknown[] = []):
 }
 
 describe("classify", () => {
-  test("unit-scoped noul rule: one whole-source call, raw measurement, handle never applied", async () => {
+  test("unit-scoped noul rule: one whole-source call, raw classification, handle never applied", async () => {
     const states: unknown[] = [];
     const outcome: ClassifyOutcome = await classify(SOURCE, [noulFileRule], {
       language: "typescript",
       classifier: fakeClassifier({ r_file: 0.7 }, states),
     });
     expect(outcome.errors).toEqual([]);
-    expect(outcome.measurements).toEqual([
+    expect(outcome.classifications).toEqual([
       {
         rule: "r_file",
         input: "input",
@@ -74,7 +74,7 @@ describe("classify", () => {
     // one state: the whole source, nothing array-shaped
     expect(states).toHaveLength(1);
     expect(states[0]).toEqual({ path: "input", content: SOURCE, id: "L1-L7", includePath: false });
-    // measurement-only scope: no severity, no finding, no handle application anywhere
+    // classification-only scope: no severity, no finding, no handle application anywhere
     const json = JSON.stringify(outcome);
     expect(json).not.toContain("severity");
     expect(outcome.errors).toEqual([]);
@@ -89,14 +89,16 @@ describe("classify", () => {
     expect(outcome.errors).toEqual([]);
     // one call per element (two functions), never one matrix call
     expect(states).toHaveLength(2);
-    expect(outcome.measurements).toHaveLength(2);
+    expect(outcome.classifications).toHaveLength(2);
     expect(
-      outcome.measurements.every((m) => m.element !== undefined && m.element.kind === "function"),
+      outcome.classifications.every(
+        (m) => m.element !== undefined && m.element.kind === "function",
+      ),
     ).toBe(true);
-    expect(outcome.measurements.every((m) => !m.refused && m.value === 2)).toBe(true);
-    expect(outcome.measurements.every((m) => /^src\/maths\.ts#[0-9a-f-]{36}$/.test(m.input))).toBe(
-      true,
-    );
+    expect(outcome.classifications.every((m) => !m.refused && m.value === 2)).toBe(true);
+    expect(
+      outcome.classifications.every((m) => /^src\/maths\.ts#[0-9a-f-]{36}$/.test(m.input)),
+    ).toBe(true);
     // element states are single-element sources (with attached content), under the file path
     for (const state of states) {
       expect((state as { path: string }).path).toBe("src/maths.ts");
@@ -116,7 +118,7 @@ describe("classify", () => {
     });
     expect(outcome.errors).toEqual([]);
     expect(outcome.inventory).toBeDefined();
-    expect(outcome.measurements.every((m) => /^snippet\.txt#[0-9a-f-]{36}$/.test(m.input))).toBe(
+    expect(outcome.classifications.every((m) => /^snippet\.txt#[0-9a-f-]{36}$/.test(m.input))).toBe(
       true,
     );
   });
@@ -135,7 +137,7 @@ describe("classify", () => {
       language: "typescript",
       classifier: fakeClassifier({ r_file: 0.9, r_fn: 1 }),
     });
-    expect(outcome.measurements).toEqual([
+    expect(outcome.classifications).toEqual([
       {
         rule: "r_file",
         input: "input",
@@ -174,10 +176,10 @@ describe("classify", () => {
       path: "src/big.ts",
       classifier: fakeClassifier({ r_def: 1 }, states),
     });
-    // the oversized element is never judged: no call, no measurement, no error — the named skip
+    // the oversized element is never judged: no call, no classification, no error — the named skip
     // is the in-band signal (design: composite body-size fix, the hard size backstop)
     expect(states).toHaveLength(0);
-    expect(outcome.measurements).toHaveLength(0);
+    expect(outcome.classifications).toHaveLength(0);
     expect(outcome.errors).toHaveLength(0);
     expect(outcome.oversized).toHaveLength(1);
     expect(outcome.oversized[0]).toMatchObject({

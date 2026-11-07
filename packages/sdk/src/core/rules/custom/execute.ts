@@ -152,9 +152,9 @@ function thrownMessage(thrown: unknown): string {
 
 /**
  * The input id for a judged element: the file path plus a freshly minted uuid, the same scheme as
- * the declarative tier — identity is minted once per element per run and shared by the measurement
- * and the finding location. The positional label stays the projection label only; line-span ids
- * remain whole-file unit ids.
+ * the declarative tier — identity is minted once per element per run and shared by the
+ * classification and the finding location. The positional label stays the projection label only;
+ * line-span ids remain whole-file unit ids.
  */
 type ElementInputIds = WeakMap<CustomElement, string>;
 function inputOf(element: CustomElement, inputIds: ElementInputIds): string {
@@ -194,7 +194,7 @@ export async function runCustomRules(
     const resolvedRule = resolved.get(rule);
     if (resolvedRule === undefined) {
       // resolveAllCustomTargets sets an entry for EVERY rule — this is impossible state, and a silent
-      // skip here would be invisible data loss (a declared rule producing zero measurements).
+      // skip here would be invisible data loss (a declared rule producing zero classifications).
       throw new Error('no resolution entry for custom rule "' + rule.name + '" (engine bug)');
     }
     if ("error" in resolvedRule) {
@@ -262,8 +262,8 @@ export async function runCustomRules(
         if (isRefusal(noul)) {
           // A refusal is a reading without a value: reported as such, never fed to the policy.
           events.push({
-            type: "measurement",
-            measurement: {
+            type: "classification",
+            classification: {
               rule: rule.name,
               input,
               refused: true,
@@ -299,8 +299,8 @@ export async function runCustomRules(
       readings.push(value);
       measuredTargets.push(element);
       events.push({
-        type: "measurement",
-        measurement: {
+        type: "classification",
+        classification: {
           rule: rule.name,
           input,
           value,

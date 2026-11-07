@@ -21,7 +21,7 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
 describe("cli: dir walk ignores", () => {
   // The input accounting (run.input): the flat decided shape, over a config that owns every
   // scope - include, exclude, and the walker's own skips. No reachable provider: the run still walks,
-  // the report still carries the accounting (transport failures abort measurements, not input).
+  // the report still carries the accounting (transport failures abort classifications, not input).
   test.concurrent("run.input: flat shape, per-glob exclusion, reason-keyed skips", async () => {
     const tmpRoot = scratchDir("jint-input-summary");
     try {
@@ -92,13 +92,13 @@ describe("cli: dir walk ignores", () => {
     }
   }, 30000);
   test.concurrent("ignored files never reach the report; resolver excludes them pre-provider", async () => {
-    // No reachable provider: transport errors abort before measurements exist, but the report still
+    // No reachable provider: transport errors abort before classifications exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
     const r = await run(["run", "tests/fixtures/sample-dir", "--json"]);
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
-      ...(report.measurements ?? []).map((m: any) => m.input),
+      ...(report.classifications ?? []).map((m: any) => m.input),
       ...(report.errors ?? []).map((d: any) => d.input),
     ].filter(Boolean);
     for (const p of attempted) {
@@ -129,7 +129,7 @@ describe("cli: dir walk ignores", () => {
       expect(r.code).toBe(4);
       const report = JSON.parse(r.stdout);
       const attempted = [
-        ...(report.measurements ?? []).map((m: any) => m.input),
+        ...(report.classifications ?? []).map((m: any) => m.input),
         ...(report.errors ?? []).map((d: any) => d.input),
       ].filter(Boolean);
       expect(attempted).toEqual([]);
@@ -156,7 +156,7 @@ describe("cli: dir walk ignores", () => {
 
   // structural twin of the live calibration test: exclusions are CONTRACT (the walker owns
   // them, pre-provider), so the mock proves them keylessly; the live twin only adds real readings
-  test("mocked provider: ignored files are absent from measurements", async () => {
+  test("mocked provider: ignored files are absent from classifications", async () => {
     const provider = startMockDecisions();
     try {
       // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block
@@ -175,7 +175,7 @@ describe("cli: dir walk ignores", () => {
         },
       );
       const report = JSON.parse(proc.stdout);
-      const paths = (report.measurements ?? []).map((m: any) => m.input);
+      const paths = (report.classifications ?? []).map((m: any) => m.input);
       expect(paths.length).toBeGreaterThan(0);
       expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
       expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);
@@ -187,7 +187,7 @@ describe("cli: dir walk ignores", () => {
   });
 
   // live calibration twin: opt-in only (RUN_LIVE_TESTS=1 + key), never a silent skip
-  test("with a real key: ignored files are absent from measurements", async () => {
+  test("with a real key: ignored files are absent from classifications", async () => {
     if (process.env.RUN_LIVE_TESTS !== "1") return;
     if (!hasLiveKey()) {
       throw new Error(
@@ -196,7 +196,7 @@ describe("cli: dir walk ignores", () => {
     }
     const proc = await runCli(["run", "tests/fixtures/sample-dir", "--json"]);
     const report = JSON.parse(proc.stdout);
-    const paths = (report.measurements ?? []).map((m: any) => m.input);
+    const paths = (report.classifications ?? []).map((m: any) => m.input);
     expect(paths.length).toBeGreaterThan(0);
     expect(paths.some((p: string) => p.includes("ignored.ts"))).toBe(false);
     expect(paths.some((p: string) => p.includes("node_modules"))).toBe(false);

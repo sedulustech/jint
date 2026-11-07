@@ -2,19 +2,19 @@ import type { Report, RunDetail } from "../types";
 
 export interface RuleStat {
   rule: string;
-  measurements: number;
+  classifications: number;
   findings: number;
   errors: number;
-  /** Findings / measurements, 0..1 */
+  /** Findings / classifications, 0..1 */
   rate: number;
-  /** 10-bin histogram of measurement values, 0..1 scale */
+  /** 10-bin histogram of classification values, 0..1 scale */
   histogram: number[];
 }
 
 export const BINS = 20;
 
 /**
- * Per-rule verdict stats, from report measurements/findings when present, else from the run's
+ * Per-rule verdict stats, from report classifications/findings when present, else from the run's
  * answers.
  */
 export function ruleStats(report: Report | undefined, run: RunDetail | undefined): RuleStat[] {
@@ -36,7 +36,7 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
     if (!s) {
       s = {
         rule,
-        measurements: 0,
+        classifications: 0,
         findings: 0,
         errors: 0,
         rate: 0,
@@ -48,40 +48,40 @@ export function ruleStats(report: Report | undefined, run: RunDetail | undefined
   };
 
   if (report) {
-    for (const m of report.measurements) {
+    for (const m of report.classifications) {
       // a refused reading has no value: it is in no histogram, no rate
       if (m.refused) continue;
       const s = stat(m.rule);
-      s.measurements += 1;
+      s.classifications += 1;
       s.histogram[bin(m.rule, m.value)]! += 1;
     }
     for (const f of report.findings) stat(f.rule).findings += 1;
     for (const e of report.errors) stat("(" + e.code + ")").errors += 1;
   } else if (run) {
-    // No report: fall back to answer counts per rule (measurements = answers seen, findings unknown).
+    // No report: fall back to answer counts per rule (classifications = answers seen, findings unknown).
     for (const r of run.results) {
       for (const rule of r.rules) {
         const s = stat(rule);
-        s.measurements += r.answers.length;
+        s.classifications += r.answers.length;
         for (const v of r.answers) s.histogram[bin(rule, v)]! += 1;
       }
     }
   }
 
-  const stats = [...map.values()].filter((s) => s.measurements > 0 || s.findings > 0);
-  for (const s of stats) s.rate = s.measurements > 0 ? s.findings / s.measurements : 0;
+  const stats = [...map.values()].filter((s) => s.classifications > 0 || s.findings > 0);
+  for (const s of stats) s.rate = s.classifications > 0 ? s.findings / s.classifications : 0;
   stats.sort((a, b) => b.findings - a.findings || a.rule.localeCompare(b.rule));
   return stats;
 }
 
 /**
- * Verdict-based counts over a report: the header's errors/warnings/passes. Passes are measurements
- * that produced no finding - the complement, so the three always sum to measurements. Findings
- * without a severity (legacy runs) count as neither error nor warn.
+ * Verdict-based counts over a report: the header's errors/warnings/passes. Passes are
+ * classifications that produced no finding - the complement, so the three always sum to
+ * classifications. Findings without a severity (legacy runs) count as neither error nor warn.
  */
 export function verdictCounts(
   findings: readonly { severity: "error" | "warn" | null }[],
-  measurements: number,
+  classifications: number,
 ): { error: number; warn: number; pass: number } {
   let error = 0;
   let warn = 0;
@@ -89,5 +89,5 @@ export function verdictCounts(
     if (f.severity === "error") error += 1;
     else if (f.severity === "warn") warn += 1;
   }
-  return { error, warn, pass: Math.max(0, measurements - findings.length) };
+  return { error, warn, pass: Math.max(0, classifications - findings.length) };
 }

@@ -32,7 +32,11 @@ async function recordedRun() {
       env: { ...mockDecisionsWire(provider.baseUrl), JINT_RUNS_DIR: store },
     });
     const report = JSON.parse(run.stdout);
-    return { store, runId: readdirSync(store)[0]!, input: report.measurements[0].input as string };
+    return {
+      store,
+      runId: readdirSync(store)[0]!,
+      input: report.classifications[0].input as string,
+    };
   } finally {
     provider.stop();
   }

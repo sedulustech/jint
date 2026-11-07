@@ -430,7 +430,7 @@ CURRENT line.
 Options:
 ${helpRows(OPTION_ROWS)}
 
-Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero measurements.
+Exit codes: 0 clean, 1 error findings, 2 usage/config, 3 internal, 4 zero classifications.
 
 `;
 
@@ -907,7 +907,7 @@ async function runLint(run: RunContext): Promise<number> {
   const { cliArgs, resolvedConfig, input } = run;
   const { elementScope, pathsContent } = input;
   // The element-scoped echo: WHICH element each selector captured, printed BEFORE any
-  // measurement - a line that drifted after edits selects a different unit silently, and
+  // classification - a line that drifted after edits selects a different unit silently, and
   // nothing in a bare score contradicts the wrong assumption. The SDK resolves the fact
   // (selectedElements); the CLI owns the rendering. --json keeps stdout a single document:
   // the same fact rides the report as `selected`.
@@ -1223,7 +1223,7 @@ function skillsVerb(rest: readonly string[]): number {
 }
 
 /**
- * Serve: the run store's UI, standalone - no measurement, no config, no arguments. The app opens
+ * Serve: the run store's UI, standalone - no classification, no config, no arguments. The app opens
  * the store's NEWEST run first (the fix loop: measure with `jint run`, then look with `jint
  * serve`). Any positional is a usage error; an empty store fails loud, naming the store.
  */
@@ -1501,7 +1501,7 @@ function parseCliArgs(cliArgv: string[]): CliArgsParse {
 }
 
 /**
- * Exit invariant: findings only — error-severity findings -> 1; zero measurements -> 4. Per-unit
+ * Exit invariant: findings only — error-severity findings -> 1; zero classifications -> 4. Per-unit
  * ClassifyErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
  * linter could not classify is reported, not treated as a lint violation.
  */
@@ -1509,7 +1509,7 @@ export function computeExit(lintReport: LintReport): number {
   if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
   // A failed unit means the judgment never existed — the run classified PARTIALLY at best. CI must
   // never pass a half-classified input, so any streamed ClassifyError fails the run (exit 4).
-  if (lintReport.errors.length > 0 || lintReport.measurements.length === 0) return 4;
+  if (lintReport.errors.length > 0 || lintReport.classifications.length === 0) return 4;
   return 0;
 }
 

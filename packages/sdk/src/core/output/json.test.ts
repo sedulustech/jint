@@ -8,7 +8,7 @@ import type { LintReport } from "../lint.ts";
 const report: LintReport = {
   notes: [],
   rules: [],
-  measurements: [
+  classifications: [
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
     { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
   ],
@@ -67,17 +67,17 @@ describe("renderJson", () => {
 
   test("values pass through untouched (no rounding)", () => {
     const parsed = JSON.parse(renderJson(report));
-    expect(parsed.measurements[0]!.value).toBe(0.5347219);
+    expect(parsed.classifications[0]!.value).toBe(0.5347219);
   });
 
-  test("a refused measurement serializes without a value and validates", () => {
+  test("a refused classification serializes without a value and validates", () => {
     const refused: LintReport = {
       ...report,
-      measurements: [{ rule: "is_function_srp", input: "src/a.ts#u", refused: true }],
+      classifications: [{ rule: "is_function_srp", input: "src/a.ts#u", refused: true }],
       findings: [],
     };
     const parsed = JSON.parse(renderJson(refused));
-    expect(parsed.measurements).toEqual([
+    expect(parsed.classifications).toEqual([
       { rule: "is_function_srp", input: "src/a.ts#u", refused: true },
     ]);
     expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
@@ -85,9 +85,9 @@ describe("renderJson", () => {
 
   test("empty report renders with empty arrays", () => {
     const parsed = JSON.parse(
-      renderJson({ measurements: [], findings: [], errors: [], notes: [], rules: [] }),
+      renderJson({ classifications: [], findings: [], errors: [], notes: [], rules: [] }),
     );
-    expect(parsed.measurements).toEqual([]);
+    expect(parsed.classifications).toEqual([]);
     expect(parsed.findings).toEqual([]);
     expect(parsed.errors).toEqual([]);
     expect(parsed.notes).toEqual([]);
@@ -109,7 +109,7 @@ describe("renderJson", () => {
     expect(keys.indexOf("notes")).toBeGreaterThan(keys.indexOf("errors"));
   });
 
-  // The finding's distribution rides the wire: copied from the measurement when present, omitted
+  // The finding's distribution rides the wire: copied from the classification when present, omitted
   // (key absent, not null) when the answer had none - an agent reads findings alone.
   test("findings carry probabilities when the answer had them; the key omits otherwise", () => {
     const parsed = JSON.parse(renderJson(report));
@@ -117,10 +117,10 @@ describe("renderJson", () => {
     expect(parsed.findings[1]).not.toHaveProperty("probabilities");
   });
 
-  test("measurements and findings carry the provider's confidence; the key omits otherwise", () => {
+  test("classifications and findings carry the provider's confidence; the key omits otherwise", () => {
     const withConfidence: LintReport = {
       ...report,
-      measurements: [
+      classifications: [
         { rule: "r", input: "src/a.ts", value: 1.2, probabilities: { "1": 1 }, confidence: 0.36 },
         { rule: "q", input: "src/a.ts", value: 0.5 },
         { rule: "z", input: "src/a.ts", refused: true },
@@ -132,9 +132,9 @@ describe("renderJson", () => {
     };
     const parsed = JSON.parse(renderJson(withConfidence));
     expect(Value.Check(REPORT_SCHEMA, parsed)).toBe(true);
-    expect(parsed.measurements[0].confidence).toBe(0.36);
-    expect(parsed.measurements[1]).not.toHaveProperty("confidence");
-    expect(parsed.measurements[2]).not.toHaveProperty("confidence");
+    expect(parsed.classifications[0].confidence).toBe(0.36);
+    expect(parsed.classifications[1]).not.toHaveProperty("confidence");
+    expect(parsed.classifications[2]).not.toHaveProperty("confidence");
     expect(parsed.findings[0].confidence).toBe(0.36);
     expect(parsed.findings[1]).not.toHaveProperty("confidence");
   });

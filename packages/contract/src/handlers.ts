@@ -1,6 +1,6 @@
 /**
  * The handler contract: the typed handle taxonomy and the pure evaluation functions both the engine
- * and the measurement UI consume. Zero dependencies, runtime-free - data and functions only, no
+ * and the classification UI consume. Zero dependencies, runtime-free - data and functions only, no
  * I/O, no engine types.
  *
  * Noul direction is DECLARED PER THRESHOLD: warn/error each carry one comparison operator ({

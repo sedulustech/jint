@@ -6,7 +6,7 @@
 
 import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
-import type { Finding, Measurement } from "@jint/contract";
+import type { Finding, Classification } from "@jint/contract";
 
 export function renderJson(report: LintReport): string {
   return (
@@ -29,8 +29,8 @@ export function renderJson(report: LintReport): string {
           span: { start: s.spanStart, end: s.spanEnd },
           content: s.content,
         })),
-        measurements: report.measurements.map(
-          (m): Measurement =>
+        classifications: report.classifications.map(
+          (m): Classification =>
             m.refused
               ? { rule: m.rule, input: m.input, refused: true, element: m.element }
               : {

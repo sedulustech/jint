@@ -64,9 +64,9 @@ const noulRule = (name: string, target: string) => ({
   handle: { warn: { greater_than: 0.5 } },
 });
 
-/** Spans of one rule's measurements, sorted by start byte - the extraction fingerprint. */
+/** Spans of one rule's classifications, sorted by start byte - the extraction fingerprint. */
 function spansOf(report: Record<string, any>, rule: string): string[] {
-  return (report.measurements ?? [])
+  return (report.classifications ?? [])
     .filter((m: any) => m.rule === rule)
     .map((m: any) => `L${m.element.span.start.line}-${m.element.span.end.line}`)
     .sort();
@@ -86,7 +86,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     expect(spans).toEqual(["L3-4", "L7-8", "L9-10"]);
     // Every measured capture is the shadow's section - the qualified address resolved through it
     // (an element the embedded .scm would NOT produce at these spans).
-    for (const m of report.measurements) {
+    for (const m of report.classifications) {
       expect(m.element.kind).toBe("section");
     }
     // The wire state carries the shadow's element content verbatim: the prose runs, not the

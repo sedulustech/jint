@@ -17,7 +17,7 @@
       ]
     }
   },
-  "measurements": [
+  "classifications": [
     {
       "rule": "has_filename_mismatch",
       "input": "complex.ts",

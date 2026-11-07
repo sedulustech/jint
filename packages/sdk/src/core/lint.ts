@@ -2,10 +2,10 @@
  * Lint — the one function most consumers need. State-in/findings-out: resolves the input, derives
  * each file's element inventory, classifies every element x every inventory-scoped rule in one
  * chunked pass, unit-scoped rules over the whole unit — runs each rule's handle, streams
- * Measurements, Findings and per-unit ClassifyErrors (signalled, but never run-failing).
+ * Classifications, Findings and per-unit ClassifyErrors (signalled, but never run-failing).
  *
  * Files fan out in waves of at most FILE_CONCURRENCY in-flight classifier pipelines (design §7.4
- * cost control); events stream per file as its wave completes, measurements before findings.
+ * cost control); events stream per file as its wave completes, classifications before findings.
  *
  * The pipeline never resolves paths it wasn't given, never knows about the terminal, and never
  * throws for per-unit failures (design §1, §7).
@@ -73,8 +73,8 @@ import {
   type Classifier,
   type Element,
   type LintEvent,
-  type Measurement,
-  type ValuedMeasurement,
+  type Classification,
+  type ValuedClassification,
   type Finding,
   type Rule,
   type Unit,
@@ -436,7 +436,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       const result = results[j]!;
       if (result.abort) aborted = true;
       for (const event of unitOutcomeEvents(result, units[i + j]!, byName, options)) {
-        if (event.type === "measurement" || event.type === "error") answered++;
+        if (event.type === "classification" || event.type === "error") answered++;
         yield event;
       }
     }
@@ -445,7 +445,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   if (customResolved !== undefined && !aborted) {
     const phase = await runCustomRules(customRules, customResolved, classifier, () => aborted);
     for (const event of phase.events) {
-      if (event.type === "measurement" || event.type === "error") answered++;
+      if (event.type === "classification" || event.type === "error") answered++;
       yield event;
     }
     if (phase.fatal) aborted = true;
@@ -606,14 +606,14 @@ function oversizedSkipNote(path: string, skipped: OversizedElement): string {
 }
 
 /**
- * One pass, no candidacy: every measurement is a reading; the rule's handle is the only threshold.
- * Element readings carry their span into the finding's location. The criteria legend echo is gone
- * (owner contract change): classifier-adjacent rubric prose never reaches findings. The note is the
- * rule AUTHOR's message attached at the fired handle tier, or nothing - default rules carry no
- * messages (authoring them is a separate calibration pass).
+ * One pass, no candidacy: every classification is a reading; the rule's handle is the only
+ * threshold. Element readings carry their span into the finding's location. The criteria legend
+ * echo is gone (owner contract change): classifier-adjacent rubric prose never reaches findings.
+ * The note is the rule AUTHOR's message attached at the fired handle tier, or nothing - default
+ * rules carry no messages (authoring them is a separate calibration pass).
  */
 function findingFor(
-  event: ValuedMeasurement,
+  event: ValuedClassification,
   element: Element | undefined,
   handle: Rule["handle"] | undefined,
 ): Finding | undefined {
@@ -643,7 +643,7 @@ function findingFor(
 
 /**
  * One unit's streamed outcome, in run order: oversized skips, the classifier's own notes, then
- * measurements - each reading that crosses its rule's handle becoming a finding.
+ * classifications - each reading that crosses its rule's handle becoming a finding.
  */
 function* unitOutcomeEvents(
   result: UnitResult,
@@ -663,7 +663,7 @@ function* unitOutcomeEvents(
       yield { type: "error", error: withLanguageHint(event, options) };
       continue;
     }
-    yield { type: "measurement", measurement: { ...event, element } };
+    yield { type: "classification", classification: { ...event, element } };
     // A refused reading has no value: no handle reads it, no finding follows.
     if (event.refused) continue;
     const finding = findingFor(event, element, byName.get(event.rule)?.handle);
@@ -745,7 +745,7 @@ async function runUnit(
     walked,
   );
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
-  // rides the same stream as measurements, and the reporters count it in the run summary.
+  // rides the same stream as classifications, and the reporters count it in the run summary.
   return {
     events: result.events,
     abort: result.fatal,
@@ -1046,9 +1046,9 @@ export interface RunPointer {
 }
 
 export interface LintReport {
-  measurements: Measurement[];
+  classifications: Classification[];
   findings: Finding[];
-  /** Per-unit failures of the request to the classifier: the unit produced no measurement. */
+  /** Per-unit failures of the request to the classifier: the unit produced no classification. */
   errors: ClassifyError[];
   /** In-band degradation notes (oversized elements skipped): counted in the run summary. */
   notes: string[];
@@ -1069,10 +1069,16 @@ export interface LintReport {
 
 /** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
-  const report: LintReport = { measurements: [], findings: [], errors: [], notes: [], rules: [] };
+  const report: LintReport = {
+    classifications: [],
+    findings: [],
+    errors: [],
+    notes: [],
+    rules: [],
+  };
   let inputSummary: InputSummary | null = null;
   for await (const event of events) {
-    if (event.type === "measurement") report.measurements.push(event.measurement);
+    if (event.type === "classification") report.classifications.push(event.classification);
     else if (event.type === "finding") report.findings.push(event.finding);
     else if (event.type === "error") report.errors.push(event.error);
     else if (event.type === "note") report.notes.push(event.note);
@@ -1086,13 +1092,13 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   //   on many elements, so (input, rule) alone can tie. The element id suffix after '#' is a
   //   per-run uuid (element-identity design), so it sorts only as a final tiebreak, never first —
   //   a uuid-first key would make the document ordering differ between identical runs.
-  // - measurements: (file, span, input, rule, stage, value); errors: (file, code, message,
+  // - classifications: (file, span, input, rule, stage, value); errors: (file, code, message,
   //   input); notes: lexical.
   // The event STREAM stays completion-ordered by design; the serialized document is byte-stable.
   const idFile = (input: string): string => input.split("#")[0] ?? input;
   const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
   const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
-  const measurementSpan = (m: Measurement): number => m.element?.span.startByte ?? -1;
+  const classificationSpan = (m: Classification): number => m.element?.span.startByte ?? -1;
   report.findings.sort(
     (a, b) =>
       idFile(a.input).localeCompare(idFile(b.input)) ||
@@ -1101,10 +1107,10 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule),
   );
-  report.measurements.sort(
+  report.classifications.sort(
     (a, b) =>
       idFile(a.input).localeCompare(idFile(b.input)) ||
-      measurementSpan(a) - measurementSpan(b) ||
+      classificationSpan(a) - classificationSpan(b) ||
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule) ||
       (a.element?.kind ?? "").localeCompare(b.element?.kind ?? "") ||

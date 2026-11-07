@@ -13,7 +13,7 @@
  * re-exported here — never redefined locally.
  */
 export type { Severity } from "@jint/contract";
-import type { Measurement, RuleTarget, Severity } from "@jint/contract";
+import type { Classification, RuleTarget, Severity } from "@jint/contract";
 export type { RuleTarget };
 /**
  * Readings stay raw probabilities — whether one fires is the policy's decision, never baked into
@@ -115,11 +115,11 @@ export class InternalError extends Error {
 }
 
 /**
- * A per-unit failure to produce a measurement: the request to the classifier failed (PROVIDER_*),
- * or the unit could not be mapped to elements (WALK_FAILED). Either way no judgment exists for the
- * unit. One bad unit never kills the run and never fails it by itself — the error streams as a
- * value and the run is failed only by findings. The seam throws it and the pipeline catches it into
- * the stream; it never escapes the pipeline boundary.
+ * A per-unit failure to produce a classification: the request to the classifier failed
+ * (PROVIDER_*), or the unit could not be mapped to elements (WALK_FAILED). Either way no judgment
+ * exists for the unit. One bad unit never kills the run and never fails it by itself — the error
+ * streams as a value and the run is failed only by findings. The seam throws it and the pipeline
+ * catches it into the stream; it never escapes the pipeline boundary.
  */
 export class ClassifyError extends Error {
   /** The rule whose reading failed, when the error concerns one rule's answer. */
@@ -215,7 +215,7 @@ export interface ChoiceRule extends RuleBase {
 export type Rule = NoulRule | ScoreRule | ChoiceRule;
 
 /**
- * A measurement that mattered: it cleared the rule's policy and carries the returned severity.
+ * A classification that mattered: it cleared the rule's policy and carries the returned severity.
  * value is the JUDGED value on the defect pole (inverted when the rule fires on no), so value and
  * severity always agree under the rule's own thresholds. message is the custom-tier callback's
  * remediation instruction (revision of the no-message contract: severity says whether, message says
@@ -381,15 +381,15 @@ export interface Adapter {
 
 export type {
   ClassifiedAnswer,
-  Measurement,
-  RefusedMeasurement,
+  Classification,
+  RefusedClassification,
   Refusal,
-  ValuedMeasurement,
+  ValuedClassification,
 } from "@jint/contract";
 
 /** What the lint pipeline streams. */
 export type LintEvent =
-  | { type: "measurement"; measurement: Measurement }
+  | { type: "classification"; classification: Classification }
   | { type: "finding"; finding: Finding }
   | { type: "error"; error: ClassifyError }
   /** In-band degradation note (e.g. oversized elements skipped): not silent, not an error. */

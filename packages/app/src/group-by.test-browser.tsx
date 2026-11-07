@@ -7,7 +7,7 @@ import { router } from "./router";
 
 // ---- PINNED FIXTURE CONSTANTS (tests/fixtures/run-a: 17 captures + report.json, 16 cells) ----
 // severity comes from the span-aware join: findings first, handle projection second.
-// 16 cells across 14 files; src/decisions.ts (a decisions-form recording) has no measurement, like
+// 16 cells across 14 files; src/decisions.ts (a decisions-form recording) has no classification, like
 // src/none.ts, so it is a request and no cell.
 // is_name_purposeful: 0.5 warn (finding), 0.92 null, 0.08 error, 0.51 warn, 0.7 null -> 5 cells
 // "has_nothing in mind": 0.8 silent, 0.2 null, 0.3 null -> 3 cells, all no-verdict
@@ -15,7 +15,7 @@ import { router } from "./router";
 // will_error_lose_cause: score 3 -> error (x2), 1 refused (src/refused.ts: no value, no verdict);
 // is_noul_documented: 0.8 -> null
 const RULES = 6;
-// src/none.ts has no measurements -> no cell, no group
+// src/none.ts has no classifications -> no cell, no group
 const FILES = 14;
 // ----------------------------------------------------------------------------------------------
 

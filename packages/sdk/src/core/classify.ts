@@ -1,15 +1,15 @@
 /**
- * Classify — the one-shot, one-state measurement scope (SDK surface, design §2): call jint with ANY
- * str and ANY rules, get measurements. No files, no config.
+ * Classify — the one-shot, one-state classification scope (SDK surface, design §2): call jint with
+ * ANY str and ANY rules, get classifications. No files, no config.
  *
  * The state IS the thing judged: the whole source is one unit, and the REGRESSION BAN holds here
  * exactly as in classifyFile — the array/matrix state (many elements x many questions in one call)
  * is forbidden, because the provider answers every question from the file's average, not the
  * element. One element per call, that element's rules batched inside the call.
  *
- * This is the MEASUREMENT-ONLY lane: handles are never applied here. Interpretation — thresholds,
- * severities, findings — is lint's job (design §4.5); classify() returns raw readings and in-band
- * ClassifyErrors, and never throws for per-unit failures.
+ * This is the CLASSIFICATION-ONLY lane: handles are never applied here. Interpretation —
+ * thresholds, severities, findings — is lint's job (design §4.5); classify() returns raw readings
+ * and in-band ClassifyErrors, and never throws for per-unit failures.
  *
  * Shares classifyFile's single code path: question construction, inventory derivation via
  * decompose, and per-element fan-out are the same code lint runs — nothing duplicated here.
@@ -29,7 +29,7 @@ import {
   SetupError,
   ClassifyError,
   type Classifier,
-  type Measurement,
+  type Classification,
   type Rule,
   type Unit,
 } from "./types.ts";
@@ -51,7 +51,7 @@ export interface ClassifyOptions {
 
 /** The raw outcome of one classify() call: readings and per-unit errors, never handles. */
 export interface ClassifyOutcome {
-  readonly measurements: Measurement[];
+  readonly classifications: Classification[];
   readonly errors: ClassifyError[];
   /** The derived inventory, when the source parsed into elements; absent otherwise. */
   readonly inventory?: Inventory;
@@ -97,14 +97,14 @@ export async function classify(
     () => false,
     { language: options.language, registry },
   );
-  const measurements: Measurement[] = [];
+  const classifications: Classification[] = [];
   const errors: ClassifyError[] = [];
   for (const { event, element } of result.events) {
     if (event instanceof ClassifyError) errors.push(event);
-    else measurements.push({ ...event, element });
+    else classifications.push({ ...event, element });
   }
   return {
-    measurements,
+    classifications,
     errors,
     oversized: result.oversized,
     inventory: result.inventory,

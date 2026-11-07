@@ -116,7 +116,7 @@ function emptyStateNote(
   if (!hasNoRows || mode === "request" || runData === undefined) return null;
   if (runData.cells.length !== 0) return null;
   if (runData.legacy) return "no report — run recorded before reports existed";
-  if (runData.hasReport) return "report present but zero measurements";
+  if (runData.hasReport) return "report present but zero classifications";
   return "no report — run captured without --json";
 }
 

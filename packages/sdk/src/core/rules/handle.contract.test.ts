@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { handleSeverity, type HandlerData } from "@jint/contract";
 import { compileChoiceHandler, compileNoulHandler, compileScoreHandler } from "./handle.ts";
 
-// Drift pin: the contract evaluator (consumed by the measurement UI) and the engine's compiled
+// Drift pin: the contract evaluator (consumed by the classification UI) and the engine's compiled
 // handles must agree on every (value, handle) pair. If one changes semantics alone, CI fails.
 const HANDLES: readonly HandlerData[] = [
   { warn: { greater_than: 0.6 }, error: { greater_than: 0.8 } },

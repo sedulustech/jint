@@ -82,12 +82,12 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
 });
 
 describe("cli: piped stdin str unit", async () => {
-  test("snippet | jint --json: parses, measurements present", async () => {
+  test("snippet | jint --json: parses, classifications present", async () => {
     const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json"]);
     expect([0, 1]).toContain(r.code); // findings decide; the run itself classified
     const report = JSON.parse(r.stdout);
-    expect(report.measurements.length).toBeGreaterThan(0);
-    expect(report.measurements[0]!.input).toBe("str:stdin");
+    expect(report.classifications.length).toBeGreaterThan(0);
+    expect(report.classifications[0]!.input).toBe("str:stdin");
   });
 
   test("an element-target rule still judges the str unit whole: no grammar, no elements", async () => {
@@ -105,11 +105,15 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
     // the str unit is its own inventory: the rule's target cannot route it into parsing
-    expect(report.measurements.length).toBeGreaterThan(0);
+    expect(report.classifications.length).toBeGreaterThan(0);
     expect(
-      report.measurements.every((m: { element?: { kind?: string } }) => m.element?.kind === "file"),
+      report.classifications.every(
+        (m: { element?: { kind?: string } }) => m.element?.kind === "file",
+      ),
     ).toBe(true);
-    expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
+    expect(report.classifications.every((m: { input: string }) => m.input === "str:stdin")).toBe(
+      true,
+    );
     // no grammar ever requested: every wire call carries the whole snippet as state.content,
     // never an element state ({path, source})
     const seen = provider.requests.slice(before);
@@ -145,7 +149,7 @@ describe("cli: piped stdin str unit", async () => {
     ]);
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
-    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    const inputs = report.classifications.map((m: { input: string }) => m.input);
     expect(inputs.length).toBeGreaterThan(0);
     expect(inputs.every((i: string) => i.startsWith("tests/fixtures/sample-file.ts"))).toBe(true);
   });
@@ -163,7 +167,7 @@ describe("cli: piped stdin str unit", async () => {
     ]); // a positional path overrides config.input
     expect(r.code).toBeLessThan(2);
     const report = JSON.parse(r.stdout);
-    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    const inputs = report.classifications.map((m: { input: string }) => m.input);
     expect(inputs.length).toBeGreaterThan(0);
     expect(inputs.every((i: string) => i.startsWith("tests/fixtures/sample-dir/good.ts"))).toBe(
       true,
@@ -184,7 +188,7 @@ describe("cli: piped stdin str unit", async () => {
     ]);
     expect(r.code).toBeLessThan(2); // classified whole; nothing failed to map
     const report = JSON.parse(r.stdout);
-    const inputs = report.measurements.map((m: { input: string }) => m.input);
+    const inputs = report.classifications.map((m: { input: string }) => m.input);
     expect(inputs).toEqual(["str:stdin"]); // the stdin str unit, not the config file
   });
 
@@ -201,7 +205,7 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.code).toBe(0); // the mock provider classifies the listed file cleanly
     const report = JSON.parse(r.stdout);
     const allInputs = [
-      ...report.measurements.map((m: { input: string }) => m.input),
+      ...report.classifications.map((m: { input: string }) => m.input),
       ...report.errors.map((e: { input: string }) => e.input),
     ];
     // the list selected the subject; stdin was NOT treated as a str snippet named str:stdin
@@ -264,15 +268,19 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
-    // is_greppable alone: one file-stage measurement, mock 0.8 is clean under its high-good
+    // is_greppable alone: one file-stage classification, mock 0.8 is clean under its high-good
     // handle (warn 0.75 / error 0.6); the old grammar race would add a WALK_FAILED and exit 4
     const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
-    expect(report.measurements.length).toBeGreaterThan(0); // it classified
+    expect(report.classifications.length).toBeGreaterThan(0); // it classified
     expect(
-      report.measurements.every((m: { element?: { kind?: string } }) => m.element?.kind === "file"),
+      report.classifications.every(
+        (m: { element?: { kind?: string } }) => m.element?.kind === "file",
+      ),
     ).toBe(true);
-    expect(report.measurements.every((m: { input: string }) => m.input === "str:stdin")).toBe(true);
+    expect(report.classifications.every((m: { input: string }) => m.input === "str:stdin")).toBe(
+      true,
+    );
     expect(report.errors).toEqual([]); // the WALK_FAILED + --language remedy never fires for str
     expect(r.stderr).not.toContain("WALK_FAILED");
     expect(r.code).toBe(0);
@@ -307,9 +315,9 @@ describe("cli: piped stdin str unit", async () => {
       expect(r.code).toBeLessThan(2);
       const report = JSON.parse(r.stdout);
       expect(report.errors).toEqual([]);
-      expect(report.measurements).toHaveLength(1);
-      expect(report.measurements[0]!.input).toBe("str:stdin");
-      expect(report.measurements[0]!.rule).toBe("is_noul_documented");
+      expect(report.classifications).toHaveLength(1);
+      expect(report.classifications[0]!.input).toBe("str:stdin");
+      expect(report.classifications[0]!.rule).toBe("is_noul_documented");
     }
     // one whole-unit call per spawn, each carrying the exact piped text as the state
     const seen = provider.requests.slice(before);

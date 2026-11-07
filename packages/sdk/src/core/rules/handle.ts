@@ -17,7 +17,7 @@ import { checkChoiceHandler, checkNoulHandler, type HandlerData } from "@jint/co
 import { Type } from "@sinclair/typebox";
 import { InternalError, SetupError, type HandleOutcome, type RuleKind } from "../types.ts";
 // The taxonomy and the pure evaluation live in the contract package (one definition, shared with
-// the measurement UI); the engine owns only the compiled seams (handle data -> function).
+// the classification UI); the engine owns only the compiled seams (handle data -> function).
 export {
   checkChoiceHandler,
   checkCondition,

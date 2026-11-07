@@ -96,7 +96,7 @@ describe("getRun cells index", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [
+          classifications: [
             {
               rule: "r_a",
               input: "src/x.ts",
@@ -175,7 +175,7 @@ describe("nested run ids (fixture-pipeline generated/<case> layout)", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [
+          classifications: [
             {
               rule: "r_a",
               input: `src/x.ts#${id}`,
@@ -239,7 +239,7 @@ describe("a request whose wire state carries no path", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [
+          classifications: [
             {
               rule: "r_a",
               input: `src/x.ts#${id}`,
@@ -309,7 +309,7 @@ describe("getRun kinds", () => {
 });
 
 describe("getRun refused cells", () => {
-  test("a refused measurement is a cell with no value and no verdict, handle-judged or not", async () => {
+  test("a refused classification is a cell with no value and no verdict, handle-judged or not", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-ui-refused-"));
     try {
       const dir = join(root, "100");
@@ -324,7 +324,7 @@ describe("getRun refused cells", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [
+          classifications: [
             { rule: "r_a", input: "src/x.ts", refused: true },
             { rule: "r_a", input: "src/y.ts", value: 0.9 },
           ],
@@ -368,7 +368,7 @@ describe("getRun choice cells", () => {
       writeFileSync(
         join(dir, "report.json"),
         JSON.stringify({
-          measurements: [
+          classifications: [
             { rule: "r_split", input: "src/x.ts", value: 0.43, choice: "justified", probabilities },
             { rule: "r_close", input: "src/x.ts", value: 0.43, choice: "justified", probabilities },
           ],
@@ -387,6 +387,36 @@ describe("getRun choice cells", () => {
       expect(close).toMatchObject({ undecided: true });
       expect(close.pass).toBeUndefined();
       expect(close.value).toBeCloseTo(0.57);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("a report written before readings were called classifications", () => {
+  test("its measurements read as classifications, in the report route and in the cells", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-legacy-report-"));
+    try {
+      const dir = join(root, "200");
+      mkdirSync(dir);
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
+      writeFileSync(
+        join(dir, "report.json"),
+        JSON.stringify({
+          measurements: [{ rule: "r_a", input: "src/x.ts", value: 0.1 }],
+          findings: [],
+          errors: [],
+        }),
+      );
+      const report = (await (
+        await serveApiRequest(new Request("http://localhost:1/api/runs/200/report"), { root })
+      )?.json()) as Record<string, unknown>;
+      expect(report.measurements).toBeUndefined();
+      expect(report.classifications).toEqual([{ rule: "r_a", input: "src/x.ts", value: 0.1 }]);
+      const run = (await (
+        await serveApiRequest(new Request("http://localhost:1/api/runs/200"), { root })
+      )?.json()) as { cells: { rule: string; input: string }[] };
+      expect(run.cells.map((c) => `${c.rule} ${c.input}`)).toEqual(["r_a src/x.ts"]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -341,7 +341,7 @@ export async function main(outDirOverride?: string): Promise<void> {
 
   // --- verification ---------------------------------------------------------
   // element captures carry a uuid id (the recorder's top-level field: the id never enters the
-  // state the model judges); every element measurement's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
+  // state the model judges); every element classification's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
   const elementIds = new Set<string>();
   const files = readdirSync(outDir).filter((f) => f.endsWith(".json"));
   const read = async (f: string) =>
@@ -359,21 +359,21 @@ export async function main(outDirOverride?: string): Promise<void> {
       elementIds.add(id);
     }
   }
-  for (const m of report.measurements) {
+  for (const m of report.classifications) {
     if (m.input.includes("#L")) throw new Error(`positional input leaked: ${m.input}`);
     if (m.element === undefined)
-      throw new Error(`measurement ${m.input} lacks the element projection`);
+      throw new Error(`classification ${m.input} lacks the element projection`);
     if (m.element.kind === "file") continue;
     const suffix = m.input.split("#")[1];
     if (suffix === undefined || !elementIds.has(suffix))
-      throw new Error(`measurement ${m.input} has no matching element capture id`);
+      throw new Error(`classification ${m.input} has no matching element capture id`);
   }
-  const elementInputs = report.measurements.filter(
+  const elementInputs = report.classifications.filter(
     (m) => m.element !== undefined && m.element.kind !== "file",
   ).length;
   process.stdout.write(
     `generated/elements: ${files.length} captures (${elementIds.size} element captures), ` +
-      `${report.measurements.length} measurements (${elementInputs} element), ` +
+      `${report.classifications.length} classifications (${elementInputs} element), ` +
       `${report.findings.length} findings\n`,
   );
 }

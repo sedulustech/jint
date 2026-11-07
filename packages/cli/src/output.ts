@@ -172,10 +172,11 @@ export function usageError(usageMessage: string): void {
 
 /**
  * The element-scoped run's stdout pre-print: WHICH element the selector captured - id, kind, name,
- * span - plus the first three lines of its exact captured text, before any measurement. A line that
- * drifted after edits selects a different unit silently; this header is the run's own contradiction
- * of a wrong-unit assumption. Banner voice (the JINT_PREFIX), stdout, human mode only: --json keeps
- * stdout a single document and carries the same fact as the report's `selected` object.
+ * span - plus the first three lines of its exact captured text, before any classification. A line
+ * that drifted after edits selects a different unit silently; this header is the run's own
+ * contradiction of a wrong-unit assumption. Banner voice (the JINT_PREFIX), stdout, human mode
+ * only: --json keeps stdout a single document and carries the same fact as the report's `selected`
+ * object.
  */
 export function printSelection(selected: readonly SelectedElement[]): void {
   for (const s of selected) {

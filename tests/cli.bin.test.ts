@@ -28,6 +28,6 @@ describe("W5 - the bin is wired and live", () => {
     // 0 (clean) or 1 (error findings) mean the bin worked; 2/3 are usage/internal failures
     expect([0, 1]).toContain(proc.code);
     const report = JSON.parse(proc.stdout);
-    expect(report.measurements.length).toBeGreaterThan(0); // the walk actually produced units
+    expect(report.classifications.length).toBeGreaterThan(0); // the walk actually produced units
   });
 });

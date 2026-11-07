@@ -31,7 +31,7 @@ const bareRule: Rule = {
   target: "files",
   instructions: "Does anything happen at all?",
   criteria: { true: "yes", false: "no" },
-  handle: () => null, // no handleData -> "no handle (measurement only)"
+  handle: () => null, // no handleData -> "no handle (classification only)"
 };
 
 describe("describeRule", () => {
@@ -61,8 +61,8 @@ describe("describeRule", () => {
     expect(line).not.toContain("warn");
   });
 
-  test("rule without handleData names itself as measurement-only", () => {
-    expect(describeRule(bareRule)).toContain("no handle (measurement only)");
+  test("rule without handleData names itself as classification-only", () => {
+    expect(describeRule(bareRule)).toContain("no handle (classification only)");
   });
 });
 

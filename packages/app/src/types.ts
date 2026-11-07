@@ -46,11 +46,11 @@ interface CellBase {
   rule: string;
   /** Bare path, never carries a #span. */
   file: string;
-  /** Full measurement input: the file path, or path#uuid for an element. */
+  /** Full classification input: the file path, or path#uuid for an element. */
   input: string;
   /** The measured subject, from the report's Element projection. Absent = whole-unit (file). */
   element?: Element;
-  /** The request file this cell's measurement came from; direct fetch on click. */
+  /** The request file this cell's classification came from; direct fetch on click. */
   requestFile?: string;
 }
 

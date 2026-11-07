@@ -118,11 +118,11 @@ describe("cli: custom rules end-to-end", () => {
     const dir = setup("happy", GOOD_CONFIG);
     const r = await runIn(dir);
     const report = expectContract(r, { exit: 0, stdout: "json" }); // 0.8 warns (warn_at 0.5), never errors
-    const measurement = report.measurements.find(
+    const classification = report.classifications.find(
       (m: Record<string, unknown>) => m.rule === "will_ts_rule_fire",
     );
-    expect(measurement).toBeDefined();
-    expect(measurement?.element?.kind).toBe("function");
+    expect(classification).toBeDefined();
+    expect(classification?.element?.kind).toBe("function");
     const finding = report.findings.find(
       (f: Record<string, unknown>) => f.rule === "will_ts_rule_fire",
     );

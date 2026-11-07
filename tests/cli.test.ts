@@ -110,7 +110,7 @@ describe("cli: contract basics", () => {
     );
     expect(r.code).toBe(4);
     const attempted: string[] = [
-      ...(JSON.parse(r.stdout).measurements ?? []).map((m: any) => m.input),
+      ...(JSON.parse(r.stdout).classifications ?? []).map((m: any) => m.input),
       ...(JSON.parse(r.stdout).errors ?? []).map((e: any) => e.input),
     ];
     expect(attempted).toContain("tests/fixtures/sample-file.ts");
@@ -182,7 +182,7 @@ describe("cli: contract basics", () => {
       ],
       NO_SERVICE,
     );
-    expect(r.code).toBe(4); // reached measurement: it was a path, not a flag
+    expect(r.code).toBe(4); // reached classification: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
   });
 
@@ -290,7 +290,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       ["run", "tests/fixtures/sample-file.ts", "--json", "--config", configPath],
       NO_KEY,
     );
-    // The old contract (empty rule set = legal, empty measurements, exit 4) enshrined the
+    // The old contract (empty rule set = legal, empty classifications, exit 4) enshrined the
     // "0 rules" nonsense run: nothing could ever be measured. A run that would measure
     // nothing is now a named setup error, like every config problem.
     expect(r.code).toBe(2);
@@ -369,7 +369,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
-    expect(report.measurements).toEqual([]);
+    expect(report.classifications).toEqual([]);
     for (const p of ["no/such/a.ts", "no/such/b.ts"]) {
       expect(
         report.notes.some((n: string) => n.includes("not found in the walk") && n.includes(p)),
@@ -526,7 +526,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    // Should contain measurements for the non-ignored files
+    // Should contain classifications for the non-ignored files
     // If it crashed on binaries, the exit code would be 3 (internal)
     expect(report.errors.length).toBeGreaterThan(0);
   }, 30000);
@@ -600,7 +600,7 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
     });
   });
 
-  test.concurrent("file positional: measurements over a corpus, clean exit 0, values in [0,1]", async () => {
+  test.concurrent("file positional: classifications over a corpus, clean exit 0, values in [0,1]", async () => {
     // High-good noul rules only: the mock's 0.8 is clean under every one of their handles, so a
     // healthy run over a healthy corpus really does exit 0 (is_readable is score-typed and the
     // high-bad rules fire by design under a constant answer).
@@ -622,8 +622,8 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
     ]);
     const report = expectContract(r, { exit: 0, stdout: "json" });
     // one pass: 2 files-target + element classification
-    expect(report.measurements.length).toBeGreaterThanOrEqual(8);
-    for (const m of report.measurements) {
+    expect(report.classifications.length).toBeGreaterThanOrEqual(8);
+    for (const m of report.classifications) {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
     }
@@ -679,15 +679,15 @@ describe("cli: live provider round trip (opt-in: RUN_LIVE_TESTS=1 + a key)", () 
     return true;
   }
 
-  test.concurrent("file positional with a real key: measurements, clean exit 0", async () => {
+  test.concurrent("file positional with a real key: classifications, clean exit 0", async () => {
     if (!requireLive()) return;
     const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"]);
     expect(r.code).toBe(0);
     const report = JSON.parse(r.stdout);
-    // one pass: 2 files-target + element classification; every measurement runs its handle, so
+    // one pass: 2 files-target + element classification; every classification runs its handle, so
     // exact total depends on the real readings
-    expect(report.measurements.length).toBeGreaterThanOrEqual(8);
-    for (const m of report.measurements) {
+    expect(report.classifications.length).toBeGreaterThanOrEqual(8);
+    for (const m of report.classifications) {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
     }

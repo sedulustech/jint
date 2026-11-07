@@ -72,7 +72,7 @@ describe("rule domains: what a run needs", () => {
         env: mockDecisionsWire(provider.baseUrl),
       });
       expect([0, 1]).toContain(r.code);
-      expect(JSON.parse(r.stdout).measurements.length).toBeGreaterThan(0);
+      expect(JSON.parse(r.stdout).classifications.length).toBeGreaterThan(0);
     } finally {
       provider.stop();
     }

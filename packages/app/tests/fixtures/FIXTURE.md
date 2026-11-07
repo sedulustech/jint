@@ -16,12 +16,12 @@ hand-maintained: edit the files directly.
   - answer edges: borderline (0.50, 0.51, 0.45), high (0.92, 0.95), low (0.08, 0.20, 0.30).
   - one multi-question capture (two rules on one element, elements tier / `state.source`).
   - one refused reading (`will_error_lose_cause` at src/refused.ts: the answer is `{type:"refusal"}`,
-    the report measurement is `refused: true` - no value, no verdict).
+    the report classification is `refused: true` - no value, no verdict).
   - one recording with a `wire` request (`borderline.ts`, the translated Decisions body); every
     other legacy capture predates wire capture and has none (the request view's fallback).
   - one recording in the decisions form (`decisions.ts`, `is_name_purposeful` at 0.35): the real
     POST /v1/decisions bodies (a `questions` array, an `answers` array, `questionIds`), no
-    legacy shape and no `wire`; it has no report measurement, so it is a request and no cell.
+    legacy shape and no `wire`; it has no report classification, so it is a request and no cell.
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders

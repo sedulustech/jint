@@ -269,7 +269,7 @@ describe("per-rule scoping on the custom tier", () => {
       fakeClassifier(0.8, calls),
     );
     expect(calls).toHaveLength(0);
-    expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
+    expect(phase.events.some((e) => e.type === "classification")).toBe(false);
     // the gap is signal: one run-level note names the rule and the skipped count
     const notes = phase.events.filter((e) => e.type === "note");
     expect(notes).toHaveLength(1);
@@ -311,10 +311,10 @@ describe("per-rule scoping on the custom tier", () => {
 });
 
 describe("runCustomRules — PROVIDER_RESPONSE_INVALID guard", () => {
-  test("a missing answer streams PROVIDER_RESPONSE_INVALID, never a measurement", async () => {
+  test("a missing answer streams PROVIDER_RESPONSE_INVALID, never a classification", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, async () => ({}));
-    // comments resolves the frame alone; the call fails the guard, no measurement results
+    // comments resolves the frame alone; the call fails the guard, no classification results
     expect(phase.events).toHaveLength(1);
     expect(phase.events[0]?.type).toBe("error");
     expect(phase.events[0]?.type === "error" && phase.events[0].error.code).toBe(
@@ -330,7 +330,7 @@ describe("runCustomRules — PROVIDER_RESPONSE_INVALID guard", () => {
     expect(
       phase.events.some((e) => e.type === "error" && e.error.code === "PROVIDER_RESPONSE_INVALID"),
     ).toBe(true);
-    expect(phase.events.some((e) => e.type === "measurement")).toBe(false);
+    expect(phase.events.some((e) => e.type === "classification")).toBe(false);
   });
 });
 
@@ -369,8 +369,8 @@ describe("runCustomRules — classification", () => {
       expect(Object.keys(call.questions)).toEqual(["is_test_rule"]);
       expect(call.questions["is_test_rule"]?.type).toBe("noul");
     }
-    const measurements = phase.events.filter((e) => e.type === "measurement");
-    expect(measurements).toHaveLength(2);
+    const classifications = phase.events.filter((e) => e.type === "classification");
+    expect(classifications).toHaveLength(2);
   });
 
   test("state synthesis is free: the composed state reaches the classifier verbatim", async () => {
@@ -398,14 +398,14 @@ describe("runCustomRules — classification", () => {
     });
   });
 
-  test("measurements bind to the target's span", async () => {
+  test("classifications bind to the target's span", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(ruleOf({}), inventory, fakeClassifier(0.8));
-    const measurement = phase.events.find((e) => e.type === "measurement");
+    const classification = phase.events.find((e) => e.type === "classification");
     // identity is path#uuidv4 (json-tier scheme) — assert the shape, not a minted uuid
-    expect(measurement?.type === "measurement" && measurement.measurement.input).toMatch(
-      /^src\/fixture\.ts#\w{8}-\w{4}-\w{4}-\w{4}-\w{12}$/,
-    );
+    expect(
+      classification?.type === "classification" && classification.classification.input,
+    ).toMatch(/^src\/fixture\.ts#\w{8}-\w{4}-\w{4}-\w{4}-\w{12}$/);
   });
 
   test("a throwing classify is RULE_FAILED per element; the run continues", async () => {
@@ -497,7 +497,7 @@ describe("runCustomRules — policy", () => {
     expect(finding?.location?.span.start.line).toBe(2);
   });
 
-  test("declarative handle below warn_at stays silent (measurement only)", async () => {
+  test("declarative handle below warn_at stays silent (classification only)", async () => {
     const inventory = await oneFile(SOURCE);
     const phase = await run(
       ruleOf({ handle: { warn: { greater_than: 0.9 }, error: { greater_than: 0.95 } } }),
@@ -506,7 +506,7 @@ describe("runCustomRules — policy", () => {
     );
     expect(phase.events.filter((e) => e.type === "finding")).toHaveLength(0);
     // one comments target measured (the frame), silent under the higher thresholds
-    expect(phase.events.filter((e) => e.type === "measurement")).toHaveLength(1);
+    expect(phase.events.filter((e) => e.type === "classification")).toHaveLength(1);
   });
 
   test("callback handle runs ONCE, results aligned with targets, message rides the finding", async () => {

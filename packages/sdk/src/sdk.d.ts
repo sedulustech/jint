@@ -95,7 +95,7 @@ declare module "jint:sdk" {
      * declarative form (JSON-expressible noul handler); a function is the TS-only escape hatch,
      * called ONCE after all classifications (results[i] <-> ctx.targets[i]) and returns one
      * decision per result, aligned by index. The field either is data or is a function, never both;
-     * a measurement-only rule returns [] (or all-null severities) from the function form.
+     * a classification-only rule returns [] (or all-null severities) from the function form.
      */
     readonly handle:
       | CustomHandleData

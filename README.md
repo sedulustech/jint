@@ -210,7 +210,7 @@ renders beneath the finding line and rides the report as `finding.message`.
 
 A TS config rule may also carry a callback `handle: (results, ctx) => decisions`, called once after
 classification with one decision per reading: `{ severity: "error" | "warn" | null, message? }`.
-`null` severity is silent (measurement only).
+`null` severity is silent (classification only).
 
 #### Rule domains
 

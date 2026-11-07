@@ -5,7 +5,7 @@ import { LINE_SCHEMA } from "./report-schema.ts";
 import type { LintReport } from "../lint.ts";
 
 const report: LintReport = {
-  measurements: [],
+  classifications: [],
   findings: [
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219, severity: "warn" },
     {
@@ -36,7 +36,7 @@ describe("renderLines", () => {
     const { stdout, stderr } = renderLines({
       ...report,
       findings: [],
-      measurements: [
+      classifications: [
         { rule: "is_function_srp", ...refused },
         { rule: "will_error_lose_cause", ...refused },
         { rule: "is_function_srp", ...refused, input: "src/b.ts#v" },
@@ -125,7 +125,7 @@ describe("renderLines", () => {
 
   test("clean run: empty stdout, zero totals on stderr", () => {
     const { stdout, stderr } = renderLines({
-      measurements: [],
+      classifications: [],
       findings: [],
       errors: [],
       notes: [],
@@ -137,7 +137,7 @@ describe("renderLines", () => {
 
   test("measured clean run: zero totals stay unqualified (a real pass reads as one)", () => {
     const { stderr } = renderLines({
-      measurements: [{ input: "src/x.ts#d0", rule: "r", value: 0.1 }],
+      classifications: [{ input: "src/x.ts#d0", rule: "r", value: 0.1 }],
       findings: [],
       errors: [],
       rules: [],

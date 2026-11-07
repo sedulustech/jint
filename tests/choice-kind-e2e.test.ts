@@ -9,7 +9,7 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 jest.setTimeout(60_000);
 
 // A choice rule end to end: the wire carries the provider's choice primitive with the option labels, the
-// measurement names the selected option, and the selected option's tier decides the finding.
+// classification names the selected option, and the selected option's tier decides the finding.
 const CHOICE_RULE = {
   name: "is_comment_justified",
   kind: "choice",
@@ -59,15 +59,15 @@ async function runAgainst(
 }
 
 describe("choice rules", () => {
-  test.concurrent("--json carries the provider's confidence on the measurement and the finding", async () => {
+  test.concurrent("--json carries the provider's confidence on the classification and the finding", async () => {
     const { report } = await runAgainst("contradicted", CHOICE_RULE, { q0: 0.22 });
-    expect(report.measurements[0].confidence).toBe(0.22);
+    expect(report.classifications[0].confidence).toBe(0.22);
     expect(report.findings[0].confidence).toBe(0.22);
   });
 
   test.concurrent("--json omits confidence when the provider sent none", async () => {
     const { report } = await runAgainst("contradicted");
-    expect(report.measurements[0]).not.toHaveProperty("confidence");
+    expect(report.classifications[0]).not.toHaveProperty("confidence");
     expect(report.findings[0]).not.toHaveProperty("confidence");
   });
 
@@ -86,8 +86,8 @@ describe("choice rules", () => {
   test.concurrent("a selected error option fires with its message", async () => {
     const { r, report } = await runAgainst("contradicted");
     expect(r.code).toBe(1);
-    expect(report.measurements[0]).toMatchObject({ choice: "contradicted" });
-    expect(report.measurements[0].value).toBeGreaterThan(0.5);
+    expect(report.classifications[0]).toMatchObject({ choice: "contradicted" });
+    expect(report.classifications[0].value).toBeGreaterThan(0.5);
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]).toMatchObject({
       rule: "is_comment_justified",
@@ -120,7 +120,7 @@ describe("choice rules", () => {
   test.concurrent("a selected pass option measures without a finding", async () => {
     const { r, report } = await runAgainst("justified");
     expect(r.code).toBe(0);
-    expect(report.measurements[0]).toMatchObject({ choice: "justified" });
+    expect(report.classifications[0]).toMatchObject({ choice: "justified" });
     expect(report.findings).toHaveLength(0);
   });
 

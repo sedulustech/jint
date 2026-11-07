@@ -47,7 +47,9 @@ async function run(dir: string, baseUrl: string, args: string[], stdin?: string)
 }
 
 const measuredPaths = (stdout: string): string[] =>
-  [...new Set((JSON.parse(stdout).measurements as { input: string }[]).map((m) => m.input))].sort();
+  [
+    ...new Set((JSON.parse(stdout).classifications as { input: string }[]).map((m) => m.input)),
+  ].sort();
 
 describe("run scope: named files and a path list are scope-checked, --unscoped measures as given", () => {
   test("a named file the rules scope excludes is not measured, and the header and one note say why", async () => {

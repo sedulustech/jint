@@ -47,7 +47,7 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
   // distinct measured files - the element identity is path#span, the file tier is the bare path
   const fileCount =
     report !== undefined && !("absent" in report)
-      ? new Set((report as Report).measurements.map((m) => m.input.split("#")[0])).size
+      ? new Set((report as Report).classifications.map((m) => m.input.split("#")[0])).size
       : 0;
 
   return (

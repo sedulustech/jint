@@ -112,6 +112,6 @@ describe("custom registration is a value per call - the impossible leak", () => 
     const report = await collectReport(
       lint({ config, input: file, classifier: async () => ({}) as never }),
     );
-    expect(report.measurements).toBeDefined();
+    expect(report.classifications).toBeDefined();
   });
 });

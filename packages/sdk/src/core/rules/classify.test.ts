@@ -5,7 +5,7 @@ import {
   ClassifyError,
   type ClassifiedAnswer,
   type Classifier,
-  type Measurement,
+  type Classification,
   type Refusal,
   type Rule,
   type Unit,
@@ -86,7 +86,7 @@ function classifierWith(values: Record<string, number>, calls: Unit[] = []): Cla
   };
 }
 
-function isMeasurement(event: Measurement | ClassifyError): event is Measurement {
+function isClassification(event: Classification | ClassifyError): event is Classification {
   return !(event instanceof ClassifyError);
 }
 
@@ -126,14 +126,14 @@ describe("compileRuleQuestions", () => {
 });
 
 describe("classifyUnit", () => {
-  test("ONE batched classifier call per unit; one measurement per rule", async () => {
+  test("ONE batched classifier call per unit; one classification per rule", async () => {
     const calls: Unit[] = [];
     const classifier = classifierWith({ probe_noul: 0.7, probe_score: 2 }, calls);
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, sensors, classifier)) events.push(event);
     expect(events).toHaveLength(2);
-    expect(events.every(isMeasurement)).toBe(true);
-    expect((events as Measurement[]).map((m) => m.rule)).toEqual(["probe_noul", "probe_score"]);
+    expect(events.every(isClassification)).toBe(true);
+    expect((events as Classification[]).map((m) => m.rule)).toEqual(["probe_noul", "probe_score"]);
     expect(calls).toHaveLength(1); // one batched call, not one per rule
   });
 
@@ -141,9 +141,9 @@ describe("classifyUnit", () => {
     const calls: Unit[] = [];
     const classifier = classifierWith({ probe_noul: 0.7, probe_score: 2 }, calls);
     const rules: Rule[] = [{ ...noulFile, includePath: true }, scoreFn];
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, rules, classifier)) events.push(event);
-    expect((events as Measurement[]).map((m) => m.rule).sort()).toEqual([
+    expect((events as Classification[]).map((m) => m.rule).sort()).toEqual([
       "probe_noul",
       "probe_score",
     ]);
@@ -156,19 +156,19 @@ describe("classifyUnit", () => {
   test("values pass through untouched", async () => {
     const classifier = classifierWith({ probe_noul: 0.5347219 });
     for await (const event of classifyUnit(fileUnit, [noulFile], classifier)) {
-      expect(isMeasurement(event) && !event.refused && event.value).toBe(0.5347219);
+      expect(isClassification(event) && !event.refused && event.value).toBe(0.5347219);
     }
   });
 
   test("missing or non-finite answer -> PROVIDER_RESPONSE_INVALID error, siblings continue", async () => {
     const classifier = classifierWith({ probe_noul: 0.7, probe_score: Number.NaN });
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, [noulFile, scoreFn, noulDefs], classifier)) {
       events.push(event);
     }
-    const errors = events.filter((e): e is ClassifyError => !isMeasurement(e));
-    const measurements = events.filter(isMeasurement);
-    expect(measurements.map((m) => m.rule)).toEqual(["probe_noul"]);
+    const errors = events.filter((e): e is ClassifyError => !isClassification(e));
+    const classifications = events.filter(isClassification);
+    expect(classifications.map((m) => m.rule)).toEqual(["probe_noul"]);
     expect(errors).toHaveLength(2); // NaN for probe_score, missing probe_defs
     expect(errors[0]!.code).toBe("PROVIDER_RESPONSE_INVALID");
     expect(errors[0]!.message).toContain("probe_score");
@@ -179,7 +179,7 @@ describe("classifyUnit", () => {
     const classifier: Classifier = async () => {
       throw new ClassifyError("PROVIDER_UNAVAILABLE", "src/a.ts", "provider unreachable: boom");
     };
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, sensors, classifier)) events.push(event);
     expect(events).toHaveLength(1);
     expect((events[0] as ClassifyError).code).toBe("PROVIDER_UNAVAILABLE");
@@ -191,7 +191,7 @@ describe("classifyUnit", () => {
     const classifier: Classifier = async () => {
       throw new Error("surprise");
     };
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, sensors, classifier)) events.push(event);
     expect((events[0] as ClassifyError).code).toBe("INTERNAL");
   });
@@ -202,7 +202,7 @@ describe("classifyUnit", () => {
       called = true;
       return {};
     };
-    const events: (Measurement | ClassifyError)[] = [];
+    const events: (Classification | ClassifyError)[] = [];
     for await (const event of classifyUnit(fileUnit, [], classifier)) {
       events.push(event);
     }
@@ -305,12 +305,12 @@ describe("classifyFile — element fan-out", () => {
       expect("elements" in state).toBe(false);
       return Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
     };
-    const { measurements, errors } = await classify(content, [scoreDefs], {
+    const { classifications, errors } = await classify(content, [scoreDefs], {
       path: "src/gen.ts", // extension names the grammar; "input" (default) would WALK_FAILED
       classifier,
       concurrency: 4,
     });
-    expect(measurements).toHaveLength(12);
+    expect(classifications).toHaveLength(12);
     expect(errors).toHaveLength(0);
     expect(maxInFlight).toBeLessThanOrEqual(4);
     expect(maxInFlight).toBeGreaterThan(1); // concurrent, not sequential
@@ -320,7 +320,7 @@ describe("classifyFile — element fan-out", () => {
 describe("classifyFile — role routing", () => {
   const fnRule = scoreFn; // functions-target: judges callables only
 
-  test("a binding const gets a definitions-target measurement and zero functions-target ones", async () => {
+  test("a binding const gets a definitions-target classification and zero functions-target ones", async () => {
     const { classifyFile } = await import("./classify.ts");
     const defRule = noulDefs; // definitions-target: judges const names too
     const classifier: Classifier = async (_state, questions) =>
@@ -335,7 +335,7 @@ describe("classifyFile — role routing", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified).toHaveLength(1); // definitions-target only
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
+    expect((classified[0]!.event as Classification).rule).toBe("probe_defs");
   });
 
   test("an element question the model never answered is an error, not a dropped reading", async () => {
@@ -359,7 +359,7 @@ describe("classifyFile — role routing", () => {
     expect((errors[0]!.event as ClassifyError).rule).toBe("probe_score");
   });
 
-  test("a refusal is a refused measurement: no error, siblings kept, malformed still errors", async () => {
+  test("a refusal is a refused classification: no error, siblings kept, malformed still errors", async () => {
     const { classifyFile } = await import("./classify.ts");
     const kept: Rule = { ...scoreFn, name: "probe_kept" };
     const broken: Rule = { ...scoreFn, name: "probe_broken" };
@@ -377,18 +377,18 @@ describe("classifyFile — role routing", () => {
       [fnRule, kept, broken],
       classifier,
     );
-    const measurements = events.map((e) => e.event).filter(isMeasurement);
-    const refused = measurements.find((m) => m.rule === "probe_score")!;
+    const classifications = events.map((e) => e.event).filter(isClassification);
+    const refused = classifications.find((m) => m.rule === "probe_score")!;
     expect(refused.refused).toBe(true);
     expect("value" in refused).toBe(false);
     expect(refused.input).toMatch(/^src\/sum\.ts#/);
     expect(refused.rule).toBe("probe_score");
-    expect(measurements.find((m) => m.rule === "probe_kept")?.refused).toBeUndefined();
+    expect(classifications.find((m) => m.rule === "probe_kept")?.refused).toBeUndefined();
     const errors = events.map((e) => e.event).filter((e) => e instanceof ClassifyError);
     expect(errors.map((e) => e.rule)).toEqual(["probe_broken"]);
   });
 
-  test("an arrow-function const still gets the functions-target measurement", async () => {
+  test("an arrow-function const still gets the functions-target classification", async () => {
     const { classifyFile } = await import("./classify.ts");
     const classifier: Classifier = async (_state, questions) =>
       Object.fromEntries(Object.keys(questions).map((k) => [k, { value: 0.5 }]));
@@ -406,7 +406,7 @@ describe("classifyFile — role routing", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified).toHaveLength(1);
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_score");
+    expect((classified[0]!.event as Classification).rule).toBe("probe_score");
   });
 });
 
@@ -442,7 +442,7 @@ describe("classifyFile — imports routing", () => {
     expect(classified.length).toBeGreaterThanOrEqual(1);
   });
 
-  test("the import measurement's input and span identify the import", async () => {
+  test("the import classification's input and span identify the import", async () => {
     const { classifyFile } = await import("./classify.ts");
     const { events } = await classifyFile(
       { kind: "file", state: { path: "src/app.ts", content: withImports, id: "L1-L4" } },
@@ -453,7 +453,7 @@ describe("classifyFile — imports routing", () => {
     expect(classified.length).toBeGreaterThanOrEqual(1);
     const first = classified[0]!;
     // the element's identity is a classify-time uuid, not the positional wire id
-    expect((first.event as Measurement).input).toMatch(/^src\/app\.ts#[0-9a-f-]{36}$/);
+    expect((first.event as Classification).input).toMatch(/^src\/app\.ts#[0-9a-f-]{36}$/);
     expect(first.element?.span.start.line).toBe(1);
     expect(first.element?.span.end.line).toBe(2);
   });
@@ -467,7 +467,7 @@ describe("classifyFile — imports routing", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified).toHaveLength(1);
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_score");
+    expect((classified[0]!.event as Classification).rule).toBe("probe_score");
   });
 
   test("an imports-target rule over code with no imports classifies nothing, no error", async () => {
@@ -610,7 +610,7 @@ describe("classifyFile — the file-unit token backstop", () => {
     );
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified.length).toBeGreaterThan(0); // element rules still measured
-    expect((classified[0]!.event as Measurement).rule).toBe("probe_defs");
+    expect((classified[0]!.event as Classification).rule).toBe("probe_defs");
   });
 
   test("a file over the cap with NO file-scope rules measures normally, no note", async () => {

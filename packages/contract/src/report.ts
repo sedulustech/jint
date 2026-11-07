@@ -116,9 +116,9 @@ export interface CommentElement extends ElementBase {
 }
 
 /**
- * The typed subject of a measurement (tmp/designs/element.md): a closed discriminated union — the
- * projection of the walked element (kind, span, label, parent, kind-specific name), never its full
- * content. A whole-unit judgment carries FileElement.
+ * The typed subject of a classification (tmp/designs/element.md): a closed discriminated union —
+ * the projection of the walked element (kind, span, label, parent, kind-specific name), never its
+ * full content. A whole-unit judgment carries FileElement.
  */
 export type Element =
   | FileElement
@@ -148,8 +148,8 @@ export interface ClassifiedAnswer {
   readonly choice?: string;
 }
 
-/** The measurement fields every reading carries, valued or refused. */
-interface MeasurementBase {
+/** The classification fields every reading carries, valued or refused. */
+interface ClassificationBase {
   readonly rule: string;
   readonly input: string;
   /**
@@ -161,7 +161,7 @@ interface MeasurementBase {
 }
 
 /** A judged reading: a rule's value at one input (file or element). */
-export interface ValuedMeasurement extends MeasurementBase {
+export interface ValuedClassification extends ClassificationBase {
   readonly value: number;
   /**
    * The distribution the value summarizes: per level for score rules, per option label for choice
@@ -185,12 +185,12 @@ export interface ValuedMeasurement extends MeasurementBase {
  * A refused reading: the model was asked and gave no answer, so the question did not apply to the
  * element. It has no value, so no handle reads it and no finding follows.
  */
-export interface RefusedMeasurement extends MeasurementBase {
+export interface RefusedClassification extends ClassificationBase {
   readonly refused: true;
 }
 
 /** One reading of one (rule, element) pair; narrow on `refused` before reading `value`. */
-export type Measurement = ValuedMeasurement | RefusedMeasurement;
+export type Classification = ValuedClassification | RefusedClassification;
 
 /** What a classifier returns for a question the model refused. */
 export interface Refusal {
@@ -268,7 +268,7 @@ export interface ClassifyErrorInfo {
 export interface Report {
   readonly tool: "jint";
   readonly version: string;
-  readonly measurements: readonly Measurement[];
+  readonly classifications: readonly Classification[];
   readonly findings: readonly Finding[];
   readonly errors: readonly ClassifyErrorInfo[];
   readonly notes: readonly string[];

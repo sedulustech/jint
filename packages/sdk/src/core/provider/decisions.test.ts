@@ -437,7 +437,7 @@ describe("through createClassifier", () => {
     expect(e?.code).toBe("PROVIDER_UNAVAILABLE");
   });
 
-  test("a refusal becomes a refused measurement", async () => {
+  test("a refusal becomes a refused classification", async () => {
     const answers = await createClassifier({
       cache: false,
       apiKey: "k",

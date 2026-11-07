@@ -51,7 +51,11 @@ const run = (p: Project, baseUrl: string, args: string[] = [], env: Record<strin
 const readings = (stdout: string): Record<string, number> =>
   Object.fromEntries(
     (
-      JSON.parse(stdout).measurements as { rule: string; value: number; element: { span: any } }[]
+      JSON.parse(stdout).classifications as {
+        rule: string;
+        value: number;
+        element: { span: any };
+      }[]
     ).map((m) => [`${m.rule}@${m.element.span.startByte}`, m.value]),
   );
 

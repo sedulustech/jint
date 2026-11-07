@@ -1,10 +1,10 @@
 /**
  * The raw-line reporter — the CLI's default stdout. Findings only, one line per finding (the
- * canonical report's raw projection; measurements stay json-side). Stream discipline (clig): stdout
- * is pure finding data, stderr carries the run's own errors, degradation notes, and the totals
- * line. Every stderr string here is UNPREFIXED — the tool prefix is the client's voice, added at
- * its write site; note lines carry the SDK's `note: ` marker for the client's note treatment. Line
- * shape (LINE_SCHEMA):
+ * canonical report's raw projection; classifications stay json-side). Stream discipline (clig):
+ * stdout is pure finding data, stderr carries the run's own errors, degradation notes, and the
+ * totals line. Every stderr string here is UNPREFIXED — the tool prefix is the client's voice,
+ * added at its write site; note lines carry the SDK's `note: ` marker for the client's note
+ * treatment. Line shape (LINE_SCHEMA):
  *
  * Path#id@L<line> rule level score
  *
@@ -64,7 +64,7 @@ export function renderLines(report: LintReport): LinesRender {
   for (const note of report.notes) err.push(`note: ${note}`);
   // Refused readings are neither findings nor errors: one line counts them, per rule.
   const refusedByRule = new Map<string, number>();
-  for (const m of report.measurements)
+  for (const m of report.classifications)
     if (m.refused) refusedByRule.set(m.rule, (refusedByRule.get(m.rule) ?? 0) + 1);
   if (refusedByRule.size > 0) {
     const total = [...refusedByRule.values()].reduce((sum, n) => sum + n, 0);
@@ -72,10 +72,12 @@ export function renderLines(report: LintReport): LinesRender {
     err.push(`refused: ${total} (${perRule.map(([rule, n]) => `${rule} ${n}`).join(", ")})`);
   }
   const errors = report.findings.filter((f) => f.severity === "error").length;
-  // Zero findings on zero measurements is NOT a pass - qualify it so a scoped run that measured
+  // Zero findings on zero classifications is NOT a pass - qualify it so a scoped run that measured
   // nothing never reads as clean (the exit code already says 4; the line must agree).
   const nothingMeasured =
-    report.measurements.length === 0 && report.errors.length === 0 ? " - nothing was measured" : "";
+    report.classifications.length === 0 && report.errors.length === 0
+      ? " - nothing was measured"
+      : "";
   err.push(
     `${report.findings.length} ${report.findings.length === 1 ? "problem" : "problems"} (${errors} ${errors === 1 ? "error" : "errors"}, ${report.findings.length - errors} ${report.findings.length - errors === 1 ? "warning" : "warnings"})${nothingMeasured}`,
   );

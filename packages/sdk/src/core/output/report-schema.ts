@@ -2,7 +2,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type {
   ClassifyErrorInfo,
   Finding,
-  Measurement,
+  Classification,
   Report as ContractReport,
 } from "@jint/contract";
 
@@ -61,7 +61,7 @@ export const ELEMENT_SCHEMA = Type.Union([
   }),
 ]);
 
-const MEASUREMENT_BASE = {
+const CLASSIFICATION_BASE = {
   rule: Type.String(),
   input: Type.String(),
   // The measured subject, fully typed. Absent only from the bare whole-source generator (no
@@ -69,20 +69,20 @@ const MEASUREMENT_BASE = {
   element: Type.Optional(ELEMENT_SCHEMA),
 };
 
-const REFUSED_MEASUREMENT_SCHEMA = Type.Object({
-  ...MEASUREMENT_BASE,
+const REFUSED_CLASSIFICATION_SCHEMA = Type.Object({
+  ...CLASSIFICATION_BASE,
   refused: Type.Literal(true),
 });
 
-export const MEASUREMENT_SCHEMA = Type.Union([
+export const CLASSIFICATION_SCHEMA = Type.Union([
   Type.Object({
-    ...MEASUREMENT_BASE,
+    ...CLASSIFICATION_BASE,
     value: Type.Number(),
     probabilities: Type.Optional(Type.Record(Type.String(), Type.Number())),
     confidence: Type.Optional(Type.Number()),
     choice: Type.Optional(Type.String()),
   }),
-  REFUSED_MEASUREMENT_SCHEMA,
+  REFUSED_CLASSIFICATION_SCHEMA,
 ]);
 
 // The severity vocabulary has one home: the contract's Severity type. The schema spells the
@@ -150,7 +150,7 @@ export const REPORT_SCHEMA = Type.Object({
       ),
     }),
   ),
-  measurements: Type.Array(MEASUREMENT_SCHEMA),
+  classifications: Type.Array(CLASSIFICATION_SCHEMA),
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),
   notes: Type.Array(Type.String()),
@@ -175,8 +175,9 @@ export const REPORT_SCHEMA = Type.Object({
 
 export type Report = Static<typeof REPORT_SCHEMA>;
 
-const _pinMeasurement: readonly Measurement[] = [] as Static<typeof MEASUREMENT_SCHEMA>[];
-const _pinMeasurementWire: readonly Static<typeof MEASUREMENT_SCHEMA>[] = [] as Measurement[];
+const _pinClassification: readonly Classification[] = [] as Static<typeof CLASSIFICATION_SCHEMA>[];
+const _pinClassificationWire: readonly Static<typeof CLASSIFICATION_SCHEMA>[] =
+  [] as Classification[];
 const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];
 const _pinFindingWire: readonly Static<typeof FINDING_SCHEMA>[] = [] as Finding[];
 const _pinError: readonly ClassifyErrorInfo[] = [] as Static<typeof CLASSIFY_ERROR_SCHEMA>[];
@@ -185,8 +186,8 @@ const _pinReport: ContractReport = {} as Static<typeof REPORT_SCHEMA>;
 // Report itself pins one direction only — its contract arrays are readonly while Type.Array is
 // mutable — but every element type above is pinned both ways, which is where the fields live.
 void [
-  _pinMeasurement,
-  _pinMeasurementWire,
+  _pinClassification,
+  _pinClassificationWire,
   _pinFinding,
   _pinFindingWire,
   _pinError,

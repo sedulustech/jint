@@ -17,7 +17,7 @@ function opText(c: { greater_than?: number; less_than?: number }): string {
 /** The single-line threshold summary for one rule's handle data. */
 function handleLine(rule: Rule): string {
   const h = rule.handleData;
-  if (h === undefined) return "no handle (measurement only)";
+  if (h === undefined) return "no handle (classification only)";
   if ("map" in h) {
     return "level map: " + h.map.join(" / ");
   }

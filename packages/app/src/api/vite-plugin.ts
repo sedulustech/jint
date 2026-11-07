@@ -8,7 +8,7 @@ import type { Plugin } from "vite";
  */
 export function apiPlugin(opts: { root?: string } = {}): Plugin {
   return {
-    name: "jint-measurement-api",
+    name: "jint-classification-api",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith("/api/")) return next();
