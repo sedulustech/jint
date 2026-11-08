@@ -149,6 +149,37 @@ const has_generated_prose: RuleSchema = {
   },
 };
 
+// is_script_naming_consistent: the scripts of one package.json follow one naming convention. A bare
+// word is fine; mixed forms are not. Repo-local, NOT an official domain rule: one file format, one
+// corpus. Calibrated on real manifests from five repositories (healthy min 0.76, defective max
+// 0.64) with the thresholds mid-gap; a planted separator edit reads 0.49 against its pair at 0.89,
+// a planted verb-noun swap reads 0.91 against 0.98 and does not fire.
+const is_script_naming_consistent: RuleSchema = {
+  name: "is_script_naming_consistent",
+  kind: "noul",
+  target: "files",
+  instructions:
+    "This unit is a package.json. Do the names in its scripts object follow one naming convention?",
+  criteria: {
+    true: "The script names follow one convention: related scripts share one form, such as the same order of verb and noun and the same separator, and a name may be a bare word. A file with no scripts, or with one, is also true.",
+    false:
+      "Two forms are mixed among related scripts: the verb before the colon in one name (build:docs) and after it in another (docs:serve), different separators between words (build_docs beside build-docs), or two different words for the same action.",
+  },
+  include: ["**/package.json"],
+  handle: {
+    warn: {
+      less_than: 0.7,
+      message:
+        "Rename the scripts that differ so every script name follows the form of its siblings, and update every caller of the old names.",
+    },
+    error: {
+      less_than: 0.5,
+      message:
+        "Rename the scripts that differ so every script name follows the form of its siblings, and update every caller of the old names.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -175,6 +206,7 @@ export default defineConfig({
       is_literal_shared,
       is_doc_stateful,
       is_headword_consistent,
+      is_script_naming_consistent,
       is_comment_contradictory,
       is_comment_stateful,
       // the domain rule claims every json, toml and yaml file; lockfiles, the built site and fixtures
