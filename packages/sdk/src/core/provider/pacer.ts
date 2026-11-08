@@ -37,6 +37,7 @@ export function checkRunKnobs(knobs: {
   readonly rps_budget?: number;
   readonly timeout?: number;
   readonly maxInputTokens?: number;
+  readonly charsPerToken?: number;
 }): string | null {
   if (knobs.concurrency !== undefined) {
     if (!Number.isInteger(knobs.concurrency) || knobs.concurrency < 1) {
@@ -55,18 +56,14 @@ export function checkRunKnobs(knobs: {
   ) {
     return `maxInputTokens: must be an integer >= 1, got ${knobs.maxInputTokens}`;
   }
+  if (
+    knobs.charsPerToken !== undefined &&
+    (!(knobs.charsPerToken > 0) || !Number.isFinite(knobs.charsPerToken))
+  ) {
+    return `charsPerToken: must be a number > 0, got ${knobs.charsPerToken}`;
+  }
   return null;
 }
-
-/**
- * The share of a model's input window one call may fill. The rest absorbs the error of the chars/4
- * estimate (jint has no tokenizer by design).
- */
-const INPUT_FILL = 0.95;
-
-/** The most estimated tokens one call may carry under a model's input window. */
-export const inputBudget = (maxInputTokens: number): number =>
-  Math.floor(maxInputTokens * INPUT_FILL);
 
 /**
  * Wraps a classifier with a global in-flight cap (the wall-clock knob). The per-unit pools schedule
@@ -129,10 +126,14 @@ export function withTimeout(classifier: Classifier, seconds: number | undefined)
     ]);
 }
 
+/** The characters of one request's JSON that jint counts as one token, until a config says more. */
+export const DEFAULT_CHARS_PER_TOKEN = 4;
+
 export const estimateTokens = (
   state: AnyState,
   questions: Record<string, QuestionSchema>,
-): number => Math.ceil(JSON.stringify([state, questions]).length / 4);
+  charsPerToken: number = DEFAULT_CHARS_PER_TOKEN,
+): number => Math.ceil(JSON.stringify([state, questions]).length / charsPerToken);
 
 const MINUTE_MS = 60_000;
 

@@ -10,7 +10,7 @@
  */
 
 import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../grammars/walk.ts";
-import { inputBudget } from "../../provider/pacer.ts";
+import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
 import { ruleInScope } from "../../scope.ts";
 import {
   ClassifyError,
@@ -187,9 +187,12 @@ export async function runCustomRules(
   classifier: Classifier,
   isAborted: () => boolean,
   maxInputTokens?: number,
+  charsPerToken: number = DEFAULT_CHARS_PER_TOKEN,
 ): Promise<CustomRulePhase> {
-  // A state part may fill the window budget; unset keeps the fixed element backstop.
-  const partLimit = maxInputTokens === undefined ? MAX_ELEMENT_TOKENS : inputBudget(maxInputTokens);
+  // A state part may fill the model's window; unset keeps the fixed element backstop.
+  const partLimit = maxInputTokens ?? MAX_ELEMENT_TOKENS;
+  const partTokens = (chars: number): number =>
+    maxInputTokens === undefined ? charsToTokens(chars) : Math.ceil(chars / charsPerToken);
   const events: LintEvent[] = [];
   let fatal = false;
   const inputIds: ElementInputIds = new WeakMap();
@@ -235,7 +238,7 @@ export async function runCustomRules(
       // Per-part size backstop: any string state part over the bound skips the element (noted),
       // mirroring the walk's oversized-element behavior — ordinary state never crashes the provider.
       const oversized = Object.entries(stateSpec.state).find(
-        ([, part]) => typeof part === "string" && charsToTokens(part.length) > partLimit,
+        ([, part]) => typeof part === "string" && partTokens(part.length) > partLimit,
       );
       if (oversized !== undefined) {
         events.push({

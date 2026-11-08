@@ -338,7 +338,7 @@ describe("classifyFile - maxInputTokens", () => {
     expect(calls).toBe(0);
     expect(result.events).toHaveLength(0);
     expect(result.oversized).toHaveLength(1);
-    expect(result.oversized[0]!.limit).toBe(9);
+    expect(result.oversized[0]!.limit).toBe(10);
   });
 });
 

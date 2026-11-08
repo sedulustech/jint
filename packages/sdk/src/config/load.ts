@@ -221,8 +221,15 @@ export const CONFIG_SCHEMA = Type.Object({
   maxInputTokens: Type.Optional(
     Type.Number({
       description:
-        "The most input tokens the model accepts in one call. A call over 95% of it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
+        "The most input tokens the model accepts in one call. A call over it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
       examples: [4096],
+    }),
+  ),
+  charsPerToken: Type.Optional(
+    Type.Number({
+      description:
+        "The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer splits code finely.",
+      examples: [2],
     }),
   ),
 });
@@ -244,6 +251,8 @@ export interface ResolvedConfig {
   readonly timeout?: number;
   /** The model's input window in tokens; unset = the fixed 30000-token element backstop. */
   readonly maxInputTokens?: number;
+  /** Characters of request JSON per token when sizing against maxInputTokens (default 4). */
+  readonly charsPerToken?: number;
   /** Load-time scope warnings (a rule whose exclude cancels its include): surfaced as notes. */
   readonly warnings?: readonly string[];
 }
@@ -579,6 +588,7 @@ export function validateConfig(
     concurrency?: number;
     timeout?: number;
     maxInputTokens?: number;
+    charsPerToken?: number;
     warnings?: string[];
   } = {
     input: parsed.input ?? "",
@@ -594,6 +604,7 @@ export function validateConfig(
     concurrency: parsed.concurrency,
     timeout: parsed.timeout,
     maxInputTokens: parsed.maxInputTokens,
+    charsPerToken: parsed.charsPerToken,
   });
   if (knobProblem !== null) {
     throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${knobProblem}`);
@@ -601,6 +612,7 @@ export function validateConfig(
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
   if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
   if (parsed.maxInputTokens !== undefined) resolved.maxInputTokens = parsed.maxInputTokens;
+  if (parsed.charsPerToken !== undefined) resolved.charsPerToken = parsed.charsPerToken;
   if (warnings.length > 0) resolved.warnings = warnings;
   return resolved;
 }

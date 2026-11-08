@@ -16,7 +16,7 @@ import {
   type Inventory,
   type InventoryElement,
 } from "../grammars/walk.ts";
-import { estimateTokens, inputBudget } from "../provider/pacer.ts";
+import { estimateTokens } from "../provider/pacer.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
@@ -251,8 +251,8 @@ export interface OversizedElement {
   /** Source size in UTF-16 code units (content.length), as the note reports it. */
   readonly chars: number;
   /**
-   * Set when the call, not the element alone, did not fit the model's input window: the estimated
-   * token budget one call may carry (maxInputTokens). Absent = skipped by the fixed backstop.
+   * Set when the call, not the element alone, did not fit the model's input window: the window
+   * (maxInputTokens). Absent = skipped by the fixed backstop.
    */
   readonly limit?: number;
 }
@@ -398,6 +398,8 @@ export interface ClassifyFileOptions {
    * questions, and the fixed element backstop does not apply. Unset: the fixed backstop.
    */
   readonly maxInputTokens?: number;
+  /** Characters of request JSON per token for that sizing; unset = the default of 4. */
+  readonly charsPerToken?: number;
 }
 
 /**
@@ -661,6 +663,7 @@ function elementJobsFor(
   path: string,
   configAdmits: boolean,
   maxInputTokens?: number,
+  charsPerToken?: number,
 ): { jobs: ElementJob[]; skipped: OversizedElement[] } {
   const jobs: ElementJob[] = [];
   const skipped: OversizedElement[] = [];
@@ -673,8 +676,8 @@ function elementJobsFor(
       source: elementContent(element),
       rules: scoped,
     };
-    const limit = maxInputTokens === undefined ? undefined : inputBudget(maxInputTokens);
-    if (limit !== undefined && callTokens(job, path) > limit) {
+    const limit = maxInputTokens;
+    if (limit !== undefined && callTokens(job, path, charsPerToken) > limit) {
       skipped.push({
         label: element.label,
         capture: element.capture,
@@ -694,7 +697,7 @@ function elementJobsFor(
  * that apply to it. The path group that asks for the path sends a few more tokens, so both groups
  * are sized and the larger one counts.
  */
-function callTokens(job: ElementJob, statePath: string): number {
+function callTokens(job: ElementJob, statePath: string, charsPerToken?: number): number {
   let largest = 0;
   for (const withPath of [false, true]) {
     const group = job.rules.filter((rule) => (rule.includePath === true) === withPath);
@@ -702,7 +705,7 @@ function callTokens(job: ElementJob, statePath: string): number {
     const state = classifiedState({ path: statePath, source: job.source, id: job.id }, withPath);
     largest = Math.max(
       largest,
-      estimateTokens(state, compileElementQuestions(group, job.element.kind)),
+      estimateTokens(state, compileElementQuestions(group, job.element.kind), charsPerToken),
     );
   }
   return largest;
@@ -855,17 +858,21 @@ export async function classifyFile(
 
   const maxInputTokens = options.maxInputTokens;
   const wholeRules = wholeUnitRules(rules, state.path, unit.kind, configAdmits);
-  const fileLimit = maxInputTokens === undefined ? MAX_ELEMENT_TOKENS : inputBudget(maxInputTokens);
+  const fileLimit = maxInputTokens ?? MAX_ELEMENT_TOKENS;
   const fileOversized =
     "content" in state &&
     (maxInputTokens === undefined
       ? charsToTokens(state.content.length) > fileLimit
       : wholeRules.length > 0 &&
-        estimateTokens(state, compileRuleQuestions(wholeRules, state.id).questions) > fileLimit);
+        estimateTokens(
+          state,
+          compileRuleQuestions(wholeRules, state.id).questions,
+          options.charsPerToken,
+        ) > fileLimit);
   const fileOversizedNote =
     fileOversized && wholeRules.length > 0
       ? [
-          `file too large for file-scope rules - ${state.content.length} chars over the ${fileLimit}-token ${maxInputTokens === undefined ? "backstop" : "window budget"}`,
+          `file too large for file-scope rules - ${state.content.length} chars over the ${fileLimit}-token ${maxInputTokens === undefined ? "backstop" : "input window"}`,
         ]
       : [];
   if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events, configAdmits)))
@@ -892,6 +899,7 @@ export async function classifyFile(
     state.path,
     configAdmits,
     maxInputTokens,
+    options.charsPerToken,
   );
   const oversized = [...flagged, ...skipped];
   if (elementJobs.length === 0) return { events, fatal: false, oversized, notes };

@@ -52,8 +52,9 @@ See [configuration](config.md#concurrency-and-timeout).
 A decision model accepts a fixed number of input tokens. The server rejects a larger input. Jint
 reports an error for that classification.
 
-Set `maxInputTokens` in `jint.config.json` to the model limit. Jint then skips each call that does
-not fit, and names it in a note. See [configuration](config.md#input-window).
+Set `maxInputTokens` in `jint.config.json` to the model limit, and `charsPerToken` to the
+model's measured ratio. Jint then skips each call that does not fit, and names it in a note. See
+[configuration](config.md#input-window).
 
 ## Example: Lemonade in a container
 
@@ -143,8 +144,8 @@ A whole file of a few thousand tokens takes about 10 seconds.
 - **Cache.** The answer cache does not apply to `/v1/systemone` runs. Each run asks every
   question again.
 - **Input size.** The `Laya-GGUF` model accepts at most 4096 input tokens. Lemonade answers a
-  larger input with `400 context_length_exceeded`. Set `maxInputTokens` to `4096` so jint skips
-  such elements and names them in a note.
+  larger input with `400 context_length_exceeded`. Set `maxInputTokens` to `4096` and
+  `charsPerToken` to `2` so jint skips such elements and names them in a note.
 
 ### Stop and remove Lemonade
 

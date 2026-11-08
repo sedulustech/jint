@@ -38,9 +38,13 @@ export default defineConfig({
   // The time one classifier call may take, retries included, in seconds. Default 30. Each
   // attempt gets a third of it.
   timeout: 30,
-  // The most input tokens the model accepts in one call. A call over 95% of it is skipped
-  // with a note. Unset: elements over 30000 tokens are skipped.
+  // The most input tokens the model accepts in one call. A call over it is skipped with a
+  // note. Unset: elements over 30000 tokens are skipped.
   maxInputTokens: 4096,
+  // The characters of a request's JSON that count as one token, when sizing a call
+  // against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer
+  // splits code finely.
+  charsPerToken: 2,
 });
 ```
 
@@ -59,6 +63,7 @@ These keys are not rules. They set what a run reads and how it asks.
 | `concurrency`    | integer             | 16            | The most classifier calls in flight, run-wide. The maximum is 64.              |
 | `timeout`        | seconds             | 30            | The time one classifier call may take, retries included.                       |
 | `maxInputTokens` | integer             | none          | The input tokens the model accepts in one call. See below.                     |
+| `charsPerToken`  | number              | 4             | The request characters that count as one token, for `maxInputTokens`.          |
 
 The `rules` key holds `include`, `exclude` and `use`. These keys are rule settings. See
 [what are rules](what-are-rules.md).
@@ -67,16 +72,23 @@ The `rules` key holds `include`, `exclude` and `use`. These keys are rule settin
 
 `maxInputTokens` is the most input tokens the model accepts in one call. Set it to the model limit,
 not to the server context size. Jint estimates each call as the element plus the questions of the
-rules that apply to it. It skips a call that is over 95% of `maxInputTokens`, and names the element
-in a note. The estimate is the character count divided by four.
+rules that apply to it. It skips a call over `maxInputTokens`, and names the element in a note.
 
-Without `maxInputTokens`, jint skips each element over 30000 tokens and sends the rest.
+Jint has no tokenizer. It counts one token for every `charsPerToken` characters of the request
+JSON. The default is 4. A model that splits code finely needs a lower number. Measure it: send a
+few real calls and divide the request characters by the input tokens the server reports. We
+measured about 2 for `Laya-GGUF`. A wrong number makes jint send calls the server refuses, or skip
+calls that fit.
 
 ```json
 {
-  "maxInputTokens": 4096
+  "maxInputTokens": 4096,
+  "charsPerToken": 2
 }
 ```
+
+`charsPerToken` has no effect without `maxInputTokens`. Without `maxInputTokens`, jint skips each
+element over 30000 tokens and sends the rest.
 
 ### Concurrency and timeout
 

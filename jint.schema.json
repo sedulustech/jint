@@ -1232,8 +1232,13 @@
       "type": "number"
     },
     "maxInputTokens": {
-      "description": "The most input tokens the model accepts in one call. A call over 95% of it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
+      "description": "The most input tokens the model accepts in one call. A call over it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
       "examples": [4096],
+      "type": "number"
+    },
+    "charsPerToken": {
+      "description": "The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer splits code finely.",
+      "examples": [2],
       "type": "number"
     }
   }

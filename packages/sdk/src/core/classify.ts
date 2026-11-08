@@ -54,6 +54,8 @@ export interface ClassifyOptions {
   readonly timeout?: number;
   /** The model's input window in tokens (config key of the same name); unset = fixed backstop. */
   readonly maxInputTokens?: number;
+  /** Characters of request JSON per token for that sizing (default 4). */
+  readonly charsPerToken?: number;
 }
 
 /** The raw outcome of one classify() call: readings and per-unit errors, never handles. */
@@ -99,6 +101,7 @@ export async function classify(
   };
   const fileOptions: ClassifyFileOptionsDraft = { language: options.language, registry };
   if (options.maxInputTokens !== undefined) fileOptions.maxInputTokens = options.maxInputTokens;
+  if (options.charsPerToken !== undefined) fileOptions.charsPerToken = options.charsPerToken;
   const result = await classifyFile(
     unit,
     rules,

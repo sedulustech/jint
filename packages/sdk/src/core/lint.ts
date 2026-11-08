@@ -285,6 +285,7 @@ function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: 
     concurrency,
     timeout,
     maxInputTokens: options.config.maxInputTokens,
+    charsPerToken: options.config.charsPerToken,
   });
   if (problem !== null) throw new SetupError("CONFIG_INVALID", problem);
   return { concurrency, timeout };
@@ -436,6 +437,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             walked.get(i + j),
             admission.configAdmits(unit.state.path),
             options.config.maxInputTokens,
+            options.config.charsPerToken,
           ),
         ),
     );
@@ -456,6 +458,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       classifier,
       () => aborted,
       options.config.maxInputTokens,
+      options.config.charsPerToken,
     );
     for (const event of phase.events) {
       if (event.type === "classification" || event.type === "error") answered++;
@@ -555,6 +558,8 @@ async function walkedInventories(
         if (options.language !== undefined) walkOptions.language = options.language;
         if (options.config.maxInputTokens !== undefined)
           walkOptions.maxInputTokens = options.config.maxInputTokens;
+        if (options.config.charsPerToken !== undefined)
+          walkOptions.charsPerToken = options.config.charsPerToken;
         const w = await walkUnit(unit, walkOptions);
         // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
         // the coverage note; the unit still classifies whole (files-target rules read raw source)
@@ -617,7 +622,7 @@ function oversizedSkipNote(path: string, skipped: OversizedElement): string {
     ` skipped: ${skipped.capture} '${skipped.label}'` +
     (skipped.limit === undefined
       ? ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`
-      : ` — ${skipped.chars} chars (its call is over the ${skipped.limit}-token window budget)`)
+      : ` — ${skipped.chars} chars (its call is over the ${skipped.limit}-token input window)`)
   );
 }
 
@@ -747,6 +752,7 @@ async function runUnit(
   walked: WalkedUnit | undefined,
   configAdmits: boolean,
   maxInputTokens: number | undefined,
+  charsPerToken: number | undefined,
 ): Promise<UnitResult> {
   const fileOptions: ClassifyFileOptionsDraft = {
     language,
@@ -755,6 +761,7 @@ async function runUnit(
     configAdmits,
   };
   if (maxInputTokens !== undefined) fileOptions.maxInputTokens = maxInputTokens;
+  if (charsPerToken !== undefined) fileOptions.charsPerToken = charsPerToken;
   const result = await classifyFile(unit, rules, classifier, isAborted, fileOptions, walked);
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
   // rides the same stream as classifications, and the reporters count it in the run summary.
