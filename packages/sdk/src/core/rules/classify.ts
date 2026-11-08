@@ -16,6 +16,7 @@ import {
   type Inventory,
   type InventoryElement,
 } from "../grammars/walk.ts";
+import { estimateTokens, inputBudget } from "../provider/pacer.ts";
 import { judgesWholeUnit, ruleInScope } from "../scope.ts";
 import {
   ClassifyError,
@@ -249,6 +250,11 @@ export interface OversizedElement {
   readonly span: Span;
   /** Source size in UTF-16 code units (content.length), as the note reports it. */
   readonly chars: number;
+  /**
+   * Set when the call, not the element alone, did not fit the model's input window: the estimated
+   * token budget one call may carry (maxInputTokens). Absent = skipped by the fixed backstop.
+   */
+  readonly limit?: number;
 }
 
 export interface ClassifyResult {
@@ -387,6 +393,11 @@ export interface ClassifyFileOptions {
    * below, which has no walk at all).
    */
   readonly configAdmits?: boolean;
+  /**
+   * The model's input window in tokens. Set: each call is sized against it with its own rules'
+   * questions, and the fixed element backstop does not apply. Unset: the fixed backstop.
+   */
+  readonly maxInputTokens?: number;
 }
 
 /**
@@ -410,6 +421,11 @@ function missingGrammarReason(unit: Unit): string {
     : "cannot infer a grammar for piped stdin - declare it with --language";
 }
 
+/** ClassifyFileOptions under construction: a caller sets only the options it has. */
+export type ClassifyFileOptionsDraft = {
+  -readonly [K in keyof ClassifyFileOptions]: ClassifyFileOptions[K];
+};
+
 export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): Promise<WalkedUnit> {
   if (unit.kind !== "file")
     return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
@@ -422,7 +438,10 @@ export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): P
   // union discriminator and no fallback to parse around.
   const source = state.content;
   try {
-    const parsedSource = await decompose(source, language, { registry });
+    const parsedSource = await decompose(source, language, {
+      registry,
+      backstop: options.maxInputTokens === undefined,
+    });
     const inventory = [
       ...parsedSource.definitions,
       ...parsedSource.comments,
@@ -641,19 +660,52 @@ function elementJobsFor(
   inventory: readonly InventoryElement[],
   path: string,
   configAdmits: boolean,
-): ElementJob[] {
+  maxInputTokens?: number,
+): { jobs: ElementJob[]; skipped: OversizedElement[] } {
   const jobs: ElementJob[] = [];
+  const skipped: OversizedElement[] = [];
   for (const element of inventory) {
     const scoped = rulesForElement(rules, element, path, configAdmits);
     if (scoped.length === 0) continue;
-    jobs.push({
+    const job: ElementJob = {
       id: crypto.randomUUID(),
       element: projectElement(element),
       source: elementContent(element),
       rules: scoped,
-    });
+    };
+    const limit = maxInputTokens === undefined ? undefined : inputBudget(maxInputTokens);
+    if (limit !== undefined && callTokens(job, path) > limit) {
+      skipped.push({
+        label: element.label,
+        capture: element.capture,
+        span: element.span,
+        chars: element.content.length,
+        limit,
+      });
+      continue;
+    }
+    jobs.push(job);
   }
-  return jobs;
+  return { jobs, skipped };
+}
+
+/**
+ * The estimated tokens of an element's largest call: its source plus the questions of the rules
+ * that apply to it. The path group that asks for the path sends a few more tokens, so both groups
+ * are sized and the larger one counts.
+ */
+function callTokens(job: ElementJob, statePath: string): number {
+  let largest = 0;
+  for (const withPath of [false, true]) {
+    const group = job.rules.filter((rule) => (rule.includePath === true) === withPath);
+    if (group.length === 0) continue;
+    const state = classifiedState({ path: statePath, source: job.source, id: job.id }, withPath);
+    largest = Math.max(
+      largest,
+      estimateTokens(state, compileElementQuestions(group, job.element.kind)),
+    );
+  }
+  return largest;
 }
 
 /**
@@ -801,12 +853,19 @@ export async function classifyFile(
   const events: ClassifyEvent[] = [];
   const configAdmits = options.configAdmits ?? true;
 
+  const maxInputTokens = options.maxInputTokens;
+  const wholeRules = wholeUnitRules(rules, state.path, unit.kind, configAdmits);
+  const fileLimit = maxInputTokens === undefined ? MAX_ELEMENT_TOKENS : inputBudget(maxInputTokens);
   const fileOversized =
-    "content" in state && charsToTokens(state.content.length) > MAX_ELEMENT_TOKENS;
+    "content" in state &&
+    (maxInputTokens === undefined
+      ? charsToTokens(state.content.length) > fileLimit
+      : wholeRules.length > 0 &&
+        estimateTokens(state, compileRuleQuestions(wholeRules, state.id).questions) > fileLimit);
   const fileOversizedNote =
-    fileOversized && wholeUnitRules(rules, state.path, unit.kind, configAdmits).length > 0
+    fileOversized && wholeRules.length > 0
       ? [
-          `file too large for file-scope rules - ${state.content.length} chars over the ${MAX_ELEMENT_TOKENS}-token backstop`,
+          `file too large for file-scope rules - ${state.content.length} chars over the ${fileLimit}-token ${maxInputTokens === undefined ? "backstop" : "window budget"}`,
         ]
       : [];
   if (!fileOversized && (await classifyWholeUnit(unit, rules, classifier, events, configAdmits)))
@@ -825,9 +884,16 @@ export async function classifyFile(
     ...scopeNotesFor(rules, walkedUnit.inventory, state.path, unit.kind, configAdmits),
     ...fileOversizedNote,
   ];
-  const oversized = oversizedElements(walkedUnit.derived);
-  if (isAborted()) return { events, fatal: false, oversized, notes };
-  const elementJobs = elementJobsFor(rules, walkedUnit.inventory, state.path, configAdmits);
+  const flagged = oversizedElements(walkedUnit.derived);
+  if (isAborted()) return { events, fatal: false, oversized: flagged, notes };
+  const { jobs: elementJobs, skipped } = elementJobsFor(
+    rules,
+    walkedUnit.inventory,
+    state.path,
+    configAdmits,
+    maxInputTokens,
+  );
+  const oversized = [...flagged, ...skipped];
   if (elementJobs.length === 0) return { events, fatal: false, oversized, notes };
 
   const authAborted = await runElementJobs(elementJobs, state.path, classifier, isAborted, events);

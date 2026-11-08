@@ -24,7 +24,12 @@ import {
   withLimit,
   withTimeout,
 } from "./provider/pacer.ts";
-import { classifiedState, classifyFile, type OversizedElement } from "./rules/classify.ts";
+import {
+  classifiedState,
+  classifyFile,
+  type ClassifyFileOptionsDraft,
+  type OversizedElement,
+} from "./rules/classify.ts";
 import {
   SetupError,
   ClassifyError,
@@ -47,6 +52,8 @@ export interface ClassifyOptions {
   readonly concurrency?: number;
   /** Per-call timeout in seconds (default 30): a hung call becomes PROVIDER_TIMEOUT. */
   readonly timeout?: number;
+  /** The model's input window in tokens (config key of the same name); unset = fixed backstop. */
+  readonly maxInputTokens?: number;
 }
 
 /** The raw outcome of one classify() call: readings and per-unit errors, never handles. */
@@ -90,6 +97,8 @@ export async function classify(
     kind: "file",
     state: classifiedState({ path, content: str }),
   };
+  const fileOptions: ClassifyFileOptionsDraft = { language: options.language, registry };
+  if (options.maxInputTokens !== undefined) fileOptions.maxInputTokens = options.maxInputTokens;
   const result = await classifyFile(
     unit,
     rules,
@@ -98,7 +107,7 @@ export async function classify(
       concurrency,
     ),
     () => false,
-    { language: options.language, registry },
+    fileOptions,
   );
   const classifications: Classification[] = [];
   const errors: ClassifyError[] = [];

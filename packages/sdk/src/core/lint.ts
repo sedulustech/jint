@@ -43,6 +43,7 @@ import {
 } from "./provider/pacer.ts";
 import {
   classifyFile,
+  type ClassifyFileOptionsDraft,
   classifiedState,
   rulesForElement,
   targetsOf,
@@ -280,7 +281,11 @@ function assertApiKeyForRules(ruleCount: number, options: LintOptions): void {
 function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: number } {
   const concurrency = options.concurrency ?? options.config.concurrency ?? DEFAULT_CONCURRENCY;
   const timeout = options.timeout ?? options.config.timeout ?? DEFAULT_TIMEOUT;
-  const problem = checkRunKnobs({ concurrency, timeout });
+  const problem = checkRunKnobs({
+    concurrency,
+    timeout,
+    maxInputTokens: options.config.maxInputTokens,
+  });
   if (problem !== null) throw new SetupError("CONFIG_INVALID", problem);
   return { concurrency, timeout };
 }
@@ -430,6 +435,7 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
             registry,
             walked.get(i + j),
             admission.configAdmits(unit.state.path),
+            options.config.maxInputTokens,
           ),
         ),
     );
@@ -444,7 +450,13 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   }
 
   if (customResolved !== undefined && !aborted) {
-    const phase = await runCustomRules(customRules, customResolved, classifier, () => aborted);
+    const phase = await runCustomRules(
+      customRules,
+      customResolved,
+      classifier,
+      () => aborted,
+      options.config.maxInputTokens,
+    );
     for (const event of phase.events) {
       if (event.type === "classification" || event.type === "error") answered++;
       yield event;
@@ -539,10 +551,11 @@ async function walkedInventories(
             (rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
           ) || customRules.some((rule) => inScopeFor(rule, unit.state.path));
         if (!needsWalk) return;
-        const w = await walkUnit(
-          unit,
-          options.language !== undefined ? { language: options.language, registry } : { registry },
-        );
+        const walkOptions: ClassifyFileOptionsDraft = { registry };
+        if (options.language !== undefined) walkOptions.language = options.language;
+        if (options.config.maxInputTokens !== undefined)
+          walkOptions.maxInputTokens = options.config.maxInputTokens;
+        const w = await walkUnit(unit, walkOptions);
         // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
         // the coverage note; the unit still classifies whole (files-target rules read raw source)
         if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
@@ -602,7 +615,9 @@ function oversizedSkipNote(path: string, skipped: OversizedElement): string {
   return (
     `${path}@L${skipped.span.start.line}` +
     ` skipped: ${skipped.capture} '${skipped.label}'` +
-    ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`
+    (skipped.limit === undefined
+      ? ` — ${skipped.chars} chars (over the ${MAX_ELEMENT_TOKENS}-token cap)`
+      : ` — ${skipped.chars} chars (its call is over the ${skipped.limit}-token window budget)`)
   );
 }
 
@@ -731,20 +746,16 @@ async function runUnit(
   registry: GrammarRegistry,
   walked: WalkedUnit | undefined,
   configAdmits: boolean,
+  maxInputTokens: number | undefined,
 ): Promise<UnitResult> {
-  const result = await classifyFile(
-    unit,
-    rules,
-    classifier,
-    isAborted,
-    {
-      language,
-      registry,
-      // the walk-union gate: unscoped rules follow the config scope (see Admission)
-      configAdmits,
-    },
-    walked,
-  );
+  const fileOptions: ClassifyFileOptionsDraft = {
+    language,
+    registry,
+    // the walk-union gate: unscoped rules follow the config scope (see Admission)
+    configAdmits,
+  };
+  if (maxInputTokens !== undefined) fileOptions.maxInputTokens = maxInputTokens;
+  const result = await classifyFile(unit, rules, classifier, isAborted, fileOptions, walked);
   // Oversized elements are skipped by the classifier (no rules) — never silent: an in-band note
   // rides the same stream as classifications, and the reporters count it in the run summary.
   return {

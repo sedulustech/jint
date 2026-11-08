@@ -317,6 +317,31 @@ describe("classifyFile — element fan-out", () => {
   });
 });
 
+describe("classifyFile - maxInputTokens", () => {
+  test("a window smaller than the questions skips every element with a note, and calls nothing", async () => {
+    const { classifyFile } = await import("./classify.ts");
+    let calls = 0;
+    const classifier: Classifier = async () => {
+      calls++;
+      return {};
+    };
+    const result = await classifyFile(
+      {
+        kind: "file",
+        state: { path: "src/a.ts", content: "function a() {\n  return 1;\n}\n", id: "L1" },
+      },
+      [scoreFn],
+      classifier,
+      () => false,
+      { maxInputTokens: 10 },
+    );
+    expect(calls).toBe(0);
+    expect(result.events).toHaveLength(0);
+    expect(result.oversized).toHaveLength(1);
+    expect(result.oversized[0]!.limit).toBe(9);
+  });
+});
+
 describe("classifyFile — role routing", () => {
   const fnRule = scoreFn; // functions-target: judges callables only
 

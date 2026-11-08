@@ -154,7 +154,11 @@ export const MAX_ELEMENT_TOKENS = 30_000;
 
 // Flagging, not truncating: the classifier refuses oversized requests, and a skipped judgment is
 // honest where a truncated element would be judged on half its source.
-function applySizeBackstop<T extends { content: string }>(elements: readonly T[]): T[] {
+function applySizeBackstop<T extends { content: string }>(
+  elements: readonly T[],
+  enabled: boolean,
+): T[] {
+  if (!enabled) return [...elements];
   return elements.map((element) =>
     charsToTokens(element.content.length) > MAX_ELEMENT_TOKENS
       ? { ...element, oversized: true }
@@ -582,9 +586,15 @@ function materialize(
 export async function decompose(
   source: string,
   language: string,
-  options: { readonly queries?: string; readonly registry?: GrammarRegistry } = {},
+  options: {
+    readonly queries?: string;
+    readonly registry?: GrammarRegistry;
+    /** False: the classifier sizes each call against the model's window instead (default true). */
+    readonly backstop?: boolean;
+  } = {},
 ): Promise<Inventory> {
   const registry = options.registry ?? EMBEDDED;
+  const backstop = options.backstop ?? true;
   const entry = grammar(registry, language);
   const [parser, lang] = await Promise.all([parserFor(entry), loadLanguage(entry)]);
   const override =
@@ -613,9 +623,9 @@ export async function decompose(
   return {
     hasError: tree.rootNode.hasError,
     provenance: entry.provenance,
-    definitions: applySizeBackstop(definitions),
-    comments: applySizeBackstop(comments),
-    imports: applySizeBackstop(imports),
+    definitions: applySizeBackstop(definitions, backstop),
+    comments: applySizeBackstop(comments, backstop),
+    imports: applySizeBackstop(imports, backstop),
   };
 }
 

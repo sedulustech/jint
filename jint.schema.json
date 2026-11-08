@@ -1230,6 +1230,11 @@
       "description": "The time one classifier call may take, retries included, in seconds. Default 30. Each attempt gets a third of it.",
       "examples": [30],
       "type": "number"
+    },
+    "maxInputTokens": {
+      "description": "The most input tokens the model accepts in one call. A call over 95% of it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
+      "examples": [4096],
+      "type": "number"
     }
   }
 }

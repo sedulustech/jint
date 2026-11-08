@@ -38,6 +38,9 @@ export default defineConfig({
   // The time one classifier call may take, retries included, in seconds. Default 30. Each
   // attempt gets a third of it.
   timeout: 30,
+  // The most input tokens the model accepts in one call. A call over 95% of it is skipped
+  // with a note. Unset: elements over 30000 tokens are skipped.
+  maxInputTokens: 4096,
 });
 ```
 
@@ -55,9 +58,25 @@ These keys are not rules. They set what a run reads and how it asks.
 | `disable`        | string list         | none          | Rule names to remove after jint composes the rules.                            |
 | `concurrency`    | integer             | 16            | The most classifier calls in flight, run-wide. The maximum is 64.              |
 | `timeout`        | seconds             | 30            | The time one classifier call may take, retries included.                       |
+| `maxInputTokens` | integer             | none          | The input tokens the model accepts in one call. See below.                     |
 
 The `rules` key holds `include`, `exclude` and `use`. These keys are rule settings. See
 [what are rules](what-are-rules.md).
+
+### Input window
+
+`maxInputTokens` is the most input tokens the model accepts in one call. Set it to the model limit,
+not to the server context size. Jint estimates each call as the element plus the questions of the
+rules that apply to it. It skips a call that is over 95% of `maxInputTokens`, and names the element
+in a note. The estimate is the character count divided by four.
+
+Without `maxInputTokens`, jint skips each element over 30000 tokens and sends the rest.
+
+```json
+{
+  "maxInputTokens": 4096
+}
+```
 
 ### Concurrency and timeout
 

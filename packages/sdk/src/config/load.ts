@@ -218,6 +218,13 @@ export const CONFIG_SCHEMA = Type.Object({
       examples: [30],
     }),
   ),
+  maxInputTokens: Type.Optional(
+    Type.Number({
+      description:
+        "The most input tokens the model accepts in one call. A call over 95% of it is skipped with a note. Unset: elements over 30000 tokens are skipped.",
+      examples: [4096],
+    }),
+  ),
 });
 
 /** The normalized shape every config resolves to before lint runs. */
@@ -235,6 +242,8 @@ export interface ResolvedConfig {
   readonly concurrency?: number;
   /** Per-call classifier timeout, seconds (default 30); a hung call becomes PROVIDER_TIMEOUT. */
   readonly timeout?: number;
+  /** The model's input window in tokens; unset = the fixed 30000-token element backstop. */
+  readonly maxInputTokens?: number;
   /** Load-time scope warnings (a rule whose exclude cancels its include): surfaced as notes. */
   readonly warnings?: readonly string[];
 }
@@ -569,6 +578,7 @@ export function validateConfig(
     secretDenylist?: string[];
     concurrency?: number;
     timeout?: number;
+    maxInputTokens?: number;
     warnings?: string[];
   } = {
     input: parsed.input ?? "",
@@ -583,12 +593,14 @@ export function validateConfig(
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,
     timeout: parsed.timeout,
+    maxInputTokens: parsed.maxInputTokens,
   });
   if (knobProblem !== null) {
     throw new SetupError("CONFIG_INVALID", `invalid config ${source}: ${knobProblem}`);
   }
   if (parsed.concurrency !== undefined) resolved.concurrency = parsed.concurrency;
   if (parsed.timeout !== undefined) resolved.timeout = parsed.timeout;
+  if (parsed.maxInputTokens !== undefined) resolved.maxInputTokens = parsed.maxInputTokens;
   if (warnings.length > 0) resolved.warnings = warnings;
   return resolved;
 }

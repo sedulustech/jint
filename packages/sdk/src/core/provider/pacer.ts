@@ -36,6 +36,7 @@ export function checkRunKnobs(knobs: {
   readonly concurrency?: number;
   readonly rps_budget?: number;
   readonly timeout?: number;
+  readonly maxInputTokens?: number;
 }): string | null {
   if (knobs.concurrency !== undefined) {
     if (!Number.isInteger(knobs.concurrency) || knobs.concurrency < 1) {
@@ -48,8 +49,24 @@ export function checkRunKnobs(knobs: {
   if (knobs.timeout !== undefined && (!(knobs.timeout > 0) || !Number.isFinite(knobs.timeout))) {
     return `timeout: must be a number > 0 (seconds), got ${knobs.timeout}`;
   }
+  if (
+    knobs.maxInputTokens !== undefined &&
+    (!Number.isInteger(knobs.maxInputTokens) || knobs.maxInputTokens < 1)
+  ) {
+    return `maxInputTokens: must be an integer >= 1, got ${knobs.maxInputTokens}`;
+  }
   return null;
 }
+
+/**
+ * The share of a model's input window one call may fill. The rest absorbs the error of the chars/4
+ * estimate (jint has no tokenizer by design).
+ */
+const INPUT_FILL = 0.95;
+
+/** The most estimated tokens one call may carry under a model's input window. */
+export const inputBudget = (maxInputTokens: number): number =>
+  Math.floor(maxInputTokens * INPUT_FILL);
 
 /**
  * Wraps a classifier with a global in-flight cap (the wall-clock knob). The per-unit pools schedule
