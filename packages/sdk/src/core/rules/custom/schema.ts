@@ -125,7 +125,6 @@ export interface CustomRule {
 export interface TsConfig {
   readonly $schema?: string;
   readonly input?: string;
-  readonly inputType?: "file" | "dir";
   /**
    * The rules, and the default scope every rule follows (a rule's own include/exclude overrides
    * it).
@@ -135,9 +134,10 @@ export interface TsConfig {
     readonly exclude?: readonly string[];
     readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
   };
-  readonly disable?: readonly string[];
   readonly concurrency?: number;
   readonly timeout?: number;
+  readonly maxInputTokens?: number;
+  readonly charsPerToken?: number;
 }
 
 /** The element captures a custom rule may target in v1 (unit-level targets stay JSON-tier). */
@@ -353,9 +353,9 @@ export function defineConfig(config: TsConfig): TsConfig {
 const CONFIG_KEYS: ReadonlySet<string> = new Set([
   "$schema",
   "input",
-  "inputType",
   "rules",
-  "disable",
   "concurrency",
   "timeout",
+  "maxInputTokens",
+  "charsPerToken",
 ]);

@@ -34,8 +34,6 @@ export function findConfigFile(cwd = process.cwd()): string | null {
   return null;
 }
 
-const KIND_SCHEMA = Type.Union([Type.Literal("file"), Type.Literal("dir")]);
-
 // A QUALIFIED capture address: {grammar}:{capture} - grammar-scoped targeting for
 // grammar-autonomous vocabulary (markdown's markdown:section). Validated at lint
 // startup against the merged registry, never at config load.
@@ -157,12 +155,6 @@ export const CONFIG_SCHEMA = Type.Object({
       examples: ["src/"],
     }),
   ),
-  inputType: Type.Optional(
-    Type.Union([Type.Literal("file"), Type.Literal("dir")], {
-      description: "Whether input is a file or a directory.",
-      examples: ["dir"],
-    }),
-  ),
   // The rules, and the scope they follow: include/exclude are the default scope of every rule and
   // the walk's file filter - a rule with no include of its own follows them, and a rule include
   // claims its files across them (docs/config.md). Same glob semantics as a rule's own scope.
@@ -195,12 +187,6 @@ export const CONFIG_SCHEMA = Type.Object({
     Type.Array(Type.String(), {
       description: "Replaces the built-in denylist of secret-shaped files (gitignore patterns).",
       examples: [["!.env.example"]],
-    }),
-  ),
-  disable: Type.Optional(
-    Type.Array(Type.String(), {
-      description: "Rule names to remove after the rules are composed.",
-      examples: [["is_function_srp"]],
     }),
   ),
   // Run knobs: concurrency = in-flight ceiling. Floors are enforced with the other
@@ -237,7 +223,6 @@ export const CONFIG_SCHEMA = Type.Object({
 /** The normalized shape every config resolves to before lint runs. */
 export interface ResolvedConfig {
   readonly input?: string;
-  readonly inputType?: "file" | "dir";
   readonly rules: readonly Rule[];
   /** Inline callback rules from a TS config's rules array (validated); empty for the JSON tier. */
   readonly customRules?: readonly CustomRule[];
@@ -551,13 +536,12 @@ export function validateConfig(
   if (!Value.Check(CONFIG_SCHEMA, raw)) throwConfigInvalid(raw, source);
   const parsed = raw as Static<typeof CONFIG_SCHEMA>;
   const byName = resolveRules(parsed.rules?.use, catalog, source, rulesOptional);
-  for (const name of parsed.disable ?? []) byName.delete(name);
   // A run that would measure nothing is fatal and named: an empty report must never look like
   // success — the resolved set has to be non-empty across both rule forms.
   if (byName.size === 0 && customRules.length === 0 && !rulesOptional) {
     throw new SetupError(
       "CONFIG_NO_RULES",
-      `invalid config ${source}: no rules to run - declare at least one rule, or drop the disable list`,
+      `invalid config ${source}: no rules to run - declare at least one rule`,
     );
   }
   // Per-rule scope validation; a scope that cancels a rule entirely is legal, warned, never an error.
@@ -579,7 +563,6 @@ export function validateConfig(
   }
   const resolved: {
     input: string;
-    inputType?: Static<typeof KIND_SCHEMA>;
     rules: Rule[];
     customRules: readonly CustomRule[];
     include: string[];
@@ -598,7 +581,6 @@ export function validateConfig(
     exclude: parsed.rules?.exclude ?? [],
   };
   if (parsed.secretDenylist !== undefined) resolved.secretDenylist = parsed.secretDenylist;
-  if (parsed.inputType !== undefined) resolved.inputType = parsed.inputType;
   // Run knobs: schema floors are re-checked here so the message names the field, not a union branch.
   const knobProblem = checkRunKnobs({
     concurrency: parsed.concurrency,

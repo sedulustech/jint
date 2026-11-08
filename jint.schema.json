@@ -10,20 +10,6 @@
       "examples": ["src/"],
       "type": "string"
     },
-    "inputType": {
-      "description": "Whether input is a file or a directory.",
-      "examples": ["dir"],
-      "anyOf": [
-        {
-          "const": "file",
-          "type": "string"
-        },
-        {
-          "const": "dir",
-          "type": "string"
-        }
-      ]
-    },
     "rules": {
       "type": "object",
       "properties": {
@@ -1208,14 +1194,6 @@
     "secretDenylist": {
       "description": "Replaces the built-in denylist of secret-shaped files (gitignore patterns).",
       "examples": [["!.env.example"]],
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "disable": {
-      "description": "Rule names to remove after the rules are composed.",
-      "examples": [["is_function_srp"]],
       "type": "array",
       "items": {
         "type": "string"

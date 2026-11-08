@@ -277,7 +277,6 @@ export function captureFor(
     const { captured, files } = await walkAndExtract(
       {
         input,
-        inputType: config.inputType,
         exclude: [...config.exclude, ...(options.exclude ?? [])],
         include: walkScopes(config.include, config.rules),
         scopeBase: options.scopeBase,

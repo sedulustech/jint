@@ -923,7 +923,7 @@ async function resolveRunUnits(
   const resolvedKind =
     Array.isArray(input) || elementPinned
       ? "file"
-      : (options.inputType ?? options.config.inputType ?? (await inferKind(input as string)));
+      : (options.inputType ?? (await inferKind(input as string)));
   // one resolution plumbing: the scopes/exclude params ride along (inert on file operands -
   // a named file never walks), load-bearing on the dir walk
   const resolve = (inp: string | string[], inputType: InputKind | undefined) =>
@@ -953,10 +953,7 @@ async function resolveRunUnits(
   }
   // the dir walk: the walker enforces the same scopes mid-walk (admitting through any scope);
   // configAdmits here is what unscoped rules ride during rule selection
-  const units = await resolve(
-    input as string | string[],
-    options.inputType ?? options.config.inputType,
-  );
+  const units = await resolve(input as string | string[], options.inputType);
   return { units, configAdmits: scopeAdmits, scopes };
 }
 

@@ -93,6 +93,22 @@ describe("loadTsConfig (the TS config tier)", () => {
     expect(config.customRules!.every((r) => typeof r.classify === "function")).toBe(true);
   });
 
+  test("a TS config takes the model limits a config file takes", async () => {
+    const path = write(
+      "limits.config.ts",
+      'import { is_greppable } from "jint:rules/naming";\n' +
+        'import { defineConfig } from "jint:sdk";\n' +
+        "export default defineConfig({\n" +
+        "  rules: { use: [is_greppable] },\n" +
+        "  maxInputTokens: 4096,\n" +
+        "  charsPerToken: 2,\n" +
+        "});\n",
+    );
+    const config = await loadTsConfig(path);
+    expect(config.maxInputTokens).toBe(4096);
+    expect(config.charsPerToken).toBe(2);
+  });
+
   test("jint:rules/<domain> serves the domain plus each rule under its own name", async () => {
     const path = write(
       "virtual.config.ts",
@@ -193,12 +209,11 @@ describe("defineConfig validation (author-time, fatal)", () => {
   test("accepts the full config surface (minus customRules)", () => {
     const config = defineConfig({
       input: "src/",
-      inputType: "dir",
       rules: { include: ["**/*.ts"], exclude: ["**/*.test.ts"], use: [] },
-
-      disable: ["is_greppable"],
       concurrency: 8,
       timeout: 30,
+      maxInputTokens: 4096,
+      charsPerToken: 2,
     });
     expect(config.input).toBe("src/");
   });

@@ -19,8 +19,6 @@ import { defineConfig } from "jint:sdk";
 export default defineConfig({
   // The file or directory to measure. A path given to jint run overrides it.
   input: "src/",
-  // Whether input is a file or a directory.
-  inputType: "dir",
   rules: {
     // The files jint reads, and the default scope of every rule.
     include: ["**/*.ts"],
@@ -31,8 +29,6 @@ export default defineConfig({
   },
   // Replaces the built-in denylist of secret-shaped files (gitignore patterns).
   secretDenylist: ["!.env.example"],
-  // Rule names to remove after the rules are composed.
-  disable: ["is_function_srp"],
   // The most classifier calls in flight, run-wide. Default 16, max 64.
   concurrency: 16,
   // The time one classifier call may take, retries included, in seconds. Default 30. Each
@@ -54,16 +50,14 @@ export default defineConfig({
 
 These keys are not rules. They set what a run reads and how it asks.
 
-| Key              | Type                | Default       | Meaning                                                                        |
-| ---------------- | ------------------- | ------------- | ------------------------------------------------------------------------------ |
-| `input`          | string              | none          | The file or directory to measure. A path given to `jint run` overrides it.     |
-| `inputType`      | `"file"` or `"dir"` | from the path | Whether `input` is a file or a directory.                                      |
-| `secretDenylist` | string list         | built-in list | Gitignore patterns for secret-shaped files. A list replaces the built-in list. |
-| `disable`        | string list         | none          | Rule names to remove after jint composes the rules.                            |
-| `concurrency`    | integer             | 16            | The most classifier calls in flight, run-wide. The maximum is 64.              |
-| `timeout`        | seconds             | 30            | The time one classifier call may take, retries included.                       |
-| `maxInputTokens` | integer             | none          | The input tokens the model accepts in one call. See below.                     |
-| `charsPerToken`  | number              | 4             | The request characters that count as one token, for `maxInputTokens`.          |
+| Key              | Type        | Default       | Meaning                                                                        |
+| ---------------- | ----------- | ------------- | ------------------------------------------------------------------------------ |
+| `input`          | string      | none          | The file or directory to measure. A path given to `jint run` overrides it.     |
+| `secretDenylist` | string list | built-in list | Gitignore patterns for secret-shaped files. A list replaces the built-in list. |
+| `concurrency`    | integer     | 16            | The most classifier calls in flight, run-wide. The maximum is 64.              |
+| `timeout`        | seconds     | 30            | The time one classifier call may take, retries included.                       |
+| `maxInputTokens` | integer     | none          | The input tokens the model accepts in one call. See below.                     |
+| `charsPerToken`  | number      | 4             | The request characters that count as one token, for `maxInputTokens`.          |
 
 The `rules` key holds `include`, `exclude` and `use`. These keys are rule settings. See
 [what are rules](what-are-rules.md).

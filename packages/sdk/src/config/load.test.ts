@@ -4,12 +4,11 @@ import { SetupError } from "../core/types.ts";
 import { loadConfig, validateConfig } from "./load.ts";
 
 describe("loadConfig", () => {
-  test("loads a valid JSON config: disable + exclude applied", async () => {
+  test("loads a valid JSON config: exclude applied", async () => {
     const config = await loadConfig("tests/fixtures/configs/valid.config.json", {
       catalog,
     });
     expect(config.input).toBe("tests/fixtures/sample-dir");
-    expect(config.rules.map((s) => s.name)).not.toContain("will_comment_drift");
     expect(config.exclude).toEqual(["**/more.ts"]);
   });
 
@@ -486,19 +485,6 @@ describe("validateConfig / catalogConfig", () => {
       "inline",
     );
     expect(overlapping.warnings).toBeUndefined();
-  });
-
-  test("disable removes by name after assembly", () => {
-    const config = validateConfig(
-      {
-        input: "x",
-        rules: { use: ["is_greppable", "is_function_srp"] },
-        disable: ["is_greppable"],
-      },
-      "inline",
-      catalog,
-    );
-    expect(config.rules.map((r) => r.name)).toEqual(["is_function_srp"]);
   });
 });
 

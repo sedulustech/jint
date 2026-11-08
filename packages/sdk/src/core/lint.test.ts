@@ -1158,7 +1158,7 @@ describe("lint", () => {
       const drain2 = async (secretDenylist?: readonly string[]) => {
         const events = await drain(
           lint({
-            config: { ...baseConfig, input: dir, inputType: "dir", secretDenylist },
+            config: { ...baseConfig, input: dir, secretDenylist },
             classifier: classifierWith({}),
           }),
         );
@@ -1236,7 +1236,6 @@ describe("lint", () => {
         config: {
           ...baseConfig,
           input: "tests/fixtures/sample-dir/data.ini",
-          inputType: "file",
           rules: [probeFiles],
         },
         classifier: classifierWith({ probe_files: 0.9 }),
@@ -1252,7 +1251,6 @@ describe("lint", () => {
         config: {
           ...baseConfig,
           input: "tests/fixtures/sample-dir",
-          inputType: "dir",
           rules: [],
           customRules: [ELEMENTS_RULE as never],
         },

@@ -110,7 +110,6 @@ declare module "jint:sdk" {
   export interface TsConfig {
     readonly $schema?: string;
     readonly input?: string;
-    readonly inputType?: "file" | "dir";
     /**
      * The rules, and the default scope every rule follows (a rule's own include/exclude overrides
      * it).
@@ -120,9 +119,10 @@ declare module "jint:sdk" {
       readonly exclude?: readonly string[];
       readonly use?: ReadonlyArray<string | CustomRule | ({ readonly name: string } & object)>;
     };
-    readonly disable?: readonly string[];
     readonly concurrency?: number;
     readonly timeout?: number;
+    readonly maxInputTokens?: number;
+    readonly charsPerToken?: number;
   }
 
   /** A declarative rule spec - what a jint:rules/<domain> export is, and what a config entry takes. */
