@@ -160,6 +160,26 @@ changed; criteria are keyed by option label (score: level index). `--json` print
 the record: `n` is the `#N`, `answer` its answer. It needs the same key as
 `jint run`.
 
+## Create a rule, step by step
+
+1. State one claim as a yes/no question. Name the rule for its true side.
+2. Find the unit. Run `jint capture <path> --rule <name>` to list the elements. If the
+   construct is not an element, add a capture to the grammar's `queries.scm`
+   (docs/captures.md). Do not stretch a rule over the wrong unit.
+3. Write the rule: criteria for both sides, the handle in the defect direction, and one
+   imperative fixer message.
+4. Scope the rule with `include`. Exclude files that hold no element for it, or each one
+   reports `WALK_FAILED`.
+5. Run it on real units: `jint run <paths> --config <config> --json`.
+6. Label the readings by hand. List the healthy and the defective units with their values.
+7. Reword with `jint reclassify` on the units that read wrong. Use examples that are not
+   in the sample.
+8. Check the gap. The healthy minimum and the defective maximum must not overlap. If they
+   overlap, do not ship the rule.
+9. Place the rule. See "Where a rule goes".
+10. Print the address of the run. Start `jint serve`, then print
+    `<serve url>/runs/<run.id>?rule=<rule>&input=<input>` for the readings to review.
+
 ## The calibration ritual
 
 A rule is not promoted into an official domain from one corpus:
