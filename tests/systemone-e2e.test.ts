@@ -106,6 +106,29 @@ describe("jint run against a System One server", () => {
     }
   });
 
+  test("the run header names --no-header, and --no-header hides it", async () => {
+    const dir = scratchDir(`jint-systemone-${Math.random().toString(36).slice(2)}`);
+    const config = join(dir, "jint.config.json");
+    const source = join(dir, "unit.ts");
+    writeFileSync(config, JSON.stringify({ rules: { use: [RULE] } }));
+    writeFileSync(source, "export const one = 1;\n");
+    const server = startSystemOne();
+    const env = { JINT_API_URL: server.url, JINT_API_MODEL: "d3-lite-FLM", JINT_API_KEY: "" };
+    try {
+      const shown = await runCli(["run", source, "--config", config, "--json"], { env });
+      expect(shown.stderr).toContain("measuring with 1 rule");
+      expect(shown.stderr).toContain("--no-header");
+      const hidden = await runCli(["run", source, "--config", config, "--json", "--no-header"], {
+        env,
+      });
+      expect(hidden.stderr).not.toContain("measuring with");
+      expect(hidden.stderr).not.toContain("rules scope");
+      expect(JSON.parse(hidden.stdout).rules).toHaveLength(1);
+    } finally {
+      server.stop();
+    }
+  });
+
   test("a server with several models and no model named fails at setup, saying what to set", async () => {
     const dir = scratchDir(`jint-systemone-${Math.random().toString(36).slice(2)}`);
     const config = join(dir, "jint.config.json");

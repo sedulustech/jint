@@ -156,6 +156,12 @@ export const FLAGS = {
       "run: ask every question instead of serving stored answers (the answer cache is $JINT_CACHE_DIR, else ~/.jint/cache)",
     verbs: ["run"],
   },
+  "--no-header": {
+    type: "boolean",
+    blurb:
+      "run: do not print the rules and scope header on stderr (the rules stay in the report's rules)",
+    verbs: ["run"],
+  },
   "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
   "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
   "--version": { type: "boolean", blurb: "print the version" },
@@ -846,6 +852,7 @@ function lintInputOptionsFor(run: RunContext): Record<string, unknown> {
 /** The rubric and the scope header, before any finding: the context the findings are read in. */
 function printRunHeader(run: RunContext): void {
   const { cliArgs, resolvedConfig, input } = run;
+  if (cliArgs["no-header"] === true) return;
   printRules(
     run.effective,
     resolvedConfig.customRules?.length ?? 0,
@@ -858,7 +865,7 @@ function printRunHeader(run: RunContext): void {
         input.lintInput?.input ?? resolvedConfig.input,
         cliArgs.unscoped === true,
       ),
-    ),
+    ).concat("this header is printed on every run: --no-header hides it"),
   );
 }
 
