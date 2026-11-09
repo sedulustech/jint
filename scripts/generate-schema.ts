@@ -648,11 +648,20 @@ function renderEntry(entry: {
   ].join("\n");
 }
 
-/** One config field: its type, default and requirement as pills. */
-function renderFieldEntry(path: string, node: TableNode, required: boolean): string {
+/**
+ * One config field: its type, default and requirement as pills. `within` is the key the section
+ * under it is named for: the section title says it, so the entry shows the path below it. The id
+ * keeps the whole path, so every anchor stays unique.
+ */
+function renderFieldEntry(
+  path: string,
+  node: TableNode,
+  required: boolean,
+  within?: string,
+): string {
   return renderEntry({
     id: path.replaceAll(".", "-").toLowerCase(),
-    name: path,
+    name: within === undefined ? path : path.slice(within.length + 1),
     pills: [
       typeLabel(node),
       ...(node.default === undefined ? [] : [`default ${node.default}`]),
@@ -682,10 +691,10 @@ export function renderConfigReference(): string {
     if (node.items !== undefined) visit(node.items, path);
   };
   visit(rules.properties!["use"]!.items!, "");
-  const entries = (keep: (field: [string, unknown]) => boolean) =>
+  const entries = (keep: (field: [string, unknown]) => boolean, within?: string) =>
     [...fields]
       .filter(keep)
-      .map(([path, { node, required }]) => renderFieldEntry(path, node, required));
+      .map(([path, { node, required }]) => renderFieldEntry(path, node, required, within));
   return [
     "## Run settings",
     "",
@@ -704,7 +713,7 @@ export function renderConfigReference(): string {
     "",
     "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
     "",
-    ...entries(([path]) => path.startsWith("handle.")),
+    ...entries(([path]) => path.startsWith("handle."), "handle"),
   ].join("\n");
 }
 

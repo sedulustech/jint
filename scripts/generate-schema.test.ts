@@ -3,6 +3,9 @@ import { CONFIG_SCHEMA } from "@jint/sdk";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
+  renderCliReference,
+  renderConfigReference,
+  renderEnvTable,
   renderFixerTable,
   renderDirectivesTable,
   renderHandleCell,
@@ -222,5 +225,43 @@ describe("the config schema", () => {
     };
     visit(CONFIG_SCHEMA as unknown as Node, "");
     expect(missing).toEqual([]);
+  });
+});
+
+// The reference pages share one entry: the name in a code span first, the pills on the same line,
+// the description below. A model judging this from raw HTML scored healthy pages as low as 0.41
+// against 0.09 for a defective one, and missed a table-format page, so the format is held here.
+describe("the reference pages: one entry format", () => {
+  const entryLine =
+    /^<h3 id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill">.+?<\/span>)*<\/span><\/h3>$/;
+  const pages = {
+    config: renderConfigReference(),
+    environment: renderEnvTable(),
+    cli: renderCliReference(),
+  };
+
+  for (const [page, text] of Object.entries(pages)) {
+    test(`${page}: every entry is a heading with its pills, then a description`, () => {
+      const lines = text.split("\n");
+      const entries = lines.flatMap((line, index) => (line.startsWith("<h3") ? [index] : []));
+      expect(entries.length).toBeGreaterThan(0);
+      for (const index of entries) {
+        expect(lines[index], `entry at line ${index}`).toMatch(entryLine);
+        expect(lines[index + 1]).toBe("");
+        expect((lines[index + 2] ?? "").trim().length).toBeGreaterThan(0);
+        expect(lines[index + 2]).not.toMatch(/^[<#|]/);
+      }
+    });
+  }
+
+  test("config: a name below a section's key does not repeat that key", () => {
+    const lines = pages.config.split("\n");
+    const start = lines.indexOf("## Rule handler fields");
+    expect(start).toBeGreaterThan(0);
+    const names = lines
+      .slice(start)
+      .flatMap((line) => line.match(/class="field"><code>([^<]+)<\/code>/)?.[1] ?? []);
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) expect(name.startsWith("handle.")).toBe(false);
   });
 });

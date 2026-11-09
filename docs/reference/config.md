@@ -103,71 +103,71 @@ true: this entry replaces an earlier entry of the same name. Without it a repeat
 
 The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.
 
-<h3 id="handle-map" class="field"><code>handle.map</code><span class="pills"><span class="pill">object[]</span><span class="pill">required</span></span></h3>
+<h3 id="handle-map" class="field"><code>map</code><span class="pills"><span class="pill">object[]</span><span class="pill">required</span></span></h3>
 
 One tier for each score level, in the order of the criteria.
 
-<h3 id="handle-map-level" class="field"><code>handle.map.level</code><span class="pills"><span class="pill">string | object</span><span class="pill">required</span></span></h3>
+<h3 id="handle-map-level" class="field"><code>map.level</code><span class="pills"><span class="pill">string | object</span><span class="pill">required</span></span></h3>
 
 The severity of a finding: pass raises none.
 
-<h3 id="handle-map-message" class="field"><code>handle.map.message</code><span class="pills"><span class="pill">string</span></span></h3>
+<h3 id="handle-map-message" class="field"><code>map.message</code><span class="pills"><span class="pill">string</span></span></h3>
 
 The rule author's feedback; the finding's note when this tier fires.
 
-<h3 id="handle-choices" class="field"><code>handle.choices</code><span class="pills"><span class="pill">object</span><span class="pill">required</span></span></h3>
+<h3 id="handle-choices" class="field"><code>choices</code><span class="pills"><span class="pill">object</span><span class="pill">required</span></span></h3>
 
 One tier for each option, keyed by the option label.
 
-<h3 id="handle-undecided" class="field"><code>handle.undecided</code><span class="pills"><span class="pill">object</span></span></h3>
+<h3 id="handle-undecided" class="field"><code>undecided</code><span class="pills"><span class="pill">object</span></span></h3>
 
 The tier of a reading with no clear winner among the options.
 
-<h3 id="handle-undecided-margin" class="field"><code>handle.undecided.margin</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
+<h3 id="handle-undecided-margin" class="field"><code>undecided.margin</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
 
 The gap between the two likeliest options under which the reading is undecided.
 
-<h3 id="handle-undecided-level" class="field"><code>handle.undecided.level</code><span class="pills"><span class="pill">string | object</span><span class="pill">required</span></span></h3>
+<h3 id="handle-undecided-level" class="field"><code>undecided.level</code><span class="pills"><span class="pill">string | object</span><span class="pill">required</span></span></h3>
 
 The severity of a finding: pass raises none.
 
-<h3 id="handle-undecided-message" class="field"><code>handle.undecided.message</code><span class="pills"><span class="pill">string</span></span></h3>
+<h3 id="handle-undecided-message" class="field"><code>undecided.message</code><span class="pills"><span class="pill">string</span></span></h3>
 
 The note on the finding of an undecided reading.
 
-<h3 id="handle-warn" class="field"><code>handle.warn</code><span class="pills"><span class="pill">string | object</span></span></h3>
+<h3 id="handle-warn" class="field"><code>warn</code><span class="pills"><span class="pill">string | object</span></span></h3>
 
 One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).
 
-<h3 id="handle-warn-greater_than" class="field"><code>handle.warn.greater_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
+<h3 id="handle-warn-greater_than" class="field"><code>warn.greater_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
 
 The threshold. A reading above it fires.
 
-<h3 id="handle-warn-message" class="field"><code>handle.warn.message</code><span class="pills"><span class="pill">string</span></span></h3>
+<h3 id="handle-warn-message" class="field"><code>warn.message</code><span class="pills"><span class="pill">string</span></span></h3>
 
 The rule author's feedback; the finding's note when this tier fires.
 
-<h3 id="handle-warn-less_than" class="field"><code>handle.warn.less_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
+<h3 id="handle-warn-less_than" class="field"><code>warn.less_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
 
 The threshold. A reading below it fires.
 
-<h3 id="handle-error" class="field"><code>handle.error</code><span class="pills"><span class="pill">string | object</span></span></h3>
+<h3 id="handle-error" class="field"><code>error</code><span class="pills"><span class="pill">string | object</span></span></h3>
 
 One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).
 
-<h3 id="handle-error-greater_than" class="field"><code>handle.error.greater_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
+<h3 id="handle-error-greater_than" class="field"><code>error.greater_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
 
 The threshold. A reading above it fires.
 
-<h3 id="handle-error-message" class="field"><code>handle.error.message</code><span class="pills"><span class="pill">string</span></span></h3>
+<h3 id="handle-error-message" class="field"><code>error.message</code><span class="pills"><span class="pill">string</span></span></h3>
 
 The rule author's feedback; the finding's note when this tier fires.
 
-<h3 id="handle-error-less_than" class="field"><code>handle.error.less_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
+<h3 id="handle-error-less_than" class="field"><code>error.less_than</code><span class="pills"><span class="pill">number</span><span class="pill">required</span></span></h3>
 
 The threshold. A reading below it fires.
 
-<h3 id="handle-silent_band" class="field"><code>handle.silent_band</code><span class="pills"><span class="pill">object[]</span></span></h3>
+<h3 id="handle-silent_band" class="field"><code>silent_band</code><span class="pills"><span class="pill">object[]</span></span></h3>
 
 A [low, high] range of readings that raises no finding.
 
