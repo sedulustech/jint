@@ -1,7 +1,7 @@
 ---
 name: jint-author
 description: >
-  Author and calibrate jint rules: criteria, handles, fixer messages, and the
+  Author and calibrate jint rules for code or prose: criteria, handles, fixer messages, and the
   calibration ritual - small tests on many languages - for promoting a rule into an
   official domain.
   Triggers: rule calibration, jint rules.
@@ -9,7 +9,7 @@ description: >
 
 # jint - author and calibrate rules
 
-jint measures code: rules in, findings out. A **rule** compiles to one question
+jint measures code and prose: rules in, findings out. A **rule** compiles to one question
 for the **provider** (an AI classifier); each answer is a calibrated
 classification; a classification that crosses the rule's thresholds becomes a
 **finding**.

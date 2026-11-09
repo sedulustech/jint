@@ -1,14 +1,18 @@
 ---
 name: jint-follow
 description: >
-  Run jint on a path and resolve its findings. Use when measuring code quality,
-  naming, or comments and fixing what jint flags. Triggers: jint, semantic lint.
+  Run jint on a path and resolve its findings. Use when measuring code or prose
+  (markdown, text) for quality, naming, or comments and fixing what jint flags.
+  Triggers: jint, semantic lint.
 ---
 
 # jint - run it, fix what it flags
 
 jint measures code with AI-classifier judgments and prints findings: a severity
 and, for most rules, a fixer message that states the exact fix.
+
+jint measures prose the same way. A markdown file has its own targets, such as
+`markdown:section`, and any other text file is judged whole.
 
 ## Run it
 

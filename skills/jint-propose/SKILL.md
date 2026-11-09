@@ -1,8 +1,8 @@
 ---
 name: jint-propose
 description: >
-  Turn what the user expects into jint rules, so you can verify your own work
-  against it. Use when the user states a convention or corrects you, when you
+  Turn what the user expects into jint rules for code or prose, so you can verify
+  your own work against it. Use when the user states a convention or corrects you, when you
   read AGENTS.md or CLAUDE.md, or when asked what could become a rule.
   Triggers: propose rules, what could be a rule, verify my work, conventions.
 ---
