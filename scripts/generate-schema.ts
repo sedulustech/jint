@@ -2,7 +2,7 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - The run-UI address region in docs/writing-rules.md: the prose around it is hand-written
+ * - The run-UI address region in skills/writing-rules/SKILL.md: the prose around it is hand-written
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
@@ -50,7 +50,7 @@ export const GENERATED_OUTPUTS = [
   "docs/reference/environment.md",
   "docs/reference/cli.md",
   "web/src/data/reference.json",
-  "docs/writing-rules.md",
+  "skills/writing-rules/SKILL.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -647,7 +647,7 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
     formatted.push(out);
     process.stdout.write("wrote " + out + "\n");
   };
-  spliceInto("docs/writing-rules.md", { "run-address": renderRunAddress() });
+  spliceInto("skills/writing-rules/SKILL.md", { "run-address": renderRunAddress() });
 
   const targetsOut = outPath(root, "docs/targets.md");
   writeFileSync(

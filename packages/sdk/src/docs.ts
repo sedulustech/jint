@@ -29,7 +29,6 @@ import docUseCasesSecurityKeepSecretsOutOfConfig from "../../../docs/use-cases/s
 import docUseCasesTypescriptRewriteStatefulComments from "../../../docs/use-cases/typescript/rewrite-stateful-comments.md" with { type: "text" };
 import docWhatAreRules from "../../../docs/what-are-rules.md" with { type: "text" };
 import docWhatIsJint from "../../../docs/what-is-jint.md" with { type: "text" };
-import docWritingRules from "../../../docs/writing-rules.md" with { type: "text" };
 
 /** Each embedded doc: its name (the path under docs/, without .md) and its markdown. */
 export const DOC_FILES: Readonly<Record<string, string>> = {
@@ -48,7 +47,6 @@ export const DOC_FILES: Readonly<Record<string, string>> = {
   targets: docTargets,
   "what-are-rules": docWhatAreRules,
   "what-is-jint": docWhatIsJint,
-  "writing-rules": docWritingRules,
   "reference/cli": docReferenceCli,
   "reference/config": docReferenceConfig,
   "reference/environment": docReferenceEnvironment,

@@ -36,8 +36,7 @@ Do not force every expectation into a rule.
 
 ## Draft each rule
 
-1. Write the defect as one yes/no question about one property: see the jint-author skill and
-   `jint docs writing-rules`.
+1. Write the defect as one yes/no question about one property: see the writing-rules skill.
 2. Find one to three `file:line` places where it would fire, in code you read. No evidence, no rule.
 3. Plant the defect in a real unit with one edit, and check the rule separates the pair.
 4. Put it in `.jint/rules/<name>.ts` and list it in the root `jint.config.ts`.

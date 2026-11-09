@@ -9,7 +9,7 @@
   },
   {
     "label": "Rules",
-    "items": ["what-are-rules", "writing-rules", "targets", "calibration", "confidence"]
+    "items": ["what-are-rules", "targets", "calibration", "confidence"]
   },
   {
     "label": "Capturing elements",

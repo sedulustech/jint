@@ -8,9 +8,9 @@ const root = new URL("../../../skills/", import.meta.url).pathname;
 
 test("every embedded skill file is the repo's file", () => {
   expect(Object.keys(SKILL_FILES).sort()).toEqual([
-    "jint-author/SKILL.md",
-    "jint-follow/SKILL.md",
+    "following-rule-results/SKILL.md",
     "jint-propose/SKILL.md",
+    "writing-rules/SKILL.md",
   ]);
   for (const [path, content] of Object.entries(SKILL_FILES)) {
     expect(content).toBe(readFileSync(join(root, path), "utf8"));
@@ -22,8 +22,8 @@ test("exportSkills writes each skill under the directory and replaces an existin
   try {
     const target = join(dir, "nested", "skills");
     expect(exportSkills(target)).toEqual(Object.keys(SKILL_FILES));
-    expect(readFileSync(join(target, "jint-follow/SKILL.md"), "utf8")).toBe(
-      SKILL_FILES["jint-follow/SKILL.md"]!,
+    expect(readFileSync(join(target, "following-rule-results/SKILL.md"), "utf8")).toBe(
+      SKILL_FILES["following-rule-results/SKILL.md"]!,
     );
     exportSkills(target);
   } finally {

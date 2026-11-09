@@ -1,5 +1,5 @@
 ---
-name: jint-follow
+name: following-rule-results
 description: >
   Run jint on a path and resolve its findings. Use when measuring code or prose
   (markdown, text) for quality, naming, or comments and fixing what jint flags.
