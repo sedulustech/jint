@@ -30,7 +30,7 @@ import {
   type InputSummary,
 } from "./input/stats.ts";
 import { createClassifier } from "./provider/client.ts";
-import { recordSummary } from "./provider/debug.ts";
+import { recordSummary, runStats } from "./provider/debug.ts";
 import { assertEndpointKey, resolveEndpoint } from "./provider/endpoint.ts";
 import {
   checkRunKnobs,
@@ -1059,6 +1059,12 @@ export interface RunPointer {
   dir?: string;
   /** The input accounting (run.input): how many files, and why not all were measured. */
   input?: InputSummary;
+  /** The model that answered. Absent when no call was made. */
+  model?: string;
+  /** Wall time of the run in milliseconds, up to the end of classification. */
+  durationMs?: number;
+  /** Input, output and cached tokens summed over the run's classifier responses. */
+  usage?: { input: number; output: number; cached: number };
 }
 
 export interface LintReport {
@@ -1145,7 +1151,16 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   // The run pointer is read AFTER the drain: recording starts at the FIRST classifier call, which
   // happens inside the drained events — reading it before would see null on every run.
   const summary = recordSummary();
-  if (summary !== null) report.run = { id: summary.dir.split("/").pop()!, dir: summary.dir };
+  if (summary !== null) {
+    const stats = runStats();
+    report.run = {
+      id: summary.dir.split("/").pop()!,
+      dir: summary.dir,
+      model: stats.model,
+      durationMs: stats.durationMs,
+      usage: stats.usage,
+    };
+  }
   // The input accounting rides the run pointer when one exists; a capture-less run still reports
   // it (id/dir absent, input present) - the accounting is about the input, not the classifier.
   if (inputSummary !== null) {

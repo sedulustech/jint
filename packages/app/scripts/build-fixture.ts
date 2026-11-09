@@ -246,6 +246,8 @@ export async function main(outDirOverride?: string): Promise<void> {
   // replace them with the sentinels before anything hits disk.
   report.run.id = SENTINEL_RUN_ID;
   report.run.dir = SENTINEL_RUN_DIR;
+  // wall time is per-run entropy, sealed like the manifest's
+  report.run.durationMs = 0;
   recordRunReport(renderJson(report));
   recordRunManifest({
     configPath: "fixtures/sources/elements",

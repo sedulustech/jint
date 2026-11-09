@@ -153,6 +153,16 @@ export const REPORT_SCHEMA = Type.Object({
       // walk happened (the input accounting: how many files, and why not all were measured)
       id: Type.Optional(Type.String()),
       dir: Type.Optional(Type.String()),
+      // what the run used: the model that answered, the wall time, the tokens summed over calls
+      model: Type.Optional(Type.String()),
+      durationMs: Type.Optional(Type.Integer()),
+      usage: Type.Optional(
+        Type.Object({
+          input: Type.Integer(),
+          output: Type.Integer(),
+          cached: Type.Integer(),
+        }),
+      ),
       input: Type.Optional(
         Type.Object({
           discovered: Type.Integer(),

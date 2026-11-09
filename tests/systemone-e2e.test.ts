@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
@@ -85,6 +85,16 @@ describe("jint run against a System One server", () => {
         confidence: 0.8,
       });
       expect(report.findings).toHaveLength(1);
+      // the verdict follows the exit code: an error finding fails the run and its one input
+      expect(report.status).toBe("fail");
+      expect(report.inputs).toEqual([{ input: source, status: "fail" }]);
+      // what the run used rides the report, and the manifest says the same
+      expect(report.run.model).toBe("d3-lite-FLM");
+      expect(report.run.usage).toEqual({ input: 12, output: 0, cached: 0 });
+      expect(report.run.durationMs).toBeGreaterThanOrEqual(0);
+      const manifest = JSON.parse(readFileSync(join(report.run.dir, "manifest.json"), "utf8"));
+      expect(manifest.model).toBe(report.run.model);
+      expect(manifest.usage).toEqual(report.run.usage);
       expect(server.seen.length).toBeGreaterThan(0);
       for (const call of server.seen) {
         expect(call.url).toBe("/v1/systemone");

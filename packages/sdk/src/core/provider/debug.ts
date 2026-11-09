@@ -161,6 +161,21 @@ export function runsBase(): string {
     : `${homedir()}/.jint/runs`;
 }
 
+/** What the run cost so far: the model that answered, the wall time, and the tokens used. */
+export interface RunStats {
+  readonly model?: string;
+  readonly durationMs: number;
+  readonly usage: { readonly input: number; readonly output: number; readonly cached: number };
+}
+
+/**
+ * The run's model, duration and token usage, from the recorder's own counters. The manifest and the
+ * report both read it here, so the two never disagree about what the run used.
+ */
+export function runStats(): RunStats {
+  return { model: runModel, durationMs: Date.now() - runStartedAt, usage: { ...usageTotals } };
+}
+
 /**
  * Persist the run's manifest next to the requests: which config ran, from where, with what argv.
  * Written for every recorded run, so the run UI's picker can show every new run as first-class
@@ -184,13 +199,7 @@ export function recordRunManifest(manifest: {
 }): void {
   if (runSummary === null) return;
   try {
-    const withRunStats = {
-      ...manifest,
-      durationMs: Date.now() - runStartedAt,
-      model: runModel,
-      providerHost: runHost,
-      usage: { ...usageTotals },
-    };
+    const withRunStats = { ...manifest, ...runStats(), providerHost: runHost };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
   } catch (err) {
     // Recording never breaks the run it observes: the dropped manifest IS the warning.

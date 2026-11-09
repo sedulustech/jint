@@ -597,6 +597,10 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
         skipped: [],
         admitted: [{ by: "config", count: 1 }],
       },
+      // what the run used: the mock's model and its usage, and a wall time that varies per run
+      model: "gpt-6-luna",
+      durationMs: expect.any(Number),
+      usage: { input: expect.any(Number), output: expect.any(Number), cached: 0 },
     });
   });
 
