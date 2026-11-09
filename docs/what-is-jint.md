@@ -9,8 +9,8 @@ sidebar:
 
 jint is an **extensible** semantic linter. A tool to replace code reviews.
 
-jint reads your files, asks a classifier questions about specific parts of your code
-and turns the number that comes back into a finding when it crosses the configured threshold.
+jint reads your files, asks a decision model questions about specific parts of your code that
+you or your agent previously set, and steers your agent with the findings.
 
 What you ask, the captured code and how to handle the result of the classification is embedded in
 the shape of a traditional linter, as [rules](what-are-rules.md).
