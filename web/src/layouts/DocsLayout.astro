@@ -288,9 +288,11 @@ const jsonLd = [
     font-size: 1rem;
   }
 
-  /* a nested entry (a verb's flag) is indented under its parent, heading and description alike */
+  /* a nested entry (a verb's flag) is indented under its parent: heading, description, example */
   main h4.field,
-  main h4.field + p {
+  main h4.field + p,
+  main h4.field + p + pre,
+  main h4.field + p + .code-block {
     margin-left: var(--s3);
   }
 

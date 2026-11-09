@@ -85,86 +85,108 @@ export const FLAGS = {
   "--language": {
     type: "string",
     arg: "<id>",
-    blurb: `tree-sitter grammar for piped-stdin/extensionless sources; valid ids: ${knownLanguages().join(", ")} (derived from the grammar map). Without a resolvable language, inventory-scoped rules fail WALK_FAILED in-band and unit-scoped rules still classify`,
+    blurb: "grammar for piped or extensionless input",
+    example: "--language python",
   },
   "--config": {
     type: "string",
     arg: "<path>",
-    blurb:
-      'config file (auto-discovered: jint.config.ts or jint.config.json; JSON autocomplete via the "$schema" key)',
+    blurb: "the config file to use",
+    example: "--config ci/jint.config.json",
   },
   "--exclude": {
     type: "string[]",
     arg: "<glob>",
-    blurb: "input exclusion, on top of config (repeatable)",
+    blurb: "skip inputs that match a glob (repeatable)",
+    example: '--exclude "**/*.gen.ts"',
   },
   "--disable": {
     type: "string[]",
     arg: "<name>",
-    blurb: "rule removal by name, on top of config (repeatable)",
+    blurb: "turn a rule off (repeatable)",
+    example: "--disable is_short",
   },
   "--rule": {
     type: "string[]",
     arg: "<name>",
-    blurb:
-      "run: ONLY these rules (repeatable; overrides --disable). capture: ONE name - preview the population it will judge, marked with * (nothing is classified). reclassify: ONE name - the rule to reclassify (required)",
+    blurb: "only this rule (repeatable); for reclassify, the rule to redo",
+    example: "--rule is_short",
+    verbBlurb: {
+      run: "run only these rules (repeatable)",
+      capture: "mark the population of one rule",
+      reclassify: "the rule to classify again",
+    },
   },
   "--concurrency": {
     type: "string",
     arg: "<n>",
-    blurb:
-      "max in-flight classifier calls, run-wide (default 16, max 64; overrides the config key of the same name)",
+    blurb: "the most classifier calls in flight",
+    example: "--concurrency 8",
   },
   "--timeout": {
     type: "string",
     arg: "<secs>",
-    blurb:
-      "per-call classifier timeout in seconds, retries included (default 30; each attempt gets a third of it; a hung call becomes a per-element PROVIDER_TIMEOUT failure)",
+    blurb: "the time limit for one classifier call, in seconds",
+    example: "--timeout 60",
   },
   "--queries": {
     type: "string",
     arg: "<file.scm>",
-    blurb:
-      "capture only: the .scm file that drives extraction, replacing the grammar's own queries.scm",
+    blurb: "extraction queries that replace the grammar's",
+    example: "--queries my.scm",
     verbs: ["capture"],
   },
   "--grammar": {
     type: "string",
     arg: "<dir>",
-    blurb:
-      "capture only: a grammar dir (<id>.wasm + extensions.json [+ queries.scm]) registered custom for this call",
+    blurb: "a custom grammar for this call",
+    example: "--grammar ./grammars/ini",
     verbs: ["capture"],
   },
   "--json": {
     type: "boolean",
-    blurb: "machine report (byte-identical to the run's report.json) instead of raw finding lines",
+    blurb: "print the report as JSON",
+    example: "--json",
   },
   "--dry-run": {
     type: "boolean",
-    blurb:
-      "print the rule set that WOULD run (config resolved, disable/only applied) and exit 0 - zero input walks, zero classifier calls",
+    blurb: "list the rules that would run, then exit",
+    example: "--dry-run",
   },
   "--unscoped": {
     type: "boolean",
-    blurb:
-      "run: measure named files and a path list as given - the config's rules scope (rules.include/exclude) is not applied; a rule's own include/exclude still is",
+    blurb: "measure named files outside the config scope",
+    example: "--unscoped",
     verbs: ["run"],
   },
   "--no-cache": {
     type: "boolean",
-    blurb:
-      "run: ask every question instead of serving stored answers (the answer cache is $JINT_CACHE_DIR, else ~/.jint/cache)",
+    blurb: "ask every question, skip the answer cache",
+    example: "--no-cache",
     verbs: ["run"],
   },
   "--no-header": {
     type: "boolean",
-    blurb:
-      "run: do not print the rules and scope header on stderr (the rules stay in the report's rules)",
+    blurb: "hide the rules and scope header",
+    example: "--no-header",
     verbs: ["run"],
   },
-  "--debug": { type: "boolean", blurb: "structured debug logs on stderr" },
-  "--help": { type: "boolean", aliases: ["-h"], blurb: "this help" },
-  "--version": { type: "boolean", blurb: "print the version" },
+  "--debug": {
+    type: "boolean",
+    blurb: "print structured debug logs",
+    example: "--debug",
+  },
+  "--help": {
+    type: "boolean",
+    aliases: ["-h"],
+    blurb: "show this help",
+    example: "--help",
+  },
+  "--version": {
+    type: "boolean",
+    blurb: "print the version",
+    example: "--version",
+  },
 } as const;
 
 /** CLI args boundary - the schema is DERIVED from FLAGS, never a second hand-written shape. */
@@ -273,31 +295,26 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 export const VERBS = {
   run: {
     example: "jint run src/",
-    blurb:
-      "classify an input: paths, the str/paths stdin nouns, or the discovered config; needs OPENAI_API_KEY (or JINT_API_URL, with JINT_API_KEY unless the server is local) in the environment",
+    blurb: "classify files and report the findings",
   },
   serve: {
     example: "jint serve",
-    blurb:
-      "the run UI over the store's newest run - hold, Ctrl+C to exit; binds loopback only (override: JINT_UI_HOST - a non-loopback host is your trust decision, a port in it is rejected); honors JINT_UI_PORT",
+    blurb: "open the run UI on the newest run",
     flags: [],
   },
   capture: {
     example: "jint capture doc.md",
-    blurb:
-      "print extraction - grammar, kind, span, name - with the classifier unplugged; loads the config like run (its input when no target, its rules.exclude always); an explicit FILE target bypasses the config's rules scope (a dir target never does) - capture prints structure, no classifier, while run's file operand evaluates the config scope for unscoped rules",
+    blurb: "print what jint extracts from a file, without classifying",
     flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
   },
   reclassify: {
     example: "jint reclassify <run-id> src/a.ts --rule <name> -",
-    blurb:
-      "classify one rule at one input of a recorded run again and file it under that run as its next #N, where the run UI shows it at once; with a trailing - a JSON edit ({instructions, criteria, code}, only what changed) is read from stdin, without it the original question is asked again; needs the endpoint key like run",
+    blurb: "classify one rule at one input of a recorded run again",
     flags: ["json", "rule"],
   },
   skills: {
     example: "jint skills export .claude/skills",
-    blurb:
-      "write the agent skills that ship with jint (jint-follow, jint-author, jint-propose) into a directory, one folder per skill, replacing files that exist",
+    blurb: "write the agent skills that ship with jint to a directory",
     flags: [],
   },
 } as const;
@@ -360,6 +377,26 @@ function flagRefusal(verb: Verb, key: string): string | null {
 /** The flags the CLI takes for every verb. The reference lists them once, not under each verb. */
 export const GLOBAL_FLAG_NAMES: readonly string[] = [...GLOBAL_FLAGS].map((key) => `--${key}`);
 
+/**
+ * One runnable example of a flag under a verb: the verb's example with the flag added, or the
+ * verb's example itself when it already shows the flag. The reference prints it and a test parses
+ * it.
+ */
+export function flagExample(verb: Verb, flagName: string): string {
+  const stem = VERBS[verb].example.replace(/ -$/, "");
+  return stem.includes(flagName)
+    ? stem
+    : `${stem} ${(FLAGS as Record<string, { example: string }>)[flagName]!.example}`;
+}
+
+/** What a flag does under a verb: the verb's own wording when the flag has one, else its blurb. */
+export function flagBlurb(verb: Verb, flagName: string): string {
+  const spec = (FLAGS as Record<string, { blurb: string; verbBlurb?: Record<string, string> }>)[
+    flagName
+  ]!;
+  return spec.verbBlurb?.[verb] ?? spec.blurb;
+}
+
 /** The flags a verb takes beyond the global ones: the one rule verbFlagProblem also applies. */
 export function flagsOfVerb(verb: Verb): string[] {
   return Object.keys(FLAGS).filter(
@@ -380,12 +417,12 @@ export const NOUNS = {
   str: {
     payload: "-",
     example: "cat snippet.ts | jint run str -",
-    blurb: "piped stdin, one str unit",
+    blurb: "piped stdin as one unit",
   },
   paths: {
     payload: "-",
     example: "git diff --name-only HEAD~1 | jint run paths -",
-    blurb: "a path LIST from piped stdin",
+    blurb: "a path list from piped stdin",
     hint: "a list file is piped: jint run paths - < list.txt",
   },
 } as const;
@@ -1501,7 +1538,7 @@ export function splitArgv(argv: string[]): { flagArgs: string[]; positionals: st
   return { flagArgs, positionals };
 }
 
-function parseCliArgs(cliArgv: string[]): CliArgsParse {
+export function parseCliArgs(cliArgv: string[]): CliArgsParse {
   const { flagArgs, positionals } = splitArgv(cliArgv);
   let values: Record<string, unknown>;
   try {

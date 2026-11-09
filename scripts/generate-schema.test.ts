@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { CONFIG_SCHEMA } from "@jint/sdk";
+import {
+  FLAGS,
+  NOUNS,
+  VERBS,
+  flagsOfVerb,
+  parseCliArgs,
+  resolveVerb,
+  verbFlagProblem,
+} from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
@@ -263,5 +272,80 @@ describe("the reference pages: one entry format", () => {
       .flatMap((line) => line.match(/class="field"><code>([^<]+)<\/code>/)?.[1] ?? []);
     expect(names.length).toBeGreaterThan(0);
     for (const name of names) expect(name.startsWith("handle.")).toBe(false);
+  });
+});
+
+// The CLI page is the one place a person learns the commands, so it is held to three claims: a flag
+// sits under the verb that takes it, every verb, noun and flag shows exactly one example, and each
+// example is a command the parser accepts.
+describe("the CLI reference: nesting, examples and short descriptions", () => {
+  const lines = renderCliReference().split("\n");
+  const heads = lines.flatMap((line, index) => {
+    const found = line.match(/^<h([34]) id="([a-z0-9_-]+)"/);
+    return found === null ? [] : [{ index, level: Number(found[1]), id: found[2]! }];
+  });
+
+  test("a flag is nested under its verb, and only the global flags stand alone", () => {
+    let verb: string | undefined;
+    const nested = new Map<string, string[]>();
+    for (const head of heads) {
+      if (head.id.startsWith("verb-")) {
+        verb = head.id.slice("verb-".length);
+        nested.set(verb, []);
+      } else if (head.level === 4 && head.id.startsWith("flag-")) {
+        expect(head.id.startsWith(`flag-${verb}-`), head.id).toBe(true);
+        nested.get(verb!)!.push(head.id.slice(`flag-${verb}-`.length));
+      } else if (head.level === 3) {
+        expect(head.id.startsWith("flag-") && !head.id.startsWith("flag-run-")).toBe(true);
+      }
+    }
+    for (const name of Object.keys(VERBS)) {
+      expect(nested.get(name)?.map((flag) => `--${flag}`)).toEqual(flagsOfVerb(name as never));
+    }
+  });
+
+  test("every verb, noun and flag shows exactly one example", () => {
+    for (const [at, head] of heads.entries()) {
+      const end = heads[at + 1]?.index ?? lines.length;
+      const fences = lines.slice(head.index, end).filter((line) => line.startsWith("```sh"));
+      expect(fences.length, head.id).toBe(1);
+    }
+  });
+
+  // Each item has its own docs, so the page only names it. A model scored healthy descriptions of a
+  // few words as low as 0.2 and defective ones as high as 0.22, so the limit is mechanical: one
+  // short phrase, no clause after a colon, semicolon or dash, and no parenthesis but (repeatable).
+  test("every description is one short phrase", () => {
+    for (const head of heads) {
+      const description = lines[head.index + 2]!;
+      expect(description.split(/\s+/).length, `${head.id}: ${description}`).toBeLessThanOrEqual(11);
+      expect(description, head.id).not.toMatch(/[;:]| - /);
+      expect(description.replace("(repeatable)", ""), head.id).not.toMatch(/[()]/);
+    }
+  });
+
+  test("every example parses, and its verb takes its flags", () => {
+    const commands = lines.flatMap((line, index) => (line === "```sh" ? [lines[index + 1]!] : []));
+    expect(commands.length).toBeGreaterThan(Object.keys(FLAGS).length);
+    for (const command of commands) {
+      const piped = command.includes("|") ? command.split("|").pop()!.trim() : command;
+      const words = (piped.match(/"[^"]*"|\S+/g) ?? []).map((word) => word.replaceAll('"', ""));
+      expect(words[0]).toBe("jint");
+      const parsed = parseCliArgs(words.slice(1));
+      expect(parsed.outcome, command).toBe("parsed");
+      if (parsed.outcome !== "parsed") continue;
+      // the parser leaves a flag it does not know among the operands
+      expect(
+        parsed.positionals.filter((word) => word.startsWith("--")),
+        command,
+      ).toEqual([]);
+      const verb = resolveVerb(parsed.positionals);
+      if (verb === null) {
+        expect(Object.keys(parsed.cliArgs).length, command).toBeGreaterThan(0);
+        continue;
+      }
+      expect(verbFlagProblem(verb.name, parsed.cliArgs), command).toBeNull();
+    }
+    expect(Object.keys(NOUNS).length).toBe(2);
   });
 });

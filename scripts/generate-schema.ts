@@ -26,7 +26,15 @@ import { dirname, join, resolve } from "node:path";
 import { allRules as allSpecs } from "@jint/rules";
 import { CONFIG_SCHEMA, ENV_VARS } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
-import { FLAGS, GLOBAL_FLAG_NAMES, VERBS, flagsOfVerb } from "../packages/cli/src/cli.ts";
+import {
+  FLAGS,
+  GLOBAL_FLAG_NAMES,
+  NOUNS,
+  VERBS,
+  flagBlurb,
+  flagExample,
+  flagsOfVerb,
+} from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
@@ -571,12 +579,19 @@ export function renderEnvTable(): string {
 }
 
 /**
- * The verbs of the CLI, each with the flags it takes nested under it, then the flags every verb
- * takes. The tables are the parser's own, and so is the rule for which verb takes which flag.
+ * The verbs of the CLI. Under a verb, indented, come its nouns and the flags it takes, each with
+ * one example; the flags every verb takes come last. The tables are the parser's own, and so is the
+ * rule for which verb takes which flag.
  */
 export function renderCliReference(): string {
-  type FlagSpec = { arg?: string; aliases?: readonly string[]; blurb: string };
-  const flag = (name: string, id: string, level: 3 | 4) => {
+  type FlagSpec = { arg?: string; aliases?: readonly string[] };
+  const flag = (
+    verb: keyof typeof VERBS,
+    name: string,
+    id: string,
+    level: 3 | 4,
+    example = flagExample(verb, name),
+  ) => {
     const spec = (FLAGS as Record<string, FlagSpec>)[name]!;
     return renderEntry({
       id,
@@ -586,29 +601,45 @@ export function renderCliReference(): string {
         ...(spec.arg === undefined ? [] : [`\`${spec.arg}\``]),
         ...(spec.aliases ?? []).map((alias) => `\`${alias}\``),
       ],
-      body: spec.blurb,
+      body: flagBlurb(verb, name),
+      example,
     });
   };
   const verbs = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name) => [
     renderEntry({
       id: `verb-${name}`,
       name,
-      pills: [`\`${VERBS[name].example}\``],
+      pills: [],
       body: VERBS[name].blurb,
+      example: VERBS[name].example,
     }),
+    ...(name === "run"
+      ? Object.entries(NOUNS).map(([noun, spec]) =>
+          renderEntry({
+            id: `noun-${noun}`,
+            level: 4,
+            name: noun,
+            pills: [],
+            body: spec.blurb,
+            example: spec.example,
+          }),
+        )
+      : []),
     ...flagsOfVerb(name).map((flagName) =>
-      flag(flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
+      flag(name, flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
     ),
   ]);
   return [
     "## Verbs",
     "",
-    "The first operand is the verb. There is no default verb. The pill is an example. The flags a verb takes are indented under it.",
+    "The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.",
     "",
     ...verbs,
     "## Flags for every verb",
     "",
-    ...GLOBAL_FLAG_NAMES.map((name) => flag(name, `flag-${name.replace(/^-+/, "")}`, 3)),
+    ...GLOBAL_FLAG_NAMES.map((name) =>
+      flag("run", name, `flag-${name.replace(/^-+/, "")}`, 3, `jint ${name}`),
+    ),
   ].join("\n");
 }
 
@@ -637,6 +668,8 @@ function renderEntry(entry: {
   /** H3 for a top-level entry, h4 for one nested under it (a verb's flag). */
   level?: 3 | 4;
   name: string;
+  /** One command that shows the item in use, printed under its description. */
+  example?: string;
   pills: readonly (string | readonly [label: string, value: string])[];
   body: string;
 }): string {
@@ -654,6 +687,7 @@ function renderEntry(entry: {
     "",
     entry.body.replaceAll("\n", " "),
     "",
+    ...(entry.example === undefined ? [] : ["```sh", entry.example, "```", ""]),
   ].join("\n");
 }
 
