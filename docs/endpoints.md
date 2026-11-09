@@ -20,17 +20,42 @@ jint run src
 
 jint asks `https://api.openai.com/v1/decisions`. A run with no url set always goes there.
 
+OpenAI's Decisions API is the default because it is deterministic: the same input gives the same
+reading. A threshold needs that, because a reading that moves between runs puts a file on both
+sides of it.
+
 ## Another endpoint
 
 Set `JINT_API_URL`. Its last segment names the wire:
 
-| The url ends in | The server speaks        | Servers                    |
-| --------------- | ------------------------ | -------------------------- |
-| `/decisions`    | the OpenAI Decisions API | OpenAI, or a proxy you run |
-| `/v1/systemone` | the System One API       | TypeSafe, Lemonade         |
+| The url ends in | The server speaks        | Servers                                |
+| --------------- | ------------------------ | -------------------------------------- |
+| `/decisions`    | the OpenAI Decisions API | OpenAI, or a proxy you run             |
+| `/v1/systemone` | the System One API       | TypeSafe, Liquid, OpenRouter, Lemonade |
 
 jint treats a url that ends in neither as `/decisions`. The run then fails at setup and names the
 url it expected.
+
+A prefix before `/v1/systemone` is fine. The url names the wire by its end, not by its host.
+
+## Other System One servers
+
+Any server that serves `/v1/systemone` works the same way. Set the url, the key and the model:
+
+```sh
+# Liquid
+export JINT_API_URL=https://api.liquid.ai/decisions/v1/systemone
+export JINT_API_KEY=...
+export JINT_API_MODEL=d1
+
+# OpenRouter
+export JINT_API_URL=https://openrouter.ai/api/v1/systemone
+export JINT_API_KEY=...
+export JINT_API_MODEL=typesafe/jev-1.13
+```
+
+A host other than TypeSafe's needs `JINT_API_MODEL`. A server that wraps its reply, or serves the
+wire at a path that does not end in `/v1/systemone`, is not supported.
 
 ## A local model with Lemonade
 
