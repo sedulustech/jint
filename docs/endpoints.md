@@ -57,22 +57,10 @@ export JINT_API_MODEL=typesafe/jev-1.13
 A host other than TypeSafe's needs `JINT_API_MODEL`. A server that wraps its reply, or serves the
 wire at a path that does not end in `/v1/systemone`, is not supported.
 
-## A local model with Lemonade
+## A local model
 
-[Lemonade](https://github.com/lemonade-sdk/lemonade) serves decision models on your machine.
-Point jint at its `/v1/systemone` endpoint and name the model:
-
-```sh
-export JINT_API_URL=http://localhost:13305/v1/systemone
-export JINT_API_MODEL=Laya-GGUF
-jint run src
-```
-
-A Lemonade server on your machine has no key unless its owner set one. If Lemonade runs with
-`LEMONADE_API_KEY`, set `JINT_API_KEY` to the same value.
-
-See [run a local model](local.md) for the run settings a local server needs and a complete
-container example.
+[Lemonade](https://github.com/lemonade-sdk/lemonade) serves decision models on your machine, at a
+`/v1/systemone` endpoint. See [run a local model](local.md) for the settings and a complete example.
 
 ## The settings
 

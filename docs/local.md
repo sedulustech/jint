@@ -56,6 +56,15 @@ Set `maxInputTokens` in `jint.config.json` to the model limit, and `charsPerToke
 model's measured ratio. Jint then skips each call that does not fit, and names it in a note. See
 [configuration](config.md#input-window).
 
+A small model also limits each part of the request. We measured these limits on `Laya-GGUF`:
+
+- Each rule option (`true`, `false`, or a choice label) may hold about 200 characters, 48 tokens.
+- The question may hold about 700 characters, 176 tokens, with these options.
+
+The server answers a larger part with a 400 error that names the limit. The default rules have
+options of 250 to 300 characters, so they fail on a model this small. Write shorter options for
+it. Another model has other limits.
+
 ## Example: Lemonade in a container
 
 [Lemonade](https://github.com/lemonade-sdk/lemonade) serves decision models on your machine. Its
