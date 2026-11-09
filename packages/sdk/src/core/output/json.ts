@@ -4,16 +4,22 @@
  * operational messages are the raw-line renderer's stderr concern, never embedded here.
  */
 
-import type { LintReport } from "../lint.ts";
 import { VERSION } from "../version.ts";
+import { reportStatus } from "./status.ts";
+import type { LintReport } from "../lint.ts";
 import type { Finding, Classification } from "@jint/contract";
 
 export function renderJson(report: LintReport): string {
+  const verdict = reportStatus(report);
   return (
     JSON.stringify(
       {
         tool: "jint",
         version: VERSION,
+        // The verdict: pass, warn or fail, for the run and for each input file. It follows the exit
+        // code, so a script reads one answer from either.
+        status: verdict.status,
+        inputs: verdict.inputs,
         // The run pointer: the same recordSummary the stderr notice names. Absent only when no
         // classifier call started a run (a report without captures). Direct optional properties:
         // this object feeds JSON.stringify only, which drops undefined - absent and

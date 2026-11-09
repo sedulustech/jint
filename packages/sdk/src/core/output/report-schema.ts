@@ -131,6 +131,19 @@ export const CLASSIFY_ERROR_SCHEMA = Type.Object({
 export const REPORT_SCHEMA = Type.Object({
   tool: Type.Literal("jint"),
   version: Type.String(),
+  // The verdict of the run, and of each input file. It follows the exit code: an error finding or
+  // an unjudged unit fails, a warning warns, nothing else passes. Optional: older reports lack it.
+  status: Type.Optional(
+    Type.Union([Type.Literal("pass"), Type.Literal("warn"), Type.Literal("fail")]),
+  ),
+  inputs: Type.Optional(
+    Type.Array(
+      Type.Object({
+        input: Type.String(),
+        status: Type.Union([Type.Literal("pass"), Type.Literal("warn"), Type.Literal("fail")]),
+      }),
+    ),
+  ),
   // Additive: the run pointer into the run store (captures live in run.dir; the findings ->
   // judged-text join is finding.input == capture state.id). Optional: pre-pointer reports and
   // capture-less runs (no classifier call started) still parse.
