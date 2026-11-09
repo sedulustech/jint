@@ -30,6 +30,8 @@ import {
   validateRuleSelection,
   assertEndpointKey,
   exportSkills,
+  listDocs,
+  readDoc,
   knownLanguages,
   lint,
   loadConfig,
@@ -284,13 +286,13 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 
 /**
  * The verb table — the ONE source for the command vocabulary and the position rule: the FIRST
- * positional IS the command (run, serve, capture, reclassify, skills); the rest are its operands.
- * There is no implicit verb: a missing or unknown first positional is a usage error naming `jint
- * run <operands>`. Verbs never resolve to paths (a verb token as a later positional is an error;
- * the path is reached as ./<name>). `flags` names the flags the verb accepts beyond the global
- * three (--help, --version, --debug); run takes every unmarked flag (a flag may carry its own
- * `verbs` marker in FLAGS — --queries and --grammar are capture's). `example`/`blurb` render into
- * the help Usage section.
+ * positional IS the command (run, serve, capture, reclassify, skills, docs); the rest are its
+ * operands. There is no implicit verb: a missing or unknown first positional is a usage error
+ * naming `jint run <operands>`. Verbs never resolve to paths (a verb token as a later positional is
+ * an error; the path is reached as ./<name>). `flags` names the flags the verb accepts beyond the
+ * global three (--help, --version, --debug); run takes every unmarked flag (a flag may carry its
+ * own `verbs` marker in FLAGS — --queries and --grammar are capture's). `example`/`blurb` render
+ * into the help Usage section.
  */
 export const VERBS = {
   run: {
@@ -315,6 +317,11 @@ export const VERBS = {
   skills: {
     example: "jint skills export .claude/skills",
     blurb: "write the agent skills that ship with jint to a directory",
+    flags: [],
+  },
+  docs: {
+    example: "jint docs config",
+    blurb: "print a doc that ships with jint",
     flags: [],
   },
 } as const;
@@ -458,7 +465,7 @@ ${helpRows([
   { left: "jint run", right: "no operand: input comes from the discovered config" },
 ])}
 
-Verbs - the FIRST positional IS the command (run, serve, capture, reclassify, skills); everything after it is the
+Verbs - the FIRST positional IS the command (run, serve, capture, reclassify, skills, docs); everything after it is the
 verb's operands. There is no implicit verb: a missing or unknown first positional is a usage
 error naming the jint run form.
 
@@ -838,7 +845,7 @@ function dispatch(cliArgv: string[]): Dispatch {
     usageError(
       operands === ""
         ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path>, jint reclassify <run-id> <input> --rule <name>, jint skills export <path> - see jint --help"
-        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, reclassify, skills - see jint --help)`,
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, reclassify, skills, docs - see jint --help)`,
     );
     return { exit: 2 };
   }
@@ -1120,6 +1127,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
   if (verb.name === "reclassify") return reclassifyVerb(cliArgs, verb.rest);
   if (verb.name === "skills") return skillsVerb(verb.rest);
+  if (verb.name === "docs") return docsVerb(verb.rest);
   const run = await prepareRun(cliArgs, verb.rest);
   if ("exit" in run) return run.exit;
   if (cliArgs["dry-run"] === true) {
@@ -1264,6 +1272,31 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     }
     return exitForThrown(thrown);
   }
+}
+
+/**
+ * Docs [name]: the docs that ship with jint, a thin print of the SDK's listDocs and readDoc. No
+ * name lists them with their descriptions; a name prints that doc's markdown.
+ */
+function docsVerb(rest: readonly string[]): number {
+  const [name, ...extra] = rest;
+  if (extra.length > 0) {
+    usageError("jint docs takes at most one name  - e.g. jint docs config");
+    return 2;
+  }
+  if (name === undefined) {
+    const docs = listDocs();
+    const width = Math.max(...docs.map((doc) => doc.name.length));
+    for (const doc of docs) process.stdout.write(`${doc.name.padEnd(width)}  ${doc.description}\n`);
+    return 0;
+  }
+  const body = readDoc(name);
+  if (body === null) {
+    usageError(`no doc named ${name}  - jint docs lists them`);
+    return 2;
+  }
+  process.stdout.write(body.endsWith("\n") ? body : `${body}\n`);
+  return 0;
 }
 
 function skillsVerb(rest: readonly string[]): number {

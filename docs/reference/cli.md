@@ -257,6 +257,14 @@ write the agent skills that ship with jint to a directory
 jint skills export .claude/skills
 ```
 
+### `docs`
+
+print a doc that ships with jint
+
+```sh
+jint docs config
+```
+
 ## Flags for every verb
 
 ### `--help`

@@ -128,3 +128,6 @@ export {
 
 /** The agent skills that ship with jint, and writing them to a directory. */
 export { SKILL_FILES, exportSkills } from "./skills.ts";
+
+/** The docs that ship with jint, listed and read by name. */
+export { DOC_FILES, listDocs, readDoc } from "./docs.ts";

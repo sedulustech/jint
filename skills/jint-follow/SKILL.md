@@ -8,87 +8,35 @@ description: >
 
 # jint - run it, fix what it flags
 
-jint measures code with AI-classifier judgments and prints findings: a severity
-and, for most rules, a fixer message that states the exact fix.
+jint measures code and prose with AI-classifier judgments. A finding carries a severity and, for
+most rules, a fixer message that states the exact fix.
 
-jint measures prose the same way. A markdown file has its own targets, such as
-`markdown:section`, and any other text file is judged whole.
+The docs ship with the CLI: `jint docs` lists them and `jint docs <name>` prints one. Every flag
+is in `jint --help`.
 
 ## Run it
 
-Install: https://github.com/sedulustech/jint#install.
-The API key (`JINT_API_KEY` or `OPENAI_API_KEY`, or `apiKey` in the config) must be in
-the environment. Every flag, including output
-formats and scoping, lives in `jint --help` - the tool's own contract, not
-duplicated here.
+- jint runs only the rules a config names. With none it exits 2 and prints the rules and a working
+  example: write `jint.config.ts` from that list. The API key goes in the environment (`jint docs
+endpoints`).
+- A path: `jint run <path>`. One element: `jint run <path>@L<line> --rule <rule>`. The CLI echoes
+  the element it captured: check it is the one you mean.
+- A changeset: `git diff --name-only | jint run paths -`.
+- Anchors are pre-edit. After any edit, grep the declaration again and re-run.
+- Exit 1 is an error finding, 2 a setup problem, 4 an input that was not fully measured.
+- Every run costs spend. Run one file to find findings, then one element to verify a fix.
 
-jint runs only the rules a config names: with no config (or one with no rules) it
-exits 2 and prints every rule domain, the rules in each, and a working example.
-Write `jint.config.ts` from that list, choosing the rules that suit the codebase
-you are in. A run that measures nothing exits 4 and says, per rule, why.
+## Fix loop
 
-Named files and a piped path list run under the config's `rules` scope (an excluded
-file is skipped, with a note). To measure exactly a changeset, pipe it:
-`git diff --name-only | jint run paths -`. `--unscoped` measures named files and a
-list as given. The run header states which applied.
+1. Re-query one finding: `jint run <path>@L<line> --rule <rule>`.
+2. Check the echoed element is the finding's target.
+3. Do exactly what the fixer message says. Do not soften it, fork it or improve on it.
+4. Edit the source file. A capture or a request dump is what was judged, not the file.
+5. Re-anchor, re-query, and confirm the finding is gone.
 
-A whole path: `jint run <path>`. One element: `jint run <path>@L<line> --rule
-<rule>`. The CLI echoes which element an @L selector captured - verify that
-element is the one you mean before fixing anything.
+## Never
 
-Anchors are PRE-EDIT. `@L<n>` names the line the run saw, not the line that
-exists now. After any edit, re-anchor: grep the declaration, re-run.
-
-## Read the findings
-
-A finding carries a severity and a fixer message. Severity + message is the
-whole actionable surface - not the schema, not thresholds, not score numbers.
-
-The canonical fixer message per rule (rendered from the same tables the CLI
-uses, so this cannot drift from the messages you will see):
-
-<!-- generated:fixer-table — do not edit. Regenerate with `bun run schema`. -->
-
-| rule                         | severity | fixer message                                                                                             |
-| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| `is_comment_narration`       | error    | Remove this comment.                                                                                      |
-| `will_comment_drift`         | error    | Remove this comment.                                                                                      |
-| `is_cognitively_complex`     | error    | Decompose this function: extract readable named steps so the main body reads easily.                      |
-| `has_sensitive_value`        | error    | Remove the secret from the file and rotate it: read it from the environment or a secret store.            |
-| `is_effect_named`            | error    | Name this effect after what it does.                                                                      |
-| `has_effect_without_cleanup` | error    | Return a cleanup from this effect that removes the listener, clears the timer or closes the subscription. |
-
-<!-- /generated:fixer-table -->
-
-A finding without a row above carries no fixer message; the finding's own text
-is the instruction.
-
-## Spend
-
-Every run costs classifier spend. Measure the smallest surface that answers
-the question.
-
-- Fixing one finding: re-run scoped to that element (`path@L<line>`), not the
-  file, not the tree.
-- Working in one file: run that file, not the directory.
-- A full run is for discovering findings; scoped runs are for verifying a fix.
-
-## The fix loop
-
-1. Take a finding. Re-query just that unit:
-   `jint run <path>@L<line> --rule <rule>`. One query, one unit, one verdict.
-2. Read the element the CLI echoed. Verify it is the finding's target.
-3. Execute the fixer message EXACTLY. The message is canonical - do not
-   interpret, soften, or improve on it. Do not fork: no partial fix, no
-   rewording that leaves the flagged thing in place.
-4. Edit the source file itself. Captures and request dumps record what was
-   judged, not how the file is written now; their indentation is not source.
-5. Re-anchor at the current line and re-query to confirm the finding is gone.
-
-## Hard rules
-
-- Never tamper: do not edit a rule, its thresholds, the config scope, or the engine to
-  make a finding pass. A change to a rule is its own item for the user to review.
-- If you believe a finding is wrong, report it and stop. Do not work around it.
-- Do not read the schema, thresholds, or score numbers. Severity + message is
-  all you act on.
+- Edit a rule, its thresholds, the scope or the engine to make a finding pass. A change to a rule
+  is its own item for the user to review.
+- Work around a finding you think is wrong. Report it and stop.
+- Read thresholds or scores. Act on the severity and the message.

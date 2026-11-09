@@ -229,7 +229,6 @@ describe("cli verbs e2e - skills export", () => {
       const r = await runCli(["skills", "export", dir]);
       expect(r.code).toBe(0);
       for (const file of [
-        "jint-author/REFERENCE.md",
         "jint-author/SKILL.md",
         "jint-follow/SKILL.md",
         "jint-propose/SKILL.md",
@@ -291,5 +290,29 @@ describe("cli verbs e2e - a grammar dir that extends the embedded queries", () =
     expect(r.stdout).toContain("python statement_group");
     expect(r.stdout).not.toContain("python function");
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("cli verbs e2e - docs", () => {
+  test("no name lists the docs with their descriptions", async () => {
+    const r = await runCli(["docs"]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("config  ");
+    expect(r.stdout).toContain("reference/cli  ");
+  });
+
+  test("a name prints that doc without its front matter", async () => {
+    const r = await runCli(["docs", "reference/cli"]);
+    expect(r.code).toBe(0);
+    expect(r.stdout.startsWith("# ")).toBe(true);
+    expect(r.stdout).not.toContain("sidebar:");
+  });
+
+  test("an unknown name, or two names, is a usage error", async () => {
+    const unknown = await runCli(["docs", "nope"]);
+    expect(unknown.code).toBe(2);
+    expect(unknown.stderr).toContain("no doc named nope");
+    const two = await runCli(["docs", "config", "targets"]);
+    expect(two.code).toBe(2);
   });
 });

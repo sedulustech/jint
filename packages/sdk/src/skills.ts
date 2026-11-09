@@ -6,14 +6,12 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import authorReference from "../../../skills/jint-author/REFERENCE.md" with { type: "text" };
 import authorSkill from "../../../skills/jint-author/SKILL.md" with { type: "text" };
 import followSkill from "../../../skills/jint-follow/SKILL.md" with { type: "text" };
 import proposeSkill from "../../../skills/jint-propose/SKILL.md" with { type: "text" };
 
 /** Each embedded skill file: its path under a skills directory, and its content. */
 export const SKILL_FILES: Readonly<Record<string, string>> = {
-  "jint-author/REFERENCE.md": authorReference,
   "jint-author/SKILL.md": authorSkill,
   "jint-follow/SKILL.md": followSkill,
   "jint-propose/SKILL.md": proposeSkill,

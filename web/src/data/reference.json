@@ -580,6 +580,14 @@
           "pills": [],
           "body": "write the agent skills that ship with jint to a directory",
           "example": "jint skills export .claude/skills"
+        },
+        {
+          "id": "verb-docs",
+          "level": 3,
+          "name": "docs",
+          "pills": [],
+          "body": "print a doc that ships with jint",
+          "example": "jint docs config"
         }
       ]
     },

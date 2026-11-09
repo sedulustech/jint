@@ -8,7 +8,6 @@ const root = new URL("../../../skills/", import.meta.url).pathname;
 
 test("every embedded skill file is the repo's file", () => {
   expect(Object.keys(SKILL_FILES).sort()).toEqual([
-    "jint-author/REFERENCE.md",
     "jint-author/SKILL.md",
     "jint-follow/SKILL.md",
     "jint-propose/SKILL.md",

@@ -2,9 +2,7 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - The generated regions in skills/jint-follow/SKILL.md, skills/jint-author/SKILL.md and
- *   skills/jint-author/REFERENCE.md: the fixer table, the rule schema, the live examples and the
- *   run-UI address. The prose around them is hand-written
+ * - The run-UI address region in docs/writing-rules.md: the prose around it is hand-written
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
@@ -23,7 +21,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { allRules as allSpecs } from "@jint/rules";
 import { CONFIG_SCHEMA, ENV_VARS } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import {
@@ -38,16 +35,12 @@ import {
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
-import type { ChoiceRuleSchema, NoulRuleSchema, RuleSchema, ScoreRuleSchema } from "@jint/contract";
 
 const GENERATION_NOTE =
   "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
 
 export const GENERATED_OUTPUTS = [
   "jint.schema.json",
-  "skills/jint-follow/SKILL.md",
-  "skills/jint-author/SKILL.md",
-  "skills/jint-author/REFERENCE.md",
   "docs/targets.md",
   "docs/directives.md",
   "docs/config.md",
@@ -57,6 +50,7 @@ export const GENERATED_OUTPUTS = [
   "docs/reference/environment.md",
   "docs/reference/cli.md",
   "web/src/data/reference.json",
+  "docs/writing-rules.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -66,193 +60,6 @@ export const GENERATED_OUTPUTS = [
 export function renderSchemaJson(): string {
   const schema = { $comment: GENERATION_NOTE, ...CONFIG_SCHEMA };
   return JSON.stringify(schema, null, 2) + "\n";
-}
-
-function renderScoreHandle(map: ScoreRuleSchema["handle"]["map"]): string {
-  const levels = map.map((tier) => (typeof tier === "string" ? tier : tier.level));
-  const messages = map.flatMap((tier) =>
-    typeof tier !== "string" && tier.message !== undefined ? [`"${tier.message}"`] : [],
-  );
-  return [`score map: ${levels.join(" → ")}`, ...messages].join(", ");
-}
-
-function renderThresholdHandle(handle: NoulRuleSchema["handle"]): string {
-  const tiers = Object.entries(handle) as [string, Record<string, number | string>][];
-  const thresholds = tiers.map(([level, op]) => {
-    const [opName, threshold] = Object.entries(op)[0]!;
-    return `${level} ${opName.replace(/_/g, " ")} ${threshold}`;
-  });
-  const messages = tiers.flatMap(([, op]) =>
-    typeof op.message === "string" ? [`"${op.message}"`] : [],
-  );
-  return [...thresholds, ...messages].join(", ");
-}
-
-function renderChoiceHandle(handle: ChoiceRuleSchema["handle"]): string {
-  const entries = Object.entries(handle.choices);
-  const undecided = handle.undecided;
-  const map = entries.map(
-    ([label, tier]) => `${label} → ${typeof tier === "string" ? tier : tier.level}`,
-  );
-  if (undecided) map.push(`undecided (margin < ${undecided.margin}) → ${undecided.level}`);
-  const tiers = [...entries.map(([, tier]) => tier), ...(undecided ? [undecided] : [])];
-  const messages = tiers.flatMap((tier) =>
-    typeof tier !== "string" && tier.message !== undefined ? [`"${tier.message}"`] : [],
-  );
-  return [`choice map: ${map.join(", ")}`, ...messages].join(", ");
-}
-
-export function renderHandleCell(spec: RuleSchema): string {
-  if (spec.kind === "choice") return renderChoiceHandle(spec.handle);
-  return spec.kind === "score"
-    ? renderScoreHandle(spec.handle.map)
-    : renderThresholdHandle(spec.handle as NoulRuleSchema["handle"]);
-}
-
-export function renderRuleSection(spec: RuleSchema, heading = "##"): string {
-  const out: string[] = [];
-  out.push(`${heading} \`${spec.name}\`\n\n`);
-  const handle = renderHandleCell(spec);
-  // oxfmt-aligned tables: pad every cell to the column's widest entry, dash-rule included
-  const cells = [
-    ["kind", spec.kind ?? "noul"],
-    // targets render joined: the explicit list form (the defaults' union) is one cell
-    ["target", Array.isArray(spec.target) ? spec.target.join(", ") : String(spec.target)],
-    ["handle", handle],
-  ];
-  const width = cells.map(([header, value]) => Math.max(header.length, value.length));
-  const tableRow = (values: string[]) =>
-    `| ${values.map((v, i) => v.padEnd(width[i]!)).join(" | ")} |\n`;
-  out.push(tableRow(cells.map(([h]) => h)));
-  out.push(`| ${width.map((w) => "-".repeat(w)).join(" | ")} |\n`);
-  out.push(tableRow(cells.map(([, v]) => v)) + "\n");
-  out.push(`**Instructions.** ${spec.instructions}\n\n`);
-  if (spec.kind === "score") {
-    spec.criteria.forEach((criterion, i) => out.push(`**Score ${i}.** ${criterion}\n\n`));
-  } else if (spec.kind === "choice") {
-    for (const [label, meaning] of Object.entries(spec.criteria)) {
-      out.push(`**Option \`${label}\`.** ${meaning}\n\n`);
-    }
-  } else {
-    out.push(`**True.** ${spec.criteria.true}\n\n`);
-    out.push(`**False.** ${spec.criteria.false}\n\n`);
-  }
-  return out.join("");
-}
-
-// The rule-schema material, rendered from the same sources as the schema and the specs, so the
-// authoring doc cannot rot behind the wire shape.
-type SchemaPropertyMeta = {
-  description?: string;
-  const?: string;
-  anyOf?: { description?: string; properties?: Record<string, unknown> }[];
-};
-
-export function extractRuleSchemaProps(): Record<string, SchemaPropertyMeta> {
-  const ruleItems = (
-    CONFIG_SCHEMA.properties.rules as {
-      properties: { use: { items: { anyOf: unknown[] } } };
-    }
-  ).properties.use.items;
-  const ruleObject = ruleItems.anyOf.find(
-    (v) => (v as { anyOf?: unknown[] }).anyOf !== undefined,
-  ) as { anyOf: Array<{ properties: Record<string, { description?: string; const?: string }> }> };
-  return ruleObject.anyOf[0]!.properties;
-}
-
-const FALLBACK_DESCRIPTIONS: Record<string, string> = {
-  name: "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
-  criteria:
-    "The answer contract: noul carries {true, false}; score carries an ordered rubric (score 0..N); choice carries named options (label -> meaning). The handle decides which answers fire.",
-  target:
-    "What the rule judges: files = the whole unit; functions/definitions/comments/imports = elements derived from the parse.",
-  handle:
-    "When classifications surface as findings; the shape depends on kind (the descriptions below).",
-  include:
-    "Rule scoping: glob list over paths. Replaces the config's rules scope for this rule, and claims its files across the config rules.exclude. A rule without include follows the config's rules scope.",
-  exclude:
-    "Rule scoping: glob list over paths; always wins over this rule's include. Replaces the config's rules.exclude for this rule.",
-};
-const callbackHandle =
-  'Callback custom rules (TS config only): handle may be a (results, ctx) => decisions function, one decision per classification: { severity: "error" | "warn" | null, message? }. Null severity is silent (classification only). message is an instruction to the caller fixing the finding; severity says whether, message says how - it renders beneath the finding line and rides the report as finding.message.';
-
-// Each handle form's description, read from the schema the loader validates against - one source,
-// so the authoring doc cannot describe a handle the loader no longer accepts.
-function handleDescription(props: Record<string, SchemaPropertyMeta>, key: string): string {
-  const form = props.handle?.anyOf?.find((f) => f.properties !== undefined && key in f.properties);
-  if (form?.description === undefined)
-    throw new Error(`no handle form with '${key}' in the schema`);
-  return form.description;
-}
-
-export function renderRuleSchemaBlock(props: Record<string, SchemaPropertyMeta>): string {
-  const propRows = Object.entries(props)
-    .map(
-      ([key, meta]) =>
-        "| `" +
-        key +
-        "` | " +
-        (meta.description ?? FALLBACK_DESCRIPTIONS[key] ?? meta.const ?? "") +
-        " |",
-    )
-    .join("\n");
-  return [
-    "| key | meaning |",
-    "| --- | --- |",
-    propRows,
-    "",
-    "Handles, one form per kind - direction lives in the handle, never in prose:",
-    "",
-    "- **noul** (yes/no): `" + handleDescription(props, "warn") + "`",
-    "- **score** (scored rubric): `" + handleDescription(props, "map") + "`",
-    "- **choice** (named options): `" + handleDescription(props, "choices") + "`",
-    "",
-    callbackHandle,
-  ].join("\n");
-}
-
-// The fixer-message table, derived from the same handle message fields the
-// findings renderer reads - never hand-copied, so the follower skill cannot
-// drift from the messages it is told to execute.
-export type FixerMessage = { rule: string; severity: string; message: string };
-
-export function collectFixerMessages(specs: readonly RuleSchema[]): FixerMessage[] {
-  const messages: FixerMessage[] = [];
-  for (const spec of specs) {
-    if (spec.kind === "choice") {
-      const undecided = spec.handle.undecided;
-      for (const entry of [
-        ...Object.values(spec.handle.choices),
-        ...(undecided ? [undecided] : []),
-      ]) {
-        if (typeof entry !== "string" && typeof entry.message === "string") {
-          messages.push({ rule: spec.name, severity: entry.level, message: entry.message });
-        }
-      }
-    } else if (spec.kind === "score") {
-      for (const entry of spec.handle.map) {
-        if (typeof entry !== "string" && typeof entry.message === "string") {
-          messages.push({ rule: spec.name, severity: entry.level, message: entry.message });
-        }
-      }
-    } else {
-      for (const [level, op] of Object.entries(spec.handle)) {
-        const message = (op as { message?: string }).message;
-        if (typeof message === "string") {
-          messages.push({ rule: spec.name, severity: level, message });
-        }
-      }
-    }
-  }
-  return messages;
-}
-
-export function renderFixerTable(messages: readonly FixerMessage[]): string {
-  return [
-    "| rule | severity | fixer message |",
-    "| --- | --- | --- |",
-    ...messages.map((m) => `| \`${m.rule}\` | ${m.severity} | ${m.message} |`),
-  ].join("\n");
 }
 
 // The run UI and a classification's address in it: the verb and its description come from the CLI, the
@@ -269,15 +76,6 @@ export function renderRunAddress(): string {
     .join("&");
   const serve = `\`${VERBS.serve.example}\`: ${VERBS.serve.blurb.split(" - ")[0]}; it prints its URL.`;
   return `${serve} A classification's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
-}
-
-// --- skills ----------------------------------------------------------------
-// The skills are hand-written. Only what drifts from its source is generated into them, as marked
-// regions: the fixer table, the rule schema, the live examples, the run-UI address.
-
-/** A live spec as a fenced json block, always the current wire shape. */
-export function renderSpecBlock(spec: unknown): string {
-  return ["```json", JSON.stringify(spec, null, 2), "```"].join("\n");
 }
 
 interface Row {
@@ -836,39 +634,26 @@ function outPath(root: string, rel: string): string {
 function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   const root = resolve(rootArg);
   const formatted: string[] = [];
-  const schemaOut = outPath(root, GENERATED_OUTPUTS[0]!);
+  const schemaOut = outPath(root, "jint.schema.json");
   writeFileSync(schemaOut, renderSchemaJson());
   formatted.push(schemaOut);
   process.stdout.write("wrote " + schemaOut + "\n");
 
-  const spliceInto = (index: number, regions: Record<string, string>) => {
-    const out = outPath(root, GENERATED_OUTPUTS[index]!);
-    let doc = readFileSync(REPO_ROOT + GENERATED_OUTPUTS[index]!, "utf8");
+  const spliceInto = (rel: string, regions: Record<string, string>) => {
+    const out = outPath(root, rel);
+    let doc = readFileSync(REPO_ROOT + rel, "utf8");
     for (const [name, body] of Object.entries(regions)) doc = spliceGenerated(doc, name, body);
     writeFileSync(out, doc);
     formatted.push(out);
     process.stdout.write("wrote " + out + "\n");
   };
-  const byName = (name: string) => allSpecs.find((spec) => spec.name === name);
-  spliceInto(1, { "fixer-table": renderFixerTable(collectFixerMessages(allSpecs)) });
-  spliceInto(2, {
-    "rule-schema": renderRuleSchemaBlock(extractRuleSchemaProps()),
-    "config-example": renderSpecBlock({
-      $schema: "./jint.schema.json",
-      rules: { use: [byName("is_greppable"), byName("is_cognitively_complex")] },
-    }),
-    "run-address": renderRunAddress(),
-  });
-  spliceInto(3, {
-    "noul-example": renderSpecBlock(byName("is_greppable")),
-    "score-example": renderSpecBlock(byName("is_cognitively_complex")),
-  });
+  spliceInto("docs/writing-rules.md", { "run-address": renderRunAddress() });
 
-  const targetsOut = outPath(root, GENERATED_OUTPUTS[4]!);
+  const targetsOut = outPath(root, "docs/targets.md");
   writeFileSync(
     targetsOut,
     spliceGenerated(
-      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[4]!, "utf8"),
+      readFileSync(REPO_ROOT + "docs/targets.md", "utf8"),
       "targets",
       renderTargetsTable(),
     ),
@@ -876,21 +661,21 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   formatted.push(targetsOut);
   process.stdout.write("wrote " + targetsOut + "\n");
 
-  const directivesOut = outPath(root, GENERATED_OUTPUTS[5]!);
+  const directivesOut = outPath(root, "docs/directives.md");
   writeFileSync(
     directivesOut,
     spliceGenerated(
-      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[5]!, "utf8"),
+      readFileSync(REPO_ROOT + "docs/directives.md", "utf8"),
       "directives",
       renderDirectivesTable(directiveVocabulary()),
     ),
   );
   formatted.push(directivesOut);
-  const configOut = outPath(root, GENERATED_OUTPUTS[6]!);
+  const configOut = outPath(root, "docs/config.md");
   writeFileSync(
     configOut,
     spliceGenerated(
-      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[6]!, "utf8"),
+      readFileSync(REPO_ROOT + "docs/config.md", "utf8"),
       "config",
       renderConfigExample(),
     ),
@@ -914,17 +699,17 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   process.stdout.write("wrote " + directivesOut + "\n");
 
   const pages = referencePages();
-  const reference: [number, keyof RefPages][] = [
-    [9, "config"],
-    [10, "environment"],
-    [11, "cli"],
+  const reference: [string, keyof RefPages][] = [
+    ["docs/reference/config.md", "config"],
+    ["docs/reference/environment.md", "environment"],
+    ["docs/reference/cli.md", "cli"],
   ];
-  for (const [index, page] of reference) {
-    const out = outPath(root, GENERATED_OUTPUTS[index]!);
+  for (const [rel, page] of reference) {
+    const out = outPath(root, rel);
     writeFileSync(
       out,
       spliceGenerated(
-        readFileSync(REPO_ROOT + GENERATED_OUTPUTS[index]!, "utf8"),
+        readFileSync(REPO_ROOT + rel, "utf8"),
         "reference",
         renderReferenceMarkdown(pages[page]),
       ),
@@ -932,23 +717,23 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
     Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), out], { cwd: REPO_ROOT });
     process.stdout.write("wrote " + out + "\n");
   }
-  const dataOut = outPath(root, GENERATED_OUTPUTS[12]!);
+  const dataOut = outPath(root, "web/src/data/reference.json");
   writeFileSync(dataOut, renderReferenceJson());
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), dataOut], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + dataOut + "\n");
 
-  const grammarsOut = outPath(root, GENERATED_OUTPUTS[7]!);
+  const grammarsOut = outPath(root, "docs/grammars.md");
   writeFileSync(
     grammarsOut,
     spliceGenerated(
-      readFileSync(REPO_ROOT + GENERATED_OUTPUTS[7]!, "utf8"),
+      readFileSync(REPO_ROOT + "docs/grammars.md", "utf8"),
       "grammars",
       renderGrammarsTable(),
     ),
   );
   process.stdout.write("wrote " + grammarsOut + "\n");
 
-  const sourcesOut = outPath(root, GENERATED_OUTPUTS[8]!);
+  const sourcesOut = outPath(root, "packages/sdk/src/core/grammars/embedded/SOURCES.md");
   writeFileSync(sourcesOut, renderGrammarSources());
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), grammarsOut, sourcesOut], {
     cwd: REPO_ROOT,
