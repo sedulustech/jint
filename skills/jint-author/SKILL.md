@@ -112,7 +112,7 @@ wire shape):
 
 <!-- generated:run-address — do not edit. Regenerate with `bun run schema`. -->
 
-`jint serve`: the run UI over the store's newest run; it prints its URL. A classification's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the classification's `input` from `--json`. URL-encode `input`: it contains `#`.
+`jint serve`: open the run UI on the newest run; it prints its URL. A classification's address there: `<serve url>/runs/<run.id>?rule=<rule>&input=<input>`, with `run.id` and the classification's `input` from `--json`. URL-encode `input`: it contains `#`.
 <!-- /generated:run-address -->
 
 ## Fixer messages are decisive
