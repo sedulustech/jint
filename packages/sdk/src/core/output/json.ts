@@ -4,8 +4,8 @@
  * operational messages are the raw-line renderer's stderr concern, never embedded here.
  */
 
-import pkg from "../../../package.json";
 import type { LintReport } from "../lint.ts";
+import { VERSION } from "../version.ts";
 import type { Finding, Classification } from "@jint/contract";
 
 export function renderJson(report: LintReport): string {
@@ -13,7 +13,7 @@ export function renderJson(report: LintReport): string {
     JSON.stringify(
       {
         tool: "jint",
-        version: pkg.version,
+        version: VERSION,
         // The run pointer: the same recordSummary the stderr notice names. Absent only when no
         // classifier call started a run (a report without captures). Direct optional properties:
         // this object feeds JSON.stringify only, which drops undefined - absent and

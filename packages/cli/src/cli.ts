@@ -52,14 +52,10 @@ import {
   parseEdit,
   reclassify,
   AddressError,
+  VERSION as version,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
-import packageJson from "../package.json";
-
-/** Set at compile time by scripts/build.ts for a beta build (`beta-<sha6>`); absent everywhere else. */
-declare const JINT_BUILD_VERSION: string | undefined;
-const version = typeof JINT_BUILD_VERSION === "string" ? JINT_BUILD_VERSION : packageJson.version;
 import { catalog, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {

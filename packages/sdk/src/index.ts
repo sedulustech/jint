@@ -23,6 +23,7 @@ export {
   type RunPointer,
 } from "./core/lint.ts";
 export { knownLanguages } from "./core/grammars/walk.ts";
+export { VERSION } from "./core/version.ts";
 export {
   recordSummary,
   recordRunManifest,
