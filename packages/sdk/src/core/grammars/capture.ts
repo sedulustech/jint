@@ -283,6 +283,9 @@ export function captureFor(
         secretDenylist: config.secretDenylist,
         onNote: options.onNote,
         registry,
+        // a file no grammar claims has nothing to extract: it is reported as skipped, as it is
+        // inside a directory, and never fails the capture, because a run still measures it whole
+        requireGrammarFor: () => false,
         stats,
       },
       queries,

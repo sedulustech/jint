@@ -387,4 +387,17 @@ describe("jint capture - the config scope through the spawned binary", () => {
     expect(r.stdout).toContain("keep");
     expect(r.stdout).not.toContain("fx");
   });
+
+  test("an explicit file no grammar claims is reported as skipped, not a failure (run measures it whole)", async () => {
+    const dir = join(ROOT_DIR, "cli-prose");
+    rmScratchTree(dir);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "notes.txt"), "Plain prose.\n");
+    const r = await runCli(["capture", "notes.txt"], { cwd: dir });
+    expect(r.code).toBe(0);
+    expect(r.stderr).toContain("not parsed (no grammar): .txt");
+    expect(r.stderr).not.toContain("MISSING_GRAMMAR 0");
+    const json = await runCli(["capture", "notes.txt", "--json"], { cwd: dir });
+    expect(JSON.parse(json.stdout).elements).toEqual([]);
+  });
 });
