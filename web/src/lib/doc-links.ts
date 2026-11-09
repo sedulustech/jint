@@ -7,7 +7,7 @@ const DOCS_DIR = "docs";
 const DOCS_ROOT = fileURLToPath(new URL("../../../docs/", import.meta.url));
 // the docs the site renders: the top-level ones and the use cases, nested by technology; docs/designs
 // and the rest stay on GitHub
-const PAGE = /^(?:[^/]+|use-cases\/.+)\.md$/;
+const PAGE = /^(?:[^/]+|use-cases\/.+|reference\/[^/]+)\.md$/;
 
 /**
  * Where a link written in docs/*.md should point on the site. A link to another doc becomes its

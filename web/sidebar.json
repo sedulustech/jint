@@ -24,6 +24,10 @@
     "items": ["config", "endpoints", "local"]
   },
   {
+    "label": "Reference",
+    "items": ["reference/config", "reference/environment", "reference/cli"]
+  },
+  {
     "label": "Use cases",
     "items": [
       "use-cases/react/always-name-effects",

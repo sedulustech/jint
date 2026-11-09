@@ -52,7 +52,10 @@ describe("web/sidebar.json against docs/", () => {
   // the docs the site renders: the same two patterns as content.config.ts
   const DOCS = new URL("../../../docs/", import.meta.url).pathname;
   const onSite = (relative: string) =>
-    relative.endsWith(".md") && (!relative.includes("/") || relative.startsWith("use-cases/"));
+    relative.endsWith(".md") &&
+    (!relative.includes("/") ||
+      relative.startsWith("use-cases/") ||
+      relative.startsWith("reference/"));
   const ids = readdirSync(DOCS, { recursive: true, encoding: "utf8" })
     .filter(onSite)
     .map((relative) => relative.slice(0, -".md".length))

@@ -11,7 +11,7 @@ import { defineCollection } from "astro:content";
 //     label: the sidebar entry (defaults to title)
 //
 const docs = defineCollection({
-  loader: glob({ pattern: ["*.md", "use-cases/**/*.md"], base: "../docs" }),
+  loader: glob({ pattern: ["*.md", "use-cases/**/*.md", "reference/*.md"], base: "../docs" }),
   schema: z.object({
     title: z.string().min(1),
     description: z.string().min(1).max(200),

@@ -24,9 +24,9 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { allRules as allSpecs } from "@jint/rules";
-import { CONFIG_SCHEMA } from "@jint/sdk";
+import { CONFIG_SCHEMA, ENV_VARS } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
-import { VERBS } from "../packages/cli/src/cli.ts";
+import { FLAGS, VERBS } from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
@@ -45,6 +45,9 @@ export const GENERATED_OUTPUTS = [
   "docs/config.md",
   "docs/grammars.md",
   "packages/sdk/src/core/grammars/embedded/SOURCES.md",
+  "docs/reference/config.md",
+  "docs/reference/environment.md",
+  "docs/reference/cli.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -550,6 +553,63 @@ export function renderRuleFieldsTable(): string {
   return ["| Field | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
 }
 
+const cell = (text: string): string => text.replaceAll("|", "\\|").replaceAll("\n", " ");
+
+/** The environment variables, from ENV_VARS: the one list a guard test keeps whole. */
+export function renderEnvTable(): string {
+  const rows = ENV_VARS.map((v) => `| \`${v.name}\` | ${cell(v.default)} | ${cell(v.meaning)} |`);
+  return ["| Variable | Default | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
+}
+
+/** The verbs and the flags of the CLI, from the tables the parser and the help text read. */
+export function renderCliReference(): string {
+  const verbs = Object.entries(VERBS).map(
+    ([name, verb]) => `| \`${name}\` | \`${verb.example}\` | ${cell(verb.blurb)} |`,
+  );
+  const flags = Object.entries(FLAGS).map(([name, flag]) => {
+    const spec = flag as {
+      arg?: string;
+      aliases?: readonly string[];
+      blurb: string;
+      verbs?: readonly string[];
+    };
+    const names = [name, ...(spec.aliases ?? [])].map((n) => `\`${n}\``).join(", ");
+    const arg = spec.arg === undefined ? "" : `\`${spec.arg}\``;
+    return `| ${names} | ${arg} | ${spec.verbs === undefined ? "all" : spec.verbs.join(", ")} | ${cell(spec.blurb)} |`;
+  });
+  return (
+    [
+      "## Verbs",
+      "",
+      "The first operand is the verb. There is no default verb.",
+      "",
+      "| Verb | Example | What it does |",
+      "| --- | --- | --- |",
+      ...verbs,
+      "",
+      "## Flags",
+      "",
+      "| Flag | Argument | Verbs | Meaning |",
+      "| --- | --- | --- | --- |",
+      ...flags,
+    ].join("\n") + "\n"
+  );
+}
+
+/** The config reference: the example, the run settings and the rule fields, all from the schema. */
+export function renderConfigReference(): string {
+  return [
+    renderConfigExample(),
+    "",
+    "## Run settings",
+    "",
+    renderRunSettingsTable(),
+    "## Rule fields",
+    "",
+    renderRuleFieldsTable(),
+  ].join("\n");
+}
+
 /** The config file with every key, each with its description as a comment above it. */
 export function renderConfigExample(): string {
   const keys = renderConfigKeys(CONFIG_SCHEMA.properties as Record<string, ConfigNode>, "  ");
@@ -678,6 +738,25 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + directivesOut + "\n");
+
+  const reference: [number, () => string][] = [
+    [9, renderConfigReference],
+    [10, renderEnvTable],
+    [11, renderCliReference],
+  ];
+  for (const [index, render] of reference) {
+    const out = outPath(root, GENERATED_OUTPUTS[index]!);
+    writeFileSync(
+      out,
+      spliceGenerated(
+        readFileSync(REPO_ROOT + GENERATED_OUTPUTS[index]!, "utf8"),
+        "reference",
+        render(),
+      ),
+    );
+    Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), out], { cwd: REPO_ROOT });
+    process.stdout.write("wrote " + out + "\n");
+  }
 
   const grammarsOut = outPath(root, GENERATED_OUTPUTS[7]!);
   writeFileSync(
