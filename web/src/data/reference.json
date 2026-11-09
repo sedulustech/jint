@@ -1,0 +1,616 @@
+{
+  "$comment": "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).",
+  "config": [
+    {
+      "title": "Run settings",
+      "entries": [
+        {
+          "id": "input",
+          "level": 3,
+          "name": "input",
+          "pills": ["string"],
+          "body": "The file or directory to measure. A path given to jint run overrides it."
+        },
+        {
+          "id": "secretdenylist",
+          "level": 3,
+          "name": "secretDenylist",
+          "pills": ["string[]"],
+          "body": "Replaces the built-in denylist of secret-shaped files (gitignore patterns)."
+        },
+        {
+          "id": "concurrency",
+          "level": 3,
+          "name": "concurrency",
+          "pills": ["number", ["default", "16"]],
+          "body": "The most classifier calls in flight, run-wide, at most 64."
+        },
+        {
+          "id": "timeout",
+          "level": 3,
+          "name": "timeout",
+          "pills": ["number", ["default", "30"]],
+          "body": "The time one classifier call may take, retries included, in seconds. Each attempt gets a third of it."
+        },
+        {
+          "id": "maxinputtokens",
+          "level": 3,
+          "name": "maxInputTokens",
+          "pills": ["number"],
+          "body": "The most input tokens the model accepts in one call. A call over it is skipped with a note. Unset: elements over 30000 tokens are skipped."
+        },
+        {
+          "id": "charspertoken",
+          "level": 3,
+          "name": "charsPerToken",
+          "pills": ["number", ["default", "4"]],
+          "body": "The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Use a lower number for a model whose tokenizer splits code finely."
+        }
+      ]
+    },
+    {
+      "title": "Rule scope",
+      "entries": [
+        {
+          "id": "rules-include",
+          "level": 3,
+          "name": "rules.include",
+          "pills": ["string[]"],
+          "body": "The files jint reads, and the default scope of every rule."
+        },
+        {
+          "id": "rules-exclude",
+          "level": 3,
+          "name": "rules.exclude",
+          "pills": ["string[]"],
+          "body": "The files jint skips. Exclude always wins over include."
+        }
+      ]
+    },
+    {
+      "title": "Rule fields",
+      "intro": "Each entry of `rules.use` is a rule name or a rule object with these fields.",
+      "entries": [
+        {
+          "id": "name",
+          "level": 3,
+          "name": "name",
+          "pills": ["string", "required"],
+          "body": "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override."
+        },
+        {
+          "id": "kind",
+          "level": 3,
+          "name": "kind",
+          "pills": ["string"],
+          "body": "The question type. Absent means noul."
+        },
+        {
+          "id": "instructions",
+          "level": 3,
+          "name": "instructions",
+          "pills": ["string", "required"],
+          "body": "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every classification."
+        },
+        {
+          "id": "criteria",
+          "level": 3,
+          "name": "criteria",
+          "pills": ["object", "required"],
+          "body": "The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction."
+        },
+        {
+          "id": "criteria-true",
+          "level": 3,
+          "name": "criteria.true",
+          "pills": ["string", "required"],
+          "body": "The condition for yes."
+        },
+        {
+          "id": "criteria-false",
+          "level": 3,
+          "name": "criteria.false",
+          "pills": ["string", "required"],
+          "body": "The condition for no."
+        },
+        {
+          "id": "target",
+          "level": 3,
+          "name": "target",
+          "pills": ["string | object", "required"],
+          "body": "What the rule measures: files, a kind of element, or a capture. A list measures each."
+        },
+        {
+          "id": "handle",
+          "level": 3,
+          "name": "handle",
+          "pills": ["string | object", "required"],
+          "body": "How a reading becomes a finding. The shape follows the kind of the rule."
+        },
+        {
+          "id": "include",
+          "level": 3,
+          "name": "include",
+          "pills": ["string[]"],
+          "body": "Globs of the files this rule reads. It replaces the run include for this rule."
+        },
+        {
+          "id": "exclude",
+          "level": 3,
+          "name": "exclude",
+          "pills": ["string[]"],
+          "body": "Globs of the files this rule skips. Exclude always wins over include."
+        },
+        {
+          "id": "includepath",
+          "level": 3,
+          "name": "includePath",
+          "pills": ["boolean"],
+          "body": "true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself."
+        },
+        {
+          "id": "override",
+          "level": 3,
+          "name": "override",
+          "pills": ["boolean"],
+          "body": "true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too."
+        }
+      ]
+    },
+    {
+      "title": "Rule handler fields",
+      "intro": "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
+      "entries": [
+        {
+          "id": "handle-map",
+          "level": 3,
+          "name": "map",
+          "pills": ["object[]", "required"],
+          "body": "One tier for each score level, in the order of the criteria."
+        },
+        {
+          "id": "handle-map-level",
+          "level": 3,
+          "name": "map.level",
+          "pills": ["string | object", "required"],
+          "body": "The severity of a finding: pass raises none."
+        },
+        {
+          "id": "handle-map-message",
+          "level": 3,
+          "name": "map.message",
+          "pills": ["string"],
+          "body": "The rule author's feedback; the finding's note when this tier fires."
+        },
+        {
+          "id": "handle-choices",
+          "level": 3,
+          "name": "choices",
+          "pills": ["object", "required"],
+          "body": "One tier for each option, keyed by the option label."
+        },
+        {
+          "id": "handle-undecided",
+          "level": 3,
+          "name": "undecided",
+          "pills": ["object"],
+          "body": "The tier of a reading with no clear winner among the options."
+        },
+        {
+          "id": "handle-undecided-margin",
+          "level": 3,
+          "name": "undecided.margin",
+          "pills": ["number", "required"],
+          "body": "The gap between the two likeliest options under which the reading is undecided."
+        },
+        {
+          "id": "handle-undecided-level",
+          "level": 3,
+          "name": "undecided.level",
+          "pills": ["string | object", "required"],
+          "body": "The severity of a finding: pass raises none."
+        },
+        {
+          "id": "handle-undecided-message",
+          "level": 3,
+          "name": "undecided.message",
+          "pills": ["string"],
+          "body": "The note on the finding of an undecided reading."
+        },
+        {
+          "id": "handle-warn",
+          "level": 3,
+          "name": "warn",
+          "pills": ["string | object"],
+          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1)."
+        },
+        {
+          "id": "handle-warn-greater_than",
+          "level": 3,
+          "name": "warn.greater_than",
+          "pills": ["number", "required"],
+          "body": "The threshold. A reading above it fires."
+        },
+        {
+          "id": "handle-warn-message",
+          "level": 3,
+          "name": "warn.message",
+          "pills": ["string"],
+          "body": "The rule author's feedback; the finding's note when this tier fires."
+        },
+        {
+          "id": "handle-warn-less_than",
+          "level": 3,
+          "name": "warn.less_than",
+          "pills": ["number", "required"],
+          "body": "The threshold. A reading below it fires."
+        },
+        {
+          "id": "handle-error",
+          "level": 3,
+          "name": "error",
+          "pills": ["string | object"],
+          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1)."
+        },
+        {
+          "id": "handle-error-greater_than",
+          "level": 3,
+          "name": "error.greater_than",
+          "pills": ["number", "required"],
+          "body": "The threshold. A reading above it fires."
+        },
+        {
+          "id": "handle-error-message",
+          "level": 3,
+          "name": "error.message",
+          "pills": ["string"],
+          "body": "The rule author's feedback; the finding's note when this tier fires."
+        },
+        {
+          "id": "handle-error-less_than",
+          "level": 3,
+          "name": "error.less_than",
+          "pills": ["number", "required"],
+          "body": "The threshold. A reading below it fires."
+        },
+        {
+          "id": "handle-silent_band",
+          "level": 3,
+          "name": "silent_band",
+          "pills": ["object[]"],
+          "body": "A [low, high] range of readings that raises no finding."
+        }
+      ]
+    }
+  ],
+  "environment": [
+    {
+      "title": "Variables",
+      "entries": [
+        {
+          "id": "openai-api-key",
+          "level": 3,
+          "name": "OPENAI_API_KEY",
+          "pills": [],
+          "body": "The key for `api.openai.com`. jint sends it nowhere else."
+        },
+        {
+          "id": "jint-api-url",
+          "level": 3,
+          "name": "JINT_API_URL",
+          "pills": [["default", "OpenAI's Decisions API"]],
+          "body": "The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md)."
+        },
+        {
+          "id": "jint-api-key",
+          "level": 3,
+          "name": "JINT_API_KEY",
+          "pills": [],
+          "body": "The key for the url in `JINT_API_URL`. It wins over `OPENAI_API_KEY`."
+        },
+        {
+          "id": "jint-api-model",
+          "level": 3,
+          "name": "JINT_API_MODEL",
+          "pills": [["default", "`gpt-6-luna` on `/decisions`"]],
+          "body": "The model to ask. A `/v1/systemone` server needs it, except TypeSafe's own host."
+        },
+        {
+          "id": "jint-runs-dir",
+          "level": 3,
+          "name": "JINT_RUNS_DIR",
+          "pills": [["default", "`~/.jint/runs`"]],
+          "body": "The directory where jint records runs."
+        },
+        {
+          "id": "jint-cache-dir",
+          "level": 3,
+          "name": "JINT_CACHE_DIR",
+          "pills": [["default", "`~/.jint/cache`"]],
+          "body": "The directory of the answer cache."
+        },
+        {
+          "id": "jint-grammar-dir",
+          "level": 3,
+          "name": "JINT_GRAMMAR_DIR",
+          "pills": [["default", "`~/.jint/grammars`"]],
+          "body": "The directory of custom grammars."
+        },
+        {
+          "id": "jint-ui-host",
+          "level": 3,
+          "name": "JINT_UI_HOST",
+          "pills": [["default", "`127.0.0.1`"]],
+          "body": "The host that `jint serve` binds. Give a host, not `host:port`."
+        },
+        {
+          "id": "jint-ui-port",
+          "level": 3,
+          "name": "JINT_UI_PORT",
+          "pills": [["default", "a free port"]],
+          "body": "The port that `jint serve` binds."
+        },
+        {
+          "id": "jint-log-level",
+          "level": 3,
+          "name": "JINT_LOG_LEVEL",
+          "pills": [["default", "`off`"]],
+          "body": "The log level on stderr: `debug`, `info`, `warn`, `error` or `off`."
+        }
+      ]
+    }
+  ],
+  "cli": [
+    {
+      "title": "Verbs",
+      "intro": "The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.",
+      "entries": [
+        {
+          "id": "verb-run",
+          "level": 3,
+          "name": "run",
+          "pills": [],
+          "body": "classify files and report the findings",
+          "example": "jint run src/"
+        },
+        {
+          "id": "noun-str",
+          "level": 4,
+          "name": "str",
+          "pills": [],
+          "body": "piped stdin as one unit",
+          "example": "cat snippet.ts | jint run str -"
+        },
+        {
+          "id": "noun-paths",
+          "level": 4,
+          "name": "paths",
+          "pills": [],
+          "body": "a path list from piped stdin",
+          "example": "git diff --name-only HEAD~1 | jint run paths -"
+        },
+        {
+          "id": "flag-run-language",
+          "level": 4,
+          "name": "--language",
+          "pills": ["`<id>`"],
+          "body": "grammar for piped or extensionless input",
+          "example": "jint run src/ --language python"
+        },
+        {
+          "id": "flag-run-config",
+          "level": 4,
+          "name": "--config",
+          "pills": ["`<path>`"],
+          "body": "the config file to use",
+          "example": "jint run src/ --config ci/jint.config.json"
+        },
+        {
+          "id": "flag-run-exclude",
+          "level": 4,
+          "name": "--exclude",
+          "pills": ["`<glob>`"],
+          "body": "skip inputs that match a glob (repeatable)",
+          "example": "jint run src/ --exclude \"**/*.gen.ts\""
+        },
+        {
+          "id": "flag-run-disable",
+          "level": 4,
+          "name": "--disable",
+          "pills": ["`<name>`"],
+          "body": "turn a rule off (repeatable)",
+          "example": "jint run src/ --disable is_short"
+        },
+        {
+          "id": "flag-run-rule",
+          "level": 4,
+          "name": "--rule",
+          "pills": ["`<name>`"],
+          "body": "run only these rules (repeatable)",
+          "example": "jint run src/ --rule is_short"
+        },
+        {
+          "id": "flag-run-concurrency",
+          "level": 4,
+          "name": "--concurrency",
+          "pills": ["`<n>`"],
+          "body": "the most classifier calls in flight",
+          "example": "jint run src/ --concurrency 8"
+        },
+        {
+          "id": "flag-run-timeout",
+          "level": 4,
+          "name": "--timeout",
+          "pills": ["`<secs>`"],
+          "body": "the time limit for one classifier call, in seconds",
+          "example": "jint run src/ --timeout 60"
+        },
+        {
+          "id": "flag-run-json",
+          "level": 4,
+          "name": "--json",
+          "pills": [],
+          "body": "print the report as JSON",
+          "example": "jint run src/ --json"
+        },
+        {
+          "id": "flag-run-dry-run",
+          "level": 4,
+          "name": "--dry-run",
+          "pills": [],
+          "body": "list the rules that would run, then exit",
+          "example": "jint run src/ --dry-run"
+        },
+        {
+          "id": "flag-run-unscoped",
+          "level": 4,
+          "name": "--unscoped",
+          "pills": [],
+          "body": "measure named files outside the config scope",
+          "example": "jint run src/ --unscoped"
+        },
+        {
+          "id": "flag-run-no-cache",
+          "level": 4,
+          "name": "--no-cache",
+          "pills": [],
+          "body": "ask every question, skip the answer cache",
+          "example": "jint run src/ --no-cache"
+        },
+        {
+          "id": "flag-run-no-header",
+          "level": 4,
+          "name": "--no-header",
+          "pills": [],
+          "body": "hide the rules and scope header",
+          "example": "jint run src/ --no-header"
+        },
+        {
+          "id": "verb-serve",
+          "level": 3,
+          "name": "serve",
+          "pills": [],
+          "body": "open the run UI on the newest run",
+          "example": "jint serve"
+        },
+        {
+          "id": "verb-capture",
+          "level": 3,
+          "name": "capture",
+          "pills": [],
+          "body": "print what jint extracts from a file, without classifying",
+          "example": "jint capture doc.md"
+        },
+        {
+          "id": "flag-capture-config",
+          "level": 4,
+          "name": "--config",
+          "pills": ["`<path>`"],
+          "body": "the config file to use",
+          "example": "jint capture doc.md --config ci/jint.config.json"
+        },
+        {
+          "id": "flag-capture-exclude",
+          "level": 4,
+          "name": "--exclude",
+          "pills": ["`<glob>`"],
+          "body": "skip inputs that match a glob (repeatable)",
+          "example": "jint capture doc.md --exclude \"**/*.gen.ts\""
+        },
+        {
+          "id": "flag-capture-rule",
+          "level": 4,
+          "name": "--rule",
+          "pills": ["`<name>`"],
+          "body": "mark the population of one rule",
+          "example": "jint capture doc.md --rule is_short"
+        },
+        {
+          "id": "flag-capture-queries",
+          "level": 4,
+          "name": "--queries",
+          "pills": ["`<file.scm>`"],
+          "body": "extraction queries that replace the grammar's",
+          "example": "jint capture doc.md --queries my.scm"
+        },
+        {
+          "id": "flag-capture-grammar",
+          "level": 4,
+          "name": "--grammar",
+          "pills": ["`<dir>`"],
+          "body": "a custom grammar for this call",
+          "example": "jint capture doc.md --grammar ./grammars/ini"
+        },
+        {
+          "id": "flag-capture-json",
+          "level": 4,
+          "name": "--json",
+          "pills": [],
+          "body": "print the report as JSON",
+          "example": "jint capture doc.md --json"
+        },
+        {
+          "id": "verb-reclassify",
+          "level": 3,
+          "name": "reclassify",
+          "pills": [],
+          "body": "classify one rule at one input of a recorded run again",
+          "example": "jint reclassify <run-id> src/a.ts --rule <name> -"
+        },
+        {
+          "id": "flag-reclassify-rule",
+          "level": 4,
+          "name": "--rule",
+          "pills": ["`<name>`"],
+          "body": "the rule to classify again",
+          "example": "jint reclassify <run-id> src/a.ts --rule <name>"
+        },
+        {
+          "id": "flag-reclassify-json",
+          "level": 4,
+          "name": "--json",
+          "pills": [],
+          "body": "print the report as JSON",
+          "example": "jint reclassify <run-id> src/a.ts --rule <name> --json"
+        },
+        {
+          "id": "verb-skills",
+          "level": 3,
+          "name": "skills",
+          "pills": [],
+          "body": "write the agent skills that ship with jint to a directory",
+          "example": "jint skills export .claude/skills"
+        }
+      ]
+    },
+    {
+      "title": "Flags for every verb",
+      "entries": [
+        {
+          "id": "flag-help",
+          "level": 3,
+          "name": "--help",
+          "pills": ["`-h`"],
+          "body": "show this help",
+          "example": "jint --help"
+        },
+        {
+          "id": "flag-version",
+          "level": 3,
+          "name": "--version",
+          "pills": [],
+          "body": "print the version",
+          "example": "jint --version"
+        },
+        {
+          "id": "flag-debug",
+          "level": 3,
+          "name": "--debug",
+          "pills": [],
+          "body": "print structured debug logs",
+          "example": "jint --debug"
+        }
+      ]
+    }
+  ]
+}

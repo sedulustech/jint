@@ -1,0 +1,29 @@
+---
+import data from "../data/reference.json";
+import type { RefEntry, RefPages } from "../../../scripts/generate-schema";
+import ReferenceEntry from "./ReferenceEntry.astro";
+import { inline } from "../lib/inline";
+
+// A reference page: its sections and their entries, from the data `bun run schema` writes.
+interface Props {
+  page: keyof RefPages;
+}
+const { page } = Astro.props;
+const sections = (data as unknown as RefPages)[page];
+---
+
+{
+  sections.map((section) => (
+    <section>
+      <h2>{section.title}</h2>
+      {section.intro !== undefined && (
+        <p>
+          {inline(section.intro).map((part) => (part.kind === "code" ? <code>{part.text}</code> : part.text))}
+        </p>
+      )}
+      {section.entries.map((entry: RefEntry) => (
+        <ReferenceEntry {entry} />
+      ))}
+    </section>
+  ))
+}

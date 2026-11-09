@@ -15,7 +15,7 @@ Every verb and flag of the jint command, generated from the CLI.
 
 The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.
 
-<h3 id="verb-run" class="field"><code>run</code><span class="pills"></span></h3>
+### `run`
 
 classify files and report the findings
 
@@ -23,7 +23,7 @@ classify files and report the findings
 jint run src/
 ```
 
-<h4 id="noun-str" class="field"><code>str</code><span class="pills"></span></h4>
+#### `str`
 
 piped stdin as one unit
 
@@ -31,7 +31,7 @@ piped stdin as one unit
 cat snippet.ts | jint run str -
 ```
 
-<h4 id="noun-paths" class="field"><code>paths</code><span class="pills"></span></h4>
+#### `paths`
 
 a path list from piped stdin
 
@@ -39,63 +39,77 @@ a path list from piped stdin
 git diff --name-only HEAD~1 | jint run paths -
 ```
 
-<h4 id="flag-run-language" class="field"><code>--language</code><span class="pills"><span class="pill"><code>&lt;id&gt;</code></span></span></h4>
+#### `--language`
 
 grammar for piped or extensionless input
+
+_`<id>`_
 
 ```sh
 jint run src/ --language python
 ```
 
-<h4 id="flag-run-config" class="field"><code>--config</code><span class="pills"><span class="pill"><code>&lt;path&gt;</code></span></span></h4>
+#### `--config`
 
 the config file to use
+
+_`<path>`_
 
 ```sh
 jint run src/ --config ci/jint.config.json
 ```
 
-<h4 id="flag-run-exclude" class="field"><code>--exclude</code><span class="pills"><span class="pill"><code>&lt;glob&gt;</code></span></span></h4>
+#### `--exclude`
 
 skip inputs that match a glob (repeatable)
+
+_`<glob>`_
 
 ```sh
 jint run src/ --exclude "**/*.gen.ts"
 ```
 
-<h4 id="flag-run-disable" class="field"><code>--disable</code><span class="pills"><span class="pill"><code>&lt;name&gt;</code></span></span></h4>
+#### `--disable`
 
 turn a rule off (repeatable)
+
+_`<name>`_
 
 ```sh
 jint run src/ --disable is_short
 ```
 
-<h4 id="flag-run-rule" class="field"><code>--rule</code><span class="pills"><span class="pill"><code>&lt;name&gt;</code></span></span></h4>
+#### `--rule`
 
 run only these rules (repeatable)
+
+_`<name>`_
 
 ```sh
 jint run src/ --rule is_short
 ```
 
-<h4 id="flag-run-concurrency" class="field"><code>--concurrency</code><span class="pills"><span class="pill"><code>&lt;n&gt;</code></span></span></h4>
+#### `--concurrency`
 
 the most classifier calls in flight
+
+_`<n>`_
 
 ```sh
 jint run src/ --concurrency 8
 ```
 
-<h4 id="flag-run-timeout" class="field"><code>--timeout</code><span class="pills"><span class="pill"><code>&lt;secs&gt;</code></span></span></h4>
+#### `--timeout`
 
 the time limit for one classifier call, in seconds
+
+_`<secs>`_
 
 ```sh
 jint run src/ --timeout 60
 ```
 
-<h4 id="flag-run-json" class="field"><code>--json</code><span class="pills"></span></h4>
+#### `--json`
 
 print the report as JSON
 
@@ -103,7 +117,7 @@ print the report as JSON
 jint run src/ --json
 ```
 
-<h4 id="flag-run-dry-run" class="field"><code>--dry-run</code><span class="pills"></span></h4>
+#### `--dry-run`
 
 list the rules that would run, then exit
 
@@ -111,7 +125,7 @@ list the rules that would run, then exit
 jint run src/ --dry-run
 ```
 
-<h4 id="flag-run-unscoped" class="field"><code>--unscoped</code><span class="pills"></span></h4>
+#### `--unscoped`
 
 measure named files outside the config scope
 
@@ -119,7 +133,7 @@ measure named files outside the config scope
 jint run src/ --unscoped
 ```
 
-<h4 id="flag-run-no-cache" class="field"><code>--no-cache</code><span class="pills"></span></h4>
+#### `--no-cache`
 
 ask every question, skip the answer cache
 
@@ -127,7 +141,7 @@ ask every question, skip the answer cache
 jint run src/ --no-cache
 ```
 
-<h4 id="flag-run-no-header" class="field"><code>--no-header</code><span class="pills"></span></h4>
+#### `--no-header`
 
 hide the rules and scope header
 
@@ -135,7 +149,7 @@ hide the rules and scope header
 jint run src/ --no-header
 ```
 
-<h3 id="verb-serve" class="field"><code>serve</code><span class="pills"></span></h3>
+### `serve`
 
 open the run UI on the newest run
 
@@ -143,7 +157,7 @@ open the run UI on the newest run
 jint serve
 ```
 
-<h3 id="verb-capture" class="field"><code>capture</code><span class="pills"></span></h3>
+### `capture`
 
 print what jint extracts from a file, without classifying
 
@@ -151,47 +165,57 @@ print what jint extracts from a file, without classifying
 jint capture doc.md
 ```
 
-<h4 id="flag-capture-config" class="field"><code>--config</code><span class="pills"><span class="pill"><code>&lt;path&gt;</code></span></span></h4>
+#### `--config`
 
 the config file to use
+
+_`<path>`_
 
 ```sh
 jint capture doc.md --config ci/jint.config.json
 ```
 
-<h4 id="flag-capture-exclude" class="field"><code>--exclude</code><span class="pills"><span class="pill"><code>&lt;glob&gt;</code></span></span></h4>
+#### `--exclude`
 
 skip inputs that match a glob (repeatable)
+
+_`<glob>`_
 
 ```sh
 jint capture doc.md --exclude "**/*.gen.ts"
 ```
 
-<h4 id="flag-capture-rule" class="field"><code>--rule</code><span class="pills"><span class="pill"><code>&lt;name&gt;</code></span></span></h4>
+#### `--rule`
 
 mark the population of one rule
+
+_`<name>`_
 
 ```sh
 jint capture doc.md --rule is_short
 ```
 
-<h4 id="flag-capture-queries" class="field"><code>--queries</code><span class="pills"><span class="pill"><code>&lt;file.scm&gt;</code></span></span></h4>
+#### `--queries`
 
 extraction queries that replace the grammar's
+
+_`<file.scm>`_
 
 ```sh
 jint capture doc.md --queries my.scm
 ```
 
-<h4 id="flag-capture-grammar" class="field"><code>--grammar</code><span class="pills"><span class="pill"><code>&lt;dir&gt;</code></span></span></h4>
+#### `--grammar`
 
 a custom grammar for this call
+
+_`<dir>`_
 
 ```sh
 jint capture doc.md --grammar ./grammars/ini
 ```
 
-<h4 id="flag-capture-json" class="field"><code>--json</code><span class="pills"></span></h4>
+#### `--json`
 
 print the report as JSON
 
@@ -199,7 +223,7 @@ print the report as JSON
 jint capture doc.md --json
 ```
 
-<h3 id="verb-reclassify" class="field"><code>reclassify</code><span class="pills"></span></h3>
+### `reclassify`
 
 classify one rule at one input of a recorded run again
 
@@ -207,15 +231,17 @@ classify one rule at one input of a recorded run again
 jint reclassify <run-id> src/a.ts --rule <name> -
 ```
 
-<h4 id="flag-reclassify-rule" class="field"><code>--rule</code><span class="pills"><span class="pill"><code>&lt;name&gt;</code></span></span></h4>
+#### `--rule`
 
 the rule to classify again
+
+_`<name>`_
 
 ```sh
 jint reclassify <run-id> src/a.ts --rule <name>
 ```
 
-<h4 id="flag-reclassify-json" class="field"><code>--json</code><span class="pills"></span></h4>
+#### `--json`
 
 print the report as JSON
 
@@ -223,7 +249,7 @@ print the report as JSON
 jint reclassify <run-id> src/a.ts --rule <name> --json
 ```
 
-<h3 id="verb-skills" class="field"><code>skills</code><span class="pills"></span></h3>
+### `skills`
 
 write the agent skills that ship with jint to a directory
 
@@ -233,15 +259,17 @@ jint skills export .claude/skills
 
 ## Flags for every verb
 
-<h3 id="flag-help" class="field"><code>--help</code><span class="pills"><span class="pill"><code>-h</code></span></span></h3>
+### `--help`
 
 show this help
+
+_`-h`_
 
 ```sh
 jint --help
 ```
 
-<h3 id="flag-version" class="field"><code>--version</code><span class="pills"></span></h3>
+### `--version`
 
 print the version
 
@@ -249,7 +277,7 @@ print the version
 jint --version
 ```
 
-<h3 id="flag-debug" class="field"><code>--debug</code><span class="pills"></span></h3>
+### `--debug`
 
 print structured debug logs
 

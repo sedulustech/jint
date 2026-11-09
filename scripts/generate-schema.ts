@@ -56,6 +56,7 @@ export const GENERATED_OUTPUTS = [
   "docs/reference/config.md",
   "docs/reference/environment.md",
   "docs/reference/cli.md",
+  "web/src/data/reference.json",
 ];
 
 // ---------------------------------------------------------------------------
@@ -566,82 +567,30 @@ export function renderRuleFieldsTable(): string {
   return ["| Field | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
 }
 
-/** The environment variables, from ENV_VARS: the one list a guard test keeps whole. */
-export function renderEnvTable(): string {
-  return ENV_VARS.map((v) =>
-    renderEntry({
-      id: v.name.toLowerCase().replaceAll("_", "-"),
-      name: v.name,
-      pills: v.default === "none" ? [] : [["default", v.default] as const],
-      body: v.meaning,
-    }),
-  ).join("\n");
+// --- the reference pages ---------------------------------------------------
+/**
+ * One reference entry: the name, a few badges, a description and, for the CLI, one example. The
+ * pages are data, and two views render it: markdown for the repo and the agent, and the site's own
+ * component, which draws the badges. Neither view holds a fact the data lacks.
+ */
+export interface RefEntry {
+  readonly id: string;
+  /** 3 for a top-level entry, 4 for one nested under the entry before it. */
+  readonly level: 3 | 4;
+  readonly name: string;
+  /** A badge is text, or a [label, value] pair such as a default. Backticks mark code. */
+  readonly pills: readonly (string | readonly [string, string])[];
+  readonly body: string;
+  readonly example?: string;
 }
 
-/**
- * The verbs of the CLI. Under a verb, indented, come its nouns and the flags it takes, each with
- * one example; the flags every verb takes come last. The tables are the parser's own, and so is the
- * rule for which verb takes which flag.
- */
-export function renderCliReference(): string {
-  type FlagSpec = { arg?: string; aliases?: readonly string[] };
-  const flag = (
-    verb: keyof typeof VERBS,
-    name: string,
-    id: string,
-    level: 3 | 4,
-    example = flagExample(verb, name),
-  ) => {
-    const spec = (FLAGS as Record<string, FlagSpec>)[name]!;
-    return renderEntry({
-      id,
-      level,
-      name,
-      pills: [
-        ...(spec.arg === undefined ? [] : [`\`${spec.arg}\``]),
-        ...(spec.aliases ?? []).map((alias) => `\`${alias}\``),
-      ],
-      body: flagBlurb(verb, name),
-      example,
-    });
-  };
-  const verbs = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name) => [
-    renderEntry({
-      id: `verb-${name}`,
-      name,
-      pills: [],
-      body: VERBS[name].blurb,
-      example: VERBS[name].example,
-    }),
-    ...(name === "run"
-      ? Object.entries(NOUNS).map(([noun, spec]) =>
-          renderEntry({
-            id: `noun-${noun}`,
-            level: 4,
-            name: noun,
-            pills: [],
-            body: spec.blurb,
-            example: spec.example,
-          }),
-        )
-      : []),
-    ...flagsOfVerb(name).map((flagName) =>
-      flag(name, flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
-    ),
-  ]);
-  return [
-    "## Verbs",
-    "",
-    "The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.",
-    "",
-    ...verbs,
-    "## Flags for every verb",
-    "",
-    ...GLOBAL_FLAG_NAMES.map((name) =>
-      flag("run", name, `flag-${name.replace(/^-+/, "")}`, 3, `jint ${name}`),
-    ),
-  ].join("\n");
+export interface RefSection {
+  readonly title: string;
+  readonly intro?: string;
+  readonly entries: readonly RefEntry[];
 }
+
+export type RefPages = Record<"config" | "environment" | "cli", readonly RefSection[]>;
 
 /** A schema node's type as a reader writes it in a config: `string[]`, not `array`. */
 function typeLabel(node: TableNode): string {
@@ -650,72 +599,27 @@ function typeLabel(node: TableNode): string {
   return node.type ?? "value";
 }
 
-/** Markdown code spans to HTML: a pill is raw HTML, where backticks do not render. */
-const codeToHtml = (text: string): string =>
-  text.replace(
-    /`([^`]+)`/g,
-    (_, code: string) =>
-      `<code>${code.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</code>`,
-  );
-
 /**
- * One reference entry, the same shape on every reference page: the name on the left of the heading,
- * pills on the right (type, default, requirement, scope), the description below. The heading keeps
- * an id so each entry has a stable anchor.
+ * One config field. `within` is the key the section under it is named for: the section title says
+ * it, so the entry shows the path below it. The id keeps the whole path, so every anchor is
+ * unique.
  */
-function renderEntry(entry: {
-  id: string;
-  /** H3 for a top-level entry, h4 for one nested under it (a verb's flag). */
-  level?: 3 | 4;
-  name: string;
-  /** One command that shows the item in use, printed under its description. */
-  example?: string;
-  pills: readonly (string | readonly [label: string, value: string])[];
-  body: string;
-}): string {
-  // a pair is one pill in two sections: the label, then the value after a divider
-  const level = entry.level ?? 3;
-  const pills = entry.pills
-    .map((pill) =>
-      typeof pill === "string"
-        ? `<span class="pill">${codeToHtml(pill)}</span>`
-        : `<span class="pill pair"><span>${pill[0]}</span><span>${codeToHtml(pill[1])}</span></span>`,
-    )
-    .join("");
-  return [
-    `<h${level} id="${entry.id}" class="field"><code>${entry.name}</code><span class="pills">${pills}</span></h${level}>`,
-    "",
-    entry.body.replaceAll("\n", " "),
-    "",
-    ...(entry.example === undefined ? [] : ["```sh", entry.example, "```", ""]),
-  ].join("\n");
-}
-
-/**
- * One config field: its type, default and requirement as pills. `within` is the key the section
- * under it is named for: the section title says it, so the entry shows the path below it. The id
- * keeps the whole path, so every anchor stays unique.
- */
-function renderFieldEntry(
-  path: string,
-  node: TableNode,
-  required: boolean,
-  within?: string,
-): string {
-  return renderEntry({
+function fieldEntry(path: string, node: TableNode, required: boolean, within?: string): RefEntry {
+  return {
     id: path.replaceAll(".", "-").toLowerCase(),
+    level: 3,
     name: within === undefined ? path : path.slice(within.length + 1),
     pills: [
       typeLabel(node),
       ...(node.default === undefined ? [] : [["default", String(node.default)] as const]),
       ...(required ? ["required"] : []),
     ],
-    body: node.description ?? "",
-  });
+    body: (node.description ?? "").replaceAll("\n", " "),
+  };
 }
 
 /** The config reference: every key and rule field as one entry, all from the schema. */
-export function renderConfigReference(): string {
+export function configSections(): RefSection[] {
   const root = CONFIG_SCHEMA as unknown as TableNode;
   const props = root.properties!;
   const rules = props["rules"]!;
@@ -734,30 +638,150 @@ export function renderConfigReference(): string {
     if (node.items !== undefined) visit(node.items, path);
   };
   visit(rules.properties!["use"]!.items!, "");
-  const entries = (keep: (field: [string, unknown]) => boolean, within?: string) =>
+  const entries = (keep: (path: string) => boolean, within?: string) =>
     [...fields]
-      .filter(keep)
-      .map(([path, { node, required }]) => renderFieldEntry(path, node, required, within));
+      .filter(([path]) => keep(path))
+      .map(([path, { node, required }]) => fieldEntry(path, node, required, within));
   return [
-    "## Run settings",
-    "",
-    ...run.map(([key, node]) => renderFieldEntry(key, node, (root.required ?? []).includes(key))),
-    "## Rule scope",
-    "",
-    ...scope.map(([key, node]) =>
-      renderFieldEntry(`rules.${key}`, node, (rules.required ?? []).includes(key)),
+    {
+      title: "Run settings",
+      entries: run.map(([key, node]) => fieldEntry(key, node, (root.required ?? []).includes(key))),
+    },
+    {
+      title: "Rule scope",
+      entries: scope.map(([key, node]) =>
+        fieldEntry(`rules.${key}`, node, (rules.required ?? []).includes(key)),
+      ),
+    },
+    {
+      title: "Rule fields",
+      intro: "Each entry of `rules.use` is a rule name or a rule object with these fields.",
+      entries: entries((path) => !path.startsWith("handle.")),
+    },
+    {
+      title: "Rule handler fields",
+      intro:
+        "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
+      entries: entries((path) => path.startsWith("handle."), "handle"),
+    },
+  ];
+}
+
+/** The environment variables, from ENV_VARS: the one list a guard test keeps whole. */
+export function envSections(): RefSection[] {
+  return [
+    {
+      title: "Variables",
+      entries: ENV_VARS.map((v) => ({
+        id: v.name.toLowerCase().replaceAll("_", "-"),
+        level: 3,
+        name: v.name,
+        pills: v.default === "none" ? [] : [["default", v.default] as const],
+        body: v.meaning,
+      })),
+    },
+  ];
+}
+
+/**
+ * The verbs of the CLI. Under a verb, indented, come its nouns and the flags it takes, each with
+ * one example; the flags every verb takes come last. The tables are the parser's own, and so is the
+ * rule for which verb takes which flag.
+ */
+export function cliSections(): RefSection[] {
+  type FlagSpec = { arg?: string; aliases?: readonly string[] };
+  const flag = (
+    verb: keyof typeof VERBS,
+    name: string,
+    id: string,
+    level: 3 | 4,
+    example = flagExample(verb, name),
+  ): RefEntry => {
+    const spec = (FLAGS as Record<string, FlagSpec>)[name]!;
+    return {
+      id,
+      level,
+      name,
+      pills: [
+        ...(spec.arg === undefined ? [] : [`\`${spec.arg}\``]),
+        ...(spec.aliases ?? []).map((alias) => `\`${alias}\``),
+      ],
+      body: flagBlurb(verb, name),
+      example,
+    };
+  };
+  const verbs = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name): RefEntry[] => [
+    {
+      id: `verb-${name}`,
+      level: 3,
+      name,
+      pills: [],
+      body: VERBS[name].blurb,
+      example: VERBS[name].example,
+    },
+    ...(name === "run"
+      ? Object.entries(NOUNS).map(
+          ([noun, spec]): RefEntry => ({
+            id: `noun-${noun}`,
+            level: 4,
+            name: noun,
+            pills: [],
+            body: spec.blurb,
+            example: spec.example,
+          }),
+        )
+      : []),
+    ...flagsOfVerb(name).map((flagName) =>
+      flag(name, flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
     ),
-    "## Rule fields",
-    "",
-    "Each entry of `rules.use` is a rule name or a rule object with these fields.",
-    "",
-    ...entries(([path]) => !path.startsWith("handle.")),
-    "## Rule handler fields",
-    "",
-    "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
-    "",
-    ...entries(([path]) => path.startsWith("handle."), "handle"),
-  ].join("\n");
+  ]);
+  return [
+    {
+      title: "Verbs",
+      intro:
+        "The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.",
+      entries: verbs,
+    },
+    {
+      title: "Flags for every verb",
+      entries: GLOBAL_FLAG_NAMES.map((name) =>
+        flag("run", name, `flag-${name.replace(/^-+/, "")}`, 3, `jint ${name}`),
+      ),
+    },
+  ];
+}
+
+export function referencePages(): RefPages {
+  return { config: configSections(), environment: envSections(), cli: cliSections() };
+}
+
+/** The pages as the site's data file: the component draws every badge from it. */
+export function renderReferenceJson(): string {
+  return JSON.stringify({ $comment: GENERATION_NOTE, ...referencePages() }, null, 2) + "\n";
+}
+
+/**
+ * One page as markdown, for the repo and the agent: a real heading for every entry, with its
+ * description, its badges as one line and its example. A heading is a section to a reader of the
+ * file and to jint, so each entry is a unit that carries its own name.
+ */
+export function renderReferenceMarkdown(sections: readonly RefSection[]): string {
+  const pill = (p: string | readonly [string, string]) => (typeof p === "string" ? p : p.join(" "));
+  return sections
+    .flatMap((section) => [
+      `## ${section.title}`,
+      "",
+      ...(section.intro === undefined ? [] : [section.intro, ""]),
+      ...section.entries.flatMap((entry) => [
+        `${"#".repeat(entry.level)} \`${entry.name}\``,
+        "",
+        entry.body,
+        "",
+        ...(entry.pills.length === 0 ? [] : [`*${entry.pills.map(pill).join(" · ")}*`, ""]),
+        ...(entry.example === undefined ? [] : ["```sh", entry.example, "```", ""]),
+      ]),
+    ])
+    .join("\n");
 }
 
 /** The config file with every key, each with its description as a comment above it. */
@@ -889,24 +913,29 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
   process.stdout.write("wrote " + directivesOut + "\n");
 
-  const reference: [number, () => string][] = [
-    [9, renderConfigReference],
-    [10, renderEnvTable],
-    [11, renderCliReference],
+  const pages = referencePages();
+  const reference: [number, keyof RefPages][] = [
+    [9, "config"],
+    [10, "environment"],
+    [11, "cli"],
   ];
-  for (const [index, render] of reference) {
+  for (const [index, page] of reference) {
     const out = outPath(root, GENERATED_OUTPUTS[index]!);
     writeFileSync(
       out,
       spliceGenerated(
         readFileSync(REPO_ROOT + GENERATED_OUTPUTS[index]!, "utf8"),
         "reference",
-        render(),
+        renderReferenceMarkdown(pages[page]),
       ),
     );
     Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), out], { cwd: REPO_ROOT });
     process.stdout.write("wrote " + out + "\n");
   }
+  const dataOut = outPath(root, GENERATED_OUTPUTS[12]!);
+  writeFileSync(dataOut, renderReferenceJson());
+  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), dataOut], { cwd: REPO_ROOT });
+  process.stdout.write("wrote " + dataOut + "\n");
 
   const grammarsOut = outPath(root, GENERATED_OUTPUTS[7]!);
   writeFileSync(

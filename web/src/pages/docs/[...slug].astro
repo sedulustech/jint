@@ -1,5 +1,6 @@
 ---
 import { getCollection, render } from "astro:content";
+import Reference from "../../components/Reference.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 
 export async function getStaticPaths() {
@@ -8,8 +9,20 @@ export async function getStaticPaths() {
 
 const { doc } = Astro.props;
 const { Content } = await render(doc);
+// the reference pages are drawn from generated data; their markdown is the repo's and the agent's view
+const referencePage = doc.id.startsWith("reference/") ? doc.id.slice("reference/".length) : undefined;
 ---
 
 <DocsLayout {doc}>
-  <Content />
+  {
+    referencePage === undefined ? (
+      <Content />
+    ) : (
+      <>
+        <h1>{doc.data.title}</h1>
+        <p>{doc.data.description}</p>
+        <Reference page={referencePage as "config" | "environment" | "cli"} />
+      </>
+    )
+  }
 </DocsLayout>

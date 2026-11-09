@@ -12,9 +12,8 @@ import {
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
-  renderCliReference,
-  renderConfigReference,
-  renderEnvTable,
+  referencePages,
+  renderReferenceMarkdown,
   renderFixerTable,
   renderDirectivesTable,
   renderHandleCell,
@@ -237,97 +236,81 @@ describe("the config schema", () => {
   });
 });
 
-// The reference pages share one entry: the name in a code span first, the pills on the same line,
-// the description below. A model judging this from raw HTML scored healthy pages as low as 0.41
-// against 0.09 for a defective one, and missed a table-format page, so the format is held here.
-describe("the reference pages: one entry format", () => {
-  const entryLine =
-    /^<h[34] id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill[ a-z]*">.+?<\/span>)*<\/span><\/h[34]>$/;
-  const pages = {
-    config: renderConfigReference(),
-    environment: renderEnvTable(),
-    cli: renderCliReference(),
-  };
+// The reference pages are data, drawn by the site's component and printed as markdown. The claims
+// are held on the data, so neither view can drift from them.
+describe("the reference pages", () => {
+  const pages = referencePages();
+  const entriesOf = (page: keyof typeof pages) => pages[page].flatMap((section) => section.entries);
 
-  for (const [page, text] of Object.entries(pages)) {
-    test(`${page}: every entry is a heading with its pills, then a description`, () => {
-      const lines = text.split("\n");
-      const entries = lines.flatMap((line, index) => (line.startsWith("<h") ? [index] : []));
+  for (const page of Object.keys(pages) as (keyof typeof pages)[]) {
+    test(`${page}: every entry has a unique id and a description`, () => {
+      const entries = entriesOf(page);
       expect(entries.length).toBeGreaterThan(0);
-      for (const index of entries) {
-        expect(lines[index], `entry at line ${index}`).toMatch(entryLine);
-        expect(lines[index + 1]).toBe("");
-        expect((lines[index + 2] ?? "").trim().length).toBeGreaterThan(0);
-        expect(lines[index + 2]).not.toMatch(/^[<#|]/);
+      expect(new Set(entries.map((entry) => entry.id)).size).toBe(entries.length);
+      for (const entry of entries) {
+        expect(entry.id, entry.id).toMatch(/^[a-z0-9_-]+$/);
+        expect(entry.body.trim().length, entry.id).toBeGreaterThan(0);
       }
+    });
+
+    test(`${page}: the markdown has a real heading for every entry and section`, () => {
+      const headings = renderReferenceMarkdown(pages[page])
+        .split("\n")
+        .filter((line) => /^#{2,4} /.test(line));
+      expect(headings.length).toBe(entriesOf(page).length + pages[page].length);
     });
   }
 
   test("config: a name below a section's key does not repeat that key", () => {
-    const lines = pages.config.split("\n");
-    const start = lines.indexOf("## Rule handler fields");
-    expect(start).toBeGreaterThan(0);
-    const names = lines
-      .slice(start)
-      .flatMap((line) => line.match(/class="field"><code>([^<]+)<\/code>/)?.[1] ?? []);
-    expect(names.length).toBeGreaterThan(0);
-    for (const name of names) expect(name.startsWith("handle.")).toBe(false);
+    const handler = pages.config.find((section) => section.title === "Rule handler fields");
+    expect(handler?.entries.length).toBeGreaterThan(0);
+    for (const entry of handler!.entries) expect(entry.name.startsWith("handle.")).toBe(false);
   });
 });
 
 // The CLI page is the one place a person learns the commands, so it is held to three claims: a flag
-// sits under the verb that takes it, every verb, noun and flag shows exactly one example, and each
-// example is a command the parser accepts.
+// sits under the verb that takes it, every verb, noun and flag shows exactly one example the parser
+// accepts, and each description is one short phrase.
 describe("the CLI reference: nesting, examples and short descriptions", () => {
-  const lines = renderCliReference().split("\n");
-  const heads = lines.flatMap((line, index) => {
-    const found = line.match(/^<h([34]) id="([a-z0-9_-]+)"/);
-    return found === null ? [] : [{ index, level: Number(found[1]), id: found[2]! }];
-  });
+  const entries = referencePages().cli.flatMap((section) => section.entries);
 
   test("a flag is nested under its verb, and only the global flags stand alone", () => {
     let verb: string | undefined;
     const nested = new Map<string, string[]>();
-    for (const head of heads) {
-      if (head.id.startsWith("verb-")) {
-        verb = head.id.slice("verb-".length);
+    for (const entry of entries) {
+      if (entry.id.startsWith("verb-")) {
+        verb = entry.id.slice("verb-".length);
         nested.set(verb, []);
-      } else if (head.level === 4 && head.id.startsWith("flag-")) {
-        expect(head.id.startsWith(`flag-${verb}-`), head.id).toBe(true);
-        nested.get(verb!)!.push(head.id.slice(`flag-${verb}-`.length));
-      } else if (head.level === 3) {
-        expect(head.id.startsWith("flag-") && !head.id.startsWith("flag-run-")).toBe(true);
+      } else if (entry.level === 4 && entry.id.startsWith("flag-")) {
+        expect(entry.id.startsWith(`flag-${verb}-`), entry.id).toBe(true);
+        nested.get(verb!)!.push(entry.name);
+      } else if (entry.level === 3) {
+        expect(entry.id.startsWith("flag-") && !entry.id.startsWith("flag-run-")).toBe(true);
       }
     }
     for (const name of Object.keys(VERBS)) {
-      expect(nested.get(name)?.map((flag) => `--${flag}`)).toEqual(flagsOfVerb(name as never));
+      expect(nested.get(name)).toEqual(flagsOfVerb(name as never));
     }
   });
 
-  test("every verb, noun and flag shows exactly one example", () => {
-    for (const [at, head] of heads.entries()) {
-      const end = heads[at + 1]?.index ?? lines.length;
-      const fences = lines.slice(head.index, end).filter((line) => line.startsWith("```sh"));
-      expect(fences.length, head.id).toBe(1);
-    }
+  test("every verb, noun and flag shows one example", () => {
+    for (const entry of entries) expect(entry.example?.trim().length, entry.id).toBeGreaterThan(0);
   });
 
   // Each item has its own docs, so the page only names it. A model scored healthy descriptions of a
   // few words as low as 0.2 and defective ones as high as 0.22, so the limit is mechanical: one
   // short phrase, no clause after a colon, semicolon or dash, and no parenthesis but (repeatable).
   test("every description is one short phrase", () => {
-    for (const head of heads) {
-      const description = lines[head.index + 2]!;
-      expect(description.split(/\s+/).length, `${head.id}: ${description}`).toBeLessThanOrEqual(11);
-      expect(description, head.id).not.toMatch(/[;:]| - /);
-      expect(description.replace("(repeatable)", ""), head.id).not.toMatch(/[()]/);
+    for (const entry of entries) {
+      expect(entry.body.split(/\s+/).length, `${entry.id}: ${entry.body}`).toBeLessThanOrEqual(11);
+      expect(entry.body, entry.id).not.toMatch(/[;:]| - /);
+      expect(entry.body.replace("(repeatable)", ""), entry.id).not.toMatch(/[()]/);
     }
   });
 
   test("every example parses, and its verb takes its flags", () => {
-    const commands = lines.flatMap((line, index) => (line === "```sh" ? [lines[index + 1]!] : []));
-    expect(commands.length).toBeGreaterThan(Object.keys(FLAGS).length);
-    for (const command of commands) {
+    expect(entries.length).toBeGreaterThan(Object.keys(FLAGS).length);
+    for (const command of entries.map((entry) => entry.example!)) {
       const piped = command.includes("|") ? command.split("|").pop()!.trim() : command;
       const words = (piped.match(/"[^"]*"|\S+/g) ?? []).map((word) => word.replaceAll('"', ""));
       expect(words[0]).toBe("jint");

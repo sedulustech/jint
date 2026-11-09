@@ -1,0 +1,116 @@
+---
+import { Code } from "astro:components";
+import type { RefEntry } from "../../../scripts/generate-schema";
+import { inline } from "../lib/inline";
+
+// One reference entry, drawn from the generated data: the name on the left of the heading, its
+// badges on the right, the description, and for the CLI one example. A nested entry (a verb's
+// flag) is indented as a whole. The badges take the name's own metrics, so both are one height.
+interface Props {
+  entry: RefEntry;
+}
+const { entry } = Astro.props;
+const Heading = `h${entry.level}` as "h3" | "h4";
+const nested = entry.level === 4;
+---
+
+<div class:list={["entry", { nested }]}>
+  <Heading id={entry.id}>
+    <code>{entry.name}</code>
+    <span class="pills">
+      {
+        entry.pills.map((pill) =>
+          typeof pill === "string" ? (
+            <span class="pill">
+              {inline(pill).map((part) => (part.kind === "code" ? <code>{part.text}</code> : part.text))}
+            </span>
+          ) : (
+            <span class="pill pair">
+              <span>{pill[0]}</span>
+              <span>
+                {inline(pill[1]).map((part) => (part.kind === "code" ? <code>{part.text}</code> : part.text))}
+              </span>
+            </span>
+          ),
+        )
+      }
+    </span>
+  </Heading>
+  <p>
+    {
+      inline(entry.body, "reference").map((part) =>
+        part.kind === "code" ? (
+          <code>{part.text}</code>
+        ) : part.kind === "link" ? (
+          <a href={part.href}>{part.text}</a>
+        ) : (
+          part.text
+        ),
+      )
+    }
+  </p>
+  {
+    entry.example !== undefined && (
+      <Code
+        code={entry.example}
+        lang="sh"
+        themes={{ light: "github-light", dark: "github-dark" }}
+        defaultColor={false}
+      />
+    )
+  }
+</div>
+
+<style>
+  .nested {
+    margin-left: var(--s3);
+  }
+
+  h3,
+  h4 {
+    margin-block: var(--s4) var(--s2);
+    line-height: 1.3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--s1) var(--s2);
+    font-size: 1rem;
+  }
+
+  .pills {
+    display: flex;
+    gap: var(--s1);
+    margin-left: auto;
+  }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    padding: 0.1em 0.35em;
+    box-shadow: inset 0 0 0 1px var(--rule);
+    font-size: 0.85em;
+    font-weight: 400;
+  }
+
+  .pill code {
+    padding: 0;
+    background: none;
+    font-size: inherit;
+  }
+
+  /* a pair is one pill in two sections: the label, then the value after a divider */
+  .pair {
+    padding: 0;
+  }
+
+  .pair > span {
+    display: flex;
+    align-items: center;
+    padding: 0.1em 0.35em;
+  }
+
+  .pair > span:first-child {
+    border-right: 1px solid var(--rule);
+    background: var(--code-bg);
+  }
+</style>

@@ -250,12 +250,12 @@ const jsonLd = [
 </style>
 
 <style is:global>
-  main :is(h1, h2, h3, h4) {
+  main :is(h1, h2, h3) {
     line-height: 1.3;
     margin-block: var(--s4) var(--s2);
   }
 
-  main :is(h1, h2, h3, h4)::first-letter {
+  main :is(h1, h2, h3)::first-letter {
     text-transform: uppercase;
   }
 
@@ -270,68 +270,6 @@ const jsonLd = [
 
   main h3 {
     font-size: 1rem;
-  }
-
-  /*
-   * A reference entry: the field name on the left, its type and default as pills on the right. A
-   * pill has the name's own metrics (size, padding, line height), so both take the same height; its
-   * edge is an inset line, not a border, so it adds none.
-   */
-  main :is(h3, h4).field {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
-    gap: var(--s1) var(--s2);
-  }
-
-  main h4 {
-    font-size: 1rem;
-  }
-
-  /* a nested entry (a verb's flag) is indented under its parent: heading, description, example */
-  main h4.field,
-  main h4.field + p,
-  main h4.field + p + pre,
-  main h4.field + p + .code-block {
-    margin-left: var(--s3);
-  }
-
-  main :is(h3, h4).field .pills {
-    display: flex;
-    gap: var(--s1);
-    margin-left: auto;
-  }
-
-  main :is(h3, h4).field .pill {
-    display: flex;
-    align-items: center;
-    padding: 0.1em 0.35em;
-    background: none;
-    box-shadow: inset 0 0 0 1px var(--rule);
-    font-size: 0.85em;
-    font-weight: 400;
-  }
-
-  main :is(h3, h4).field .pill code {
-    padding: 0;
-    background: none;
-    font-size: inherit;
-  }
-
-  /* a pair is one pill in two sections: the label, then the value after a divider */
-  main :is(h3, h4).field .pill.pair {
-    padding: 0;
-  }
-
-  main :is(h3, h4).field .pill.pair > span {
-    display: flex;
-    align-items: center;
-    padding: 0.1em 0.35em;
-  }
-
-  main :is(h3, h4).field .pill.pair > span:first-child {
-    border-right: 1px solid var(--rule);
-    background: var(--code-bg);
   }
 
   main p,
