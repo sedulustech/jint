@@ -83,6 +83,30 @@ const is_headword_consistent: RuleSchema = {
   },
 };
 
+// The CLI reference: each verb, noun and flag is a section with its own heading, so the model reads
+// one entry whole. A page of defects and a page of the current text separated cleanly: the current
+// entries read at most 0.10, the entries with the old long descriptions at 0.71 and above.
+const has_extra_description: RuleSchema = {
+  name: "has_extra_description",
+  kind: "noul",
+  target: "markdown:section",
+  include: ["docs/reference/cli.md"],
+  instructions:
+    "This unit is one entry of a CLI reference page: a heading that names a verb, a noun or a flag, a description, and an example command. Besides naming what the item does, does the description say more than one short phrase?",
+  criteria: {
+    true: "The description says more than one short phrase: it adds behavior detail, a default, a limit, an error code, an environment variable, a caveat, or a second clause that the item's own docs already cover.",
+    false: "The description is one short phrase that names what the item does and nothing else.",
+  },
+  handle: {
+    warn: { greater_than: 0.3 },
+    error: {
+      greater_than: 0.5,
+      message:
+        "Name what the item does in one short phrase. Its own docs hold the detail, so move it there.",
+    },
+  },
+};
+
 const is_comment_contradictory: RuleSchema = {
   name: "is_comment_contradictory",
   kind: "noul",
@@ -206,6 +230,7 @@ export default defineConfig({
       is_literal_shared,
       is_doc_stateful,
       is_headword_consistent,
+      has_extra_description,
       is_script_naming_consistent,
       is_comment_contradictory,
       is_comment_stateful,
