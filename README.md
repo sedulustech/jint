@@ -247,7 +247,7 @@ It polls the run directory for new runs and displays useful information to verif
 bun install
 bun run validate        # schema -> typecheck -> lint
 bun test                # full suite
-bun run build:compile   # builds the binary
+bun run cli:build      # builds the CLI binary
 ```
 
 ## Glossary
