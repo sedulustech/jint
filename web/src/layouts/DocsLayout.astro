@@ -272,11 +272,15 @@ const jsonLd = [
     font-size: 1rem;
   }
 
-  /* a reference entry: the field name on the left, its type and default as pills on the right */
+  /*
+   * A reference entry: the field name on the left, its type and default as pills on the right. A
+   * pill has the name's own metrics (size, padding, line height), so both take the same height; its
+   * edge is an inset line, not a border, so it adds none.
+   */
   main h3.field {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: stretch;
     gap: var(--s1) var(--s2);
   }
 
@@ -286,22 +290,14 @@ const jsonLd = [
     margin-left: auto;
   }
 
-  /* a pair is one pill in two sections: the label, then the value after a divider */
-  main h3.field .pill.pair {
+  main h3.field .pill {
     display: flex;
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid var(--rule);
+    align-items: center;
+    padding: 0.1em 0.35em;
     background: none;
-  }
-
-  main h3.field .pill.pair > span {
-    padding: 0.1em 0.5em;
-  }
-
-  main h3.field .pill.pair > span:first-child {
-    border-right: 1px solid var(--rule);
-    background: var(--code-bg);
+    box-shadow: inset 0 0 0 1px var(--rule);
+    font-size: 0.85em;
+    font-weight: 400;
   }
 
   main h3.field .pill code {
@@ -310,12 +306,20 @@ const jsonLd = [
     font-size: inherit;
   }
 
-  main h3.field .pill {
-    padding: 0.1em 0.5em;
-    border-radius: 0.4em;
+  /* a pair is one pill in two sections: the label, then the value after a divider */
+  main h3.field .pill.pair {
+    padding: 0;
+  }
+
+  main h3.field .pill.pair > span {
+    display: flex;
+    align-items: center;
+    padding: 0.1em 0.35em;
+  }
+
+  main h3.field .pill.pair > span:first-child {
+    border-right: 1px solid var(--rule);
     background: var(--code-bg);
-    font-size: 0.72rem;
-    font-weight: 400;
   }
 
   main p,
