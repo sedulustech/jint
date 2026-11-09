@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { CONFIG_SCHEMA } from "@jint/sdk";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import {
   collectFixerMessages,
@@ -196,5 +197,30 @@ describe("spliceGenerated", () => {
 
   test("a doc without the markers fails loudly", () => {
     expect(() => spliceGenerated("# T\n", "x", "b")).toThrow("generated:x");
+  });
+});
+
+describe("the config schema", () => {
+  // The config reference is generated from the schema, so a field without a description is a
+  // blank row in the docs and no hover text in an editor.
+  test("every field has a description", () => {
+    type Node = {
+      description?: string;
+      properties?: Record<string, Node>;
+      items?: Node;
+      anyOf?: Node[];
+    };
+    const missing: string[] = [];
+    const visit = (node: Node, path: string) => {
+      for (const branch of node.anyOf ?? []) visit(branch, path);
+      for (const [key, child] of Object.entries(node.properties ?? {})) {
+        const at = path === "" ? key : `${path}.${key}`;
+        if (child.description === undefined) missing.push(at);
+        visit(child, at);
+      }
+      if (node.items !== undefined) visit(node.items, path);
+    };
+    visit(CONFIG_SCHEMA as unknown as Node, "");
+    expect(missing).toEqual([]);
   });
 });

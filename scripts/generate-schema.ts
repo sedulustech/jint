@@ -497,6 +497,59 @@ function renderConfigKeys(properties: Record<string, ConfigNode>, indent: string
   return lines;
 }
 
+type TableNode = {
+  type?: string;
+  description?: string;
+  properties?: Record<string, TableNode>;
+  items?: TableNode;
+  anyOf?: TableNode[];
+  patternProperties?: Record<string, TableNode>;
+  additionalProperties?: TableNode | boolean;
+};
+
+/** The words for a schema node's type: a table reader sees `list`, not `array`. */
+function typeWord(node: TableNode): string {
+  if (node.anyOf !== undefined) return "one of several";
+  if (node.type === "array") return node.items?.type === "string" ? "string list" : "list";
+  if (node.type === "object") return "object";
+  return node.type ?? "value";
+}
+
+const tableRow = (field: string, node: TableNode): string =>
+  `| \`${field}\` | ${typeWord(node)} | ${(node.description ?? "").replaceAll("|", "\\|")} |`;
+
+/** The run settings: every top-level key but the schema URL and the rules, from CONFIG_SCHEMA. */
+export function renderRunSettingsTable(): string {
+  const props = CONFIG_SCHEMA.properties as unknown as Record<string, TableNode>;
+  const rows = Object.entries(props)
+    .filter(([key]) => key !== "$schema" && key !== "rules")
+    .map(([key, node]) => tableRow(key, node));
+  return ["| Key | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
+}
+
+/**
+ * The fields of a rule, from CONFIG_SCHEMA. The three kinds share most fields, so a field appears
+ * once, with the first description the schema gives it. A nested object lists its own fields under
+ * a dotted path.
+ */
+export function renderRuleFieldsTable(): string {
+  const props = CONFIG_SCHEMA.properties as unknown as Record<string, TableNode>;
+  const use = props["rules"]!.properties!["use"]!;
+  const seen = new Map<string, TableNode>();
+  const visit = (node: TableNode, path: string) => {
+    for (const branch of node.anyOf ?? []) visit(branch, path);
+    for (const [key, child] of Object.entries(node.properties ?? {})) {
+      const at = path === "" ? key : `${path}.${key}`;
+      if (!seen.has(at) && child.description !== undefined) seen.set(at, child);
+      visit(child, at);
+    }
+    if (node.items !== undefined) visit(node.items, path);
+  };
+  visit(use.items!, "");
+  const rows = [...seen].map(([field, node]) => tableRow(field, node));
+  return ["| Field | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
+}
+
 /** The config file with every key, each with its description as a comment above it. */
 export function renderConfigExample(): string {
   const keys = renderConfigKeys(CONFIG_SCHEMA.properties as Record<string, ConfigNode>, "  ");
@@ -606,6 +659,18 @@ function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
       readFileSync(REPO_ROOT + GENERATED_OUTPUTS[6]!, "utf8"),
       "config",
       renderConfigExample(),
+    ),
+  );
+  writeFileSync(
+    configOut,
+    ["run-settings", "rule-fields"].reduce(
+      (doc, name) =>
+        spliceGenerated(
+          doc,
+          name,
+          name === "run-settings" ? renderRunSettingsTable() : renderRuleFieldsTable(),
+        ),
+      readFileSync(configOut, "utf8"),
     ),
   );
   formatted.push(configOut);

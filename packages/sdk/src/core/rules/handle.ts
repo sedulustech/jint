@@ -85,11 +85,10 @@ export function compileChoiceHandler(data: ChoiceHandlerData): Handle {
   };
 }
 
-const LEVEL_SCHEMA = Type.Union([
-  Type.Literal("pass"),
-  Type.Literal("warn"),
-  Type.Literal("error"),
-]);
+const LEVEL_SCHEMA = Type.Union(
+  [Type.Literal("pass"), Type.Literal("warn"), Type.Literal("error")],
+  { description: "The severity of a finding: pass raises none." },
+);
 
 const SCORE_TIER_SCHEMA = Type.Union([
   LEVEL_SCHEMA,
@@ -105,7 +104,10 @@ const SCORE_TIER_SCHEMA = Type.Union([
 
 const SCORE_HANDLER_SCHEMA = Type.Object(
   {
-    map: Type.Array(SCORE_TIER_SCHEMA, { minItems: 1 }),
+    map: Type.Array(SCORE_TIER_SCHEMA, {
+      minItems: 1,
+      description: "One tier for each score level, in the order of the criteria.",
+    }),
   },
   {
     description:
@@ -115,13 +117,23 @@ const SCORE_HANDLER_SCHEMA = Type.Object(
 
 const CHOICE_HANDLER_SCHEMA = Type.Object(
   {
-    choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA),
+    choices: Type.Record(Type.String(), SCORE_TIER_SCHEMA, {
+      description: "One tier for each option, keyed by the option label.",
+    }),
     undecided: Type.Optional(
-      Type.Object({
-        margin: Type.Number(),
-        level: LEVEL_SCHEMA,
-        message: Type.Optional(Type.String()),
-      }),
+      Type.Object(
+        {
+          margin: Type.Number({
+            description:
+              "The gap between the two likeliest options under which the reading is undecided.",
+          }),
+          level: LEVEL_SCHEMA,
+          message: Type.Optional(
+            Type.String({ description: "The note on the finding of an undecided reading." }),
+          ),
+        },
+        { description: "The tier of a reading with no clear winner among the options." },
+      ),
     ),
   },
   {
@@ -134,7 +146,7 @@ const CONDITION_SCHEMA = Type.Union(
   [
     Type.Object(
       {
-        greater_than: Type.Number(),
+        greater_than: Type.Number({ description: "The threshold. A reading above it fires." }),
         message: Type.Optional(
           Type.String({
             description: "The rule author's feedback; the finding's note when this tier fires.",
@@ -145,7 +157,7 @@ const CONDITION_SCHEMA = Type.Union(
     ),
     Type.Object(
       {
-        less_than: Type.Number(),
+        less_than: Type.Number({ description: "The threshold. A reading below it fires." }),
         message: Type.Optional(
           Type.String({
             description: "The rule author's feedback; the finding's note when this tier fires.",
@@ -165,7 +177,11 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
   {
     warn: Type.Optional(CONDITION_SCHEMA),
     error: Type.Optional(CONDITION_SCHEMA),
-    silent_band: Type.Optional(Type.Tuple([Type.Number(), Type.Number()])),
+    silent_band: Type.Optional(
+      Type.Tuple([Type.Number(), Type.Number()], {
+        description: "A [low, high] range of readings that raises no finding.",
+      }),
+    ),
   },
   {
     description:
@@ -173,11 +189,10 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
   },
 );
 
-export const HANDLER_SCHEMA = Type.Union([
-  SCORE_HANDLER_SCHEMA,
-  CHOICE_HANDLER_SCHEMA,
-  NOUL_HANDLER_SCHEMA,
-]);
+export const HANDLER_SCHEMA = Type.Union(
+  [SCORE_HANDLER_SCHEMA, CHOICE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA],
+  { description: "How a reading becomes a finding. The shape follows the kind of the rule." },
+);
 
 /**
  * The handler TYPE must match the question type (score map <-> score, choices <-> choice, operators

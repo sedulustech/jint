@@ -43,19 +43,30 @@ const CAPTURE_ADDRESS_SCHEMA = Type.String({
     "A qualified capture address {grammar}:{capture} (e.g. markdown:section): targets the named grammar's own capture. Unknown grammar or capture is a setup error.",
 });
 
-const TARGET_SCHEMA = Type.Union([
-  // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
-  // joining the union there; a literal copy here would be the drift this pass kills
-  ...ruleTargets.map((target) => Type.Literal(target)),
-  CAPTURE_ADDRESS_SCHEMA,
-  Type.Array(
-    Type.Union([...ruleTargets.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
-  ),
-]);
+const TARGET_SCHEMA = Type.Union(
+  [
+    // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
+    // joining the union there; a literal copy here would be the drift this pass kills
+    ...ruleTargets.map((target) => Type.Literal(target)),
+    CAPTURE_ADDRESS_SCHEMA,
+    Type.Array(
+      Type.Union([...ruleTargets.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
+    ),
+  ],
+  {
+    description:
+      "What the rule measures: files, a kind of element, or a capture. A list measures each.",
+  },
+);
 
 // Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents
 // validated eagerly so the error names the exact field.
-const SCOPE_SCHEMA = Type.Array(Type.String());
+const INCLUDE_SCHEMA = Type.Array(Type.String(), {
+  description: "Globs of the files this rule reads. It replaces the run include for this rule.",
+});
+const EXCLUDE_SCHEMA = Type.Array(Type.String(), {
+  description: "Globs of the files this rule skips. Exclude always wins over include.",
+});
 
 const OVERRIDE_SCHEMA = Type.Optional(
   Type.Boolean({
@@ -81,13 +92,18 @@ const NOUL_RULE_SCHEMA = Type.Object({
     description:
       "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
-  kind: Type.Optional(Type.Literal("noul")),
+  kind: Type.Optional(
+    Type.Literal("noul", { description: "The question type. Absent means noul." }),
+  ),
   instructions: Type.String({
     description:
       "The yes/no question the model answers, specific to the rule's claim. Required - a generic fallback question would silently recalibrate every classification.",
   }),
   criteria: Type.Object(
-    { true: Type.String(), false: Type.String() },
+    {
+      true: Type.String({ description: "The condition for yes." }),
+      false: Type.String({ description: "The condition for no." }),
+    },
     {
       description:
         "The two-sided contract: true names the exact observable condition for yes, false for no. The defect side decides the handle direction.",
@@ -95,8 +111,8 @@ const NOUL_RULE_SCHEMA = Type.Object({
   ),
   target: TARGET_SCHEMA,
   handle: HANDLER_SCHEMA,
-  include: Type.Optional(SCOPE_SCHEMA),
-  exclude: Type.Optional(SCOPE_SCHEMA),
+  include: Type.Optional(INCLUDE_SCHEMA),
+  exclude: Type.Optional(EXCLUDE_SCHEMA),
   includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
@@ -106,13 +122,18 @@ const SCORE_RULE_SCHEMA = Type.Object({
     description:
       "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
-  kind: Type.Literal("score"),
-  criteria: Type.Array(Type.String(), { minItems: 2 }),
-  instructions: Type.String(),
+  kind: Type.Literal("score", {
+    description: "The question type: a rating on the criteria scale.",
+  }),
+  criteria: Type.Array(Type.String(), {
+    minItems: 2,
+    description: "One description for each score level, from level 0 up.",
+  }),
+  instructions: Type.String({ description: "The question the model answers." }),
   target: TARGET_SCHEMA,
   handle: HANDLER_SCHEMA,
-  include: Type.Optional(SCOPE_SCHEMA),
-  exclude: Type.Optional(SCOPE_SCHEMA),
+  include: Type.Optional(INCLUDE_SCHEMA),
+  exclude: Type.Optional(EXCLUDE_SCHEMA),
   includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
@@ -122,17 +143,17 @@ const CHOICE_RULE_SCHEMA = Type.Object({
     description:
       "The rule id: findings join back to it. Two entries with one name are a config error unless the later one sets override.",
   }),
-  kind: Type.Literal("choice"),
+  kind: Type.Literal("choice", { description: "The question type: one option out of several." }),
   criteria: Type.Record(Type.String(), Type.String(), {
     minProperties: 2,
     description:
       "The named options: option label -> what selecting it means. Unordered; the model selects one.",
   }),
-  instructions: Type.String(),
+  instructions: Type.String({ description: "The question the model answers." }),
   target: TARGET_SCHEMA,
   handle: HANDLER_SCHEMA,
-  include: Type.Optional(SCOPE_SCHEMA),
-  exclude: Type.Optional(SCOPE_SCHEMA),
+  include: Type.Optional(INCLUDE_SCHEMA),
+  exclude: Type.Optional(EXCLUDE_SCHEMA),
   includePath: INCLUDE_PATH_SCHEMA,
   override: OVERRIDE_SCHEMA,
 });
@@ -146,7 +167,9 @@ const RULE_SCHEMA = Type.Union([NOUL_RULE_SCHEMA, SCORE_RULE_SCHEMA, CHOICE_RULE
  */
 
 export const CONFIG_SCHEMA = Type.Object({
-  $schema: Type.Optional(Type.String()),
+  $schema: Type.Optional(
+    Type.String({ description: "The URL of this schema. Editors read it; jint ignores it." }),
+  ),
   // Optional: rules-only probe configs are valid when the CLI supplies a path positional;
   // the run-level backstop still rejects an empty input as a config error.
   input: Type.Optional(
@@ -159,26 +182,29 @@ export const CONFIG_SCHEMA = Type.Object({
   // the walk's file filter - a rule with no include of its own follows them, and a rule include
   // claims its files across them (docs/config.md). Same glob semantics as a rule's own scope.
   rules: Type.Optional(
-    Type.Object({
-      include: Type.Optional(
-        Type.Array(Type.String(), {
-          description: "The files jint reads, and the default scope of every rule.",
-          examples: [["**/*.ts"]],
-        }),
-      ),
-      exclude: Type.Optional(
-        Type.Array(Type.String(), {
-          description: "The files jint skips. Exclude always wins over include.",
-          examples: [["**/*.test.ts"]],
-        }),
-      ),
-      use: Type.Optional(
-        Type.Array(Type.Union([Type.String(), RULE_SCHEMA]), {
-          description: "The rules to run: names from a rule domain, or full rule objects.",
-          examples: [["is_greppable", "is_function_srp"]],
-        }),
-      ),
-    }),
+    Type.Object(
+      {
+        include: Type.Optional(
+          Type.Array(Type.String(), {
+            description: "The files jint reads, and the default scope of every rule.",
+            examples: [["**/*.ts"]],
+          }),
+        ),
+        exclude: Type.Optional(
+          Type.Array(Type.String(), {
+            description: "The files jint skips. Exclude always wins over include.",
+            examples: [["**/*.test.ts"]],
+          }),
+        ),
+        use: Type.Optional(
+          Type.Array(Type.Union([Type.String(), RULE_SCHEMA]), {
+            description: "The rules to run: names from a rule domain, or full rule objects.",
+            examples: [["is_greppable", "is_function_srp"]],
+          }),
+        ),
+      },
+      { description: "The rules to run, and the files they read." },
+    ),
   ),
   // Secret-shaped denylist override for the directory walk (gitignore-flavored patterns,
   // negations allowed; default = the built-in frozen denylist). For repos that

@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "$schema": {
+      "description": "The URL of this schema. Editors read it; jint ignores it.",
       "type": "string"
     },
     "input": {
@@ -11,6 +12,7 @@
       "type": "string"
     },
     "rules": {
+      "description": "The rules to run, and the files they read.",
       "type": "object",
       "properties": {
         "include": {
@@ -49,6 +51,7 @@
                         "type": "string"
                       },
                       "kind": {
+                        "description": "The question type. Absent means noul.",
                         "const": "noul",
                         "type": "string"
                       },
@@ -62,14 +65,17 @@
                         "required": ["true", "false"],
                         "properties": {
                           "true": {
+                            "description": "The condition for yes.",
                             "type": "string"
                           },
                           "false": {
+                            "description": "The condition for no.",
                             "type": "string"
                           }
                         }
                       },
                       "target": {
+                        "description": "What the rule measures: files, a kind of element, or a capture. A list measures each.",
                         "anyOf": [
                           {
                             "const": "files",
@@ -171,6 +177,7 @@
                         ]
                       },
                       "handle": {
+                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -179,10 +186,12 @@
                             "properties": {
                               "map": {
                                 "minItems": 1,
+                                "description": "One tier for each score level, in the order of the criteria.",
                                 "type": "array",
                                 "items": {
                                   "anyOf": [
                                     {
+                                      "description": "The severity of a finding: pass raises none.",
                                       "anyOf": [
                                         {
                                           "const": "pass",
@@ -203,6 +212,7 @@
                                       "required": ["level"],
                                       "properties": {
                                         "level": {
+                                          "description": "The severity of a finding: pass raises none.",
                                           "anyOf": [
                                             {
                                               "const": "pass",
@@ -235,11 +245,13 @@
                             "required": ["choices"],
                             "properties": {
                               "choices": {
+                                "description": "One tier for each option, keyed by the option label.",
                                 "type": "object",
                                 "patternProperties": {
                                   "^(.*)$": {
                                     "anyOf": [
                                       {
+                                        "description": "The severity of a finding: pass raises none.",
                                         "anyOf": [
                                           {
                                             "const": "pass",
@@ -260,6 +272,7 @@
                                         "required": ["level"],
                                         "properties": {
                                           "level": {
+                                            "description": "The severity of a finding: pass raises none.",
                                             "anyOf": [
                                               {
                                                 "const": "pass",
@@ -286,13 +299,16 @@
                                 }
                               },
                               "undecided": {
+                                "description": "The tier of a reading with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
+                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
+                                    "description": "The severity of a finding: pass raises none.",
                                     "anyOf": [
                                       {
                                         "const": "pass",
@@ -309,6 +325,7 @@
                                     ]
                                   },
                                   "message": {
+                                    "description": "The note on the finding of an undecided reading.",
                                     "type": "string"
                                   }
                                 }
@@ -328,6 +345,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -342,6 +360,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -361,6 +380,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -375,6 +395,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -386,6 +407,7 @@
                                 ]
                               },
                               "silent_band": {
+                                "description": "A [low, high] range of readings that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
@@ -404,12 +426,14 @@
                         ]
                       },
                       "include": {
+                        "description": "Globs of the files this rule reads. It replaces the run include for this rule.",
                         "type": "array",
                         "items": {
                           "type": "string"
                         }
                       },
                       "exclude": {
+                        "description": "Globs of the files this rule skips. Exclude always wins over include.",
                         "type": "array",
                         "items": {
                           "type": "string"
@@ -434,20 +458,24 @@
                         "type": "string"
                       },
                       "kind": {
+                        "description": "The question type: a rating on the criteria scale.",
                         "const": "score",
                         "type": "string"
                       },
                       "criteria": {
                         "minItems": 2,
+                        "description": "One description for each score level, from level 0 up.",
                         "type": "array",
                         "items": {
                           "type": "string"
                         }
                       },
                       "instructions": {
+                        "description": "The question the model answers.",
                         "type": "string"
                       },
                       "target": {
+                        "description": "What the rule measures: files, a kind of element, or a capture. A list measures each.",
                         "anyOf": [
                           {
                             "const": "files",
@@ -549,6 +577,7 @@
                         ]
                       },
                       "handle": {
+                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -557,10 +586,12 @@
                             "properties": {
                               "map": {
                                 "minItems": 1,
+                                "description": "One tier for each score level, in the order of the criteria.",
                                 "type": "array",
                                 "items": {
                                   "anyOf": [
                                     {
+                                      "description": "The severity of a finding: pass raises none.",
                                       "anyOf": [
                                         {
                                           "const": "pass",
@@ -581,6 +612,7 @@
                                       "required": ["level"],
                                       "properties": {
                                         "level": {
+                                          "description": "The severity of a finding: pass raises none.",
                                           "anyOf": [
                                             {
                                               "const": "pass",
@@ -613,11 +645,13 @@
                             "required": ["choices"],
                             "properties": {
                               "choices": {
+                                "description": "One tier for each option, keyed by the option label.",
                                 "type": "object",
                                 "patternProperties": {
                                   "^(.*)$": {
                                     "anyOf": [
                                       {
+                                        "description": "The severity of a finding: pass raises none.",
                                         "anyOf": [
                                           {
                                             "const": "pass",
@@ -638,6 +672,7 @@
                                         "required": ["level"],
                                         "properties": {
                                           "level": {
+                                            "description": "The severity of a finding: pass raises none.",
                                             "anyOf": [
                                               {
                                                 "const": "pass",
@@ -664,13 +699,16 @@
                                 }
                               },
                               "undecided": {
+                                "description": "The tier of a reading with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
+                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
+                                    "description": "The severity of a finding: pass raises none.",
                                     "anyOf": [
                                       {
                                         "const": "pass",
@@ -687,6 +725,7 @@
                                     ]
                                   },
                                   "message": {
+                                    "description": "The note on the finding of an undecided reading.",
                                     "type": "string"
                                   }
                                 }
@@ -706,6 +745,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -720,6 +760,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -739,6 +780,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -753,6 +795,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -764,6 +807,7 @@
                                 ]
                               },
                               "silent_band": {
+                                "description": "A [low, high] range of readings that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
@@ -782,12 +826,14 @@
                         ]
                       },
                       "include": {
+                        "description": "Globs of the files this rule reads. It replaces the run include for this rule.",
                         "type": "array",
                         "items": {
                           "type": "string"
                         }
                       },
                       "exclude": {
+                        "description": "Globs of the files this rule skips. Exclude always wins over include.",
                         "type": "array",
                         "items": {
                           "type": "string"
@@ -812,6 +858,7 @@
                         "type": "string"
                       },
                       "kind": {
+                        "description": "The question type: one option out of several.",
                         "const": "choice",
                         "type": "string"
                       },
@@ -826,9 +873,11 @@
                         }
                       },
                       "instructions": {
+                        "description": "The question the model answers.",
                         "type": "string"
                       },
                       "target": {
+                        "description": "What the rule measures: files, a kind of element, or a capture. A list measures each.",
                         "anyOf": [
                           {
                             "const": "files",
@@ -930,6 +979,7 @@
                         ]
                       },
                       "handle": {
+                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -938,10 +988,12 @@
                             "properties": {
                               "map": {
                                 "minItems": 1,
+                                "description": "One tier for each score level, in the order of the criteria.",
                                 "type": "array",
                                 "items": {
                                   "anyOf": [
                                     {
+                                      "description": "The severity of a finding: pass raises none.",
                                       "anyOf": [
                                         {
                                           "const": "pass",
@@ -962,6 +1014,7 @@
                                       "required": ["level"],
                                       "properties": {
                                         "level": {
+                                          "description": "The severity of a finding: pass raises none.",
                                           "anyOf": [
                                             {
                                               "const": "pass",
@@ -994,11 +1047,13 @@
                             "required": ["choices"],
                             "properties": {
                               "choices": {
+                                "description": "One tier for each option, keyed by the option label.",
                                 "type": "object",
                                 "patternProperties": {
                                   "^(.*)$": {
                                     "anyOf": [
                                       {
+                                        "description": "The severity of a finding: pass raises none.",
                                         "anyOf": [
                                           {
                                             "const": "pass",
@@ -1019,6 +1074,7 @@
                                         "required": ["level"],
                                         "properties": {
                                           "level": {
+                                            "description": "The severity of a finding: pass raises none.",
                                             "anyOf": [
                                               {
                                                 "const": "pass",
@@ -1045,13 +1101,16 @@
                                 }
                               },
                               "undecided": {
+                                "description": "The tier of a reading with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
+                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
+                                    "description": "The severity of a finding: pass raises none.",
                                     "anyOf": [
                                       {
                                         "const": "pass",
@@ -1068,6 +1127,7 @@
                                     ]
                                   },
                                   "message": {
+                                    "description": "The note on the finding of an undecided reading.",
                                     "type": "string"
                                   }
                                 }
@@ -1087,6 +1147,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1101,6 +1162,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1120,6 +1182,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
+                                        "description": "The threshold. A reading above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1134,6 +1197,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
+                                        "description": "The threshold. A reading below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1145,6 +1209,7 @@
                                 ]
                               },
                               "silent_band": {
+                                "description": "A [low, high] range of readings that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
@@ -1163,12 +1228,14 @@
                         ]
                       },
                       "include": {
+                        "description": "Globs of the files this rule reads. It replaces the run include for this rule.",
                         "type": "array",
                         "items": {
                           "type": "string"
                         }
                       },
                       "exclude": {
+                        "description": "Globs of the files this rule skips. Exclude always wins over include.",
                         "type": "array",
                         "items": {
                           "type": "string"
