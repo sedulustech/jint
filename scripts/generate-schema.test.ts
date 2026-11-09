@@ -233,7 +233,7 @@ describe("the config schema", () => {
 // against 0.09 for a defective one, and missed a table-format page, so the format is held here.
 describe("the reference pages: one entry format", () => {
   const entryLine =
-    /^<h3 id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill[ a-z]*">.+?<\/span>)*<\/span><\/h3>$/;
+    /^<h[34] id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill[ a-z]*">.+?<\/span>)*<\/span><\/h[34]>$/;
   const pages = {
     config: renderConfigReference(),
     environment: renderEnvTable(),
@@ -243,7 +243,7 @@ describe("the reference pages: one entry format", () => {
   for (const [page, text] of Object.entries(pages)) {
     test(`${page}: every entry is a heading with its pills, then a description`, () => {
       const lines = text.split("\n");
-      const entries = lines.flatMap((line, index) => (line.startsWith("<h3") ? [index] : []));
+      const entries = lines.flatMap((line, index) => (line.startsWith("<h") ? [index] : []));
       expect(entries.length).toBeGreaterThan(0);
       for (const index of entries) {
         expect(lines[index], `entry at line ${index}`).toMatch(entryLine);

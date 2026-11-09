@@ -26,7 +26,7 @@ import { dirname, join, resolve } from "node:path";
 import { allRules as allSpecs } from "@jint/rules";
 import { CONFIG_SCHEMA, ENV_VARS } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
-import { FLAGS, VERBS } from "../packages/cli/src/cli.ts";
+import { FLAGS, GLOBAL_FLAG_NAMES, VERBS, flagsOfVerb } from "../packages/cli/src/cli.ts";
 import { ruleTargets } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
@@ -570,46 +570,45 @@ export function renderEnvTable(): string {
   ).join("\n");
 }
 
-/** The verbs and the flags of the CLI, from the tables the parser and the help text read. */
+/**
+ * The verbs of the CLI, each with the flags it takes nested under it, then the flags every verb
+ * takes. The tables are the parser's own, and so is the rule for which verb takes which flag.
+ */
 export function renderCliReference(): string {
-  const verbs = Object.entries(VERBS).map(([name, verb]) =>
-    renderEntry({
-      id: `verb-${name}`,
-      name,
-      pills: [`\`${verb.example}\``],
-      body: verb.blurb,
-    }),
-  );
-  const flags = Object.entries(FLAGS).map(([name, flag]) => {
-    const spec = flag as {
-      arg?: string;
-      aliases?: readonly string[];
-      blurb: string;
-      verbs?: readonly string[];
-    };
+  type FlagSpec = { arg?: string; aliases?: readonly string[]; blurb: string };
+  const flag = (name: string, id: string, level: 3 | 4) => {
+    const spec = (FLAGS as Record<string, FlagSpec>)[name]!;
     return renderEntry({
-      id: `flag-${name.replace(/^-+/, "")}`,
+      id,
+      level,
       name,
       pills: [
         ...(spec.arg === undefined ? [] : [`\`${spec.arg}\``]),
         ...(spec.aliases ?? []).map((alias) => `\`${alias}\``),
-        ...(spec.verbs ?? []),
       ],
       body: spec.blurb,
     });
-  });
+  };
+  const verbs = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name) => [
+    renderEntry({
+      id: `verb-${name}`,
+      name,
+      pills: [`\`${VERBS[name].example}\``],
+      body: VERBS[name].blurb,
+    }),
+    ...flagsOfVerb(name).map((flagName) =>
+      flag(flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
+    ),
+  ]);
   return [
     "## Verbs",
     "",
-    "The first operand is the verb. There is no default verb. The pill is an example.",
+    "The first operand is the verb. There is no default verb. The pill is an example. The flags a verb takes are indented under it.",
     "",
     ...verbs,
-    "## Flags",
+    "## Flags for every verb",
     "",
-    "A flag with a verb pill applies to that verb only. A flag with no verb pill applies to every verb. An",
-    "argument pill shows the value the flag takes, and a second code pill is its short alias.",
-    "",
-    ...flags,
+    ...GLOBAL_FLAG_NAMES.map((name) => flag(name, `flag-${name.replace(/^-+/, "")}`, 3)),
   ].join("\n");
 }
 
@@ -635,11 +634,14 @@ const codeToHtml = (text: string): string =>
  */
 function renderEntry(entry: {
   id: string;
+  /** H3 for a top-level entry, h4 for one nested under it (a verb's flag). */
+  level?: 3 | 4;
   name: string;
   pills: readonly (string | readonly [label: string, value: string])[];
   body: string;
 }): string {
   // a pair is one pill in two sections: the label, then the value after a divider
+  const level = entry.level ?? 3;
   const pills = entry.pills
     .map((pill) =>
       typeof pill === "string"
@@ -648,7 +650,7 @@ function renderEntry(entry: {
     )
     .join("");
   return [
-    `<h3 id="${entry.id}" class="field"><code>${entry.name}</code><span class="pills">${pills}</span></h3>`,
+    `<h${level} id="${entry.id}" class="field"><code>${entry.name}</code><span class="pills">${pills}</span></h${level}>`,
     "",
     entry.body.replaceAll("\n", " "),
     "",

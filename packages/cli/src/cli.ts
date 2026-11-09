@@ -337,16 +337,34 @@ const GLOBAL_FLAGS: ReadonlySet<string> = new Set(["help", "version", "debug"]);
  * flag that silently does nothing is a failure mode, not a convenience.
  */
 export function verbFlagProblem(verb: Verb, cliArgs: CliArgs): string | null {
-  const admitted = (VERBS[verb] as { flags?: readonly string[] }).flags;
   for (const key of Object.keys(cliArgs) as (keyof CliArgs & string)[]) {
-    if (cliArgs[key] === undefined || GLOBAL_FLAGS.has(key)) continue;
-    const entry = (FLAGS as Record<string, { verbs?: readonly string[] }>)[`--${key}`];
-    if (entry?.verbs !== undefined && !entry.verbs.includes(verb))
-      return `--${key} is a ${entry.verbs.join("/")} flag - see jint --help`;
-    if (admitted !== undefined && !admitted.includes(key))
-      return `--${key} does not apply to ${verb} - see jint --help`;
+    if (cliArgs[key] === undefined) continue;
+    const problem = flagRefusal(verb, key);
+    if (problem !== null) return problem;
   }
   return null;
+}
+
+/** Why a verb refuses a flag (named without its dashes), or null when it takes it. */
+function flagRefusal(verb: Verb, key: string): string | null {
+  if (GLOBAL_FLAGS.has(key)) return null;
+  const admitted = (VERBS[verb] as { flags?: readonly string[] }).flags;
+  const entry = (FLAGS as Record<string, { verbs?: readonly string[] }>)[`--${key}`];
+  if (entry?.verbs !== undefined && !entry.verbs.includes(verb))
+    return `--${key} is a ${entry.verbs.join("/")} flag - see jint --help`;
+  if (admitted !== undefined && !admitted.includes(key))
+    return `--${key} does not apply to ${verb} - see jint --help`;
+  return null;
+}
+
+/** The flags the CLI takes for every verb. The reference lists them once, not under each verb. */
+export const GLOBAL_FLAG_NAMES: readonly string[] = [...GLOBAL_FLAGS].map((key) => `--${key}`);
+
+/** The flags a verb takes beyond the global ones: the one rule verbFlagProblem also applies. */
+export function flagsOfVerb(verb: Verb): string[] {
+  return Object.keys(FLAGS).filter(
+    (name) => !GLOBAL_FLAGS.has(name.slice(2)) && flagRefusal(verb, name.slice(2)) === null,
+  );
 }
 
 /**
