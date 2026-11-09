@@ -47,7 +47,8 @@ type Finding = {
 // One run over the staged paths, piped as a path list: each is scope-checked by the repo's config,
 // so tests and prose it leaves out are skipped, not judged. A path no grammar claims is a note, not
 // a failure. Exit 0 clean, 1 error findings, 4 nothing measured: all carry a
-// report. 2 and 3 do not.
+// report. 2 and 3 do not. Exit 4 with classification errors in the report is a dead or refusing
+// endpoint, not an empty scope, so it blocks.
 const result = run(
   ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],
   [...changed.keys()].join("\n"),
@@ -60,7 +61,15 @@ if (![0, 1, 4].includes(result.exitCode)) {
   process.stderr.write(`jint: the run failed (exit ${result.exitCode}); blocking the commit\n`);
   process.exit(1);
 }
-const report = JSON.parse(text(result.stdout)) as { findings: Finding[] };
+const report = JSON.parse(text(result.stdout)) as {
+  findings: Finding[];
+  errors: { input: string; code: string; message: string }[];
+};
+if (report.errors.length > 0) {
+  for (const e of report.errors) process.stderr.write(`jint: ${e.input}: ${e.code} ${e.message}\n`);
+  process.stderr.write("jint: classification failed; blocking the commit\n");
+  process.exit(1);
+}
 const touched = report.findings.filter((f) => {
   const path = f.location.input.split("#")[0]!;
   const ranges = changed.get(path);

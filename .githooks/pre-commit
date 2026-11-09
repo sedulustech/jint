@@ -4,8 +4,7 @@ bun run validate
 # Informational agent-format render; never blocks (stderr hidden).
 bunx --bun oxlint --format=agent src/ tests/ 2>/dev/null || true
 
-# jint over the changes in this commit (see .githooks/jint-diff.ts). It needs a key and is skipped
-# without one. It blocks on error-tier findings in changed code and on a broken run.
-if [ -n "${JINT_API_KEY:-}${OPENAI_API_KEY:-}" ]; then
-  bun .githooks/jint-diff.ts
-fi
+# jint over the changes in this commit (see .githooks/jint-diff.ts). It blocks on error-tier findings
+# in changed code and on a broken run. An unconfigured jint (no endpoint, no key) is a broken run:
+# the step is never skipped, so a commit made without jint measuring it cannot pass.
+bun .githooks/jint-diff.ts
