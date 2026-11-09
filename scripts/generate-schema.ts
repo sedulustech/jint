@@ -558,18 +558,27 @@ export function renderRuleFieldsTable(): string {
   return ["| Field | Type | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
 }
 
-const cell = (text: string): string => text.replaceAll("|", "\\|").replaceAll("\n", " ");
-
 /** The environment variables, from ENV_VARS: the one list a guard test keeps whole. */
 export function renderEnvTable(): string {
-  const rows = ENV_VARS.map((v) => `| \`${v.name}\` | ${cell(v.default)} | ${cell(v.meaning)} |`);
-  return ["| Variable | Default | Meaning |", "| --- | --- | --- |", ...rows].join("\n") + "\n";
+  return ENV_VARS.map((v) =>
+    renderEntry({
+      id: v.name.toLowerCase().replaceAll("_", "-"),
+      name: v.name,
+      pills: v.default === "none" ? [] : [`default ${v.default}`],
+      body: v.meaning,
+    }),
+  ).join("\n");
 }
 
 /** The verbs and the flags of the CLI, from the tables the parser and the help text read. */
 export function renderCliReference(): string {
-  const verbs = Object.entries(VERBS).map(
-    ([name, verb]) => `| \`${name}\` | \`${verb.example}\` | ${cell(verb.blurb)} |`,
+  const verbs = Object.entries(VERBS).map(([name, verb]) =>
+    renderEntry({
+      id: `verb-${name}`,
+      name,
+      pills: [`\`${verb.example}\``],
+      body: verb.blurb,
+    }),
   );
   const flags = Object.entries(FLAGS).map(([name, flag]) => {
     const spec = flag as {
@@ -578,27 +587,30 @@ export function renderCliReference(): string {
       blurb: string;
       verbs?: readonly string[];
     };
-    const names = [name, ...(spec.aliases ?? [])].map((n) => `\`${n}\``).join(", ");
-    const arg = spec.arg === undefined ? "" : `\`${spec.arg}\``;
-    return `| ${names} | ${arg} | ${spec.verbs === undefined ? "all" : spec.verbs.join(", ")} | ${cell(spec.blurb)} |`;
+    return renderEntry({
+      id: `flag-${name.replace(/^-+/, "")}`,
+      name,
+      pills: [
+        ...(spec.arg === undefined ? [] : [`\`${spec.arg}\``]),
+        ...(spec.aliases ?? []).map((alias) => `\`${alias}\``),
+        ...(spec.verbs ?? []),
+      ],
+      body: spec.blurb,
+    });
   });
-  return (
-    [
-      "## Verbs",
-      "",
-      "The first operand is the verb. There is no default verb.",
-      "",
-      "| Verb | Example | What it does |",
-      "| --- | --- | --- |",
-      ...verbs,
-      "",
-      "## Flags",
-      "",
-      "| Flag | Argument | Verbs | Meaning |",
-      "| --- | --- | --- | --- |",
-      ...flags,
-    ].join("\n") + "\n"
-  );
+  return [
+    "## Verbs",
+    "",
+    "The first operand is the verb. There is no default verb. The pill is an example.",
+    "",
+    ...verbs,
+    "## Flags",
+    "",
+    "A flag with a verb pill applies to that verb only. A flag with no verb pill applies to every verb. An",
+    "argument pill shows the value the flag takes, and a second code pill is its short alias.",
+    "",
+    ...flags,
+  ].join("\n");
 }
 
 /** A schema node's type as a reader writes it in a config: `string[]`, not `array`. */
@@ -608,21 +620,46 @@ function typeLabel(node: TableNode): string {
   return node.type ?? "value";
 }
 
-/** One field: its name on the left, its type, default and requiredness as pills on the right. */
-function renderFieldEntry(path: string, node: TableNode, required: boolean): string {
-  const pill = (text: string) => `<span class="pill">${text}</span>`;
-  const pills = [
-    pill(typeLabel(node)),
-    ...(node.default === undefined ? [] : [pill(`default ${node.default}`)]),
-    ...(required ? [pill("required")] : []),
-  ].join("");
-  const id = path.replaceAll(".", "-").toLowerCase();
+/** Markdown code spans to HTML: a pill is raw HTML, where backticks do not render. */
+const codeToHtml = (text: string): string =>
+  text.replace(
+    /`([^`]+)`/g,
+    (_, code: string) =>
+      `<code>${code.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</code>`,
+  );
+
+/**
+ * One reference entry, the same shape on every reference page: the name on the left of the heading,
+ * pills on the right (type, default, requirement, scope), the description below. The heading keeps
+ * an id so each entry has a stable anchor.
+ */
+function renderEntry(entry: {
+  id: string;
+  name: string;
+  pills: readonly string[];
+  body: string;
+}): string {
+  const pills = entry.pills.map((text) => `<span class="pill">${codeToHtml(text)}</span>`).join("");
   return [
-    `<h3 id="${id}" class="field"><code>${path}</code><span class="pills">${pills}</span></h3>`,
+    `<h3 id="${entry.id}" class="field"><code>${entry.name}</code><span class="pills">${pills}</span></h3>`,
     "",
-    (node.description ?? "").replaceAll("\n", " "),
+    entry.body.replaceAll("\n", " "),
     "",
   ].join("\n");
+}
+
+/** One config field: its type, default and requirement as pills. */
+function renderFieldEntry(path: string, node: TableNode, required: boolean): string {
+  return renderEntry({
+    id: path.replaceAll(".", "-").toLowerCase(),
+    name: path,
+    pills: [
+      typeLabel(node),
+      ...(node.default === undefined ? [] : [`default ${node.default}`]),
+      ...(required ? ["required"] : []),
+    ],
+    body: node.description ?? "",
+  });
 }
 
 /** The config reference: every key and rule field as one entry, all from the schema. */
@@ -645,6 +682,10 @@ export function renderConfigReference(): string {
     if (node.items !== undefined) visit(node.items, path);
   };
   visit(rules.properties!["use"]!.items!, "");
+  const entries = (keep: (field: [string, unknown]) => boolean) =>
+    [...fields]
+      .filter(keep)
+      .map(([path, { node, required }]) => renderFieldEntry(path, node, required));
   return [
     "## Run settings",
     "",
@@ -658,7 +699,12 @@ export function renderConfigReference(): string {
     "",
     "Each entry of `rules.use` is a rule name or a rule object with these fields.",
     "",
-    ...[...fields].map(([path, { node, required }]) => renderFieldEntry(path, node, required)),
+    ...entries(([path]) => !path.startsWith("handle.")),
+    "## Rule handler fields",
+    "",
+    "The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.",
+    "",
+    ...entries(([path]) => path.startsWith("handle.")),
   ].join("\n");
 }
 

@@ -83,6 +83,26 @@ What the rule measures: files, a kind of element, or a capture. A list measures 
 
 How a reading becomes a finding. The shape follows the kind of the rule.
 
+<h3 id="include" class="field"><code>include</code><span class="pills"><span class="pill">string[]</span></span></h3>
+
+Globs of the files this rule reads. It replaces the run include for this rule.
+
+<h3 id="exclude" class="field"><code>exclude</code><span class="pills"><span class="pill">string[]</span></span></h3>
+
+Globs of the files this rule skips. Exclude always wins over include.
+
+<h3 id="includepath" class="field"><code>includePath</code><span class="pills"><span class="pill">boolean</span></span></h3>
+
+true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.
+
+<h3 id="override" class="field"><code>override</code><span class="pills"><span class="pill">boolean</span></span></h3>
+
+true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.
+
+## Rule handler fields
+
+The `handle` of a rule turns its answer into a severity. The fields it takes depend on the rule kind.
+
 <h3 id="handle-map" class="field"><code>handle.map</code><span class="pills"><span class="pill">object[]</span><span class="pill">required</span></span></h3>
 
 One tier for each score level, in the order of the criteria.
@@ -150,21 +170,5 @@ The threshold. A reading below it fires.
 <h3 id="handle-silent_band" class="field"><code>handle.silent_band</code><span class="pills"><span class="pill">object[]</span></span></h3>
 
 A [low, high] range of readings that raises no finding.
-
-<h3 id="include" class="field"><code>include</code><span class="pills"><span class="pill">string[]</span></span></h3>
-
-Globs of the files this rule reads. It replaces the run include for this rule.
-
-<h3 id="exclude" class="field"><code>exclude</code><span class="pills"><span class="pill">string[]</span></span></h3>
-
-Globs of the files this rule skips. Exclude always wins over include.
-
-<h3 id="includepath" class="field"><code>includePath</code><span class="pills"><span class="pill">boolean</span></span></h3>
-
-true: the model is handed the file's path with the source. Default false: only the source is sent, so the same code reads the same wherever the file sits. Set it for a rule whose claim is about the path itself.
-
-<h3 id="override" class="field"><code>override</code><span class="pills"><span class="pill">boolean</span></span></h3>
-
-true: this entry replaces an earlier entry of the same name. Without it a repeated name is a config error, and with it an entry that replaces nothing is too.
 
 <!-- /generated:reference -->

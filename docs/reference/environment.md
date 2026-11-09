@@ -11,17 +11,44 @@ Every environment variable jint reads, generated from the source.
 
 <!-- generated:reference — do not edit. Regenerate with `bun run schema`. -->
 
-| Variable           | Default                      | Meaning                                                                                     |
-| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`   | none                         | The key for `api.openai.com`. jint sends it nowhere else.                                   |
-| `JINT_API_URL`     | OpenAI's Decisions API       | The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md). |
-| `JINT_API_KEY`     | none                         | The key for the url in `JINT_API_URL`. It wins over `OPENAI_API_KEY`.                       |
-| `JINT_API_MODEL`   | `gpt-6-luna` on `/decisions` | The model to ask. A `/v1/systemone` server needs it, except TypeSafe's own host.            |
-| `JINT_RUNS_DIR`    | `~/.jint/runs`               | The directory where jint records runs.                                                      |
-| `JINT_CACHE_DIR`   | `~/.jint/cache`              | The directory of the answer cache.                                                          |
-| `JINT_GRAMMAR_DIR` | `~/.jint/grammars`           | The directory of custom grammars.                                                           |
-| `JINT_UI_HOST`     | `127.0.0.1`                  | The host that `jint serve` binds. Give a host, not `host:port`.                             |
-| `JINT_UI_PORT`     | a free port                  | The port that `jint serve` binds.                                                           |
-| `JINT_LOG_LEVEL`   | `off`                        | The log level on stderr: `debug`, `info`, `warn`, `error` or `off`.                         |
+<h3 id="openai-api-key" class="field"><code>OPENAI_API_KEY</code><span class="pills"></span></h3>
+
+The key for `api.openai.com`. jint sends it nowhere else.
+
+<h3 id="jint-api-url" class="field"><code>JINT_API_URL</code><span class="pills"><span class="pill">default OpenAI's Decisions API</span></span></h3>
+
+The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md).
+
+<h3 id="jint-api-key" class="field"><code>JINT_API_KEY</code><span class="pills"></span></h3>
+
+The key for the url in `JINT_API_URL`. It wins over `OPENAI_API_KEY`.
+
+<h3 id="jint-api-model" class="field"><code>JINT_API_MODEL</code><span class="pills"><span class="pill">default <code>gpt-6-luna</code> on <code>/decisions</code></span></span></h3>
+
+The model to ask. A `/v1/systemone` server needs it, except TypeSafe's own host.
+
+<h3 id="jint-runs-dir" class="field"><code>JINT_RUNS_DIR</code><span class="pills"><span class="pill">default <code>~/.jint/runs</code></span></span></h3>
+
+The directory where jint records runs.
+
+<h3 id="jint-cache-dir" class="field"><code>JINT_CACHE_DIR</code><span class="pills"><span class="pill">default <code>~/.jint/cache</code></span></span></h3>
+
+The directory of the answer cache.
+
+<h3 id="jint-grammar-dir" class="field"><code>JINT_GRAMMAR_DIR</code><span class="pills"><span class="pill">default <code>~/.jint/grammars</code></span></span></h3>
+
+The directory of custom grammars.
+
+<h3 id="jint-ui-host" class="field"><code>JINT_UI_HOST</code><span class="pills"><span class="pill">default <code>127.0.0.1</code></span></span></h3>
+
+The host that `jint serve` binds. Give a host, not `host:port`.
+
+<h3 id="jint-ui-port" class="field"><code>JINT_UI_PORT</code><span class="pills"><span class="pill">default a free port</span></span></h3>
+
+The port that `jint serve` binds.
+
+<h3 id="jint-log-level" class="field"><code>JINT_LOG_LEVEL</code><span class="pills"><span class="pill">default <code>off</code></span></span></h3>
+
+The log level on stderr: `debug`, `info`, `warn`, `error` or `off`.
 
 <!-- /generated:reference -->
