@@ -55,8 +55,9 @@ consent to hear about the break, and the scopes only decide which rules may meas
 secret denylist is not a scope — it is an always-win exclusion and applies to named operands
 too (naming a secret-shaped path does not hand its contents to the classifier; pattern-level
 — the PEM content sniff stays walk-only, an innocent-named operand is explicit consent like
-piped source). The `str` and `paths` nouns keep always-true (no path semantics to evaluate:
-the paths list is caller-curated selection; str has no real path); an element-scope run pins
+piped source). The `str` noun keeps always-true (no path to evaluate); a `paths` list honors the
+same config-scope predicate as file operands: its entries are caller-curated file selections, not
+exemptions from the scope. An element-scope run pins
 its selector file, which scope-checks like any operand. Capture's explicit FILE target still
 bypasses the walk scoping (it prints structure, no classifier) — but its `--rule` preview
 marker applies the same scope predicate.

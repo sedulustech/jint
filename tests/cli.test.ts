@@ -532,6 +532,25 @@ describe("cli: mocked jev twins (structural claims, always on)", () => {
     return runCli(args, { env: { ...MOCK_ENV, ...env }, timeout: 60_000 });
   }
   afterAll(() => jev.stop());
+  test.concurrent("run paths - honors the config exclude: a listed excluded file is not classified", async () => {
+    const { writeFileSync } = await import("node:fs");
+    const config = scratchFile("cli-paths-exclude") + ".json";
+    writeFileSync(config, JSON.stringify({ rules: ["is_greppable"], exclude: ["**/tests/**"] }));
+    const r = await runCli(["run", "paths", "-", "--json", "--config", config], {
+      env: MOCK_ENV,
+      stdin: "tests/fixtures/sample-file.ts\n",
+      timeout: 60_000,
+    });
+    rmScratchFile(config);
+    // the run RAN and measured nothing: exit 4 (never a usage/config error)
+    expect(r.code).toBe(4);
+    const report = JSON.parse(r.stdout);
+    expect(report.measurements).toEqual([]);
+    expect(report.errors).toEqual([]);
+    expect(
+      report.notes.some((n: string) => n.includes("no rule measures this file")),
+    ).toBe(true);
+  });
   test.concurrent("recording persists report.json: the exact stdout --json bytes, next to the requests", async () => {
     const { rmSync } = await import("node:fs");
     const dir = ROOT + "/tmp/cli-tap-report";
