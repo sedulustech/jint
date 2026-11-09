@@ -20,6 +20,18 @@ export function stateData(ask: { state: object }): Record<string, unknown> {
   return data;
 }
 
+/**
+ * The state with its content's final line break removed. The decision model's reading moves with a
+ * single trailing newline (up to 0.2 on Luna, measured on this repo), so a file saved with one and
+ * the same file saved without must be the same request. Only the final line breaks go; the rest of
+ * the content, trailing spaces included, reaches the model as written.
+ */
+export function normalize<T extends object>(state: T): T {
+  const content = (state as { content?: unknown }).content;
+  if (typeof content !== "string") return state;
+  return { ...state, content: content.replace(/(\r?\n)+$/, "") };
+}
+
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type QuestionSpec = {

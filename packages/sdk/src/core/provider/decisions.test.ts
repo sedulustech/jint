@@ -499,7 +499,10 @@ describe("through createClassifier", () => {
     expect(file.request.input).toEqual([
       {
         role: "user",
-        content: [{ type: "input_json", data: { path: unit.path, content: unit.content } }],
+        // the content without its final newline: the request is normalized before it is sent
+        content: [
+          { type: "input_json", data: { path: unit.path, content: "export const x = 1;" } },
+        ],
       },
     ]);
     expect(file.response).toEqual(reply);

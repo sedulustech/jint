@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { foldCriteria, unfoldCriteria } from "./protocol.ts";
+import { foldCriteria, normalize, unfoldCriteria } from "./protocol.ts";
 
 describe("foldCriteria / unfoldCriteria", () => {
   const cases: [string, Record<string, string>][] = [
@@ -29,5 +29,21 @@ describe("foldCriteria / unfoldCriteria", () => {
       instructions: "One.\n\nTwo.",
       criteria: { true: "a", false: "b" },
     });
+  });
+});
+
+describe("normalize", () => {
+  test("the final line breaks of the content go, whichever form they take", () => {
+    expect(normalize({ content: "a\nb\n" }).content).toBe("a\nb");
+    expect(normalize({ content: "a\r\n\r\n" }).content).toBe("a");
+    expect(normalize({ content: "a\nb" }).content).toBe("a\nb");
+  });
+
+  test("everything else in the content, and every other field, stays as written", () => {
+    expect(normalize({ path: "a.ts", content: "a  \n\n  b  \n" })).toEqual({
+      path: "a.ts",
+      content: "a  \n\n  b  ",
+    });
+    expect(normalize({ path: "a.ts" })).toEqual({ path: "a.ts" });
   });
 });

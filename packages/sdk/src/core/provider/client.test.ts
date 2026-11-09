@@ -73,12 +73,43 @@ describe("createClassifier", () => {
       expect(seen[0]!.body.input).toEqual([
         {
           role: "user",
-          content: [{ type: "input_json", data: { path: state.path, content: state.content } }],
+          content: [
+            {
+              type: "input_json",
+              data: { path: state.path, content: "export const x = 1;" },
+            },
+          ],
         },
       ]);
     } finally {
       if (saved === undefined) delete process.env.JINT_API_KEY;
       else process.env.JINT_API_KEY = saved;
     }
+  });
+
+  test("a file with and without its final newline is the same request", async () => {
+    const bodies: string[] = [];
+    const probe = async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return new Response(
+        JSON.stringify({ answers: [{ type: "predicate", name: "q0", probability: 0.5 }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const ask = createClassifier({
+      cache: false,
+      record: false,
+      fetch: probe,
+      url: "http://127.0.0.1:1/v1/decisions",
+      apiKey: "k",
+    });
+    for (const content of [
+      "export const x = 1;",
+      "export const x = 1;\n",
+      "export const x = 1;\r\n\n",
+    ]) {
+      await ask({ ...state, content }, { is_readable: { type: "noul", instructions: "Is it?" } });
+    }
+    expect(new Set(bodies).size).toBe(1);
   });
 });

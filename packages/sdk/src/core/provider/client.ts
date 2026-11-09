@@ -22,6 +22,7 @@ import {
   type Endpoint,
   type EndpointChoice,
 } from "./endpoint.ts";
+import { normalize } from "./protocol.ts";
 import { systemOneAdapter } from "./systemone.ts";
 import { limitsFor } from "./transport.ts";
 
@@ -94,7 +95,8 @@ function makeClassifier(
     ? systemOneAdapter(endpoint, { fetch: recorded, log, limits })
     : decisionsAdapter(endpoint, { fetch: recorded, log, cache, limits });
   return async (state, questions) => {
-    const { id: _id, ...judged } = state;
+    const { id: _id, ...rest } = state;
+    const judged = normalize(rest);
     const asked = await inCall(state, Object.keys(questions), () =>
       adapter.ask({ state: judged, questions }),
     );
