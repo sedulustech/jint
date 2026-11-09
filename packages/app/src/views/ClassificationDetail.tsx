@@ -1,6 +1,6 @@
 import { asTier } from "@jint/contract";
 import { useQuery } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { fetchOriginal, fetchRun } from "../api/client";
 import { AnswerCard, type QA } from "./AnswerCard";
 import { classificationRows, type Gates } from "./classificationRows";
@@ -74,6 +74,21 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
   // the edit of this address; the cards below render it and the classify bar asks it
   const classifications = useClassifications({ runId, rule, input }, original, code);
   const [editingCode, setEditingCode] = useState(false);
+  // the classify controls live in the header and ask once there is a recorded original to edit
+  const canClassify = request !== undefined && original !== undefined && code !== null;
+  const { mutate: askClassify, isPending: classifying } = classifications.ask;
+  // ctrl+enter (cmd+enter on a mac) classifies from anywhere on the page, including the editors
+  useEffect(() => {
+    if (!canClassify) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !classifying) {
+        e.preventDefault();
+        askClassify();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canClassify, classifying, askClassify]);
   // noul thresholds only: score and choice verdicts read from their own tiers
   const handleData = run.data?.handles?.[rule];
   const noulGates: Gates | undefined =
@@ -102,6 +117,51 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
         onPick={(at) => classifications.go(at)}
       />
     ) : undefined;
+
+  // the classify controls are one row above the model line; every part keeps its place, so
+  // nothing shifts as the state changes: the status has a reserved slot, reset is disabled
+  // instead of absent
+  const classifyControls = canClassify ? (
+    <div
+      role="group"
+      aria-label="classify"
+      className="flex items-center gap-siblings border-b border-border px-rail py-siblings"
+    >
+      <span className="min-w-0 flex-1 truncate text-caption">
+        {classifications.ask.isPending && (
+          <span className="text-muted-foreground">classifying…</span>
+        )}
+        {!classifications.ask.isPending && classifications.asked?.stale === true && (
+          <span data-testid="classification-stale" className="text-sev-warn">
+            edited since classify
+          </span>
+        )}
+      </span>
+      <Button
+        variant="secondary"
+        size="xs"
+        data-testid="classification-reset"
+        disabled={classifications.position === 0 && !classifications.dirty}
+        onClick={() => {
+          classifications.reset();
+          setEditingCode(false);
+        }}
+      >
+        reset
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        data-testid="classify"
+        aria-keyshortcuts="Control+Enter Meta+Enter"
+        title="classify (ctrl+enter)"
+        disabled={classifications.ask.isPending}
+        onClick={() => classifications.ask.mutate()}
+      >
+        classify
+      </Button>
+    </div>
+  ) : undefined;
 
   // The request view shows what the model was sent: the recorded wire body. A recording from
   // before wire capture holds only jint's own request shape, shown with a note saying so.
@@ -169,6 +229,7 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
       )}
       {request !== undefined && original !== undefined && (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {classifyControls}
           <div className="flex flex-wrap gap-x-meta gap-y-related border-b border-border px-rail py-siblings text-caption text-muted-foreground">
             <span>
               model:{" "}
@@ -197,51 +258,13 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
               })()}
             />
           </div>
-          {code !== null && (
-            <div
-              role="group"
-              aria-label="classify"
-              className="flex flex-col gap-sections border-b border-border bg-card px-rail pb-meta pt-sections"
+          {classifications.ask.isError && (
+            <span
+              data-testid="classification-error"
+              className="block border-b border-border bg-card px-rail py-siblings text-caption text-sev-error"
             >
-              <div className="flex items-center gap-siblings">
-                <span className="flex-1" />
-                {classifications.ask.isPending && (
-                  <span className="text-caption text-muted-foreground">classifying…</span>
-                )}
-                {classifications.asked?.stale === true && (
-                  <span data-testid="classification-stale" className="text-caption text-sev-warn">
-                    edited since classify
-                  </span>
-                )}
-                {(classifications.position !== 0 || classifications.dirty) && (
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    data-testid="classification-reset"
-                    onClick={() => {
-                      classifications.reset();
-                      setEditingCode(false);
-                    }}
-                  >
-                    reset
-                  </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="classify"
-                  disabled={classifications.ask.isPending}
-                  onClick={() => classifications.ask.mutate()}
-                >
-                  classify
-                </Button>
-              </div>
-              {classifications.ask.isError && (
-                <span data-testid="classification-error" className="text-caption text-sev-error">
-                  {String(classifications.ask.error)}
-                </span>
-              )}
-            </div>
+              {String(classifications.ask.error)}
+            </span>
           )}
           <div
             role="group"

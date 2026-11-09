@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { ClassificationDetail } from "./ClassificationDetail";
 
 // Acceptance: the edit-and-classify flow of the classification view. Controls are located by test id; text
@@ -142,6 +142,31 @@ test("the original reading shows until classify, then the new one replaces it", 
   await classify();
   expect(shown()).toBe("0.12");
   expect(q("classification-position")?.dataset.position).toBe("1");
+});
+
+test("ctrl+enter classifies, from inside an editor too", async () => {
+  render(tree("src/borderline.ts"));
+  await ready();
+  expect(shown()).not.toBe("0.12");
+  await page.getByTestId("edit-instructions").fill("Is the name a verb?");
+  await userEvent.keyboard("{Control>}{Enter}{/Control}");
+  await waitFor(() => {
+    if (shown() !== "0.12") throw new Error("no result yet");
+  });
+  expect(q("classification-position")?.dataset.position).toBe("1");
+});
+
+test("the classify row sits above the model line and keeps its layout when state changes", async () => {
+  render(tree("src/borderline.ts"));
+  await ready();
+  const row = q("classify")!.parentElement!;
+  const header = document.querySelector("section.detail-pane > header");
+  expect(header?.contains(q("classify"))).toBe(false);
+  const before = row.getBoundingClientRect().height;
+  const resetAt = q("classification-reset")!.getBoundingClientRect().left;
+  await classify();
+  expect(row.getBoundingClientRect().height).toBe(before);
+  expect(q("classification-reset")!.getBoundingClientRect().left).toBe(resetAt);
 });
 
 test("the new reading survives switching the view and editing the code", async () => {
