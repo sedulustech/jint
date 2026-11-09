@@ -564,7 +564,7 @@ export function renderEnvTable(): string {
     renderEntry({
       id: v.name.toLowerCase().replaceAll("_", "-"),
       name: v.name,
-      pills: v.default === "none" ? [] : [`default ${v.default}`],
+      pills: v.default === "none" ? [] : [["default", v.default] as const],
       body: v.meaning,
     }),
   ).join("\n");
@@ -636,10 +636,17 @@ const codeToHtml = (text: string): string =>
 function renderEntry(entry: {
   id: string;
   name: string;
-  pills: readonly string[];
+  pills: readonly (string | readonly [label: string, value: string])[];
   body: string;
 }): string {
-  const pills = entry.pills.map((text) => `<span class="pill">${codeToHtml(text)}</span>`).join("");
+  // a pair is one pill in two sections: the label, then the value after a divider
+  const pills = entry.pills
+    .map((pill) =>
+      typeof pill === "string"
+        ? `<span class="pill">${codeToHtml(pill)}</span>`
+        : `<span class="pill pair"><span>${pill[0]}</span><span>${codeToHtml(pill[1])}</span></span>`,
+    )
+    .join("");
   return [
     `<h3 id="${entry.id}" class="field"><code>${entry.name}</code><span class="pills">${pills}</span></h3>`,
     "",
@@ -664,7 +671,7 @@ function renderFieldEntry(
     name: within === undefined ? path : path.slice(within.length + 1),
     pills: [
       typeLabel(node),
-      ...(node.default === undefined ? [] : [`default ${node.default}`]),
+      ...(node.default === undefined ? [] : [["default", String(node.default)] as const]),
       ...(required ? ["required"] : []),
     ],
     body: node.description ?? "",

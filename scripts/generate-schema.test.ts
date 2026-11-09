@@ -233,7 +233,7 @@ describe("the config schema", () => {
 // against 0.09 for a defective one, and missed a table-format page, so the format is held here.
 describe("the reference pages: one entry format", () => {
   const entryLine =
-    /^<h3 id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill">.+?<\/span>)*<\/span><\/h3>$/;
+    /^<h3 id="[a-z0-9_-]+" class="field"><code>[^<]+<\/code><span class="pills">(<span class="pill[ a-z]*">.+?<\/span>)*<\/span><\/h3>$/;
   const pages = {
     config: renderConfigReference(),
     environment: renderEnvTable(),

@@ -286,6 +286,24 @@ const jsonLd = [
     margin-left: auto;
   }
 
+  /* a pair is one pill in two sections: the label, then the value after a divider */
+  main h3.field .pill.pair {
+    display: flex;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: none;
+  }
+
+  main h3.field .pill.pair > span {
+    padding: 0.1em 0.5em;
+  }
+
+  main h3.field .pill.pair > span:first-child {
+    border-right: 1px solid var(--rule);
+    background: var(--code-bg);
+  }
+
   main h3.field .pill code {
     padding: 0;
     background: none;

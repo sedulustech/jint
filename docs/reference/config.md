@@ -21,11 +21,11 @@ The file or directory to measure. A path given to jint run overrides it.
 
 Replaces the built-in denylist of secret-shaped files (gitignore patterns).
 
-<h3 id="concurrency" class="field"><code>concurrency</code><span class="pills"><span class="pill">number</span><span class="pill">default 16</span></span></h3>
+<h3 id="concurrency" class="field"><code>concurrency</code><span class="pills"><span class="pill">number</span><span class="pill pair"><span>default</span><span>16</span></span></span></h3>
 
 The most classifier calls in flight, run-wide, at most 64.
 
-<h3 id="timeout" class="field"><code>timeout</code><span class="pills"><span class="pill">number</span><span class="pill">default 30</span></span></h3>
+<h3 id="timeout" class="field"><code>timeout</code><span class="pills"><span class="pill">number</span><span class="pill pair"><span>default</span><span>30</span></span></span></h3>
 
 The time one classifier call may take, retries included, in seconds. Each attempt gets a third of it.
 
@@ -33,7 +33,7 @@ The time one classifier call may take, retries included, in seconds. Each attemp
 
 The most input tokens the model accepts in one call. A call over it is skipped with a note. Unset: elements over 30000 tokens are skipped.
 
-<h3 id="charspertoken" class="field"><code>charsPerToken</code><span class="pills"><span class="pill">number</span><span class="pill">default 4</span></span></h3>
+<h3 id="charspertoken" class="field"><code>charsPerToken</code><span class="pills"><span class="pill">number</span><span class="pill pair"><span>default</span><span>4</span></span></span></h3>
 
 The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Use a lower number for a model whose tokenizer splits code finely.
 
