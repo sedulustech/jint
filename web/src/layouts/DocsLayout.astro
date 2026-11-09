@@ -272,6 +272,28 @@ const jsonLd = [
     font-size: 1rem;
   }
 
+  /* a reference entry: the field name on the left, its type and default as pills on the right */
+  main h3.field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s1) var(--s2);
+  }
+
+  main h3.field .pills {
+    display: flex;
+    gap: var(--s1);
+    margin-left: auto;
+  }
+
+  main h3.field .pill {
+    padding: 0.1em 0.5em;
+    border-radius: 0.4em;
+    background: var(--code-bg);
+    font-size: 0.72rem;
+    font-weight: 400;
+  }
+
   main p,
   main ul,
   main ol {

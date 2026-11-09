@@ -30,17 +30,17 @@ export default defineConfig({
   },
   // Replaces the built-in denylist of secret-shaped files (gitignore patterns).
   secretDenylist: ["!.env.example"],
-  // The most classifier calls in flight, run-wide. Default 16, max 64.
+  // The most classifier calls in flight, run-wide, at most 64.
   concurrency: 16,
-  // The time one classifier call may take, retries included, in seconds. Default 30. Each
-  // attempt gets a third of it.
+  // The time one classifier call may take, retries included, in seconds. Each attempt
+  // gets a third of it.
   timeout: 30,
   // The most input tokens the model accepts in one call. A call over it is skipped with a
   // note. Unset: elements over 30000 tokens are skipped.
   maxInputTokens: 4096,
   // The characters of a request's JSON that count as one token, when sizing a call
-  // against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer
-  // splits code finely.
+  // against maxInputTokens. Use a lower number for a model whose tokenizer splits code
+  // finely.
   charsPerToken: 2,
 });
 ```
@@ -57,10 +57,10 @@ These keys are not rules. They set what a run reads and how it asks.
 | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `input`          | string      | The file or directory to measure. A path given to jint run overrides it.                                                                                                             |
 | `secretDenylist` | string list | Replaces the built-in denylist of secret-shaped files (gitignore patterns).                                                                                                          |
-| `concurrency`    | number      | The most classifier calls in flight, run-wide. Default 16, max 64.                                                                                                                   |
-| `timeout`        | number      | The time one classifier call may take, retries included, in seconds. Default 30. Each attempt gets a third of it.                                                                    |
+| `concurrency`    | number      | The most classifier calls in flight, run-wide, at most 64. Default 16.                                                                                                               |
+| `timeout`        | number      | The time one classifier call may take, retries included, in seconds. Each attempt gets a third of it. Default 30.                                                                    |
 | `maxInputTokens` | number      | The most input tokens the model accepts in one call. A call over it is skipped with a note. Unset: elements over 30000 tokens are skipped.                                           |
-| `charsPerToken`  | number      | The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer splits code finely. |
+| `charsPerToken`  | number      | The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Use a lower number for a model whose tokenizer splits code finely. Default 4. |
 
 <!-- /generated:run-settings -->
 

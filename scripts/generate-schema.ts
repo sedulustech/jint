@@ -503,6 +503,8 @@ function renderConfigKeys(properties: Record<string, ConfigNode>, indent: string
 type TableNode = {
   type?: string;
   description?: string;
+  default?: unknown;
+  required?: readonly string[];
   properties?: Record<string, TableNode>;
   items?: TableNode;
   anyOf?: TableNode[];
@@ -518,8 +520,11 @@ function typeWord(node: TableNode): string {
   return node.type ?? "value";
 }
 
+const withDefault = (node: TableNode): string =>
+  (node.description ?? "") + (node.default === undefined ? "" : ` Default ${node.default}.`);
+
 const tableRow = (field: string, node: TableNode): string =>
-  `| \`${field}\` | ${typeWord(node)} | ${(node.description ?? "").replaceAll("|", "\\|")} |`;
+  `| \`${field}\` | ${typeWord(node)} | ${withDefault(node).replaceAll("|", "\\|")} |`;
 
 /** The run settings: every top-level key but the schema URL and the rules, from CONFIG_SCHEMA. */
 export function renderRunSettingsTable(): string {
@@ -596,17 +601,64 @@ export function renderCliReference(): string {
   );
 }
 
-/** The config reference: the example, the run settings and the rule fields, all from the schema. */
-export function renderConfigReference(): string {
+/** A schema node's type as a reader writes it in a config: `string[]`, not `array`. */
+function typeLabel(node: TableNode): string {
+  if (node.anyOf !== undefined) return "string | object";
+  if (node.type === "array") return node.items?.type === "string" ? "string[]" : "object[]";
+  return node.type ?? "value";
+}
+
+/** One field: its name on the left, its type, default and requiredness as pills on the right. */
+function renderFieldEntry(path: string, node: TableNode, required: boolean): string {
+  const pill = (text: string) => `<span class="pill">${text}</span>`;
+  const pills = [
+    pill(typeLabel(node)),
+    ...(node.default === undefined ? [] : [pill(`default ${node.default}`)]),
+    ...(required ? [pill("required")] : []),
+  ].join("");
+  const id = path.replaceAll(".", "-").toLowerCase();
   return [
-    renderConfigExample(),
+    `<h3 id="${id}" class="field"><code>${path}</code><span class="pills">${pills}</span></h3>`,
     "",
+    (node.description ?? "").replaceAll("\n", " "),
+    "",
+  ].join("\n");
+}
+
+/** The config reference: every key and rule field as one entry, all from the schema. */
+export function renderConfigReference(): string {
+  const root = CONFIG_SCHEMA as unknown as TableNode;
+  const props = root.properties!;
+  const rules = props["rules"]!;
+  const run = Object.entries(props).filter(([key]) => key !== "$schema" && key !== "rules");
+  const scope = Object.entries(rules.properties!).filter(([key]) => key !== "use");
+  const fields = new Map<string, { node: TableNode; required: boolean }>();
+  const visit = (node: TableNode, path: string) => {
+    for (const branch of node.anyOf ?? []) visit(branch, path);
+    for (const [key, child] of Object.entries(node.properties ?? {})) {
+      const at = path === "" ? key : `${path}.${key}`;
+      if (!fields.has(at) && child.description !== undefined) {
+        fields.set(at, { node: child, required: (node.required ?? []).includes(key) });
+      }
+      visit(child, at);
+    }
+    if (node.items !== undefined) visit(node.items, path);
+  };
+  visit(rules.properties!["use"]!.items!, "");
+  return [
     "## Run settings",
     "",
-    renderRunSettingsTable(),
+    ...run.map(([key, node]) => renderFieldEntry(key, node, (root.required ?? []).includes(key))),
+    "## Rule scope",
+    "",
+    ...scope.map(([key, node]) =>
+      renderFieldEntry(`rules.${key}`, node, (rules.required ?? []).includes(key)),
+    ),
     "## Rule fields",
     "",
-    renderRuleFieldsTable(),
+    "Each entry of `rules.use` is a rule name or a rule object with these fields.",
+    "",
+    ...[...fields].map(([path, { node, required }]) => renderFieldEntry(path, node, required)),
   ].join("\n");
 }
 

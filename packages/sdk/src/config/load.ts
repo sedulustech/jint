@@ -219,14 +219,16 @@ export const CONFIG_SCHEMA = Type.Object({
   // cross-field checks so the error names the field.
   concurrency: Type.Optional(
     Type.Number({
-      description: "The most classifier calls in flight, run-wide. Default 16, max 64.",
+      description: "The most classifier calls in flight, run-wide, at most 64.",
+      default: 16,
       examples: [16],
     }),
   ),
   timeout: Type.Optional(
     Type.Number({
       description:
-        "The time one classifier call may take, retries included, in seconds. Default 30. Each attempt gets a third of it.",
+        "The time one classifier call may take, retries included, in seconds. Each attempt gets a third of it.",
+      default: 30,
       examples: [30],
     }),
   ),
@@ -240,7 +242,8 @@ export const CONFIG_SCHEMA = Type.Object({
   charsPerToken: Type.Optional(
     Type.Number({
       description:
-        "The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Default 4. Use a lower number for a model whose tokenizer splits code finely.",
+        "The characters of a request's JSON that count as one token, when sizing a call against maxInputTokens. Use a lower number for a model whose tokenizer splits code finely.",
+      default: 4,
       examples: [2],
     }),
   ),
