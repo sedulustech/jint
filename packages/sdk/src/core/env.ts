@@ -51,12 +51,12 @@ export const ENV_VARS: readonly EnvVar[] = [
   {
     name: "JINT_UI_HOST",
     default: "`127.0.0.1`",
-    meaning: "The host that `jint serve` binds. Give a host, not `host:port`.",
+    meaning: "The host that `jint ui serve` binds. Give a host, not `host:port`.",
   },
   {
     name: "JINT_UI_PORT",
     default: "a free port",
-    meaning: "The port that `jint serve` binds.",
+    meaning: "The port that `jint ui serve` binds.",
   },
   {
     name: "JINT_LOG_LEVEL",

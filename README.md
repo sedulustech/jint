@@ -95,7 +95,7 @@ jint capture src/ --queries wip.scm       # your own .scm drives extraction (--g
 jint capture src/a.ts --json              # the element array as one JSON document
 jint capture                              # no target: walks the config's input, like run
 jint capture --rule is_greppable          # preview: mark the population one rule will judge (nothing is classified)
-jint serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
+jint ui serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
 
 The first positional is the verb: `run`, `serve`, or `capture`. There is no implicit verb -
@@ -231,8 +231,8 @@ docs/byog.md.
 
 ## UI
 
-`jint serve` opens a local dashboard useful for rule calibrations, over the newest recorded
-run (the fix loop: measure with `jint run`, then look with `jint serve`). It binds loopback only (127.0.0.1); override via `JINT_UI_HOST` - a non-loopback bind is your trust decision, nothing authenticates the served data. `JINT_UI_HOST` names a host, not host:port (the port is `JINT_UI_PORT`; a port suffix is rejected). Wildcards are not usable: `0.0.0.0` binds wide, but the Host guard still rejects browser requests (their Host header is the LAN address) - bind the concrete host you intend.
+`jint ui serve` opens a local dashboard useful for rule calibrations, over the newest recorded
+run (the fix loop: measure with `jint run`, then look with `jint ui serve`). It binds loopback only (127.0.0.1); override via `JINT_UI_HOST` - a non-loopback bind is your trust decision, nothing authenticates the served data. `JINT_UI_HOST` names a host, not host:port (the port is `JINT_UI_PORT`; a port suffix is rejected). Wildcards are not usable: `0.0.0.0` binds wide, but the Host guard still rejects browser requests (their Host header is the LAN address) - bind the concrete host you intend.
 It polls the run directory for new runs and displays useful information to verify the applicability of a rule to a lexical unit. It shows, among other things:
 
 - tokens used

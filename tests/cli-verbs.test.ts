@@ -28,7 +28,7 @@ describe("cli verbs e2e — resolution: the first positional IS the command", ()
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("a verb is required");
     expect(r.stderr).toContain("jint run");
-    expect(r.stderr).toContain("jint serve");
+    expect(r.stderr).toContain("jint ui serve");
     expect(r.stderr).toContain("jint capture <path>");
   });
 
@@ -153,7 +153,7 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
 
   test("no runs in the store: loud exit 2 naming the store", async () => {
     const empty = scratchDir("jint-serve-empty");
-    const r = await runCli(["serve"], {
+    const r = await runCli(["ui", "serve"], {
       env: { ...SERVE_ENV, JINT_RUNS_DIR: empty },
       timeout: 60_000,
     });
@@ -164,13 +164,13 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
   });
 
   test("any argument is a usage error: serve takes none", async () => {
-    const r = await runCli(["serve", "1700000000001"], { env: SERVE_ENV, timeout: 60_000 });
+    const r = await runCli(["ui", "serve", "1700000000001"], { env: SERVE_ENV, timeout: 60_000 });
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("serve takes no arguments");
+    expect(r.stderr).toContain("jint ui takes: serve");
   });
 
   test("no-hold gate: the url line on stderr, exit 0, no deep link", async () => {
-    const r = await runCli(["serve"], {
+    const r = await runCli(["ui", "serve"], {
       env: { ...SERVE_ENV, JINT_UI_NO_HOLD: "1" },
       timeout: 60_000,
     });
@@ -184,7 +184,7 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
   // then SIGINT and require exit 0 (the hold is just the viewer leaving). Import-side spawn
   // because runCli drains both pipes to EOF, which never comes while the server holds.
   test("held serve: the printed url serves the store's runs; SIGINT exits 0", async () => {
-    const proc = Bun.spawn(["bun", CLI, "serve"], {
+    const proc = Bun.spawn(["bun", CLI, "ui", "serve"], {
       cwd: join(import.meta.dir, ".."),
       stdout: "ignore",
       stderr: "pipe",

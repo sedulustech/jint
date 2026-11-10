@@ -162,8 +162,8 @@ of them, because a team commits its config.
 | `JINT_RUNS_DIR`    | `~/.jint/runs`               | The directory where jint records runs.                                                   |
 | `JINT_CACHE_DIR`   | `~/.jint/cache`              | The directory of the answer cache.                                                       |
 | `JINT_GRAMMAR_DIR` | `~/.jint/grammars`           | The directory of custom grammars.                                                        |
-| `JINT_UI_HOST`     | `127.0.0.1`                  | The host that `jint serve` binds. Give a host, not `host:port`.                          |
-| `JINT_UI_PORT`     | a free port                  | The port that `jint serve` binds.                                                        |
+| `JINT_UI_HOST`     | `127.0.0.1`                  | The host that `jint ui serve` binds. Give a host, not `host:port`.                       |
+| `JINT_UI_PORT`     | a free port                  | The port that `jint ui serve` binds.                                                     |
 | `JINT_LOG_LEVEL`   | `off`                        | The log level on stderr: `debug`, `info`, `warn`, `error` or `off`.                      |
 
 An empty variable counts as unset.

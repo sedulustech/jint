@@ -149,12 +149,12 @@ hide the rules and scope header
 jint run src/ --no-header
 ```
 
-### `serve`
+### `ui`
 
-open the run UI on the newest run
+serve the run UI, opened on the newest run
 
 ```sh
-jint serve
+jint ui serve
 ```
 
 ### `capture`

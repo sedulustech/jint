@@ -7,7 +7,7 @@ import { ENV_VARS } from "./env.ts";
 // setting. A name added here needs a reason.
 const INTERNAL: Record<string, string> = {
   JINT_UI_DIST: "the dev and build location of the built UI",
-  JINT_UI_NO_HOLD: "makes `jint serve` return, for tests",
+  JINT_UI_NO_HOLD: "makes `jint ui serve` return, for tests",
 };
 
 const SOURCE_ROOTS = ["../../../cli/src", "../../../sdk/src"];

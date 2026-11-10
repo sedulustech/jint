@@ -93,11 +93,11 @@ conventions show in a few units.
 
 ## 6. Show the readings
 
-Start `jint serve` before you run, so the run prints its own address, and give that address to the user to review:
+Start `jint ui serve` before you run, so the run prints its own address, and give that address to the user to review:
 
 <!-- generated:run-address — do not edit. Regenerate with `bun run schema`. -->
 
-`jint serve`: open the run UI on the newest run; it prints its URL. While it is up, a run prints its own page: `report.run.url` in `--json`, and a `ui ->` line on stderr. A classification's address adds `?rule=<rule>&input=<input>` to that page, with the classification's `input` from `--json`. URL-encode `input`: it contains `#`.
+`jint ui serve`: serve the run UI, opened on the newest run; it prints its URL. While it is up, a run prints its own page: `report.run.url` in `--json`, and a `ui ->` line on stderr. A classification's address adds `?rule=<rule>&input=<input>` to that page, with the classification's `input` from `--json`. URL-encode `input`: it contains `#`.
 <!-- /generated:run-address -->
 
 ## Where a rule goes

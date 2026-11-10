@@ -341,14 +341,14 @@
           "level": 3,
           "name": "JINT_UI_HOST",
           "pills": [["default", "`127.0.0.1`"]],
-          "body": "The host that `jint serve` binds. Give a host, not `host:port`."
+          "body": "The host that `jint ui serve` binds. Give a host, not `host:port`."
         },
         {
           "id": "jint-ui-port",
           "level": 3,
           "name": "JINT_UI_PORT",
           "pills": [["default", "a free port"]],
-          "body": "The port that `jint serve` binds."
+          "body": "The port that `jint ui serve` binds."
         },
         {
           "id": "jint-log-level",
@@ -486,12 +486,12 @@
           "example": "jint run src/ --no-header"
         },
         {
-          "id": "verb-serve",
+          "id": "verb-ui",
           "level": 3,
-          "name": "serve",
+          "name": "ui",
           "pills": [],
-          "body": "open the run UI on the newest run",
-          "example": "jint serve"
+          "body": "serve the run UI, opened on the newest run",
+          "example": "jint ui serve"
         },
         {
           "id": "verb-capture",

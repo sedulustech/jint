@@ -1,7 +1,7 @@
 /**
- * Where a running UI server says it is. `jint serve` writes `<store>/.serve.json` with its url and
- * pid, and removes it on close; a run reads it to print the address of its own run. The file lives
- * in the store it serves, so it can only ever name a server for THAT store (run dirs are the
+ * Where a running UI server says it is. `jint ui serve` writes `<store>/.serve.json` with its url
+ * and pid, and removes it on close; a run reads it to print the address of its own run. The file
+ * lives in the store it serves, so it can only ever name a server for THAT store (run dirs are the
  * directories of the store; a file beside them is not one).
  */
 

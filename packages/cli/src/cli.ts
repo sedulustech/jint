@@ -286,7 +286,7 @@ const OPTION_ROWS = Object.entries(FLAGS).map(([name, flag]) => ({
 
 /**
  * The verb table — the ONE source for the command vocabulary and the position rule: the FIRST
- * positional IS the command (run, serve, capture, reclassify, skills, docs); the rest are its
+ * positional IS the command (run, ui, capture, reclassify, skills, docs); the rest are its
  * operands. There is no implicit verb: a missing or unknown first positional is a usage error
  * naming `jint run <operands>`. Verbs never resolve to paths (a verb token as a later positional is
  * an error; the path is reached as ./<name>). `flags` names the flags the verb accepts beyond the
@@ -299,9 +299,9 @@ export const VERBS = {
     example: "jint run src/",
     blurb: "classify files and report the findings",
   },
-  serve: {
-    example: "jint serve",
-    blurb: "open the run UI on the newest run",
+  ui: {
+    example: "jint ui serve",
+    blurb: "serve the run UI, opened on the newest run",
     flags: [],
   },
   capture: {
@@ -465,7 +465,7 @@ ${helpRows([
   { left: "jint run", right: "no operand: input comes from the discovered config" },
 ])}
 
-Verbs - the FIRST positional IS the command (run, serve, capture, reclassify, skills, docs); everything after it is the
+Verbs - the FIRST positional IS the command (run, ui, capture, reclassify, skills, docs); everything after it is the
 verb's operands. There is no implicit verb: a missing or unknown first positional is a usage
 error naming the jint run form.
 
@@ -844,8 +844,8 @@ function dispatch(cliArgv: string[]): Dispatch {
     const operands = parsedCliArgs.positionals.join(" ");
     usageError(
       operands === ""
-        ? "a verb is required  - use: jint run (input from the discovered config), jint serve, jint capture <path>, jint reclassify <run-id> <input> --rule <name>, jint skills export <path> - see jint --help"
-        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, serve, capture, reclassify, skills, docs - see jint --help)`,
+        ? "a verb is required  - use: jint run (input from the discovered config), jint ui serve, jint capture <path>, jint reclassify <run-id> <input> --rule <name>, jint skills export <path> - see jint --help"
+        : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, ui, capture, reclassify, skills, docs - see jint --help)`,
     );
     return { exit: 2 };
   }
@@ -1124,7 +1124,7 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   const dispatched = dispatch(cliArgv);
   if ("exit" in dispatched) return dispatched.exit;
   const { cliArgs, verb } = dispatched;
-  if (verb.name === "serve") return serveVerb(verb.rest);
+  if (verb.name === "ui") return uiVerb(verb.rest);
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
   if (verb.name === "reclassify") return reclassifyVerb(cliArgs, verb.rest);
   if (verb.name === "skills") return skillsVerb(verb.rest);
@@ -1317,17 +1317,17 @@ function skillsVerb(rest: readonly string[]): number {
 
 /**
  * Serve: the run store's UI, standalone - no classification, no config, no arguments. The app opens
- * the store's NEWEST run first (the fix loop: measure with `jint run`, then look with `jint
+ * the store's NEWEST run first (the fix loop: measure with `jint run`, then look with `jint ui
  * serve`). Any positional is a usage error; an empty store fails loud, naming the store.
  */
-async function serveVerb(rest: readonly string[]): Promise<number> {
-  if (rest.length > 0) {
-    usageError("serve takes no arguments  - it opens the store's newest run: jint serve");
+async function uiVerb(rest: readonly string[]): Promise<number> {
+  if (rest.length !== 1 || rest[0] !== "serve") {
+    usageError("jint ui takes: serve  - it opens the store's newest run: jint ui serve");
     return 2;
   }
   if (!storeHasRuns()) {
     usageError(
-      `no runs in the store (${runsBase()}) - jint run records one, then jint serve opens it`,
+      `no runs in the store (${runsBase()}) - jint run records one, then jint ui serve opens it`,
     );
     return 2;
   }

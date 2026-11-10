@@ -6,7 +6,7 @@ import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // A run prints the address of its own run when a UI server is up for the store it wrote to: the
-// real `jint serve` held in the background, real runs against a mock endpoint. The address is
+// real `jint ui serve` held in the background, real runs against a mock endpoint. The address is
 // read, not built, by the agent: report.run.url and a `ui ->` line on stderr.
 
 const scratch: string[] = [];
@@ -47,9 +47,9 @@ function setup() {
 
 type Setup = ReturnType<typeof setup>;
 
-/** The held `jint serve` for the store; resolves with its url once it prints it. */
+/** The held `jint ui serve` for the store; resolves with its url once it prints it. */
 async function holdServe(s: Setup) {
-  const proc = Bun.spawn(["bun", join(import.meta.dir, "..", CLI_SRC), "serve"], {
+  const proc = Bun.spawn(["bun", join(import.meta.dir, "..", CLI_SRC), "ui", "serve"], {
     stdout: "ignore",
     stderr: "pipe",
     stdin: "ignore",

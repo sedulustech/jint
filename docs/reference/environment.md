@@ -53,13 +53,13 @@ _default `~/.jint/grammars`_
 
 ### `JINT_UI_HOST`
 
-The host that `jint serve` binds. Give a host, not `host:port`.
+The host that `jint ui serve` binds. Give a host, not `host:port`.
 
 _default `127.0.0.1`_
 
 ### `JINT_UI_PORT`
 
-The port that `jint serve` binds.
+The port that `jint ui serve` binds.
 
 _default a free port_
 
