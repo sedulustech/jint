@@ -7,14 +7,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import followingSkill from "../../../skills/following-rule-results/SKILL.md" with { type: "text" };
-import proposeSkill from "../../../skills/jint-propose/SKILL.md" with { type: "text" };
+import proposeSkill from "../../../skills/propose-rules/SKILL.md" with { type: "text" };
 import writingSkill from "../../../skills/writing-rules/SKILL.md" with { type: "text" };
 
 /** Each embedded skill file: its path under a skills directory, and its content. */
 export const SKILL_FILES: Readonly<Record<string, string>> = {
   "writing-rules/SKILL.md": writingSkill,
   "following-rule-results/SKILL.md": followingSkill,
-  "jint-propose/SKILL.md": proposeSkill,
+  "propose-rules/SKILL.md": proposeSkill,
 };
 
 /**

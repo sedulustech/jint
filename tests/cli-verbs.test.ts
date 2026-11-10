@@ -231,7 +231,7 @@ describe("cli verbs e2e - skills export", () => {
       for (const file of [
         "writing-rules/SKILL.md",
         "following-rule-results/SKILL.md",
-        "jint-propose/SKILL.md",
+        "propose-rules/SKILL.md",
       ]) {
         expect(existsSync(join(dir, file))).toBe(true);
         expect(r.stdout).toContain(join(dir, file));

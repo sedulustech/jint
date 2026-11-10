@@ -9,7 +9,7 @@ const root = new URL("../../../skills/", import.meta.url).pathname;
 test("every embedded skill file is the repo's file", () => {
   expect(Object.keys(SKILL_FILES).sort()).toEqual([
     "following-rule-results/SKILL.md",
-    "jint-propose/SKILL.md",
+    "propose-rules/SKILL.md",
     "writing-rules/SKILL.md",
   ]);
   for (const [path, content] of Object.entries(SKILL_FILES)) {

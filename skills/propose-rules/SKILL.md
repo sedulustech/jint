@@ -1,5 +1,5 @@
 ---
-name: jint-propose
+name: propose-rules
 description: >
   Turn what the user expects into jint rules for code or prose, so you can verify
   your own work against it. Use when the user states a convention or corrects you, when you
@@ -8,6 +8,9 @@ description: >
 ---
 
 # jint - propose rules from what the user expects
+
+Read the writing-rules skill before you draft a rule. A proposal is only as good as the rule
+behind it, and the evidence it needs depends on how a rule is made.
 
 Every correction, convention, "always" and "never" is an expectation. A rule turns it into a check
 you can run on your own output. When you see an expectation, ask whether it could be a rule.
@@ -36,7 +39,7 @@ Do not force every expectation into a rule.
 
 ## Draft each rule
 
-1. Write the defect as one yes/no question about one property: see the writing-rules skill.
+1. Write the defect as one yes/no question about one property: see the writing-rules skill, which you have read.
 2. Find one to three `file:line` places where it would fire, in code you read. No evidence, no rule.
 3. Plant the defect in a real unit with one edit, and check the rule separates the pair.
 4. Put it in `.jint/rules/<name>.ts` and list it in the root `jint.config.ts`.
