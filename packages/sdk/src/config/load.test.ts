@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { allRules } from "@jint/rules";
 import { catalogConfig, catalog } from "../../tests/test-baseline.ts";
 import { SetupError } from "../core/types.ts";
 import { loadConfig, validateConfig } from "./load.ts";
@@ -98,7 +99,7 @@ describe("validateConfig / catalogConfig", () => {
   test("the catalog carries every domain rule and no input", () => {
     const config = catalogConfig();
     expect(config.input).toBe("");
-    expect(config.rules).toHaveLength(13);
+    expect(config.rules).toHaveLength(allRules.length);
   });
 
   test("no rules key is an error that lists the domains; strings select catalog rules; objects declare their own", () => {

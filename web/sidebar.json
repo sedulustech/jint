@@ -36,7 +36,8 @@
       "use-cases/bash/remove-stale-comments",
       "use-cases/typescript/rewrite-stateful-comments",
       "use-cases/security/keep-secrets-out-of-config",
-      "use-cases/opengraph/name-the-page-in-its-title"
+      "use-cases/opengraph/name-the-page-in-its-title",
+      "use-cases/seo/name-the-page-for-search-results"
     ]
   }
 ]

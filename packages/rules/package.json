@@ -13,6 +13,7 @@
     "@jint/rules-errors": "workspace:*",
     "@jint/rules-naming": "workspace:*",
     "@jint/rules-react": "workspace:*",
-    "@jint/rules-security": "workspace:*"
+    "@jint/rules-security": "workspace:*",
+    "@jint/rules-seo": "workspace:*"
   }
 }

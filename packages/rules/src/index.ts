@@ -4,6 +4,7 @@ import { rules as errors } from "@jint/rules-errors";
 import { rules as naming } from "@jint/rules-naming";
 import { rules as reactHooks } from "@jint/rules-react/hooks";
 import { rules as security } from "@jint/rules-security";
+import { rules as seo } from "@jint/rules-seo";
 import type { RuleSchema } from "@jint/contract";
 
 export type { RuleSchema };
@@ -18,6 +19,7 @@ export const domains: Readonly<Record<string, readonly RuleSchema[]>> = {
   errors,
   naming,
   security,
+  seo,
   // a subdomain is a subpath of its parent's package; the key is the import path under jint:rules/
   "react/hooks": reactHooks,
 };

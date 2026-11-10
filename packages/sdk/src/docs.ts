@@ -27,6 +27,7 @@ import docUseCasesDocsKeepUseCasesShort from "../../../docs/use-cases/docs/keep-
 import docUseCasesOpengraphNameThePageInItsTitle from "../../../docs/use-cases/opengraph/name-the-page-in-its-title.md" with { type: "text" };
 import docUseCasesReactAlwaysNameEffects from "../../../docs/use-cases/react/always-name-effects.md" with { type: "text" };
 import docUseCasesSecurityKeepSecretsOutOfConfig from "../../../docs/use-cases/security/keep-secrets-out-of-config.md" with { type: "text" };
+import docUseCasesSeoNameThePageForSearchResults from "../../../docs/use-cases/seo/name-the-page-for-search-results.md" with { type: "text" };
 import docUseCasesTypescriptRewriteStatefulComments from "../../../docs/use-cases/typescript/rewrite-stateful-comments.md" with { type: "text" };
 import docWhatAreRules from "../../../docs/what-are-rules.md" with { type: "text" };
 import docWhatIsJint from "../../../docs/what-is-jint.md" with { type: "text" };
@@ -57,6 +58,7 @@ export const DOC_FILES: Readonly<Record<string, string>> = {
   "use-cases/opengraph/name-the-page-in-its-title": docUseCasesOpengraphNameThePageInItsTitle,
   "use-cases/react/always-name-effects": docUseCasesReactAlwaysNameEffects,
   "use-cases/security/keep-secrets-out-of-config": docUseCasesSecurityKeepSecretsOutOfConfig,
+  "use-cases/seo/name-the-page-for-search-results": docUseCasesSeoNameThePageForSearchResults,
   "use-cases/typescript/rewrite-stateful-comments": docUseCasesTypescriptRewriteStatefulComments,
 };
 

@@ -21,6 +21,9 @@ declare module "jint:rules/naming" {
 declare module "jint:rules/security" {
   export * from "@jint/rules-security";
 }
+declare module "jint:rules/seo" {
+  export * from "@jint/rules-seo";
+}
 declare module "jint:rules/react/hooks" {
   export * from "@jint/rules-react/hooks";
 }
