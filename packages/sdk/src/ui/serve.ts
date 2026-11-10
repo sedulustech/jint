@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
+import { runsBase } from "../core/provider/debug.ts";
+import { registerUi } from "../core/ui-registry.ts";
 import { serveApiRequest } from "./api.ts";
 
 /**
@@ -170,9 +172,14 @@ export async function startUi(options: StartUiOptions = {}): Promise<UiServer> {
       return new Response("not found", { status: 404 });
     },
   });
+  const root = resolve(options.root ?? runsBase());
+  const unregister = registerUi(root, server.url.toString());
   return {
     url: server.url.toString(),
     port: server.port ?? 0,
-    close: () => server.stop(true),
+    close: () => {
+      unregister();
+      server.stop(true);
+    },
   };
 }

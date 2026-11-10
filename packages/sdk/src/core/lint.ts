@@ -80,6 +80,7 @@ import {
   type Rule,
   type Unit,
 } from "./types.ts";
+import { findUi } from "./ui-registry.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { SelectedElement } from "./output/echo.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
@@ -1068,6 +1069,8 @@ export interface RunPointer {
    * question was asked.
    */
   answersFromCache?: number;
+  /** The run's page in the running UI server for the store it was written to; absent when none runs. */
+  url?: string;
   /** Input, output and cached tokens summed over the run's classifier responses. */
   usage?: { input: number; output: number; cached: number };
 }
@@ -1158,6 +1161,7 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
   const summary = recordSummary();
   if (summary !== null) {
     const stats = runStats();
+    const ui = await findUi(summary.dir.slice(0, summary.dir.lastIndexOf("/")));
     report.run = {
       id: summary.dir.split("/").pop()!,
       dir: summary.dir,
@@ -1165,6 +1169,7 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       durationMs: stats.durationMs,
       usage: stats.usage,
       answersFromCache: summary.cached,
+      url: ui === null ? undefined : new URL(`runs/${summary.dir.split("/").pop()}`, ui).href,
     };
   }
   // The input accounting rides the run pointer when one exists; a capture-less run still reports

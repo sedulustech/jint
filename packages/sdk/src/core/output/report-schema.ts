@@ -159,6 +159,8 @@ export const REPORT_SCHEMA = Type.Object({
       // answers the answer cache served instead of a call: zero usage with a count here means the
       // run asked nothing
       answersFromCache: Type.Optional(Type.Integer()),
+      // the run's page in the running UI server for this store; absent when no server runs
+      url: Type.Optional(Type.String()),
       usage: Type.Optional(
         Type.Object({
           input: Type.Integer(),

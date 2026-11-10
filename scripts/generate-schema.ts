@@ -75,7 +75,7 @@ export function renderRunAddress(): string {
     .map((key) => `${key}=<${key}>`)
     .join("&");
   const serve = `\`${VERBS.serve.example}\`: ${VERBS.serve.blurb.split(" - ")[0]}; it prints its URL.`;
-  return `${serve} A classification's address there: \`<serve url>/runs/<run.id>?${query}\`, with \`run.id\` and the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
+  return `${serve} While it is up, a run prints its own page: \`report.run.url\` in \`--json\`, and a \`ui ->\` line on stderr. A classification's address adds \`?${query}\` to that page, with the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
 }
 
 interface Row {

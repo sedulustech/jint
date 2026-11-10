@@ -1013,6 +1013,7 @@ async function runLint(run: RunContext): Promise<number> {
   const exit = computeExit(lintReport);
   const notice = recordNotice();
   if (notice !== "") emit({ message: notice });
+  if (lintReport.run?.url !== undefined) emit({ message: `ui -> ${lintReport.run.url}` });
   return exit;
 }
 
