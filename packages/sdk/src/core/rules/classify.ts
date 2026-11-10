@@ -172,7 +172,7 @@ function outcomeFor(
   input: string,
   answer: AskedAnswer,
 ): Classification | ClassifyError {
-  if (isRefusal(answer)) return { rule, input, refused: true };
+  if (isRefusal(answer)) return { rule, input, refused: true, cached: answer.cached };
   if (answer === undefined || typeof answer.value !== "number" || !Number.isFinite(answer.value))
     return invalidAnswerError(input, rule, answer as ClassifiedAnswer | undefined);
   return classificationFields(rule, input, answer);
@@ -190,6 +190,7 @@ function classificationFields(
     probabilities: answer.probabilities,
     confidence: answer.confidence,
     choice: answer.choice,
+    cached: answer.cached,
   };
 }
 

@@ -67,6 +67,8 @@ const CLASSIFICATION_BASE = {
   // The measured subject, fully typed. Absent only from the bare whole-source generator (no
   // source, no span); every report path attaches it.
   element: Type.Optional(ELEMENT_SCHEMA),
+  // The answer cache served this reading: nothing was asked for it in this run.
+  cached: Type.Optional(Type.Literal(true)),
 };
 
 const REFUSED_CLASSIFICATION_SCHEMA = Type.Object({
@@ -98,6 +100,8 @@ export const FINDING_SCHEMA = Type.Object({
   confidence: Type.Optional(Type.Number()),
   // Choice rules only: the selected option's label; value is that option's probability.
   choice: Type.Optional(Type.String()),
+  // The answer cache served this reading: nothing was asked for it in this run.
+  cached: Type.Optional(Type.Literal(true)),
   // The reading was too close to call and the rule's undecided tier fired.
   undecided: Type.Optional(Type.Literal(true)),
   // Custom tier only: the callback's remediation instruction to the caller — severity says
@@ -118,7 +122,8 @@ export const LINE_SCHEMA = Type.String({
   // path(@L<start>) or path(@L<start>-L<end>)  rule  level  score — two-space separators,
   // parseable. The element id never prints (run-scoped internal); files-target findings have no
   // anchor. The run id stays stderr-side: it prints once per run.
-  pattern: "^\\s*\\S+(@L\\d+(-L\\d+)?)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}$",
+  pattern:
+    "^\\s*\\S+(@L\\d+(-L\\d+)?)?\\s{2,}\\S+\\s{2,}(error|warn)\\s{2,}\\d+\\.\\d{2}(\\s{2,}\\(cached\\))?$",
 });
 
 export const CLASSIFY_ERROR_SCHEMA = Type.Object({
@@ -156,9 +161,6 @@ export const REPORT_SCHEMA = Type.Object({
       // what the run used: the model that answered, the wall time, the tokens summed over calls
       model: Type.Optional(Type.String()),
       durationMs: Type.Optional(Type.Integer()),
-      // answers the answer cache served instead of a call: zero usage with a count here means the
-      // run asked nothing
-      answersFromCache: Type.Optional(Type.Integer()),
       // the run's page in the running UI server for this store; absent when no server runs
       url: Type.Optional(Type.String()),
       usage: Type.Optional(

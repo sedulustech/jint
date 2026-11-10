@@ -657,6 +657,7 @@ function findingFor(
     // the provider's number rides along; no handle reads it
     confidence: event.confidence,
     choice: event.choice,
+    cached: event.cached,
     // Literal ternary branches, NOT conditional spreads: this literal sits under
     // excess-property checking — an undeclared field is a compile error.
     location: element !== undefined ? { input: event.input, span: element.span } : undefined,
@@ -1064,11 +1065,6 @@ export interface RunPointer {
   model?: string;
   /** Wall time of the run in milliseconds, up to the end of classification. */
   durationMs?: number;
-  /**
-   * Answers the answer cache served instead of a call. Zero usage with a count here means no
-   * question was asked.
-   */
-  answersFromCache?: number;
   /** The run's page in the running UI server for the store it was written to; absent when none runs. */
   url?: string;
   /** Input, output and cached tokens summed over the run's classifier responses. */
@@ -1168,7 +1164,6 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       model: stats.model,
       durationMs: stats.durationMs,
       usage: stats.usage,
-      answersFromCache: summary.cached,
       url: ui === null ? undefined : new URL(`runs/${summary.dir.split("/").pop()}`, ui).href,
     };
   }

@@ -232,6 +232,8 @@ export interface Finding {
   readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  readonly cached?: true;
   /** The reading was too close to call and the rule's undecided tier fired. */
   readonly undecided?: true;
   /**

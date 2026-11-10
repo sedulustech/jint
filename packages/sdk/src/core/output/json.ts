@@ -38,7 +38,13 @@ export function renderJson(report: LintReport): string {
         classifications: report.classifications.map(
           (m): Classification =>
             m.refused
-              ? { rule: m.rule, input: m.input, refused: true, element: m.element }
+              ? {
+                  rule: m.rule,
+                  input: m.input,
+                  refused: true,
+                  cached: m.cached,
+                  element: m.element,
+                }
               : {
                   rule: m.rule,
                   input: m.input,
@@ -47,6 +53,7 @@ export function renderJson(report: LintReport): string {
                   probabilities: m.probabilities,
                   confidence: m.confidence,
                   choice: m.choice,
+                  cached: m.cached,
                   element: m.element,
                 },
         ),
@@ -63,6 +70,7 @@ export function renderJson(report: LintReport): string {
             probabilities: s.probabilities !== undefined ? s.probabilities : undefined,
             confidence: s.confidence !== undefined ? s.confidence : undefined,
             choice: s.choice !== undefined ? s.choice : undefined,
+            cached: s.cached !== undefined ? s.cached : undefined,
             undecided: s.undecided !== undefined ? s.undecided : undefined,
             message: s.message !== undefined ? s.message : undefined,
             location:

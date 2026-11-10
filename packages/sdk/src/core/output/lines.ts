@@ -6,13 +6,14 @@
  * added at its write site; note lines carry the SDK's `note: ` marker for the client's note
  * treatment. Line shape (LINE_SCHEMA):
  *
- * Path#id@L<line> rule level score
+ * Path#id@L<line> rule level score [(cached)]
  *
  * Path#id is the finding input (the run-scoped key the app pairs with; it does NOT print). The raw
  * line is the LOC form only:
  *
  * Path@L<start> or Path@L<start>-L<end> (collapsed to the single line when start == end) rule level
- * score - the range form pastes back into the element-scoped CLI noun.
+ * score - the range form pastes back into the element-scoped CLI noun. A trailing (cached) says the
+ * answer cache served the reading: nothing was asked for it in this run.
  *
  * The finding note stays json-side (author messages ride the finding.message continuation line when
  * present); the run id is named once per run in the stderr requests notice.
@@ -48,6 +49,7 @@ export function renderLines(report: LintReport): LinesRender {
         headCell(f.rule, RULE_WIDTH),
         headCell(f.severity, SEVERITY_WIDTH),
         f.value.toFixed(2),
+        ...(f.cached === true ? ["(cached)"] : []),
       ),
     );
     // A callback decision's message is an instruction to the caller (how to remediate — severity

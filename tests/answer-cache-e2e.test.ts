@@ -125,8 +125,11 @@ describe("answer cache", () => {
     expect(second.code).toBe(first.code);
     expect(readings(second.stdout)).toEqual(readings(first.stdout));
     expect(second.stderr).toMatch(/\(0 calls, \d+ answers from the cache\)/);
-    expect(JSON.parse(first.stdout).run.answersFromCache).toBe(0);
-    expect(JSON.parse(second.stdout).run.answersFromCache).toBeGreaterThan(0);
+    const marks = (stdout: string) =>
+      (JSON.parse(stdout).classifications as { cached?: true }[]).map((c) => c.cached);
+    expect(marks(first.stdout).every((cached) => cached === undefined)).toBe(true);
+    expect(marks(second.stdout).length).toBeGreaterThan(0);
+    expect(marks(second.stdout).every((cached) => cached === true)).toBe(true);
 
     const [, rerun] = runDirs(p);
     expect(rerun!.records.length).toBeGreaterThan(0);
@@ -193,6 +196,27 @@ describe("answer cache", () => {
     const [before, mixed] = [await served(p, 0), await served(p, 1)];
     expect(mixed.cells).toEqual(before.cells);
     for (const [asked, answered] of mixed.shapes) expect(answered).toBe(asked);
+  });
+
+  test("a finding line says (cached) when the cache served it, and not on the first run", async () => {
+    const provider = startMockDecisions({ predicate: 0.62 });
+    const p = project([rule("is_alpha_probe", "Is it short?")]);
+    const lines = () =>
+      runCli(["run", "--config", p.config], {
+        env: {
+          ...mockDecisionsWire(provider.baseUrl),
+          JINT_CACHE_DIR: p.cache,
+          JINT_RUNS_DIR: p.runs,
+        },
+      });
+    const first = await lines();
+    const second = await lines();
+    provider.stop();
+    const rows = (stdout: string) => stdout.split("\n").filter((line) => /\bwarn\b/.test(line));
+    expect(rows(first.stdout).length).toBeGreaterThan(0);
+    expect(rows(first.stdout).some((line) => line.includes("(cached)"))).toBe(false);
+    expect(rows(second.stdout).length).toBe(rows(first.stdout).length);
+    expect(rows(second.stdout).every((line) => line.endsWith("  (cached)"))).toBe(true);
   });
 
   test("--no-cache asks everything again", async () => {

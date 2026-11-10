@@ -146,12 +146,16 @@ export interface ClassifiedAnswer {
   readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  readonly cached?: true;
 }
 
 /** The classification fields every classification carries, valued or refused. */
 interface ClassificationBase {
   readonly rule: string;
   readonly input: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  readonly cached?: true;
   /**
    * The measured subject: what was classified, fully typed. Absent only from the bare classifyUnit
    * generator, which sees no source and so cannot span a FileElement — every report path (lint,
@@ -195,6 +199,8 @@ export type Classification = ValuedClassification | RefusedClassification;
 /** What a classifier returns for a question the model refused. */
 export interface Refusal {
   readonly refused: true;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  readonly cached?: true;
 }
 
 /**
@@ -216,6 +222,8 @@ export interface Finding {
   readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  readonly cached?: true;
   /** The classification was too close to call and the rule's undecided tier fired. */
   readonly undecided?: true;
   /**

@@ -226,6 +226,10 @@ export function decisionsAdapter(
             : fresh.get(wireName(missing.indexOf(n))),
         );
         const answers = readAnswers(ask, (wire) => raw[Number(wire.slice(1))]);
+        // an answer the cache held was not asked for in this run: it says so
+        names.forEach((n, i) => {
+          if (held[i] !== undefined) answers[n] = { ...answers[n]!, cached: true };
+        });
         if (cache !== undefined) {
           const now = new Date().toISOString();
           names.forEach((_, i) => {
