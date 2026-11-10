@@ -279,7 +279,9 @@ const jsonLd = [
   }
 
   main pre {
-    overflow-x: auto;
+    /* long lines wrap at the block: a line that scrolls off the page is unreadable */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     margin-block: 0 var(--s2);
     padding: var(--s2);
     border: 1px solid var(--rule);
