@@ -24,6 +24,8 @@ endpoints`).
 - A changeset: `git diff --name-only | jint run paths -`.
 - Anchors are pre-edit. After any edit, grep the declaration again and re-run.
 - Exit 1 is an error finding, 2 a setup problem, 4 an input that was not fully measured.
+- A report with `run.answersFromCache` above zero and no usage was answered from the cache: nothing
+  was asked again. `--no-cache` asks again.
 - Every run costs spend. Run one file to find findings, then one element to verify a fix.
 
 ## Fix loop

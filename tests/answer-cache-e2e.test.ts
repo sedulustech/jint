@@ -125,6 +125,8 @@ describe("answer cache", () => {
     expect(second.code).toBe(first.code);
     expect(readings(second.stdout)).toEqual(readings(first.stdout));
     expect(second.stderr).toMatch(/\(0 calls, \d+ answers from the cache\)/);
+    expect(JSON.parse(first.stdout).run.answersFromCache).toBe(0);
+    expect(JSON.parse(second.stdout).run.answersFromCache).toBeGreaterThan(0);
 
     const [, rerun] = runDirs(p);
     expect(rerun!.records.length).toBeGreaterThan(0);

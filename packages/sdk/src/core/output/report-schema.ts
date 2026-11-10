@@ -156,6 +156,9 @@ export const REPORT_SCHEMA = Type.Object({
       // what the run used: the model that answered, the wall time, the tokens summed over calls
       model: Type.Optional(Type.String()),
       durationMs: Type.Optional(Type.Integer()),
+      // answers the answer cache served instead of a call: zero usage with a count here means the
+      // run asked nothing
+      answersFromCache: Type.Optional(Type.Integer()),
       usage: Type.Optional(
         Type.Object({
           input: Type.Integer(),

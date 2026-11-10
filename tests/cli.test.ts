@@ -601,6 +601,7 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
       model: "gpt-6-luna",
       durationMs: expect.any(Number),
       usage: { input: expect.any(Number), output: expect.any(Number), cached: 0 },
+      answersFromCache: 0,
     });
   });
 

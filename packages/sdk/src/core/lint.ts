@@ -1063,6 +1063,11 @@ export interface RunPointer {
   model?: string;
   /** Wall time of the run in milliseconds, up to the end of classification. */
   durationMs?: number;
+  /**
+   * Answers the answer cache served instead of a call. Zero usage with a count here means no
+   * question was asked.
+   */
+  answersFromCache?: number;
   /** Input, output and cached tokens summed over the run's classifier responses. */
   usage?: { input: number; output: number; cached: number };
 }
@@ -1159,6 +1164,7 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       model: stats.model,
       durationMs: stats.durationMs,
       usage: stats.usage,
+      answersFromCache: summary.cached,
     };
   }
   // The input accounting rides the run pointer when one exists; a capture-less run still reports
