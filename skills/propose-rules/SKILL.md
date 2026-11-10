@@ -27,15 +27,23 @@ you can run on your own output. When you see an expectation, ask whether it coul
 
 Keep what repeats or says always or never. Drop one-off requests.
 
-## Sort each one
+## When to add a rule
 
-| the expectation is                                                   | it becomes                             |
-| -------------------------------------------------------------------- | -------------------------------------- |
-| a judgment on one element that grep and the type checker cannot make | a jint rule                            |
-| about process or behavior ("ask before pushing")                     | a line in AGENTS.md or CLAUDE.md       |
-| mechanical (a banned word, a file that must exist, an import)        | a test or a lint rule, not a jint rule |
+Add a rule when the expectation is a judgment on one element, the kind of claim a reader
+decides from the element's own text. The user's wording shows it: "this comment restates the
+code", "this name does not say what it does".
 
-Do not force every expectation into a rule.
+Do not add a rule when:
+
+- the claim needs code outside the element, because the model sees only the element;
+- the expectation is about how you work, not about what the code or prose says;
+- you cannot find one to three real places where it would fire.
+
+Do not choose what the user should use instead. You do not know their requirements: say which
+expectations you did not turn into rules, and why.
+
+`jint docs` lists the docs that ship with the CLI, and `jint docs what-are-rules` shows what a
+rule can express.
 
 ## Draft each rule
 
