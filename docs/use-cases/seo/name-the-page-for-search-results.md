@@ -2,7 +2,7 @@
 title: "Name the page for search results"
 description: "A rule for built HTML pages: it flags a page whose title tag is a bare label, so a searcher cannot tell from the results list what the page is."
 sidebar:
-  label: Name the page for search results
+  label: SEO
 ---
 
 # Name the page for search results
