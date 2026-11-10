@@ -10,7 +10,7 @@ export const GET: APIRoute = async ({ site }) => {
   const body = [
     "# jint",
     "",
-    "> jint is a semantic linter: it measures code with AI-classifier judgments and turns the readings into findings through rules you configure.",
+    "> jint is an extensible semantic linter: it measures code with AI-classifier judgments and turns the readings into findings through rules you configure.",
     "",
     "## Docs",
     "",

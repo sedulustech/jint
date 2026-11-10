@@ -2,7 +2,7 @@
   <img src="logo.svg" width="160" alt="jint">
 </p>
 
-# jint, a semantic linter
+# jint, an extensible semantic linter
 
 `jint` constructs state with Treesitter, and classifies the state against a set of user defined rules using a provider.
 It then turns the classification values into actionable output via per-rule callbacks.

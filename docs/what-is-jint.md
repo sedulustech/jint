@@ -1,6 +1,6 @@
 ---
 title: "What's jint?"
-description: "jint is a semantic linter. A rule is a plain-English question about your code; a classifier answers it, and a threshold turns the answer into a finding."
+description: "jint is an extensible semantic linter. A rule is a plain-English question about your code; a classifier answers it, and a threshold turns the answer into a finding."
 sidebar:
   label: "What's jint?"
 ---

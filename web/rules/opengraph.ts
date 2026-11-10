@@ -32,29 +32,42 @@ export const has_call_to_action: RuleSchema = {
   },
 };
 
+/**
+ * Measured on this site's pages, with a planted control for each defect (one mechanical edit of a
+ * real page): the three healthy readings are 0.56 (the download page), 0.66 and 0.76; the two
+ * defective ones are 0.00 (a description cut to "Download jint.") and 0.11 (the home page's
+ * one-line description). The threshold sits in that gap. Three pages of one layout: not proven
+ * elsewhere.
+ */
 export const is_description_complete: RuleSchema = {
   name: "is_description_complete",
   instructions:
-    "Does the page's description say what the page is, who or what it is for, and what the reader gets, in a sentence or two?",
+    "Complete means the description answers two questions: what the page is, and what the reader gets from it. Judge the description alone, not the title. Does the description answer both, in a sentence or two?",
   criteria: {
-    true: `${NOT_APPLICABLE} Otherwise the description covers what the page is, who or what it is for, and what the reader gets, in full sentences.`,
+    true: `${NOT_APPLICABLE} Otherwise the description says what the page is and what the reader gets from it, in a full sentence.`,
     false:
-      "The description leaves out at least one of these: what the page is, who or what it is for, what the reader gets. A slogan or a fragment of a sentence is not complete.",
+      "The description leaves out what the page is or what the reader gets from it. A slogan, a bare name or a fragment of a sentence is not complete.",
   },
   target: "files",
   include: files,
   handle: {
     warn: {
-      less_than: 0.6,
-      message: "Write a description that says what, for whom and what you get.",
+      less_than: 0.3,
+      message: "Write a description that says what the page is and what the reader gets.",
     },
   },
 };
 
+/**
+ * Measured as is_description_complete is: the healthy readings are 0.99 and 1.00 (the download
+ * page, with its own description and with a one-word one, so the title is judged alone); the
+ * defective ones are 0.02 to 0.07 (the product name with a category) and 0.25 (the 404 page's "not
+ * found").
+ */
 export const is_title_informative: RuleSchema = {
   name: "is_title_informative",
   instructions:
-    "Does the page's title say what the page is about, with more than the product name and a category?",
+    "Informative means a reader who sees only the title, as a search result or a browser tab, can tell what the page is about. Judge the title alone, not the description. Does the page's title name the page's subject or what the reader gets, in words beyond the product name and a category?",
   criteria: {
     true: `${NOT_APPLICABLE} Otherwise the title names the page's subject or the reader's gain, so a reader tells this page from the product's others.`,
     false:
