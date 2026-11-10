@@ -375,8 +375,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
   // THE config-scope gate for rule selection: unscoped rules follow the config scope
   // (include whitelist AND not excluded), so they measure exactly the files that scope admits -
   // never files only a rule scope claimed. Scoped rules (include declared) follow their OWN
-  // include, claiming across the config exclude; the always-true inputs are str and the paths
-  // list only (no path semantics) - file operands and element scope evaluate the real predicate.
+  // include, claiming across the config exclude; only str has no path to evaluate (always-true) -
+  // paths lists, file operands, and element scope use the real predicate.
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
     ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   // The input accounting (run.input): how many files, and why not all measured. Emitted as an
@@ -787,8 +787,8 @@ function sweepCoverageNote(unclaimed: Iterable<string>, registry: GrammarRegistr
 /**
  * One run's input resolution: the units, the walk's admission scopes (config + rule includes -
  * run.input attribution), and the config-scope predicate unscoped rules follow. `configAdmits` is
- * always-true ONLY for str and the paths list (no path semantics to evaluate); dir walks and file
- * operands (including element scope) evaluate the one predicate on their paths.
+ * always-true ONLY for str (no path to evaluate); paths lists, dir walks, and file operands
+ * (including element scope) evaluate the one predicate on their paths.
  */
 interface Admission {
   readonly units: Unit[];
@@ -798,13 +798,36 @@ interface Admission {
 
 /**
  * The changeset form, entry by entry: a missing, unreadable, or non-source path degrades to a
- * not-in-the-walk note (the caller names it below) - never a failed run.
+ * not-in-the-walk note (the caller names it below) - never a failed run. The denylist runs BEFORE
+ * resolveInput so a secret-shaped entry is never read or classified.
  */
-async function unitsFromPathsList(pathsList: readonly string[]): Promise<Unit[]> {
+async function unitsFromPathsList(
+  pathsList: readonly string[],
+  opts: {
+    registry: GrammarRegistry;
+    stats: InputStats;
+    requireGrammarFor: (path: string) => boolean;
+    secretDenylist: readonly string[];
+    onWalkNote: (note: string) => void;
+  },
+): Promise<Unit[]> {
   const resolved: Unit[] = [];
   for (const entry of pathsList) {
+    const denied = denylistMatch(entry, opts.secretDenylist);
+    if (denied !== null) {
+      opts.onWalkNote(
+        `secret denylist skipped '${entry}' (named operand; pattern '${denied}') - naming a secret-shaped path does not hand its contents to the classifier`,
+      );
+      continue;
+    }
     try {
-      for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+      for await (const unit of resolveInput({
+        input: [entry],
+        inputType: "file",
+        registry: opts.registry,
+        stats: opts.stats,
+        requireGrammarFor: opts.requireGrammarFor,
+      })) {
         resolved.push(unit);
       }
     } catch (thrown) {
@@ -890,21 +913,39 @@ async function resolveRunUnits(
       configAdmits: () => true,
       scopes: [],
     };
-  if (pathsList !== undefined && (input === undefined || input === "")) {
-    return { units: await unitsFromPathsList(pathsList), configAdmits: () => true, scopes: [] };
-  }
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
   // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
   // (the walk-union scope build puts the config scope first, so attribution names a rule scope only
   // when the config scope did not admit). Each rule still measures only files its own scope admits.
   const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
   // THE ONE config-scope test (include ∧ ¬exclude), the same predicate for
-  // every input kind below. str and paths-list inputs returned above with always-true (no path
-  // semantics to evaluate: the paths list is caller-curated selection, str has no real path);
-  // dir walks and file operands both use THIS one - the input kind decides where the predicate
-  // runs (the walker enforces it mid-walk for dirs; the operand branch evaluates it on the
-  // named path), never what it means.
+  // every input kind with path semantics. str returned above with always-true (no real path);
+  // paths lists, dir walks, and file operands all use THIS one - the input kind decides where the
+  // predicate runs (the walker enforces it mid-walk for dirs; the operand branches evaluate it on
+  // the named path), never what it means.
   const configAdmits = configScopeAdmits(options.config.include, exclude);
+  const requireGrammarFor = (p: string): boolean =>
+    customRules.some((rule) => ruleInScope(rule, p)) ||
+    rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file"));
+  if (pathsList !== undefined && (input === undefined || input === "")) {
+    const units = await unitsFromPathsList(pathsList, {
+      registry,
+      stats,
+      requireGrammarFor,
+      secretDenylist: options.config.secretDenylist ?? SECRET_DENYLIST,
+      onWalkNote,
+    });
+    // Same admission gate as file operands: config scope + rule-scope claim + denylist + run.input.
+    admittedOperands(
+      units.map((u) => ("path" in u.state ? u.state.path : "")),
+      options,
+      scopes,
+      configAdmits,
+      stats,
+      onWalkNote,
+    );
+    return { units, configAdmits, scopes };
+  }
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
@@ -923,9 +964,7 @@ async function resolveRunUnits(
         secretDenylist: options.config.secretDenylist,
         onNote: onWalkNote,
         registry,
-        requireGrammarFor: (p) =>
-          customRules.some((rule) => ruleInScope(rule, p)) ||
-          rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+        requireGrammarFor,
         stats,
       }),
     );

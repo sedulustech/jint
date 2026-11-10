@@ -1078,6 +1078,65 @@ describe("lint", () => {
     ).toBe(true);
   });
 
+  test("config exclude closes the paths form: a listed file nothing claims measures nothing", async () => {
+    const events = await drain(
+      lint({
+        config: {
+          ...baseConfig,
+          input: "",
+          rules: [probeFiles],
+          include: ["**/*.ts"],
+          exclude: ["**/tests/**"],
+        },
+        paths: { content: FILE + "\n" },
+        classifier: classifierWith({ probe_files: 0.5 }),
+      }),
+    );
+    expect(events.filter((e) => e.type === "measurement")).toEqual([]);
+    const notes = events
+      .filter((e): e is Extract<LintEvent, { type: "note" }> => e.type === "note")
+      .map((e) => e.note);
+    expect(notes.some((n) => n.includes("no rule measures this file"))).toBe(true);
+  });
+
+  test("CLI --exclude (the options.exclude seam) composes over a path list", async () => {
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, input: "", rules: [probeFiles], include: ["**/*.ts"] },
+        paths: { content: FILE + "\n" },
+        exclude: ["**/tests/**"],
+        classifier: classifierWith({ probe_files: 0.5 }),
+      }),
+    );
+    expect(events.filter((e) => e.type === "measurement")).toEqual([]);
+  });
+
+  test("a rule include claims a config-excluded path-list entry (operand parity)", async () => {
+    const testsOnly = mkRule("noul", { name: "probe_tests_only", include: ["**/tests/**"] });
+    const events = await drain(
+      lint({
+        config: {
+          ...baseConfig,
+          input: "",
+          rules: [probeFiles, testsOnly],
+          include: ["**/*.ts"],
+          exclude: ["**/tests/**"],
+        },
+        paths: { content: FILE + "\n" },
+        classifier: classifierWith({ probe_files: 0.5, probe_tests_only: 0.5 }),
+      }),
+    );
+    const measured = events.filter(
+      (e): e is Extract<LintEvent, { type: "measurement" }> => e.type === "measurement",
+    );
+    expect(measured.map((m) => m.measurement.rule)).toEqual(["probe_tests_only"]);
+    // operands attribute their scope too (run.input.admitted decomposes `included` for every kind)
+    const summary = events.find(
+      (e): e is Extract<LintEvent, { type: "input" }> => e.type === "input",
+    );
+    expect(summary?.summary.admitted).toEqual([{ by: "rule:probe_tests_only", count: 1 }]);
+  });
+
   test("per-unit failure becomes a streamed error; the run continues", async () => {
     const classifier: Classifier = async (state, questions) => {
       if (state.path === FILE)
