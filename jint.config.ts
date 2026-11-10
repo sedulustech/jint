@@ -5,6 +5,7 @@ import { rules as naming } from "jint:rules/naming";
 import { rules as reactHooks } from "jint:rules/react/hooks";
 import { has_sensitive_value } from "jint:rules/security";
 import { defineConfig, type RuleSchema } from "jint:sdk";
+import site from "./web/jint.config.ts";
 
 // Every rule domain, through the jint:rules/<domain> virtual modules. Test files are excluded: the
 // rules calibrate on production code; structural test selectors are not their domain.
@@ -232,6 +233,8 @@ export default defineConfig({
       is_headword_consistent,
       has_extra_description,
       is_script_naming_consistent,
+      // the site's rules, each scoped to the files it reads where the site declares them
+      ...(site.rules.use as RuleSchema[]),
       is_comment_contradictory,
       is_comment_stateful,
       // the domain rule claims every json, toml and yaml file; lockfiles, the built site and fixtures

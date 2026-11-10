@@ -5,13 +5,12 @@
  *
  * The lengths a metadata checker counts (a title of 50-60 characters) are a plain script's job and
  * are not here. These rules judge what a count cannot: whether the copy says anything. Each rule
- * reads one file whole, so it applies to any file that sets a page's tags (.astro, .html) and reads
- * true on a file that sets none. A high reading is good.
+ * reads one file whole, so it applies to any file that sets a page's tags and reads true on a file
+ * that sets none. A high reading is good. The files each rule reads are set where the rules are
+ * used (jint.config.ts), not here.
  */
 
 import type { RuleSchema } from "jint:sdk";
-
-const files = ["**/*.astro", "**/*.html"];
 
 const NOT_APPLICABLE =
   "This file sets no page title, description or social image, so there is nothing to judge.";
@@ -26,7 +25,6 @@ export const has_call_to_action: RuleSchema = {
       "The description or title only names or characterizes the product (a tagline, a category label) and gives the reader no action to take and no outcome to expect.",
   },
   target: "files",
-  include: files,
   handle: {
     warn: { less_than: 0.6, message: "Say what the reader can do or get in the description." },
   },
@@ -49,7 +47,6 @@ export const is_description_complete: RuleSchema = {
       "The description leaves out what the page is or what the reader gets from it. A slogan, a bare name or a fragment of a sentence is not complete.",
   },
   target: "files",
-  include: files,
   handle: {
     warn: {
       less_than: 0.3,
@@ -74,7 +71,6 @@ export const is_title_informative: RuleSchema = {
       "The title is the product name with a category or a generic word (a brand and a label), and says nothing about what this page offers.",
   },
   target: "files",
-  include: files,
   handle: { warn: { less_than: 0.6, message: "Put what this page is about in the title." } },
 };
 
@@ -88,7 +84,6 @@ export const has_image_alt_text: RuleSchema = {
       "A social image is set and has no alt text, or its alt text does not say what the image shows.",
   },
   target: "files",
-  include: files,
   handle: { warn: { less_than: 0.6, message: "Add alt text for the social image." } },
 };
 

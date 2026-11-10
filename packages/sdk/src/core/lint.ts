@@ -65,6 +65,7 @@ import {
   judgesWholeUnit,
   ruleScopeClaims,
   ruleInScope,
+  type ScopeKeys,
   walkScopes,
 } from "./scope.ts";
 import {
@@ -822,11 +823,18 @@ interface Admission {
  * The changeset form, entry by entry: a missing, unreadable, or non-source path degrades to a
  * not-in-the-walk note (the caller names it below) - never a failed run.
  */
-async function unitsFromPathsList(pathsList: readonly string[]): Promise<Unit[]> {
+async function unitsFromPathsList(
+  pathsList: readonly string[],
+  requireGrammarFor: (path: string) => boolean,
+): Promise<Unit[]> {
   const resolved: Unit[] = [];
   for (const entry of pathsList) {
     try {
-      for await (const unit of resolveInput({ input: [entry], inputType: "file" })) {
+      for await (const unit of resolveInput({
+        input: [entry],
+        inputType: "file",
+        requireGrammarFor,
+      })) {
         resolved.push(unit);
       }
     } catch (thrown) {
@@ -910,9 +918,17 @@ async function resolveRunUnits(
   // path unless the run is unscoped; the dir walk enforces it mid-walk and never skips it.
   const scopeAdmits = configScopeAdmits(options.config.include, exclude);
   const operandAdmits = options.unscoped === true ? () => true : scopeAdmits;
+  // a file needs a grammar only when an element-target rule applies to it: a page no grammar claims
+  // (an .astro file) is measured as raw source by the rules that judge a whole file. A rule with no
+  // include of its own applies where the config scope admits the file, as it does when measuring.
+  const applies = (rule: ScopeKeys, p: string) =>
+    ruleInScope(rule, p) && (rule.include !== undefined || operandAdmits(p));
+  const requireGrammarFor = (p: string) =>
+    customRules.some((rule) => applies(rule, p)) ||
+    rules.some((rule) => applies(rule, p) && !judgesWholeUnit(rule, "file"));
   if (pathsList !== undefined && (input === undefined || input === "")) {
     return {
-      units: await unitsFromPathsList(pathsList),
+      units: await unitsFromPathsList(pathsList, requireGrammarFor),
       configAdmits: operandAdmits,
       scopes: [],
     };
@@ -939,9 +955,7 @@ async function resolveRunUnits(
         secretDenylist: options.config.secretDenylist,
         onNote: onWalkNote,
         registry,
-        requireGrammarFor: (p) =>
-          customRules.some((rule) => ruleInScope(rule, p)) ||
-          rules.some((rule) => ruleInScope(rule, p) && !judgesWholeUnit(rule, "file")),
+        requireGrammarFor,
         stats,
       }),
     );

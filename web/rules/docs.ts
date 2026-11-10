@@ -6,11 +6,7 @@
 
 import type { RuleSchema } from "jint:sdk";
 
-const docs = {
-  target: "files",
-  include: ["**/*.md"],
-  exclude: ["designs/**"],
-} as const;
+const docs = { target: "files" } as const;
 
 export const has_description_mismatch: RuleSchema = {
   ...docs,
@@ -47,7 +43,6 @@ export const has_second_subject: RuleSchema = {
 export const has_extra_content: RuleSchema = {
   name: "has_extra_content",
   target: "files",
-  include: ["use-cases/**/*.md", "examples/**/*.md"],
   instructions:
     "Besides its heading and the rule in a code block, does this use-case or example page say more than one short sentence about what the rule does?",
   criteria: {
@@ -69,8 +64,6 @@ export const has_wordy_empty_cell: RuleSchema = {
   name: "has_wordy_empty_cell",
   kind: "noul",
   target: "markdown:table",
-  include: ["**/*.md"],
-  exclude: ["designs/**"],
   instructions:
     "This unit is one markdown table. Does any cell say in words or symbols that it has no value, instead of holding a single hyphen (-)?",
   criteria: {

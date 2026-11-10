@@ -15,7 +15,6 @@ import type { RuleSchema } from "jint:sdk";
 const has_extra_content: RuleSchema = {
   name: "has_extra_content",
   target: "files",
-  include: ["use-cases/**/*.md", "examples/**/*.md"],
   instructions:
     "Besides its heading and the rule in a code block, does this use-case or example page say more than one short sentence about what the rule does?",
   criteria: {

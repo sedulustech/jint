@@ -9,7 +9,6 @@ import type { RuleSchema } from "jint:sdk";
 export const has_off_palette_color: RuleSchema = {
   name: "has_off_palette_color",
   target: "files",
-  include: ["**/*.astro", "**/*.css"],
   instructions:
     "Does a style rule in this file set a color from a literal value (a hex code, rgb(), hsl(), or a color name) instead of from one of the palette tokens var(--bg), var(--fg), var(--muted), var(--rule) and var(--code-bg)? The block that declares the palette tokens themselves is not a style rule.",
   criteria: {
