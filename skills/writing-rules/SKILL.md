@@ -106,3 +106,8 @@ its own calibration. Replace a rule by spreading it with `override: true`.
 
 - Edit a rule to make a finding pass. A change to a rule is its own item for the user to review.
 - Ship a rule with no labeled defective example. It is a hypothesis.
+
+## Feedback
+
+If a step here is wrong, unclear or missing, open an issue at sedulustech/jint
+(https://github.com/sedulustech/jint/issues). Say which step, what you did and what happened.
