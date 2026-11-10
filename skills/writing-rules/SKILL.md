@@ -18,6 +18,11 @@ the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `
 
 - Ask one yes/no question about one property. Two properties is two rules: one answer cannot say
   which failed.
+- Define the measured word inside the instruction. "Informative", "complete" and "consistent"
+  mean different things to different readers, so the instruction says what the property is
+  ("Does the title name the page's subject without needing the site's name around it?"), and
+  the criteria list its concrete forms. A question that relies on the word alone measures the
+  model's own idea of it.
 - Do not state the element kind. The compiler prepends it ("This unit is a function
   definition."). Changing the instructions later recalibrates the rule.
 - Name the rule for its true side, so the value reads as the name: `has_` for a defect (high is
