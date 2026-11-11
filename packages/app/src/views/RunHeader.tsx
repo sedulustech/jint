@@ -29,6 +29,15 @@ export const runDuration = (ms: number | undefined): string | null =>
         ? `${Math.round(ms / 100) / 10}s`
         : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 
+/** Fixed widths so the figures line up from one row of the picker to the next. */
+const STAT_WIDTH: Record<string, string> = {
+  scope: "min-w-[9ch]",
+  time: "min-w-[7ch]",
+  tokens: "min-w-[21ch]",
+  cost: "min-w-[8ch]",
+  cached: "min-w-[6ch]",
+};
+
 /** One labeled figure of the run: a muted caption over its value. */
 function Stat({
   label,
@@ -40,9 +49,86 @@ function Stat({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col ${STAT_WIDTH[label] ?? ""}`}>
       <dt className="text-caption uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd data-testid={testid}>{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * A run's identity and its captioned figures, as the header and the picker's rows show them. What
+ * the data lacks is left out: the picker's summaries carry no file or answer counts.
+ */
+export function RunFacts({
+  run,
+  title,
+  fileCount = 0,
+  answerCount = 0,
+  cachedCount = 0,
+  testids = false,
+}: {
+  run: RunSummary;
+  /** A first line above the identity (the picker's rows lead with the run's source tree). */
+  title?: string;
+  fileCount?: number;
+  answerCount?: number;
+  cachedCount?: number;
+  /** Mark the figures for tests; only one set of them may be on the page. */
+  testids?: boolean;
+}) {
+  const id = (name: string) => (testids ? name : undefined);
+  const config =
+    run.configPath !== null
+      ? baseName(run.configPath)
+      : run.legacy
+        ? "migrated run"
+        : "default rules";
+  const identity = [
+    title !== undefined ? run.model : undefined,
+    config,
+    relTime(run.mtime),
+    run.id.slice(-6),
+  ];
+  return (
+    <div
+      data-testid={id("run-marker")}
+      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-sections gap-y-siblings"
+    >
+      <div className="flex min-w-0 flex-col">
+        <span data-testid={id("run-model")} className="truncate">
+          {title ?? run.model}
+        </span>
+        <span className="truncate text-muted-foreground">
+          {identity.filter((part) => part !== undefined).join(" · ")}
+        </span>
+      </div>
+      <dl className="ml-auto flex flex-wrap gap-x-sections gap-y-siblings tabular-nums">
+        {run.ruleCount > 0 && (
+          <Stat label="scope" testid={id("run-scope")}>
+            {run.ruleCount} {run.ruleCount === 1 ? "rule" : "rules"}
+            {fileCount > 0 && ` · ${fileCount} files`}
+          </Stat>
+        )}
+        {runDuration(run.durationMs) !== null && (
+          <Stat label="time">{runDuration(run.durationMs)}</Stat>
+        )}
+        {run.usage !== undefined && (
+          <Stat label="tokens" testid={id("run-tokens")}>
+            {run.usage.input.toLocaleString()} in / {run.usage.output.toLocaleString()} out
+          </Stat>
+        )}
+        {run.cost !== undefined && (
+          <Stat label="cost" testid={id("run-cost")}>
+            ${run.cost.toFixed(4)}
+          </Stat>
+        )}
+        {answerCount > 0 && (
+          <Stat label="cached" testid={id("run-cached")}>
+            {cachedCount}/{answerCount}
+          </Stat>
+        )}
+      </dl>
     </div>
   );
 }
@@ -51,7 +137,7 @@ function Stat({
  * The run's identity as a strip above the report section - the data the picker trigger used to cram
  * into one line. The trigger slims to label + chevron; the full identity lives here.
  */
-export function RunHeader({ run, picker }: { run: RunSummary | null; picker: React.ReactNode }) {
+export function RunHeader({ run }: { run: RunSummary | null }) {
   // the errors list is a route, not local state: the toggle walks /runs/$runId <-> /errors
   const errorsOpen = useErrorsRoute();
   const navigate = useNavigate();
@@ -78,46 +164,14 @@ export function RunHeader({ run, picker }: { run: RunSummary | null; picker: Rea
   return (
     <>
       <div className="flex shrink-0 flex-wrap items-center gap-meta border-b border-border px-rail py-bar-y text-body">
-        {picker}
         {run !== null && (
-          <div
-            data-testid="run-marker"
-            className="flex min-w-0 flex-1 flex-wrap items-center gap-x-sections gap-y-siblings"
-          >
-            <div className="flex flex-col">
-              {run.model !== undefined && <span data-testid="run-model">{run.model}</span>}
-              <span className="text-muted-foreground">
-                {run.configPath !== null && baseName(run.configPath)}
-                {run.configPath === null && (run.legacy ? "migrated run" : "default rules")} ·{" "}
-                {relTime(run.mtime)} · {run.id.slice(-6)}
-              </span>
-            </div>
-            <dl className="ml-auto flex flex-wrap gap-x-sections gap-y-siblings tabular-nums">
-              {run.ruleCount > 0 && fileCount > 0 && (
-                <Stat label="scope" testid="run-scope">
-                  {run.ruleCount} rules · {fileCount} files
-                </Stat>
-              )}
-              {runDuration(run.durationMs) !== null && (
-                <Stat label="time">{runDuration(run.durationMs)}</Stat>
-              )}
-              {run.usage !== undefined && (
-                <Stat label="tokens" testid="run-tokens">
-                  {run.usage.input.toLocaleString()} in / {run.usage.output.toLocaleString()} out
-                </Stat>
-              )}
-              {run.cost !== undefined && (
-                <Stat label="cost" testid="run-cost">
-                  ${run.cost.toFixed(4)}
-                </Stat>
-              )}
-              {answerCount > 0 && (
-                <Stat label="cached" testid="run-cached">
-                  {cachedCount}/{answerCount}
-                </Stat>
-              )}
-            </dl>
-          </div>
+          <RunFacts
+            run={run}
+            fileCount={fileCount}
+            answerCount={answerCount}
+            cachedCount={cachedCount}
+            testids
+          />
         )}
         {runErrors.length > 0 && (
           <Button

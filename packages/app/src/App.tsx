@@ -8,7 +8,7 @@ import { ClassificationDetail } from "./views/ClassificationDetail";
 import { ReportHeader } from "./views/ReportHeader";
 import { RequestTable } from "./views/RequestTable";
 import { ERRORS_ROUTE, useErrorsRoute } from "./views/RunErrors";
-import { RunHeader, baseName, relTime, runLabel } from "./views/RunHeader";
+import { RunFacts, RunHeader, baseName, relTime, runLabel } from "./views/RunHeader";
 import { useTheme } from "./views/useTheme";
 import type { RunSearch } from "./router";
 import type { RunSummary } from "./types";
@@ -58,7 +58,7 @@ function RunPicker({
         aria-expanded={open}
         aria-label="run"
         onClick={() => setOpen(true)}
-        className="max-w-64 text-body"
+        className="min-w-0 max-w-full text-body"
       >
         <span className="truncate">
           {selectedRun === null
@@ -80,30 +80,21 @@ function RunPicker({
       >
         <Command>
           <CommandInput placeholder="filter runs by path…" />
-          <CommandList>
+          <CommandList className="max-h-[36rem]">
             <CommandEmpty>no runs match</CommandEmpty>
             {runList.slice(0, MAX_RUNS).map((run) => (
               <CommandItem
                 key={run.id}
                 value={`${runLabel(run)} ${run.configPath ?? ""} ${run.id}`}
                 data-testid={`run-option-${run.id}`}
-                className="min-w-0 text-body"
+                className="min-w-0 py-siblings text-body"
                 title={`${runLabel(run)}\nrun id: ${run.id}`}
                 onSelect={() => {
                   onPick(run.id);
                   setOpen(false);
                 }}
               >
-                <span className="truncate text-foreground">{runLabel(run)}</span>
-                <span className="truncate text-muted-foreground">
-                  {run.model !== undefined && ` · ${run.model}`}
-                  {run.configPath !== null && ` · ${baseName(run.configPath)}`}
-                  {run.configPath === null &&
-                    (run.legacy ? " · migrated run" : " · default rules")}{" "}
-                  · {relTime(run.mtime)} · {run.requests}{" "}
-                  {run.requests === 1 ? "request" : "requests"} · id:
-                  {run.id.slice(-6)}
-                </span>
+                <RunFacts run={run} title={runLabel(run)} />
               </CommandItem>
             ))}
             {runList.length > MAX_RUNS && (
@@ -316,7 +307,7 @@ export function App({ runId }: { runId: string | null }) {
       />
     );
 
-  // the picker lives in the RunHeader strip, left of the run details
+  // the picker lives in the page header beside the logo, where the path has the room
   const picker = (
     <RunPicker
       runList={runList}
@@ -331,6 +322,7 @@ export function App({ runId }: { runId: string | null }) {
         <h1 className="flex items-center text-foreground">
           <Logo className="h-6 w-auto" />
         </h1>
+        <div className="min-w-0 flex-1">{picker}</div>
         {runList.length > 0 && runId === null && (
           <Badge variant="secondary">{runList.length} runs</Badge>
         )}
@@ -344,7 +336,7 @@ export function App({ runId }: { runId: string | null }) {
         )}
         <ThemeButtons theme={theme} choose={choose} />
       </header>
-      <RunHeader run={selectedRun} picker={picker} />
+      <RunHeader run={selectedRun} />
       {runId !== null && !runs.isLoading && runs.error == null && selectedRun === null ? (
         // the run list IS the presence check (there is no per-id gate): a well-formed
         // route to an absent id renders the shared 404 idiom inside the shell
