@@ -8,15 +8,22 @@ import { rules as style } from "./rules/style.ts";
 const astro = ["web/src/**/*.astro", "src/**/*.astro"];
 const css = ["web/src/**/*.css", "src/**/*.css"];
 const pages = ["web/src/pages/**/*.astro", "src/pages/**/*.astro"];
+// the home page is a splash and the 404 page is not indexed: the page-copy rules skip both
+const skipped = [
+  "web/src/pages/index.astro",
+  "web/src/pages/404.astro",
+  "src/pages/index.astro",
+  "src/pages/404.astro",
+];
 const useCases = ["docs/use-cases/**/*.md", "docs/examples/**/*.md"];
 
 export default {
   rules: {
     use: [
       // Open Graph: the page's title, description and social image, in the pages that set them
-      ...opengraph.map((rule) => ({ ...rule, include: astro })),
+      ...opengraph.map((rule) => ({ ...rule, include: astro, exclude: skipped })),
       // SEO: the title a searcher sees, in the pages that set one
-      { ...has_title_without_context, include: pages },
+      { ...has_title_without_context, include: pages, exclude: skipped },
       // style: the site's colors against its palette, in .astro <style> blocks and .css files
       ...style.map((rule) => ({ ...rule, include: [...astro, ...css] })),
       // docs: what a page says against what its front matter promises
