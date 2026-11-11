@@ -3,10 +3,13 @@
  * official domain, and calibrated on this repo's docs only. Each rule reads one doc whole (front
  * matter and body) and is a defect question: a high reading is bad.
  *
- * Lacks_rule_link and has_code_comment read the nine use cases: before the pages were fixed the
- * link rule read 0.79 to 1.00 on all nine and the comment rule 0.87 and 1.00 on the two pages that
- * had one (the other seven 0.00 to 0.13); after, the link rule reads 0.05 to 0.50 and the comment
- * rule 0.00 to 0.41. The thresholds sit inside those gaps. One site, nine pages.
+ * The lacks_rule_link and has_code_comment rules read the nine use cases. Before the pages were
+ * fixed the link rule read 0.79 to 1.00 on all nine; after, 0.05 to 0.50. The comment rule, on the
+ * nine fixed pages, reads 0.00 for every page; on a real page with one comment planted it reads
+ * 0.99 to 1.00 for four of five plants and 0.23 for the fifth, a standalone comment on the
+ * effect-naming page (0.80 when the comment trails code on that page). So the comment rule misses
+ * some comments on that page: its warn threshold (0.15) sits between 0.00 and 0.23, and its error
+ * (0.7) catches the other four. One site, nine pages.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -88,14 +91,14 @@ export const has_code_comment: RuleSchema = {
   ...docs,
   name: "has_code_comment",
   instructions:
-    "A use-case page shows its rule in a code block. Does that code block contain a comment: text written for readers, after // on a line, between /* and */, or on a line that starts with #?",
+    "A use-case page shows its rule in a TypeScript code block. Does that code block contain a literal comment: text after // on a line, or between /* and */? Look only for literal comments in the code. A mention of comments inside the rule itself, in its name, instructions or criteria, is fine.",
   criteria: {
-    true: "A line of the code block, outside any quoted string, holds a comment: // starts it or follows code on the line, /* and */ surround it, or # starts the line.",
+    true: "A line of the TypeScript code block holds a literal comment outside any quoted string: // starts it, either on its own line or after code, or /* and */ surround it.",
     false:
-      'The code block has no such comment. The characters /* or // inside a quoted string, such as the glob "**/*.ts", are part of the string and are not a comment.',
+      'The code block has no literal comment. The word comment in a rule name or in its quoted instructions and criteria is fine, and so are the characters /* or // inside a string, such as the glob "**/*.ts".',
   },
   handle: {
-    warn: { greater_than: 0.5 },
+    warn: { greater_than: 0.15 },
     error: {
       greater_than: 0.7,
       message: "Remove the comment; the rule's name, instructions and criteria already say it.",
