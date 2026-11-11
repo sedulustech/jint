@@ -7,9 +7,10 @@ sidebar:
 
 # Spot LLM-written prose
 
-`has_ai_vocabulary` flags a text that leans on the words language models overuse, such as "delve", "tapestry" and "testament", used in their stock figurative sense. A reading says the text has the habit, not who wrote it. Use it on your own writing, as a style check.
+`has_ai_vocabulary` flags a text that leans on the words language models overuse, such as "delve" and "tapestry", used in their stock sense.
 
 ```ts
+// from "jint:rules/slop"
 import type { RuleSchema } from "jint:sdk";
 
 const has_ai_vocabulary: RuleSchema = {
@@ -31,5 +32,3 @@ const has_ai_vocabulary: RuleSchema = {
   },
 };
 ```
-
-The rule is in the `slop` domain: `import { has_ai_vocabulary } from "jint:rules/slop"`.

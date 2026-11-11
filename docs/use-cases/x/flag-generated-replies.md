@@ -7,11 +7,10 @@ sidebar:
 
 # Flag generated replies
 
-`is_context_free_reply` flags a reply that names nothing from the post it answers, so it would fit under many unrelated posts on the same topic. That is how many generated replies read. A reading says the reply has the template, not who wrote it.
-
-The rule reads one Markdown file per post. The reply sits under `## Post` and the post it answers under `## Parent post`. The `x` domain exports the section names as `SECTIONS`.
+`is_context_free_reply` flags a reply that names nothing from the post it answers, read from one file per post with the reply under `## Post` and its parent under `## Parent post`.
 
 ```ts
+// from "jint:rules/x"
 import type { RuleSchema } from "jint:sdk";
 
 const is_context_free_reply: RuleSchema = {
@@ -32,5 +31,3 @@ const is_context_free_reply: RuleSchema = {
   },
 };
 ```
-
-The rule is in the `x` domain: `import { is_context_free_reply } from "jint:rules/x"`.
