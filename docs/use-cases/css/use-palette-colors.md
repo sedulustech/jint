@@ -7,7 +7,7 @@ sidebar:
 
 # Use palette colors
 
-`has_off_palette_color` flags a style rule that sets a color from a literal instead of a palette token.
+[`has_off_palette_color`](../../../web/rules/style.ts) flags a style rule that sets a color from a literal instead of a palette token.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

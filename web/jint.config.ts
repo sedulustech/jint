@@ -27,11 +27,13 @@ export default {
       // style: the site's colors against its palette, in .astro <style> blocks and .css files
       ...style.map((rule) => ({ ...rule, include: [...astro, ...css] })),
       // docs: what a page says against what its front matter promises
-      ...docs.map((rule) =>
-        rule.name === "has_extra_content"
-          ? { ...rule, include: useCases }
-          : { ...rule, include: ["docs/**/*.md"], exclude: ["docs/designs/**"] },
-      ),
+      ...docs.map((rule) => {
+        if (rule.name === "has_extra_content") return { ...rule, include: useCases };
+        if (rule.name === "lacks_rule_link" || rule.name === "has_code_comment") {
+          return { ...rule, include: ["docs/use-cases/**/*.md"] };
+        }
+        return { ...rule, include: ["docs/**/*.md"], exclude: ["docs/designs/**"] };
+      }),
     ],
     exclude: ["**/dist/**", "**/node_modules/**"],
   },

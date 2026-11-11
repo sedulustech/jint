@@ -7,7 +7,7 @@ sidebar:
 
 # Stale comments
 
-`is_comment_contradictory` finds a stale comment: one that states something the code in the same file contradicts.
+[`is_comment_contradictory`](../../../jint.config.ts) finds a stale comment: one that states something the code in the same file contradicts.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

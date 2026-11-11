@@ -7,7 +7,7 @@ sidebar:
 
 # Stateful comments
 
-`is_comment_stateful` finds a stateful comment: one that says now, currently or no longer, or narrates the history of a change, so it is wrong once the code moves on.
+[`is_comment_stateful`](../../../jint.config.ts) finds a stateful comment: one that says now, currently or no longer, or narrates the history of a change, so it is wrong once the code moves on.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

@@ -7,10 +7,9 @@ sidebar:
 
 # Spot LLM-written prose
 
-`has_ai_vocabulary` flags a text that leans on the words language models overuse, such as "delve" and "tapestry", used in their stock sense.
+[`has_ai_vocabulary`](../../../packages/rules/slop/src/index.ts) flags a text that leans on the words language models overuse, such as "delve" and "tapestry", used in their stock sense.
 
 ```ts
-// from "jint:rules/slop"
 import type { RuleSchema } from "jint:sdk";
 
 const has_ai_vocabulary: RuleSchema = {

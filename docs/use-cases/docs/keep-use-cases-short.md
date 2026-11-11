@@ -7,7 +7,7 @@ sidebar:
 
 # Keep use cases short
 
-`has_extra_content` flags a use-case or example page that says more than one sentence before the rule.
+[`has_extra_content`](../../../web/rules/docs.ts) flags a use-case or example page that says more than one sentence before the rule.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

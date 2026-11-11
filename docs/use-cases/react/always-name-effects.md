@@ -7,7 +7,7 @@ sidebar:
 
 # Always name React effects
 
-`is_effect_named` flags a `useEffect` whose function is anonymous or named for nothing.
+[`is_effect_named`](../../../packages/rules/react/src/hooks.ts) flags a `useEffect` whose function is anonymous or named for nothing.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

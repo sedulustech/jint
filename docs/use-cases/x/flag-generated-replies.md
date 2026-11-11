@@ -7,10 +7,9 @@ sidebar:
 
 # Flag generated replies
 
-`is_context_free_reply` flags a reply that names nothing from the post it answers, read from one file per post with the reply under `## Post` and its parent under `## Parent post`.
+[`is_context_free_reply`](../../../packages/rules/x/src/index.ts) flags a reply that names nothing from the post it answers, read from one file per post with the reply under `## Post` and its parent under `## Parent post`.
 
 ```ts
-// from "jint:rules/x"
 import type { RuleSchema } from "jint:sdk";
 
 const is_context_free_reply: RuleSchema = {

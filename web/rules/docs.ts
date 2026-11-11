@@ -2,6 +2,11 @@
  * Docs rules: what a page of docs/ says against what its front matter promises. Site-local, not an
  * official domain, and calibrated on this repo's docs only. Each rule reads one doc whole (front
  * matter and body) and is a defect question: a high reading is bad.
+ *
+ * Lacks_rule_link and has_code_comment read the nine use cases: before the pages were fixed the
+ * link rule read 0.79 to 1.00 on all nine and the comment rule 0.87 and 1.00 on the two pages that
+ * had one (the other seven 0.00 to 0.13); after, the link rule reads 0.05 to 0.50 and the comment
+ * rule 0.00 to 0.41. The thresholds sit inside those gaps. One site, nine pages.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -60,6 +65,44 @@ export const has_extra_content: RuleSchema = {
   },
 };
 
+export const lacks_rule_link: RuleSchema = {
+  ...docs,
+  name: "lacks_rule_link",
+  instructions:
+    "A use-case page names its rule in the first sentence under its heading. Is that rule's name left without a link to the file that defines the rule, so a reader cannot find where the rule lives?",
+  criteria: {
+    true: "In the first sentence under the heading, the rule's name is plain code text, or it is a link to something other than a file in this repository: a page outside the repository, an anchor, or another doc.",
+    false:
+      "In the first sentence under the heading, the rule's name is a markdown link whose target is a relative path to the file in the repository that defines the rule.",
+  },
+  handle: {
+    warn: { greater_than: 0.6 },
+    error: {
+      greater_than: 0.7,
+      message: "Link the rule's name to the file that defines it, by a relative path.",
+    },
+  },
+};
+
+export const has_code_comment: RuleSchema = {
+  ...docs,
+  name: "has_code_comment",
+  instructions:
+    "A use-case page shows its rule in a code block. Does that code block contain a comment: text written for readers, after // on a line, between /* and */, or on a line that starts with #?",
+  criteria: {
+    true: "A line of the code block, outside any quoted string, holds a comment: // starts it or follows code on the line, /* and */ surround it, or # starts the line.",
+    false:
+      'The code block has no such comment. The characters /* or // inside a quoted string, such as the glob "**/*.ts", are part of the string and are not a comment.',
+  },
+  handle: {
+    warn: { greater_than: 0.5 },
+    error: {
+      greater_than: 0.7,
+      message: "Remove the comment; the rule's name, instructions and criteria already say it.",
+    },
+  },
+};
+
 export const has_wordy_empty_cell: RuleSchema = {
   name: "has_wordy_empty_cell",
   kind: "noul",
@@ -85,5 +128,7 @@ export const rules: readonly RuleSchema[] = [
   has_description_mismatch,
   has_second_subject,
   has_extra_content,
+  lacks_rule_link,
+  has_code_comment,
   has_wordy_empty_cell,
 ];

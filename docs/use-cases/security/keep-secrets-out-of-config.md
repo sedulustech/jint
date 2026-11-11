@@ -7,7 +7,7 @@ sidebar:
 
 # Leaking secrets
 
-`has_sensitive_value` finds a secret or personal value written in plain text in a json, toml or yaml file. A reference to the environment or a secret store passes.
+[`has_sensitive_value`](../../../packages/rules/security/src/index.ts) finds a secret or personal value written in plain text in a json, toml or yaml file. A reference to the environment or a secret store passes.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

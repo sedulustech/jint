@@ -7,7 +7,7 @@ sidebar:
 
 # Name the page for search results
 
-`has_title_without_context` flags a built page whose title tag is a bare label, such as one noun, so a searcher reading a list of results cannot tell what the page is about.
+[`has_title_without_context`](../../../packages/rules/seo/src/index.ts) flags a built page whose title tag is a bare label, such as one noun, so a searcher reading a list of results cannot tell what the page is about.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";
