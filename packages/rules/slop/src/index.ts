@@ -9,8 +9,15 @@
  * check on your own writing and a signal to weigh, never a verdict on an author. A high reading is
  * bad. Which files they read is set where the rules are used, not here.
  *
- * Sources for each template are named on its rule. The thresholds are the ones the rules were first
- * written with and are not calibrated for any corpus: measure them on yours before gating.
+ * Sources for each template are named on its rule. Measured on the 25 pages of this repo's docs
+ * (one site, one author, English) with three planted controls, a real page plus one sentence that
+ * holds the template: a maxim closer read 1.00 against 0.00 for its original, stock vocabulary 1.00
+ * against 0.00, a corrective frame 0.98 against 0.17. The other four rules have no control yet. On
+ * the unedited pages the rules read 0.00 to 0.12, except two: the corrective frame reads 0.36 to
+ * 0.72 on four pages (lines like "recalibrate the rule, not act on the code", arguably plain
+ * corrections) and the trailing participle 0.59 on one (a true hit). Warn (0.5) fires only on those
+ * two pages; error (0.8) fires on none. Other writers and languages are unmeasured: calibrate
+ * before gating.
  */
 
 import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
