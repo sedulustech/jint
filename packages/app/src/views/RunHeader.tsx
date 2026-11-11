@@ -49,7 +49,7 @@ function Stat({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col ${STAT_WIDTH[label] ?? ""}`}>
+    <div className={`flex flex-col gap-related ${STAT_WIDTH[label] ?? ""}`}>
       <dt className="text-caption uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd data-testid={testid}>{children}</dd>
     </div>
@@ -95,7 +95,7 @@ export function RunFacts({
       data-testid={id("run-marker")}
       className="flex min-w-0 flex-1 flex-wrap items-center gap-x-sections gap-y-siblings"
     >
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-col gap-related">
         <span data-testid={id("run-model")} className="truncate">
           {title ?? run.model}
         </span>
