@@ -65,6 +65,9 @@ the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `
 - **choice**: named options keyed by label. The tier with the most probability is the verdict. A
   choice can be undecided, which is a signal to recalibrate, not to act on the code (`jint docs
 confidence`).
+- Never set a noul `greater_than` threshold below 0.5. 0.5 is undecided: a lower threshold fires on
+  readings that lean no. If the gap between healthy and defective readings only allows a lower
+  one, reword the rule until the readings separate; do not lower the threshold.
 - The handle follows the kind: noul takes `warn` and `error` thresholds, score takes a `map` with
   one level per criteria entry, choice takes one tier per option. Every field is in
   `jint docs reference/config`.

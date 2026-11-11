@@ -8,8 +8,9 @@
  * nine fixed pages, reads 0.00 for every page; on a real page with one comment planted it reads
  * 0.99 to 1.00 for four of five plants and 0.23 for the fifth, a standalone comment on the
  * effect-naming page (0.80 when the comment trails code on that page). So the comment rule misses
- * some comments on that page: its warn threshold (0.15) sits between 0.00 and 0.23, and its error
- * (0.7) catches the other four. One site, nine pages.
+ * some comments on that page: both thresholds (warn 0.5, error 0.75) sit above its 0.23, so those
+ * plants pass, and below the 0.99 to 1.00 of the other four. A noul threshold never goes below 0.5.
+ * One site, nine pages.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -98,9 +99,9 @@ export const has_code_comment: RuleSchema = {
       'The code block has no literal comment. The word comment in a rule name or in its quoted instructions and criteria is fine, and so are the characters /* or // inside a string, such as the glob "**/*.ts".',
   },
   handle: {
-    warn: { greater_than: 0.15 },
+    warn: { greater_than: 0.5 },
     error: {
-      greater_than: 0.7,
+      greater_than: 0.75,
       message: "Remove the comment; the rule's name, instructions and criteria already say it.",
     },
   },

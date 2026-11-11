@@ -9,7 +9,7 @@
  * author's other recent posts. `SECTIONS` and `SIGNALS` name them, so the file's writer and the
  * rules read the same words. A reading is about the post's template, not its author, and a short
  * reply carries little text to read: the rules that read context carry the most weight. A high
- * reading is bad. Thresholds are the ones the rules were first written with, not calibrated here.
+ * reading is bad. Thresholds are 0.5 and 0.75, not calibrated here.
  */
 
 import type { NoulRuleSchema, RuleSchema } from "@jint/contract";
@@ -41,8 +41,8 @@ const SCOPE_POST = `Judge only the text under the '${S.POST}' heading. The other
 const NO_PARENT = `The '${S.PARENT}' section is missing, 'none' or 'unknown' (then answer No)`;
 
 const handle = (message: string) => ({
-  warn: { greater_than: 0.35, message },
-  error: { greater_than: 0.6, message },
+  warn: { greater_than: 0.5, message },
+  error: { greater_than: 0.75, message },
 });
 
 /**

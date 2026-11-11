@@ -24,7 +24,7 @@ const is_context_free_reply: RuleSchema = {
   target: "files",
   handle: {
     warn: {
-      greater_than: 0.35,
+      greater_than: 0.5,
       message: "Refer to something in the post you answer.",
     },
   },
