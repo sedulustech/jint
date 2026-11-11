@@ -129,6 +129,8 @@ interface ApiCellBase {
   element?: Element;
   /** The request file this classification came from (element uuid / file-tier join); direct fetch. */
   requestFile?: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  cached?: true;
 }
 
 /** A cell with a reading. */
@@ -587,9 +589,10 @@ type Reading =
       choice?: string;
       probabilities?: Record<string, number>;
       element?: Element;
+      cached?: true;
       refused?: undefined;
     }
-  | { rule: string; element?: Element; refused: true };
+  | { rule: string; element?: Element; cached?: true; refused: true };
 
 function cellSeverity(
   classificationInput: string,
@@ -665,6 +668,7 @@ async function readReportFacts(dir: string): Promise<{
         rule: string;
         value?: number;
         refused?: boolean;
+        cached?: true;
         choice?: string;
         probabilities?: Record<string, number>;
         element?: Element;
@@ -690,7 +694,7 @@ async function readReportFacts(dir: string): Promise<{
         if (!arr.includes(m.rule)) arr.push(m.rule);
       } else pathRules.set(path, [m.rule]);
       const entry: Reading | null = m.refused
-        ? { rule: m.rule, element: m.element, refused: true }
+        ? { rule: m.rule, element: m.element, cached: m.cached, refused: true }
         : typeof m.value === "number"
           ? {
               rule: m.rule,
@@ -698,6 +702,7 @@ async function readReportFacts(dir: string): Promise<{
               choice: m.choice,
               probabilities: m.probabilities,
               element: m.element,
+              cached: m.cached,
             }
           : null;
       if (entry !== null) {
@@ -948,7 +953,15 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
       for (const reading of entries) {
         const { rule, element } = reading;
         if (reading.refused) {
-          cells.push({ rule, file, input, element, requestFile, refused: true });
+          cells.push({
+            rule,
+            file,
+            input,
+            element,
+            requestFile,
+            cached: reading.cached,
+            refused: true,
+          });
           continue;
         }
         const { value, choice, probabilities } = reading;
@@ -958,6 +971,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           input,
           element,
           requestFile,
+          cached: reading.cached,
           value,
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),
           ...choiceCellRead(handles?.[rule], choice, probabilities),

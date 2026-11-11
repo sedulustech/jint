@@ -39,6 +39,7 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
   // the element projection rides the run payload's cells; the input keeps the uuid as its key,
   // the user reads the span label
   const element = run.data?.cells?.find((c) => c.rule === rule && c.input === input)?.element;
+  const cached = run.data?.cells?.find((c) => c.rule === rule && c.input === input)?.cached;
   const file = input.split("#")[0]!;
   // the server resolves the original: its request, its row and its own question and answer
   const query = useQuery({
@@ -238,6 +239,11 @@ function ClassificationDetailBody({ runId, rule, input, requestFile, onClose }: 
             <span>
               status: <span className="text-foreground">{request.status ?? "?"}</span>
             </span>
+            {cached === true && (
+              <span data-testid="classification-cached">
+                answer: <span className="text-foreground">cached</span>
+              </span>
+            )}
             {meta.usage &&
               Object.entries(meta.usage).map(([k, v]) => (
                 <span key={k}>

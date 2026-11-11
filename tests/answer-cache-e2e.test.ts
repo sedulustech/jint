@@ -98,6 +98,8 @@ async function served(p: Project, index: number) {
       ),
     ].sort(),
     cells: Object.values(run.cells).map(perRun).sort(),
+    // how many cells carry the mark that says the cache served them
+    cachedCells: Object.values<any>(run.cells).filter((cell) => cell.cached === true).length,
     requestCount: run.requestCount,
     // each request file served: how many questions it asks and how many answers it holds
     shapes: requests.map((r) => [
@@ -152,7 +154,11 @@ describe("answer cache", () => {
 
     const [fresh, cached] = [await served(p, 0), await served(p, 1)];
     expect(fresh.cells.length).toBeGreaterThan(0);
-    expect(cached.cells).toEqual(fresh.cells);
+    // the mark is a field of the cell: the cache served every cell of the second run
+    const unmarked = (cells: string[]) => cells.map((cell) => cell.replace(',"cached":true', ""));
+    expect(unmarked(cached.cells)).toEqual(unmarked(fresh.cells));
+    expect(fresh.cachedCells).toBe(0);
+    expect(cached.cachedCells).toBe(cached.cells.length);
     // a yes/no question reads as its instructions and its meanings, not as one folded text
     const meaning = { true: "it holds", false: "it does not hold" };
     expect(fresh.noul).toEqual(
@@ -194,7 +200,11 @@ describe("answer cache", () => {
 
     // the run that mixed hits and misses reads whole in the view: every cell, every question answered
     const [before, mixed] = [await served(p, 0), await served(p, 1)];
-    expect(mixed.cells).toEqual(before.cells);
+    const unmarkedCells = (cells: string[]) =>
+      cells.map((cell) => cell.replace(',"cached":true', ""));
+    expect(unmarkedCells(mixed.cells)).toEqual(unmarkedCells(before.cells));
+    expect(mixed.cachedCells).toBeGreaterThan(0);
+    expect(mixed.cachedCells).toBeLessThan(mixed.cells.length);
     for (const [asked, answered] of mixed.shapes) expect(answered).toBe(asked);
   });
 

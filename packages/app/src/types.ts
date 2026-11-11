@@ -52,6 +52,8 @@ interface CellBase {
   element?: Element;
   /** The request file this cell's classification came from; direct fetch on click. */
   requestFile?: string;
+  /** The answer cache served this reading: nothing was asked for it in this run. */
+  cached?: true;
 }
 
 /** One rule measured against one input - the atom the grouped table navigates by. */
