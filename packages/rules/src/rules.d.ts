@@ -24,6 +24,12 @@ declare module "jint:rules/security" {
 declare module "jint:rules/seo" {
   export * from "@jint/rules-seo";
 }
+declare module "jint:rules/slop" {
+  export * from "@jint/rules-slop";
+}
+declare module "jint:rules/x" {
+  export * from "@jint/rules-x";
+}
 declare module "jint:rules/react/hooks" {
   export * from "@jint/rules-react/hooks";
 }
