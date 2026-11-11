@@ -5,6 +5,7 @@ import { rules as naming } from "jint:rules/naming";
 import { rules as reactHooks } from "jint:rules/react/hooks";
 import { has_sensitive_value } from "jint:rules/security";
 import { defineConfig, type RuleSchema } from "jint:sdk";
+import skills from "./skills/jint.config.ts";
 import site from "./web/jint.config.ts";
 
 // Every rule domain, through the jint:rules/<domain> virtual modules. Test files are excluded: the
@@ -235,6 +236,8 @@ export default defineConfig({
       is_script_naming_consistent,
       // the site's rules, each scoped to the files it reads where the site declares them
       ...(site.rules.use as RuleSchema[]),
+      // the concept rules for the writing-rules skill, scoped to that one file
+      ...(skills.rules.use as RuleSchema[]),
       is_comment_contradictory,
       is_comment_stateful,
       // the domain rule claims every json, toml and yaml file; lockfiles, the built site and fixtures

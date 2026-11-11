@@ -56,8 +56,10 @@ the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `
 
 ## 4. The kind
 
-- **noul** (the default): yes/no. The reading is the probability of `true`. Use it unless the
-  property is graded. 0.5 is undecided, so 0.45 against 0.55 is not a ranking.
+- **noul** (the default): yes/no. The reading is the model's probability that the answer is `true`,
+  the same quantity a language model uses to choose its next word, and it carries meaning: 0.9 is a
+  strong lean to yes, 0.1 a strong lean to no, and 0.5 is undecided, where the model could not
+  choose. 0.45 against 0.55 is not a ranking. Use noul unless the property is graded.
 - **score**: `"kind": "score"`. The ordered `criteria` array is the legend, level 0 to N, and each
   level describes a state. The instructions say what not to score. Use it only when the property is
   graded: a three-level score put most of its probability on the middle level, and the same
@@ -65,7 +67,7 @@ the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `
 - **choice**: named options keyed by label. The tier with the most probability is the verdict. A
   choice can be undecided, which is a signal to recalibrate, not to act on the code (`jint docs
 confidence`).
-- Never set a noul `greater_than` threshold below 0.5. 0.5 is undecided: a lower threshold fires on
+- Never set a noul `greater_than` threshold below 0.5: below the undecided point the rule fires on
   readings that lean no. If the gap between healthy and defective readings only allows a lower
   one, reword the rule until the readings separate; do not lower the threshold.
 - The handle follows the kind: noul takes `warn` and `error` thresholds, score takes a `map` with
