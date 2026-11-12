@@ -90,9 +90,7 @@ export const NotFound = ({
 
 // ---- routes ----------------------------------------------------------------
 const RootComponent = () => {
-  // parse-time cleanup runs once per boot; router-level search edits keep the
-  // bar canonical afterwards because every writer goes through validateRunSearch
-  useEffect(() => {
+  useEffect(function canonicalizeSearchOnBoot() {
     canonicalizeSearch();
   }, []);
   return <Outlet />;

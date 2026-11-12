@@ -116,8 +116,13 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 
 const reportSearchEditFailure = (cause: unknown): void => {
   // oxlint-disable-next-line no-console
-  console.error("run search edit failed", { cause });
+  console.error(new Error("run search edit failed", { cause }));
 };
+
+function navigationFor(runId: string | null, route: RunRoute, searchChange: Partial<RunSearch>) {
+  const search = (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange });
+  return runId === null ? { to: "/", search } : { to: route, params: { runId }, search };
+}
 
 function useSequentialSearchEdit(
   runId: string | null,
@@ -125,23 +130,11 @@ function useSequentialSearchEdit(
   const navigate = useNavigate();
   const pendingNavigation = useRef<Promise<unknown>>(Promise.resolve());
   return (searchChange: Partial<RunSearch>, route: RunRoute = RUN_ROUTE): Promise<unknown> => {
-    pendingNavigation.current = pendingNavigation.current
-      .then(() =>
-        navigate(
-          runId === null
-            ? {
-                to: "/",
-                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
-              }
-            : {
-                to: route,
-                params: { runId },
-                search: (previousSearch: RunSearch) => ({ ...previousSearch, ...searchChange }),
-              },
-        ),
-      )
-      .catch(reportSearchEditFailure);
-    return pendingNavigation.current;
+    const edit = pendingNavigation.current.then(() =>
+      navigate(navigationFor(runId, route, searchChange)),
+    );
+    pendingNavigation.current = edit.then(undefined, reportSearchEditFailure);
+    return edit;
   };
 }
 

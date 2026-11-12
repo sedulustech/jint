@@ -71,10 +71,12 @@ export async function postClassification(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...edit, ...address }),
   });
-  const payload = (await res.json().catch(() => ({}))) as {
-    classification?: ClassificationRecord;
-    error?: string;
-  };
+  let payload: { classification?: ClassificationRecord; error?: string };
+  try {
+    payload = await res.json();
+  } catch (cause) {
+    throw new Error(`${res.status}`, { cause });
+  }
   if (!res.ok || payload.classification === undefined)
     throw new Error(payload.error ?? `${res.status}`);
   return payload.classification;

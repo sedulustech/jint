@@ -410,8 +410,7 @@ export async function readOriginal(
   const root = requestsRoot(options);
   const runDir = resolveRunDir(root, runId.split("/"));
   if (runDir === null) throw new AddressError(INVALID_RUN_ID, 400);
-  if ((await stat(runDir).catch(() => null)) === null)
-    throw new AddressError("no such run", HTTP_NOT_FOUND);
+  if (!(await runDirExists(runDir))) throw new AddressError("no such run", HTTP_NOT_FOUND);
   const run = (await getRun(root, runDir, runId)) as { results: RequestItem[]; cells?: ApiCell[] };
   const [path, span] = [
     address.input.split("#")[0]!,
@@ -546,19 +545,39 @@ export async function collectRunCandidates(
 }
 
 /** Case dirs one level under a namespace dir, holding at least one recorded request. */
+async function runDirExists(runDir: string): Promise<boolean> {
+  try {
+    await stat(runDir);
+    return true;
+  } catch (err) {
+    if (isMissingFileError(err)) return false;
+    throw new Error(`cannot read run directory ${runDir}`, { cause: err });
+  }
+}
+
+async function readdirIfPresent<T extends string | Dirent>(
+  dir: string,
+  read: () => Promise<T[]>,
+): Promise<T[]> {
+  try {
+    return await read();
+  } catch (err) {
+    if (isMissingFileError(err)) return [];
+    throw new Error(`cannot list ${dir}`, { cause: err });
+  }
+}
+
 async function caseDirsWithRequests(namespaceDir: string): Promise<string[]> {
-  const subEntries = await readdir(namespaceDir, { withFileTypes: true }).catch((err: unknown) => {
-    if (isMissingFileError(err)) return [] as Dirent[];
-    throw err;
-  });
+  const subEntries = await readdirIfPresent(namespaceDir, () =>
+    readdir(namespaceDir, { withFileTypes: true }),
+  );
   const subdirNames = subEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   const caseDirs: string[] = [];
   await Promise.all(
     subdirNames.map(async (subdirName) => {
-      const subdirFiles = await readdir(join(namespaceDir, subdirName)).catch((err: unknown) => {
-        if (isMissingFileError(err)) return [] as string[];
-        throw err;
-      });
+      const subdirFiles = await readdirIfPresent(namespaceDir, () =>
+        readdir(join(namespaceDir, subdirName)),
+      );
       if (subdirFiles.some(isRequestFile)) caseDirs.push(subdirName);
     }),
   );
@@ -616,7 +635,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
     // ALWAYS an array; an empty one renders as the friendly hint client-side. No path leak.
     const code = errorCode(err);
     if (code === MISSING_ERRNO || code === "ENOTDIR") return { runs: [] };
-    throw err;
+    throw new Error(`cannot list runs in ${runsRoot}`, { cause: err });
   }
 }
 
@@ -733,7 +752,7 @@ async function readReportFacts(dir: string): Promise<{
       }
     }
   } catch (err) {
-    process.emitWarning(`jint: unreadable report in ${dir}: ${errorMessage(err)}`);
+    process.emitWarning(new Error(`jint: unreadable report in ${dir}`, { cause: err }));
     return { findingSev, pathRules: null, pathValues: null, classificationCount: 0 };
   }
   return { findingSev, pathRules, pathValues, classificationCount };
@@ -793,6 +812,98 @@ export async function readStoredReport(dir: string): Promise<Record<string, unkn
  * One request file to one summary row, or null when the file is unreadable. seq stays 0 here: the
  * caller numbers rows after sorting them into ts order.
  */
+type RequestQuestions = NonNullable<NonNullable<RequestFile["request"]>["questions"]>;
+type RequestAnswers = NonNullable<NonNullable<RequestFile["response"]>["answers"]>;
+
+function answerProbabilities(answers: RequestAnswers, questions: RequestQuestions): number[] {
+  return Object.entries(answers)
+    .map(([key, a]) => {
+      if (typeof a?.noul === "number") return a.noul;
+      if (typeof a?.choice === "string") return a.probabilities?.[a.choice] ?? null;
+      const levels = questions[key]?.criteria;
+      if (typeof a?.score === "number" && Array.isArray(levels) && levels.length > 1) {
+        return a.score / (levels.length - 1);
+      }
+      return null;
+    })
+    .filter((n): n is number => n !== null);
+}
+
+function firstString(...candidates: unknown[]): string | null {
+  for (const candidate of candidates) if (typeof candidate === "string") return candidate;
+  return null;
+}
+
+function requestIdentity(
+  requestFile: RequestFile,
+  questions: RequestQuestions,
+  kinds: Map<string, string>,
+): { statePath: string | null; elementId: string | null; rules: string[] } {
+  const state = requestFile.request?.state ?? {};
+  const statePath = firstString(requestFile.path, state.path);
+  let elementId = firstString(requestFile.id, state.id);
+  const rules: string[] = [];
+  for (const [key, question] of Object.entries(questions)) {
+    const m = key.match(/^(.+?) in (.+)$/);
+    const rule = m ? m[1]! : key;
+    rules.push(rule);
+    if (m && elementId === null) elementId = m[2]!;
+    if (typeof question?.type === "string") kinds.set(rule, question.type);
+  }
+  return { statePath, elementId, rules };
+}
+
+const SEVERITY_RANK: Record<Severity, number> = { warn: 1, error: 2 };
+
+function requestSeverities(
+  ruleNames: string[],
+  keys: string[],
+  findingSev: Map<string, Map<string, Severity>>,
+  pathValues: Map<string, Reading[]> | null,
+  handles: Record<string, HandlerData> | null,
+): { severities: Record<string, Severity | null>; severity: Severity | null } {
+  const joined = (rule: string): Severity | null => {
+    for (const key of keys) {
+      const sev = findingSev.get(key)?.get(rule);
+      if (sev !== undefined) return sev;
+    }
+    return null;
+  };
+  const projected = (rule: string): Severity | null => {
+    if (handles === null) return null;
+    for (const key of keys) {
+      for (const reading of pathValues?.get(key) ?? []) {
+        if (reading.refused || reading.rule !== rule) continue;
+        const handle = handles[rule];
+        if (handle === undefined) continue;
+        const s = handleSeverity(reading.value, handle, reading.choice, reading.probabilities);
+        if (s !== null) return s;
+      }
+    }
+    return null;
+  };
+  const severities: Record<string, Severity | null> = {};
+  let severity: Severity | null = null;
+  for (const rule of ruleNames) {
+    const s = joined(rule) ?? projected(rule);
+    severities[rule] = s;
+    if (s !== null && (severity === null || SEVERITY_RANK[s] > SEVERITY_RANK[severity]))
+      severity = s;
+  }
+  return { severities, severity };
+}
+
+const MAX_PLAUSIBLE_CALL_MS = 60_000;
+
+function requestDurationMs(requestFile: RequestFile, mtimeMs: number): number | null {
+  if (typeof requestFile.durationMs === "number") return requestFile.durationMs;
+  if (!Number.isFinite(mtimeMs) || requestFile.ts === undefined) return null;
+  const started = Date.parse(requestFile.ts);
+  if (Number.isNaN(started)) return null;
+  const ms = Math.max(0, Math.round(mtimeMs - started));
+  return ms > MAX_PLAUSIBLE_CALL_MS ? null : ms;
+}
+
 async function readRequestRow(
   dir: string,
   file: string,
@@ -809,120 +920,108 @@ async function readRequestRow(
     ]);
     const requestFile: RequestFile = normalizeRequestFile(JSON.parse(text));
     const questions = requestFile.request?.questions ?? {};
-    const answers = requestFile.response?.answers ?? {};
-    const probs = Object.entries(answers)
-      .map(([key, a]) => {
-        if (typeof a?.noul === "number") return a.noul;
-        // a choice answer joins the p-space summary as its selected option's probability
-        if (typeof a?.choice === "string") return a.probabilities?.[a.choice] ?? null;
-        // score answers join the p-space summary normalized to 0..1 so a score-only request
-        // (or a request whose score is the only answer) is visible in max-p and the strip; the
-        // level count is the question's, not an echo the model may leave out
-        const levels = questions[key]?.criteria;
-        if (typeof a?.score === "number" && Array.isArray(levels) && levels.length > 1) {
-          return a.score / (levels.length - 1);
-        }
-        return null;
-      })
-      .filter((n): n is number => n !== null);
-    const state = requestFile.request?.state ?? {};
-    // the recorded path first: the wire body carries one only for a rule that includes it
-    const statePath =
-      typeof requestFile.path === "string"
-        ? requestFile.path
-        : typeof state.path === "string"
-          ? state.path
-          : null;
-    const rules: string[] = [];
-    let elementId: string | null =
-      typeof requestFile.id === "string"
-        ? requestFile.id
-        : typeof state.id === "string"
-          ? state.id
-          : null;
-    for (const [key, question] of Object.entries(questions)) {
-      const m = key.match(/^(.+?) in (.+)$/);
-      const rule = m ? m[1]! : key;
-      rules.push(rule);
-      if (m && elementId === null) elementId = m[2]!;
-      // the question's wire type is its rule's kind: noul, score or choice
-      if (typeof question?.type === "string") kinds.set(rule, question.type);
-    }
+    const probs = answerProbabilities(requestFile.response?.answers ?? {}, questions);
+    const { statePath, elementId, rules } = requestIdentity(requestFile, questions, kinds);
     const canonical =
       pathRules !== null && statePath !== null ? pathRules.get(statePath) : undefined;
-
-    // severity per rule = finding join first (the report's own verdict, matched by FULL input
-    // identity: path#span for elements, bare path for files), else the handle snapshot
-    // projected onto that same input's classification. Null = no provable verdict - the UI
-    // never invents "clean" from absence, and a sibling element's verdict never leaks.
-    const SEV_RANK: Record<Severity, number> = { warn: 1, error: 2 };
+    const ruleNames = canonical ?? [...new Set(rules)];
     const keys =
-      statePath !== null
-        ? elementId !== null
-          ? [`${statePath}#${elementId}`, statePath]
-          : [statePath]
-        : [];
-    const joinSeverity = (rule: string): Severity | null => {
-      for (const key of keys) {
-        const sev = findingSev.get(key)?.get(rule);
-        if (sev !== undefined) return sev;
-      }
-      return null;
-    };
-    const projectSeverity = (rule: string): Severity | null => {
-      if (handles === null) return null;
-      for (const key of keys) {
-        for (const reading of pathValues?.get(key) ?? []) {
-          if (reading.refused || reading.rule !== rule) continue;
-          const handle = handles[rule];
-          if (handle === undefined) continue;
-          const s = handleSeverity(reading.value, handle, reading.choice, reading.probabilities);
-          if (s !== null) return s;
-        }
-      }
-      return null;
-    };
-    const severities: Record<string, Severity | null> = {};
-    let severity: Severity | null = null;
-    for (const rule of canonical ?? [...new Set(rules)]) {
-      const s = joinSeverity(rule) ?? projectSeverity(rule);
-      severities[rule] = s;
-      if (s !== null && (severity === null || SEV_RANK[s] > SEV_RANK[severity])) severity = s;
-    }
+      statePath === null
+        ? []
+        : elementId === null
+          ? [statePath]
+          : [`${statePath}#${elementId}`, statePath];
+    const { severities, severity } = requestSeverities(
+      ruleNames,
+      keys,
+      findingSev,
+      pathValues,
+      handles,
+    );
     return {
       file,
       seq: 0,
       ts: requestFile.ts ?? "",
-      element: typeof state.source === "string",
+      element: typeof requestFile.request?.state?.source === "string",
       path: statePath,
       elementId,
-      rules: canonical ?? [...new Set(rules)],
+      rules: ruleNames,
       questionCount: Object.keys(questions).length,
-      durationMs:
-        typeof requestFile.durationMs === "number"
-          ? requestFile.durationMs
-          : Number.isFinite(st.mtimeMs) &&
-              requestFile.ts !== undefined &&
-              !Number.isNaN(Date.parse(requestFile.ts))
-            ? (() => {
-                const ms = Math.max(0, Math.round(st.mtimeMs - Date.parse(requestFile.ts)));
-                // mtime heuristic breaks on moved/copied dirs (rsync/touch inflates it);
-                // >60s for one call is never real - report unknown rather than a 21-minute lie
-                return ms > 60_000 ? null : ms;
-              })()
-            : null,
+      durationMs: requestDurationMs(requestFile, st.mtimeMs),
       maxProb: probs.length ? Math.max(...probs) : null,
       minProb: probs.length ? Math.min(...probs) : null,
-      answers: probs.sort((a, b) => a - b),
+      answers: probs.sort((x, y) => x - y),
       severity,
       severities,
     };
   } catch (err) {
-    // An unreadable request file drops its row: the run view shows the rows it can prove, and the
-    // cause goes to the log rather than a silent hole in the table.
-    process.emitWarning(`jint: unreadable request file ${file} in ${dir}: ${errorMessage(err)}`);
+    process.emitWarning(
+      new Error(`jint: unreadable request file ${file} in ${dir}`, { cause: err }),
+    );
     return null;
   }
+}
+
+function requestFilesByAddress(rows: RequestItem[]): {
+  byElement: Map<string, string>;
+  byFile: Map<string, string>;
+} {
+  const byElement = new Map<string, string>();
+  const byFile = new Map<string, string>();
+  for (const row of rows) {
+    if (row.path === null) continue;
+    if (row.element) byElement.set(`${row.path}#${row.elementId}`, row.file);
+    else byFile.set(row.path, row.file);
+  }
+  return { byElement, byFile };
+}
+
+function buildCells(
+  rows: RequestItem[],
+  findingSev: Map<string, Map<string, Severity>>,
+  pathValues: Map<string, Reading[]> | null,
+  handles: Record<string, HandlerData> | null,
+): ApiCell[] {
+  const cells: ApiCell[] = [];
+  if (pathValues === null) return cells;
+  const { byElement, byFile } = requestFilesByAddress(rows);
+  for (const [input, entries] of pathValues) {
+    const file = input.split("#")[0]!;
+    const requestFile =
+      (input.includes("#") ? byElement.get(input) : undefined) ?? byFile.get(file);
+    for (const reading of entries) {
+      const { rule, element } = reading;
+      if (reading.refused) {
+        cells.push({
+          rule,
+          file,
+          input,
+          element,
+          requestFile,
+          cached: reading.cached,
+          refused: true,
+        });
+        continue;
+      }
+      const { value, choice, probabilities } = reading;
+      const cell: ValuedApiCell = {
+        rule,
+        file,
+        input,
+        element,
+        requestFile,
+        cached: reading.cached,
+        value,
+        severity: cellSeverity(input, rule, findingSev, pathValues, handles),
+        ...choiceCellRead(handles?.[rule], choice, probabilities),
+      };
+      if (cell.severity === null && cell.undecided !== true && handles?.[rule] !== undefined) {
+        cell.pass = true;
+      }
+      cells.push(cell);
+    }
+  }
+  return cells;
 }
 
 export async function getRun(root: string, dir: string, id: string): Promise<object> {
@@ -943,55 +1042,8 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     ),
   );
   const resultRows = rows.filter((row): row is RequestItem => row !== null);
-  resultRows.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
+  resultRows.sort((x, y) => x.ts.localeCompare(y.ts) || x.file.localeCompare(y.file));
   resultRows.forEach((row, i) => (row.seq = i + 1));
-  const elementRequestFile = new Map<string, string>();
-  const fileRequestFile = new Map<string, string>();
-  for (const row of resultRows) {
-    if (row.path === null) continue;
-    if (row.element) elementRequestFile.set(`${row.path}#${row.elementId}`, row.file);
-    else fileRequestFile.set(row.path, row.file);
-  }
-  const cells: ApiCell[] = [];
-  if (pathValues !== null) {
-    for (const [input, entries] of pathValues) {
-      const file = input.split("#")[0]!;
-      const isElement = input.includes("#");
-      const requestFile =
-        (isElement ? elementRequestFile.get(input) : undefined) ?? fileRequestFile.get(file);
-      for (const reading of entries) {
-        const { rule, element } = reading;
-        if (reading.refused) {
-          cells.push({
-            rule,
-            file,
-            input,
-            element,
-            requestFile,
-            cached: reading.cached,
-            refused: true,
-          });
-          continue;
-        }
-        const { value, choice, probabilities } = reading;
-        const cell: ValuedApiCell = {
-          rule,
-          file,
-          input,
-          element,
-          requestFile,
-          cached: reading.cached,
-          value,
-          severity: cellSeverity(input, rule, findingSev, pathValues, handles),
-          ...choiceCellRead(handles?.[rule], choice, probabilities),
-        };
-        if (cell.severity === null && cell.undecided !== true && handles?.[rule] !== undefined) {
-          cell.pass = true;
-        }
-        cells.push(cell);
-      }
-    }
-  }
   return {
     id,
     requestCount: resultRows.length,
@@ -999,7 +1051,7 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
     results: resultRows,
     handles: handles ?? {},
     kinds: Object.fromEntries(kinds),
-    cells,
+    cells: buildCells(resultRows, findingSev, pathValues, handles),
     reportDegraded,
     legacy: manifestLegacy,
   };

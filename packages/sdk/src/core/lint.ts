@@ -868,6 +868,13 @@ interface Admission {
  * The changeset form, entry by entry: a missing, unreadable, or non-source path degrades to a
  * not-in-the-walk note (the caller names it below) - never a failed run.
  */
+function isSkippableEntry(thrown: unknown): boolean {
+  return (
+    thrown instanceof SetupError &&
+    ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
+  );
+}
+
 async function unitsFromPathsList(
   pathsList: readonly string[],
   requireGrammarFor: (path: string) => boolean,
@@ -883,14 +890,14 @@ async function unitsFromPathsList(
         resolved.push(unit);
       }
     } catch (thrown) {
-      // missing / unreadable / non-source entries take the note path below, never fatal
-      if (
-        thrown instanceof SetupError &&
-        ["ENTRYPOINT_NOT_FOUND", "ENTRYPOINT_UNREADABLE", "MISSING_GRAMMAR"].includes(thrown.code)
-      ) {
-        continue;
+      if (isSkippableEntry(thrown)) continue;
+      if (thrown instanceof SetupError) {
+        throw new SetupError(thrown.code, thrown.message, {
+          cause: thrown,
+          detail: thrown.detail,
+        });
       }
-      throw thrown;
+      throw new Error(`cannot read path list entry ${entry}`, { cause: thrown });
     }
   }
   return resolved;
@@ -1133,7 +1140,9 @@ export interface LintReport {
   selected?: SelectedElement[];
 }
 
-export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
+async function gatherEvents(
+  events: AsyncIterable<LintEvent>,
+): Promise<{ report: LintReport; inputSummary: InputSummary | null }> {
   const report: LintReport = {
     classifications: [],
     findings: [],
@@ -1150,6 +1159,10 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
     else if (event.type === "rules") report.rules = event.rules;
     else if (event.type === "input") inputSummary = event.summary;
   }
+  return { report, inputSummary };
+}
+
+function sortReport(report: LintReport): void {
   const idFile = (input: string): string => input.split("#")[0] ?? input;
   const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
   const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
@@ -1180,6 +1193,9 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input),
   );
   report.notes.sort((a, b) => a.localeCompare(b));
+}
+
+async function attachRun(report: LintReport, inputSummary: InputSummary | null): Promise<void> {
   const summary = recordSummary();
   if (summary !== null) {
     const stats = runStats();
@@ -1197,5 +1213,11 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
     report.run =
       summary !== null ? { ...report.run!, input: inputSummary } : { input: inputSummary };
   }
+}
+
+export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
+  const { report, inputSummary } = await gatherEvents(events);
+  sortReport(report);
+  await attachRun(report, inputSummary);
   return report;
 }
