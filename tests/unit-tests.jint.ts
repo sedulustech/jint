@@ -5,8 +5,15 @@
  *
  * Has_wrong_level, over every unit test in packages/ (typescript:test_case, 12 flagged of 673): all
  * 12 spawn a process or serve real requests, and the rest read 0.00. A planted control, a real unit
- * test with a spawn added, reads 0.9 or higher. The rule is one TypeScript corpus; it is not a
- * default rule until other languages show the same gap.
+ * test with a spawn added, reads 0.9 or higher.
+ *
+ * Other languages, with the rule on target "functions" over test files (Go 22 units, Python 49):
+ * tests that spawn a process read 0.93 to 1.00 in both. Healthy tests read 0.11 or lower, including
+ * Python tests that call the app through FastAPI's in-process TestClient (0.06), so that idiom is
+ * not flagged. Tests that send live HTTP read 0.61 to 0.94 when the request is in the test's own
+ * text, and 0.24 and 0.49 when a helper outside the test sends it: a miss, because the model sees
+ * only the unit. Without a test capture for Go and Python, a helper that does the I/O reads 1.00 as
+ * a unit of its own. Both gaps keep the rule out of a default set.
  */
 
 import type { RuleSchema } from "jint:sdk";
