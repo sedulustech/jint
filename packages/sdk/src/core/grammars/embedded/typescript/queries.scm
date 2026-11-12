@@ -12,6 +12,22 @@
 ; - header-bounded class spans: elements carry their full node text now; the size backstop skips
 ;   what overflows.
 
+; --- test_case / test_suite: the unit tests the function patterns below would flatten ----------
+; A test_case is one test()/it() call carrying a title and a callback; a test_suite is a describe()
+; with a title and a callback, whatever it holds (an opaque describe would hide its tests). Each
+; claims the same call node the function pattern below would, and it is listed first, so the node
+; becomes the test element and every other function is untouched. test_case is opaque: the
+; callbacks inside a test are its body, not units of their own.
+((call_expression
+  arguments: (arguments . (string) [(arrow_function) (function_expression)])) @test_suite
+  (#match? @test_suite "^describe(\\.[A-Za-z]+)*\\(")
+  (#set! "capture.test_suite.definition" "true"))
+((call_expression
+  arguments: (arguments . (string) [(arrow_function) (function_expression)])) @test_case
+  (#match? @test_case "^(test|it)(\\.[A-Za-z]+)*\\(")
+  (#set! "capture.test_case.definition" "true")
+  (#set! "capture.test_case.opaque" "true"))
+
 ; --- call composites: test constructs (jest/vitest) — ABSORB by callee AND shape ----------
 ; The whole call is the element: the span carries the title line (a describe('title', ...) span
 ; includes the describe line). Two conditions make a call honest as a function: the callee family

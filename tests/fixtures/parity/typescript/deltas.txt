@@ -3,10 +3,10 @@
 NEW comment - L10.4-L10.20
 NEW comment - L19.0-L19.33
 NEW comment - L5.0-L5.23
-NEW function describe L29.0-L33.2
-NEW function describe L35.0-L37.2
-NEW function it L30.2-L32.4
-NEW function it L36.2-L36.30
+NEW test_suite - L29.0-L33.2
+NEW test_suite - L35.0-L37.2
+NEW test_case - L30.2-L32.4
+NEW test_case - L36.2-L36.30
 NEW function topLevel L20.0-L23.1
 REF function - L14.2-L16.3
 REF function - L29.0-L29.26
@@ -19,6 +19,9 @@ REF function - L9.2-L12.3
 REF function topLevel L20.7-L23.1
 REF type - L1.7-L3.1
 REF type - L6.7-L6.39
+
+# test_suite / test_case split: describe() is a test_suite and it()/test() a test_case, same spans as
+# the reference walker's describe/it functions (a describe holding tests stays visible, not opaque).
 
 # class/method noun split (Oct 15, owner decision): classes are @class, methods @method -
 # same spans, renamed captures; the reference walker keeps the old nouns.

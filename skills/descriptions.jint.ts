@@ -83,6 +83,7 @@ const DIMENSIONS: readonly Dimension[] = [
 const ruleFor = (dimension: Dimension): RuleSchema => ({
   name: dimension.name,
   target: "files",
+  include: ["skills/*/SKILL.md"],
   instructions: `${dimension.asks} ${SCOPE}`,
   criteria: { true: dimension.defect, false: dimension.sound },
   handle: { error: { greater_than: dimension.above, message: dimension.message } },

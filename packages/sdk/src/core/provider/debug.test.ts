@@ -54,27 +54,6 @@ afterEach(() => {
 });
 
 describe("recordRequests", () => {
-  test("records by default, no env required: the run dir sits under the homedir store", () => {
-    // The run dir is claimed at the start and Bun reads HOME once, so this runs in a child with its
-    // own HOME and no JINT_RUNS_DIR: nothing lands in the real ~/.jint/runs.
-    const home = `${ABS}/home`;
-    const { JINT_RUNS_DIR: _pinned, ...env } = process.env;
-    const child = Bun.spawnSync(
-      [
-        process.execPath,
-        "-e",
-        `import { recordRequests, recordSummary } from "${import.meta.dir}/debug.ts";
-         recordRequests({ fetch: async () => new Response("{}") });
-         const s = recordSummary();
-         console.log(JSON.stringify({ dir: s.dir, override: s.override }));`,
-      ],
-      { env: { ...env, HOME: home } },
-    );
-    const summary = JSON.parse(child.stdout.toString()) as { dir: string; override: boolean };
-    expect(summary.dir).toMatch(new RegExp(`^${home}/\\.jint/runs/\\d+$`));
-    expect(summary.override).toBe(false);
-  });
-
   test("a JINT_RUNS_DIR override moves the run dir; recording is always on", async () => {
     const config = recordRequests({ fetch: passthrough() });
     expect(recordSummary()).not.toBeNull();

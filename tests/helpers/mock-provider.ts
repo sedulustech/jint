@@ -12,6 +12,8 @@ export interface MockDecisionsRequest {
   body: { model: string; input: unknown; questions: Record<string, unknown>[] };
   /** The state: the input_json part's data. */
   state: Record<string, unknown>;
+  /** The request's headers, lowercased. */
+  headers: Record<string, string>;
   /** The questions asked, in order (named q0, q1 ... on the wire; the instructions tell them apart). */
   questions: Record<string, any>[];
 }
@@ -53,7 +55,12 @@ export function startMockDecisions(opts: MockDecisionsOptions = {}): MockDecisio
       const body = (await req.json()) as MockDecisionsRequest["body"];
       const part = (body.input as { content?: { data?: Record<string, unknown> }[] }[])?.[0]
         ?.content?.[0];
-      requests.push({ body, state: part?.data ?? {}, questions: body.questions });
+      requests.push({
+        body,
+        headers: Object.fromEntries(req.headers),
+        state: part?.data ?? {},
+        questions: body.questions,
+      });
       if (opts.latencyMs !== undefined) await Bun.sleep(opts.latencyMs);
       if (opts.status !== undefined) {
         return Response.json({ error: { message: "mock failure" } }, { status: opts.status });

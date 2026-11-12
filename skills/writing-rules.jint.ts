@@ -10,7 +10,8 @@
  * is the true side. A concept whose sentence is stated twice reads lower when only one is deleted.
  * Added after, each 0.00 on the skill and measured on a copy without its text:
  * lacks_scoping_strategy 0.91, lacks_goal_decomposition 0.85, lacks_captures_skill_pointer 0.84
- * (both mentions deleted). One skill, one writer.
+ * (both mentions deleted); lacks_jint_file_convention 0.97 with its paragraph deleted. One skill,
+ * one writer.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -80,6 +81,13 @@ const CONCEPTS: readonly Concept[] = [
     says: "a construct that is not an element needs a new capture, and the writing-captures skill says how to add one",
     cue: "says that a construct no element covers needs a capture, and points to the writing-captures skill for adding it",
     message: "Say that a missing element needs a capture and point to the writing-captures skill.",
+  },
+  {
+    name: "lacks_jint_file_convention",
+    says: "a rule that no other project would want lives next to what it measures, in a <subject>.jint.ts file that exports its rules and sets its own include",
+    cue: "says that a rule only this project wants goes in a <subject>.jint.ts file next to what it measures, scoped by its own include, and that a domain takes it only once other projects and languages show the same gap",
+    message:
+      "Say that a project-specific rule lives in a <subject>.jint.ts file next to its subject.",
   },
   {
     name: "lacks_defect_as_true",
@@ -177,6 +185,7 @@ const CONCEPTS: readonly Concept[] = [
 const ruleFor = (concept: Concept): RuleSchema => ({
   name: concept.name,
   target: "files",
+  include: ["skills/writing-rules/SKILL.md"],
   instructions: `Does this skill fail to say that ${concept.says}? The skill says it when a sentence of its body says it in any wording. Judge only the body under the title; the front matter is not judged.`,
   criteria: {
     true: `No sentence of the body ${concept.cue}, or the body says the opposite.`,

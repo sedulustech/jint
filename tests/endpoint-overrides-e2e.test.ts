@@ -81,3 +81,58 @@ test("the run asks POST /v1/decisions; the recording is the real exchange, witho
   }
   expect(proc.stdout + proc.stderr).not.toContain(key);
 });
+
+const HOSTILE: Record<string, string> = {
+  OPENAI_API_KEY: "sk-hostile-key",
+  OPENAI_ADMIN_KEY: "sk-hostile-admin",
+  OPENAI_BASE_URL: "http://127.0.0.1:1/hostile",
+  OPENAI_ORG_ID: "org-hostile",
+  OPENAI_PROJECT_ID: "proj-hostile",
+  OPENAI_WEBHOOK_SECRET: "whsec-hostile",
+  OPENAI_LOG: "debug",
+  OPENAI_CUSTOM_HEADERS: "X-Hostile: leaked",
+};
+
+test("hostile OPENAI_* variables change neither the host, the key nor the headers", async () => {
+  const provider = startMockDecisions({ predicate: 0.4 });
+  const runs = mkdtempSync(join(tmpdir(), "jint-foreign-env-"));
+  await runCli(["run", "packages/cli/src/logger.ts", "--rule", "is_greppable", "--json"], {
+    env: {
+      ...HOSTILE,
+      JINT_API_URL: `${provider.baseUrl}/v1/decisions`,
+      JINT_API_KEY: "configured-key",
+      JINT_RUNS_DIR: runs,
+    },
+  });
+  provider.stop();
+  expect(provider.requests.length).toBeGreaterThan(0);
+  for (const request of provider.requests) {
+    expect(request.headers.authorization).toBe("Bearer configured-key");
+    expect(JSON.stringify(request.headers)).not.toMatch(/hostile|leaked|org-|proj-/i);
+    expect(Object.keys(request.headers).filter((h) => /openai|hostile/i.test(h))).toEqual([]);
+  }
+  // no recorded file holds a key, an Authorization header or a hostile value
+  const dir = join(runs, readdirSync(runs)[0]!);
+  for (const name of readdirSync(dir)) {
+    expect(readFileSync(join(dir, name), "utf8")).not.toMatch(
+      /configured-key|Authorization|Bearer|hostile|leaked/i,
+    );
+  }
+});
+
+test("with no JINT_RUNS_DIR the run is recorded under the home directory's store", async () => {
+  const provider = startMockDecisions();
+  const home = mkdtempSync(join(tmpdir(), "jint-home-"));
+  const proc = await runCli(
+    ["run", "packages/cli/src/logger.ts", "--rule", "is_greppable", "--json"],
+    {
+      env: { ...mockDecisionsWire(provider.baseUrl), JINT_RUNS_DIR: undefined, HOME: home },
+    },
+  );
+  provider.stop();
+  expect(proc.code).toBe(0);
+  const store = join(home, ".jint", "runs");
+  const [run] = readdirSync(store);
+  expect(run).toMatch(/^\d+$/);
+  expect(readdirSync(join(store, run!)).length).toBeGreaterThan(0);
+});

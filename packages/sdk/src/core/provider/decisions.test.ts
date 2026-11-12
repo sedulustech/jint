@@ -314,17 +314,6 @@ describe("decisions adapter", () => {
 });
 
 /** The OPENAI_* variables the official client would read, set to values that must never be used. */
-const HOSTILE: Record<string, string> = {
-  OPENAI_API_KEY: "sk-hostile-key",
-  OPENAI_ADMIN_KEY: "sk-hostile-admin",
-  OPENAI_BASE_URL: "http://127.0.0.1:1/hostile",
-  OPENAI_ORG_ID: "org-hostile",
-  OPENAI_PROJECT_ID: "proj-hostile",
-  OPENAI_WEBHOOK_SECRET: "whsec-hostile",
-  OPENAI_LOG: "debug",
-  OPENAI_CUSTOM_HEADERS: "X-Hostile: leaked",
-};
-
 const unit: UnitState = {
   path: "src/a.ts",
   content: "export const x = 1;\n",
@@ -352,58 +341,6 @@ describe("through createClassifier", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }
-
-  test("hostile OPENAI_* variables change neither the host, the key nor the headers", async () => {
-    const seen: { url: string; headers: Record<string, string>; body: string }[] = [];
-    const server = Bun.serve({
-      port: 0,
-      fetch: async (req) => {
-        seen.push({
-          url: req.url,
-          headers: Object.fromEntries(req.headers),
-          body: await req.text(),
-        });
-        return Response.json({
-          model: "gpt-6-luna",
-          answers: [{ type: "predicate", name: "q0", probability: 0.4 }],
-          usage: {
-            input_tokens: 3,
-            output_tokens: 0,
-            input_tokens_details: { cached_tokens: 0 },
-          },
-        });
-      },
-    });
-    const saved = Object.fromEntries(Object.keys(HOSTILE).map((k) => [k, process.env[k]]));
-    Object.assign(process.env, HOSTILE);
-    try {
-      const files = await recorded(async () => {
-        const answers = await createClassifier({
-          cache: false,
-          apiKey: "configured-key",
-          url: `http://127.0.0.1:${server.port}/v1/decisions`,
-        })(unit, noul);
-        expect((answers.is_readable as { value: number }).value).toBe(0.4);
-      });
-      expect(seen).toHaveLength(1);
-      expect(new URL(seen[0]!.url).pathname).toBe("/v1/decisions");
-      expect(seen[0]!.headers.authorization).toBe("Bearer configured-key");
-      expect(JSON.stringify(seen[0]!.headers)).not.toMatch(/hostile|leaked|org-|proj-/i);
-      expect(Object.keys(seen[0]!.headers).filter((h) => /openai|hostile/i.test(h))).toEqual([]);
-      // no recorded file holds a key, an Authorization header or a hostile value
-      expect(files.length).toBeGreaterThan(0);
-      for (const f of files) {
-        expect(f.text).not.toMatch(/configured-key|Authorization|Bearer|hostile|leaked/i);
-      }
-      for (const [k, v] of Object.entries(HOSTILE)) expect(process.env[k]).toBe(v);
-    } finally {
-      for (const [k, v] of Object.entries(saved)) {
-        if (v === undefined) delete process.env[k];
-        else process.env[k] = v;
-      }
-      await server.stop(true);
-    }
-  });
 
   const through = (fetch: Fetch) =>
     createClassifier({ apiKey: "k", fetch, cache: false })(unit, noul).then(

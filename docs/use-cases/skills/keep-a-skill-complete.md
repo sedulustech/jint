@@ -7,7 +7,7 @@ sidebar:
 
 # Keep a skill complete
 
-[`lacks_probability_meaning`](../../../skills/rules.ts) flags the writing-rules skill when no sentence says what a reading means, one rule for each thing the skill must say.
+[`lacks_probability_meaning`](../../../skills/writing-rules.jint.ts) flags the writing-rules skill when no sentence says what a reading means, one rule for each thing the skill must say.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";

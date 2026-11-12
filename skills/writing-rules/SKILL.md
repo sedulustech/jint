@@ -145,6 +145,12 @@ Rules live in domains, one package each, imported as `jint:rules/<domain>`. A do
 technology and never rewords the parent's question: a reworded question is a different rule with
 its own calibration. Replace a rule by spreading it with `override: true`.
 
+A rule that no other project would want does not go in a domain. It lives next to what it measures,
+in a file named `<subject>.jint.ts` that exports `rules`, as a unit test lives in `<subject>.test.ts`.
+Each rule sets its own `include` to the files it reads, so the file says what it covers. The root
+config imports it. A rule moves into a domain once other projects, in more than one language, show
+the same gap between healthy and defective units.
+
 ## Never
 
 - Edit a rule to make a finding pass. A change to a rule is its own item for the user to review.

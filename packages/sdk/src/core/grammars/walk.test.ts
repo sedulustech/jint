@@ -117,7 +117,7 @@ class Klass {
     expect(summary(inv)).toEqual(["d0 class Klass L2-L6", "d1 method method L3-L5 in d0"]);
   });
 
-  test("call composites: describe/it/beforeEach capture as functions with parent links; the span carries the title line", async () => {
+  test("call composites: describe and it are a test_suite and a test_case, beforeEach stays a function; the span carries the title line", async () => {
     const inv = await decomposeTS(`
 describe("store", () => {
   let s: Store;
@@ -126,15 +126,15 @@ describe("store", () => {
 });
 `);
     expect(summary(inv)).toEqual([
-      "d0 function describe L2-L6",
-      "d1 function beforeEach L4-L4 in d0",
-      "d2 function it L5-L5 in d0",
+      "d0 test_suite - L2-L6",
+      "d1 binding s L3-L3 in d0",
+      "d2 function beforeEach L4-L4 in d0",
+      "d3 test_case - L5-L5 in d0",
     ]);
     expect(inv.definitions[0]!.content.startsWith('describe("store"')).toBe(true);
-    expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "beforeEach", "it"]);
   });
 
-  test("call composites: the member-call variant (describe.only / it.skip) captures; non-family calls are a statement group", async () => {
+  test("call composites: the member-call variant (describe.only / it.skip) is a suite and a case; non-family calls are a statement group", async () => {
     const inv = await decomposeTS(`
 describe.only("outer", () => {
   it.skip("x", () => {});
@@ -144,14 +144,14 @@ expect(1).toBe(1);
 compute(2);
 `);
     expect(summary(inv)).toEqual([
-      "d0 function describe L2-L4",
-      "d1 function it L3-L3 in d0",
+      "d0 test_suite - L2-L4",
+      "d1 test_case - L3-L3 in d0",
       "d2 binding plain L5-L5",
       "d3 statement_group - L6-L7",
     ]);
   });
 
-  test("wrapper-call composites: test.each(...)() and skipIf are ONE function, callback absorbed", async () => {
+  test("wrapper-call composites: test.each(...)() and skipIf are ONE test_case, callback absorbed", async () => {
     const inv = await decomposeTS(`
 describe("store", () => {
   test.each([1, 2])("case %i", (n) => { expect(n).toBe(n); });
@@ -164,12 +164,11 @@ make.each([1])("not a family object", () => {});
     // (make.each) is not a composite at all - the name test holds for wrappers too - so its
     // statement is top-level code
     expect(summary(inv)).toEqual([
-      "d0 function describe L2-L5",
-      "d1 function test L3-L3 in d0",
-      "d2 function test L4-L4 in d0",
+      "d0 test_suite - L2-L5",
+      "d1 test_case - L3-L3 in d0",
+      "d2 test_case - L4-L4 in d0",
       "d3 statement_group - L6-L6",
     ]);
-    expect(inv.definitions.map((e) => e.name)).toEqual(["describe", "test", "test"]);
   });
 
   test("wrapper-first priority: a table OF callbacks cannot fork the element - the outer call wins", async () => {
@@ -179,7 +178,7 @@ test.each([() => 1, () => 2])("case", (fn) => { fn(); });
     // the inner test.each([...]) call matches the member pattern (its arguments hold arrows) and
     // the outer call matches the wrapper pattern; same-capture nesting keeps the OUTER element -
     // the php assigned-closure discipline, one logical element per call
-    expect(summary(inv)).toEqual(["d0 function test L2-L2"]);
+    expect(summary(inv)).toEqual(["d0 test_case - L2-L2"]);
     expect(inv.definitions[0]!.content.startsWith("test.each")).toBe(true);
   });
 
@@ -287,10 +286,8 @@ const later = 1;
   });
 
   test("a same-row trailing comment attaches to nothing", async () => {
-    // interface.c repro (L325-327): `static size_t qjs_mem_limit = 0; /* 0 = unlimited */` - the
-    // note rides one row down onto the NEXT binding under a row-only gap; a comment that starts
-    // on a row where the previous candidate ends is a note on THAT candidate, never a doc for
-    // what follows
+    // `static size_t qjs_mem_limit = 0; /* 0 = unlimited */`: a comment that starts on the row
+    // where the previous candidate ends is a note on THAT candidate, never a doc for what follows
     const inv = await decomposeTS(`
 const limit = 0; /* 0 = unlimited */
 const used = 1;
@@ -301,8 +298,8 @@ const used = 1;
   });
 
   test("equal-text comments own by identity, never by text", async () => {
-    // process.cc repro (L466/L595): two identical comment texts - the second must not resolve
-    // to the first's owner through a text match
+    // two identical comment texts: the second must not resolve to the first's owner through a
+    // text match
     const inv = await decomposeTS(`
 // utility
 function first() {}
@@ -315,9 +312,9 @@ function second() {}
   });
 
   test("the attached owner kind is the definition's own capture (lossless)", async () => {
-    // cobra repro: go type/method doc comments are top-level runs - the old attached branch
-    // collapsed every owner to class-or-function; the contract's DocstringOwner keeps all six
-    // kinds (a class-body method docblock is a different shape: containment owns it to the class)
+    // go type/method doc comments are top-level runs; an owner is never collapsed to
+    // class-or-function, and the contract's DocstringOwner keeps all six kinds (a class-body method
+    // docblock is a different shape: containment owns it to the class)
     const inv = await decomposeTS(`
 /** Shape docs. */
 interface Shape {}
@@ -348,7 +345,7 @@ function bare() {}
       "// internal note",
       "// detached standalone",
     ]);
-    // the same texts are still carried as structure on their owners
+    // the same texts are carried as structure on their owners
     expect(inv.definitions[0]!.attachedComment).toEqual(["/** Module docs. */"]);
     expect(inv.definitions[0]!.internalCommentCount).toBe(1);
     expect(inv.definitions[1]!.attachedComment).toBeUndefined();
@@ -369,7 +366,7 @@ class Klass {
     // counted for EACH containing definition (the method and its class)...
     expect(klass.internalCommentCount).toBe(2);
     expect(method.internalCommentCount).toBe(1);
-    // ...and still present in the bucket, once each, in document order
+    // ...and present in the bucket, once each, in document order
     expect(inv.comments.map((c) => c.content)).toEqual([
       "// inside the body",
       "// inside the method",
@@ -417,8 +414,8 @@ function after() {}
   });
 
   test("scattered imports split per contiguous run: no element swallows code between", async () => {
-    // the walk.ts repro: an export-from re-export AFTER code dragged the code into one
-    // per-file merged span - a run ends at any non-import candidate or blank row
+    // an export-from re-export AFTER code does not drag the code into one per-file merged span: a
+    // run ends at any non-import candidate or blank row
     const source = [
       'import a from "./a";',
       'import b from "./b";',

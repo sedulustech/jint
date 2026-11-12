@@ -1,8 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CLI_SRC } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
+import { startServe } from "./helpers/ui-serve.ts";
+
+type Served = { status: number; body: any };
 
 const scratch: string[] = [];
 afterAll(() => scratch.forEach(rmScratchTree));
@@ -47,40 +49,21 @@ function seedRun(
   return { store: join(dir, "runs"), dist };
 }
 
-type Served = { status: number; body: any };
-
 /** The real `jint ui serve` over the seeded store: each route answered through HTTP. */
 async function serveGet(
   seed: { store: string; dist: string },
   ...routes: string[]
 ): Promise<Served[]> {
-  const proc = Bun.spawn(["bun", join(import.meta.dir, "..", CLI_SRC), "ui", "serve"], {
-    stdout: "ignore",
-    stderr: "pipe",
-    stdin: "ignore",
-    env: { ...process.env, JINT_RUNS_DIR: seed.store, JINT_UI_DIST: seed.dist },
-  });
+  const server = await startServe(seed);
   try {
-    const decoder = new TextDecoder();
-    const reader = proc.stderr.getReader();
-    let text = "";
-    const deadline = Date.now() + 30_000;
-    let url: string | undefined;
-    while (url === undefined && Date.now() < deadline) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      text += decoder.decode(value);
-      url = /jint: ui -> (\S+)/.exec(text)?.[1];
-    }
-    if (url === undefined) throw new Error(`serve printed no url: ${text}`);
     const answers: Served[] = [];
     for (const route of routes) {
-      const res = await fetch(new URL(route, url));
+      const res = await fetch(new URL(route, server.url));
       answers.push({ status: res.status, body: await res.json() });
     }
     return answers;
   } finally {
-    proc.kill();
+    server.stop();
   }
 }
 

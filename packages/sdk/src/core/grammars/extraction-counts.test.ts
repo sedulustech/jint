@@ -36,10 +36,18 @@ const PINNED: Readonly<
 > = {
   typescript: {
     ext: "ts",
-    // function=6, class=1, method=2: the class split moved the class and its two methods out of
-    // type/function (was type=2 function=8) - see the parity README CALL COMPOSITES delta.
+    // function=2, test_suite=2, test_case=2, class=1, method=2: a class and its methods are @class
+    // and @method, not type or function, and a test call is a test_suite or a test_case.
     // comments=3: the three-dimension model keeps EVERY comment text in the bucket.
-    definitions: { type: 1, class: 1, method: 2, function: 6, binding: 2 },
+    definitions: {
+      type: 1,
+      class: 1,
+      method: 2,
+      function: 2,
+      test_suite: 2,
+      test_case: 2,
+      binding: 2,
+    },
     comments: { comment: 3 },
     imports: { import: 1 },
   },
