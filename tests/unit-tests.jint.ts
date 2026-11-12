@@ -18,8 +18,8 @@
 
 import type { RuleSchema } from "jint:sdk";
 
-export const has_wrong_level: RuleSchema = {
-  name: "has_wrong_level",
+export const should_be_e2e: RuleSchema = {
+  name: "should_be_e2e",
   target: "typescript:test_case",
   include: ["packages/**/*.test.ts"],
   instructions:
@@ -37,4 +37,4 @@ export const has_wrong_level: RuleSchema = {
   },
 };
 
-export const rules: readonly RuleSchema[] = [has_wrong_level];
+export const rules: readonly RuleSchema[] = [should_be_e2e];
