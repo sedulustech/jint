@@ -96,7 +96,26 @@ and proves nothing. A control is a real unit with one mechanical edit that plant
 the rule must separate every pair. Test small on many kinds of unit, not big on one: a language's
 conventions show in a few units.
 
-## 6. Show the readings
+## 6. Scope first
+
+Scoping is running a rule on the narrowest slice of real code that can answer the question in
+hand, and widening only once that slice answers it. Each reading is a paid request, and a rule that
+does not yet separate healthy from defective units says nothing at the width of a whole codebase.
+
+- Start with one rule, a few units of one kind and one package. `jint capture --rule <name>` lists
+  the units for free, and `--dry-run` lists the rules a run would use.
+- Narrow by rule (`--rule`), by input (paths, one directory) and by the rule's `include`. Widen one
+  of them at a time.
+- State the question before a run ("does it fire on real defects?", "does it over-fire on healthy
+  code?") and take the smallest sample that settles it. Grow the sample only when the small one is
+  ambiguous.
+- Widen in steps: a few units, one package, then the whole corpus. At each step read the fire rate
+  and the top readings by hand before the next. A rule that fires on a third of healthy code is
+  reworded before it runs wider.
+- Cover many kinds of unit rather than many units of one kind: a kind's conventions show in a few
+  units.
+
+## 7. Show the readings
 
 Start `jint ui serve` before you run, so the run prints its own address, and give that address to the user to review:
 

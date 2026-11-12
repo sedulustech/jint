@@ -8,7 +8,8 @@
  * the skill with that concept's text deleted: all 21 read 0.55 or higher, 13 of them 0.86 or
  * higher. The lowest is lacks_defect_as_true, 0.55, because the naming bullet still says a defect
  * is the true side. A concept whose sentence is stated twice reads lower when only one is deleted.
- * One skill, one writer.
+ * lacks_scoping_strategy, added after: 0.00 on the skill, 0.91 on a copy without its section. One
+ * skill, one writer.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -120,6 +121,13 @@ const CONCEPTS: readonly Concept[] = [
     says: "calibration uses real code, a fixture written for the rule proves nothing, and a control is a real unit with one mechanical edit",
     cue: "says to calibrate on real code, not on a fixture written for the rule, and says a control is a real unit with one mechanical edit",
     message: "Say to calibrate on real code with controls.",
+  },
+  {
+    name: "lacks_scoping_strategy",
+    says: "scoping is running a rule on the narrowest slice of real code that answers the question and widening only once the slice answers it, one dimension at a time",
+    cue: "says to scope first: start with one rule, a few units and one package, narrow by rule, input and include, and widen in steps, reading the fire rate and top readings by hand at each step",
+    message:
+      "Say that scoping means starting narrow and widening in steps, reading the readings at each step.",
   },
   {
     name: "lacks_show_readings",
