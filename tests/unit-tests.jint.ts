@@ -32,7 +32,8 @@ export const should_be_e2e: RuleSchema = {
   handle: {
     error: {
       greater_than: 0.6,
-      message: "Move this test to an end-to-end test in tests/ and delete the unit test.",
+      message:
+        "Move this test to an end-to-end test in the e2e tests root dir and delete the unit test.",
     },
   },
 };
