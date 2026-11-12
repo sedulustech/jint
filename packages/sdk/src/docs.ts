@@ -29,6 +29,7 @@ import docUseCasesSecurityKeepSecretsOutOfConfig from "../../../docs/use-cases/s
 import docUseCasesSeoNameThePageForSearchResults from "../../../docs/use-cases/seo/name-the-page-for-search-results.md" with { type: "text" };
 import docUseCasesSkillsKeepASkillComplete from "../../../docs/use-cases/skills/keep-a-skill-complete.md" with { type: "text" };
 import docUseCasesSlopSpotLlmWrittenProse from "../../../docs/use-cases/slop/spot-llm-written-prose.md" with { type: "text" };
+import docUseCasesTestsKeepUnitTestsInProcess from "../../../docs/use-cases/tests/keep-unit-tests-in-process.md" with { type: "text" };
 import docUseCasesTypescriptRewriteStatefulComments from "../../../docs/use-cases/typescript/rewrite-stateful-comments.md" with { type: "text" };
 import docUseCasesXFlagGeneratedReplies from "../../../docs/use-cases/x/flag-generated-replies.md" with { type: "text" };
 import docWhatAreRules from "../../../docs/what-are-rules.md" with { type: "text" };
@@ -62,6 +63,7 @@ export const DOC_FILES: Readonly<Record<string, string>> = {
   "use-cases/seo/name-the-page-for-search-results": docUseCasesSeoNameThePageForSearchResults,
   "use-cases/skills/keep-a-skill-complete": docUseCasesSkillsKeepASkillComplete,
   "use-cases/slop/spot-llm-written-prose": docUseCasesSlopSpotLlmWrittenProse,
+  "use-cases/tests/keep-unit-tests-in-process": docUseCasesTestsKeepUnitTestsInProcess,
   "use-cases/typescript/rewrite-stateful-comments": docUseCasesTypescriptRewriteStatefulComments,
   "use-cases/x/flag-generated-replies": docUseCasesXFlagGeneratedReplies,
 };
