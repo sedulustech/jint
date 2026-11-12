@@ -25,10 +25,14 @@ type Row = {
 };
 type RunBody = { results: Row[]; kinds: Record<string, string> };
 
-function seedRun(files: Record<string, { body: object; mtimeMs?: number }>, extras: object = {}) {
+function seedRun(
+  files: Record<string, { body: object; mtimeMs?: number }>,
+  extras: object = {},
+  id = "100",
+) {
   const dir = scratchDir("run-view");
   scratch.push(dir);
-  const run = join(dir, "runs", "100");
+  const run = join(dir, "runs", ...id.split("/"));
   mkdirSync(run, { recursive: true });
   const { manifest, report } = extras as { manifest?: object; report?: object };
   writeFileSync(join(run, "manifest.json"), JSON.stringify({ configPath: "/c.json", ...manifest }));
@@ -43,8 +47,13 @@ function seedRun(files: Record<string, { body: object; mtimeMs?: number }>, extr
   return { store: join(dir, "runs"), dist };
 }
 
-/** The real `jint ui serve` over the seeded store: GET /api/runs/100 through HTTP. */
-async function readRun(seed: { store: string; dist: string }): Promise<RunBody> {
+type Served = { status: number; body: any };
+
+/** The real `jint ui serve` over the seeded store: each route answered through HTTP. */
+async function serveGet(
+  seed: { store: string; dist: string },
+  ...routes: string[]
+): Promise<Served[]> {
   const proc = Bun.spawn(["bun", join(import.meta.dir, "..", CLI_SRC), "ui", "serve"], {
     stdout: "ignore",
     stderr: "pipe",
@@ -64,11 +73,33 @@ async function readRun(seed: { store: string; dist: string }): Promise<RunBody> 
       url = /jint: ui -> (\S+)/.exec(text)?.[1];
     }
     if (url === undefined) throw new Error(`serve printed no url: ${text}`);
-    return (await (await fetch(new URL("api/runs/100", url))).json()) as RunBody;
+    const answers: Served[] = [];
+    for (const route of routes) {
+      const res = await fetch(new URL(route, url));
+      answers.push({ status: res.status, body: await res.json() });
+    }
+    return answers;
   } finally {
     proc.kill();
   }
 }
+
+async function readRun(seed: { store: string; dist: string }): Promise<RunBody> {
+  return (await serveGet(seed, "api/runs/100"))[0]!.body as RunBody;
+}
+
+const elementOf = (kind: string, label: string) => ({
+  kind,
+  label,
+  span: {
+    start: { line: 4, column: 0 },
+    end: { line: 10, column: 0 },
+    startByte: 20,
+    endByte: 200,
+  },
+});
+
+const ELEMENT_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
 const request = (state: object, questions: object, extra: object = {}) => ({
   ts: START,
@@ -218,5 +249,186 @@ describe("the run read model, served by the real `ui serve`", () => {
     });
     expect(byPath["b.ts"]).toMatchObject({ severity: null, severities: { r_unjudged: null } });
     expect(byPath["c.ts"]!.severity).toBeNull();
+  });
+  test("cells: one rule x one input with the finding joined by full identity and the element riding the cell; no report, no cells", async () => {
+    const seed = seedRun(
+      {},
+      {
+        report: {
+          classifications: [
+            { rule: "r_a", input: "src/x.ts", value: 0.9, element: elementOf("file", "L1-L10") },
+            {
+              rule: "r_b",
+              input: "src/x.ts#abc",
+              value: 0.1,
+              element: elementOf("function", "d0"),
+            },
+          ],
+          findings: [{ rule: "r_a", input: "src/x.ts", severity: "warn" }],
+          errors: [],
+        },
+      },
+    );
+    const { cells } = (await serveGet(seed, "api/runs/100"))[0]!.body;
+    expect(cells).toHaveLength(2);
+    expect(cells.find((c: any) => c.rule === "r_a")).toMatchObject({
+      input: "src/x.ts",
+      file: "src/x.ts",
+      element: { kind: "file" },
+      severity: "warn",
+    });
+    expect(cells.find((c: any) => c.rule === "r_b")).toMatchObject({
+      input: "src/x.ts#abc",
+      file: "src/x.ts",
+      element: { kind: "function", label: "d0", span: { start: { line: 4 }, end: { line: 10 } } },
+    });
+    const bare = seedRun({ "1700000000001-a.json": { body: request({ path: "a.ts" }, {}) } });
+    expect((await serveGet(bare, "api/runs/100"))[0]!.body.cells).toEqual([]);
+  });
+
+  test("a nested run id lists, serves its cells against the element request, and serves its report", async () => {
+    const file = "1700000000001-elements-fn.ts.json";
+    const seed = seedRun(
+      {
+        [file]: {
+          body: request(
+            { path: "src/x.ts", source: "export function f() {}", id: ELEMENT_ID },
+            { r_a: {} },
+          ),
+        },
+      },
+      {
+        report: {
+          classifications: [
+            {
+              rule: "r_a",
+              input: `src/x.ts#${ELEMENT_ID}`,
+              value: 0.1,
+              element: elementOf("function", "d0"),
+            },
+          ],
+          findings: [],
+          errors: [],
+        },
+      },
+      "generated/elements",
+    );
+    const [list, run, report] = await serveGet(
+      seed,
+      "api/runs",
+      "api/runs/generated/elements",
+      "api/runs/generated/elements/report",
+    );
+    expect(list!.body.runs.map((r: { id: string }) => r.id)).toContain("generated/elements");
+    expect(run!.body.id).toBe("generated/elements");
+    const cell = run!.body.cells.find((c: any) => c.rule === "r_a");
+    expect(cell.element.kind).toBe("function");
+    expect(cell.requestFile).toBe(file);
+    expect(report!.status).toBe(200);
+  });
+
+  test("a request whose wire state carries no path still joins its reading through the recorded path", async () => {
+    const file = "1700000000001-elements-fn.ts.json";
+    const seed = seedRun(
+      {
+        [file]: {
+          body: {
+            ...request({ source: "export function f() {}" }, { r_a: {} }),
+            id: ELEMENT_ID,
+            path: "src/x.ts",
+          },
+        },
+      },
+      {
+        report: {
+          classifications: [
+            {
+              rule: "r_a",
+              input: `src/x.ts#${ELEMENT_ID}`,
+              value: 0.1,
+              element: elementOf("function", "d0"),
+            },
+          ],
+          findings: [],
+          errors: [],
+        },
+      },
+    );
+    const run = (await serveGet(seed, "api/runs/100"))[0]!.body;
+    expect(run.results[0].path).toBe("src/x.ts");
+    expect(run.cells.find((c: any) => c.rule === "r_a").requestFile).toBe(file);
+  });
+
+  test("a refused classification is a cell with no value and no verdict, handle-judged or not", async () => {
+    const seed = seedRun(
+      {},
+      {
+        manifest: { handles: { r_a: { warn: { greater_than: 0.5 } } } },
+        report: {
+          classifications: [
+            { rule: "r_a", input: "src/x.ts", refused: true },
+            { rule: "r_a", input: "src/y.ts", value: 0.9 },
+          ],
+          findings: [],
+          errors: [],
+        },
+      },
+    );
+    const { cells } = (await serveGet(seed, "api/runs/100"))[0]!.body;
+    const refused = cells.find((c: any) => c.input === "src/x.ts");
+    expect(refused.refused).toBe(true);
+    expect("value" in refused).toBe(false);
+    expect("severity" in refused).toBe(false);
+    expect(cells.find((c: any) => c.input === "src/y.ts")).toMatchObject({ severity: "warn" });
+  });
+
+  test("a choice cell's value is its winning tier's sum; a close read is undecided", async () => {
+    const choices = { justified: "pass", digression: "error", provenance: "error" };
+    const probabilities = { justified: 0.43, digression: 0.3, provenance: 0.27 };
+    const read = { input: "src/x.ts", value: 0.43, choice: "justified", probabilities };
+    const seed = seedRun(
+      {},
+      {
+        manifest: {
+          handles: {
+            r_split: { choices },
+            r_close: { choices, undecided: { margin: 0.2, level: "warn" } },
+          },
+        },
+        report: {
+          classifications: [
+            { rule: "r_split", ...read },
+            { rule: "r_close", ...read },
+          ],
+          findings: [],
+          errors: [],
+        },
+      },
+    );
+    const { cells } = (await serveGet(seed, "api/runs/100"))[0]!.body;
+    const split = cells.find((c: any) => c.rule === "r_split");
+    expect(split.value).toBeCloseTo(0.57);
+    expect(split.undecided).toBeUndefined();
+    const close = cells.find((c: any) => c.rule === "r_close");
+    expect(close).toMatchObject({ undecided: true });
+    expect(close.pass).toBeUndefined();
+    expect(close.value).toBeCloseTo(0.57);
+  });
+
+  test("a report written before readings were called classifications reads as classifications, in the report route and the cells", async () => {
+    const seed = seedRun(
+      {},
+      {
+        report: {
+          measurements: [{ rule: "r_a", input: "src/x.ts", value: 0.1 }],
+          findings: [],
+          errors: [],
+        },
+      },
+    );
+    const [run, report] = await serveGet(seed, "api/runs/100", "api/runs/100/report");
+    expect(report!.body.measurements).toBeUndefined();
+    expect(report!.body.classifications).toEqual([{ rule: "r_a", input: "src/x.ts", value: 0.1 }]);
+    expect(run!.body.cells.map((c: any) => `${c.rule} ${c.input}`)).toEqual(["r_a src/x.ts"]);
   });
 });
