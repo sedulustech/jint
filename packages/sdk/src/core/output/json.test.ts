@@ -51,13 +51,10 @@ describe("renderJson", () => {
     expect(parsed.tool).toBe("jint");
     expect(parsed.errors).toEqual([
       { input: "src/b.ts", code: "PROVIDER_UNAVAILABLE", message: "provider unreachable" },
-      // an error about one rule's answer names the rule
       { input: "src/c.ts#L4", code: "PROVIDER_RESPONSE_INVALID", message: "no answer", rule: "r" },
     ]);
   });
 
-  // v1.3 self-containment: note (legend text) and location serialize; a renderer never reaches
-  // into criteria or recorded requests for display data.
   test("score findings carry note + location; the report is self-contained", () => {
     const parsed = JSON.parse(renderJson(report));
     expect(parsed.findings[0]).not.toHaveProperty("note");
@@ -93,8 +90,6 @@ describe("renderJson", () => {
     expect(parsed.notes).toEqual([]);
   });
 
-  // Review 396888e finding 1: notes (scope exclusions, oversized skips) are in-band SIGNAL —
-  // the machine shape carries them too, after errors, or --json runs report scoping as silence.
   test("notes serialize after errors", () => {
     const noted: LintReport = {
       ...report,
@@ -109,8 +104,6 @@ describe("renderJson", () => {
     expect(keys.indexOf("notes")).toBeGreaterThan(keys.indexOf("errors"));
   });
 
-  // The finding's distribution rides the wire: copied from the classification when present, omitted
-  // (key absent, not null) when the answer had none - an agent reads findings alone.
   test("findings carry probabilities when the answer had them; the key omits otherwise", () => {
     const parsed = JSON.parse(renderJson(report));
     expect(parsed.findings[0]!.probabilities).toEqual({ "0": 0.5, "1": 0, "2": 0.5 });
@@ -143,7 +136,6 @@ describe("renderJson", () => {
     expect(renderJson(report)).not.toContain("\x1b");
   });
 
-  // The run pointer: top-level run {id, dir}, present only on reports from recorded runs.
   test("run pointer serializes when set; capture-less reports omit it", () => {
     const withRun = { ...report, run: { id: "1791916340873", dir: "/tmp/x/runs/1791916340873" } };
     const parsed = JSON.parse(renderJson(withRun));

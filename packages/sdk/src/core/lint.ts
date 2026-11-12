@@ -594,16 +594,6 @@ function unwalkedListEntryNotes(
     .map((p) => `path list entry not found in the walk: ${p}`);
 }
 
-/**
- * WALK-FIRST (design rules-context/03): one walk over every file unit BEFORE any classification,
- * inventories (metadata + parent links) retained, trees freed inside walkUnit. Peak memory =
- * metadata-so-far + contents-so-far + one tree, the same profile as the old streaming walk.
- *
- * The walk is a DEPENDENCY of inventory-scoped rules, so it is taken only where a consumer exists:
- * a unit no in-scope rule targets at element level (files-target only) measures from its raw source
- * and is never parsed. Unwalked units read as inventory-less downstream; a WALK_FAILED there is
- * impossible by construction - the failure requires a walked-for file.
- */
 async function walkedInventories(
   units: readonly Unit[],
   options: LintOptions,
@@ -697,23 +687,12 @@ function oversizedSkipNote(path: string, skipped: OversizedElement): string {
   );
 }
 
-/**
- * One pass, no candidacy: every classification is a reading; the rule's handle is the only
- * threshold. Element readings carry their span into the finding's location. The criteria legend
- * echo is gone (owner contract change): classifier-adjacent rubric prose never reaches findings.
- * The note is the rule AUTHOR's message attached at the fired handle tier, or nothing - default
- * rules carry no messages (authoring them is a separate calibration pass).
- */
 function findingFor(
   event: ValuedClassification,
   element: Element | undefined,
   handle: Rule["handle"] | undefined,
 ): Finding | undefined {
-  // custom-tier events run their own policy pipeline; a rule outside the JSON map has no
-  // finding policy here.
   if (handle === undefined) return undefined;
-  // the full answer flows to the handle: score resolution reads value (DEFAULT round) and
-  // carries probabilities for future reads
   const outcome = handle(event);
   if (outcome === null) return undefined;
   return {
@@ -724,12 +703,9 @@ function findingFor(
     note: outcome.message,
     undecided: outcome.undecided,
     probabilities: event.probabilities,
-    // the provider's number rides along; no handle reads it
     confidence: event.confidence,
     choice: event.choice,
     cached: event.cached,
-    // Literal ternary branches, NOT conditional spreads: this literal sits under
-    // excess-property checking — an undeclared field is a compile error.
     location: element !== undefined ? { input: event.input, span: element.span } : undefined,
   };
 }
@@ -959,12 +935,6 @@ function admittedOperands(
   return kept;
 }
 
-/**
- * The run's units, from whichever input form selected them. The changeset form defers per entry:
- * the list IS the judged subject, so a missing or non-source entry degrades to a not-in-the-walk
- * note instead of failing the run. (An empty list never reaches here: the guard above the auth gate
- * threw LIST_EMPTY.)
- */
 async function resolveRunUnits(
   options: LintOptions,
   pathsList: readonly string[] | undefined,
@@ -982,14 +952,8 @@ async function resolveRunUnits(
       scopes: [],
     };
   const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  // THE ONE config-scope test (include ∧ ¬exclude), the same predicate for every input kind
-  // below, except str (no real path to evaluate). Named files and a path list evaluate it on each
-  // path unless the run is unscoped; the dir walk enforces it mid-walk and never skips it.
   const scopeAdmits = configScopeAdmits(options.config.include, exclude);
   const operandAdmits = options.unscoped === true ? () => true : scopeAdmits;
-  // a file needs a grammar only when an element-target rule applies to it: a page no grammar claims
-  // (an .astro file) is measured as raw source by the rules that judge a whole file. A rule with no
-  // include of its own applies where the config scope admits the file, as it does when measuring.
   const applies = (rule: ScopeKeys, p: string) =>
     ruleInScope(rule, p) && (rule.include !== undefined || operandAdmits(p));
   const requireGrammarFor = (p: string) =>
@@ -1002,17 +966,12 @@ async function resolveRunUnits(
       scopes: [],
     };
   }
-  // WALK-UNION: discovery admits a file when the config include OR any rule's include matches
-  // (the walk-union scope build puts the config scope first, so attribution names a rule scope only
-  // when the config scope did not admit). Each rule still measures only files its own scope admits.
   const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
       ? "file"
       : (options.inputType ?? (await inferKind(input as string)));
-  // one resolution plumbing: the scopes/exclude params ride along (inert on file operands -
-  // a named file never walks), load-bearing on the dir walk
   const resolve = (inp: string | string[], inputType: InputKind | undefined) =>
     collectUnits(
       resolveInput({
@@ -1036,8 +995,6 @@ async function resolveRunUnits(
     const units = kept.length === 0 ? [] : await resolve(kept, "file");
     return { units, configAdmits: operandAdmits, scopes };
   }
-  // the dir walk: the walker enforces the same scopes mid-walk (admitting through any scope);
-  // configAdmits here is what unscoped rules ride during rule selection
   const units = await resolve(input as string | string[], options.inputType);
   return { units, configAdmits: scopeAdmits, scopes };
 }
@@ -1176,7 +1133,6 @@ export interface LintReport {
   selected?: SelectedElement[];
 }
 
-/** Drain the stream into the stable report shape both reporters render. */
 export async function collectReport(events: AsyncIterable<LintEvent>): Promise<LintReport> {
   const report: LintReport = {
     classifications: [],
@@ -1194,16 +1150,6 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
     else if (event.type === "rules") report.rules = event.rules;
     else if (event.type === "input") inputSummary = event.summary;
   }
-  // Concurrent classification completes out of order; the REPORT is the stable artifact. Every
-  // array sorts on a total key over the data (never completion order, never stable-sort tie
-  // preservation):
-  // - findings: (file, span startByte, span start line, input, rule) - one file can fire one rule
-  //   on many elements, so (input, rule) alone can tie. The element id suffix after '#' is a
-  //   per-run uuid (element-identity design), so it sorts only as a final tiebreak, never first —
-  //   a uuid-first key would make the document ordering differ between identical runs.
-  // - classifications: (file, span, input, rule, stage, value); errors: (file, code, message,
-  //   input); notes: lexical.
-  // The event STREAM stays completion-ordered by design; the serialized document is byte-stable.
   const idFile = (input: string): string => input.split("#")[0] ?? input;
   const spanKey = (f: Finding): number => f.location?.span.startByte ?? -1;
   const lineKey = (f: Finding): number => f.location?.span.start.line ?? -1;
@@ -1223,7 +1169,6 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input) ||
       a.rule.localeCompare(b.rule) ||
       (a.element?.kind ?? "").localeCompare(b.element?.kind ?? "") ||
-      // refused readings sort after valued ones
       (a.refused ? 1 : 0) - (b.refused ? 1 : 0) ||
       (a.refused || b.refused ? 0 : a.value - b.value),
   );
@@ -1235,8 +1180,6 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       a.input.localeCompare(b.input),
   );
   report.notes.sort((a, b) => a.localeCompare(b));
-  // The run pointer is read AFTER the drain: recording starts at the FIRST classifier call, which
-  // happens inside the drained events — reading it before would see null on every run.
   const summary = recordSummary();
   if (summary !== null) {
     const stats = runStats();
@@ -1250,8 +1193,6 @@ export async function collectReport(events: AsyncIterable<LintEvent>): Promise<L
       url: ui === null ? undefined : new URL(`runs/${summary.dir.split("/").pop()}`, ui).href,
     };
   }
-  // The input accounting rides the run pointer when one exists; a capture-less run still reports
-  // it (id/dir absent, input present) - the accounting is about the input, not the classifier.
   if (inputSummary !== null) {
     report.run =
       summary !== null ? { ...report.run!, input: inputSummary } : { input: inputSummary };

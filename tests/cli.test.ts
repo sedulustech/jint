@@ -79,11 +79,8 @@ describe("cli: contract basics", () => {
   });
 
   test.concurrent("missing entrypoint -> ENTRYPOINT_NOT_FOUND, exit 2", async () => {
-    // NO_SERVICE: input resolution is key-independent (the key check must not mask it)
     const r = await run(["run", "nope/missing.ts"], NO_SERVICE);
     expectContract(r, { exit: 2, stderr: "ENTRYPOINT_NOT_FOUND" });
-    // pre-flight ordering: a run that cannot start prints its error ALONE - the rubric
-    // block (deliberate for runs that proceed) never buries the actionable line
     expect(r.stderr).not.toContain("measuring with");
   });
 
@@ -129,7 +126,6 @@ describe("cli: contract basics", () => {
   });
 
   test.concurrent("removed flags are just unknown flags: ONE consistent error, exit 2", async () => {
-    // no bespoke per-flag hints; an unknown flag is an unknown flag, naming the token
     for (const args of [
       ["--file", "a.ts"],
       ["--dir", "src"],
@@ -169,7 +165,6 @@ describe("cli: contract basics", () => {
     });
   });
 
-  // the bun runtime eats a LEADING bare '--' from argv, so the flags must ride before it
   test.concurrent("'--' ends flag parsing: a dash-path classifies", async () => {
     const r = await run(
       [
@@ -219,21 +214,15 @@ describe("cli: contract basics", () => {
       NO_SERVICE,
     );
     expect(a.code).toBe(b.code);
-    // element inputs carry run-scoped uuids (element-identity design); the run pointer carries a
-    // per-spawn timestamp id: strip both before comparing
     const strip = (s: string) => {
       const parsed = JSON.parse(s.replace(/[0-9a-f-]{36}/g, "UUID"));
       delete parsed.run; // the run pointer carries a per-spawn timestamp id
       return parsed;
     };
     expect(strip(a.stdout)).toEqual(strip(b.stdout));
-    // two CLI spawns, each fetching a dead base URL: this is the only case that pays
-    // the boot cost twice, so it needs more than bun's 5s default on a loaded runner
   }, 30000);
 
   test.concurrent("a file named diff is judged as a FILE (nouns never resolve to paths)", async () => {
-    // file semantics: the 'diff' extension is not a source grammar -> MISSING_GRAMMAR; it was NOT
-    // noun-dispatched (a bare noun is a payload usage error instead)
     expectContract(
       await run(
         [
@@ -252,9 +241,6 @@ describe("cli: contract basics", () => {
     );
   });
 
-  // NO_SERVICE points at a dead base URL and the CLI performs a real fetch; connection
-  // latency varies on loaded CI runners, so this test gets a generous ceiling (bun's 5s
-  // default flaked here on ubuntu-latest, and the CLI's own spawn carries its own timeout)
   test.concurrent("piped stdout carries no escape codes (--help and reports)", async () => {
     expect((await run(["-h"])).stdout).not.toContain("\x1b");
     const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"], NO_SERVICE);
@@ -265,8 +251,6 @@ describe("cli: contract basics", () => {
 describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("a file positional without a key: exit 2 with the message, nothing walked", async () => {
     const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
-    // config error: the missing key is setup, not a per-unit failure; nothing was walked or
-    // classified, so stdout stays empty — no machine document
     expectContract(r, {
       exit: 2,
       stderr: ["CONFIG_INVALID", "no API key set - export JINT_API_KEY or OPENAI_API_KEY"],
@@ -290,9 +274,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       ["run", "tests/fixtures/sample-file.ts", "--json", "--config", configPath],
       NO_KEY,
     );
-    // The old contract (empty rule set = legal, empty classifications, exit 4) enshrined the
-    // "0 rules" nonsense run: nothing could ever be measured. A run that would measure
-    // nothing is now a named setup error, like every config problem.
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("CONFIG_NO_RULES");
     expect(r.stdout).not.toContain("CONFIG_NO_RULES"); // errors ride stderr, stdout stays data
@@ -308,7 +289,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
-    // the listed file was judged: the transport failure names it (subject came from the list)
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
   });
@@ -342,15 +322,12 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
-    // the transport failure names the listed file: the piped list, not a file argument, selected it
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
     rmScratchFile(list);
   });
 
   test.concurrent("a noun that is not FIRST -> usage error, exit 2 (no mid-list noun)", async () => {
-    // the old order-free form (jint <dir> paths <file>) is gone: the list can never select
-    // alongside another input, because the noun IS the whole input declaration
     expectContract(await run(["run", "tests/fixtures/sample-dir", "paths", "-"]), {
       exit: 2,
       stderr: "a noun is the FIRST positional",
@@ -366,7 +343,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         stdin: "no/such/a.ts\nno/such/b.ts\n",
       },
     );
-    // error taxonomy: the run RAN and measured nothing -> exit 4, not exit 2 (usage/config)
     expect(proc.code).toBe(4);
     const report = JSON.parse(proc.stdout);
     expect(report.classifications).toEqual([]);
@@ -387,7 +363,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("unknown --language: usage error exit 2 before any input is touched", async () => {
     expectContract(await run(["run", "str", "-", "--language", "klingon"], NO_SERVICE), {
       exit: 2,
-      // same shape as the SDK's unknown-language throws: message, capped valid list, code
       stderr: [
         "unknown language 'klingon'",
         "valid: typescript, tsx, python, markdown, php, go ...",
@@ -408,10 +383,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("TTY with payload '-' -> immediate usage error, never blocks", async () => {
-    // script(1) allocates a pty so process.stdin.isTTY is true in the child.
-    // The ONLY shell escape hatch left: this test needs a pseudo-TTY (a TTY stdin the CLI must
-    // refuse to read), and no argv spawn can provide one. util-linux script takes -e -c and the
-    // command as a single arg; the BSD/macOS script takes the command positionally — two spellings.
     const script =
       process.platform === "darwin"
         ? `script -q /dev/null bun ${CLI} run str -`
@@ -423,8 +394,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("jint run str --json: the flag parses, so the noun has no payload (usage error)", async () => {
-    // inside run there is no noun ride: a flag-looking token after the noun IS parsed as a flag,
-    // and the noun is left without its '-' payload - still loud, still naming the remedy
     expectContract(await run(["run", "str", "--json"]), {
       exit: 2,
       stderr: ["expects a payload", "jint run str -"],
@@ -433,8 +402,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("jint run str -- --json: a flag-shaped payload is still not the payload", async () => {
-    // the payload rule stays uniform: after -- the token reaches the noun verbatim, and anything
-    // but '-' is a usage error - never inline source, never a parsed flag riding the noun
     expectContract(await run(["run", "str", "--", "--json"]), {
       exit: 2,
       stderr: ["'--json' is not a payload", "jint run str -"],
@@ -461,7 +428,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
     const proc = await runCli(["run", "str", "-"], { env: NO_SERVICE, stdin: "x" });
     expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
-    // raw-line stderr: the failed unit renders as its own error line; totals stay zero-findings
     expect(proc.stderr).toMatch(/error PROVIDER_\w+ str:stdin:/);
     expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
@@ -473,7 +439,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
   });
 
   test.concurrent("a diff-looking file is judged as a FILE (no sniffing), rev-shaped too", async () => {
-    // file semantics: rejected as a non-source extension (MISSING_GRAMMAR), not decomposed as a diff
     const r = await run(
       [
         "run",
@@ -487,7 +452,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     expectContract(r, { exit: 2, stderr: "MISSING_GRAMMAR" });
     expect(r.stderr).not.toContain("diff --git");
 
-    // a rev-shaped argument is just a missing entrypoint, not a diff
     expectContract(await run(["run", "HEAD~1..HEAD", "--json"], NO_SERVICE), {
       exit: 2,
       stderr: "ENTRYPOINT_NOT_FOUND",
@@ -505,16 +469,12 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       ],
       NO_SERVICE,
     );
-    // config itself loaded fine; the failure is transport (exit 4), not CONFIG_INVALID (exit 2)
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
     expect(report.errors[0]!.code).toBe("PROVIDER_UNAVAILABLE");
   });
 
   test.concurrent("dir positional respects .gitignore, errors in-band, exit 4", async () => {
-    // tests/fixtures/ignore-test contains a .gitignore that ignores 'binary'
-    // own config: the root config excludes tests subtree on the config-relative basis (which
-    // would correctly empty this walk) - this test asserts walker/gitignore behavior, not that
     const ownConfig = "/tmp/jint-gitignore-contract.json";
     require("node:fs").writeFileSync(
       ownConfig,
@@ -526,8 +486,6 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     );
     expect(r.code).toBe(4);
     const report = JSON.parse(r.stdout);
-    // Should contain classifications for the non-ignored files
-    // If it crashed on binaries, the exit code would be 3 (internal)
     expect(report.errors.length).toBeGreaterThan(0);
   }, 30000);
 
@@ -666,9 +624,6 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
   });
 });
 
-// Live round trips assert MODEL BEHAVIOR (calibration), not contract — the mocked twins above own
-// every structural claim. Opt-in only: set RUN_LIVE_TESTS=1 AND a key (OPENAI_API_KEY, or JINT_API_KEY with JINT_API_URL). A run that asks
-// for live tests without a key fails loud; the old silent skip hid a regression once already.
 describe("cli: live provider round trip (opt-in: RUN_LIVE_TESTS=1 + a key)", () => {
   const liveRequested = process.env.RUN_LIVE_TESTS === "1";
   function requireLive(): boolean {

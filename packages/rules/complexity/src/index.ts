@@ -25,8 +25,6 @@ export const is_function_srp: NoulRuleSchema = {
   },
 };
 
-// provisional: first score rule — scored rubric via the provider score primitive; unanchored until
-// the self-lint corpus has score readings
 export const is_cognitively_complex: ScoreRuleSchema = {
   name: "is_cognitively_complex",
   kind: "score",
@@ -37,11 +35,7 @@ export const is_cognitively_complex: ScoreRuleSchema = {
     "Moderate: the reader must pause once or twice - hold a small amount of state across a few lines, or re-check an outer condition - but the structure is otherwise linear and the full flow is recoverable by re-reading one or two spots.",
     "Hard: following the code requires actively reconstructing its flow - a stack of nested conditions to track, several unrelated concerns fused into one unit, state held across many lines, or an order that forces jumps instead of top-to-bottom reading. The structural difficulty could be removed without changing what the code does.",
   ],
-  // Explicit union, not the definitions shorthand - same measured set, pinned identical by the defaults-parity test.
   target: ["functions", "classes", "methods", "types", "bindings"],
-  // Calibrated 2026-09-29 (two-language: app/src + cobra, healthy/defective fixtures):
-  // scores are bounded 0..2; error at round>=2 (>=1.5) sits between cobra healthy-max 1.46
-  // and defective stacked fixtures 1.95/1.97; warn at round>=1 (>=0.5) warns 5-13% of healthy.
   handle: {
     map: [
       "pass",
@@ -55,5 +49,4 @@ export const is_cognitively_complex: ScoreRuleSchema = {
   },
 };
 
-/** Every rule of this domain, in run order. */
 export const rules: readonly RuleSchema[] = [is_function_srp, is_cognitively_complex];

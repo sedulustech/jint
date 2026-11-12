@@ -114,20 +114,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
-// a failed URL edit leaves the pane state stale; say so loudly instead of rethrowing
-// into a promise no caller awaits
 const reportSearchEditFailure = (cause: unknown): void => {
   // oxlint-disable-next-line no-console
   console.error("run search edit failed", { cause });
 };
 
-/*
- * Pane toggles are URL edits so back/forward walks run + pane history.
- * RAPID navigations get dropped: while one commit is in flight the router
- * dedupes the next against the stale latestLocation (toggle hide->show
- * within a commit window loses the second click). Serialize them so every
- * click lands, in order.
- */
 function useSequentialSearchEdit(
   runId: string | null,
 ): (searchChange: Partial<RunSearch>, route?: RunRoute) => Promise<unknown> {
@@ -200,10 +191,8 @@ function RunLanding({ runList, onPick }: { runList: RunSummary[]; onPick: (id: s
 }
 
 const DEFAULT_MODE: Mode = "file";
-// the run route id, shared by navigate and link so the two cannot drift
 const RUN_ROUTE = "/runs/$runId";
 type RunRoute = typeof RUN_ROUTE | typeof ERRORS_ROUTE;
-// the picker caps its list client-side; the server returns every run
 const MAX_RUNS = 100;
 
 function AppHeader({

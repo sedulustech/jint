@@ -402,11 +402,6 @@ export interface OriginalRead {
   classification: { key: string; question: QuestionSchema; answer: unknown } | null;
 }
 
-/**
- * THE lookup of an address in a run, for everyone: the run view reads it through GET .../original
- * and reclassify starts from it. The request is the one named by `file` when given, else the
- * report's own join for the address, else the request at its path and element.
- */
 export async function readOriginal(
   runId: string,
   address: { rule: string; input: string; file?: string },
@@ -658,10 +653,6 @@ function cellSeverity(
   return null;
 }
 
-/**
- * The manifest's handle snapshot: the exact semantics the SDK compiled, shipped as data. A missing
- * or unreadable manifest means no projection - rows keep report verdicts only.
- */
 async function readManifestHandles(
   dir: string,
 ): Promise<{ handles: Record<string, HandlerData> | null; legacy: boolean }> {
@@ -685,22 +676,12 @@ async function readManifestHandles(
   }
 }
 
-/**
- * The report's own verdicts and classifications, joined from report.json. Canonical rule names come
- * from the report (the engine's own spelling); the request question keys are a derived encoding
- * ("<rule> in <element>") and parsing them is lossy when a rule name or element id itself contains
- * " in " - so the report wins whenever it exists. Returns null facts when the report is unreadable
- * (fall back to question-key parsing).
- */
 async function readReportFacts(dir: string): Promise<{
   findingSev: Map<string, Map<string, Severity>>;
   pathRules: Map<string, string[]> | null;
   pathValues: Map<string, Reading[]> | null;
   classificationCount: number;
 }> {
-  // the report's own verdicts: keyed by the FULL finding input (path or path#span). Stripping the
-  // span joined a file's worst element verdict onto every sibling element - the exact inversion
-  // the handle snapshot exists to prevent.
   const findingSev = new Map<string, Map<string, Severity>>();
   let pathRules: Map<string, string[]> | null = null;
   let pathValues: Map<string, Reading[]> | null = null;
@@ -719,8 +700,6 @@ async function readReportFacts(dir: string): Promise<{
       }[];
       findings?: { input: string; rule: string; severity: Severity }[];
     };
-    // the join is (input, rule) - a bare-input key would let one rule's verdict answer
-    // another rule's lookup at the same path
     for (const f of report.findings ?? []) {
       const byRule = findingSev.get(f.input) ?? new Map<string, Severity>();
       byRule.set(f.rule, f.severity);
@@ -730,8 +709,6 @@ async function readReportFacts(dir: string): Promise<{
     pathValues = new Map();
     for (const m of report.classifications ?? []) {
       classificationCount += 1;
-      // pathRules keys on the bare path (requests look up by state.path); pathValues keys on
-      // the FULL input (path#span) so projection matches the element identity.
       const path = m.input.split("#")[0]!;
       const arr = pathRules.get(path);
       if (arr) {
@@ -756,8 +733,6 @@ async function readReportFacts(dir: string): Promise<{
       }
     }
   } catch (err) {
-    // Unreadable report: fall back to question-key parsing. The caller marks the run degraded;
-    // the cause goes to the log so a truly broken report is never silently rebuilt from request keys.
     process.emitWarning(`jint: unreadable report in ${dir}: ${errorMessage(err)}`);
     return { findingSev, pathRules: null, pathValues: null, classificationCount: 0 };
   }
@@ -970,11 +945,6 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
   const resultRows = rows.filter((row): row is RequestItem => row !== null);
   resultRows.sort((a, b) => a.ts.localeCompare(b.ts) || a.file.localeCompare(b.file));
   resultRows.forEach((row, i) => (row.seq = i + 1));
-  // one cell per report classification. pathValues is keyed by the FULL input (path#span), so
-  // element identity survives; severity = span-aware join. requestFile joins each classification
-  // back to its request: element cells by the request's elementId (state.id — the uuid the
-  // classification input suffix carries), file-tier cells by the bare path (kind disambiguates a
-  // stray element request without an id).
   const elementRequestFile = new Map<string, string>();
   const fileRequestFile = new Map<string, string>();
   for (const row of resultRows) {
@@ -1015,7 +985,6 @@ export async function getRun(root: string, dir: string, id: string): Promise<obj
           severity: cellSeverity(input, rule, findingSev, pathValues, handles),
           ...choiceCellRead(handles?.[rule], choice, probabilities),
         };
-        // a silent handle is a pass; without a handle the reading has no verdict at all
         if (cell.severity === null && cell.undecided !== true && handles?.[rule] !== undefined) {
           cell.pass = true;
         }

@@ -6,7 +6,6 @@
 
 import type { Severity } from "./handlers.ts";
 
-/** Exact location of an element: line+col points and byte offsets into the source. */
 export interface Span {
   readonly start: { readonly line: number; readonly column: number };
   readonly end: { readonly line: number; readonly column: number };
@@ -14,12 +13,6 @@ export interface Span {
   readonly endByte: number;
 }
 
-/**
- * The construct a docstring documents; name is empty for the module. kind is the OWNER CAPTURE,
- * open: the six shared definition kinds are the common values, but an autonomous capture may own a
- * comment in its grammar (its capture name arrives here losslessly) - the wire never crashes a BYOG
- * grammar on a closed enum.
- */
 export interface DocstringOwner {
   readonly kind: string;
   readonly name: string;
@@ -41,9 +34,6 @@ export const elementKinds = [
   "import",
 ] as const;
 export type ElementKind = (typeof elementKinds)[number];
-// COMPILE-TIME PIN, one direction: every runtime kind names a valid element kind. The reverse
-// stays open by design - an autonomous capture's kind is its capture name (a string), so the
-// union cannot enumerate it; the .scm that declares the capture owns its wire face.
 type _KindsMatch = [ElementKind] extends [Element["kind"]] ? true : never;
 const _kindsPin: _KindsMatch = true;
 /** Shared projection shape of every element: where it is, its label, its parent. */
@@ -76,19 +66,16 @@ export interface TypeElement extends ElementBase {
   readonly name?: string;
 }
 
-/** A class-like unit (the @class capture): classes judged as classes. */
 export interface ClassElement extends ElementBase {
   readonly kind: "class";
   readonly name?: string;
 }
 
-/** A member function (the @method capture): a method of its class. */
 export interface MethodElement extends ElementBase {
   readonly kind: "method";
   readonly name?: string;
 }
 
-/** A name bound to a non-callable, non-type value. */
 export interface BindingElement extends ElementBase {
   readonly kind: "binding";
   readonly name?: string;
@@ -98,12 +85,6 @@ export interface ImportElement extends ElementBase {
   readonly kind: "import";
 }
 
-/**
- * A GRAMMAR-AUTONOMOUS element (the open capture namespace): any capture a grammar's own .scm
- * declares - its kind is its capture name, its name rides when a pattern binds @name (markdown's
- * section, paragraph, list, list_item ride this shape today). One generic member, never a
- * per-capture type: the .scm that declares the capture defines its wire face.
- */
 export interface AutonomousElement extends ElementBase {
   readonly kind: string & {};
   readonly name?: string;
@@ -131,22 +112,11 @@ export type Element =
   | CommentElement
   | AutonomousElement;
 
-/**
- * The full typed answer a classifier returns for one question: the value always; the score
- * distribution (per-level probabilities) only when the question is score-kind — noul's probability
- * IS the whole answer (no separate distribution).
- */
 export interface ClassifiedAnswer {
   readonly value: number;
   readonly probabilities?: Record<string, number>;
-  /**
-   * The provider's own number, 0-1, on a score or choice answer. Never derived from the
-   * probabilities and never read by a handler; absent when the provider sent none.
-   */
   readonly confidence?: number;
-  /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
-  /** The answer cache served this reading: nothing was asked for it in this run. */
   readonly cached?: true;
 }
 
@@ -164,7 +134,6 @@ interface ClassificationBase {
   readonly element?: Element;
 }
 
-/** A judged classification: a rule's value at one input (file or element). */
 export interface ValuedClassification extends ClassificationBase {
   readonly value: number;
   /**
