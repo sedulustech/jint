@@ -57,7 +57,7 @@ to act on it before the work goes through.
 ## Skills
 
 The CLI carries jint's agent skills: `following-rule-results` runs jint and resolves its findings, `writing-rules`
-writes and calibrates rules, and `propose-rules` turns what you expect into rules. Write them into
+writes and calibrates rules, `writing-captures` adds the captures a rule needs, and `propose-rules` turns what you expect into rules. Write them into
 your agent's skills directory, one folder per skill:
 
 ```bash

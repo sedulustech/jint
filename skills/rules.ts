@@ -8,8 +8,9 @@
  * the skill with that concept's text deleted: all 21 read 0.55 or higher, 13 of them 0.86 or
  * higher. The lowest is lacks_defect_as_true, 0.55, because the naming bullet still says a defect
  * is the true side. A concept whose sentence is stated twice reads lower when only one is deleted.
- * lacks_scoping_strategy, added after: 0.00 on the skill, 0.91 on a copy without its section. One
- * skill, one writer.
+ * Added after, each 0.00 on the skill and measured on a copy without its text:
+ * lacks_scoping_strategy 0.91, lacks_goal_decomposition 0.85, lacks_captures_skill_pointer 0.84
+ * (both mentions deleted). One skill, one writer.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -31,6 +32,12 @@ const CONCEPTS: readonly Concept[] = [
     says: "`jint docs` lists the reference pages",
     cue: "says `jint docs` is the command that lists the reference pages",
     message: "Say that `jint docs` lists the reference pages.",
+  },
+  {
+    name: "lacks_goal_decomposition",
+    says: "a request for a rule often names a goal with several dimensions, so the reader asks the goal first and writes one rule per dimension",
+    cue: "says that a goal is rarely one property, to ask what the user is trying to achieve, to list its dimensions and to write one rule for each",
+    message: "Say that a goal holds several dimensions and each becomes its own rule.",
   },
   {
     name: "lacks_one_property_per_rule",
@@ -67,6 +74,12 @@ const CONCEPTS: readonly Concept[] = [
     says: "`jint capture` lists the elements a rule judges at no cost",
     cue: "says to run `jint capture` to list the elements a rule judges",
     message: "Say to run `jint capture` before running the rule.",
+  },
+  {
+    name: "lacks_captures_skill_pointer",
+    says: "a construct that is not an element needs a new capture, and the writing-captures skill says how to add one",
+    cue: "says that a construct no element covers needs a capture, and points to the writing-captures skill for adding it",
+    message: "Say that a missing element needs a capture and point to the writing-captures skill.",
   },
   {
     name: "lacks_defect_as_true",

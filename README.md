@@ -54,7 +54,7 @@ export default { rules: { use: [...comments, is_greppable] } };
 
 ### Skill
 
-Skills for agents live in skills/: following-rule-results (run jint, fix findings), writing-rules (write and calibrate rules) and propose-rules (turn what you expect into rules, so the agent can verify its own work). The CLI carries them: `jint skills export <path>` writes them into the directory you name, such as `.claude/skills`.
+Skills for agents live in skills/: following-rule-results (run jint, fix findings), writing-rules (write and calibrate rules), writing-captures (add the captures a rule needs) and propose-rules (turn what you expect into rules, so the agent can verify its own work). The CLI carries them: `jint skills export <path>` writes them into the directory you name, such as `.claude/skills`.
 
 ## How to use
 

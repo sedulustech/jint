@@ -14,6 +14,20 @@ probabilities and no explanations. Most failed rules fail on the unit or the que
 the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `captures`,
 `calibration`, `reference/config`.
 
+## Start from the goal
+
+A request for "a rule" often names a goal, and a goal is rarely one property. "Catch unnecessary
+tests" is several rules: a test that cannot fail, a test that belongs at another level, a test that
+repeats another. The user may not know that.
+
+- Ask what the user is trying to achieve before you write a question.
+- List the dimensions the goal contains, one property each, and write one rule per dimension. Two
+  properties in one rule is the failure section 1 warns about.
+- Say how many rules the goal needs, and which dimension is the most useful, before you write the
+  first. Work through them one at a time, each through the steps below.
+- A dimension may need a new capture before a rule can judge it (the writing-captures skill), or may
+  be a count a test can check without a model.
+
 ## 1. The question
 
 - Ask one yes/no question about one property. Two properties is two rules: one answer cannot say
@@ -35,8 +49,8 @@ the model. `jint docs` lists the reference pages: `what-are-rules`, `targets`, `
 - Run `jint capture <path> --rule <name>`. It lists, at no cost, the elements the rule judges.
 - The unit must carry the name and the context the question needs. A refusal means the unit does
   not fit the question.
-- A construct that is not an element needs a capture in the grammar (`jint docs captures`). Do not
-  stretch a rule over the wrong unit.
+- A construct that is not an element needs a capture in the grammar (`jint docs captures`). Read the
+  writing-captures skill to add one. Do not stretch a rule over the wrong unit.
 - Scope the rule with `include`. A file with no element for it reports `WALK_FAILED`. Set
   `includePath: true` only for a rule whose claim needs the file path.
 
