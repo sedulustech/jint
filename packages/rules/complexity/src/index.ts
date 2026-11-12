@@ -15,12 +15,14 @@ export const is_function_srp: NoulRuleSchema = {
       "There is more than one reason for the unit to change: it mixes business logic, data validation, and side effects.",
   },
   target: "functions",
-  // Defect pole "false" (a unit serving several purposes). Calibrated under the per-rule
-  // question (issue 001): the whole-project healthy median is P(good) 0.54 (P(bad) 0.46) and
-  // the low tail - dominated by test callbacks, issue 008 - starts near P(bad) 0.55, so
-  // warn_at 0.55 keeps roughly the bottom 8% in warn; nothing anchors error_at 0.7 yet below
-  // a clearly broken unit.
-  handle: { warn: { less_than: 0.45 }, error: { less_than: 0.3 } },
+  handle: {
+    warn: { less_than: 0.45 },
+    error: {
+      less_than: 0.3,
+      message:
+        "Split this function by responsibility: one function per reason to change, each named for its one purpose.",
+    },
+  },
 };
 
 // provisional: first score rule — scored rubric via the provider score primitive; unanchored until

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./ui/api": "./src/ui/api.ts",
+    "./ui/rules": "./src/ui/rules.ts",
     "./ui/serve": "./src/ui/serve.ts"
   },
   "dependencies": {

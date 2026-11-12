@@ -41,6 +41,7 @@ import {
   TOKENS_PER_MINUTE,
   withTokenRate,
 } from "./provider/pacer.ts";
+import { ruleDigest } from "./rule-digest.ts";
 import {
   classifyFile,
   type ClassifyFileOptionsDraft,
@@ -318,20 +319,40 @@ function pacedClassifier(
   );
 }
 
-export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
-  const grammarNotes: string[] = [];
-  const registry = await loadCustomGrammars(undefined, (note) => grammarNotes.push(note));
-  for (const note of grammarNotes) {
-    yield { type: "note", note };
-  }
-  assertTargetsAddressable(options.config, registry);
+type RunAdmission = Awaited<ReturnType<typeof resolveRunUnits>>;
+
+interface RunSetup {
+  registry: GrammarRegistry;
+  pathsList: string[] | undefined;
+  input: string | string[] | undefined;
+  rules: Rule[];
+  customRules: CustomRule[];
+  scopedRules: ReturnType<typeof scopeElementRules>;
+}
+
+interface RunProgress {
+  answered: number;
+  aborted: boolean;
+}
+
+function parseRunInput(options: LintOptions): {
+  pathsList: string[] | undefined;
+  input: string | string[] | undefined;
+} {
   const pathsList = options.paths !== undefined ? parsePathsList(options.paths.content) : undefined;
   if (pathsList !== undefined && pathsList.length === 0) {
     throw new SetupError("LIST_EMPTY", "the path list selected no files (empty list)");
   }
   const input: string | string[] | undefined = options.input ?? options.config.input;
   assertInputSelected(options, pathsList, input);
-  for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
+  return { pathsList, input };
+}
+
+function chooseRules(options: LintOptions): {
+  rules: Rule[];
+  customRules: CustomRule[];
+  scopedRules: ReturnType<typeof scopeElementRules>;
+} {
   const { json: rules, custom: customRules } = partitionRules(
     [...options.config.rules],
     options.config.customRules ?? [],
@@ -344,49 +365,70 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       "callback rules run on file inputs only - a str unit has no element inventory, so every callback rule would resolve zero targets (drop them or use a file input)",
     );
   }
-  const scopedRules = scopeElementRules(rules, options);
-  yield {
-    type: "rules",
-    rules: [...rules, ...customRules].map((rule) => ({
-      name: rule.name,
-      criteria: "criteria" in rule ? rule.criteria : null,
-      handle: ("handleData" in rule ? rule.handleData : undefined) ?? null,
-    })),
-  };
+  return { rules, customRules, scopedRules: scopeElementRules(rules, options) };
+}
+
+async function* resolveRunSetup(options: LintOptions): AsyncGenerator<LintEvent, RunSetup> {
+  const grammarNotes: string[] = [];
+  const registry = await loadCustomGrammars(undefined, (note) => grammarNotes.push(note));
+  for (const note of grammarNotes) {
+    yield { type: "note", note };
+  }
+  assertTargetsAddressable(options.config, registry);
+  const { pathsList, input } = parseRunInput(options);
+  for (const warning of options.config.warnings ?? []) yield { type: "note", note: warning };
+  const { rules, customRules, scopedRules } = chooseRules(options);
+  yield { type: "rules", rules: [...rules, ...customRules].map(ruleDigest) };
   assertApiKeyForRules(rules.length + customRules.length, options);
   if (options.classifier === undefined && rules.length + customRules.length > 0) {
     for (const note of resolveEndpoint().notes) yield { type: "note", note };
   }
-  const knobs = resolveRunKnobs(options);
-  const classifier = pacedClassifier(options, knobs);
+  return { registry, pathsList, input, rules, customRules, scopedRules };
+}
+
+async function* admitUnits(
+  options: LintOptions,
+  setup: RunSetup,
+): AsyncGenerator<LintEvent, RunAdmission> {
   const walkerNotes: string[] = [];
   const stats = inputStats();
   const admission = await resolveRunUnits(
     options,
-    pathsList,
-    input,
-    rules,
-    customRules,
-    registry,
+    setup.pathsList,
+    setup.input,
+    setup.rules,
+    setup.customRules,
+    setup.registry,
     (note) => walkerNotes.push(note),
     stats,
   );
-  const units = admission.units;
-  const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
-    ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   yield { type: "input", summary: stats.summary() };
   for (const line of renderInputSummary(stats.summary(), admission.scopes)) {
     yield { type: "note", note: line };
   }
-  for (const note of unwalkedListEntryNotes(pathsList, units)) {
+  for (const note of unwalkedListEntryNotes(setup.pathsList, admission.units)) {
     yield { type: "note", note };
   }
   for (const note of walkerNotes) {
     yield { type: "note", note };
   }
-  const byName = new Map(scopedRules.map((s) => [s.name, s]));
-  let aborted = false;
+  return admission;
+}
 
+type WalkedInventories = Awaited<ReturnType<typeof walkedInventories>>["walked"];
+
+async function* walkUnits(
+  options: LintOptions,
+  setup: RunSetup,
+  admission: RunAdmission,
+): AsyncGenerator<
+  LintEvent,
+  { walked: WalkedInventories; customResolved: ResolvedCustomTargets | undefined }
+> {
+  const { units } = admission;
+  const { rules, customRules, registry, scopedRules } = setup;
+  const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
+    ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
   const { walked, skippedExtensions } = await walkedInventories(
     units,
     options,
@@ -413,7 +455,6 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       failedCause: undefined,
     });
   }
-
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
     customResolved = resolveAllCustomTargets(customRules, elementsByPathOf(units, walked));
@@ -421,21 +462,31 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
       retainTargetedContent(units, walked, customResolved);
     }
   }
+  return { walked, customResolved };
+}
 
-  let answered = 0;
-
-  for (let i = 0; i < units.length && !aborted; i += FILE_CONCURRENCY) {
+async function* runUnits(
+  options: LintOptions,
+  setup: RunSetup,
+  admission: RunAdmission,
+  walked: WalkedInventories,
+  classifier: Classifier,
+  progress: RunProgress,
+): AsyncGenerator<LintEvent> {
+  const { units } = admission;
+  const byName = new Map(setup.scopedRules.map((s) => [s.name, s]));
+  for (let i = 0; i < units.length && !progress.aborted; i += FILE_CONCURRENCY) {
     const results = await Promise.all(
       units
         .slice(i, i + FILE_CONCURRENCY)
         .map((unit, j) =>
           runUnit(
             unit,
-            scopedRules,
+            setup.scopedRules,
             classifier,
-            () => aborted,
+            () => progress.aborted,
             options.language,
-            registry,
+            setup.registry,
             walked.get(i + j),
             admission.configAdmits(unit.state.path),
             options.config.maxInputTokens,
@@ -445,31 +496,49 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     );
     for (let j = 0; j < results.length; j++) {
       const result = results[j]!;
-      if (result.abort) aborted = true;
+      if (result.abort) progress.aborted = true;
       for (const event of unitOutcomeEvents(result, units[i + j]!, byName, options)) {
-        if (event.type === "classification" || event.type === "error") answered++;
+        if (event.type === "classification" || event.type === "error") progress.answered++;
         yield event;
       }
     }
   }
+}
 
-  if (customResolved !== undefined && !aborted) {
-    const phase = await runCustomRules(
-      customRules,
-      customResolved,
-      classifier,
-      () => aborted,
-      options.config.maxInputTokens,
-      options.config.charsPerToken,
-    );
-    for (const event of phase.events) {
-      if (event.type === "classification" || event.type === "error") answered++;
-      yield event;
-    }
-    if (phase.fatal) aborted = true;
+async function* runCustomPhase(
+  options: LintOptions,
+  setup: RunSetup,
+  customResolved: ResolvedCustomTargets,
+  classifier: Classifier,
+  progress: RunProgress,
+): AsyncGenerator<LintEvent> {
+  const phase = await runCustomRules(
+    setup.customRules,
+    customResolved,
+    classifier,
+    () => progress.aborted,
+    options.config.maxInputTokens,
+    options.config.charsPerToken,
+  );
+  for (const event of phase.events) {
+    if (event.type === "classification" || event.type === "error") progress.answered++;
+    yield event;
   }
-  if (answered === 0 && !aborted && options.element === undefined) {
-    for (const note of nothingMeasuredNotes(scopedRules, units, walked)) {
+  if (phase.fatal) progress.aborted = true;
+}
+
+export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
+  const setup = yield* resolveRunSetup(options);
+  const classifier = pacedClassifier(options, resolveRunKnobs(options));
+  const admission = yield* admitUnits(options, setup);
+  const { walked, customResolved } = yield* walkUnits(options, setup, admission);
+  const progress: RunProgress = { answered: 0, aborted: false };
+  yield* runUnits(options, setup, admission, walked, classifier, progress);
+  if (customResolved !== undefined && !progress.aborted) {
+    yield* runCustomPhase(options, setup, customResolved, classifier, progress);
+  }
+  if (progress.answered === 0 && !progress.aborted && options.element === undefined) {
+    for (const note of nothingMeasuredNotes(setup.scopedRules, admission.units, walked)) {
       yield { type: "note", note };
     }
   }

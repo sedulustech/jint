@@ -154,7 +154,7 @@ describe("loadTsConfig (the TS config tier)", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as Error).message).toContain("unknown rule domain");
-      expect((e as Error).message).toContain("jint:rules/naming: is_vocabulary_consistent");
+      expect((e as Error).message).toContain("jint:rules/naming: is_naming_convention_consistent");
     }
   });
 
@@ -169,7 +169,7 @@ describe("loadTsConfig (the TS config tier)", () => {
     } catch (e) {
       const message = (e as Error).message;
       expect(message).toContain("jint:rules/comments: ");
-      expect(message).toContain("jint:rules/naming: is_vocabulary_consistent");
+      expect(message).toContain("jint:rules/naming: is_naming_convention_consistent");
       expect(message).toContain('from "jint:rules/');
     }
   });

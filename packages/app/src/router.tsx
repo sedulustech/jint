@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { App } from "./App";
+import { RulesPage } from "./views/Rules";
 
 // ---- URL state -------------------------------------------------------------
 // The run selection lives in the path (/runs/$runId); the panel state lives in
@@ -109,6 +110,12 @@ const indexRoute = createRoute({
   component: () => <App runId={null} />,
 });
 
+const rulesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rules",
+  component: RulesPage,
+});
+
 const runRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/runs/$runId",
@@ -135,6 +142,7 @@ const catchRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  rulesRoute,
   runRoute.addChildren([errorsRoute]),
   catchRoute,
 ]);

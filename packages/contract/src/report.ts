@@ -244,13 +244,13 @@ export interface Finding {
 }
 
 /**
- * The run's self-description of one rule that ran: its name, its criteria text, and the compiled
- * handle tiers (thresholds / score map, including any author message). NOT instructions - criteria
- * plus tiers suffice to read a finding; instructions stay provenance-of-the-config. handle is null
- * for a custom-tier callback rule (a code policy has no declarative tier form).
+ * The run's self-description of one rule that ran: its name, its instructions, its criteria text,
+ * and the compiled handle tiers (thresholds / score map, including any author message). handle is
+ * null for a custom-tier callback rule (a code policy has no declarative tier form).
  */
 export interface RuleDigest {
   readonly name: string;
+  readonly instructions?: string;
   /**
    * Null for a custom-tier callback rule: its policy is code, not text - the criteria live in the
    * config source, which is the provenance for these rules.

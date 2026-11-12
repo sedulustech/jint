@@ -60,7 +60,7 @@ export function renderJson(report: LintReport): string {
         // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
         // return position, so excess-property checking fires — a field the wire shape does not
         // declare is a COMPILE error here, not a silently dropped key. (undefined properties
-        // drop under JSON.stringify, so the bytes match the old spreads.)
+        // drop under JSON.stringify, so the bytes match those of a conditional spread.)
         findings: report.findings.map(
           (s): Finding => ({
             rule: s.rule,
@@ -87,12 +87,12 @@ export function renderJson(report: LintReport): string {
           rule: e.rule,
         })),
         // In-band degradation (oversized skips, scope exclusions): the same array the raw-line
-        // renderer prints on stderr — a machine consumer gets the identical signal, never less
-        // (review 396888e finding 1: visibility that stops at the human renderer is not
-        // visibility). Deterministic order is established by collectReport.
+        // renderer prints on stderr — a machine consumer gets the identical signal, never less:
+        // visibility that stops at the human renderer is not visibility. Deterministic order is
+        // established by collectReport.
         notes: report.notes,
         // The self-description of every rule that ran: a report reads without the config (the
-        // criteria text and the compiled tiers ride along; instructions stay config provenance).
+        // instructions, criteria text and the compiled tiers ride along).
         rules: report.rules,
       },
       null,

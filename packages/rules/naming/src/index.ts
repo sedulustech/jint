@@ -1,22 +1,6 @@
-/**
- * Naming rules: one vocabulary, one casing convention, searchable identifiers, file names that
- * match their bodies.
- */
+/** Naming rules: one casing convention, searchable identifiers, file names that match their bodies. */
 
 import type { RuleSchema, NoulRuleSchema } from "@jint/contract";
-
-export const is_vocabulary_consistent: NoulRuleSchema = {
-  name: "is_vocabulary_consistent",
-  instructions:
-    "Do the identifiers in this change keep one vocabulary - the same concept always the same word?",
-  criteria: {
-    true: "The new identifiers in this change keep one vocabulary with each other and with the names the change touches: the same concept always keeps the same word, and the same role keeps the same suffix or verb convention.",
-    false:
-      "Synonym drift is present: the same concept is referred to by two different words within the same change (user in one place, account for the same thing in another; cart versus basket), forcing a reader to learn two names for one idea. Different words for genuinely different concepts are not drift.",
-  },
-  target: "files",
-  handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
-};
 
 export const is_naming_convention_consistent: NoulRuleSchema = {
   name: "is_naming_convention_consistent",
@@ -29,20 +13,16 @@ export const is_naming_convention_consistent: NoulRuleSchema = {
   // A file, not an element: casing consistency is a comparison, and one element rarely holds
   // two identifiers of the same kind to compare.
   target: "files",
-  handle: { warn: { less_than: 0.75 }, error: { less_than: 0.65 } },
+  handle: {
+    warn: { less_than: 0.75 },
+    error: {
+      less_than: 0.65,
+      message:
+        "Find the identifiers of one kind that use different casings and keep one casing. The finding does not name them: read the whole file.",
+    },
+  },
 };
 
-/**
- * Promoted from the filename-fit probe (tmp/filename-fit.config.json, issue 006) after a
- * two-language calibration: healthy max 0.33 (Go, cobra) / 0.36 (TS, jint src/) against defective
- * min 0.60 / 0.88 - thresholds sit mid-gap on both. A rule sees the path only when it sets
- * includePath, and this one does, so it can catch "json.ts whose body renders HTML reports".
- *
- * Named for the defect it measures: the value is the probability that the name promises a subject
- * the body does not deliver, so a high value is bad. It was is_filename_fitting; a positive name
- * with a high-is-bad value read backwards, and rewording the question as "does the name fit" lost
- * the mismatches (the model leans yes), so the question stays the defect and the name follows it.
- */
 export const has_filename_mismatch: NoulRuleSchema = {
   name: "has_filename_mismatch",
   instructions:
@@ -53,9 +33,15 @@ export const has_filename_mismatch: NoulRuleSchema = {
       "The file name and the body agree: the name names the subject of the main exports, or states the verb/role the body's dominant action performs, or the name is a deliberate generic (utils, helpers, types, index) whose body is ordinary mixed helpers, or the file is a barrel/test file consistent with its name. A name being merely vague or the code being poorly written is not this defect: answer false.",
   },
   target: "files",
-  // The claim is about the name, so the model is handed the path.
   includePath: true,
-  handle: { warn: { greater_than: 0.55 }, error: { greater_than: 0.75 } },
+  handle: {
+    warn: { greater_than: 0.55 },
+    error: {
+      greater_than: 0.75,
+      message:
+        "Rename the file for what its body does, or move the body to the file its name promises.",
+    },
+  },
 };
 
 export const is_greppable: NoulRuleSchema = {
@@ -68,12 +54,18 @@ export const is_greppable: NoulRuleSchema = {
       "At least one identifier in the function cannot be found by a single search: it is split into fragments or dynamically constructed from pieces, renamed at a boundary so the same concept needs two search strings, or is a bare word (data, handler, util) whose hits are mostly noise. CLI flag spellings, help text, and log messages are user-facing interface, not code identifiers, and are outside this rule.",
   },
   target: "functions",
-  handle: { warn: { less_than: 0.75 }, error: { less_than: 0.6 } },
+  handle: {
+    warn: { less_than: 0.75 },
+    error: {
+      less_than: 0.6,
+      message:
+        "Rename the identifier one search cannot find: write it in full, or give it one name across the boundary.",
+    },
+  },
 };
 
 /** Every rule of this domain, in run order. */
 export const rules: readonly RuleSchema[] = [
-  is_vocabulary_consistent,
   is_naming_convention_consistent,
   is_greppable,
   has_filename_mismatch,

@@ -10,7 +10,7 @@ const report: LintReport = {
   rules: [],
   classifications: [
     { rule: "is_name_purposeful", input: "src/a.ts", value: 0.5347219 },
-    { rule: "is_vocabulary_consistent", input: "src/a.ts", value: 0.9 },
+    { rule: "is_naming_convention_consistent", input: "src/a.ts", value: 0.9 },
   ],
   findings: [
     {

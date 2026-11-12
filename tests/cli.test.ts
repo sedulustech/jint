@@ -618,8 +618,6 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
       "--rule",
       "is_function_srp",
       "--rule",
-      "is_vocabulary_consistent",
-      "--rule",
       "is_naming_convention_consistent",
       "--rule",
       "is_greppable",

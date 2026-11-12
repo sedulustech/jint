@@ -2,11 +2,6 @@
 
 import type { RuleSchema, NoulRuleSchema } from "@jint/contract";
 
-/**
- * Promoted from the seam-purity probe (tmp/probes/seam-purity.config.json), where it was the
- * densest signal (13 findings on the vendor-adapter corpus); exercised on every self-lint run
- * since, and held up in use.
- */
 export const will_error_lose_cause: NoulRuleSchema = {
   name: "will_error_lose_cause",
   instructions: "Does this function's error handling lose information about the original failure?",
@@ -16,7 +11,14 @@ export const will_error_lose_cause: NoulRuleSchema = {
       "Error handling preserves information: causes are chained, messages include the original failure detail, and nothing is swallowed silently.",
   },
   target: "functions",
-  handle: { warn: { greater_than: 0.4 }, error: { greater_than: 0.7 } },
+  handle: {
+    warn: { greater_than: 0.4 },
+    error: {
+      greater_than: 0.7,
+      message:
+        "Chain the cause into the error you throw, or handle it here. Never swallow it or keep only its message.",
+    },
+  },
 };
 
 /** Every rule of this domain, in run order. */

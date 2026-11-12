@@ -1,6 +1,7 @@
 import type { Report, RunDetail, RunSummary } from "../types";
 import type { QA } from "../views/AnswerCard";
 import type { OriginalRead } from "@jint/sdk/ui/api";
+import type { RulesResponse } from "@jint/sdk/ui/rules";
 
 const RUNS_URL = "/api/runs";
 
@@ -78,3 +79,5 @@ export async function postClassification(
     throw new Error(payload.error ?? `${res.status}`);
   return payload.classification;
 }
+
+export const fetchRules = () => get<RulesResponse>("/api/rules");

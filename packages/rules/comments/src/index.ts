@@ -28,7 +28,13 @@ export const is_comment_patching_readability: NoulRuleSchema = {
       "Every comment earns its place by carrying what code cannot: rationale, constraints, or external contracts. Comments that add what code cannot carry are not readability patches, even when the surrounding code is also hard to read.",
   },
   target: "comments",
-  handle: { warn: { greater_than: 0.4 }, error: { greater_than: 0.55 } },
+  handle: {
+    warn: { greater_than: 0.4 },
+    error: {
+      greater_than: 0.55,
+      message: "Rewrite the code so it reads without the comment, then remove the comment.",
+    },
+  },
 };
 
 export const will_comment_drift: NoulRuleSchema = {

@@ -31,6 +31,7 @@ import {
   type ClassifyRequest,
 } from "./classify.ts";
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
+import { listRules, type RulesResponse } from "./rules.ts";
 import type { QuestionSchema } from "../core/types.ts";
 import type { Dirent } from "node:fs";
 
@@ -190,60 +191,89 @@ export async function serveApiRequest(
   if (!requestUrl.pathname.startsWith("/api/")) return null;
   const runsRoot = requestsRoot(apiOptions);
   const pathSegments = requestUrl.pathname.split("/").filter(Boolean);
+  if (pathSegments[1] === "rules" && pathSegments.length === 2 && httpRequest.method === "GET")
+    return jsonResponse(await rulesResponse(runsRoot));
   if (pathSegments[1] !== "runs") return notFound("no such api route");
-  const routeTail = pathSegments.slice(2);
+  return serveRunsRoute(httpRequest, runsRoot, pathSegments.slice(2), apiOptions);
+}
+
+/** Everything under /api/runs: the list, one run, and the addresses and files beneath a run. */
+async function serveRunsRoute(
+  httpRequest: Request,
+  runsRoot: string,
+  routeTail: string[],
+  apiOptions: ApiOptions,
+): Promise<Response> {
   // an address's classifications live under its run: GET lists them, POST classifies an edit and files it
   if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "classifications") {
     return serveClassifications(httpRequest, runsRoot, routeTail.slice(0, -1), apiOptions);
   }
   if (httpRequest.method !== "GET") return notFound("no such api route");
   if (routeTail.length >= 2 && routeTail[routeTail.length - 1] === "original") {
-    const query = new URL(httpRequest.url).searchParams;
-    const [rule, input] = [query.get("rule"), query.get("input")];
-    if (rule === null || input === null) return badRequest("rule and input are required");
+    return serveOriginal(httpRequest, routeTail.slice(0, -1), apiOptions);
+  }
+  try {
+    return await serveRun(runsRoot, routeTail);
+  } catch (err) {
+    return failureResponse(err);
+  }
+}
+
+async function serveOriginal(
+  httpRequest: Request,
+  idSegments: string[],
+  apiOptions: ApiOptions,
+): Promise<Response> {
+  const query = new URL(httpRequest.url).searchParams;
+  const [rule, input] = [query.get("rule"), query.get("input")];
+  if (rule === null || input === null) return badRequest("rule and input are required");
+  try {
+    const file = query.get("file") ?? undefined;
+    return jsonResponse(
+      await readOriginal(idSegments.join("/"), { rule, input, file }, apiOptions),
+    );
+  } catch (err) {
+    if (err instanceof AddressError) return jsonResponse({ error: err.message }, err.status);
+    throw err;
+  }
+}
+
+/** The read routes of one run: the list, its report, one recorded request, or the run itself. */
+async function serveRun(runsRoot: string, routeTail: string[]): Promise<Response> {
+  // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
+  // so flat and nested runs route identically.
+  if (routeTail.length === 0) return jsonResponse(await listRuns(runsRoot));
+  const lastSegment = routeTail[routeTail.length - 1]!;
+  // a missing report is a first-class absence, never an error
+  if (lastSegment === "report" && routeTail.length >= 2) {
+    const reportDir = resolveRunDir(runsRoot, routeTail.slice(0, -1));
+    if (reportDir === null) return badRequest(INVALID_RUN_ID);
     try {
-      const file = query.get("file") ?? undefined;
-      return jsonResponse(
-        await readOriginal(routeTail.slice(0, -1).join("/"), { rule, input, file }, apiOptions),
-      );
+      return jsonResponse(await readStoredReport(reportDir));
     } catch (err) {
-      if (err instanceof AddressError) return jsonResponse({ error: err.message }, err.status);
+      if (isMissingFileError(err)) return jsonResponse({ absent: true });
       throw err;
     }
   }
-  try {
-    // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
-    // so flat and nested runs route identically.
-    if (routeTail.length === 0) return jsonResponse(await listRuns(runsRoot));
-    const lastSegment = routeTail[routeTail.length - 1]!;
-    // a missing report is a first-class absence, never an error
-    if (lastSegment === "report" && routeTail.length >= 2) {
-      const reportDir = resolveRunDir(runsRoot, routeTail.slice(0, -1));
-      if (reportDir === null) return badRequest(INVALID_RUN_ID);
-      try {
-        return jsonResponse(await readStoredReport(reportDir));
-      } catch (err) {
-        if (isMissingFileError(err)) return jsonResponse({ absent: true });
-        throw err;
-      }
-    }
-    if (routeTail.length >= 3 && routeTail[routeTail.length - 2] === "requests") {
-      return serveRunRequest(runsRoot, routeTail.slice(0, -2), routeTail[routeTail.length - 1]!);
-    }
-    const runDir = resolveRunDir(runsRoot, routeTail);
-    if (runDir === null) return badRequest(INVALID_RUN_ID);
-    return jsonResponse(await getRun(runsRoot, runDir, routeTail.join("/")));
-  } catch (err) {
-    // a dropped cause turns a debuggable failure into a mystery: the original error travels
-    if (isMissingFileError(err))
-      return jsonResponse(
-        { error: "not found", detail: err instanceof Error ? err.message : String(err) },
-        HTTP_NOT_FOUND,
-      );
-    const message = err instanceof Error ? err.message : String(err);
-    const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
-    return jsonResponse({ error: message, cause }, 500);
+  if (routeTail.length >= 3 && routeTail[routeTail.length - 2] === "requests") {
+    return serveRunRequest(runsRoot, routeTail.slice(0, -2), routeTail[routeTail.length - 1]!);
   }
+  const runDir = resolveRunDir(runsRoot, routeTail);
+  if (runDir === null) return badRequest(INVALID_RUN_ID);
+  return jsonResponse(await getRun(runsRoot, runDir, routeTail.join("/")));
+}
+
+/** A failed read: a missing file is a 404, anything else a 500 that carries its cause. */
+function failureResponse(err: unknown): Response {
+  // a dropped cause turns a debuggable failure into a mystery: the original error travels
+  if (isMissingFileError(err))
+    return jsonResponse(
+      { error: "not found", detail: err instanceof Error ? err.message : String(err) },
+      HTTP_NOT_FOUND,
+    );
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
+  return jsonResponse({ error: message, cause }, 500);
 }
 
 /** Serve one recorded request file of a run; the file name may never leave the run dir. */
@@ -274,6 +304,20 @@ function errorCode(err: unknown): string {
 /** True when the error is a missing file — the one case absence is the answer, not a failure. */
 function isMissingFileError(err: unknown): boolean {
   return errorCode(err) === MISSING_ERRNO;
+}
+
+/** A failure and each cause beneath it, outermost first. */
+function errorChain(err: unknown): string {
+  const messages: string[] = [];
+  for (let link = err; link !== undefined; link = link instanceof Error ? link.cause : undefined)
+    messages.push(errorMessage(link));
+  return messages.join(": ");
+}
+
+/** The rules read with its config failure flattened to the message the page shows. */
+async function rulesResponse(runsRoot: string): Promise<RulesResponse> {
+  const { configFailure, ...read } = await listRules(runsRoot);
+  return configFailure === undefined ? read : { ...read, configError: errorChain(configFailure) };
 }
 
 /** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
@@ -483,7 +527,7 @@ function isRequestFile(name: string): boolean {
 }
 
 /** Case namespaces must list alongside flat runs, under their nested id. */
-async function collectRunCandidates(
+export async function collectRunCandidates(
   runsRoot: string,
   dirEntries: string[],
 ): Promise<{ id: string; dir: string }[]> {
@@ -758,12 +802,7 @@ async function reportFactsFor(
   };
 }
 
-/**
- * A run's report.json. Reports written before the readings were called classifications carry them
- * under `measurements`; the store outlives versions, so that old key reads as the new one here and
- * nothing downstream sees the old name.
- */
-async function readStoredReport(dir: string): Promise<Record<string, unknown>> {
+export async function readStoredReport(dir: string): Promise<Record<string, unknown>> {
   const report = JSON.parse(await readFile(join(dir, REPORT_FILE), READ_ENCODING)) as Record<
     string,
     unknown

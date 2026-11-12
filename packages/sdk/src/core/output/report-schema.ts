@@ -184,13 +184,14 @@ export const REPORT_SCHEMA = Type.Object({
   findings: Type.Array(FINDING_SCHEMA),
   errors: Type.Array(CLASSIFY_ERROR_SCHEMA),
   notes: Type.Array(Type.String()),
-  // The run's self-description: one digest per rule that ran (name, criteria, compiled handle
-  // tiers incl. the author message). Absent from pre-rules reports. NOT instructions - criteria
-  // plus tiers suffice to read a finding.
+  // The run's self-description: one digest per rule that ran (name, instructions, criteria,
+  // compiled handle tiers incl. the author message). Absent from pre-rules reports; instructions
+  // are absent from reports written before they were kept.
   rules: Type.Optional(
     Type.Array(
       Type.Object({
         name: Type.String(),
+        instructions: Type.Optional(Type.String()),
         criteria: Type.Union([
           Type.Array(Type.String()),
           Type.Object({ true: Type.String(), false: Type.String() }),

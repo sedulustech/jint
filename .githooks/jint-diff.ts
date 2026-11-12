@@ -6,9 +6,6 @@
 //
 // Limit: the diff lines are the staged version; jint reads the working tree, so a file with
 // unstaged edits on top of the staged ones can misplace a span.
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 const run = (cmd: string[], input?: string, env?: Record<string, string>) =>
   Bun.spawnSync(cmd, {
@@ -36,11 +33,11 @@ for (const line of diff.split("\n")) {
 }
 if (changed.size === 0) process.exit(0);
 
-const runs = mkdtempSync(join(tmpdir(), "jint-hook-"));
 type Finding = {
   rule: string;
   value: number;
   severity: "warn" | "error";
+  note?: string;
   message?: string;
   location: { input: string; span: { start: { line: number }; end: { line: number } } };
 };
@@ -52,10 +49,12 @@ type Finding = {
 const result = run(
   ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],
   [...changed.keys()].join("\n"),
-  {
-    JINT_RUNS_DIR: runs,
-  },
 );
+// the run lands in the default store with every other run: say where to read it
+const where = text(result.stderr)
+  .split("\n")
+  .find((line) => line.includes("ui ->"));
+if (where !== undefined) process.stderr.write(where + "\n");
 if (![0, 1, 4].includes(result.exitCode)) {
   process.stderr.write(text(result.stderr));
   process.stderr.write(`jint: the run failed (exit ${result.exitCode}); blocking the commit\n`);
@@ -82,7 +81,7 @@ for (const f of touched) {
   const path = f.location.input.split("#")[0]!;
   const { start, end } = f.location.span;
   process.stderr.write(
-    `jint: ${f.severity} ${path}:${start.line}-${end.line} ${f.rule} ${f.value}${f.message ? " - " + f.message : ""}\n`,
+    `jint: ${f.severity} ${path}:${start.line}-${end.line} ${f.rule} ${f.value}${(f.note ?? f.message) ? " - " + (f.note ?? f.message) : ""}\n`,
   );
 }
 const errors = touched.filter((f) => f.severity === "error").length;
