@@ -79,11 +79,6 @@ const is_headword_consistent: RuleSchema = {
       message:
         "At least one headword is shaped unlike the rest: make the term list one vocabulary - same casing style, same headword shape.",
     },
-    error: {
-      less_than: 0.05,
-      message:
-        "At least one headword is shaped unlike the rest: make the term list one vocabulary - same casing style, same headword shape.",
-    },
   },
 };
 

@@ -55,6 +55,7 @@ import {
   reclassify,
   AddressError,
   VERSION as version,
+  abandonedWalkWorkers,
 } from "@jint/sdk";
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
@@ -124,6 +125,12 @@ export const FLAGS = {
     arg: "<n>",
     blurb: "the most classifier calls in flight",
     example: "--concurrency 8",
+  },
+  "--walk-workers": {
+    type: "string",
+    arg: "<n>",
+    blurb: "the threads that parse files",
+    example: "--walk-workers 4",
   },
   "--timeout": {
     type: "string",
@@ -886,6 +893,7 @@ interface RunContext {
   readonly effective: ReturnType<typeof selectRules>["json"];
   readonly concurrency: number | undefined;
   readonly timeout: number | undefined;
+  readonly walkWorkers: number | undefined;
 }
 
 /**
@@ -991,6 +999,7 @@ async function runLint(run: RunContext): Promise<number> {
       log: providerLog,
       concurrency: run.concurrency,
       timeout: run.timeout,
+      walkWorkers: run.walkWorkers,
       paths: pathsContent !== undefined ? { content: pathsContent } : undefined,
       element:
         elementScope !== undefined
@@ -1073,7 +1082,8 @@ async function prepareRun(
   // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
   const concurrency = numericFlag(cliArgs.concurrency, "--concurrency");
   const timeout = numericFlag(cliArgs.timeout, "--timeout");
-  const knobProblem = checkRunKnobs({ concurrency, timeout });
+  const walkWorkers = numericFlag(cliArgs["walk-workers"], "--walk-workers");
+  const knobProblem = checkRunKnobs({ concurrency, timeout, walkWorkers });
   if (knobProblem !== null) {
     usageError(knobProblem + " - see jint --help");
     return { exit: 2 };
@@ -1104,6 +1114,7 @@ async function prepareRun(
     effective: selectRules(resolvedConfig.rules, [], cliArgs.disable, cliArgs.rule).json,
     concurrency,
     timeout,
+    walkWorkers,
   };
 }
 
@@ -1670,4 +1681,6 @@ if (import.meta.main) {
   });
   process.on("SIGINT", () => process.exit(130));
   process.exitCode = await runCli(process.argv.slice(2));
+  // a walk worker stuck in a wasm loop ignores terminate and keeps the process alive
+  if (abandonedWalkWorkers() > 0) process.exit(process.exitCode);
 }

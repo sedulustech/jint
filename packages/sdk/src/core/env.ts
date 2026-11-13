@@ -49,6 +49,12 @@ export const ENV_VARS: readonly EnvVar[] = [
     meaning: "The directory of custom grammars.",
   },
   {
+    name: "JINT_WALK_WORKERS",
+    default: "the cores available, less one, at most 8, once a run has 64 files to parse",
+    meaning:
+      "The threads that parse files. `1` parses on the main thread; a larger number forces that many threads.",
+  },
+  {
     name: "JINT_UI_HOST",
     default: "`127.0.0.1`",
     meaning: "The host that `jint ui serve` binds. Give a host, not `host:port`.",

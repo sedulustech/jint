@@ -46,12 +46,17 @@ const compile: { target?: string; outfile: string; assets?: string[] } = cross
   : { outfile: resolve(root, "jint") };
 if (assets.length > 0) compile.assets = assets;
 
+// The walk worker is a second entrypoint so the binary embeds it; the define names its path.
+const define: Record<string, string> = {
+  JINT_WALK_WORKER: JSON.stringify("./sdk/src/core/walk-worker.js"),
+};
+if (buildVersion !== undefined) define.JINT_BUILD_VERSION = JSON.stringify(buildVersion);
 const result = await Bun.build({
-  entrypoints: ["./packages/cli/src/cli.ts"],
+  entrypoints: ["./packages/cli/src/cli.ts", "./packages/sdk/src/core/walk-worker.ts"],
   minify: true,
   target: "bun",
   compile,
-  define: buildVersion === undefined ? {} : { JINT_BUILD_VERSION: JSON.stringify(buildVersion) },
+  define,
 });
 
 if (!result.success) {

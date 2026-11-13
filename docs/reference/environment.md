@@ -51,6 +51,12 @@ The directory of custom grammars.
 
 _default `~/.jint/grammars`_
 
+### `JINT_WALK_WORKERS`
+
+The threads that parse files. `1` parses on the main thread; a larger number forces that many threads.
+
+_default the cores available, less one, at most 8, once a run has 64 files to parse_
+
 ### `JINT_UI_HOST`
 
 The host that `jint ui serve` binds. Give a host, not `host:port`.

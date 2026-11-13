@@ -38,7 +38,14 @@ export function checkRunKnobs(knobs: {
   readonly timeout?: number;
   readonly maxInputTokens?: number;
   readonly charsPerToken?: number;
+  readonly walkWorkers?: number;
 }): string | null {
+  if (
+    knobs.walkWorkers !== undefined &&
+    (!Number.isInteger(knobs.walkWorkers) || knobs.walkWorkers < 1)
+  ) {
+    return `walkWorkers: must be an integer >= 1, got ${knobs.walkWorkers}`;
+  }
   if (knobs.concurrency !== undefined) {
     if (!Number.isInteger(knobs.concurrency) || knobs.concurrency < 1) {
       return `concurrency: must be an integer >= 1, got ${knobs.concurrency}`;

@@ -72,6 +72,10 @@ describe("cli: contract basics", () => {
       exit: 2,
       stderr: ["timeout: must be a number > 0", "--help"],
     });
+    expectContract(await run(["run", "--walk-workers", "0"]), {
+      exit: 2,
+      stderr: ["walkWorkers: must be an integer >= 1", "--help"],
+    });
   });
 
   test.concurrent("unknown flag -> usage error, exit 2", async () => {

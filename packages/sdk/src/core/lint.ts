@@ -83,6 +83,7 @@ import {
   type Unit,
 } from "./types.ts";
 import { findUi } from "./ui-registry.ts";
+import { defaultPoolSize, POOL_MIN_FILES, WalkPool, WalkPoolBroken } from "./walk-pool.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { SelectedElement } from "./output/echo.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
@@ -127,6 +128,12 @@ export interface LintOptions {
    * whole input, no grammar is ever inferred, and it never WALK_FAILEDs.
    */
   str?: { readonly content: string; readonly path?: string };
+  /**
+   * Walk workers (threads) for the parse phase. Unset: JINT_WALK_WORKERS, else a pool sized to the
+   * machine once the run has at least 64 files to walk, in-process below that. 1 walks in-process;
+   * larger values force a pool of that many threads.
+   */
+  walkWorkers?: number;
   /** Explicit grammar for the str unit (CLI --language); no effect on resolved inputs. */
   language?: string;
   /**
@@ -289,6 +296,7 @@ function resolveRunKnobs(options: LintOptions): { concurrency: number; timeout: 
     timeout,
     maxInputTokens: options.config.maxInputTokens,
     charsPerToken: options.config.charsPerToken,
+    walkWorkers: options.walkWorkers,
   });
   if (problem !== null) throw new SetupError("CONFIG_INVALID", problem);
   return { concurrency, timeout };
@@ -429,7 +437,7 @@ async function* walkUnits(
   const { rules, customRules, registry, scopedRules } = setup;
   const inScopeFor = (rule: Rule | CustomRule, path: string): boolean =>
     ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path));
-  const { walked, skippedExtensions } = await walkedInventories(
+  const { walked, skippedExtensions, poolFailed } = await walkedInventories(
     units,
     options,
     rules,
@@ -437,6 +445,12 @@ async function* walkUnits(
     registry,
     inScopeFor,
   );
+  if (poolFailed) {
+    yield {
+      type: "note",
+      note: "walk workers failed to start or kept failing: the files were parsed on the main thread (set JINT_WALK_WORKERS=1 to skip the workers)",
+    };
+  }
   if (skippedExtensions.size > 0) {
     yield { type: "note", note: sweepCoverageNote(skippedExtensions, registry) };
   }
@@ -601,37 +615,79 @@ async function walkedInventories(
   customRules: readonly CustomRule[],
   registry: GrammarRegistry,
   inScopeFor: (rule: Rule | CustomRule, path: string) => boolean,
-): Promise<{ walked: Map<number, WalkedUnit>; skippedExtensions: Set<string> }> {
+): Promise<{
+  walked: Map<number, WalkedUnit>;
+  skippedExtensions: Set<string>;
+  poolFailed: boolean;
+}> {
+  let poolFailed = false;
   const skippedExtensions = new Set<string>();
   const walked = new Map<number, WalkedUnit>();
-  for (let i = 0; i < units.length; i += FILE_CONCURRENCY) {
+  // custom rules resolve their targets from the inventory (element roles only), so any in-scope
+  // custom rule needs the walk just like a json-tier element rule
+  const needsWalk = (unit: Unit): boolean =>
+    unit.kind === "file" &&
+    (rules.some((rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind)) ||
+      customRules.some((rule) => inScopeFor(rule, unit.state.path)));
+  const todo = units.flatMap((unit, i) => (needsWalk(unit) ? [i] : []));
+  const walkOptions: Omit<ClassifyFileOptionsDraft, "registry"> = {};
+  if (options.language !== undefined) walkOptions.language = options.language;
+  if (options.config.maxInputTokens !== undefined)
+    walkOptions.maxInputTokens = options.config.maxInputTokens;
+  if (options.config.charsPerToken !== undefined)
+    walkOptions.charsPerToken = options.config.charsPerToken;
+  const record = (i: number, w: WalkedUnit): void => {
+    // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
+    // the coverage note; the unit still classifies whole (files-target rules read raw source)
+    if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
+      skippedExtensions.add(unclaimedExtension(units[i]!.state.path));
+    }
+    walked.set(i, w);
+  };
+  const inProcess = (i: number): Promise<WalkedUnit> =>
+    walkUnit(units[i]!, { ...walkOptions, registry });
+
+  const size = walkPoolSize(options.walkWorkers, todo.length);
+  if (size > 1) {
+    const pool = new WalkPool(registry, { size });
+    try {
+      // gathered in file order, so the map's iteration order never depends on which worker finished first
+      const results = await Promise.all(
+        todo.map(async (i) => {
+          try {
+            return await pool.walk(units[i]!, walkOptions);
+          } catch (thrown) {
+            if (!(thrown instanceof WalkPoolBroken)) throw thrown;
+            poolFailed = true;
+            return await inProcess(i);
+          }
+        }),
+      );
+      todo.forEach((i, k) => record(i, results[k]!));
+    } finally {
+      pool.close();
+    }
+    return { walked, skippedExtensions, poolFailed };
+  }
+  for (let k = 0; k < todo.length; k += FILE_CONCURRENCY) {
     await Promise.all(
-      units.slice(i, i + FILE_CONCURRENCY).map(async (unit, j) => {
-        if (unit.kind !== "file") return;
-        // custom rules resolve their targets from the inventory (element roles only), so any
-        // in-scope custom rule needs the walk just like a json-tier element rule
-        const needsWalk =
-          rules.some(
-            (rule) => inScopeFor(rule, unit.state.path) && !judgesWholeUnit(rule, unit.kind),
-          ) || customRules.some((rule) => inScopeFor(rule, unit.state.path));
-        if (!needsWalk) return;
-        const walkOptions: ClassifyFileOptionsDraft = { registry };
-        if (options.language !== undefined) walkOptions.language = options.language;
-        if (options.config.maxInputTokens !== undefined)
-          walkOptions.maxInputTokens = options.config.maxInputTokens;
-        if (options.config.charsPerToken !== undefined)
-          walkOptions.charsPerToken = options.config.charsPerToken;
-        const w = await walkUnit(unit, walkOptions);
-        // a needed-but-grammar-less file is sweep coverage, not an error: name the extension in
-        // the coverage note; the unit still classifies whole (files-target rules read raw source)
-        if (w.failed !== null && w.failed.startsWith("no grammar mapping")) {
-          skippedExtensions.add(unclaimedExtension(unit.state.path));
-        }
-        walked.set(i + j, w);
-      }),
+      todo.slice(k, k + FILE_CONCURRENCY).map(async (i) => record(i, await inProcess(i))),
     );
   }
-  return { walked, skippedExtensions };
+  return { walked, skippedExtensions, poolFailed };
+}
+
+/**
+ * Workers for a walk of this many files: the option when set, else the default once the walk is
+ * large enough.
+ */
+function walkPoolSize(requested: number | undefined, files: number): number {
+  const fromEnv = process.env.JINT_WALK_WORKERS;
+  if (requested === undefined && fromEnv !== undefined && /^\d+$/.test(fromEnv)) {
+    requested = Number(fromEnv);
+  }
+  if (requested !== undefined) return Math.min(requested, files);
+  return files >= POOL_MIN_FILES ? defaultPoolSize() : 1;
 }
 
 /**

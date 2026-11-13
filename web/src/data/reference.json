@@ -337,6 +337,18 @@
           "body": "The directory of custom grammars."
         },
         {
+          "id": "jint-walk-workers",
+          "level": 3,
+          "name": "JINT_WALK_WORKERS",
+          "pills": [
+            [
+              "default",
+              "the cores available, less one, at most 8, once a run has 64 files to parse"
+            ]
+          ],
+          "body": "The threads that parse files. `1` parses on the main thread; a larger number forces that many threads."
+        },
+        {
           "id": "jint-ui-host",
           "level": 3,
           "name": "JINT_UI_HOST",
@@ -436,6 +448,14 @@
           "pills": ["`<n>`"],
           "body": "the most classifier calls in flight",
           "example": "jint run src/ --concurrency 8"
+        },
+        {
+          "id": "flag-run-walk-workers",
+          "level": 4,
+          "name": "--walk-workers",
+          "pills": ["`<n>`"],
+          "body": "the threads that parse files",
+          "example": "jint run src/ --walk-workers 4"
         },
         {
           "id": "flag-run-timeout",

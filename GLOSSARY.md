@@ -190,5 +190,6 @@ demands action.
   (functions, classes, methods, types, bindings): the same measured set as the explicit union.
   It is shorthand: prefer the specific targets.
 - **unit** — one classifiable piece produced by resolving an input according to its input kind.
+- **walk worker** — a thread that parses files for the walk, with a parser memory of its own.
 - **walk** — the pass that turns parsed sources into inventory elements (and the
   directory pass that turns an on-disk tree into file units).
