@@ -35,6 +35,7 @@
       "use-cases/docs/keep-use-cases-short",
       "use-cases/bash/remove-stale-comments",
       "use-cases/typescript/rewrite-stateful-comments",
+      "use-cases/tests/keep-unit-tests-in-process",
       "use-cases/security/keep-secrets-out-of-config",
       "use-cases/seo/name-the-page-for-search-results",
       "use-cases/skills/keep-a-skill-complete",
