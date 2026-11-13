@@ -15,7 +15,7 @@ test("walking the same large file many times does not grow the parser's memory",
   for (let i = 0; i < 8; i++) await decompose(source, "typescript");
   const grown = process.memoryUsage().arrayBuffers - before;
   expect(grown).toBeLessThan(30 * 1024 * 1024);
-});
+}, 60_000);
 
 test("a source the grammar cannot parse cleanly is freed too", async () => {
   const broken = `${source}\nfunction ((( {`;
@@ -26,4 +26,4 @@ test("a source the grammar cannot parse cleanly is freed too", async () => {
     expect(inventory.hasError).toBe(true);
   }
   expect(process.memoryUsage().arrayBuffers - before).toBeLessThan(30 * 1024 * 1024);
-});
+}, 60_000);

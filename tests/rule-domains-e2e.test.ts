@@ -93,7 +93,11 @@ describe("rule domains: what a run needs", () => {
       "a.ts": "function alpha() {}\n",
       "jint.config.json": JSON.stringify({ rules: { use: ["is_comment_narration"] } }),
     });
-    const r = await runCli(["run", "a.ts"], { cwd: dir });
+    // nothing is measured, so no call is made: the wire is a throwaway key at a dead address
+    const r = await runCli(["run", "a.ts"], {
+      cwd: dir,
+      env: mockDecisionsWire("http://127.0.0.1:9"),
+    });
     expect(r.code).toBe(4);
     expect(r.stderr).toContain("rule 'is_comment_narration' targets comments: no such element");
     expect(r.stderr).toContain("nothing was measured");
