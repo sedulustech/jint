@@ -608,25 +608,31 @@ export async function decompose(
   const tree = parser.parse(source);
   if (!tree) throw new InternalError(`parser returned no tree for ${language}`);
 
-  const candidates = resolveCandidates(
-    runQuery(query, tree.rootNode, resolveAddressable(scm)),
-    resolveSuppression(scm),
-  );
-  const definitionCaptures = resolveDefinitionCaptures(scm);
-  const { definitions, comments, imports } = materialize(
-    candidates,
-    language,
-    source,
-    definitionCaptures,
-    scmCaptureMerges(scm),
-  );
-  return {
-    hasError: tree.rootNode.hasError,
-    provenance: entry.provenance,
-    definitions: applySizeBackstop(definitions, backstop),
-    comments: applySizeBackstop(comments, backstop),
-    imports: applySizeBackstop(imports, backstop),
-  };
+  // a tree lives in the parser's wasm memory, which one process shares and which holds at most
+  // 2 GiB: every tree is freed once its elements are read, or a large run aborts the wasm instance
+  try {
+    const candidates = resolveCandidates(
+      runQuery(query, tree.rootNode, resolveAddressable(scm)),
+      resolveSuppression(scm),
+    );
+    const definitionCaptures = resolveDefinitionCaptures(scm);
+    const { definitions, comments, imports } = materialize(
+      candidates,
+      language,
+      source,
+      definitionCaptures,
+      scmCaptureMerges(scm),
+    );
+    return {
+      hasError: tree.rootNode.hasError,
+      provenance: entry.provenance,
+      definitions: applySizeBackstop(definitions, backstop),
+      comments: applySizeBackstop(comments, backstop),
+      imports: applySizeBackstop(imports, backstop),
+    };
+  } finally {
+    tree.delete();
+  }
 }
 
 /** What every wire element shares; the wire form never carries the walked source. */
