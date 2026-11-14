@@ -41,9 +41,12 @@ repeats another. The user may not know that.
   definition."). Changing the instructions later recalibrates the rule.
 - Name the rule for its true side, so the value reads as the name: `has_` or `lacks_` for a defect
   (high is bad), `is_` for a good property (high is good), `will_` for a defect the unit makes
-  likely, such as `will_error_lose_cause`. The handle follows that direction. Do not add a prefix of
-  your own: the name states what is true when the value is high, and the handle's message carries
-  the remedy.
+  likely, such as `will_error_lose_cause`. The handle follows that direction.
+- Use `should_` only when the property is where the unit belongs, such as `should_be_e2e`: the
+  verdict and the property are the same thing, and the value reads as "0.9 that it should be
+  end-to-end". The true side is still the defect. Do not put the fix in any other name: a fix can
+  change, such as "delete it" for "move it", and a rule can have several. The handle's message
+  carries the fix. Do not coin another prefix.
 - The model sees only the unit's own text. A claim about code elsewhere cannot be judged. A
   comment rule sees the definition it belongs to.
 
