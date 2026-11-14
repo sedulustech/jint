@@ -546,6 +546,14 @@
           "example": "jint capture doc.md --rule is_short"
         },
         {
+          "id": "flag-capture-walk-workers",
+          "level": 4,
+          "name": "--walk-workers",
+          "pills": ["`<n>`"],
+          "body": "the threads that parse files",
+          "example": "jint capture doc.md --walk-workers 4"
+        },
+        {
           "id": "flag-capture-queries",
           "level": 4,
           "name": "--queries",

@@ -206,6 +206,21 @@ describe("captureFor - the config scope, run parity (sdk surface)", () => {
     });
   });
 
+  test("a capture parsed by workers gives the same elements, in the same order, as one parsed in-process", async () => {
+    const dir = join(ROOT_DIR, "workers");
+    rmScratchTree(dir);
+    writeTree(dir);
+    writeFileSync(join(dir, "jint.config.json"), PROBE_CONFIG);
+
+    await withCwd(dir, async () => {
+      const config = await loadConfig(join(dir, "jint.config.json"));
+      const inProcess = await captureFor(config, { walkWorkers: 1 })("src");
+      const pooled = await captureFor(config, { walkWorkers: 2 })("src");
+      expect(inProcess.length).toBeGreaterThan(0);
+      expect(pooled).toEqual(inProcess);
+    });
+  });
+
   test("unknown rule name is run's own --rule error, naming the valid set", async () => {
     const dir = join(ROOT_DIR, "unknown");
     rmScratchTree(dir);

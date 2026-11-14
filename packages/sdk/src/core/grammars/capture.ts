@@ -4,7 +4,8 @@ import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
 import { configScopeAdmits, ruleInScope, walkScopes } from "../scope.ts";
-import { SetupError, type Rule } from "../types.ts";
+import { SetupError, type Rule, type Unit } from "../types.ts";
+import { walkAll } from "../walk-pool.ts";
 import {
   grammar,
   knownLanguages,
@@ -15,7 +16,7 @@ import {
   EMBEDDED,
   type GrammarRegistry,
 } from "./grammars.ts";
-import { decompose, projectElement, type InventoryElement } from "./walk.ts";
+import { projectElement, type InventoryElement } from "./walk.ts";
 import type { ResolvedConfig } from "../../config/load.ts";
 import type { CustomRule } from "../rules/custom/schema.ts";
 import type { Element } from "@jint/contract";
@@ -82,20 +83,28 @@ function assertQueriesAuthoredFor(
   }
 }
 
+/** The registry plus the call's own grammar (--grammar), when it names one. */
+async function withGrammar(
+  base: GrammarRegistry,
+  grammarPath: string | undefined,
+  queryPath: string | undefined,
+): Promise<GrammarRegistry> {
+  if (grammarPath === undefined) return base;
+  const entry = await registerCustomGrammar(grammarPath, {
+    queriesOptional: queryPath !== undefined,
+  });
+  return { ...base, [entry.language]: entry };
+}
+
 export async function capture(
   targetPath: string,
   queryPath?: string,
   grammarPath?: string,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
   onStats?: (summary: InputSummary) => void,
+  walkWorkers?: number,
 ): Promise<CapturedElement[]> {
-  let registry: GrammarRegistry = EMBEDDED;
-  if (grammarPath !== undefined) {
-    const entry = await registerCustomGrammar(grammarPath, {
-      queriesOptional: queryPath !== undefined,
-    });
-    registry = { ...EMBEDDED, [entry.language]: entry };
-  }
+  const registry = await withGrammar(EMBEDDED, grammarPath, queryPath);
   const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
   const stats = inputStats();
   const { captured } = await walkAndExtract(
@@ -103,6 +112,7 @@ export async function capture(
     queries,
     queryPath,
     onSkip,
+    walkWorkers,
   );
   onStats?.(stats.summary());
   return captured;
@@ -132,12 +142,14 @@ async function walkAndExtract(
   queries: string | undefined,
   queryPath: string | undefined,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
+  walkWorkers?: number,
 ): Promise<WalkOutcome> {
   // the CALL's registry rides the input options: fileUnit routes through it, and the walk below
   // reads it back out for every file
   const registry = input.registry ?? EMBEDDED;
   const captured: CapturedElement[] = [];
   const files: WalkedFile[] = [];
+  const claimed: { unit: Unit; language: string }[] = [];
   for await (const unit of resolveInput(input)) {
     // file units only: capture() takes a file or a dir - str/diff forms are lint's callers
     if (unit.kind !== "file") continue;
@@ -152,8 +164,20 @@ async function walkAndExtract(
       continue;
     }
     if (queries !== undefined) assertQueriesAuthoredFor(registry, queries, queryPath!, language);
-    const inventory = await decompose(unit.state.content, language, { queries, registry });
-    const elements = [...inventory.definitions, ...inventory.comments, ...inventory.imports];
+    claimed.push({ unit, language });
+  }
+  // the lint walk's own function: the pool when the walk is large, results in file order
+  const { results } = await walkAll(
+    claimed.map((c) => c.unit),
+    registry,
+    { queries },
+    walkWorkers,
+  );
+  claimed.forEach(({ unit, language }, i) => {
+    const walked = results[i]!;
+    // a file with nothing to extract is an empty capture; a parse that failed is loud
+    if (walked.failed !== null && walked.failedCause !== undefined) throw walked.failedCause;
+    const elements = walked.inventory;
     files.push({ path: unit.state.path, elements });
     for (const element of elements) {
       const text =
@@ -165,7 +189,7 @@ async function walkAndExtract(
         text,
       });
     }
-  }
+  });
   return { captured, files };
 }
 
@@ -193,6 +217,8 @@ export interface CaptureForOptions {
   readonly scopeBase?: string;
   /** Walk coverage notes (grammar-dir and secret-denylist skips) - the run's note channel. */
   readonly onNote?: (note: string) => void;
+  /** The threads that parse files, as in a run (default: the pool's own choice). */
+  readonly walkWorkers?: number;
 }
 
 /** A custom (callback) rule is recognizable by its classify function; the JSON tier has none. */
@@ -258,13 +284,11 @@ export function captureFor(
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
   return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
-    let registry = await loadCustomGrammars(undefined, options.onNote);
-    if (grammarPath !== undefined) {
-      const entry = await registerCustomGrammar(grammarPath, {
-        queriesOptional: queryPath !== undefined,
-      });
-      registry = { ...registry, [entry.language]: entry };
-    }
+    const registry = await withGrammar(
+      await loadCustomGrammars(undefined, options.onNote),
+      grammarPath,
+      queryPath,
+    );
     const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
     const input = targetPath ?? config.input;
     if (input === undefined || input === "") {
@@ -291,6 +315,7 @@ export function captureFor(
       queries,
       queryPath,
       onSkip,
+      options.walkWorkers,
     );
     const configAdmits = configScopeAdmits(config.include, [
       ...config.exclude,

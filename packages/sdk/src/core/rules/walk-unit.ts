@@ -21,6 +21,8 @@ export interface WalkUnitOptions {
   readonly registry?: GrammarRegistry;
   /** The model's input window in tokens. Set: the fixed element backstop does not apply. */
   readonly maxInputTokens?: number;
+  /** Extraction queries that replace the grammar's (capture's --queries). */
+  readonly queries?: string;
 }
 
 /**
@@ -58,6 +60,7 @@ export async function walkUnit(unit: Unit, options: WalkUnitOptions = {}): Promi
   try {
     const parsedSource = await decompose(source, language, {
       registry,
+      queries: options.queries,
       backstop: options.maxInputTokens === undefined,
     });
     const inventory = [

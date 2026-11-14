@@ -14,8 +14,8 @@
  */
 
 import { availableParallelism } from "node:os";
+import { walkUnit, type WalkedUnit, type WalkUnitOptions } from "./rules/walk-unit.ts";
 import type { GrammarRegistry } from "./grammars/grammars.ts";
-import type { WalkedUnit, WalkUnitOptions } from "./rules/walk-unit.ts";
 import type { Unit } from "./types.ts";
 import type { WalkRequest } from "./walk-worker.ts";
 
@@ -277,6 +277,61 @@ export class WalkPool {
     this.slots.length = 0;
     for (const task of this.queue.splice(0)) task.reject(error());
   }
+}
+
+const IN_PROCESS_CONCURRENCY = 4;
+
+/**
+ * Workers for a walk of this many files: the requested count (or JINT_WALK_WORKERS) when set, else
+ * the default once the walk is large enough.
+ */
+function walkPoolSize(requested: number | undefined, files: number): number {
+  const fromEnv = process.env.JINT_WALK_WORKERS;
+  if (requested === undefined && fromEnv !== undefined && /^\d+$/.test(fromEnv)) {
+    requested = Number(fromEnv);
+  }
+  if (requested !== undefined) return Math.min(requested, files);
+  return files >= POOL_MIN_FILES ? defaultPoolSize() : 1;
+}
+
+/**
+ * Walk every unit, in the pool when the walk is large enough and in-process otherwise, and return
+ * the results in unit order. A pool that breaks hands its files to the main thread: `poolFailed`
+ * says so. The one walk both lint and capture run.
+ */
+export async function walkAll(
+  units: readonly Unit[],
+  registry: GrammarRegistry,
+  options: Omit<WalkUnitOptions, "registry">,
+  workers?: number,
+): Promise<{ results: WalkedUnit[]; poolFailed: boolean }> {
+  let poolFailed = false;
+  const inProcess = (unit: Unit): Promise<WalkedUnit> => walkUnit(unit, { ...options, registry });
+  const size = walkPoolSize(workers, units.length);
+  if (size > 1) {
+    const pool = new WalkPool(registry, { size });
+    try {
+      const results = await Promise.all(
+        units.map(async (unit) => {
+          try {
+            return await pool.walk(unit, options);
+          } catch (thrown) {
+            if (!(thrown instanceof WalkPoolBroken)) throw thrown;
+            poolFailed = true;
+            return await inProcess(unit);
+          }
+        }),
+      );
+      return { results, poolFailed };
+    } finally {
+      pool.close();
+    }
+  }
+  const results: WalkedUnit[] = [];
+  for (let k = 0; k < units.length; k += IN_PROCESS_CONCURRENCY) {
+    results.push(...(await Promise.all(units.slice(k, k + IN_PROCESS_CONCURRENCY).map(inProcess))));
+  }
+  return { results, poolFailed };
 }
 
 /** A file no worker could walk: the same shape a failed parse has in-process. */

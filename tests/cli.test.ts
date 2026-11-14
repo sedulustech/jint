@@ -76,6 +76,10 @@ describe("cli: contract basics", () => {
       exit: 2,
       stderr: ["walkWorkers: must be an integer >= 1", "--help"],
     });
+    expectContract(await run(["capture", "src", "--walk-workers", "0"]), {
+      exit: 2,
+      stderr: ["walkWorkers: must be an integer >= 1", "--help"],
+    });
   });
 
   test.concurrent("unknown flag -> usage error, exit 2", async () => {

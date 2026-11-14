@@ -314,7 +314,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb: "print what jint extracts from a file, without classifying",
-    flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
+    flags: ["json", "queries", "grammar", "config", "exclude", "rule", "walk-workers"],
   },
   reclassify: {
     example: "jint reclassify <run-id> src/a.ts --rule <name> -",
@@ -1375,6 +1375,12 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     );
     return 2;
   }
+  const walkWorkers = numericFlag(cliArgs["walk-workers"], "--walk-workers");
+  const knobProblem = checkRunKnobs({ walkWorkers });
+  if (knobProblem !== null) {
+    usageError(knobProblem + " - see jint --help");
+    return 2;
+  }
   let resolvedConfig: ResolvedConfig;
   let configPath: string | null;
   try {
@@ -1399,6 +1405,7 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       rule: cliArgs.rule?.[0],
       scopeBase: rest[0] !== undefined ? configScopeBase(configPath, rest[0]) : undefined,
       onNote: (note) => notes.push(note),
+      walkWorkers,
     });
     const elements = await walk(
       rest[0],
