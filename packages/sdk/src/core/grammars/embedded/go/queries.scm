@@ -26,7 +26,8 @@
 ; package-level const/var blocks are go's bindings (a consts-only package file must still yield
 ; elements). Same anchor trick: only a single-spec block takes a name - a multi-spec block has no
 ; single name, and a missing name is honest where a wrong one is not.
-(const_declaration . (const_spec name: (identifier) @name) .) @binding
+; a spec that declares several names (var a, b int) keeps the first
+((const_declaration . (const_spec name: (identifier) @name) .) @binding (#set! "capture.binding.naming" "first"))
 (const_declaration) @binding
 (var_declaration . (var_spec name: (identifier) @name) .) @binding
 (var_declaration) @binding

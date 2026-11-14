@@ -42,7 +42,7 @@
 
 ; --- state ---------------------------------------------------------------------------------------
 (assignment_expression left: (variable_name (name) @name)) @binding ; @priority
-(const_declaration (const_element (name) @name)) @binding
+((const_declaration (const_element (name) @name)) @binding (#set! "capture.binding.naming" "first")) ; const A = 1, B = 2; keeps the first
 
 ; --- imports --------------------------------------------------------------------------------------
 (namespace_use_declaration) @import

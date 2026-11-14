@@ -520,6 +520,8 @@ describe("a declaration of several names", () => {
       "one,a,f",
     ],
     ["typescript", "const a = 1, b = 2;\nconst c = 3;\nlet d, e;\n", "binding", "a,c,d"],
+    ["go", "package main\nvar a, b int\nconst x, y = 1, 2\nvar c = 1\n", "binding", "a,x,c"],
+    ["php", "<?php\nconst A = 1, B = 2;\nconst C = 3;\n", "binding", "A,C"],
   ];
   for (const [language, source, kinds, named] of cases) {
     test(`${language}: ${source.split("\n")[0]} walks and each declaration is one element`, async () => {
