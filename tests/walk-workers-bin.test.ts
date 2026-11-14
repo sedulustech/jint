@@ -19,6 +19,8 @@ beforeAll(async () => {
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
+    // the walk needs the binary's commands, not its embedded UI
+    env: { ...process.env, JINT_BUILD_NO_UI: "1" },
   });
   const [out, err] = await Promise.all([
     new Response(build.stdout).text(),

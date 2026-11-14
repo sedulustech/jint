@@ -31,13 +31,18 @@ console.log(`building jint (${buildVersion ?? commit})${cross ? ` for ${cross.ta
 // Every compile path embeds a fresh UI dist (compile assets: served from $bunfs at runtime via
 // startUi's resolveDistDir) - build it here, never rely on a leftover. The warning is only for
 // genuinely weird states (the app package itself is missing).
+// A test that needs only the binary's commands sets JINT_BUILD_NO_UI=1 to skip that build; no
+// release build sets it.
 const appDist = resolve(root, "packages/app/dist");
-if (existsSync(resolve(root, "packages/app"))) {
+const noUi = process.env.JINT_BUILD_NO_UI === "1";
+if (noUi) {
+  console.warn("note: JINT_BUILD_NO_UI=1 - binary ships without the embedded UI");
+} else if (existsSync(resolve(root, "packages/app"))) {
   await $`bun run --cwd packages/app build`.quiet();
 } else {
   console.warn("note: packages/app missing - binary ships without the embedded UI");
 }
-const assets = existsSync(appDist) ? [appDist] : [];
+const assets = !noUi && existsSync(appDist) ? [appDist] : [];
 
 // Branched whole literal: the Bun compile config distinguishes cross targets; the assets key
 // exists only when there are assets (Bun globs it, so undefined is not semantically identical).

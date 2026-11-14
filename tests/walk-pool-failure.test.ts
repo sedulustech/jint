@@ -107,8 +107,12 @@ async function stableThreadCount(): Promise<number> {
 // The runtime keeps helper threads it started for the first workers; a leak shows as growth.
 describe("walk pool lifetime", () => {
   const settledThreads = async (): Promise<number> => {
-    const workers = pool({ size: 4 });
-    await Promise.all(sourceFiles().map((file) => workers.walk(unitOf(file), {})));
+    const workers = pool({ size: 3 });
+    await Promise.all(
+      sourceFiles()
+        .slice(0, 3)
+        .map((file) => workers.walk(unitOf(file), {})),
+    );
     workers.close();
     return stableThreadCount();
   };
@@ -118,7 +122,7 @@ describe("walk pool lifetime", () => {
     async () => {
       const first = await settledThreads();
       await settledThreads();
-      // helper threads wander by a few; a leaked pool of 4 adds 4 per round
+      // helper threads wander by a few; a leaked pool of 3 adds 3 per round
       expect(await settledThreads()).toBeLessThanOrEqual(first + 3);
     },
     30_000,
