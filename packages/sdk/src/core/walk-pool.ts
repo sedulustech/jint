@@ -283,25 +283,168 @@ export class WalkPool {
 }
 
 const IN_PROCESS_CONCURRENCY = 4;
-
 /**
- * Workers for a walk of this many files: the requested count (or JINT_WALK_WORKERS) when set, else
- * the default once the walk is large enough.
+ * The most files in flight per worker, and the most source bytes in flight. Bytes are the limit
+ * that matters: a huge file holds the line while the small files behind it finish, and their
+ * results wait in memory. 8 MB measured as fast as collecting everything first on PyTorch, at half
+ * the memory; 64 MB was about 13% faster at 600 MB more.
  */
-function walkPoolSize(requested: number | undefined, files: number): number {
+const FILES_PER_WORKER_IN_FLIGHT = 512;
+const IN_FLIGHT_BYTES = 8 * 1024 * 1024;
+
+/** How a walk is spread over threads and how far it reads ahead. */
+export interface WalkEachOptions {
+  /** The threads that parse files (default: the pool's choice, in-process for a small walk). */
+  readonly workers?: number;
+  /** Called when the pool breaks and a file walks on the main thread instead. */
+  readonly onPoolFailed?: () => void;
+  /** The most files in flight (default: per worker). */
+  readonly inFlightFiles?: number;
+  /** The most source bytes in flight. */
+  readonly inFlightBytes?: number;
+}
+
+function requestedWorkers(requested: number | undefined): number | undefined {
   const fromEnv = process.env.JINT_WALK_WORKERS;
   if (requested === undefined && fromEnv !== undefined && /^\d+$/.test(fromEnv)) {
-    requested = Number(fromEnv);
+    return Number(fromEnv);
   }
-  if (requested !== undefined) return Math.min(requested, files);
-  return files >= POOL_MIN_FILES ? defaultPoolSize() : 1;
+  return requested;
+}
+
+type Settled<T> = { readonly value: T } | { readonly thrown: unknown };
+
+/** A promise's result as a value, so a failure waits for its turn instead of going unhandled. */
+function settle<T>(promise: Promise<T>): Promise<Settled<T>> {
+  return promise.then(
+    (value): Settled<T> => ({ value }),
+    (thrown): Settled<T> => ({ thrown }),
+  );
+}
+
+function unsettle<T>(settled: Settled<T>): T {
+  if ("thrown" in settled) throw settled.thrown;
+  return settled.value;
+}
+
+/** The walks started and not yet yielded, oldest first, with the limits on how many there may be. */
+class ReadAhead {
+  private readonly started: {
+    readonly unit: Unit;
+    readonly settled: Promise<Settled<WalkedUnit>>;
+  }[] = [];
+  private bytes = 0;
+
+  constructor(
+    private readonly maxFiles: number,
+    private readonly maxBytes: number,
+  ) {}
+
+  get length(): number {
+    return this.started.length;
+  }
+
+  start(unit: Unit, walked: Promise<WalkedUnit>): void {
+    this.started.push({ unit, settled: settle(walked) });
+    this.bytes += sourceBytes(unit);
+  }
+
+  full(): boolean {
+    return this.started.length >= this.maxFiles || this.bytes >= this.maxBytes;
+  }
+
+  async takeOldest(): Promise<{ readonly unit: Unit; readonly walked: WalkedUnit }> {
+    const oldest = this.started.shift()!;
+    this.bytes -= sourceBytes(oldest.unit);
+    return { unit: oldest.unit, walked: unsettle(await oldest.settled) };
+  }
+
+  /** Resolves once every started walk has finished, however it ended. */
+  async finished(): Promise<void> {
+    await Promise.all(this.started.map((entry) => entry.settled));
+  }
+}
+
+const sourceBytes = (unit: Unit): number => (unit.kind === "file" ? unit.state.content.length : 0);
+
+/** The first `want` units of a source: enough to tell how large the walk is. */
+async function peek(units: AsyncIterator<Unit>, want: number): Promise<Unit[]> {
+  const head: Unit[] = [];
+  while (head.length < want) {
+    const next = await units.next();
+    if (next.done === true) break;
+    head.push(next.value);
+  }
+  return head;
+}
+
+async function* arrivals(head: readonly Unit[], rest: AsyncIterator<Unit>): AsyncGenerator<Unit> {
+  yield* head;
+  for (;;) {
+    const next = await rest.next();
+    if (next.done === true) return;
+    yield next.value;
+  }
+}
+
+/** One file in the pool, or on this thread when there is no pool or the pool broke. */
+async function walkOne(
+  unit: Unit,
+  pool: WalkPool | null,
+  registry: GrammarRegistry,
+  options: Omit<WalkUnitOptions, "registry">,
+  onPoolFailed: (() => void) | undefined,
+): Promise<WalkedUnit> {
+  if (pool === null) return walkUnit(unit, { ...options, registry });
+  try {
+    return await pool.walk(unit, options);
+  } catch (thrown) {
+    if (!(thrown instanceof WalkPoolBroken)) throw thrown;
+    onPoolFailed?.();
+    return walkUnit(unit, { ...options, registry });
+  }
 }
 
 /**
- * Walk every unit, in the pool when the walk is large enough and in-process otherwise, and return
- * the results in unit order. A pool that breaks hands its files to the main thread: `poolFailed`
- * says so. The one walk both lint and capture run.
+ * Walk units as they arrive, in the pool when the walk is large enough and in-process otherwise,
+ * and yield each result in unit order. The files and bytes in flight are bounded, so a source of
+ * any length walks in bounded memory.
  */
+export async function* walkEach(
+  source: AsyncIterable<Unit> | Iterable<Unit>,
+  registry: GrammarRegistry,
+  options: Omit<WalkUnitOptions, "registry">,
+  limits: WalkEachOptions = {},
+): AsyncGenerator<{ readonly unit: Unit; readonly walked: WalkedUnit }> {
+  const units = (async function* () {
+    for await (const unit of source) yield unit;
+  })();
+  const requested = requestedWorkers(limits.workers);
+  const head = await peek(units, requested ?? POOL_MIN_FILES);
+  const size =
+    requested !== undefined
+      ? Math.min(requested, head.length)
+      : head.length >= POOL_MIN_FILES
+        ? defaultPoolSize()
+        : 1;
+  const pool = size > 1 ? new WalkPool(registry, { size }) : null;
+  const ahead = new ReadAhead(
+    limits.inFlightFiles ??
+      (pool === null ? IN_PROCESS_CONCURRENCY : size * FILES_PER_WORKER_IN_FLIGHT),
+    limits.inFlightBytes ?? IN_FLIGHT_BYTES,
+  );
+  try {
+    for await (const unit of arrivals(head, units)) {
+      ahead.start(unit, walkOne(unit, pool, registry, options, limits.onPoolFailed));
+      if (ahead.full()) yield await ahead.takeOldest();
+    }
+    while (ahead.length > 0) yield await ahead.takeOldest();
+  } finally {
+    await ahead.finished();
+    pool?.close();
+  }
+}
+
 export async function walkAll(
   units: readonly Unit[],
   registry: GrammarRegistry,
@@ -309,30 +452,14 @@ export async function walkAll(
   workers?: number,
 ): Promise<{ results: WalkedUnit[]; poolFailed: boolean }> {
   let poolFailed = false;
-  const inProcess = (unit: Unit): Promise<WalkedUnit> => walkUnit(unit, { ...options, registry });
-  const size = walkPoolSize(workers, units.length);
-  if (size > 1) {
-    const pool = new WalkPool(registry, { size });
-    try {
-      const results = await Promise.all(
-        units.map(async (unit) => {
-          try {
-            return await pool.walk(unit, options);
-          } catch (thrown) {
-            if (!(thrown instanceof WalkPoolBroken)) throw thrown;
-            poolFailed = true;
-            return await inProcess(unit);
-          }
-        }),
-      );
-      return { results, poolFailed };
-    } finally {
-      pool.close();
-    }
-  }
   const results: WalkedUnit[] = [];
-  for (let k = 0; k < units.length; k += IN_PROCESS_CONCURRENCY) {
-    results.push(...(await Promise.all(units.slice(k, k + IN_PROCESS_CONCURRENCY).map(inProcess))));
+  for await (const { walked } of walkEach(units, registry, options, {
+    workers,
+    onPoolFailed: () => {
+      poolFailed = true;
+    },
+  })) {
+    results.push(walked);
   }
   return { results, poolFailed };
 }

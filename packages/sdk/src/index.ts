@@ -78,9 +78,11 @@ export { classify, type ClassifyOptions, type ClassifyOutcome } from "./core/cla
 export {
   capture,
   captureFor,
+  captureStreamFor,
   type CapturedElement,
   type CaptureForOptions,
   type ConfiguredCapture,
+  type ConfiguredCaptureStream,
 } from "./core/grammars/capture.ts";
 export type { Inventory, InventoryElement, Capture } from "./core/grammars/walk.ts";
 export type {

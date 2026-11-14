@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { captureJson, captureJsonChunks } from "./output.ts";
+import { captureJsonChunks } from "./output.ts";
 import type { CapturedElement } from "@jint/sdk";
 
 const element = (name: string, text: string): CapturedElement =>
@@ -18,6 +18,18 @@ const element = (name: string, text: string): CapturedElement =>
     text,
   }) as CapturedElement;
 
+async function pieces(
+  source: AsyncIterable<readonly CapturedElement[]> | Iterable<readonly CapturedElement[]>,
+) {
+  const all: string[] = [];
+  for await (const piece of captureJsonChunks(source)) all.push(piece);
+  return all;
+}
+
+async function* oneFileAtATime(elements: readonly CapturedElement[]) {
+  for (const e of elements) yield [e];
+}
+
 describe("capture --json", () => {
   const sets: readonly (readonly [string, readonly CapturedElement[]])[] = [
     ["no elements", []],
@@ -28,14 +40,15 @@ describe("capture --json", () => {
     ],
   ];
   for (const [label, elements] of sets) {
-    test(`the pieces join to exactly the document JSON.stringify makes: ${label}`, () => {
-      expect(captureJson(elements)).toBe(JSON.stringify({ elements }, null, 2) + "\n");
-      expect([...captureJsonChunks(elements)].join("")).toBe(captureJson(elements));
+    test(`the pieces join to exactly the document JSON.stringify makes: ${label}`, async () => {
+      const expected = JSON.stringify({ elements }, null, 2) + "\n";
+      expect((await pieces([elements])).join("")).toBe(expected);
+      expect((await pieces(oneFileAtATime(elements))).join("")).toBe(expected);
     });
   }
 
-  test("each element is its own piece, so no piece holds the whole document", () => {
-    const elements = [element("a", "1"), element("b", "2"), element("c", "3")];
-    expect([...captureJsonChunks(elements)]).toHaveLength(elements.length + 2);
+  test("each file is its own piece, and a file with no elements adds none", async () => {
+    const files = [[element("a", "1")], [], [element("b", "2"), element("c", "3")]];
+    expect(await pieces(files)).toHaveLength(2 + 1);
   });
 });

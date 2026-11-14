@@ -6,7 +6,7 @@ import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
 import { ruleInScope } from "../scope.ts";
 import { SetupError, type Rule, type Unit } from "../types.ts";
-import { POOL_FAILED_NOTE, walkAll } from "../walk-pool.ts";
+import { POOL_FAILED_NOTE, walkEach } from "../walk-pool.ts";
 import {
   grammar,
   knownLanguages,
@@ -108,91 +108,164 @@ export async function capture(
   const registry = await withGrammar(EMBEDDED, grammarPath, queryPath);
   const queries = queryPath !== undefined ? await loadQueryFile(queryPath) : undefined;
   const stats = inputStats();
-  const { captured } = await walkAndExtract(
-    { input: targetPath, registry, stats },
-    queries,
-    queryPath,
-    onSkip,
-    walkWorkers,
+  const captured = await collect(
+    extractEach({ input: targetPath, registry, stats }, queries, queryPath, onSkip, walkWorkers),
   );
   onStats?.(stats.summary());
   return captured;
 }
 
-/** One walked file's elements in emission order - the flat order `captured` is built in. */
-interface WalkedFile {
-  readonly path: string;
-  readonly elements: readonly InventoryElement[];
+async function collect(
+  source: AsyncIterable<readonly CapturedElement[]>,
+): Promise<CapturedElement[]> {
+  const all: CapturedElement[] = [];
+  for await (const file of source) all.push(...file);
+  return all;
 }
 
-/** The shared walk's product: projected elements plus the per-file inventories they came from. */
-interface WalkOutcome {
-  readonly captured: CapturedElement[];
-  readonly files: readonly WalkedFile[];
+/** The one identity of an element across files: the file it is in and its label there. */
+const elementKey = (path: string, label: string): string => `${path}|${label}`;
+
+/** The rule whose population a capture marks, and the config's admission test for its scope. */
+interface Preview {
+  readonly rule: Rule | CustomRule;
+  readonly configAdmits: (path: string) => boolean;
+}
+
+/** One file's walked elements and their projections, held for a rule that must see every file. */
+interface HeldFile {
+  readonly path: string;
+  readonly elements: readonly InventoryElement[];
+  readonly projected: readonly CapturedElement[];
+}
+
+function capturedOf(
+  element: InventoryElement,
+  path: string,
+  language: string,
+  matches: boolean,
+): CapturedElement {
+  const text = element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
+  const captured = { ...projectElement(element), input: path, grammar: language, text };
+  return matches ? { ...captured, matches: true } : captured;
 }
 
 /**
- * The walk both capture entry points share: resolve the input lint's way, extract each file's
- * inventory, project to CapturedElements. Also records each file's elements in emission order (the
- * exact flat order the captured array is built in), so a rule preview can mark population indices
- * without re-walking - the inventory metadata (comment counts, ownership) that targeting reads
- * lives on the walk-time elements and does not survive projection.
+ * JSON-tier rules evaluate the shared target grammar per element - the same selectors the run
+ * applies - so an element's mark needs nothing but the element and its path.
  */
-async function walkAndExtract(
+function inPopulation(
+  rule: Rule,
+  path: string,
+  element: InventoryElement,
+  configAdmits: (path: string) => boolean,
+): boolean {
+  return (
+    targetsOf(rule).some((target) => matchesTarget(target, element)) &&
+    // preview == run population: unscoped rules follow the config scope too
+    ruleInScope(rule, path) &&
+    (rule.include !== undefined || configAdmits(path))
+  );
+}
+
+/**
+ * Custom (callback) rules select over the whole walk, through the run's own resolver: a function
+ * target is arbitrary selection, and reusing the seam is the only way the preview cannot drift from
+ * what the run would measure.
+ */
+function* markedByCustomRule(
+  rule: CustomRule,
+  held: readonly HeldFile[],
+): Generator<readonly CapturedElement[]> {
+  const resolved = resolveTargets(
+    rule,
+    held.flatMap((file) => tsElementsOf(file.elements, file.path)),
+  );
+  // a target function that threw: the preview cannot know the population, and the failure is
+  // the rule's own - it surfaces loud, exactly as the run would stream it
+  if ("error" in resolved) throw resolved.error;
+  const picked = new Set(resolved.targets.map((element) => elementKey(element.path, element.id)));
+  for (const file of held) {
+    yield file.projected.map((projected, i) =>
+      picked.has(elementKey(file.path, file.elements[i]!.label))
+        ? { ...projected, matches: true }
+        : projected,
+    );
+  }
+}
+
+/**
+ * The walk both capture entry points share: resolve the input lint's way, walk each file as it
+ * arrives, and yield its elements projected, one array per file in file order, marked when a rule
+ * preview asks. A file's elements are dropped once yielded, except for a custom rule, which must
+ * see every file.
+ */
+async function* extractEach(
   input: InputOptions,
   queries: string | undefined,
   queryPath: string | undefined,
   onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
   walkWorkers?: number,
-): Promise<WalkOutcome> {
+  preview?: Preview,
+): AsyncGenerator<readonly CapturedElement[]> {
   // the CALL's registry rides the input options: fileUnit routes through it, and the walk below
   // reads it back out for every file
   const registry = input.registry ?? EMBEDDED;
-  const captured: CapturedElement[] = [];
-  const files: WalkedFile[] = [];
-  const claimed: { unit: Unit; language: string }[] = [];
-  for await (const unit of resolveInput(input)) {
-    // file units only: capture() takes a file or a dir - str/diff forms are lint's callers
-    if (unit.kind !== "file") continue;
-    const language = languageOf(registry, unit.state.path);
-    if (language === null) {
-      // a dir-walked file no grammar claims: lint's sweep-coverage policy (shared, not repeated) -
-      // skip it and emit ONE event carrying the file and its extension token (".json", or
-      // "(extensionless)"); an explicit file never reaches here (fileUnit already failed it loud)
-      input.stats?.retractIncluded();
-      input.stats?.tallySkip(SKIP_REASONS.missingGrammar);
-      onSkip?.({ file: unit.state.path, extension: unclaimedExtension(unit.state.path) });
-      continue;
+  const languages = new WeakMap<Unit, string>();
+  async function* claimed(): AsyncGenerator<Unit> {
+    for await (const unit of resolveInput(input)) {
+      // file units only: capture() takes a file or a dir - str/diff forms are lint's callers
+      if (unit.kind !== "file") continue;
+      const language = languageOf(registry, unit.state.path);
+      if (language === null) {
+        // a dir-walked file no grammar claims: lint's sweep-coverage policy (shared, not
+        // repeated) - skip it and emit ONE event carrying the file and its extension token
+        // (".json", or "(extensionless)"); an explicit file never reaches here (fileUnit already
+        // failed it loud)
+        input.stats?.retractIncluded();
+        input.stats?.tallySkip(SKIP_REASONS.missingGrammar);
+        onSkip?.({ file: unit.state.path, extension: unclaimedExtension(unit.state.path) });
+        continue;
+      }
+      if (queries !== undefined) assertQueriesAuthoredFor(registry, queries, queryPath!, language);
+      languages.set(unit, language);
+      yield unit;
     }
-    if (queries !== undefined) assertQueriesAuthoredFor(registry, queries, queryPath!, language);
-    claimed.push({ unit, language });
   }
-  // the lint walk's own function: the pool when the walk is large, results in file order
-  const { results, poolFailed } = await walkAll(
-    claimed.map((c) => c.unit),
+  const custom = preview !== undefined && isCustomRule(preview.rule) ? preview.rule : undefined;
+  const jsonRule = preview !== undefined && !isCustomRule(preview.rule) ? preview : undefined;
+  const held: HeldFile[] = [];
+  let poolNoted = false;
+  const walked = walkEach(
+    claimed(),
     registry,
     { queries },
-    walkWorkers,
+    {
+      workers: walkWorkers,
+      onPoolFailed: () => {
+        if (!poolNoted) input.onNote?.(POOL_FAILED_NOTE);
+        poolNoted = true;
+      },
+    },
   );
-  if (poolFailed) input.onNote?.(POOL_FAILED_NOTE);
-  claimed.forEach(({ unit, language }, i) => {
-    const walked = results[i]!;
+  for await (const { unit, walked: file } of walked) {
     // a file with nothing to extract is an empty capture; a parse that failed is loud
-    if (walked.failed !== null && walked.failedCause !== undefined) throw walked.failedCause;
-    const elements = walked.inventory;
-    files.push({ path: unit.state.path, elements });
-    for (const element of elements) {
-      const text =
-        element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
-      captured.push({
-        ...projectElement(element),
-        input: unit.state.path,
-        grammar: language,
-        text,
-      });
-    }
-  });
-  return { captured, files };
+    if (file.failed !== null && file.failedCause !== undefined) throw file.failedCause;
+    const path = unit.state.path;
+    const language = languages.get(unit)!;
+    const projected = file.inventory.map((element) =>
+      capturedOf(
+        element,
+        path,
+        language,
+        jsonRule !== undefined &&
+          inPopulation(jsonRule.rule as Rule, path, element, jsonRule.configAdmits),
+      ),
+    );
+    if (custom !== undefined) held.push({ path, elements: file.inventory, projected });
+    else if (projected.length > 0) yield projected;
+  }
+  if (custom !== undefined) yield* markedByCustomRule(custom, held);
 }
 
 export type ConfiguredCapture = (
@@ -227,57 +300,20 @@ export interface CaptureForOptions {
 const isCustomRule = (rule: Rule | CustomRule): rule is CustomRule =>
   typeof (rule as CustomRule).classify === "function";
 
-/**
- * Mark one rule's population on the walked elements: JSON-tier rules evaluate the shared target
- * grammar per element (the same selectors the run applies per element); custom rules go through the
- * run's own whole-walk resolver (a function target is arbitrary selection; reusing the seam is the
- * only way the preview cannot drift from what the run would measure). Marks ride the flat index
- * captured was built in.
- */
-function markPreviewPopulation(
-  rule: Rule | CustomRule,
-  captured: CapturedElement[],
-  files: readonly WalkedFile[],
-  configAdmits: (path: string) => boolean,
-): void {
-  const marked = new Set<number>();
-  if (isCustomRule(rule)) {
-    const all = files.flatMap((file) => tsElementsOf(file.elements, file.path));
-    const resolved = resolveTargets(rule, all);
-    // a target function that threw: the preview cannot know the population, and the failure is
-    // the rule's own - it surfaces loud, exactly as the run would stream it
-    if ("error" in resolved) throw resolved.error;
-    const picked = new Set(resolved.targets.map((element) => `${element.path}|${element.id}`));
-    let index = 0;
-    for (const file of files) {
-      for (const element of file.elements) {
-        if (picked.has(`${file.path}|${element.label}`)) marked.add(index);
-        index++;
-      }
-    }
-  } else {
-    let index = 0;
-    for (const file of files) {
-      for (const element of file.elements) {
-        if (
-          targetsOf(rule).some((target) => matchesTarget(target, element)) &&
-          // preview == run population: unscoped rules follow the config scope too
-          ruleInScope(rule, file.path) &&
-          (rule.include !== undefined || configAdmits(file.path))
-        ) {
-          marked.add(index);
-        }
-        index++;
-      }
-    }
-  }
-  for (const index of marked) captured[index] = { ...captured[index]!, matches: true };
-}
+/** The capture as the walk makes it: one array of elements per file, in file order. */
+export type ConfiguredCaptureStream = (
+  targetPath: string | undefined,
+  queryPath?: string,
+  grammarPath?: string,
+  onSkip?: (skip: { readonly file: string; readonly extension: string }) => void,
+  onStats?: (summary: InputSummary) => void,
+) => AsyncGenerator<readonly CapturedElement[]>;
 
-export function captureFor(
+/** The config-aware capture, one file's elements at a time (see captureFor for the array). */
+export function captureStreamFor(
   config: ResolvedConfig,
   options: CaptureForOptions = {},
-): ConfiguredCapture {
+): ConfiguredCaptureStream {
   if (options.rule !== undefined) {
     validateRuleSelection(config.rules, config.customRules ?? [], undefined, [options.rule]);
   }
@@ -285,7 +321,7 @@ export function captureFor(
     options.rule === undefined
       ? undefined
       : [...config.rules, ...(config.customRules ?? [])].find((r) => r.name === options.rule);
-  return async (targetPath, queryPath, grammarPath, onSkip, onStats) => {
+  return async function* (targetPath, queryPath, grammarPath, onSkip, onStats) {
     const registry = await withGrammar(
       await loadCustomGrammars(undefined, options.onNote),
       grammarPath,
@@ -308,7 +344,7 @@ export function captureFor(
       onNote: options.onNote,
       stats,
     });
-    const { captured, files } = await walkAndExtract(
+    yield* extractEach(
       {
         ...walkOptions,
         input,
@@ -321,9 +357,16 @@ export function captureFor(
       queryPath,
       onSkip,
       options.walkWorkers,
+      rule === undefined ? undefined : { rule, configAdmits },
     );
-    if (rule !== undefined) markPreviewPopulation(rule, captured, files, configAdmits);
     onStats?.(stats.summary());
-    return captured;
   };
+}
+
+export function captureFor(
+  config: ResolvedConfig,
+  options: CaptureForOptions = {},
+): ConfiguredCapture {
+  const stream = captureStreamFor(config, options);
+  return (...args) => collect(stream(...args));
 }

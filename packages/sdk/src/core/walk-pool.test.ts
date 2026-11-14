@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadCustomGrammars, type GrammarRegistry } from "./grammars/grammars.ts";
 import { EMBEDDED, languageOf } from "./grammars/walk.ts";
 import { walkUnit } from "./rules/walk-unit.ts";
-import { WalkPool } from "./walk-pool.ts";
+import { WalkPool, walkEach } from "./walk-pool.ts";
 import type { Unit } from "./types.ts";
 
 const SDK_SRC = join(import.meta.dir, "..");
@@ -67,5 +67,54 @@ describe("walk pool output", () => {
     expect(pooled.derived?.provenance.source).toBe("user");
     expect(pooled.inventory.length).toBeGreaterThan(0);
     expect(Bun.deepEquals(pooled, await walkUnit(unit, { registry }), true)).toBe(true);
+  });
+});
+
+describe("walkEach", () => {
+  const unitNumber = (i: number): Unit => ({
+    kind: "file",
+    state: { path: `f${i}.py`, content: `def f${i}():\n    pass\n`, id: "f" },
+  });
+
+  test("yields each file's walk in source order, the same value as walking it in-process", async () => {
+    const units = Array.from({ length: 30 }, (_, i) => unitNumber(i));
+    const seen: string[] = [];
+    for await (const { unit, walked } of walkEach(units, EMBEDDED, {}, { workers: 2 })) {
+      seen.push(unit.kind === "file" ? unit.state.path : "");
+      expect(walked).toEqual(await walkUnit(unit, { registry: EMBEDDED }));
+    }
+    expect(seen).toEqual(units.map((u) => (u.kind === "file" ? u.state.path : "")));
+  });
+
+  async function pulledBeforeFirstResult(limits: {
+    inFlightFiles?: number;
+    inFlightBytes?: number;
+  }): Promise<{ pulled: number; total: number }> {
+    let pulled = 0;
+    async function* source(): AsyncGenerator<Unit> {
+      for (let i = 0; i < 200; i++) {
+        pulled++;
+        yield unitNumber(i);
+      }
+    }
+    const walks = walkEach(source(), EMBEDDED, {}, { workers: 2, ...limits });
+    await walks.next();
+    const atFirst = pulled;
+    let total = 1;
+    for await (const _ of walks) total++;
+    return { pulled: atFirst, total };
+  }
+
+  test("pulls only as many files ahead as it may keep in flight, however long the source", async () => {
+    const { pulled, total } = await pulledBeforeFirstResult({ inFlightFiles: 10 });
+    expect(pulled).toBeLessThanOrEqual(11);
+    expect(total).toBe(200);
+  });
+
+  test("a file's source bytes count against the read-ahead, so a few large files keep it short", async () => {
+    // each unit is about 25 bytes: 60 bytes in flight allows three files
+    const { pulled, total } = await pulledBeforeFirstResult({ inFlightBytes: 60 });
+    expect(pulled).toBeLessThanOrEqual(4);
+    expect(total).toBe(200);
   });
 });
