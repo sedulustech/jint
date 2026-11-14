@@ -19,7 +19,7 @@
 ; field_identifier-annotated function_definitions. Free functions keep @function.
 (declaration (function_declarator declarator: (field_identifier) @name)) @method ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (field_identifier) @name))) @method ; @priority
-(declaration (function_declarator declarator: (identifier) @name)) @function ; @priority
+((declaration (function_declarator declarator: (identifier) @name)) @function (#set! "capture.function.naming" "first")) ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
 (function_definition declarator: (function_declarator declarator: (field_identifier) @name)) @method ; @priority
@@ -42,7 +42,7 @@
 (struct_specifier body: (field_declaration_list)) @type
 (union_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
 (enum_specifier name: (type_identifier) @name (enumerator_list)) @type
-(type_definition declarator: (type_identifier) @name) @type
+((type_definition declarator: (type_identifier) @name) @type (#set! "capture.type.naming" "first"))
 (type_definition declarator: (pointer_declarator declarator: (type_identifier) @name)) @type
 (type_definition) @type
 (template_declaration (class_specifier)) @class ; @priority
@@ -53,13 +53,14 @@
 ; method prototypes live on field_declaration nodes inside class bodies - the priority split is
 ; what the trial wanted: a member FUNCTION surfaces (as @method), member DATA fields stay
 ; WAITING (field).
-(field_declaration (function_declarator declarator: (field_identifier) @name)) @method ; @priority
+((field_declaration (function_declarator declarator: (field_identifier) @name)) @method (#set! "capture.method.naming" "first")) ; @priority
 (field_declaration (function_declarator declarator: (pointer_declarator declarator: (field_identifier) @name))) @method ; @priority
 (field_declaration (function_declarator)) @method ; @priority
 
+; one element carries one name: a node one pattern matches once per declarator (int i, j;) keeps its first name
 ; --- state ---------------------------------------------------------------------------------------
 (declaration (init_declarator declarator: (identifier) @name)) @binding ; @priority
-(declaration declarator: (identifier) @name) @binding ; @priority
+((declaration declarator: (identifier) @name) @binding (#set! "capture.binding.naming" "first")) ; @priority
 
 ; --- imports --------------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default

@@ -75,11 +75,11 @@
 
 ; Callable initializers keep the function capture (old refineCallableInitializers); any other
 ; lexical/variable declaration is a binding. Earlier patterns win (see header).
-(lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
+((lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function (#set! "capture.function.naming" "first")) ; @priority
 (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
 (variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
 (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
-(lexical_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
+((lexical_declaration (variable_declarator name: (identifier) @name)) @binding (#set! "capture.binding.naming" "first")) ; @priority
 (variable_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
 
 ; --- declarations: types ---------------------------------------------------------------------

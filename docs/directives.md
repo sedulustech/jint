@@ -29,5 +29,6 @@ file. A directive not in the table fails at load. See [captures](captures.md).
 | `capture.<name>.selfNesting` | true \| false                  | A node nested in another of the same capture becomes an element of its own. Default false.                                                                                                                                            |
 | `capture.<name>.absorbTail`  | a whole number                 | Bytes a wrapper node may add after the capture, such as a final `;`, and still read as the same element. Default 2 for class, type and binding; otherwise 0.                                                                          |
 | `capture.<name>.merge`       | contiguous \| adjacent \| none | Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`. |
+| `capture.<name>.naming`      | strict \| first                | Settles a node that one pattern matches several times with different names, such as `int i, j;`. `strict` fails the load, `first` keeps the name that comes first in the source. Default `strict`.                                    |
 
 <!-- /generated:directives -->

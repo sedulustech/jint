@@ -193,6 +193,20 @@ test.each([() => 1, () => 2])("case", (fn) => { fn(); });
     ).rejects.toThrow(/query pattern 1 names one node twice \(Red, Green\)/);
   });
 
+  test("naming first settles that trap: the first name in the source stays, and it is the grammar's choice", async () => {
+    const inv = await decomposeTS("enum Color { Red, Green }\n", {
+      queries:
+        '((enum_body (property_identifier) @name) @binding (#set! "capture.binding.naming" "first"))',
+    });
+    expect(inv.definitions.map((e) => e.name)).toEqual(["Red"]);
+    await expect(
+      decomposeTS("enum Color { Red, Green }\n", {
+        queries:
+          '((enum_body (property_identifier) @name) @binding (#set! "capture.binding.naming" "strict"))',
+      }),
+    ).rejects.toThrow(/names one node twice \(Red, Green\).*capture\.binding\.naming to first/);
+  });
+
   test("call composites: name collisions without a callback are NOT functions", async () => {
     const inv = await decomposeTS(`
 const obj = { toString(): string { return "x"; } };
@@ -491,4 +505,31 @@ describe("provenance", () => {
     const inv = await decomposeTS("const x = 1;");
     expect(inv.provenance).toEqual({ source: "embedded" });
   });
+});
+
+// One element carries one name, so a declaration of several names (int i, j;) is one element, not
+// a setup error that loses the whole file.
+describe("a declaration of several names", () => {
+  const cases: readonly (readonly [string, string, string, string])[] = [
+    ["c", "int one;\nint i, j;\nint p = 0, q = 1;\n", "binding", "one,i,p"],
+    ["c", "typedef unsigned long ul, *ulp;\nvoid f(void), g(void);\n", "type|function", "ul,f"],
+    [
+      "cpp",
+      "class A {\n  int one(int), two(int);\n};\nint a = 1, b = 2;\nvoid f(int), g(int);\n",
+      "method|binding|function",
+      "one,a,f",
+    ],
+    ["typescript", "const a = 1, b = 2;\nconst c = 3;\nlet d, e;\n", "binding", "a,c,d"],
+    ["go", "package main\nvar a, b int\nconst x, y = 1, 2\nvar c = 1\n", "binding", "a,x,c"],
+    ["php", "<?php\nconst A = 1, B = 2;\nconst C = 3;\n", "binding", "A,C"],
+  ];
+  for (const [language, source, kinds, named] of cases) {
+    test(`${language}: ${source.split("\n")[0]} walks and each declaration is one element`, async () => {
+      const inventory = await decompose(source, language);
+      const elements = inventory.definitions.filter((e) => kinds.split("|").includes(e.capture));
+      expect(elements.map((e) => e.name).filter((n) => n !== undefined)).toEqual(named.split(","));
+      const lines = elements.map((e) => e.span.start.line);
+      expect(new Set(lines).size).toBe(lines.length);
+    });
+  }
 });
