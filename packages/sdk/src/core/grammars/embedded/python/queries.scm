@@ -11,6 +11,20 @@
 ; WAITING (recorded, not stretched): assignments are NOT bindings in v1 (the old table mapped
 ; none either); a python binding capture needs the same callable-refinement evidence ts got.
 
+; --- test_case: a python test is a `def test_*` function or method (pytest and unittest) --------
+; Claims the node before the method and function patterns below, so a test is a test_case wherever
+; it sits (module level or a class body) and every other function is untouched. A decorated test
+; (parametrize, fixture-marked) is claimed through its wrapper so the decorators travel with it.
+; Opaque: helper functions nested inside a test are its body.
+((function_definition name: (identifier) @name) @test_case
+  (#match? @name "^test(_|[A-Z])")
+  (#set! "capture.test_case.definition" "true")
+  (#set! "capture.test_case.opaque" "true"))
+((decorated_definition (function_definition name: (identifier) @name)) @test_case
+  (#match? @name "^test(_|[A-Z])")
+  (#set! "capture.test_case.definition" "true")
+  (#set! "capture.test_case.opaque" "true"))
+
 ; --- declarations ----------------------------------------------------------------------------
 ; methods: the FIRST STRUCTURAL-CONTEXT capture - @method is captured positionally (a
 ; function_definition sitting in a class body), not nominally (the node type alone is shared with

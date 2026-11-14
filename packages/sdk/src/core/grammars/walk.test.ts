@@ -533,3 +533,28 @@ describe("a declaration of several names", () => {
     });
   }
 });
+
+// A test is its own element in Go and Python, as it is in TypeScript: the test claims the node the
+// function pattern would, and every other function stays a function.
+describe("a test in go and python is a test_case", () => {
+  const cases: readonly (readonly [string, string, string])[] = [
+    [
+      "go",
+      'package a\nfunc helper() {}\nfunc TestAdd(t *testing.T) {\n\tt.Run("x", func(t *testing.T) {})\n}\nfunc TestMain(m *testing.M) {}\nfunc Testify(x int) {}\nfunc BenchmarkX(b *testing.B) {}\n',
+      "function:helper,test_case:TestAdd,function:TestMain,function:Testify,function:BenchmarkX",
+    ],
+    [
+      "python",
+      "def helper(): pass\ndef test_add():\n    def inner(): pass\n@mark\ndef test_dec(): pass\nclass TestK:\n    def test_m(self): pass\n    def setup(self): pass\ndef testmod(): pass\n",
+      "function:helper,test_case:test_add,test_case:test_dec,class:TestK,test_case:test_m,method:setup,function:testmod",
+    ],
+  ];
+  for (const [language, source, expected] of cases) {
+    test(`${language}: tests are test_case, the callbacks inside are their body, other functions stay`, async () => {
+      const inventory = await decompose(source, language);
+      expect(inventory.definitions.map((e) => `${e.capture}:${e.name}`)).toEqual(
+        expected.split(","),
+      );
+    });
+  }
+});

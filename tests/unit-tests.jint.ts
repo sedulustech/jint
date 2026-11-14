@@ -7,13 +7,13 @@
  * 12 spawn a process or serve real requests, and the rest read 0.00. A planted control, a real unit
  * test with a spawn added, reads 0.9 or higher.
  *
- * Other languages, with the rule on target "functions" over test files (Go 22 units, Python 49):
- * tests that spawn a process read 0.93 to 1.00 in both. Healthy tests read 0.11 or lower, including
- * Python tests that call the app through FastAPI's in-process TestClient (0.06), so that idiom is
- * not flagged. Tests that send live HTTP read 0.61 to 0.94 when the request is in the test's own
- * text, and 0.24 and 0.49 when a helper outside the test sends it: a miss, because the model sees
- * only the unit. Without a test capture for Go and Python, a helper that does the I/O reads 1.00 as
- * a unit of its own. Both gaps keep the rule out of a default set.
+ * Other languages, with the rule on go:test_case and python:test_case (Go 4 test files with 10
+ * tests, Python 5 files with 48): healthy tests read 0.00 in Go and 0.01 or lower in Python, and
+ * every test that spawns a process or forks reads 0.93 or higher in Go and 1.00 in Python (execabs,
+ * script_helper, wait3, select). The 0.6 threshold sits inside both gaps. A test that sends live
+ * HTTP through a helper outside its own text still reads low (0.24 and 0.49 earlier): the model
+ * sees only the unit. That miss, and one small corpus per language, keep the rule out of a default
+ * set.
  */
 
 import type { RuleSchema } from "jint:sdk";

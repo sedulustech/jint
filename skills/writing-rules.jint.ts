@@ -10,8 +10,8 @@
  * is the true side. A concept whose sentence is stated twice reads lower when only one is deleted.
  * Added after, each 0.00 on the skill and measured on a copy without its text:
  * lacks_scoping_strategy 0.91, lacks_goal_decomposition 0.85, lacks_captures_skill_pointer 0.84
- * (both mentions deleted); lacks_jint_file_convention 0.97 with its paragraph deleted. One skill,
- * one writer.
+ * (both mentions deleted); lacks_jint_file_convention 0.97 with its paragraph deleted;
+ * lacks_should_prefix_convention 0.93 with the should_ bullet deleted. One skill, one writer.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -88,6 +88,13 @@ const CONCEPTS: readonly Concept[] = [
     cue: "says that a rule only this project wants goes in a <subject>.jint.ts file next to what it measures, scoped by its own include, and that a domain takes it only once other projects and languages show the same gap",
     message:
       "Say that a project-specific rule lives in a <subject>.jint.ts file next to its subject.",
+  },
+  {
+    name: "lacks_should_prefix_convention",
+    says: "has_, lacks_, is_ and will_ name properties, should_ names a placement verdict only, and a name never carries the fix",
+    cue: "says that has_, lacks_, is_ and will_ name a property, that should_ is for a rule whose property is where the unit belongs, and that the fix goes in the handle's message and not in the name",
+    message:
+      "Say that should_ is only for placement verdicts and that the fix goes in the message, not the name.",
   },
   {
     name: "lacks_defect_as_true",
