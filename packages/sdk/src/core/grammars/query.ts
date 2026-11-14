@@ -858,9 +858,22 @@ export function resolveCandidates(
     (a, b) => a.node.startIndex - b.node.startIndex || b.node.endIndex - a.node.endIndex,
   );
   const kept: Candidate[] = [];
+  // Candidates arrive by start, so a kept one that ended before this start contains nothing from
+  // here on: only the kept candidates still open at the cursor are asked.
+  const open: Candidate[] = [];
   for (const candidate of ordered) {
-    const swallowed = kept.some((outer) => hides(outer, candidate, options));
-    if (!swallowed) kept.push(candidate);
+    const start = candidate.node.startIndex;
+    let swallowed = false;
+    let live = 0;
+    for (const outer of open) {
+      if (outer.node.endIndex < start) continue;
+      open[live++] = outer;
+      if (!swallowed && hides(outer, candidate, options)) swallowed = true;
+    }
+    open.length = live;
+    if (swallowed) continue;
+    kept.push(candidate);
+    open.push(candidate);
   }
   return kept;
 }

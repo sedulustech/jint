@@ -246,23 +246,48 @@ function effectiveEndRow(node: QueryNode): number {
     : node.endPosition.row;
 }
 
-/** The candidates no definition contains: where comment attachment runs, in document order. */
-function topLevelOf(
-  candidates: readonly Candidate[],
+/** The definitions that contain each queried candidate (itself too, when it is one), by start. */
+type Enclosures = ReadonlyMap<Candidate, readonly Candidate[]>;
+
+/**
+ * One sweep answers every containment question: queries and definitions both walk in start order,
+ * and a definition that ended before the cursor contains nothing later, so each query meets only
+ * the definitions still open at its start.
+ */
+function enclosuresOf(
   definitions: readonly Candidate[],
-): Candidate[] {
-  return candidates.filter((c) => !definitions.some((d) => d !== c && containsSpan(d, c)));
+  queries: readonly Candidate[],
+): Enclosures {
+  const byStart = (a: Candidate, b: Candidate) => a.node.startIndex - b.node.startIndex;
+  const sweep = [...definitions].sort(byStart);
+  const enclosures = new Map<Candidate, readonly Candidate[]>();
+  const open: Candidate[] = [];
+  let next = 0;
+  for (const query of [...queries].sort(byStart)) {
+    if (enclosures.has(query)) continue;
+    const start = query.node.startIndex;
+    while (next < sweep.length && sweep[next]!.node.startIndex <= start) open.push(sweep[next++]!);
+    let live = 0;
+    for (const definition of open) if (definition.node.endIndex >= start) open[live++] = definition;
+    open.length = live;
+    enclosures.set(
+      query,
+      open.filter((definition) => containsSpan(definition, query)),
+    );
+  }
+  return enclosures;
+}
+
+/** The candidates no definition contains: where comment attachment runs, in document order. */
+function topLevelOf(candidates: readonly Candidate[], enclosures: Enclosures): Candidate[] {
+  return candidates.filter((c) => !enclosures.get(c)!.some((d) => d !== c));
 }
 
 /** The innermost definition fully containing this candidate (never the candidate itself). */
-function innermostContaining(
-  definitions: readonly Candidate[],
-  candidate: Candidate,
-): Candidate | undefined {
+function innermostContaining(enclosures: Enclosures, candidate: Candidate): Candidate | undefined {
   let innermost: Candidate | undefined;
-  for (const definition of definitions) {
+  for (const definition of enclosures.get(candidate)!) {
     if (definition === candidate) continue;
-    if (!containsSpan(definition, candidate)) continue;
     if (
       innermost === undefined ||
       definition.node.endIndex - definition.node.startIndex <=
@@ -274,14 +299,39 @@ function innermostContaining(
   return innermost;
 }
 
+/** The first definition starting at or after the position (definitions are ordered by start). */
+function firstStartingAt(
+  orderedDefinitions: readonly Candidate[],
+  position: number,
+): Candidate | undefined {
+  let low = 0;
+  let high = orderedDefinitions.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (orderedDefinitions[middle]!.node.startIndex >= position) high = middle;
+    else low = middle + 1;
+  }
+  return orderedDefinitions[low];
+}
+
+/** Each attached comment's claiming definition; the first claimant wins, as a scan would. */
+function claimantsOf(
+  attachedRuns: ReadonlyMap<Candidate, readonly Candidate[]>,
+): Map<Candidate, Candidate> {
+  const claimants = new Map<Candidate, Candidate>();
+  for (const [definition, run] of attachedRuns)
+    for (const comment of run) if (!claimants.has(comment)) claimants.set(comment, definition);
+  return claimants;
+}
+
 function ownerOf(
   candidate: Candidate,
-  definitions: readonly Candidate[],
+  enclosures: Enclosures,
   orderedDefinitions: readonly Candidate[],
-  attachedRuns: ReadonlyMap<Candidate, readonly Candidate[]>,
+  claimants: ReadonlyMap<Candidate, Candidate>,
 ): DocstringOwner | undefined {
   if (candidate.properties?.["docstring.owner"] === "next") {
-    const next = orderedDefinitions.find((d) => d.node.startIndex >= candidate.node.endIndex);
+    const next = firstStartingAt(orderedDefinitions, candidate.node.endIndex);
     return next === undefined
       ? { kind: "module", name: "" }
       : {
@@ -289,15 +339,14 @@ function ownerOf(
           name: next.name ?? "",
         };
   }
-  for (const [definition, run] of attachedRuns) {
-    if (run.includes(candidate)) {
-      return {
-        kind: definition.capture as DocstringOwner["kind"],
-        name: definition.name ?? "",
-      };
-    }
+  const claimant = claimants.get(candidate);
+  if (claimant !== undefined) {
+    return {
+      kind: claimant.capture as DocstringOwner["kind"],
+      name: claimant.name ?? "",
+    };
   }
-  const innermost = innermostContaining(definitions, candidate);
+  const innermost = innermostContaining(enclosures, candidate);
   if (innermost === undefined)
     return isDocstring(candidate) ? { kind: "module", name: "" } : undefined;
   return {
@@ -312,20 +361,15 @@ function ownerOf(
  * comment-target rules see a definition whose only comment is internal.
  */
 function internalCommentCounts(
-  definitions: readonly Candidate[],
+  enclosures: Enclosures,
   comments: readonly Candidate[],
 ): Map<Candidate, number> {
   const internalCounts = new Map<Candidate, number>();
   for (const comment of comments) {
     if (isDocstring(comment)) continue;
     if (isEmptyComment(comment.node.text)) continue;
-    for (const definition of definitions) {
-      if (
-        definition.node.startIndex <= comment.node.startIndex &&
-        definition.node.endIndex >= comment.node.endIndex
-      ) {
-        internalCounts.set(definition, (internalCounts.get(definition) ?? 0) + 1);
-      }
+    for (const definition of enclosures.get(comment)!) {
+      internalCounts.set(definition, (internalCounts.get(definition) ?? 0) + 1);
     }
   }
   return internalCounts;
@@ -372,7 +416,7 @@ function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readon
 // definition's span already, and content carries it.
 function docstringOwnership(
   candidates: readonly Candidate[],
-  definitions: readonly Candidate[],
+  enclosures: Enclosures,
   orderedDefinitions: readonly Candidate[],
 ): { counts: Map<Candidate, number>; texts: Map<Candidate, readonly string[]> } {
   const counts = new Map<Candidate, number>();
@@ -380,7 +424,7 @@ function docstringOwnership(
   for (const docstring of candidates) {
     if (!isDocstring(docstring) || isEmptyComment(docstring.node.text)) continue;
     if (docstring.properties?.["docstring.owner"] === "next") {
-      const next = orderedDefinitions.find((d) => d.node.startIndex >= docstring.node.endIndex);
+      const next = firstStartingAt(orderedDefinitions, docstring.node.endIndex);
       if (next !== undefined) {
         counts.set(next, (counts.get(next) ?? 0) + 1);
         const owned = [...(texts.get(next) ?? []), docstring.node.text];
@@ -388,10 +432,8 @@ function docstringOwnership(
       }
       continue;
     }
-    for (const definition of definitions) {
-      if (containsSpan(definition, docstring)) {
-        counts.set(definition, (counts.get(definition) ?? 0) + 1);
-      }
+    for (const definition of enclosures.get(docstring)!) {
+      counts.set(definition, (counts.get(definition) ?? 0) + 1);
     }
   }
   return { counts, texts };
@@ -406,10 +448,10 @@ function docstringsOf(candidates: readonly Candidate[]): Candidate[] {
 
 function parentLabelOf(
   candidate: Candidate,
-  definitions: readonly Candidate[],
+  enclosures: Enclosures,
   labels: ReadonlyMap<Candidate, string>,
 ): string | undefined {
-  const innermost = innermostContaining(definitions, candidate);
+  const innermost = innermostContaining(enclosures, candidate);
   return innermost === undefined ? undefined : labels.get(innermost);
 }
 
@@ -423,10 +465,34 @@ function parentLabelOf(
 //
 // a blank row between: the text between the two nodes carries two newlines (row-only gaps
 // misread on grammars whose include nodes absorb neighboring newlines into their spans)
+/**
+ * The candidates of another capture (comments aside, when the mode lets them ride inside a run), by
+ * start, each with the furthest end seen so far: "does one start before this member and end after
+ * the previous member?" is then one lookup.
+ */
+function interlopersOf(
+  candidates: readonly Candidate[],
+  capture: string,
+  mode: MergeMode,
+): { starts: number[]; furthestEnds: number[] } {
+  const others = candidates
+    .filter((o) => o.capture !== capture && !(mode === "adjacent" && o.capture === "comment"))
+    .sort((a, b) => a.node.startIndex - b.node.startIndex);
+  const starts: number[] = [];
+  const furthestEnds: number[] = [];
+  let furthest = -Infinity;
+  for (const other of others) {
+    furthest = Math.max(furthest, other.node.endIndex);
+    starts.push(other.node.startIndex);
+    furthestEnds.push(furthest);
+  }
+  return { starts, furthestEnds };
+}
+
 function runSplits(
   previous: Candidate | undefined,
   candidate: Candidate,
-  candidates: readonly Candidate[],
+  interlopers: { starts: number[]; furthestEnds: number[] },
   source: string,
   mode: MergeMode,
 ): boolean {
@@ -436,13 +502,14 @@ function runSplits(
     (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length > 1
   )
     return true;
-  return candidates.some(
-    (other) =>
-      other.capture !== candidate.capture &&
-      !(mode === "adjacent" && other.capture === "comment") &&
-      other.node.startIndex < candidate.node.startIndex &&
-      other.node.endIndex > previous.node.endIndex,
-  );
+  let low = 0;
+  let high = interlopers.starts.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (interlopers.starts[middle]! < candidate.node.startIndex) low = middle + 1;
+    else high = middle;
+  }
+  return low > 0 && interlopers.furthestEnds[low - 1]! > previous.node.endIndex;
 }
 
 function mergeRuns(
@@ -452,9 +519,11 @@ function mergeRuns(
   mode: MergeMode,
 ): Candidate[][] {
   const ordered = [...members].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  const interlopers = interlopersOf(candidates, ordered[0]?.capture ?? "", mode);
   const runs: Candidate[][] = [];
   for (const candidate of ordered) {
-    if (runSplits(runs.at(-1)?.at(-1), candidate, candidates, source, mode)) runs.push([candidate]);
+    if (runSplits(runs.at(-1)?.at(-1), candidate, interlopers, source, mode))
+      runs.push([candidate]);
     else runs.at(-1)!.push(candidate);
   }
   return runs;
@@ -506,13 +575,15 @@ function materialize(
   const comments = candidates.filter((c) => c.capture === "comment");
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
-  const topLevel = topLevelOf(candidates, definitions);
+  const enclosures = enclosuresOf(definitions, [...candidates, ...definitions]);
+  const topLevel = topLevelOf(candidates, enclosures);
 
   const attachedRuns = claimCommentRuns(topLevel);
-  const internalCounts = internalCommentCounts(definitions, comments);
+  const claimants = claimantsOf(attachedRuns);
+  const internalCounts = internalCommentCounts(enclosures, comments);
   const { counts: docstringCounts, texts: docstringTexts } = docstringOwnership(
     candidates,
-    definitions,
+    enclosures,
     orderedDefinitions,
   );
 
@@ -545,7 +616,7 @@ function materialize(
     docstrings: docstringTexts.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
     docstringCount: docstringCounts.get(d) ?? 0,
-    parent: parentLabelOf(d, definitions, labels),
+    parent: parentLabelOf(d, enclosures, labels),
   }));
   const walkComments: InventoryElement[] = commentElements.map((c) => ({
     label: labels.get(c)!,
@@ -556,8 +627,8 @@ function materialize(
     grammar: grammarId,
     internalCommentCount: 0,
     docstringCount: 0,
-    parent: parentLabelOf(c, definitions, labels),
-    docstringOf: ownerOf(c, definitions, orderedDefinitions, attachedRuns),
+    parent: parentLabelOf(c, enclosures, labels),
+    docstringOf: ownerOf(c, enclosures, orderedDefinitions, claimants),
   }));
 
   // imports always merge: `contiguous` unless the grammar declares otherwise
