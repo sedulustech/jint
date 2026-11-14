@@ -62,12 +62,13 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { catalog, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
-  captureJson,
+  captureJsonChunks,
   captureLines,
   emit,
   printSelection,
   emitLines,
   providerLog,
+  writeStdout,
   type InputForm,
   printRules,
   scopeLines,
@@ -1428,7 +1429,8 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       emit({ message: "not parsed (no grammar): " + skipped.join(", "), kind: "note" });
     }
     for (const note of notes) emit({ message: note, kind: "note" });
-    process.stdout.write(cliArgs.json === true ? captureJson(elements) : captureLines(elements));
+    if (cliArgs.json === true) await writeStdout(captureJsonChunks(elements));
+    else process.stdout.write(captureLines(elements));
     return 0;
   } catch (thrown) {
     return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
