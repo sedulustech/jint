@@ -1,4 +1,5 @@
 import { createClassifier } from "../core/provider/client.ts";
+import { assertEndpointKey } from "../core/provider/endpoint.ts";
 import { classifiedState } from "../core/rules/classify.ts";
 import type { Classifier, QuestionSchema } from "../core/types.ts";
 /**
@@ -142,6 +143,7 @@ export async function classifyEdited(
   options: ClassifyOptions = {},
 ): Promise<{ answer: unknown; wire?: Wire }> {
   let wire: Wire | undefined;
+  if (options.classifier === undefined) assertEndpointKey();
   const classifier =
     options.classifier ??
     createClassifier({

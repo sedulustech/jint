@@ -203,6 +203,33 @@ describe("classifications under a run", () => {
     expect((await serveApiRequest(post({ instructions: "x" }), { root }))?.status).toBe(400);
   });
 
+  test("without an API key the UI reclassify is the setup error naming the key, before any network call", async () => {
+    const saved = ["OPENAI_API_KEY", "JINT_API_KEY", "JINT_API_URL"].map(
+      (name) => [name, process.env[name]] as const,
+    );
+    for (const [name] of saved) delete process.env[name];
+    const realFetch = globalThis.fetch;
+    let fetched = 0;
+    globalThis.fetch = (async () => {
+      fetched++;
+      throw new Error("network must not be reached");
+    }) as unknown as typeof fetch;
+    try {
+      const before = (await list()).classifications.length;
+      const res = await serveApiRequest(post({ ...address }), { root });
+      expect(res?.status).toBe(502);
+      // the same setup error the CLI's reclassify and run give, not the classifier's startup error
+      expect(await res?.json()).toEqual({
+        error: "no API key set - export JINT_API_KEY or OPENAI_API_KEY",
+      });
+      expect(fetched).toBe(0);
+      expect((await list()).classifications).toHaveLength(before);
+    } finally {
+      globalThis.fetch = realFetch;
+      for (const [name, value] of saved) if (value !== undefined) process.env[name] = value;
+    }
+  });
+
   test("a classifier failure is a 502 naming the failure, and files nothing", async () => {
     const before = (await list()).classifications.length;
     const classifier: Classifier = async () => {
