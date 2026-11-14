@@ -39,8 +39,11 @@ repeats another. The user may not know that.
   model's own idea of it.
 - Do not state the element kind. The compiler prepends it ("This unit is a function
   definition."). Changing the instructions later recalibrates the rule.
-- Name the rule for its true side, so the value reads as the name: `has_` for a defect (high is
-  bad), `is_` for a good property (high is good). The handle follows that direction.
+- Name the rule for its true side, so the value reads as the name: `has_` or `lacks_` for a defect
+  (high is bad), `is_` for a good property (high is good), `will_` for a defect the unit makes
+  likely, such as `will_error_lose_cause`. The handle follows that direction. Do not add a prefix of
+  your own: the name states what is true when the value is high, and the handle's message carries
+  the remedy.
 - The model sees only the unit's own text. A claim about code elsewhere cannot be judged. A
   comment rule sees the definition it belongs to.
 
