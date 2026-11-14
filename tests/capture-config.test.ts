@@ -8,6 +8,7 @@ import {
   loadConfig,
   type CapturedElement,
   type Classifier,
+  type CustomRule,
   type ResolvedConfig,
 } from "../packages/sdk/src/index.ts";
 import { runCli } from "./helpers/cli.ts";
@@ -414,5 +415,31 @@ describe("jint capture - the config scope through the spawned binary", () => {
     expect(r.stderr).not.toContain("MISSING_GRAMMAR 0");
     const json = await runCli(["capture", "notes.txt", "--json"], { cwd: dir });
     expect(JSON.parse(json.stdout).elements).toEqual([]);
+  });
+});
+
+describe("capture walks the population lint walks", () => {
+  test("a custom rule's include widens the capture population beyond the config include", async () => {
+    const dir = join(ROOT_DIR, "custom-include");
+    rmScratchTree(dir);
+    writeTree(dir);
+    const customRule: CustomRule = {
+      name: "docs_only",
+      target: ["definitions", "comments", "loose-comments", "imports"],
+      include: ["other/**"],
+      classify: () => ({ instructions: "x", criteria: { true: "t", false: "f" } }),
+      handle: { warn: { greater_than: 0.9 } },
+    } as unknown as CustomRule;
+    const config: ResolvedConfig = {
+      rules: [],
+      customRules: [customRule],
+      include: ["src/**"],
+      exclude: [],
+    };
+    const elements = await captureFor(config)(dir);
+    const inputs = new Set(elements.map((e) => e.input));
+    // other/doc.md is outside the config include; the custom rule's include claims it, as in a run
+    expect(inputs.has("other/doc.md")).toBe(true);
+    expect(inputs.has("src/a.ts")).toBe(true);
   });
 });

@@ -53,6 +53,9 @@ export function walkWorkerUrl(): string {
     : new URL("./walk-worker.ts", import.meta.url).href;
 }
 
+export const POOL_FAILED_NOTE =
+  "walk workers failed to start or kept failing: the files were parsed on the main thread (set JINT_WALK_WORKERS=1 to skip the workers)";
+
 export interface WalkPoolOptions {
   readonly size?: number;
   /** Per-file limit before a worker counts as hung. */

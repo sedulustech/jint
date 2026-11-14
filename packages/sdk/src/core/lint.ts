@@ -20,6 +20,7 @@ import {
   type GrammarRegistry,
   type InventoryElement,
 } from "./grammars/walk.ts";
+import { walkInputOptions } from "./input-options.ts";
 import { denylistMatch, SECRET_DENYLIST, type OwnedScope } from "./input/dir.ts";
 import { inferKind, resolveInput } from "./input/infer.ts";
 import { parsePathsList } from "./input/paths.ts";
@@ -60,14 +61,7 @@ import {
   runCustomRules,
   type ResolvedCustomTargets,
 } from "./rules/custom/execute.ts";
-import {
-  configScopeAdmits,
-  judgesWholeUnit,
-  ruleScopeClaims,
-  ruleInScope,
-  type ScopeKeys,
-  walkScopes,
-} from "./scope.ts";
+import { judgesWholeUnit, ruleScopeClaims, ruleInScope, type ScopeKeys } from "./scope.ts";
 import {
   ClassifyError,
   SetupError,
@@ -82,7 +76,7 @@ import {
   type Unit,
 } from "./types.ts";
 import { findUi } from "./ui-registry.ts";
-import { walkAll } from "./walk-pool.ts";
+import { POOL_FAILED_NOTE, walkAll } from "./walk-pool.ts";
 import type { ResolvedConfig } from "../config/load.ts";
 import type { SelectedElement } from "./output/echo.ts";
 import type { CustomRule } from "./rules/custom/schema.ts";
@@ -447,7 +441,7 @@ async function* walkUnits(
   if (poolFailed) {
     yield {
       type: "note",
-      note: "walk workers failed to start or kept failing: the files were parsed on the main thread (set JINT_WALK_WORKERS=1 to skip the workers)",
+      note: POOL_FAILED_NOTE,
     };
   }
   if (skippedExtensions.size > 0) {
@@ -976,8 +970,14 @@ async function resolveRunUnits(
       configAdmits: () => true,
       scopes: [],
     };
-  const exclude = [...options.config.exclude, ...(options.exclude ?? [])];
-  const scopeAdmits = configScopeAdmits(options.config.include, exclude);
+  const { options: walkOptions, configAdmits: scopeAdmits } = walkInputOptions({
+    config: options.config,
+    rules: [...rules, ...customRules],
+    exclude: options.exclude,
+    scopeBase: options.scopeBase,
+    onNote: onWalkNote,
+    stats,
+  });
   const operandAdmits = options.unscoped === true ? () => true : scopeAdmits;
   const applies = (rule: ScopeKeys, p: string) =>
     ruleInScope(rule, p) && (rule.include !== undefined || operandAdmits(p));
@@ -991,7 +991,7 @@ async function resolveRunUnits(
       scopes: [],
     };
   }
-  const scopes = walkScopes(options.config.include, [...rules, ...customRules]);
+  const scopes = walkOptions.include!;
   const elementPinned = options.element !== undefined;
   const resolvedKind =
     Array.isArray(input) || elementPinned
@@ -1002,14 +1002,9 @@ async function resolveRunUnits(
       resolveInput({
         input: inp,
         inputType,
-        exclude,
-        include: scopes,
-        scopeBase: options.scopeBase,
-        secretDenylist: options.config.secretDenylist,
-        onNote: onWalkNote,
+        ...walkOptions,
         registry,
         requireGrammarFor,
-        stats,
       }),
     );
   if (resolvedKind === "file") {
