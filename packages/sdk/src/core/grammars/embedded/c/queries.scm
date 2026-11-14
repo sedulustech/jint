@@ -18,7 +18,7 @@
 ; @priority declaration-prototype over declaration-state: the function_declarator root split is
 ; the trial's wanted discriminator - a declaration is a function unit when its declarator is a
 ; function_declarator, state otherwise.
-(declaration (function_declarator declarator: (identifier) @name)) @function ; @priority
+((declaration (function_declarator declarator: (identifier) @name)) @function (#set! "capture.function.naming" "first")) ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (pointer_declarator (function_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
@@ -37,13 +37,14 @@
 (union_specifier body: (field_declaration_list)) @type
 (enum_specifier name: (type_identifier) @name (enumerator_list)) @type
 (enum_specifier (enumerator_list)) @type
-(type_definition declarator: (type_identifier) @name) @type
+((type_definition declarator: (type_identifier) @name) @type (#set! "capture.type.naming" "first"))
 (type_definition declarator: (pointer_declarator declarator: (type_identifier) @name)) @type
 (type_definition) @type
 
+; one element carries one name: a node one pattern matches once per declarator (int i, j;) keeps its first name
 ; --- state (LAST: a declaration is state only when no function pattern took it) ------------------
 (declaration (init_declarator declarator: (identifier) @name)) @binding ; @priority
-(declaration declarator: (identifier) @name) @binding ; @priority
+((declaration declarator: (identifier) @name) @binding (#set! "capture.binding.naming" "first")) ; @priority
 
 ; --- imports ------------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default

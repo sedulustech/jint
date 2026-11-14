@@ -65,6 +65,7 @@ describe("resolveCandidates", () => {
     const kept = resolveCandidates([candidate(0, "type", 0, 20), candidate(1, "type", 5, 20)], {
       shapes: new Map(),
       selfNestingCaptures: new Set(["type"]),
+      firstNameCaptures: new Set(),
     });
     expect(kept).toHaveLength(2);
   });
@@ -74,6 +75,7 @@ describe("resolveCandidates", () => {
     const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)], {
       shapes: new Map([["type", { absorbTail: 2, opaque: false }]]),
       selfNestingCaptures: new Set(),
+      firstNameCaptures: new Set(),
     });
     expect(kept).toHaveLength(1);
   });

@@ -85,6 +85,17 @@ export function scmCaptureMerges(scm: string): ReadonlyMap<string, MergeMode> {
   return merges;
 }
 
+/** Captures whose multiply-matched nodes keep their first name (per-capture naming). */
+export function scmFirstNameCaptures(scm: string): ReadonlySet<string> {
+  const first = new Set<string>();
+  for (const directive of scmDirectives(scm)) {
+    const match = directive.name.match(CAPTURE_DIRECTIVE);
+    if (match === null || match[2] !== "naming" || directive.value !== "first") continue;
+    first.add(match[1]!);
+  }
+  return first;
+}
+
 /** Captures whose same-capture candidates nest legitimately (per-capture selfNesting). */
 export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
   const nested = new Set<string>();
@@ -283,12 +294,15 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
  * the grammar-wide form), `merge` (same-capture candidates in a run become ONE element:
  * `contiguous` - a blank line or another element ends the run; `adjacent` - only another element
- * ends it, so blank lines and comments ride inside; `none` - every candidate is its own element).
+ * ends it, so blank lines and comments ride inside; `none` - every candidate is its own element),
+ * `naming` (a node one pattern matches several times, each match with another name: `strict` fails
+ * the load, `first` keeps the first name in the source).
  */
 const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge)/;
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge|naming)/;
 const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
 export type MergeMode = (typeof MERGE_MODES)[number];
+const NAMING_MODES = ["strict", "first"] as const;
 const CAPTURE_KNOBS: Readonly<
   Record<string, { shape: "boolean" | "number" | readonly string[]; summary: string }>
 > = {
@@ -316,6 +330,11 @@ const CAPTURE_KNOBS: Readonly<
     shape: MERGE_MODES,
     summary:
       "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`.",
+  },
+  naming: {
+    shape: NAMING_MODES,
+    summary:
+      "Settles a node that one pattern matches several times with different names, such as `int i, j;`. `strict` fails the load, `first` keeps the name that comes first in the source. Default `strict`.",
   },
 };
 
@@ -757,6 +776,8 @@ export interface Candidate {
   /** The captured node IS the element: span and content come from it (span = captured node). */
   readonly node: QueryNode;
   readonly name?: string;
+  /** Where the name node starts: the first of several names on one node is the earliest. */
+  readonly nameIndex?: number;
   /** The pattern's #set! values as tree-sitter parsed them, keyed by directive name. */
   readonly properties?: Readonly<Record<string, string | null>>;
 }
@@ -804,6 +825,7 @@ function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candi
       type: elementNode.type,
     },
     name,
+    nameIndex: nameCaptures[0]?.node.startIndex,
     properties,
   };
 }
@@ -823,6 +845,7 @@ function contains(outer: Candidate, inner: Candidate): boolean {
 const NO_SUPPRESSION: SuppressionOptions = {
   shapes: new Map(),
   selfNestingCaptures: new Set(),
+  firstNameCaptures: new Set(),
 };
 
 export function resolveCandidates(
@@ -838,21 +861,26 @@ export function resolveCandidates(
     // carries a different member's @name onto the SAME node. One element carries one name; the
     // first match must not silently win the naming. (the one-match half is guarded where
     // candidates resolve: a single match binding @name on several nodes.)
-    if (
+    const renamed =
       existing !== undefined &&
       existing.pattern === candidate.pattern &&
-      existing.name !== candidate.name
-    ) {
+      existing.name !== candidate.name;
+    if (renamed && !options.firstNameCaptures.has(candidate.capture)) {
       throw new SetupError(
         "CONFIG_INVALID",
         "query pattern " +
-          String(existing.pattern + 1) +
+          String(existing!.pattern + 1) +
           " names one node twice (" +
-          [existing.name ?? "-", candidate.name ?? "-"].join(", ") +
-          ") - one element carries one name; bind @name to a single node or capture each member as its own element",
+          [existing!.name ?? "-", candidate.name ?? "-"].join(", ") +
+          ") - one element carries one name; bind @name to a single node, capture each member as its own element, or set capture." +
+          candidate.capture +
+          ".naming to first",
       );
     }
-    if (existing === undefined || candidate.pattern < existing.pattern) byNode.set(key, candidate);
+    const earlierName =
+      renamed && (candidate.nameIndex ?? Infinity) < (existing!.nameIndex ?? Infinity);
+    if (existing === undefined || candidate.pattern < existing.pattern || earlierName)
+      byNode.set(key, candidate);
   }
   const ordered = [...byNode.values()].sort(
     (a, b) => a.node.startIndex - b.node.startIndex || b.node.endIndex - a.node.endIndex,
@@ -884,6 +912,8 @@ export interface SuppressionOptions {
   readonly shapes: ReadonlyMap<string, SuppressionShape>;
   /** Captures whose same-capture candidates nest legitimately. */
   readonly selfNestingCaptures: ReadonlySet<string>;
+  /** Captures whose node keeps its first name when one pattern matches it with several. */
+  readonly firstNameCaptures: ReadonlySet<string>;
 }
 
 function shapeOf(options: SuppressionOptions, capture: string): SuppressionShape {

@@ -42,6 +42,7 @@ import {
   scmCaptureMerges,
   scmCapturePolicy,
   scmEmittedNames,
+  scmFirstNameCaptures,
   scmSelfNestingCaptures,
   type SuppressionOptions,
   type SuppressionShape,
@@ -200,7 +201,7 @@ function resolveSuppression(scm: string): SuppressionOptions {
   const selfNestingCaptures = new Set<string>(scmSelfNestingCaptures(scm));
   if (scmSelfNesting(scm))
     for (const capture of scmEmittedNames(scm)) selfNestingCaptures.add(capture);
-  return { shapes, selfNestingCaptures };
+  return { shapes, selfNestingCaptures, firstNameCaptures: scmFirstNameCaptures(scm) };
 }
 
 function resolveDefinitionCaptures(scm: string): ReadonlySet<string> {
