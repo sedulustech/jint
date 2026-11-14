@@ -42,7 +42,9 @@ jobs:
         # builds must stay reproducible across that switch. macos-latest resolves to
         # macOS 26 arm64 (the image the first green matrix ran on); macos-15-arm64
         # sat in a contended queue that day and macos-14 is deprecated (issue #13518)
-        os: [ubuntu-24.04, macos-26]
+        # the four release targets each run the suite: the walk workers and the compiled binary
+        # behave per platform (ubuntu-24.04-arm is linux-arm64, macos-15-intel is darwin-x64)
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-26, macos-15-intel]
         # developed on 1.4.x; setup-bun's 'latest' resolved to 1.4.2 anyway,
         # so the second leg added concurrency and flake surface, not signal
         bun-version: [1.4.x]
@@ -64,10 +66,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('**/bun.lock') }}
           # partial hits on the OS prefix still restore most packages across lockfile bumps
           restore-keys: |
-            ${{ runner.os }}-bun-
+            ${{ runner.os }}-${{ runner.arch }}-bun-
 
       # 'bun ci' enforces exact versions from bun.lock and fails if package.json is out of sync
       - name: Install dependencies

@@ -6,12 +6,9 @@
 
 import {
   charsToTokens,
-  decompose,
   fileElement,
-  languageOf,
   MAX_ELEMENT_TOKENS,
   projectElement,
-  EMBEDDED,
   type GrammarRegistry,
   type Inventory,
   type InventoryElement,
@@ -403,65 +400,13 @@ export interface ClassifyFileOptions {
   readonly charsPerToken?: number;
 }
 
-/**
- * The walk phase, extracted: read + parse + extract the inventory (metadata + parent links), free
- * the tree. The lint pipeline walks every file unit ONCE up front and hands the result back, so
- * nothing ever re-walks.
- */
-export interface WalkedUnit {
-  readonly inventory: InventoryElement[];
-  readonly derived?: Inventory;
-  /** Why the unit could not be mapped to elements (file units only); streamed as an error. */
-  readonly failed: string | null;
-  readonly failedCause: unknown;
-}
-
-function missingGrammarReason(unit: Unit): string {
-  // The message names the remedy: a file extension can gain a grammar mapping (sweep coverage);
-  // a str unit has nothing to map, so the caller declares the language.
-  return unit.kind === "file"
-    ? "no grammar mapping for extension"
-    : "cannot infer a grammar for piped stdin - declare it with --language";
-}
-
 /** ClassifyFileOptions under construction: a caller sets only the options it has. */
 export type ClassifyFileOptionsDraft = {
   -readonly [K in keyof ClassifyFileOptions]: ClassifyFileOptions[K];
 };
 
-export async function walkUnit(unit: Unit, options: ClassifyFileOptions = {}): Promise<WalkedUnit> {
-  if (unit.kind !== "file")
-    return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
-  const state = unit.state;
-  const registry = options.registry ?? EMBEDDED;
-  const language = options.language ?? languageOf(registry, state.path);
-  if (language === null)
-    return { inventory: [], failed: missingGrammarReason(unit), failedCause: undefined };
-  // FileState.content is required and every unit constructor carries it — a typed read, no
-  // union discriminator and no fallback to parse around.
-  const source = state.content;
-  try {
-    const parsedSource = await decompose(source, language, {
-      registry,
-      backstop: options.maxInputTokens === undefined,
-    });
-    const inventory = [
-      ...parsedSource.definitions,
-      ...parsedSource.comments,
-      ...parsedSource.imports,
-    ];
-    if (inventory.length === 0)
-      return {
-        inventory,
-        failed:
-          "no definitions, comments, or imports found — element-target rules cannot measure this file (per-rule exclude it if that is intentional)",
-        failedCause: undefined,
-      };
-    return { inventory, derived: parsedSource, failed: null, failedCause: undefined };
-  } catch (thrown) {
-    return { inventory: [], failed: "parse failed", failedCause: thrown };
-  }
-}
+export { walkUnit, type WalkedUnit } from "./walk-unit.ts";
+import { walkUnit, type WalkedUnit } from "./walk-unit.ts";
 
 /**
  * The measured pair frame of one element: owned documentation, then code, joined by single

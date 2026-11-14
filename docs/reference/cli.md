@@ -99,6 +99,16 @@ _`<n>`_
 jint run src/ --concurrency 8
 ```
 
+#### `--walk-workers`
+
+the threads that parse files
+
+_`<n>`_
+
+```sh
+jint run src/ --walk-workers 4
+```
+
 #### `--timeout`
 
 the time limit for one classifier call, in seconds

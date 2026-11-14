@@ -2036,3 +2036,27 @@ describe("unscoped: named files and a path list measure as given", () => {
     expect(measuredBy(walked).length).toBeGreaterThan(0);
   });
 });
+
+describe("lint - walk workers", () => {
+  const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+  const files = ["lint.ts", "scope.ts", "types.ts", "classify.ts"].map(
+    (name) => `packages/sdk/src/core/${name}`,
+  );
+
+  test("a run over several files streams the same events with worker threads as without", async () => {
+    const run = async (walkWorkers: number) =>
+      JSON.stringify(
+        await drain(
+          lint({
+            config: baseConfig,
+            input: files,
+            walkWorkers,
+            classifier: classifierWith({ probe_functions: 0.5, probe_files: 0.5 }),
+          }),
+        ),
+      ).replace(UUID, "id");
+    const inProcess = await run(1);
+    expect(inProcess).toContain('"type":"classification"');
+    expect(await run(3)).toBe(inProcess);
+  });
+});

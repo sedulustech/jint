@@ -24,6 +24,7 @@ export {
 } from "./core/lint.ts";
 export { knownLanguages } from "./core/grammars/walk.ts";
 export { VERSION } from "./core/version.ts";
+export { abandonedWalkWorkers } from "./core/walk-pool.ts";
 export { ENV_VARS, type EnvVar } from "./core/env.ts";
 export {
   recordSummary,

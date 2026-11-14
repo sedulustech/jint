@@ -43,10 +43,13 @@ test("JINT_UI_PORT sets the port, and a bare PORT is not read", async () => {
   }
 });
 
+// macOS configures only 127.0.0.1 on loopback, so another loopback address cannot bind there
+const OWN_HOST = process.platform === "darwin" ? "localhost" : "127.0.0.2";
+
 test("JINT_UI_HOST sets the bind, answers its own Host and refuses a foreign one", async () => {
-  const server = await serve({ JINT_UI_HOST: "127.0.0.2" });
+  const server = await serve({ JINT_UI_HOST: OWN_HOST });
   try {
-    expect(new URL(server.url).hostname).toBe("127.0.0.2");
+    expect(new URL(server.url).hostname).toBe(OWN_HOST);
     expect((await fetch(new URL("/", server.url))).status).toBe(200);
     const foreign = await fetch(new URL("/", server.url), { headers: { host: "evil.example" } });
     expect(foreign.status).toBe(403);
