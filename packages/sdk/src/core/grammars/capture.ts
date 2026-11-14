@@ -1,11 +1,12 @@
+import { walkInputOptions } from "../input-options.ts";
 import { resolveInput, type InputOptions } from "../input/infer.ts";
 import { inputStats, SKIP_REASONS, type InputSummary } from "../input/stats.ts";
 import { validateRuleSelection } from "../lint.ts";
 import { matchesTarget, targetsOf } from "../rules/classify.ts";
 import { resolveTargets, tsElementsOf } from "../rules/custom/execute.ts";
-import { configScopeAdmits, ruleInScope, walkScopes } from "../scope.ts";
+import { ruleInScope } from "../scope.ts";
 import { SetupError, type Rule, type Unit } from "../types.ts";
-import { walkAll } from "../walk-pool.ts";
+import { POOL_FAILED_NOTE, walkAll } from "../walk-pool.ts";
 import {
   grammar,
   knownLanguages,
@@ -167,12 +168,13 @@ async function walkAndExtract(
     claimed.push({ unit, language });
   }
   // the lint walk's own function: the pool when the walk is large, results in file order
-  const { results } = await walkAll(
+  const { results, poolFailed } = await walkAll(
     claimed.map((c) => c.unit),
     registry,
     { queries },
     walkWorkers,
   );
+  if (poolFailed) input.onNote?.(POOL_FAILED_NOTE);
   claimed.forEach(({ unit, language }, i) => {
     const walked = results[i]!;
     // a file with nothing to extract is an empty capture; a parse that failed is loud
@@ -298,29 +300,28 @@ export function captureFor(
       );
     }
     const stats = inputStats();
+    const { options: walkOptions, configAdmits } = walkInputOptions({
+      config,
+      rules: [...config.rules, ...(config.customRules ?? [])],
+      exclude: options.exclude,
+      scopeBase: options.scopeBase,
+      onNote: options.onNote,
+      stats,
+    });
     const { captured, files } = await walkAndExtract(
       {
+        ...walkOptions,
         input,
-        exclude: [...config.exclude, ...(options.exclude ?? [])],
-        include: walkScopes(config.include, config.rules),
-        scopeBase: options.scopeBase,
-        secretDenylist: config.secretDenylist,
-        onNote: options.onNote,
         registry,
         // a file no grammar claims has nothing to extract: it is reported as skipped, as it is
         // inside a directory, and never fails the capture, because a run still measures it whole
         requireGrammarFor: () => false,
-        stats,
       },
       queries,
       queryPath,
       onSkip,
       options.walkWorkers,
     );
-    const configAdmits = configScopeAdmits(config.include, [
-      ...config.exclude,
-      ...(options.exclude ?? []),
-    ]);
     if (rule !== undefined) markPreviewPopulation(rule, captured, files, configAdmits);
     onStats?.(stats.summary());
     return captured;

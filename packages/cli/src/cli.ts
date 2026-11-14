@@ -1270,7 +1270,6 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     edit = parsed;
   }
   try {
-    assertEndpointKey();
     const filed = await reclassify(runId, { rule: rules[0]!, input }, edit, { by: "agent" });
     process.stdout.write(
       cliArgs.json === true
