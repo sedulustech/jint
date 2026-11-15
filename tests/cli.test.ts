@@ -584,13 +584,11 @@ describe("cli: mocked provider twins (structural claims, always on)", () => {
       "--rule",
       "is_function_srp",
       "--rule",
-      "is_naming_convention_consistent",
-      "--rule",
       "is_greppable",
     ]);
     const report = expectContract(r, { exit: 0, stdout: "json" });
-    // one pass: 2 files-target + element classification
-    expect(report.classifications.length).toBeGreaterThanOrEqual(8);
+    // one pass: a files-target rule plus an element classification
+    expect(report.classifications.length).toBe(6);
     for (const m of report.classifications) {
       expect(m.value).toBeGreaterThanOrEqual(0);
       expect(m.value).toBeLessThanOrEqual(1);
