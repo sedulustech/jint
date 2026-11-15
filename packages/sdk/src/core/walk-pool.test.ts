@@ -21,6 +21,19 @@ function unitOf(path: string): Unit {
   return { kind: "file", state: { path, content: readFileSync(path, "utf8"), id: "f" } };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/** Two walks of one file agree on everything but the ids, which each walk mints fresh. */
+function sansIds<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(sansIds) as T;
+  if (typeof value !== "object" || value === null) return value;
+  const entries = Object.entries(value).map(([key, inner]) => [
+    key,
+    key === "id" && typeof inner === "string" && UUID.test(inner) ? "" : sansIds(inner),
+  ]);
+  return Object.fromEntries(entries) as T;
+}
+
 const pools: WalkPool[] = [];
 function pool(registry: GrammarRegistry, options: ConstructorParameters<typeof WalkPool>[1]) {
   const p = new WalkPool(registry, options);
@@ -40,7 +53,7 @@ describe("walk pool output", () => {
     for (const [i, unit] of units.entries()) {
       const local = await walkUnit(unit, {});
       // strict: an undefined-valued key and a missing key differ
-      expect(Bun.deepEquals(pooled[i], local, true), unit.state.path).toBe(true);
+      expect(Bun.deepEquals(sansIds(pooled[i]!), sansIds(local), true), unit.state.path).toBe(true);
     }
     expect(workers.abandonedCount).toBe(0);
   });
@@ -66,7 +79,9 @@ describe("walk pool output", () => {
     const pooled = await workers.walk(unit, {});
     expect(pooled.derived?.provenance.source).toBe("user");
     expect(pooled.inventory.length).toBeGreaterThan(0);
-    expect(Bun.deepEquals(pooled, await walkUnit(unit, { registry }), true)).toBe(true);
+    expect(Bun.deepEquals(sansIds(pooled), sansIds(await walkUnit(unit, { registry })), true)).toBe(
+      true,
+    );
   });
 });
 
@@ -81,7 +96,7 @@ describe("walkEach", () => {
     const seen: string[] = [];
     for await (const { unit, walked } of walkEach(units, EMBEDDED, {}, { workers: 2 })) {
       seen.push(unit.kind === "file" ? unit.state.path : "");
-      expect(walked).toEqual(await walkUnit(unit, { registry: EMBEDDED }));
+      expect(sansIds(walked)).toEqual(sansIds(await walkUnit(unit, { registry: EMBEDDED })));
     }
     expect(seen).toEqual(units.map((u) => (u.kind === "file" ? u.state.path : "")));
   });

@@ -14,8 +14,13 @@ import { checkNoulHandler } from "../handle.ts";
 
 /** The element a rule sees: the walk inventory materialized for TS rules, parent chain included. */
 export interface CustomElement {
-  /** Positional label, stable within a run ("d0", "c2", "i0"). */
+  /**
+   * The element's identity: the uuidv4 the walk minted, the same in the classification and the
+   * finding.
+   */
   readonly id: string;
+  /** Positional name within its file ("d0", "c2", "i0"): display only, never an identity. */
+  readonly label: string;
   /** The owning file: identity and wire naming derive from it. */
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.

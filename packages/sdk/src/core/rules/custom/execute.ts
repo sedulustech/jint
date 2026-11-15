@@ -59,7 +59,8 @@ export function tsElementsOf(
       );
     }
     const element: CustomElement = {
-      id: e.label,
+      id: e.id,
+      label: e.label,
       path,
       capture: e.capture,
       grammar: e.grammar,
@@ -128,7 +129,7 @@ export function resolveTargets(
       const filtered = picked.filter((e) => ruleInScope(rule, e.path));
       return { targets: filtered, scopedOut: picked.length - filtered.length };
     } catch (thrown) {
-      return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown)) };
+      return { error: ruleFailed("(target)", rule.name, thrownMessage(thrown), thrown) };
     }
   }
   // THE shared target grammar: selection here is the same per-element mapping the declarative
@@ -151,23 +152,17 @@ function thrownMessage(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
 }
 
-/**
- * The input id for a judged element: the file path plus a freshly minted uuid, the same scheme as
- * the declarative tier — identity is minted once per element per run and shared by the
- * classification and the finding location. The positional label stays the projection label only;
- * line-span ids remain whole-file unit ids.
- */
-type ElementInputIds = WeakMap<CustomElement, string>;
-function inputOf(element: CustomElement, inputIds: ElementInputIds): string {
-  const minted = inputIds.get(element);
-  if (minted !== undefined) return minted;
-  const input = element.path + "#" + crypto.randomUUID();
-  inputIds.set(element, input);
-  return input;
-}
+const inputOf = (element: CustomElement): string => element.path + "#" + element.id;
 
-function ruleFailed(input: string, ruleName: string, message: string): ClassifyError {
-  return new ClassifyError("RULE_FAILED", input, 'custom rule "' + ruleName + '": ' + message);
+function ruleFailed(
+  input: string,
+  ruleName: string,
+  message: string,
+  cause?: unknown,
+): ClassifyError {
+  return new ClassifyError("RULE_FAILED", input, 'custom rule "' + ruleName + '": ' + message, {
+    cause,
+  });
 }
 
 export interface CustomRulePhase {
@@ -175,6 +170,201 @@ export interface CustomRulePhase {
   events: LintEvent[];
   /** An authorization failure aborts the whole run, not just the unit. */
   fatal: boolean;
+}
+
+interface StateLimits {
+  readonly partLimit: number;
+  readonly partTokens: (chars: number) => number;
+}
+
+/** One element's judgment: the events it produced, and its reading when it got one. */
+interface Measured {
+  readonly events: LintEvent[];
+  readonly value?: number;
+  readonly fatal?: boolean;
+}
+
+function elementOf(element: CustomElement): Element {
+  return {
+    kind: element.capture as Element["kind"],
+    span: element.span,
+    label: element.label,
+    parent: element.parent !== null ? element.parent.label : undefined,
+  };
+}
+
+function classificationEvent(
+  rule: CustomRule,
+  element: CustomElement,
+  reading: { value: number } | { refused: true },
+): LintEvent {
+  return {
+    type: "classification",
+    classification: {
+      rule: rule.name,
+      input: inputOf(element),
+      ...reading,
+      element: elementOf(element),
+    },
+  };
+}
+
+/** The rule's state for one element, or the error that says why it has none. */
+function stateFor(
+  rule: CustomRule,
+  element: CustomElement,
+  ctx: { readonly targets: readonly CustomElement[] },
+): ReturnType<typeof validateStateSpec> {
+  const input = inputOf(element);
+  try {
+    const spec = rule.classify(element, ctx);
+    if (isPromise(spec)) {
+      throw new Error("classify returned a Promise — handlers are sync-only in v1");
+    }
+    return validateStateSpec(spec, rule.name, input);
+  } catch (thrown) {
+    throw ruleFailed(input, rule.name, thrownMessage(thrown), thrown);
+  }
+}
+
+/**
+ * The first string state part over the bound, which skips the element: ordinary state never crashes
+ * the provider.
+ */
+function oversizedPart(state: object, limits: StateLimits): string | undefined {
+  return Object.entries(state).find(
+    ([, part]) => typeof part === "string" && limits.partTokens(part.length) > limits.partLimit,
+  )?.[0];
+}
+
+async function measure(
+  rule: CustomRule,
+  element: CustomElement,
+  ctx: { readonly targets: readonly CustomElement[] },
+  classifier: Classifier,
+  limits: StateLimits,
+): Promise<Measured> {
+  const input = inputOf(element);
+  let stateSpec: ReturnType<typeof validateStateSpec>;
+  try {
+    stateSpec = stateFor(rule, element, ctx);
+  } catch (thrown) {
+    return { events: [{ type: "error", error: thrown as ClassifyError }] };
+  }
+  const part = oversizedPart(stateSpec.state, limits);
+  if (part !== undefined) {
+    const note = `custom rule "${rule.name}": state part "${part}" for ${input} exceeds ${limits.partLimit} tokens - skipped`;
+    return { events: [{ type: "note", note }] };
+  }
+  try {
+    const answers = await classifier(stateSpec.state as unknown as AnyState, {
+      [rule.name]: {
+        type: "noul",
+        instructions: stateSpec.instructions,
+        criteria: stateSpec.criteria,
+      },
+    });
+    const noul = answers[rule.name];
+    if (isRefusal(noul)) {
+      return { events: [classificationEvent(rule, element, { refused: true })] };
+    }
+    if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
+      const error = new ClassifyError(
+        "PROVIDER_RESPONSE_INVALID",
+        input,
+        "answer for '" + rule.name + "' is missing or not a finite number",
+      );
+      return { events: [{ type: "error", error }] };
+    }
+    return {
+      events: [classificationEvent(rule, element, { value: noul.value })],
+      value: noul.value,
+    };
+  } catch (thrown) {
+    const error = toClassifyError(input, thrown);
+    return { events: [{ type: "error", error }], fatal: error.code === "PROVIDER_AUTH" };
+  }
+}
+
+/** The rule's policy over its readings, once: data or a function, bound to each target's span. */
+function policyEvents(
+  rule: CustomRule,
+  ctx: { readonly targets: readonly CustomElement[] },
+  measured: readonly { readonly element: CustomElement; readonly value: number }[],
+): LintEvent[] {
+  const results: RuleResult[] = measured.map((m) => ({ type: "noul", noul: m.value }));
+  const events: LintEvent[] = [];
+  const handle = rule.handle;
+  if (typeof handle !== "function") {
+    const compiled = compileNoulHandler(handle);
+    measured.forEach((m, i) => {
+      const outcome = compiled({ value: m.value });
+      const finding =
+        outcome === null ? null : tsFinding(rule.name, m.element, results[i]!, outcome);
+      if (finding !== null) events.push({ type: "finding", finding });
+    });
+    return events;
+  }
+  try {
+    const decisions = handle(results, ctx);
+    if (isPromise(decisions)) {
+      throw new Error("handle returned a Promise — handlers are sync-only in v1");
+    }
+    if (!Array.isArray(decisions) || decisions.length !== results.length) {
+      throw new Error(
+        `handle must return one decision per result (${results.length} expected, got ${decisions?.length})`,
+      );
+    }
+    decisions.forEach((raw, i) => {
+      const decision = validateDecision(raw, rule.name, i);
+      const finding = tsFinding(rule.name, measured[i]!.element, results[i]!, decision);
+      if (finding !== null) events.push({ type: "finding", finding });
+    });
+  } catch (thrown) {
+    events.push({
+      type: "error",
+      error: ruleFailed("(policy)", rule.name, thrownMessage(thrown), thrown),
+    });
+  }
+  return events;
+}
+
+/**
+ * Why a rule has no targets to judge, as events: its resolution error, or a note on what its scope
+ * removed.
+ */
+function resolutionEvents(rule: CustomRule, resolved: ResolvedCustomTarget): LintEvent[] {
+  if ("error" in resolved) return [{ type: "error", error: resolved.error }];
+  if (resolved.scopedOut === 0) return [];
+  return [
+    {
+      type: "note",
+      note: `custom rule "${rule.name}": scope excluded ${resolved.scopedOut} element(s)`,
+    },
+  ];
+}
+
+/** Judges one rule's targets in order, then applies its policy; stops at an abort or a fatal error. */
+async function runRule(
+  rule: CustomRule,
+  targets: readonly CustomElement[],
+  classifier: Classifier,
+  isAborted: () => boolean,
+  limits: StateLimits,
+): Promise<{ events: LintEvent[]; fatal: boolean }> {
+  const ctx = { targets };
+  const events: LintEvent[] = [];
+  const measured: { element: CustomElement; value: number }[] = [];
+  let fatal = false;
+  for (const element of targets) {
+    if (isAborted() || fatal) break;
+    const result = await measure(rule, element, ctx, classifier, limits);
+    events.push(...result.events);
+    fatal = result.fatal === true;
+    if (result.value !== undefined) measured.push({ element, value: result.value });
+  }
+  events.push(...policyEvents(rule, ctx, measured));
+  return { events, fatal };
 }
 
 /**
@@ -189,181 +379,24 @@ export async function runCustomRules(
   maxInputTokens?: number,
   charsPerToken: number = DEFAULT_CHARS_PER_TOKEN,
 ): Promise<CustomRulePhase> {
-  // A state part may fill the model's window; unset keeps the fixed element backstop.
-  const partLimit = maxInputTokens ?? MAX_ELEMENT_TOKENS;
-  const partTokens = (chars: number): number =>
-    maxInputTokens === undefined ? charsToTokens(chars) : Math.ceil(chars / charsPerToken);
+  const limits: StateLimits = {
+    partLimit: maxInputTokens ?? MAX_ELEMENT_TOKENS,
+    partTokens: (chars) =>
+      maxInputTokens === undefined ? charsToTokens(chars) : Math.ceil(chars / charsPerToken),
+  };
   const events: LintEvent[] = [];
   let fatal = false;
-  const inputIds: ElementInputIds = new WeakMap();
   for (const rule of customRules) {
     if (isAborted() || fatal) break;
     const resolvedRule = resolved.get(rule);
     if (resolvedRule === undefined) {
-      // resolveAllCustomTargets sets an entry for EVERY rule — this is impossible state, and a silent
-      // skip here would be invisible data loss (a declared rule producing zero classifications).
       throw new Error('no resolution entry for custom rule "' + rule.name + '" (engine bug)');
     }
-    if ("error" in resolvedRule) {
-      events.push({ type: "error", error: resolvedRule.error });
-      continue;
-    }
-    // Scoped-out requested elements are signal, never silence: one run-level note per rule says
-    // how many its scope removed (the custom tier resolves once per run, so run level IS its unit).
-    if ("scopedOut" in resolvedRule && resolvedRule.scopedOut > 0) {
-      events.push({
-        type: "note",
-        note: `custom rule "${rule.name}": scope excluded ${resolvedRule.scopedOut} element(s)`,
-      });
-    }
-    const targets = resolvedRule.targets;
-    const ctx = { targets };
-    const results: RuleResult[] = [];
-    const readings: number[] = [];
-    const measuredTargets: CustomElement[] = [];
-    for (const element of targets) {
-      if (isAborted() || fatal) break;
-      const input = inputOf(element, inputIds);
-      let stateSpec;
-      try {
-        stateSpec = rule.classify(element, ctx);
-        if (isPromise(stateSpec)) {
-          throw new Error("classify returned a Promise — handlers are sync-only in v1");
-        }
-        stateSpec = validateStateSpec(stateSpec, rule.name, input);
-      } catch (thrown) {
-        events.push({ type: "error", error: ruleFailed(input, rule.name, thrownMessage(thrown)) });
-        continue;
-      }
-      // Per-part size backstop: any string state part over the bound skips the element (noted),
-      // mirroring the walk's oversized-element behavior — ordinary state never crashes the provider.
-      const oversized = Object.entries(stateSpec.state).find(
-        ([, part]) => typeof part === "string" && partTokens(part.length) > partLimit,
-      );
-      if (oversized !== undefined) {
-        events.push({
-          type: "note",
-          note:
-            'custom rule "' +
-            rule.name +
-            '": state part "' +
-            oversized[0] +
-            '" for ' +
-            input +
-            " exceeds " +
-            partLimit +
-            " tokens - skipped",
-        });
-        continue;
-      }
-      let value: number;
-      try {
-        const answers = await classifier(stateSpec.state as unknown as AnyState, {
-          [rule.name]: {
-            type: "noul",
-            instructions: stateSpec.instructions,
-            criteria: stateSpec.criteria,
-          },
-        });
-        const noul = answers[rule.name];
-        if (isRefusal(noul)) {
-          // A refusal is a reading without a value: reported as such, never fed to the policy.
-          events.push({
-            type: "classification",
-            classification: {
-              rule: rule.name,
-              input,
-              refused: true,
-              element: {
-                kind: element.capture as Element["kind"],
-                span: element.span,
-                label: element.id,
-                parent: element.parent !== null ? element.parent.id : undefined,
-              },
-            },
-          });
-          continue;
-        }
-        if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
-          events.push({
-            type: "error",
-            error: new ClassifyError(
-              "PROVIDER_RESPONSE_INVALID",
-              input,
-              "answer for '" + rule.name + "' is missing or not a finite number",
-            ),
-          });
-          continue;
-        }
-        value = noul.value;
-      } catch (thrown) {
-        const error = toClassifyError(input, thrown);
-        events.push({ type: "error", error });
-        if (error.code === "PROVIDER_AUTH") fatal = true;
-        continue;
-      }
-      results.push({ type: "noul", noul: value });
-      readings.push(value);
-      measuredTargets.push(element);
-      events.push({
-        type: "classification",
-        classification: {
-          rule: rule.name,
-          input,
-          value,
-          element: {
-            kind: element.capture as Element["kind"],
-            span: element.span,
-            label: element.id,
-            parent: element.parent !== null ? element.parent.id : undefined,
-          },
-        },
-      });
-    }
-    // POLICY, once: handle is every rule's policy — data or a function, one required union field
-    // (enforced at load). Findings bind to the target's span.
-    const handle = rule.handle;
-    if (typeof handle === "function") {
-      try {
-        const decisions = handle(results, ctx);
-        if (isPromise(decisions)) {
-          throw new Error("handle returned a Promise — handlers are sync-only in v1");
-        }
-        if (!Array.isArray(decisions) || decisions.length !== results.length) {
-          throw new Error(
-            "handle must return one decision per result (" +
-              String(results.length) +
-              " expected, got " +
-              String(decisions?.length) +
-              ")",
-          );
-        }
-        for (let i = 0; i < decisions.length; i++) {
-          const decision = validateDecision(decisions[i], rule.name, i);
-          const finding = tsFinding(
-            rule.name,
-            measuredTargets[i]!,
-            results[i]!,
-            decision,
-            inputIds,
-          );
-          if (finding !== null) events.push({ type: "finding", finding });
-        }
-      } catch (thrown) {
-        events.push({
-          type: "error",
-          error: ruleFailed("(policy)", rule.name, thrownMessage(thrown)),
-        });
-      }
-    } else {
-      const compiled = compileNoulHandler(handle);
-      for (let i = 0; i < readings.length; i++) {
-        const outcome = compiled({ value: readings[i]! });
-        if (outcome === null) continue;
-        const finding = tsFinding(rule.name, measuredTargets[i]!, results[i]!, outcome, inputIds);
-        if (finding !== null) events.push({ type: "finding", finding });
-      }
-    }
+    events.push(...resolutionEvents(rule, resolvedRule));
+    if ("error" in resolvedRule) continue;
+    const ran = await runRule(rule, resolvedRule.targets, classifier, isAborted, limits);
+    events.push(...ran.events);
+    fatal = ran.fatal;
   }
   return { events, fatal };
 }
@@ -373,7 +406,6 @@ function tsFinding(
   target: CustomElement,
   result: RuleResult,
   decision: { severity: "error" | "warn" | null; message?: string },
-  inputIds: ElementInputIds,
 ): Finding | null {
   if (decision.severity === null) return null;
   const value = result.type === "noul" ? result.noul : (result as { score: number }).score;
@@ -387,10 +419,10 @@ function tsFinding(
   // literal under excess-property checking — an undeclared decision field is a compile error.
   return {
     rule: ruleName,
-    input: inputOf(target, inputIds),
+    input: inputOf(target),
     value,
     severity: decision.severity,
     message: decision.message !== undefined ? decision.message : undefined,
-    location: { input: inputOf(target, inputIds), span },
+    location: { input: inputOf(target), span },
   };
 }

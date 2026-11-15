@@ -184,7 +184,9 @@ function* markedByCustomRule(
   // a target function that threw: the preview cannot know the population, and the failure is
   // the rule's own - it surfaces loud, exactly as the run would stream it
   if ("error" in resolved) throw resolved.error;
-  const picked = new Set(resolved.targets.map((element) => elementKey(element.path, element.id)));
+  const picked = new Set(
+    resolved.targets.map((element) => elementKey(element.path, element.label)),
+  );
   for (const file of held) {
     yield file.projected.map((projected, i) =>
       picked.has(elementKey(file.path, file.elements[i]!.label))

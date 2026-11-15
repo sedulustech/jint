@@ -8,12 +8,14 @@
  */
 
 declare module "jint:sdk" {
-  /**
-   * The element a rule sees: identity, capture, source, span, and its parent (hierarchy rides on
-   * the element).
-   */
   export interface CustomElement {
+    /**
+     * The element's identity: the uuidv4 the walk minted, the same in the classification and the
+     * finding.
+     */
     readonly id: string;
+    /** Positional name within its file ("d0", "c2", "i0"): display only, never an identity. */
+    readonly label: string;
     readonly path: string;
     readonly grammar: string;
     /** The capture name: a shared capture or the grammar-declared autonomous one. */

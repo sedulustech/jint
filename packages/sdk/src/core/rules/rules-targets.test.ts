@@ -11,6 +11,7 @@ import type { InventoryElement } from "../grammars/walk.ts";
 describe("rule targets: the union is identical to the definitions shorthand", () => {
   const inventory: InventoryElement[] = [
     {
+      id: "uuid-f",
       label: "f",
       span: span(),
       content: "f",
@@ -21,6 +22,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       internalCommentCount: 0,
     },
     {
+      id: "uuid-c",
       label: "c",
       span: span(),
       content: "c",
@@ -31,6 +33,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       internalCommentCount: 0,
     },
     {
+      id: "uuid-m",
       label: "m",
       span: span(),
       content: "m",
@@ -41,6 +44,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       internalCommentCount: 0,
     },
     {
+      id: "uuid-t",
       label: "t",
       span: span(),
       content: "t",
@@ -51,6 +55,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       internalCommentCount: 0,
     },
     {
+      id: "uuid-b",
       label: "b",
       span: span(),
       content: "b",
@@ -61,6 +66,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       internalCommentCount: 0,
     },
     {
+      id: "uuid-x",
       label: "x",
       span: span(),
       content: "x",
@@ -71,6 +77,7 @@ describe("rule targets: the union is identical to the definitions shorthand", ()
       docstringCount: 0,
     },
     {
+      id: "uuid-i",
       label: "i",
       span: span(),
       content: "i",
