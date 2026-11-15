@@ -17,7 +17,7 @@ demands action.
   that question would be sent alone plus the endpoint. A hit sends
   nothing. It is not the endpoint's own input cache, which only makes a sent request cheaper.
 - **binding** — an element that is a name bound to a non-callable, non-type value.
-- **class** — an element that is a class-like unit: the @class capture (ts/tsx/python/php/cpp
+- **class** — an element that is class-like: the @class capture (ts/tsx/python/php/cpp
   class declarations). Distinct from @type so a rule can judge classes as classes; every other type
   shape (interfaces, structs, enums, aliases, modules) stays @type.
 - **classifying** — asking the model whether a claim holds for one state; jint only ever
@@ -109,7 +109,7 @@ demands action.
   strings shift on edits and collide across files; ids need neither stability nor readability
   because the run scopes every address.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
-  unit is). Criteria pins the boundary; editing either is a recalibration event.
+  element is). Criteria pins the boundary; editing either is a recalibration event.
 - **inventory** — the elements one file yields.
 - **classification** — one reading of a rule at one element or input, by the classifier; always produced (a value, or refused), never actionable by itself. The run's own is the **original**; a user or agent who edits the question or code and classifies again files **#1**, **#2**, … under the same run, and none of them changes the run.
 - **node** — a tree-sitter syntax node.
@@ -150,14 +150,14 @@ demands action.
   and timings a request produced. A result is a SUBSET of its request — the request is the
   recorded call, the result is what jint derived from it.
 - **test** — the runs of one rule version on fixed inputs, compared against the previous
-  version's. Two runs show the rerun noise. The unit of calibration; not the reserved `test`
+  version's. Two runs show the rerun noise. Calibration proceeds in tests; not the reserved `test`
   capture.
 - **calibration** — testing a rule and editing its instructions or criteria until it is right.
 - **control** — a small input with a known answer, used to calibrate a rule: healthy controls read one way, defective controls the other, and the handle's thresholds sit inside the gap between them.
 - **actor** — who produced a classification: the **rule** (the run's original), the **user** (in the UI) or the **agent**. A filed classification records it as `by`.
 - **tampering** — editing a rule, its handle, or the config's scope so a finding stops firing, instead of fixing what it flagged. It differs from a recalibration event only in intent: a recalibration edit improves how the rule measures, tampering removes the finding. A change to a rule is its own reviewable item, never part of the change the rule checks.
 - **run** — one execution of jint: input resolution, walk, target resolution, classification,
-  findings. The unit of observation: every classification, finding, dump, and request
+  findings. Every classification, finding, dump, and request
   belongs to exactly one run. A failed run is still a run. Calibration compares runs.
 - **severity** — what a handle returned: "error" (exit code 1), "warn", or "pass".
 - **span** — the exact location of an element: every element is a slice of source. Rides on the
@@ -173,7 +173,7 @@ demands action.
   comment element never matches separately, so a narration rule fires exactly once per documented
   definition. The name is shared with @comment in the singular/plural
   split: the capture names ONE comment element, the target plural addresses the documentation
-  units a rule judges.
+  elements a rule judges.
 - **loose comments** — the complement of comments: comment elements NO definition owns (standalone
   runs, and inline comments outside any definition). Together with comments it is disjoint and
   jointly exhaustive over comment text, so a rule can measure a comment under exactly one target
@@ -181,7 +181,7 @@ demands action.
 - **method** — an element that is a member function: the @method capture, covering class-body
   functions, receivers, and in-class or out-of-line member definitions. Distinct from @function
   so a rule can judge members as members.
-- **rule target** — which unit instances a rule judges; resolves over the two namespaces
+- **rule target** — which elements a rule judges; resolves over the two namespaces
   (FILE / CAPTURE) and the target vocabulary (files, functions, classes, methods,
   types, bindings, definitions, comments, loose-comments, imports). Declarative: a name or an
   explicit list; the shipped rules use the list form. 'noun' stays CLI-owned - it names a declared
@@ -189,7 +189,6 @@ demands action.
 - **definitions** — the umbrella shorthand for every definition capture at once
   (functions, classes, methods, types, bindings): the same measured set as the explicit union.
   It is shorthand: prefer the specific targets.
-- **unit** — one classifiable piece produced by resolving an input according to its input kind.
 - **walk worker** — a thread that parses files for the walk, with a parser memory of its own.
 - **walk** — the pass that turns parsed sources into inventory elements (and the
-  directory pass that turns an on-disk tree into file units).
+  directory pass that turns an on-disk tree into the files to walk).
