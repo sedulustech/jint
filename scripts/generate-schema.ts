@@ -2,7 +2,8 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - The run-UI address region in skills/writing-rules/SKILL.md: the prose around it is hand-written
+ * - The run-UI address region in skills/writing-rules/SKILL.md and docs/writing-rules.md: the prose
+ *   around it is hand-written
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
@@ -51,6 +52,7 @@ export const GENERATED_OUTPUTS = [
   "docs/reference/cli.md",
   "web/src/data/reference.json",
   "skills/writing-rules/SKILL.md",
+  "docs/writing-rules.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -625,120 +627,58 @@ function outPath(root: string, rel: string): string {
   return path;
 }
 
+function splicedFile(rel: string, regions: Record<string, string>): string {
+  let doc = readFileSync(REPO_ROOT + rel, "utf8");
+  for (const [name, body] of Object.entries(regions)) doc = spliceGenerated(doc, name, body);
+  return doc;
+}
+
+/** Every generated output: its path under the output root, and its content. */
+function generatedOutputs(): Record<string, string> {
+  const pages = referencePages();
+  const runAddress = { "run-address": renderRunAddress() };
+  return {
+    "jint.schema.json": renderSchemaJson(),
+    "skills/writing-rules/SKILL.md": splicedFile("skills/writing-rules/SKILL.md", runAddress),
+    "docs/writing-rules.md": splicedFile("docs/writing-rules.md", runAddress),
+    "docs/targets.md": splicedFile("docs/targets.md", { targets: renderTargetsTable() }),
+    "docs/directives.md": splicedFile("docs/directives.md", {
+      directives: renderDirectivesTable(directiveVocabulary()),
+    }),
+    "docs/config.md": splicedFile("docs/config.md", {
+      config: renderConfigExample(),
+      "run-settings": renderRunSettingsTable(),
+      "rule-fields": renderRuleFieldsTable(),
+    }),
+    "docs/reference/config.md": splicedFile("docs/reference/config.md", {
+      reference: renderReferenceMarkdown(pages.config),
+    }),
+    "docs/reference/environment.md": splicedFile("docs/reference/environment.md", {
+      reference: renderReferenceMarkdown(pages.environment),
+    }),
+    "docs/reference/cli.md": splicedFile("docs/reference/cli.md", {
+      reference: renderReferenceMarkdown(pages.cli),
+    }),
+    "web/src/data/reference.json": renderReferenceJson(),
+    "docs/grammars.md": splicedFile("docs/grammars.md", { grammars: renderGrammarsTable() }),
+    "packages/sdk/src/core/grammars/embedded/SOURCES.md": renderGrammarSources(),
+  };
+}
+
 /**
  * Writes every generated output under `root` (the repo by default). A test passes a temp directory
  * so regenerating never rewrites the tracked files other processes may be reading. The formatter
- * runs ONCE over the files that need it, from the repo root so it finds the repo's formatter
- * config.
+ * runs ONCE over the files written, from the repo root so it finds the repo's formatter config.
  */
 function writeGeneratedOutputs(rootArg: string = REPO_ROOT) {
   const root = resolve(rootArg);
-  const formatted: string[] = [];
-  const schemaOut = outPath(root, "jint.schema.json");
-  writeFileSync(schemaOut, renderSchemaJson());
-  formatted.push(schemaOut);
-  process.stdout.write("wrote " + schemaOut + "\n");
-
-  const spliceInto = (rel: string, regions: Record<string, string>) => {
+  const written = Object.entries(generatedOutputs()).map(([rel, content]) => {
     const out = outPath(root, rel);
-    let doc = readFileSync(REPO_ROOT + rel, "utf8");
-    for (const [name, body] of Object.entries(regions)) doc = spliceGenerated(doc, name, body);
-    writeFileSync(out, doc);
-    formatted.push(out);
-    process.stdout.write("wrote " + out + "\n");
-  };
-  spliceInto("skills/writing-rules/SKILL.md", { "run-address": renderRunAddress() });
-
-  const targetsOut = outPath(root, "docs/targets.md");
-  writeFileSync(
-    targetsOut,
-    spliceGenerated(
-      readFileSync(REPO_ROOT + "docs/targets.md", "utf8"),
-      "targets",
-      renderTargetsTable(),
-    ),
-  );
-  formatted.push(targetsOut);
-  process.stdout.write("wrote " + targetsOut + "\n");
-
-  const directivesOut = outPath(root, "docs/directives.md");
-  writeFileSync(
-    directivesOut,
-    spliceGenerated(
-      readFileSync(REPO_ROOT + "docs/directives.md", "utf8"),
-      "directives",
-      renderDirectivesTable(directiveVocabulary()),
-    ),
-  );
-  formatted.push(directivesOut);
-  const configOut = outPath(root, "docs/config.md");
-  writeFileSync(
-    configOut,
-    spliceGenerated(
-      readFileSync(REPO_ROOT + "docs/config.md", "utf8"),
-      "config",
-      renderConfigExample(),
-    ),
-  );
-  writeFileSync(
-    configOut,
-    ["run-settings", "rule-fields"].reduce(
-      (doc, name) =>
-        spliceGenerated(
-          doc,
-          name,
-          name === "run-settings" ? renderRunSettingsTable() : renderRuleFieldsTable(),
-        ),
-      readFileSync(configOut, "utf8"),
-    ),
-  );
-  formatted.push(configOut);
-  process.stdout.write("wrote " + configOut + "\n");
-  // Match the repo formatter so `bun run schema` output is stable under `bun run lint`.
-  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...formatted], { cwd: REPO_ROOT });
-  process.stdout.write("wrote " + directivesOut + "\n");
-
-  const pages = referencePages();
-  const reference: [string, keyof RefPages][] = [
-    ["docs/reference/config.md", "config"],
-    ["docs/reference/environment.md", "environment"],
-    ["docs/reference/cli.md", "cli"],
-  ];
-  for (const [rel, page] of reference) {
-    const out = outPath(root, rel);
-    writeFileSync(
-      out,
-      spliceGenerated(
-        readFileSync(REPO_ROOT + rel, "utf8"),
-        "reference",
-        renderReferenceMarkdown(pages[page]),
-      ),
-    );
-    Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), out], { cwd: REPO_ROOT });
-    process.stdout.write("wrote " + out + "\n");
-  }
-  const dataOut = outPath(root, "web/src/data/reference.json");
-  writeFileSync(dataOut, renderReferenceJson());
-  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), dataOut], { cwd: REPO_ROOT });
-  process.stdout.write("wrote " + dataOut + "\n");
-
-  const grammarsOut = outPath(root, "docs/grammars.md");
-  writeFileSync(
-    grammarsOut,
-    spliceGenerated(
-      readFileSync(REPO_ROOT + "docs/grammars.md", "utf8"),
-      "grammars",
-      renderGrammarsTable(),
-    ),
-  );
-  process.stdout.write("wrote " + grammarsOut + "\n");
-
-  const sourcesOut = outPath(root, "packages/sdk/src/core/grammars/embedded/SOURCES.md");
-  writeFileSync(sourcesOut, renderGrammarSources());
-  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), grammarsOut, sourcesOut], {
-    cwd: REPO_ROOT,
+    writeFileSync(out, content);
+    return out;
   });
-  process.stdout.write("wrote " + sourcesOut + "\n");
+  Bun.spawnSync([join(REPO_ROOT, "node_modules/.bin/oxfmt"), ...written], { cwd: REPO_ROOT });
+  for (const out of written) process.stdout.write("wrote " + out + "\n");
 }
 
 if (import.meta.main) writeGeneratedOutputs(process.argv[2]);
