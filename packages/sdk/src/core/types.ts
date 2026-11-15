@@ -173,9 +173,8 @@ export interface NoulRule extends RuleBase {
   readonly kind?: "noul";
   /**
    * The yes/no question the model answers, specific to the rule's claim. REQUIRED: a generic
-   * fallback question would silently recalibrate every classification. The compiler prepends the
-   * element-kind sentence, so the question never leaves the judged object implicit. Changing a
-   * rule's instructions is a recalibration event: readings move.
+   * fallback question would silently recalibrate every classification. Changing a rule's
+   * instructions is a recalibration event: readings move.
    */
   readonly instructions: string;
   /**
@@ -198,7 +197,7 @@ export interface ScoreRule extends RuleBase {
   readonly kind: "score";
   /** The ordered rubric; the question text lives in instructions. */
   readonly criteria: ScoreRubric;
-  /** The question sentence, judged per unit; the compiler prepends the kind sentence to it. */
+  /** The question sentence, judged per element. */
   readonly instructions: string;
 }
 

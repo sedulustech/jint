@@ -51,10 +51,10 @@ const CONCEPTS: readonly Concept[] = [
     message: "Say to define the measured word inside the instruction.",
   },
   {
-    name: "lacks_no_element_kind",
-    says: "the instruction does not state the element kind, because the compiler prepends it",
-    cue: "says not to state the element kind in the instructions",
-    message: "Say not to state the element kind in the instructions.",
+    name: "lacks_no_kind_sentence",
+    says: "the engine adds no sentence naming the element kind to the question",
+    cue: "says the engine adds no sentence naming the element kind, so the question is the instructions and criteria as written",
+    message: "Say that the engine adds no sentence naming the element kind.",
   },
   {
     name: "lacks_true_side_name",
