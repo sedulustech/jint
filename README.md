@@ -98,7 +98,7 @@ jint capture --rule is_greppable          # preview: mark the population one rul
 jint ui serve                                # the run UI over the store's newest run, held (Ctrl+C to exit)
 ```
 
-The first positional is the verb: `run`, `serve`, or `capture`. There is no implicit verb -
+The first positional is the verb: `run`, `ui`, `capture`, `reclassify`, `skills`, or `docs`. There is no implicit verb -
 `jint src/` is a usage error telling you to write `jint run src/`.
 
 `jint` auto-discovers `jint.config.ts` or `jint.config.json` in the working directory.

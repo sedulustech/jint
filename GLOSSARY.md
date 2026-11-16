@@ -115,9 +115,9 @@ demands action.
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
   the claim holds.
-- **noun** — the CLI word for a declared input read, INSIDE run: the first positional of
-  run's payload names the read (str, paths). The resource (a path) needs no noun. A noun's next
-  positional is its payload.
+- **noun** — the CLI word for a declared input read, INSIDE run: the first operand names
+  the read (str, paths) when the next operand is `-`. Any other operand is a target, noun names
+  included.
 - **parsing** — turning source text into a parse tree; the first step of deriving an inventory.
 - **pass** — the level a handle returned when a classification needs no action: the score-map or
   choice tier that never fires (both use pass/warn/error) and the absent-classification state for
@@ -135,8 +135,8 @@ demands action.
 - **refused** — a classification with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
-  positional is a usage error. A verb token is never a path (a file named capture is reached as
-  `jint run ./capture`).
+  positional is a usage error. After run, every operand is a target, so a file named capture
+  runs as `jint run capture`.
 - **provider** — the service at the endpoint that answers jint's questions. The url selects it, its
   last segment names the wire (`/decisions` or `/v1/systemone`), and a key goes only to the url it
   is paired with.
