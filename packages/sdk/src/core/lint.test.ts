@@ -1925,6 +1925,23 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
     ).toBe(true);
   });
 
+  test("a run whose every input falls outside every rule's scope fails with one SCOPE_EMPTY error", async () => {
+    const scoped = mkRule("noul", { ...NOUL_DATA, name: "probe_scoped", include: ["skills/*.md"] });
+    const events = await drain(
+      lint({
+        config: { ...baseConfig, rules: [scoped] },
+        input: "tmp/rv1/rv-notes.md",
+        classifier: classifierWith({}),
+      }),
+    );
+    const errors = events.flatMap((e) => (e.type === "error" ? [e.error] : []));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.code).toBe("SCOPE_EMPTY");
+    expect(errors[0]?.message).toBe(
+      "no input matched any rule's scope (rule include skills/*.md; 1 input checked)",
+    );
+  });
+
   test("an element-scope run scope-checks its selector file like any operand", async () => {
     const proseRule = mkRule("score", {
       name: "probe_md_section",
@@ -1949,7 +1966,7 @@ describe("review fixes: one claim test, the operand scope knobs", () => {
       (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
     );
     // the element run measures ONLY the claiming rule's paragraph; the unscoped files rule
-    // (which on main measured such a file) follows the config scope and stays out
+    // follows the config scope and stays out
     expect(measured.map((m) => m.classification.rule)).toEqual(["probe_md_section"]);
     // no unscoped note here BY DESIGN: element selection drops the files-target rule before
     // classification (files-target rules cannot run element-scoped), so the scope check's proof

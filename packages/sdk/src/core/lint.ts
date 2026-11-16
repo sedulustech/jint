@@ -512,6 +512,31 @@ async function* runUnits(
   }
 }
 
+/**
+ * A run with inputs and rules that measured nothing because no rule's scope admitted any input is
+ * an error, not a quiet pass: the notes name each file, this one line names the cause.
+ */
+function scopeEmptyError(setup: RunSetup, admission: RunAdmission): ClassifyError | null {
+  const rules = [...setup.rules, ...setup.customRules];
+  const { units } = admission;
+  if (rules.length === 0 || units.length === 0) return null;
+  const admitted = units.some((unit) => {
+    const path = "path" in unit.state ? unit.state.path : "";
+    return rules.some(
+      (rule) =>
+        ruleInScope(rule, path) && (rule.include !== undefined || admission.configAdmits(path)),
+    );
+  });
+  if (admitted) return null;
+  const patterns = [...new Set(rules.flatMap((rule) => rule.include ?? []))];
+  const scope = patterns.length > 0 ? `rule include ${patterns.join(", ")}` : "the rules scope";
+  return new ClassifyError(
+    "SCOPE_EMPTY",
+    "",
+    `no input matched any rule's scope (${scope}; ${units.length} input${units.length === 1 ? "" : "s"} checked)`,
+  );
+}
+
 async function* runCustomPhase(
   options: LintOptions,
   setup: RunSetup,
@@ -545,6 +570,8 @@ export async function* lint(options: LintOptions): AsyncGenerator<LintEvent> {
     yield* runCustomPhase(options, setup, customResolved, classifier, progress);
   }
   if (progress.answered === 0 && !progress.aborted && options.element === undefined) {
+    const error = scopeEmptyError(setup, admission);
+    if (error !== null) yield { type: "error", error };
     for (const note of nothingMeasuredNotes(setup.scopedRules, admission.units, walked)) {
       yield { type: "note", note };
     }

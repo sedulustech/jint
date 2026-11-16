@@ -65,9 +65,10 @@ export type SetupDetail =
 /**
  * Codes a streamed per-unit failure carries: request-layer causes (auth, availability, request and
  * response shape, timeout), a unit that could not be mapped to elements, and a custom rule's
- * handler throwing mid-run — per-unit, non-fatal, the run continues. INTERNAL is the escape hatch:
- * a classifier-adjacent failure of unknown shape streams under it; a thrown invariant violation is
- * the bug bucket instead, never a streamed code.
+ * handler throwing mid-run — per-unit, non-fatal, the run continues. SCOPE_EMPTY is the one
+ * run-level code: every input fell outside every rule's scope, so nothing was measured. INTERNAL is
+ * the escape hatch: a classifier-adjacent failure of unknown shape streams under it; a thrown
+ * invariant violation is the bug bucket instead, never a streamed code.
  */
 export type ClassifyErrorCode =
   | "PROVIDER_AUTH"
@@ -77,6 +78,7 @@ export type ClassifyErrorCode =
   | "PROVIDER_TIMEOUT"
   | "WALK_FAILED"
   | "RULE_FAILED"
+  | "SCOPE_EMPTY"
   | "INTERNAL";
 
 /**
