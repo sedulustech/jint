@@ -3,7 +3,7 @@
  * Copies the install prompt (lib/install-prompt.ts) for the reader to paste into their agent. The
  * landing page shows it as a primary button; the header shows it as an icon among the header tools.
  */
-import { COPY_ICON } from "../lib/copy";
+import { PROMPT_ICON } from "../lib/copy";
 import { INSTALL_PROMPT } from "../lib/install-prompt";
 import PrimaryButton from "./PrimaryButton.astro";
 
@@ -32,20 +32,21 @@ const LABEL = "Copy install prompt";
       aria-label={LABEL}
       title={LABEL}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d={COPY_ICON} />
+      <svg viewBox={PROMPT_ICON.viewBox} aria-hidden="true">
+        <path fill="currentColor" stroke="none" fill-rule="evenodd" d={PROMPT_ICON.path}></path>
       </svg>
     </button>
   )
 }
 
 <script>
-  import { COPY_ICON, DONE_ICON, copyOnClick, icon } from "../lib/copy";
+  import { DONE_ICON, copyOnClick, icon } from "../lib/copy";
 
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-install-prompt]")) {
     const idle = button.querySelector<HTMLElement>("[data-idle]");
     const done = button.querySelector<HTMLElement>("[data-done]");
     const label = button.getAttribute("aria-label") ?? "";
+    const promptIcon = button.querySelector("svg");
     // the labels share one grid cell, so the button keeps the longer label's width
     const showLabel = (copied: boolean) => {
       if (idle === null || done === null) return;
@@ -57,7 +58,7 @@ const LABEL = "Copy install prompt";
     // the icon swaps glyphs, as the code blocks' button does
     const showIcon = (copied: boolean) => {
       button.setAttribute("aria-label", copied ? "Copied" : label);
-      button.replaceChildren(icon(copied ? DONE_ICON : COPY_ICON));
+      button.replaceChildren(copied || promptIcon === null ? icon(DONE_ICON) : promptIcon);
     };
     const prompt = button.dataset.installPrompt ?? "";
     copyOnClick(
