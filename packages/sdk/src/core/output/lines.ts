@@ -60,7 +60,8 @@ export function renderLines(report: LintReport): LinesRender {
 
   const err: string[] = [];
   // Run errors — a ClassifyError is a unit the linter could not classify, not a lint finding.
-  for (const e of report.errors) err.push(`error ${e.code} ${e.input}: ${e.message}`);
+  for (const e of report.errors)
+    err.push(`error ${e.code}${e.input === "" ? "" : ` ${e.input}`}: ${e.message}`);
   // Degradation notes (oversized skips, scope exclusions): in-band, never silent. The note marker
   // is the SDK's voice for the client's note treatment (jint: note: ...).
   for (const note of report.notes) err.push(`note: ${note}`);

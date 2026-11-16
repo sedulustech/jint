@@ -973,6 +973,13 @@ function emitReport(
   recordRun(run, reportJson);
   process.stdout.write(rendered.stdout);
   if (rendered.stderr !== "") emitLines(rendered.stderr);
+  // --json keeps the report on stdout, but a run-level error (no input of its own, e.g.
+  // SCOPE_EMPTY) is never stderr-silent: a reader of the terminal must see the run failed.
+  if (cliArgs.json === true) {
+    for (const e of lintReport.errors) {
+      if (e.input === "") emit({ message: `error ${e.code}: ${e.message}` });
+    }
+  }
 }
 
 /** Classify the input and write the report: the part of a run that talks to the classifier. */
