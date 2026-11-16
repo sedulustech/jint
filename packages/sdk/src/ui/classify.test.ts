@@ -263,6 +263,50 @@ describe("the original lookup", () => {
     expect((await get("rule=is_small&input=nope.ts%23e9"))?.status).toBe(404);
     expect((await get("rule=is_small"))?.status).toBe(400);
   });
+  test("an element whose rules span two requests opens each rule's own request", async () => {
+    // a partial cache hit: is_small served from the cache, is_big asked live, same element
+    const run = join(root, "run-split");
+    mkdirSync(run);
+    const request = (rule: string, cached: boolean) =>
+      JSON.stringify({
+        ts: "2026-01-01T00:00:00.000Z",
+        id: "e1",
+        path: "a.ts",
+        cached,
+        request: {
+          state: { source: "function f() {}" },
+          questions: { [`${rule} in e1`]: body.question },
+        },
+        response: { answers: { [`${rule} in e1`]: { type: "predicate", probability: 0.9 } } },
+      });
+    writeFileSync(join(run, "1700000000001-elements-a.ts-1.json"), request("is_small", true));
+    writeFileSync(join(run, "1700000000001-elements-a.ts.json"), request("is_big", false));
+    writeFileSync(
+      join(run, "report.json"),
+      JSON.stringify({
+        classifications: [
+          { input: "a.ts#e1", rule: "is_small", value: 0.9, cached: true },
+          { input: "a.ts#e1", rule: "is_big", value: 0.9 },
+        ],
+      }),
+    );
+    const api = async (path: string) =>
+      (await (
+        await serveApiRequest(new Request(`http://localhost:1/api/runs/${path}`), { root })
+      )?.json()) as {
+        cells?: { rule: string; requestFile?: string }[];
+        classification?: { key: string } | null;
+      };
+    const cells = (await api("run-split")).cells ?? [];
+    expect(Object.fromEntries(cells.map((c) => [c.rule, c.requestFile]))).toEqual({
+      is_small: "1700000000001-elements-a.ts-1.json",
+      is_big: "1700000000001-elements-a.ts.json",
+    });
+    for (const rule of ["is_small", "is_big"]) {
+      const read = await api(`run-split/original?rule=${rule}&input=a.ts%23e1`);
+      expect(read.classification).toMatchObject({ key: `${rule} in e1` });
+    }
+  });
   test("a rule the request never asked reads as no classification, not an error", async () => {
     const read = (await (await get("rule=other_rule&input=a.ts%23e1"))?.json()) as {
       classification: unknown;

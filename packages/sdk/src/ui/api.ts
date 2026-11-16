@@ -97,6 +97,8 @@ export interface RequestItem {
   elementId: string | null;
   /** Rule names the request asked, in canonical spelling when the report provides it. */
   rules: string[];
+  /** Rule names this request's own questions carry: an element's rules can span several requests. */
+  askedRules: string[];
   questionCount: number;
   /** Wall-clock duration, when it can be proven; null rather than an inflated guess. */
   durationMs: number | null;
@@ -422,7 +424,14 @@ export async function readOriginal(
   const result =
     run.results.find((r) => r.file === address.file) ??
     run.results.find((r) => r.file === cellFile) ??
-    // element identity is exact; a bare-path address prefers the file-tier request
+    // element identity is exact; a bare-path address prefers the file-tier request, and among an
+    // element's requests the one that asked this rule
+    run.results.find(
+      (r) =>
+        r.path === path &&
+        (span !== null ? r.elementId === span : !r.element) &&
+        r.askedRules.includes(address.rule),
+    ) ??
     run.results.find(
       (r) => r.path === path && (span !== null ? r.elementId === span : !r.element),
     ) ??
@@ -946,6 +955,7 @@ async function readRequestRow(
       path: statePath,
       elementId,
       rules: ruleNames,
+      askedRules: [...new Set(rules)],
       questionCount: Object.keys(questions).length,
       durationMs: requestDurationMs(requestFile, st.mtimeMs),
       maxProb: probs.length ? Math.max(...probs) : null,
@@ -962,18 +972,28 @@ async function readRequestRow(
   }
 }
 
+/**
+ * The key of one rule's request at one input: a cached and a live rule on one element are two
+ * files.
+ */
+const ruleAt = (input: string, rule: string): string => `${input}\n${rule}`;
+
 function requestFilesByAddress(rows: RequestItem[]): {
+  byRule: Map<string, string>;
   byElement: Map<string, string>;
   byFile: Map<string, string>;
 } {
+  const byRule = new Map<string, string>();
   const byElement = new Map<string, string>();
   const byFile = new Map<string, string>();
   for (const row of rows) {
     if (row.path === null) continue;
-    if (row.element) byElement.set(`${row.path}#${row.elementId}`, row.file);
+    const input = row.element ? `${row.path}#${row.elementId}` : row.path;
+    for (const rule of row.askedRules) byRule.set(ruleAt(input, rule), row.file);
+    if (row.element) byElement.set(input, row.file);
     else byFile.set(row.path, row.file);
   }
-  return { byElement, byFile };
+  return { byRule, byElement, byFile };
 }
 
 function buildCells(
@@ -984,13 +1004,13 @@ function buildCells(
 ): ApiCell[] {
   const cells: ApiCell[] = [];
   if (pathValues === null) return cells;
-  const { byElement, byFile } = requestFilesByAddress(rows);
+  const { byRule, byElement, byFile } = requestFilesByAddress(rows);
   for (const [input, entries] of pathValues) {
     const file = input.split("#")[0]!;
-    const requestFile =
-      (input.includes("#") ? byElement.get(input) : undefined) ?? byFile.get(file);
+    const inputFile = (input.includes("#") ? byElement.get(input) : undefined) ?? byFile.get(file);
     for (const reading of entries) {
       const { rule, element } = reading;
+      const requestFile = byRule.get(ruleAt(input, rule)) ?? inputFile;
       if (reading.refused) {
         cells.push({
           rule,
