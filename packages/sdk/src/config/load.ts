@@ -26,7 +26,7 @@ export const DEFAULT_CONFIG_PATH = "jint.config.json";
 /** Config files discovered in the working directory, in preference order. */
 const CONFIG_FILES = ["jint.config.ts", "jint.config.json"] as const;
 
-/** The first existing config file (TS preferred); null when the directory declares none. */
+/** The first config file that exists, in preference order; null when there is none. */
 export function findConfigFile(cwd = process.cwd()): string | null {
   for (const name of CONFIG_FILES) {
     if (existsSync(resolve(cwd, name))) return resolve(cwd, name);
@@ -45,8 +45,7 @@ const CAPTURE_ADDRESS_SCHEMA = Type.String({
 
 const TARGET_SCHEMA = Type.Union(
   [
-    // derived from THE runtime face (contract RULE_TARGETS) - a new target joins the schema by
-    // joining the union there; a literal copy here would be the drift this pass kills
+    // derived from the runtime target list, never copied, so the schema cannot drift from it
     ...RULE_TARGETS.map((target) => Type.Literal(target)),
     CAPTURE_ADDRESS_SCHEMA,
     Type.Array(
@@ -523,9 +522,9 @@ function resolveRules(
 }
 
 /**
- * Extra top-level keys are ignored by the schema, so a config still written with the old top-level
- * include/exclude would silently measure files it meant to leave out, and a rules array would read
- * as a schema error: say so and name the move.
+ * Extra top-level keys are ignored by the schema, so a top-level include/exclude would silently
+ * measure files it meant to leave out, and a rules array would read as a schema error: say so and
+ * name where the key belongs.
  */
 function rejectRetiredShapes(raw: unknown, source: string): void {
   const config = raw as { rules?: unknown };

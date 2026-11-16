@@ -53,7 +53,6 @@ declare module "jint:sdk" {
     readonly state: Record<string, unknown>;
   }
 
-  /** Declarative policy: the typed noul handler (same shape as JSON noul rules). */
   export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
   /** The provider answer type for the rule's kind (noul-only in v1). */
@@ -135,11 +134,10 @@ declare module "jint:sdk" {
 
   /**
    * One extracted element: the contract Element extended with input + grammar provenance - NOT
-   * redeclared (the runtime type is Element & { input, grammar }; the phantom fields the hand-copy
-   * invented are gone, so completions show exactly what capture() returns). The contract type rides
-   * on an inline import() - a top-level import would make this FILE a module, and `declare module
-   * "jint:sdk"` an augmentation that no longer declares the virtual module (probe-verified: "Cannot
-   * find module 'jint:sdk'").
+   * redeclared (the runtime type is Element & { input, grammar }, so completions show exactly what
+   * capture() returns). The contract type rides on an inline import(): a top-level import would
+   * make this FILE a module, and `declare module "jint:sdk"` an augmentation that does not declare
+   * the virtual module ("Cannot find module 'jint:sdk'").
    */
   export type CapturedElement = import("@jint/contract").Element & {
     /** Which input file the element was extracted from. */

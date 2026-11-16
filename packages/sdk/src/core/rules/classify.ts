@@ -267,9 +267,8 @@ export interface ClassifyResult {
 }
 
 /**
- * The run-wide in-flight-call ceiling. Measured, not guessed: 16 sustained 53.9 rps, zero 429s,
- * median 283ms / p95 380ms (probe over 300 real core elements, 2026-09-28). Quota and pacing are
- * the caller's run-wide wrapper's job; a second cap here could never bind.
+ * The run-wide in-flight-call ceiling. Quota and pacing are the caller's run-wide wrapper's job; a
+ * second cap here could never bind.
  */
 export const DEFAULT_CONCURRENCY = 16;
 
@@ -547,8 +546,7 @@ function scopeNotesFor(
     if (scopedOut > 0) noteParts.push(`rule '${rule.name}' scope excluded ${scopedOut} element(s)`);
   }
   // A file only a RULE scope admitted: every unscoped rule (no include of its own - it
-  // follows the config include) is out too - ONE aggregate line, not one per rule (review
-  // 396888e finding 4's noise lesson).
+  // follows the config include) is out too - ONE aggregate line, not one per rule.
   if (!configAdmits) {
     const unscopedRules = rules.filter((rule) => rule.include === undefined).length;
     if (unscopedRules > 0)
@@ -633,7 +631,7 @@ export function selectElements(
 }
 
 interface ElementJob {
-  /** The walked element's id: state.id -> input suffix -> findings -> UI cells, never positional. */
+  /** The walked element's id, carried from the request through findings to the UI; never positional. */
   readonly id: string;
   readonly element: Element;
   readonly source: string;

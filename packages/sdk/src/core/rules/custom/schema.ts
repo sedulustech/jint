@@ -73,7 +73,7 @@ export type CustomHandleData = import("@jint/contract").NoulHandlerData;
 
 /** One policy decision, positionally paired with the rule's results: what becomes a finding. */
 export interface CustomDecision {
-  /** Null = silent (classification only, no finding). */
+  /** No severity: the result stays a classification and raises no finding. */
   readonly severity: "error" | "warn" | null;
   /**
    * An instruction to the caller fixing the finding (typically an LLM doing the fix); severity says

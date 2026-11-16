@@ -83,8 +83,8 @@ const is_headword_consistent: RuleSchema = {
 };
 
 // The CLI reference: each verb, noun and flag is a section with its own heading, so the model reads
-// one entry whole. A page of defects and a page of the current text separated cleanly: the current
-// entries read at most 0.10, the entries with the old long descriptions at 0.71 and above.
+// one entry whole. Entries in the reference's style read at most 0.10, entries with long
+// descriptions 0.71 and above.
 const has_extra_description: RuleSchema = {
   name: "has_extra_description",
   kind: "noul",

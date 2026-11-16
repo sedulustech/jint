@@ -91,7 +91,7 @@ const baseConfig = {
   ],
 };
 
-describe("barrel files measure clean (real-jev dogfood defect)", () => {
+describe("barrel files measure clean", () => {
   test("a re-export-only file yields an import element and no WALK_FAILED", async () => {
     const dir = "tmp/barrel-test";
     mkdirSync(dir, { recursive: true });
@@ -117,7 +117,7 @@ describe("barrel files measure clean (real-jev dogfood defect)", () => {
       (m) => m.classification.rule === "probe_imports",
     )!;
     expect(elementClassification.classification.input).toMatch(/#[0-9a-f-]{36}$/);
-    // the zero-elements failure that dogfood hit must not fire on a legal barrel file
+    // the zero-elements failure must not fire on a legal barrel file
     const failures = events.filter(
       (e) =>
         e.type === "error" &&
@@ -1740,8 +1740,8 @@ describe("file-operand scopes (the one config-scope test, evaluated on the named
     const measured = events.filter(
       (e): e is Extract<LintEvent, { type: "classification" }> => e.type === "classification",
     );
-    // the regression: has_filename_mismatch-shaped unscoped files rule measures NOTHING on the
-    // scope-excluded operand (run 1792428499081 measured it before the fix)
+    // an unscoped files rule shaped like has_filename_mismatch measures NOTHING on the
+    // scope-excluded operand
     expect(measured.map((m) => m.classification.rule)).toEqual(["probe_md_only"]);
     // one line, the unscoped-rule note vocabulary - never silence
     const notes = events.filter(
