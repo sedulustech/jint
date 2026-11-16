@@ -1,16 +1,28 @@
 ---
 /**
- * The primary button: the call to action a page leads with. A link whose side rules draw from the
- * middle out on hover and focus. Reuse it where one action is prominent (the landing page's two
- * links, the download rows); a page has no use for it when nothing on it is the main action.
+ * The primary button: the call to action a page leads with, and the docs pager's previous and next.
+ * Its side rules draw from the middle out on hover and focus. With an href it is a link; without
+ * one it is a button for a page script to act on. Reuse it where one action is prominent; a page
+ * has no use for it when nothing on it is the main action. Any other attribute (rel, aria-label,
+ * data-*) passes through to the element.
  */
-interface Props {
-  href: string;
-}
-const { href } = Astro.props;
+import type { HTMLAttributes } from "astro/types";
+
+type Props = { href?: string } & HTMLAttributes<"a"> & HTMLAttributes<"button">;
+const { href, ...rest } = Astro.props;
 ---
 
-<a class="primary" href={href}><slot /></a>
+{
+  href === undefined ? (
+    <button class="primary" type="button" {...rest}>
+      <slot />
+    </button>
+  ) : (
+    <a class="primary" href={href} {...rest}>
+      <slot />
+    </a>
+  )
+}
 
 <style>
   .primary {
@@ -19,7 +31,12 @@ const { href } = Astro.props;
     place-items: center;
     min-height: 2.75rem; /* a touch target on a phone */
     padding-inline: var(--s2);
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
     text-decoration: none;
+    cursor: pointer;
   }
   .primary:focus-visible {
     outline: none;

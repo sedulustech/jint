@@ -100,9 +100,9 @@ const imageUrl = new URL(image, site).href;
   }
 
   /*
-   * The palette: five tokens, one definition each. light-dark(light, dark) follows color-scheme:
+   * The palette: seven tokens, one definition each. light-dark(light, dark) follows color-scheme:
    * the system's by default, the toggle's data-theme when one is set. A color that is not one of
-   * these five does not belong on the site.
+   * these seven does not belong on the site.
    */
   :root {
     color-scheme: light dark;
@@ -111,6 +111,8 @@ const imageUrl = new URL(image, site).href;
     --muted: light-dark(#5c5c57, #a3a3a3); /* secondary text */
     --rule: light-dark(#d6d4ca, #333); /* borders and dividers */
     --code-bg: light-dark(#e8e6dc, #1a1a1a); /* code blocks, inline code and tables */
+    --sev-warn: light-dark(#b45309, #fcd34d); /* warn findings, the app's severity colors */
+    --sev-error: light-dark(#b91c1c, #f87171); /* error findings */
     --code-size: 0.8rem; /* code blocks and tables share one size */
     --font-body: "IBM Plex Mono", ui-monospace, monospace;
     /* spacing: one 8px grid, every gap and pad is a multiple */

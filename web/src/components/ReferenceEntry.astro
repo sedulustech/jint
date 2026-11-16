@@ -1,6 +1,7 @@
 ---
 import { Code } from "astro:components";
 import type { RefEntry } from "../../../scripts/generate-schema";
+import { CODE_HIGHLIGHT } from "../lib/consts";
 import { inline } from "../lib/inline";
 
 // One reference entry, drawn from the generated data: the name on the left of the heading, its
@@ -51,12 +52,7 @@ const nested = entry.level === 4;
   </p>
   {
     entry.example !== undefined && (
-      <Code
-        code={entry.example}
-        lang="sh"
-        themes={{ light: "github-light", dark: "github-dark" }}
-        defaultColor={false}
-      />
+      <Code code={entry.example} lang="sh" {...CODE_HIGHLIGHT} />
     )
   }
 </div>

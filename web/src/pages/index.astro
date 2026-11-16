@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Splash from "../components/Splash.astro";
 import PrimaryButton from "../components/PrimaryButton.astro";
+import CopyInstallPrompt from "../components/CopyInstallPrompt.astro";
 
 const DOWNLOAD = "/download/";
 ---
@@ -24,6 +25,7 @@ const DOWNLOAD = "/download/";
 >
   <Splash>
     <h1 class="visually-hidden">jint</h1>
+    <CopyInstallPrompt variant="primary" />
     <Fragment slot="links">
       <PrimaryButton href={DOWNLOAD}>Download</PrimaryButton>
       <PrimaryButton href="/docs/what-is-jint/">Docs</PrimaryButton>

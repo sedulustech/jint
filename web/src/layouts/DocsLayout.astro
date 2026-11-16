@@ -1,7 +1,9 @@
 ---
 import Layout from "./Layout.astro";
 import { docGroups, labelOf, type Doc } from "../lib/docs";
+import HeaderLogo from "../components/HeaderLogo.astro";
 import HeaderTools from "../components/HeaderTools.astro";
+import PrimaryButton from "../components/PrimaryButton.astro";
 import CopyCode from "../components/CopyCode.astro";
 import MenuToggle from "../components/MenuToggle.astro";
 
@@ -47,7 +49,7 @@ const jsonLd = [
 <Layout {title} {description} {jsonLd} type="article" markdown={`/docs/${doc.id}.md`}>
   <div class="page">
     <header>
-      <a href="/" aria-label="jint"><img src="/logo.svg" alt="jint" width="64" height="46" /></a>
+      <HeaderLogo />
       <div class="header-end">
         <HeaderTools />
         <MenuToggle />
@@ -80,14 +82,18 @@ const jsonLd = [
         {
           previous && next && (
             <footer class="pager" aria-label="pages">
-              <a href={`/docs/${previous.id}/`} rel="prev">
-                <span>Previous</span>
-                {labelOf(previous)}
-              </a>
-              <a href={`/docs/${next.id}/`} rel="next">
-                <span>Next</span>
-                {labelOf(next)}
-              </a>
+              <PrimaryButton href={`/docs/${previous.id}/`} rel="prev">
+                <span class="page-link">
+                  <span>Previous</span>
+                  {labelOf(previous)}
+                </span>
+              </PrimaryButton>
+              <PrimaryButton href={`/docs/${next.id}/`} rel="next">
+                <span class="page-link next">
+                  <span>Next</span>
+                  {labelOf(next)}
+                </span>
+              </PrimaryButton>
             </footer>
           )
         }
@@ -116,12 +122,6 @@ const jsonLd = [
     display: flex;
     align-items: center;
     gap: var(--s1);
-  }
-
-  header img {
-    display: block;
-    width: 4rem;
-    height: auto;
   }
 
   /* The sidebar is part of the page, not pinned: it scrolls away with the document. */
@@ -189,29 +189,25 @@ const jsonLd = [
     border-top: 1px solid var(--rule);
   }
 
-  .pager a {
+  .page-link {
     display: grid;
     gap: 0.25rem;
+    justify-self: start;
+    padding-block: var(--s1);
     color: var(--fg);
-    text-decoration: none;
   }
 
-  .pager a:last-child {
+  .page-link.next {
+    justify-self: end;
     text-align: right;
   }
 
-  .pager span {
+  .page-link span {
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted);
-  }
-
-  .pager a:hover,
-  .pager a:focus-visible {
-    text-decoration: underline;
-    outline: none;
   }
 
   @media (max-width: 48rem) {
@@ -276,6 +272,24 @@ const jsonLd = [
   main ul,
   main ol {
     margin-block: 0 var(--s2);
+  }
+
+  /* a docs/figures/ SVG: no padding of its own, so its spacing is set here */
+  main figure {
+    margin: var(--s4);
+  }
+
+  main figure > svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* on a phone every pixel of width is legibility: the figure takes the full column */
+  @media (max-width: 48rem) {
+    main figure {
+      margin-inline: 0;
+    }
   }
 
   main pre {

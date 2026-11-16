@@ -1,0 +1,109 @@
+---
+/**
+ * Copies the install prompt (lib/install-prompt.ts) for the reader to paste into their agent. The
+ * landing page shows it as a primary button; the header shows it as an icon among the header tools.
+ */
+import { COPY_ICON } from "../lib/copy";
+import { INSTALL_PROMPT } from "../lib/install-prompt";
+import PrimaryButton from "./PrimaryButton.astro";
+
+interface Props {
+  variant: "primary" | "icon";
+}
+const { variant } = Astro.props;
+const LABEL = "Copy install prompt";
+---
+
+{
+  variant === "primary" ? (
+    <PrimaryButton data-install-prompt={INSTALL_PROMPT}>
+      <span class="labels">
+        <span data-idle>{LABEL}</span>
+        <span data-done style="visibility: hidden" aria-hidden="true">
+          Copied
+        </span>
+      </span>
+    </PrimaryButton>
+  ) : (
+    <button
+      class="icon"
+      type="button"
+      data-install-prompt={INSTALL_PROMPT}
+      aria-label={LABEL}
+      title={LABEL}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d={COPY_ICON} />
+      </svg>
+    </button>
+  )
+}
+
+<script>
+  import { COPY_ICON, DONE_ICON, copyOnClick, icon } from "../lib/copy";
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-install-prompt]")) {
+    const idle = button.querySelector<HTMLElement>("[data-idle]");
+    const done = button.querySelector<HTMLElement>("[data-done]");
+    const label = button.getAttribute("aria-label") ?? "";
+    // the labels share one grid cell, so the button keeps the longer label's width
+    const showLabel = (copied: boolean) => {
+      if (idle === null || done === null) return;
+      idle.style.visibility = copied ? "hidden" : "";
+      done.style.visibility = copied ? "" : "hidden";
+      idle.toggleAttribute("aria-hidden", copied);
+      done.toggleAttribute("aria-hidden", !copied);
+    };
+    // the icon swaps glyphs, as the code blocks' button does
+    const showIcon = (copied: boolean) => {
+      button.setAttribute("aria-label", copied ? "Copied" : label);
+      button.replaceChildren(icon(copied ? DONE_ICON : COPY_ICON));
+    };
+    const prompt = button.dataset.installPrompt ?? "";
+    copyOnClick(
+      button,
+      () => prompt,
+      idle === null ? showIcon : showLabel,
+      // no clipboard access: show the prompt in a dialog, selected, for the reader to copy by hand
+      () => window.prompt("Copy the install prompt", prompt),
+    );
+  }
+</script>
+
+<style>
+  .labels {
+    display: grid;
+  }
+  .labels > span {
+    grid-area: 1 / 1;
+    text-align: center;
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    opacity: 0.75;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .icon:hover,
+  .icon:focus-visible {
+    opacity: 1;
+    outline: none;
+  }
+  /* :global - the copied state swaps in a glyph built by script, which carries no scope attribute */
+  .icon :global(svg) {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>
