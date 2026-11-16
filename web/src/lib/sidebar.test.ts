@@ -54,6 +54,7 @@ describe("web/sidebar.json against docs/", () => {
   const onSite = (relative: string) =>
     relative.endsWith(".md") &&
     (!relative.includes("/") ||
+      relative.startsWith("guides/") ||
       relative.startsWith("use-cases/") ||
       relative.startsWith("reference/"));
   const ids = readdirSync(DOCS, { recursive: true, encoding: "utf8" })

@@ -64,6 +64,9 @@ repeats another. The user may not know that.
 
 - `true` names the exact observable condition for yes. `false` does the same for no. Both sides
   are exhaustive.
+- Write `true` and `false` as statements that decide the answer, never as questions. The
+  instructions ask the question and the criteria say what makes it yes or no: `true: "The name
+contains an underscore."`, not `true: "Does the name contain an underscore?"`.
 - Make the defect the `true` side and list its concrete forms. The model leans yes, and positive
   phrasing hides defects: a file-name rule read a body for another subject as fitting (0.97)
   under "does the name fit?", and as a mismatch (0.96) under "does the name promise a different
@@ -76,7 +79,7 @@ repeats another. The user may not know that.
 
 ## 4. The kind
 
-- **noul** (the default): yes/no. The reading is the model's probability that the answer is `true`,
+- **noul** (the default): yes/no. The value is the model's probability that the answer is `true`,
   the same quantity a language model uses to choose its next word, and it carries meaning: 0.9 is a
   strong lean to yes, 0.1 a strong lean to no, and 0.5 is undecided, where the model could not
   choose. 0.45 against 0.55 is not a ranking. Use noul unless the property is graded.
@@ -88,8 +91,8 @@ repeats another. The user may not know that.
   choice can be undecided, which is a signal to recalibrate, not to act on the code (`jint docs
 confidence`).
 - Never set a noul `greater_than` threshold below 0.5: below the undecided point the rule fires on
-  readings that lean no. If the gap between healthy and defective readings only allows a lower
-  one, reword the rule until the readings separate; do not lower the threshold.
+  values that lean no. If the gap between healthy and defective values only allows a lower
+  one, reword the rule until the values separate; do not lower the threshold.
 - The handle follows the kind: noul takes `warn` and `error` thresholds, score takes a `map` with
   one level per criteria entry, choice takes one tier per option. Every field is in
   `jint docs reference/config`.
@@ -100,7 +103,7 @@ confidence`).
 ## 5. Calibrate
 
 1. Run on real units: `jint run <paths> --config <config> --json`.
-2. Label each reading healthy or defective by hand. Reruns show stability, only labels show
+2. Label each classification healthy or defective by hand. Reruns show stability, only labels show
    correctness.
 3. Set the thresholds inside the gap: the healthy minimum against the defective maximum. If they
    overlap, do not ship the rule.
@@ -119,7 +122,7 @@ conventions show in a few units.
 ## 6. Scope first
 
 Scoping is running a rule on the narrowest slice of real code that can answer the question in
-hand, and widening only once that slice answers it. Each reading is a paid request, and a rule that
+hand, and widening only once that slice answers it. Each classification is a paid request, and a rule that
 does not yet separate healthy from defective units says nothing at the width of a whole codebase.
 
 - Start with one rule, a few units of one kind and one package. `jint capture --rule <name>` lists
@@ -130,12 +133,12 @@ does not yet separate healthy from defective units says nothing at the width of 
   code?") and take the smallest sample that settles it. Grow the sample only when the small one is
   ambiguous.
 - Widen in steps: a few units, one package, then the whole corpus. At each step read the fire rate
-  and the top readings by hand before the next. A rule that fires on a third of healthy code is
+  and the top values by hand before the next. A rule that fires on a third of healthy code is
   reworded before it runs wider.
 - Cover many kinds of unit rather than many units of one kind: a kind's conventions show in a few
   units.
 
-## 7. Show the readings
+## 7. Show the classifications
 
 Start `jint ui serve` before you run, so the run prints its own address, and give that address to the user to review:
 

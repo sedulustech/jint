@@ -1,15 +1,11 @@
 [
   {
     "label": "Start",
-    "items": ["what-is-jint", "replacing-code-reviews", "install"]
-  },
-  {
-    "label": "CLI",
-    "items": ["how-to-use"]
+    "items": ["what-is-jint", "install", "how-to-use"]
   },
   {
     "label": "Rules",
-    "items": ["what-are-rules", "writing-rules", "targets", "calibration", "confidence"]
+    "items": ["what-are-rules", "guides/writing-rules", "targets", "calibration", "confidence"]
   },
   {
     "label": "Capturing elements",
