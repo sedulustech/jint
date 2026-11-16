@@ -1,0 +1,111 @@
+---
+/**
+ * Tap to enlarge a docs figure on a phone. Below 48rem a figure is drawn at about half its desktop
+ * size, so a tap opens it in a full-screen dialog at the desktop width, scrolled sideways. Wider
+ * screens draw every figure at full size and get no zoom.
+ */
+---
+
+<dialog class="zoom" aria-label="Figure">
+  <form method="dialog">
+    <button class="close" aria-label="Close figure">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6l12 12"></path></svg>
+    </button>
+  </form>
+  <div class="pan" data-figure-zoom></div>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>("dialog.zoom");
+  const pan = dialog?.querySelector<HTMLElement>("[data-figure-zoom]");
+  const narrow = matchMedia("(max-width: 48rem)");
+
+  for (const figure of document.querySelectorAll<HTMLElement>("main figure")) {
+    const svg = figure.querySelector("svg");
+    if (dialog == null || pan == null || svg === null) continue;
+    const open = () => {
+      if (!narrow.matches) return;
+      pan.replaceChildren(svg.cloneNode(true));
+      dialog.showModal();
+      pan.scrollLeft = (pan.scrollWidth - pan.clientWidth) / 2;
+    };
+    // a figure is a control only while a tap can enlarge it
+    const sync = () => {
+      figure.toggleAttribute("data-zoomable", narrow.matches);
+      if (narrow.matches) {
+        figure.setAttribute("role", "button");
+        figure.setAttribute("tabindex", "0");
+        figure.setAttribute("aria-label", "Enlarge figure");
+      } else {
+        for (const name of ["role", "tabindex", "aria-label"]) figure.removeAttribute(name);
+      }
+    };
+    sync();
+    narrow.addEventListener("change", sync);
+    figure.addEventListener("click", open);
+    figure.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
+</script>
+
+<style>
+  .zoom {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .zoom[open] {
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+  form {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--s1);
+  }
+  .close {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .close svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+  .pan {
+    display: grid;
+    align-items: center;
+    overflow: auto;
+    padding: var(--s2);
+  }
+  /* :global - the figure is cloned in by script, so it carries no scope attribute */
+  .pan :global(svg) {
+    display: block;
+    width: 48rem;
+    max-width: none;
+    height: auto;
+  }
+  :global(main figure[data-zoomable]) {
+    cursor: zoom-in;
+  }
+</style>
