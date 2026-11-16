@@ -17,7 +17,7 @@ Write it inside the pattern it applies to:
 A `capture.<name>.*` directive must sit on a pattern that binds `@<name>`. Set each name once per
 file. A directive not in the table fails at load. See [captures](captures.md).
 
-<!-- generated:directives — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:directives — do not edit. Regenerate with `bun run schema:generate`. -->
 
 | directive                    | values                         | what it does                                                                                                                                                                                                                          |
 | ---------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

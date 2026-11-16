@@ -13,7 +13,7 @@ elements.
 
 ## Cross-language targets
 
-<!-- generated:targets — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:targets — do not edit. Regenerate with `bun run schema:generate`. -->
 
 | target           | resolves to                                                                                                                              |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

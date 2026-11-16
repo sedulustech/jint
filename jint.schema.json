@@ -1,5 +1,5 @@
 {
-  "$comment": "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).",
+  "$comment": "GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).",
   "type": "object",
   "properties": {
     "$schema": {

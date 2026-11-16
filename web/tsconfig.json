@@ -2,5 +2,9 @@
   "extends": "astro/tsconfigs/strict",
   // the jint:sdk virtual module the site's rule files import their types from
   "include": [".astro/types.d.ts", "**/*", "../packages/sdk/src/sdk.d.ts"],
+  // jint:rules/<domain> is the loader's name for a rules package; this points the type checker at it
+  "compilerOptions": {
+    "paths": { "jint:rules/*": ["../packages/rules/*/src/index.ts"] }
+  },
   "exclude": ["dist"]
 }

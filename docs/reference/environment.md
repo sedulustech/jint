@@ -9,7 +9,7 @@ sidebar:
 
 Every environment variable jint reads, generated from the source.
 
-<!-- generated:reference — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:reference — do not edit. Regenerate with `bun run schema:generate`. -->
 
 ## Variables
 

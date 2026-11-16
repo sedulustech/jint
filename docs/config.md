@@ -11,7 +11,7 @@ A run reads one config file, either in `.json` or `.ts` form.
 
 `jint.config.ts` has precedence. `--config` overrides discovery. A run with no config fails.
 
-<!-- generated:config — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:config — do not edit. Regenerate with `bun run schema:generate`. -->
 
 ```ts
 import { defineConfig } from "jint:sdk";
@@ -51,7 +51,7 @@ export default defineConfig({
 
 These keys are not rules. They set what a run reads and how it asks.
 
-<!-- generated:run-settings — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:run-settings — do not edit. Regenerate with `bun run schema:generate`. -->
 
 | Key              | Type        | Meaning                                                                                                                                                                              |
 | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -71,7 +71,7 @@ The `rules` key holds `include`, `exclude` and `use`. These keys are rule settin
 
 Each entry of `rules.use` is a rule name or a rule object with these fields.
 
-<!-- generated:rule-fields — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:rule-fields — do not edit. Regenerate with `bun run schema:generate`. -->
 
 | Field                       | Type           | Meaning                                                                                                                                                                                                            |
 | --------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
