@@ -1,0 +1,34 @@
+---
+/**
+ * The jint logo, inline so it follows the page's color scheme: the box takes --bg and the marks
+ * --fg, so the toggle's light or dark applies to it. public/logo.svg is the same drawing in fixed
+ * colors, for places outside the site (the README).
+ */
+interface Props {
+  class?: string;
+  width: number;
+  height: number;
+}
+const { class: className, width, height } = Astro.props;
+---
+
+<svg
+  class={className}
+  viewBox="36.5 19.5 167 121"
+  width={width}
+  height={height}
+  aria-hidden="true"
+>
+  <rect x="36.5" y="19.5" width="167" height="121" fill="var(--bg)"></rect>
+  <g fill="none" stroke="var(--fg)" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M71 45H62V115H71" stroke-width="7"></path>
+    <path d="M81.125 55H73.125V105H81.125" stroke-width="5.5"></path>
+    <path d="M91 65H84V95H91" stroke-width="4"></path>
+    <g transform="translate(240 0) scale(-1 1)">
+      <path d="M71 45H62V115H71" stroke-width="7"></path>
+      <path d="M81.125 55H73.125V105H81.125" stroke-width="5.5"></path>
+      <path d="M91 65H84V95H91" stroke-width="4"></path>
+    </g>
+  </g>
+  <rect x="101.875" y="43.75" width="36.25" height="72.5" fill="var(--fg)"></rect>
+</svg>

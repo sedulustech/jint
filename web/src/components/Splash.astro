@@ -4,12 +4,13 @@
  * 404 share it so they stay identical; pass the links in the "links" slot.
  */
 import HeaderTools from "./HeaderTools.astro";
+import Logo from "./Logo.astro";
 ---
 
 <div class="corner"><HeaderTools /></div>
 <main>
   <slot name="above" />
-  <img src="/logo.svg" alt="" width="240" height="174" />
+  <Logo class="logo" width={240} height={174} />
   <slot />
   <nav aria-label="jint">
     <slot name="links" />
@@ -29,7 +30,7 @@ import HeaderTools from "./HeaderTools.astro";
     justify-items: center;
     gap: 2.25rem;
   }
-  img {
+  .logo {
     display: block;
     width: min(240px, 70vw);
     height: auto;

@@ -1,9 +1,10 @@
 ---
 /** The header's home link: the logo, with the release channel to its right while jint is in beta. */
+import Logo from "./Logo.astro";
 ---
 
 <a class="home" href="/" aria-label="jint beta">
-  <img src="/logo.svg" alt="" width="64" height="46" />
+  <Logo class="logo" width={64} height={46} />
   <span class="channel">beta</span>
 </a>
 
@@ -15,7 +16,7 @@
     color: var(--fg);
     text-decoration: none;
   }
-  img {
+  .logo {
     display: block;
     width: 4rem;
     height: auto;
