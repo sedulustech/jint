@@ -167,7 +167,7 @@ function RunLanding({ runList, onPick }: { runList: RunSummary[]; onPick: (id: s
                   {run.configPath !== null && ` · ${baseName(run.configPath)}`}
                   {run.configPath === null &&
                     (run.legacy ? " · migrated run" : " · default rules")}{" "}
-                  · {relTime(run.mtime)} · {run.requests} req
+                  · {relTime(run.createdAt)} · {run.requests} req
                 </span>
               </Button>
             ))}

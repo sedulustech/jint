@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { inCall, recordRequests, recordRunManifest, recordSummary } from "./debug.ts";
+import { runIdStartMs } from "./run-id.ts";
 
 const DIR = "tmp/provider-record-test";
 /** RunsBase() resolves the store to an absolute path. */
@@ -67,7 +68,7 @@ describe("recordRequests", () => {
 
     const list = listRequests(DIR);
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatch(/^\d+\/\d+-files-a\.ts\.json$/);
+    expect(list[0]).toMatch(/^[0-9a-f-]{36}\/\d+-files-a\.ts\.json$/);
 
     const request = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
     expect(request.url).toBe("https://api.test/v1/decisions");
@@ -95,9 +96,9 @@ describe("recordRequests", () => {
       const second = recordRequests({ fetch: passthrough() });
       const secondDir = recordSummary()!.dir;
       expect(secondDir).not.toBe(firstDir);
-      expect(firstDir).toBe(`${ABS}/1700000000000`);
-      // the next free millisecond: still a timestamp, still sorts after the first
-      expect(secondDir).toBe(`${ABS}/1700000000001`);
+      // each a UUIDv7 of its own that carries the shared start
+      expect(runIdStartMs(firstDir.split("/").pop()!)).toBe(1_700_000_000_000);
+      expect(runIdStartMs(secondDir.split("/").pop()!)).toBe(1_700_000_000_000);
       expect(first).toBeDefined();
       expect(second).toBeDefined();
     } finally {
@@ -113,7 +114,7 @@ describe("recordRequests", () => {
         const config = recordRequests({ fetch: passthrough() });
         dirs.push(recordSummary()!.dir);
         await recordOnce(config, { path: `run${i}.ts`, content: "x" });
-        recordRunManifest({ configPath: null, cwd: `/run${i}`, argv: [], ts: "t" });
+        recordRunManifest({ configPath: null, cwd: `/run${i}`, argv: [] });
       }
       expect(new Set(dirs).size).toBe(8);
       for (let i = 0; i < 8; i++) {
@@ -133,7 +134,7 @@ describe("recordRequests", () => {
       mkdirSync(`${DIR}/1700000000000`, { recursive: true });
       writeFileSync(`${DIR}/1700000000000/report.json`, "{}");
       recordRequests({ fetch: passthrough() });
-      expect(recordSummary()!.dir).toBe(`${ABS}/1700000000001`);
+      expect(recordSummary()!.dir).not.toBe(`${ABS}/1700000000000`);
       expect(readdirSync(`${DIR}/1700000000000`)).toEqual(["report.json"]);
     } finally {
       clock.mockRestore();
@@ -183,7 +184,7 @@ describe("recordRequests", () => {
 
     const summary = recordSummary()!;
     expect(summary.dir).toMatch(
-      new RegExp(`(.*?)${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\$&")}/\\d+$`),
+      new RegExp(`(.*?)${DIR.replace(/[.*+?^{}()|[\]\\]/g, "\\$&")}/[0-9a-f-]{36}$`),
     );
     expect(summary.count).toBe(2);
     expect(summary.override).toBe(true);
@@ -210,7 +211,7 @@ describe("recordRequests", () => {
     });
     const list = listRequests(DIR);
     expect(list).toHaveLength(2);
-    expect(list[0]).toMatch(/^\d+\/\d+-elements-a\.ts(-1)?\.json$/);
+    expect(list[0]).toMatch(/^[0-9a-f-]{36}\/\d+-elements-a\.ts(-1)?\.json$/);
     const texts = list.map((f) => readFileSync(`${DIR}/${f}`, "utf8"));
     const files = texts.map((t) => JSON.parse(t));
     const failed = files.find((f) => f.status === 429);
@@ -259,7 +260,7 @@ describe("recordRequests", () => {
     await inCall({ id: "L1", path: "src/a.ts", source: "x" }, ["r"], () =>
       config.fetch!("https://api.test/v1/decisions", { method: "POST", body: "{}" }),
     );
-    recordRunManifest({ configPath: null, cwd: ".", argv: [], ts: "t" });
+    recordRunManifest({ configPath: null, cwd: ".", argv: [] });
     const manifest = JSON.parse(readFileSync(`${recordSummary()!.dir}/manifest.json`, "utf8"));
     expect(manifest.usage).toEqual({ input: 40, output: 4, cached: 8 });
     expect(manifest.model).toBe("m-reply");

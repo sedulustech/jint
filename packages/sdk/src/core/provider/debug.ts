@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { newRunId } from "./run-id.ts";
 import type { ClassifierConfig } from "./client.ts";
 
 /**
@@ -35,25 +36,26 @@ let runModel: string | undefined;
 let runHost: string | undefined;
 
 /**
- * Claims the run's own directory: the first millisecond at or after `start` that no other run
- * holds. mkdir without `recursive` fails with EEXIST atomically, so two runs that start in the same
- * millisecond (parallel processes) can never share a dir, and a run never writes into a past one.
- * An unwritable store is not claimable and is not an error here: the dir is returned as named and
- * each write warns, as ever - recording never breaks the run it observes.
+ * Claims the run's own directory, named by a new run id. mkdir without `recursive` fails with
+ * EEXIST atomically, so a run never writes into another's dir: on the rare clash it draws a new id.
+ * An unwritable store is not claimable: it warns with the cause and the dir is returned as named,
+ * so recording never breaks the run it observes.
  */
 function claimRunDir(base: string, start: number): string {
   try {
     mkdirSync(base, { recursive: true });
-    for (let id = start; ; id++) {
+    for (;;) {
+      const dir = `${base}/${newRunId(start)}`;
       try {
-        mkdirSync(`${base}/${id}`);
-        return `${base}/${id}`;
+        mkdirSync(dir);
+        return dir;
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
       }
     }
-  } catch {
-    return `${base}/${start}`;
+  } catch (err) {
+    process.emitWarning(new Error(`jint: cannot claim a run dir in ${base}`, { cause: err }));
+    return `${base}/${newRunId(start)}`;
   }
 }
 
@@ -186,7 +188,10 @@ export function recordRunManifest(manifest: {
   configPath: string | null;
   cwd: string;
   argv: readonly string[];
-  ts: string;
+  /** When the run started; the recorder's own start unless given (a fixture seals it). */
+  createdAt?: string;
+  /** When the run's record last changed; the manifest write unless given. */
+  updatedAt?: string;
   /**
    * Per-rule declarative handle snapshot (rule -> NoulHandlerData | ScoreHandlerData), so any
    * consumer can recompute severity exactly. custom-tier rules are absent (code policy, not data).
@@ -199,7 +204,11 @@ export function recordRunManifest(manifest: {
 }): void {
   if (runSummary === null) return;
   try {
-    const withRunStats = { ...manifest, ...runStats(), providerHost: runHost };
+    const stamps = {
+      createdAt: new Date(runStartedAt).toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const withRunStats = { ...stamps, ...manifest, ...runStats(), providerHost: runHost };
     writeFileSync(`${runSummary.dir}/manifest.json`, JSON.stringify(withRunStats, null, 2) + "\n");
   } catch (err) {
     // Recording never breaks the run it observes: the dropped manifest IS the warning.
@@ -280,8 +289,6 @@ export function recordRequests(
   config: ClassifierConfig | undefined,
   route?: { model: string; host: string },
 ): ClassifierConfig {
-  // The run id is the run's start, claimed as the run dir's name: one timestamp, one identity. A
-  // run that starts in the same millisecond as another takes the next free one.
   runStartedAt = Date.now();
   usageTotals = { input: 0, output: 0, cached: 0 };
   runModel = route?.model;

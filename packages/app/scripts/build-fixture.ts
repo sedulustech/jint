@@ -205,13 +205,17 @@ function named(inner: Classifier): Classifier {
     askedRules.run(Object.keys(questions), () => inner(state, questions));
 }
 
-export async function main(outDirOverride?: string): Promise<void> {
-  const outDir = outDirOverride ?? process.argv[2] ?? defaultOutDir;
+type FixtureReport = Awaited<ReturnType<typeof collectReport>>;
+
+/**
+ * Lints the fixture sources with the stub classifier while recording into the staging root, then
+ * writes the run's report and manifest with the sentinels in place of their per-run values.
+ */
+async function recordFixtureRun(): Promise<FixtureReport> {
   rmSync(stagingDir, { recursive: true, force: true });
   mkdirSync(stagingDir, { recursive: true });
-  // activate recording BEFORE the first classifier call; point it at our staging root
+  // recording starts with the first classifier call, so the staging root is set before it
   process.env.JINT_RUNS_DIR = stagingDir;
-
   const config = {
     input: "",
     rules: Object.values(baseline),
@@ -239,57 +243,41 @@ export async function main(outDirOverride?: string): Promise<void> {
   } finally {
     crypto.randomUUID = realRandomUUID;
   }
-
-  // the engine's own writers persist report + manifest next to the captures recording already
-  // wrote. The report's run pointer and the manifest's wall-clock fields carry per-run entropy —
-  // replace them with the sentinels before anything hits disk.
   report.run.id = SENTINEL_RUN_ID;
   report.run.dir = SENTINEL_RUN_DIR;
-  // wall time is per-run entropy, sealed like the manifest's
   report.run.durationMs = 0;
   recordRunReport(renderJson(report));
   recordRunManifest({
     configPath: "fixtures/sources/elements",
     cwd: SENTINEL_CWD,
     argv: ["bun", "fixtures:gen"],
-    ts: SENTINEL_TS,
+    createdAt: SENTINEL_TS,
+    updatedAt: SENTINEL_TS,
     handles: Object.fromEntries(
       config.rules.flatMap((r) => (r.handleData ? [[r.name, r.handleData] as const] : [])),
     ),
   });
-
-  // hoist <staging>/<runid>/* -> outDir/, deterministically: the recorder's <unixts>- filename
-  // prefix and the per-record ts/durationMs are per-run entropy, so each capture is rewritten with
-  // the sentinels and hoisted under its stripped name (the -<n> suffixes that disambiguate multiple
-  // captures per source file stay). Manifest gets the same treatment for durationMs.
   const summary = recordSummary();
   if (summary === null || summary.count === 0)
     throw new Error("recording wrote no captures; generator is broken");
-  // JINT_RUNS_DIR names the runs dir ITSELF (741b1dd's split): captures land at
-  // <stagingDir>/<runId>, not <stagingDir>/runs/<runId>
-  // The SDK mints one recorder client per classifier seam, and each recordRequests call re-stamps
-  // the run id — so one lint can split its captures across several <stagingDir>/<runId>/ dirs (a
-  // stub this fast usually lands them in one millisecond, but that is luck, not contract). Hoist
-  // EVERY numeric run dir (the staging root is rm'd at entry, so all of them are ours) and rebuild
-  // capture names deterministically: the recorder's <unixts>- stamp AND its -<n> collision suffixes
-  // are both timing artifacts (existsSync races across concurrent requests), so both are stripped
-  // and the -<n> suffixes are re-assigned by content order. Names stay path-keyed + suffixed —
-  // multiple captures per source file remain unambiguous, and nothing resolves a capture by its
-  // run-id prefix (the API serves the dir; nothing parses the stamp back out).
-  const runDirs = readdirSync(stagingDir)
-    .filter((n) => /^\d+$/.test(n))
+  return report;
+}
+
+interface StagedCapture {
+  base: string;
+  raw: string;
+  /** The content without its per-run ts and durationMs, so ordering on it is the same every run. */
+  key: string;
+  json: Record<string, unknown> | null;
+}
+
+/** Every file of every run dir under the staging root, under its name without the <unixts>- stamp. */
+function readStagedCaptures(): StagedCapture[] {
+  const runDirs = readdirSync(stagingDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
     .sort();
   if (runDirs.length === 0) throw new Error(`no record run dirs under ${stagingDir}`);
-  rmSync(outDir, { recursive: true, force: true });
-  mkdirSync(outDir, { recursive: true });
-  interface StagedCapture {
-    base: string;
-    raw: string;
-    // content with the wall-clock fields stripped: raw bytes carry per-run ts and durationMs, and
-    // ordering on those would assign the -<n> suffixes differently per run
-    key: string;
-    json: Record<string, unknown> | null;
-  }
   const staged: StagedCapture[] = [];
   for (const run of runDirs) {
     for (const f of readdirSync(join(stagingDir, run))) {
@@ -300,8 +288,7 @@ export async function main(outDirOverride?: string): Promise<void> {
         continue;
       }
       if (dest === "manifest.json") {
-        // recordRunManifest stamps durationMs internally; seal it after the write. Its ts is the
-        // sentinel the builder already passed, so it needs no stripping.
+        // durationMs is the recorder's own stamp; createdAt and updatedAt are already sentinels
         const manifest = JSON.parse(raw) as Record<string, unknown>;
         manifest.durationMs = 0;
         staged.push({ base: dest, raw, key: dest, json: manifest });
@@ -314,6 +301,19 @@ export async function main(outDirOverride?: string): Promise<void> {
       staged.push({ base, raw, key: JSON.stringify(parsed), json: parsed });
     }
   }
+  return staged;
+}
+
+/**
+ * Writes the staged captures to outDir under stable names. One lint can record into several run
+ * dirs (each classifier seam starts its own recorder), and the recorder's <unixts>- stamp and -<n>
+ * collision suffixes depend on timing, so names are rebuilt: path-keyed, with -<n> suffixes
+ * assigned by content order. Each capture's ts and durationMs become the sentinels.
+ */
+function hoistCaptures(outDir: string): void {
+  const staged = readStagedCaptures();
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(outDir, { recursive: true });
   staged.sort((a, b) => a.base.localeCompare(b.base) || (a.key < b.key ? -1 : 1));
   const groupCounts = new Map<string, number>();
   for (const { base, raw, json } of staged) {
@@ -333,50 +333,65 @@ export async function main(outDirOverride?: string): Promise<void> {
     writeFileSync(join(outDir, name), JSON.stringify(json, null, 2) + "\n");
   }
   rmSync(stagingDir, { recursive: true, force: true });
+}
 
-  // the committed fixture is oxfmt-formatted (short arrays collapse, e.g. the handles map), and
-  // JSON.stringify does not speak that dialect — format the hoisted tree so builder output IS the
-  // committed bytes, determinism test included.
-  const fmt = Bun.spawnSync(["bunx", "oxfmt", outDir], { cwd: appRoot });
-  if (fmt.exitCode !== 0) throw new Error("oxfmt failed on the generated fixture");
+/**
+ * Formats the fixture as the repository formats it, so the builder's output is the committed bytes:
+ * oxfmt collapses short arrays that JSON.stringify writes on several lines.
+ */
+function formatFixture(outDir: string): void {
+  const formatted = Bun.spawnSync(["bunx", "oxfmt", outDir], { cwd: appRoot });
+  if (formatted.exitCode !== 0)
+    throw new Error("oxfmt failed on the generated fixture", {
+      cause: new TextDecoder().decode(formatted.stderr),
+    });
+}
 
-  // --- verification ---------------------------------------------------------
-  // element captures carry a uuid id (the recorder's top-level field: the id never enters the
-  // state the model judges); every element classification's input suffix is one of those ids (identity propagated capture -> report). Also no input is a positional L-span.
+async function verifyFixture(outDir: string, report: FixtureReport): Promise<void> {
   const elementIds = new Set<string>();
-  const files = readdirSync(outDir).filter((f) => f.endsWith(".json"));
-  const read = async (f: string) =>
-    JSON.parse(await Bun.file(join(outDir, f)).text()) as {
+  const fixtureFiles = readdirSync(outDir).filter((file) => file.endsWith(".json"));
+  const readCapture = async (file: string) =>
+    JSON.parse(await Bun.file(join(outDir, file)).text()) as {
       id?: unknown;
       request?: { input?: { content?: { data?: { source?: string } }[] }[] };
     };
-  for (const f of files) {
-    if (f === "report.json" || f === "manifest.json") continue;
-    const cap = await read(f);
-    if (cap.request?.input?.[0]?.content?.[0]?.data?.source !== undefined) {
-      const id = cap.id;
-      if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id))
-        throw new Error(`element capture ${f} lacks a uuid id: ${String(id)}`);
-      elementIds.add(id);
+  for (const file of fixtureFiles) {
+    if (file === "report.json" || file === "manifest.json") continue;
+    const capture = await readCapture(file);
+    if (capture.request?.input?.[0]?.content?.[0]?.data?.source !== undefined) {
+      const captureId = capture.id;
+      if (typeof captureId !== "string" || !/^[0-9a-f-]{36}$/.test(captureId))
+        throw new Error(`element capture ${file} lacks a uuid id: ${String(captureId)}`);
+      elementIds.add(captureId);
     }
   }
-  for (const m of report.classifications) {
-    if (m.input.includes("#L")) throw new Error(`positional input leaked: ${m.input}`);
-    if (m.element === undefined)
-      throw new Error(`classification ${m.input} lacks the element projection`);
-    if (m.element.kind === "file") continue;
-    const suffix = m.input.split("#")[1];
+  for (const classification of report.classifications) {
+    if (classification.input.includes("#L"))
+      throw new Error(`positional input leaked: ${classification.input}`);
+    if (classification.element === undefined)
+      throw new Error(`classification ${classification.input} lacks the element projection`);
+    if (classification.element.kind === "file") continue;
+    const suffix = classification.input.split("#")[1];
     if (suffix === undefined || !elementIds.has(suffix))
-      throw new Error(`classification ${m.input} has no matching element capture id`);
+      throw new Error(`classification ${classification.input} has no matching element capture id`);
   }
   const elementInputs = report.classifications.filter(
-    (m) => m.element !== undefined && m.element.kind !== "file",
+    (classification) =>
+      classification.element !== undefined && classification.element.kind !== "file",
   ).length;
   process.stdout.write(
-    `generated/elements: ${files.length} captures (${elementIds.size} element captures), ` +
+    `generated/elements: ${fixtureFiles.length} captures (${elementIds.size} element captures), ` +
       `${report.classifications.length} classifications (${elementInputs} element), ` +
       `${report.findings.length} findings\n`,
   );
+}
+
+export async function main(outDirOverride?: string): Promise<void> {
+  const outDir = outDirOverride ?? process.argv[2] ?? defaultOutDir;
+  const report = await recordFixtureRun();
+  hoistCaptures(outDir);
+  formatFixture(outDir);
+  await verifyFixture(outDir, report);
 }
 
 // Usage: bun scripts/build-fixture.ts [outDir] — the positional overrides the fixture dir (the

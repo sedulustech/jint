@@ -17,6 +17,7 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
+import { newestRunFirst, runIdStartMs } from "../core/provider/run-id.ts";
 import { findUi } from "../core/ui-registry.ts";
 import {
   listClassifications,
@@ -64,7 +65,10 @@ const collapseHome = (path: string): string => {
 
 export interface RunSummary {
   id: string;
-  mtime: string;
+  /** When the run started: the manifest's createdAt, else the start its id carries. */
+  createdAt: string;
+  /** When the run's record last changed, such as a classification filed from the UI. */
+  updatedAt: string;
   requests: number;
   /** Distinct rules the run measured (manifest handle snapshot). */
   ruleCount: number;
@@ -594,6 +598,12 @@ async function caseDirsWithRequests(namespaceDir: string): Promise<string[]> {
   return caseDirs;
 }
 
+/** A run's start when its manifest has none: the start its id carries, else when its dir was made. */
+function startOf(runId: string, dirMade: Date): string {
+  const startMs = runIdStartMs(runId.split("/")[0]!);
+  return (startMs === null ? dirMade : new Date(startMs)).toISOString();
+}
+
 async function readRunSummary(runId: string, runDir: string): Promise<RunSummary> {
   const [dirStats, dirFiles, manifestJson] = await Promise.all([
     stat(runDir),
@@ -606,6 +616,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
   ]);
   // a manifest-less run reads as unknown-config; a malformed one is a real error and surfaces
   const manifest = JSON.parse(manifestJson) as {
+    createdAt?: string;
+    updatedAt?: string;
     configPath?: string;
     cwd?: string;
     legacy?: boolean;
@@ -616,7 +628,8 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
   };
   return {
     id: runId,
-    mtime: dirStats.mtime.toISOString(),
+    createdAt: manifest.createdAt ?? startOf(runId, dirStats.birthtime),
+    updatedAt: manifest.updatedAt ?? dirStats.mtime.toISOString(),
     requests: dirFiles.filter(
       (name) => name.endsWith(JSON_SUFFIX) && name !== REPORT_FILE && name !== MANIFEST_FILE,
     ).length,
@@ -637,8 +650,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
     const dirNames = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
     const candidates = await collectRunCandidates(runsRoot, dirNames);
     const runs = await Promise.all(candidates.map(({ id, dir }) => readRunSummary(id, dir)));
-    // run id is a unixts: numeric order == chronological
-    runs.sort((a, b) => b.id.localeCompare(a.id));
+    runs.sort(newestRunFirst);
     return { runs };
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is

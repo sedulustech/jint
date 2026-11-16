@@ -4,7 +4,7 @@
  * earned, so a reader can step through an address's classifications in the run view and the agent
  * can read what changed the reading. The original run itself is untouched.
  */
-import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ClassifyRequest, Wire } from "./classify.ts";
 
@@ -88,10 +88,37 @@ export async function listClassifications(
 }
 
 /**
+ * Sets the run manifest's updatedAt, written whole and renamed into place so a reader never sees
+ * half a manifest. A run with no manifest has nothing to update.
+ */
+async function markRunUpdated(runDir: string, updatedAt: string): Promise<void> {
+  const manifestPath = join(runDir, "manifest.json");
+  let manifest: Record<string, unknown>;
+  try {
+    manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw err;
+  }
+  const staged = `${manifestPath}.${crypto.randomUUID()}.tmp`;
+  await writeFile(staged, JSON.stringify({ ...manifest, updatedAt }, null, 2) + "\n");
+  await rename(staged, manifestPath);
+}
+
+/**
  * File a classification under its run; the sequence is run-wide, so filenames never collide across
  * addresses.
  */
 export async function recordClassification(
+  runDir: string,
+  entry: Omit<ClassificationRecord, "seq" | "ts" | "n">,
+): Promise<ClassificationRecord> {
+  const record = await fileUnderNextNumber(runDir, entry);
+  await markRunUpdated(runDir, record.ts);
+  return record;
+}
+
+async function fileUnderNextNumber(
   runDir: string,
   entry: Omit<ClassificationRecord, "seq" | "ts" | "n">,
 ): Promise<ClassificationRecord> {

@@ -16,8 +16,8 @@ export const baseName = (path: string) => path.split("/").pop() ?? path;
 export const runLabel = (r: RunSummary): string =>
   r.legacy ? "migrated run" : (r.cwd ?? r.configPath ?? "default rules");
 
-export const relTime = (mtime: string) =>
-  `${formatDistanceToNowStrict(new Date(mtime), { addSuffix: true })}`;
+export const relTime = (iso: string) =>
+  `${formatDistanceToNowStrict(new Date(iso), { addSuffix: true })}`;
 
 /** Duration as e.g. "41s" or "1m 12s"; null when the run predates duration recording. */
 export const runDuration = (ms: number | undefined): string | null =>
@@ -87,7 +87,7 @@ export function RunFacts({
   const identity = [
     title !== undefined ? run.model : undefined,
     config,
-    relTime(run.mtime),
+    relTime(run.createdAt),
     run.id.slice(-6),
   ];
   return (

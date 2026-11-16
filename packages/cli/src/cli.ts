@@ -966,7 +966,6 @@ function recordRun(run: RunContext, reportJson: string): void {
     configPath: run.configPath,
     cwd: process.cwd(),
     argv: process.argv,
-    ts: new Date().toISOString(),
     handles: Object.fromEntries(
       run.resolvedConfig.rules.flatMap((r) =>
         r.handleData ? [[r.name, r.handleData] as const] : [],
@@ -1417,7 +1416,7 @@ async function showRuns(cliArgs: CliArgs): Promise<number> {
     for (const run of runs) {
       const config = run.configPath === null ? "default rules" : run.configPath;
       const rules = `${run.ruleCount} rule${run.ruleCount === 1 ? "" : "s"}`;
-      process.stdout.write(`${run.id}  ${run.mtime}  ${rules}  ${config}  ${run.url ?? "-"}\n`);
+      process.stdout.write(`${run.id}  ${run.createdAt}  ${rules}  ${config}  ${run.url ?? "-"}\n`);
     }
   }
   if (runs.every((run) => run.url === undefined)) {

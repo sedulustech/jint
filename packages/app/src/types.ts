@@ -2,7 +2,10 @@ import type { Element, HandlerData } from "@jint/contract";
 
 export interface RunSummary {
   id: string;
-  mtime: string;
+  /** When the run started. */
+  createdAt: string;
+  /** When the run's record last changed, such as a classification filed from the UI. */
+  updatedAt: string;
   requests: number;
   /** Distinct rules the run measured (manifest handle snapshot). */
   ruleCount: number;

@@ -133,6 +133,6 @@ test("with no JINT_RUNS_DIR the run is recorded under the home directory's store
   expect(proc.code).toBe(0);
   const store = join(home, ".jint", "runs");
   const [run] = readdirSync(store);
-  expect(run).toMatch(/^\d+$/);
+  expect(run).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   expect(readdirSync(join(store, run!)).length).toBeGreaterThan(0);
 });

@@ -21,7 +21,8 @@ const classification = (n: number, cached: boolean) => ({
 function bootRun(classifications: unknown[], usage: { input: number; output: number }) {
   const run = {
     id: "1700000000000",
-    mtime: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     requests: 0,
     ruleCount: 1,
     configPath: "/x/jint.config.ts",
