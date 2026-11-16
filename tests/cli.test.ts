@@ -1,4 +1,6 @@
 import { describe, test, jest, expect, afterEach, afterAll } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   runCli,
   runShell,
@@ -16,7 +18,7 @@ const ROOT = import.meta.dir + "/..";
 
 // the shared scratch dir: every file that writes into tmp/ creates it through the helper -
 // relying on a sibling file's mkdir was the CI flake (file-order dependency on a fresh checkout)
-import { rmScratchFile, scratchFile } from "./helpers/dir.ts";
+import { rmScratchFile, scratchDir, scratchFile } from "./helpers/dir.ts";
 
 // every test here spawns CLI processes: the per-test timeout matches the spawn ceiling
 // (60s), so the framework clock cannot undercut a healthy run on a slow runner
@@ -331,12 +333,30 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     rmScratchFile(list);
   });
 
-  test.concurrent("a noun that is not FIRST -> usage error, exit 2 (no mid-list noun)", async () => {
+  test.concurrent("a noun that is not FIRST -> the bare dash is undeclared, exit 2", async () => {
     expectContract(await run(["run", "tests/fixtures/sample-dir", "paths", "-"]), {
       exit: 2,
-      stderr: "a noun is the FIRST positional",
+      stderr: "the noun comes first",
       stdout: "empty",
     });
+  });
+
+  test.concurrent("verb and noun names after run are targets (dir named skills, file named paths)", async () => {
+    const dir = scratchDir("targets");
+    try {
+      mkdirSync(join(dir, "skills"));
+      writeFileSync(join(dir, "skills", "a.ts"), "export const a = 1;\n");
+      writeFileSync(join(dir, "paths"), "export const b = 2;\n");
+      writeFileSync(join(dir, "jint.config.json"), '{"rules":{"use":["is_comment_narration"]}}');
+      for (const target of ["skills", "paths"]) {
+        const r = await runCli(["run", target, "--dry-run"], { cwd: dir, timeout: 60_000 });
+        expect(r.stderr).not.toContain("FIRST positional");
+        expect(r.stderr).not.toContain("expects a payload");
+        expect(r.code).toBe(0);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
