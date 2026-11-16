@@ -111,7 +111,7 @@ _string | object · required_
 
 ### `handle`
 
-How a reading becomes a finding. The shape follows the kind of the rule.
+How a value becomes a finding. The shape follows the kind of the rule.
 
 _string | object · required_
 
@@ -169,13 +169,13 @@ _object · required_
 
 ### `undecided`
 
-The tier of a reading with no clear winner among the options.
+The tier of a value with no clear winner among the options.
 
 _object_
 
 ### `undecided.margin`
 
-The gap between the two likeliest options under which the reading is undecided.
+The gap between the two likeliest options under which the value is undecided.
 
 _number · required_
 
@@ -187,19 +187,19 @@ _string | object · required_
 
 ### `undecided.message`
 
-The note on the finding of an undecided reading.
+The note on the finding of an undecided value.
 
 _string_
 
 ### `warn`
 
-One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).
+One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).
 
 _string | object_
 
 ### `warn.greater_than`
 
-The threshold. A reading above it fires.
+The threshold. A value above it fires.
 
 _number · required_
 
@@ -211,19 +211,19 @@ _string_
 
 ### `warn.less_than`
 
-The threshold. A reading below it fires.
+The threshold. A value below it fires.
 
 _number · required_
 
 ### `error`
 
-One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).
+One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).
 
 _string | object_
 
 ### `error.greater_than`
 
-The threshold. A reading above it fires.
+The threshold. A value above it fires.
 
 _number · required_
 
@@ -235,13 +235,13 @@ _string_
 
 ### `error.less_than`
 
-The threshold. A reading below it fires.
+The threshold. A value below it fires.
 
 _number · required_
 
 ### `silent_band`
 
-A [low, high] range of readings that raises no finding.
+A [low, high] range of values that raises no finding.
 
 _object[]_
 

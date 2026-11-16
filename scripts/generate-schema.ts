@@ -2,8 +2,7 @@
  * Regenerates the checked-in generated artifacts from source:
  *
  * - Jint.schema.json from CONFIG_SCHEMA (packages/sdk/src/config/load.ts)
- * - The run-UI address region in skills/writing-rules/SKILL.md and docs/writing-rules.md: the prose
- *   around it is hand-written
+ * - The run-UI address region in skills/writing-rules/SKILL.md: the prose around it is hand-written
  * - The generated tables in docs/targets.md (the target vocabulary and each embedded grammar's
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
@@ -53,7 +52,6 @@ export const GENERATED_OUTPUTS = [
   "docs/reference/cli.md",
   "web/src/data/reference.json",
   "skills/writing-rules/SKILL.md",
-  "docs/writing-rules.md",
 ];
 
 // ---------------------------------------------------------------------------
@@ -654,7 +652,6 @@ function generatedOutputs(): Record<string, string> {
   return {
     "jint.schema.json": renderSchemaJson(),
     "skills/writing-rules/SKILL.md": splicedFile("skills/writing-rules/SKILL.md", runAddress),
-    "docs/writing-rules.md": splicedFile("docs/writing-rules.md", runAddress),
     "docs/targets.md": splicedFile("docs/targets.md", { targets: renderTargetsTable() }),
     "docs/directives.md": splicedFile("docs/directives.md", {
       directives: renderDirectivesTable(directiveVocabulary()),

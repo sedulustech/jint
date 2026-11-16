@@ -13,13 +13,13 @@ import docConfig from "../../../docs/config.md" with { type: "text" };
 import docDirectives from "../../../docs/directives.md" with { type: "text" };
 import docEndpoints from "../../../docs/endpoints.md" with { type: "text" };
 import docGrammars from "../../../docs/grammars.md" with { type: "text" };
+import docGuidesWritingRules from "../../../docs/guides/writing-rules.md" with { type: "text" };
 import docHowToUse from "../../../docs/how-to-use.md" with { type: "text" };
 import docInstall from "../../../docs/install.md" with { type: "text" };
 import docLocal from "../../../docs/local.md" with { type: "text" };
 import docReferenceCli from "../../../docs/reference/cli.md" with { type: "text" };
 import docReferenceConfig from "../../../docs/reference/config.md" with { type: "text" };
 import docReferenceEnvironment from "../../../docs/reference/environment.md" with { type: "text" };
-import docReplacingCodeReviews from "../../../docs/replacing-code-reviews.md" with { type: "text" };
 import docTargets from "../../../docs/targets.md" with { type: "text" };
 import docUseCasesBashRemoveStaleComments from "../../../docs/use-cases/bash/remove-stale-comments.md" with { type: "text" };
 import docUseCasesCssUsePaletteColors from "../../../docs/use-cases/css/use-palette-colors.md" with { type: "text" };
@@ -34,7 +34,6 @@ import docUseCasesTypescriptRewriteStatefulComments from "../../../docs/use-case
 import docUseCasesXFlagGeneratedReplies from "../../../docs/use-cases/x/flag-generated-replies.md" with { type: "text" };
 import docWhatAreRules from "../../../docs/what-are-rules.md" with { type: "text" };
 import docWhatIsJint from "../../../docs/what-is-jint.md" with { type: "text" };
-import docWritingRules from "../../../docs/writing-rules.md" with { type: "text" };
 
 /** Each embedded doc: its name (the path under docs/, without .md) and its markdown. */
 export const DOC_FILES: Readonly<Record<string, string>> = {
@@ -49,14 +48,13 @@ export const DOC_FILES: Readonly<Record<string, string>> = {
   "how-to-use": docHowToUse,
   install: docInstall,
   local: docLocal,
-  "replacing-code-reviews": docReplacingCodeReviews,
   targets: docTargets,
   "what-are-rules": docWhatAreRules,
   "what-is-jint": docWhatIsJint,
-  "writing-rules": docWritingRules,
   "reference/cli": docReferenceCli,
   "reference/config": docReferenceConfig,
   "reference/environment": docReferenceEnvironment,
+  "guides/writing-rules": docGuidesWritingRules,
   "use-cases/bash/remove-stale-comments": docUseCasesBashRemoveStaleComments,
   "use-cases/css/use-palette-colors": docUseCasesCssUsePaletteColors,
   "use-cases/docs/keep-use-cases-short": docUseCasesDocsKeepUseCasesShort,

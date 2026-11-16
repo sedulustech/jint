@@ -89,7 +89,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     for (const m of report.classifications) {
       expect(m.element.kind).toBe("section");
     }
-    // The wire state carries the shadow's element content verbatim: the prose runs, not the
+    // The wire state carries the shadow's element content without its final line break: the prose runs, not the
     // headings or their bodies - the strongest single proof the shadow .scm, not the embedded one,
     // materialized extraction.
     const sources = provider.requests
@@ -97,9 +97,9 @@ describe("byog: the user-grammar seam end-to-end", () => {
       .map((req) => req.state.source)
       .sort();
     expect(sources).toEqual([
-      "first paragraph body\n",
-      "second paragraph body\n",
-      "third paragraph body\n",
+      "first paragraph body",
+      "second paragraph body",
+      "third paragraph body",
     ]);
   });
 

@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import HeaderLogo from "../components/HeaderLogo.astro";
 import HeaderTools from "../components/HeaderTools.astro";
 import PrimaryButton from "../components/PrimaryButton.astro";
 
@@ -23,7 +24,7 @@ const BETA = "/dl/download/beta";
 >
   <div class="page">
     <header>
-      <a href="/" aria-label="jint"><img src="/logo.svg" alt="jint" width="64" height="46" /></a>
+      <HeaderLogo />
       <HeaderTools />
     </header>
     <main>
@@ -61,12 +62,6 @@ const BETA = "/dl/download/beta";
     justify-content: space-between;
     padding-bottom: var(--s3);
     border-bottom: 1px solid var(--rule);
-  }
-
-  header img {
-    display: block;
-    width: 4rem;
-    height: auto;
   }
 
   main {

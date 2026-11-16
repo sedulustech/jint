@@ -1,0 +1,30 @@
+---
+/** The header's home link: the logo, with the release channel to its right while jint is in beta. */
+---
+
+<a class="home" href="/" aria-label="jint beta">
+  <img src="/logo.svg" alt="" width="64" height="46" />
+  <span class="channel">beta</span>
+</a>
+
+<style>
+  .home {
+    display: flex;
+    align-items: center;
+    gap: var(--s1);
+    color: var(--fg);
+    text-decoration: none;
+  }
+  img {
+    display: block;
+    width: 4rem;
+    height: auto;
+  }
+  .channel {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+</style>

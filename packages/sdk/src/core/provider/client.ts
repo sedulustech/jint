@@ -22,7 +22,7 @@ import {
   type Endpoint,
   type EndpointChoice,
 } from "./endpoint.ts";
-import { normalize } from "./protocol.ts";
+import { normalize, normalizeQuestion } from "./protocol.ts";
 import { systemOneAdapter } from "./systemone.ts";
 import { limitsFor } from "./transport.ts";
 
@@ -97,8 +97,11 @@ function makeClassifier(
   return async (state, questions) => {
     const { id: _id, ...rest } = state;
     const judged = normalize(rest);
+    const trimmed = Object.fromEntries(
+      Object.entries(questions).map(([name, q]) => [name, normalizeQuestion(q)]),
+    );
     const asked = await inCall(state, Object.keys(questions), () =>
-      adapter.ask({ state: judged, questions }),
+      adapter.ask({ state: judged, questions: trimmed }),
     );
     return asked.answers;
   };

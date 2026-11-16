@@ -50,8 +50,8 @@ export type Handle = (answer: ClassifiedAnswer) => HandleOutcome | null;
 /**
  * The single data -> function seam for noul rules. Direction is declared per threshold (the
  * operator IS the pole - greater_than / less_than on the raw value); comparisons are strict on the
- * firing side, so a reading exactly at a threshold stays silent. A silent_band hit suppresses
- * before any threshold is consulted. The contract evaluator owns these semantics.
+ * firing side, so a value exactly at a threshold stays silent. A silent_band hit suppresses before
+ * any threshold is consulted. The contract evaluator owns these semantics.
  */
 export function compileNoulHandler(data: NoulHandlerData): Handle {
   // the contract evaluator owns the semantics (operators, band, strict comparisons)
@@ -125,14 +125,14 @@ const CHOICE_HANDLER_SCHEMA = Type.Object(
         {
           margin: Type.Number({
             description:
-              "The gap between the two likeliest options under which the reading is undecided.",
+              "The gap between the two likeliest options under which the value is undecided.",
           }),
           level: LEVEL_SCHEMA,
           message: Type.Optional(
-            Type.String({ description: "The note on the finding of an undecided reading." }),
+            Type.String({ description: "The note on the finding of an undecided value." }),
           ),
         },
-        { description: "The tier of a reading with no clear winner among the options." },
+        { description: "The tier of a value with no clear winner among the options." },
       ),
     ),
   },
@@ -146,7 +146,7 @@ const CONDITION_SCHEMA = Type.Union(
   [
     Type.Object(
       {
-        greater_than: Type.Number({ description: "The threshold. A reading above it fires." }),
+        greater_than: Type.Number({ description: "The threshold. A value above it fires." }),
         message: Type.Optional(
           Type.String({
             description: "The rule author's feedback; the finding's note when this tier fires.",
@@ -157,7 +157,7 @@ const CONDITION_SCHEMA = Type.Union(
     ),
     Type.Object(
       {
-        less_than: Type.Number({ description: "The threshold. A reading below it fires." }),
+        less_than: Type.Number({ description: "The threshold. A value below it fires." }),
         message: Type.Optional(
           Type.String({
             description: "The rule author's feedback; the finding's note when this tier fires.",
@@ -169,7 +169,7 @@ const CONDITION_SCHEMA = Type.Union(
   ],
   {
     description:
-      "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+      "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
   },
 );
 
@@ -179,7 +179,7 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
     error: Type.Optional(CONDITION_SCHEMA),
     silent_band: Type.Optional(
       Type.Tuple([Type.Number(), Type.Number()], {
-        description: "A [low, high] range of readings that raises no finding.",
+        description: "A [low, high] range of values that raises no finding.",
       }),
     ),
   },
@@ -191,7 +191,7 @@ const NOUL_HANDLER_SCHEMA = Type.Object(
 
 export const HANDLER_SCHEMA = Type.Union(
   [SCORE_HANDLER_SCHEMA, CHOICE_HANDLER_SCHEMA, NOUL_HANDLER_SCHEMA],
-  { description: "How a reading becomes a finding. The shape follows the kind of the rule." },
+  { description: "How a value becomes a finding. The shape follows the kind of the rule." },
 );
 
 /**

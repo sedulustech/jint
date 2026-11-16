@@ -1,9 +1,11 @@
 ---
 import { REPO_TREE as GITHUB } from "../lib/consts";
+import CopyInstallPrompt from "./CopyInstallPrompt.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 ---
 
 <div class="tools">
+  <CopyInstallPrompt variant="icon" />
   <a href="/download/" aria-label="Download jint">
     <svg
       viewBox="0 0 24 24"

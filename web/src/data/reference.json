@@ -125,7 +125,7 @@
           "level": 3,
           "name": "handle",
           "pills": ["string | object", "required"],
-          "body": "How a reading becomes a finding. The shape follows the kind of the rule."
+          "body": "How a value becomes a finding. The shape follows the kind of the rule."
         },
         {
           "id": "include",
@@ -194,14 +194,14 @@
           "level": 3,
           "name": "undecided",
           "pills": ["object"],
-          "body": "The tier of a reading with no clear winner among the options."
+          "body": "The tier of a value with no clear winner among the options."
         },
         {
           "id": "handle-undecided-margin",
           "level": 3,
           "name": "undecided.margin",
           "pills": ["number", "required"],
-          "body": "The gap between the two likeliest options under which the reading is undecided."
+          "body": "The gap between the two likeliest options under which the value is undecided."
         },
         {
           "id": "handle-undecided-level",
@@ -215,21 +215,21 @@
           "level": 3,
           "name": "undecided.message",
           "pills": ["string"],
-          "body": "The note on the finding of an undecided reading."
+          "body": "The note on the finding of an undecided value."
         },
         {
           "id": "handle-warn",
           "level": 3,
           "name": "warn",
           "pills": ["string | object"],
-          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1)."
+          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1)."
         },
         {
           "id": "handle-warn-greater_than",
           "level": 3,
           "name": "warn.greater_than",
           "pills": ["number", "required"],
-          "body": "The threshold. A reading above it fires."
+          "body": "The threshold. A value above it fires."
         },
         {
           "id": "handle-warn-message",
@@ -243,21 +243,21 @@
           "level": 3,
           "name": "warn.less_than",
           "pills": ["number", "required"],
-          "body": "The threshold. A reading below it fires."
+          "body": "The threshold. A value below it fires."
         },
         {
           "id": "handle-error",
           "level": 3,
           "name": "error",
           "pills": ["string | object"],
-          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1)."
+          "body": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1)."
         },
         {
           "id": "handle-error-greater_than",
           "level": 3,
           "name": "error.greater_than",
           "pills": ["number", "required"],
-          "body": "The threshold. A reading above it fires."
+          "body": "The threshold. A value above it fires."
         },
         {
           "id": "handle-error-message",
@@ -271,14 +271,14 @@
           "level": 3,
           "name": "error.less_than",
           "pills": ["number", "required"],
-          "body": "The threshold. A reading below it fires."
+          "body": "The threshold. A value below it fires."
         },
         {
           "id": "handle-silent_band",
           "level": 3,
           "name": "silent_band",
           "pills": ["object[]"],
-          "body": "A [low, high] range of readings that raises no finding."
+          "body": "A [low, high] range of values that raises no finding."
         }
       ]
     }

@@ -20,16 +20,35 @@ export function stateData(ask: { state: object }): Record<string, unknown> {
   return data;
 }
 
+const FINAL_LINE_BREAKS = /(\r?\n)+$/;
+
 /**
- * The state with its content's final line break removed. The decision model's reading moves with a
- * single trailing newline (up to 0.2 on Luna, measured on this repo), so a file saved with one and
- * the same file saved without must be the same request. Only the final line breaks go; the rest of
- * the content, trailing spaces included, reaches the model as written.
+ * The state with the final line break of its content or source removed. A single trailing newline
+ * moves the decision model's value by up to 0.2, so a file saved with one and the same file saved
+ * without must be the same request. Only the final line breaks go; the rest of the text, trailing
+ * spaces included, reaches the model as written.
  */
 export function normalize<T extends object>(state: T): T {
-  const content = (state as { content?: unknown }).content;
-  if (typeof content !== "string") return state;
-  return { ...state, content: content.replace(/(\r?\n)+$/, "") };
+  const text = state as { content?: unknown; source?: unknown };
+  const out: Record<string, unknown> = { ...(state as Record<string, unknown>) };
+  if (typeof text.content === "string") out.content = text.content.replace(FINAL_LINE_BREAKS, "");
+  if (typeof text.source === "string") out.source = text.source.replace(FINAL_LINE_BREAKS, "");
+  return out as T;
+}
+
+/**
+ * A question with the whitespace around its instructions and each criterion removed. A trailing
+ * space after a question mark moves the decision model's value by as much as 0.26, so a rule saved
+ * with stray spaces and the same rule without must be the same request.
+ */
+export function normalizeQuestion<T extends QuestionSpec>(question: T): T {
+  const out: Record<string, unknown> = { ...question };
+  if (typeof question.instructions === "string") out.instructions = question.instructions.trim();
+  const criteria = question.criteria;
+  if (Array.isArray(criteria)) out.criteria = criteria.map((c) => c.trim());
+  else if (criteria)
+    out.criteria = Object.fromEntries(Object.entries(criteria).map(([k, v]) => [k, v.trim()]));
+  return out as T;
 }
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
