@@ -30,7 +30,7 @@
  * NAMES a query uses, never on the nodes they will bind.
  */
 
-import { ruleTargets } from "@jint/contract";
+import { RULE_TARGETS } from "@jint/contract";
 import {
   isSharedCapture,
   SHARED_ELEMENT_CAPTURES,
@@ -983,7 +983,7 @@ export function emittedCaptures(registry: GrammarRegistry, grammarId: string): r
 }
 const QUALIFIED_ADDRESS = /^([a-z][a-z0-9_-]*):([a-z][a-z0-9_-]*)$/;
 
-const SHARED_TARGETS: ReadonlySet<string> = new Set(ruleTargets);
+const SHARED_TARGETS: ReadonlySet<string> = new Set(RULE_TARGETS);
 
 /**
  * THE capture-address gate, run at LINT STARTUP (over the run's registry value, before any file

@@ -109,7 +109,7 @@ export type QualifiedRuleTarget = `${string}:${string}`;
  */
 export type RuleTarget = SharedRuleTarget | QualifiedRuleTarget;
 
-export const ruleTargets: readonly SharedRuleTarget[] = [
+export const RULE_TARGETS: readonly SharedRuleTarget[] = [
   "files",
   "functions",
   "classes",

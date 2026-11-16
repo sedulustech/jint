@@ -2,7 +2,7 @@ import { afterAll, describe, test, expect } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ruleTargets } from "@jint/contract";
+import { RULE_TARGETS } from "@jint/contract";
 import { compileRule } from "../config/load.ts";
 import { EMBEDDED, grammar } from "../core/grammars/grammars.ts";
 import { SHARED_ELEMENT_CAPTURES } from "../core/grammars/shared.ts";
@@ -138,7 +138,7 @@ describe("synthetic coverage", () => {
       typeof rule.target === "string" ? rule.target : (rule.target as readonly string[])[0]!;
     const targets = new Set(baseConfig.rules.map(targetOf));
     const kinds = new Set(baseConfig.rules.map((rule) => rule.kind ?? "noul"));
-    const missingTargets = ruleTargets.filter((t) => !targets.has(t));
+    const missingTargets = RULE_TARGETS.filter((t) => !targets.has(t));
     expect(missingTargets, "a new RuleTarget/kind needs a synthetic rule exercising it").toEqual(
       [],
     );

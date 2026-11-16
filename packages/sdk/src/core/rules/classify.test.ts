@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { ruleTargets, type RuleTarget } from "@jint/contract";
+import { RULE_TARGETS, type RuleTarget } from "@jint/contract";
 import { validateConfig } from "../../config/load.ts";
 import {
   ClassifyError,
@@ -668,7 +668,7 @@ describe("THE TARGET CHAIN (single source, exhaustively pinned)", () => {
     imports: "import",
   };
   test("every ruleTarget resolves true on its element shape (files is whole-unit, skipped)", () => {
-    for (const target of ruleTargets) {
+    for (const target of RULE_TARGETS) {
       if (target === "files") continue; // whole-unit: never element-addressable, by design
       if (target in singular) {
         expect(matchesTarget(target, { capture: singular[target]!, grammar: "typescript" })).toBe(
