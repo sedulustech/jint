@@ -592,7 +592,7 @@ export function selectElements(
 }
 
 interface ElementJob {
-  /** Run-scoped uuidv4: state.id -> input suffix -> findings -> UI cells, never positional. */
+  /** The walked element's id: state.id -> input suffix -> findings -> UI cells, never positional. */
   readonly id: string;
   readonly element: Element;
   readonly source: string;
@@ -617,7 +617,7 @@ function elementJobsFor(
     const scoped = rulesForElement(rules, element, path, configAdmits);
     if (scoped.length === 0) continue;
     const job: ElementJob = {
-      id: crypto.randomUUID(),
+      id: element.id,
       element: projectElement(element),
       source: elementContent(element),
       rules: scoped,

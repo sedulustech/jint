@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { walkDir, parseGitignore, compilePattern } from "./dir.ts";
@@ -302,4 +302,24 @@ describe("secret-shaped denylist (directory walk)", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+});
+
+describe("walkDir read failures", () => {
+  test.skipIf(process.getuid?.() === 0)(
+    "a file that cannot be opened stops the walk with ENTRYPOINT_UNREADABLE, so the run can start over",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "jint-walk-unreadable-"));
+      try {
+        await Bun.write(join(root, "a.ts"), "export const a = 1;\n");
+        await Bun.write(join(root, "b.ts"), "export const b = 1;\n");
+        await chmod(join(root, "b.ts"), 0o000);
+        await expect(collect(root)).rejects.toMatchObject({
+          code: "ENTRYPOINT_UNREADABLE",
+          message: expect.stringContaining("cannot read file"),
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
 });

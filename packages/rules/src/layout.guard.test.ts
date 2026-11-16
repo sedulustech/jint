@@ -143,7 +143,7 @@ describe("packages/rules layout", () => {
     const problems = await problemsAfter((r) => {
       const file = join(r, "naming", "src", "index.ts");
       edit(file, "export const is_greppable", "export const isGreppable");
-      edit(file, /^ {2}is_greppable,$/m, "  isGreppable,");
+      edit(file, /\bis_greppable,/, "isGreppable,");
     });
     expect(problems).toContain("naming: rule is_greppable is not exported under its own name");
   });

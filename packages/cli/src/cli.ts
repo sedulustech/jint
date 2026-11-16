@@ -22,7 +22,7 @@ import {
   InternalError,
   SetupError,
   noRulesAdvice,
-  captureFor,
+  captureStreamFor,
   checkRunKnobs,
   collectReport,
   runsBase,
@@ -46,6 +46,7 @@ import {
   selectionEcho,
   selectedElements,
   startUi,
+  type CapturedElement,
   type ClassificationEdit,
   type InputKind,
   type LintReport,
@@ -62,12 +63,13 @@ import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { catalog, provideVirtualModules } from "./baseline.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
-  captureJson,
+  captureJsonChunks,
   captureLines,
   emit,
   printSelection,
   emitLines,
   providerLog,
+  writeStdout,
   type InputForm,
   printRules,
   scopeLines,
@@ -314,7 +316,7 @@ export const VERBS = {
   capture: {
     example: "jint capture doc.md",
     blurb: "print what jint extracts from a file, without classifying",
-    flags: ["json", "queries", "grammar", "config", "exclude", "rule"],
+    flags: ["json", "queries", "grammar", "config", "exclude", "rule", "walk-workers"],
   },
   reclassify: {
     example: "jint reclassify <run-id> src/a.ts --rule <name> -",
@@ -1269,7 +1271,6 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     edit = parsed;
   }
   try {
-    assertEndpointKey();
     const filed = await reclassify(runId, { rule: rules[0]!, input }, edit, { by: "agent" });
     process.stdout.write(
       cliArgs.json === true
@@ -1375,6 +1376,12 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     );
     return 2;
   }
+  const walkWorkers = numericFlag(cliArgs["walk-workers"], "--walk-workers");
+  const knobProblem = checkRunKnobs({ walkWorkers });
+  if (knobProblem !== null) {
+    usageError(knobProblem + " - see jint --help");
+    return 2;
+  }
   let resolvedConfig: ResolvedConfig;
   let configPath: string | null;
   try {
@@ -1394,13 +1401,14 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     // extension set - lint's sweep-coverage words); stdout stays the one payload document
     const skips: { file: string; extension: string }[] = [];
     const notes: string[] = [];
-    const walk = captureFor(resolvedConfig, {
+    const walk = captureStreamFor(resolvedConfig, {
       exclude: cliArgs.exclude,
       rule: cliArgs.rule?.[0],
       scopeBase: rest[0] !== undefined ? configScopeBase(configPath, rest[0]) : undefined,
       onNote: (note) => notes.push(note),
+      walkWorkers,
     });
-    const elements = await walk(
+    const elements = walk(
       rest[0],
       cliArgs.queries,
       cliArgs.grammar,
@@ -1416,12 +1424,19 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
         }
       },
     );
+    // --json writes each element as it is walked; the line form needs every element first (its
+    // input column and marker column depend on the whole capture)
+    if (cliArgs.json === true) await writeStdout(captureJsonChunks(elements));
+    else {
+      const all: CapturedElement[] = [];
+      for await (const file of elements) all.push(...file);
+      process.stdout.write(captureLines(all));
+    }
     const skipped = [...new Set(skips.map((s) => s.extension))].sort();
     if (skipped.length > 0) {
       emit({ message: "not parsed (no grammar): " + skipped.join(", "), kind: "note" });
     }
     for (const note of notes) emit({ message: note, kind: "note" });
-    process.stdout.write(cliArgs.json === true ? captureJson(elements) : captureLines(elements));
     return 0;
   } catch (thrown) {
     return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));

@@ -119,7 +119,7 @@ describe("cross-tier target consistency (the drift killer)", () => {
         new Map([["src/fixture.ts", inventory]]),
       );
       const tsPicked = targetsOf([...resolved.values()][0]!);
-      expect(tsPicked.map((e) => e.id).sort()).toEqual(jsonPicked.map((e) => e.label).sort());
+      expect(tsPicked.map((e) => e.label).sort()).toEqual(jsonPicked.map((e) => e.label).sort());
     }
   });
 });
@@ -133,7 +133,7 @@ describe("resolveAllCustomTargets", () => {
     // never matches separately (narration fires once per frame); the loose standalone run (c1)
     // is loose-comments, not comments
     if (!("targets" in resolvedRule)) throw new Error("expected a resolved target list");
-    expect(resolvedRule.targets.map((t) => t.id)).toEqual(["d0"]);
+    expect(resolvedRule.targets.map((t) => t.label)).toEqual(["d0"]);
     expect(resolvedRule.targets.map((t) => t.capture)).toEqual(["function"]);
   });
 
@@ -142,7 +142,7 @@ describe("resolveAllCustomTargets", () => {
     const resolved = resolveAllCustomTargets([ruleOf({ target: "loose-comments" })], inventory);
     const resolvedRule = [...resolved.values()][0]!;
     if (!("targets" in resolvedRule)) throw new Error("expected a resolved target list");
-    expect(resolvedRule.targets.map((t) => t.id)).toEqual(["c1"]);
+    expect(resolvedRule.targets.map((t) => t.label)).toEqual(["c1"]);
     expect(resolvedRule.targets.every((t) => t.capture === "comment")).toBe(true);
   });
 
@@ -166,7 +166,7 @@ describe("resolveAllCustomTargets", () => {
         new Map([["src/fixture.ts", inventory]]),
       );
       const targets = targetsOf([...resolved.values()][0]!);
-      expect(targets.some((e) => e.id === "d9")).toBe(false);
+      expect(targets.some((e) => e.label === "d9")).toBe(false);
     }
     // ...and not even the function-selection form sees it: the view excludes the element.
     const seen = resolveAllCustomTargets(
@@ -174,7 +174,7 @@ describe("resolveAllCustomTargets", () => {
       new Map([["src/fixture.ts", inventory]]),
     );
     const all = targetsOf([...seen.values()][0]!);
-    expect(all.some((e) => e.id === "d9")).toBe(false);
+    expect(all.some((e) => e.label === "d9")).toBe(false);
   });
 
   test("a dangling parent label throws instead of silently nulling", () => {
@@ -243,6 +243,14 @@ describe("tsElementsOf — materialized parent view", () => {
     expect(method.parent?.id).toBe(klass.id);
     // The parent chain materializes the SAME view (shared element identity).
     expect(method.parent?.source).toBe(klass.source);
+  });
+
+  test("a rule's element carries the id the walk minted, and keeps the label apart", async () => {
+    const inv = await decompose("function f() {}\nfunction g() {}\n", "typescript");
+    const elements = tsElementsOf(inv.definitions, "src/f.ts");
+    expect(elements.map((e) => e.id)).toEqual(inv.definitions.map((d) => d.id));
+    expect(elements.map((e) => e.label)).toEqual(["d0", "d1"]);
+    expect(new Set(elements.map((e) => e.id)).size).toBe(2);
   });
 });
 

@@ -5,6 +5,7 @@
  * module is where they meet the terminal.)
  */
 
+import { once } from "node:events";
 import { relative } from "node:path";
 import { describeRules, type CapturedElement, type Rule, type SelectedElement } from "@jint/sdk";
 
@@ -161,8 +162,35 @@ export function captureLines(elements: readonly CapturedElement[]): string {
  * Capture --json's payload: the element array as ONE JSON document (the flag-product convention -
  * dry-run's --json shape), stdout-clean; errors and notes stay on stderr through emit.
  */
-export function captureJson(elements: readonly CapturedElement[]): string {
-  return JSON.stringify({ elements }, null, 2) + "\n";
+export async function* captureJsonChunks(
+  files: AsyncIterable<readonly CapturedElement[]> | Iterable<readonly CapturedElement[]>,
+): AsyncGenerator<string> {
+  let first = true;
+  for await (const elements of files) {
+    let piece = "";
+    for (const element of elements) {
+      // an element's JSON is indented to sit inside the array
+      const body = JSON.stringify(element, null, 2).replaceAll("\n", "\n    ");
+      piece += (first ? '{\n  "elements": [\n    ' : ",\n    ") + body;
+      first = false;
+    }
+    if (piece !== "") yield piece;
+  }
+  yield first ? '{\n  "elements": []\n}\n' : "\n  ]\n}\n";
+}
+
+const OUT_BATCH_CHARS = 1 << 16;
+
+/** Write pieces to stdout in batches, waiting when the reader of a pipe falls behind. */
+export async function writeStdout(pieces: AsyncIterable<string> | Iterable<string>): Promise<void> {
+  let batch = "";
+  for await (const piece of pieces) {
+    batch += piece;
+    if (batch.length < OUT_BATCH_CHARS) continue;
+    if (!process.stdout.write(batch)) await once(process.stdout, "drain");
+    batch = "";
+  }
+  if (batch !== "") process.stdout.write(batch);
 }
 
 /** A usage error: the emitter's bare-error shape (message leads, no code - nothing to code yet). */

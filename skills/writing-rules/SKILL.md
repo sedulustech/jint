@@ -37,8 +37,8 @@ repeats another. The user may not know that.
   ("Does the title name the page's subject without needing the site's name around it?"), and
   the criteria list its concrete forms. A question that relies on the word alone measures the
   model's own idea of it.
-- Do not state the element kind. The compiler prepends it ("This unit is a function
-  definition."). Changing the instructions later recalibrates the rule.
+- The engine adds no sentence naming the element kind: the question is the instructions and
+  criteria as written. Changing the instructions later recalibrates the rule.
 - Name the rule for its true side, so the value reads as the name: `has_` or `lacks_` for a defect
   (high is bad), `is_` for a good property (high is good), `will_` for a defect the unit makes
   likely, such as `will_error_lose_cause`. The handle follows that direction.

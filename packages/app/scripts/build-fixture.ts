@@ -73,7 +73,6 @@ const VALUES: Record<string, number> = {
   is_function_srp: 0.5,
   will_error_lose_cause: 0.5,
   is_vocabulary_consistent: 0.9,
-  is_naming_convention_consistent: 0.9,
   has_filename_mismatch: 0.3,
   is_greppable: 0.9,
   is_comment_narration: 0.1,

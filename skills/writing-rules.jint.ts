@@ -1,17 +1,15 @@
 /**
- * Concept rules for the writing-rules skill: one rule per thing the skill has to say, so an edit
- * that drops one is a finding. A rule reads the skill whole and asks whether its body leaves the
- * concept out, so a high reading is bad. The skill is the unit, not each concept's sentence: a
- * concept stays when any sentence of the body says it, in any wording.
+ * Concept rules for the writing-rules skill and the docs page of the same name: one rule per thing
+ * they have to say, so an edit that drops one from either is a finding. A rule reads a document
+ * whole and asks whether its body leaves the concept out, so a high reading is bad. The document is
+ * the unit, not each concept's sentence: a concept stays when any sentence of the body says it, in
+ * any wording.
  *
- * Measured on the skill itself: all 21 rules read 0.00 on it. Each rule was also run on a copy of
- * the skill with that concept's text deleted: all 21 read 0.55 or higher, 13 of them 0.86 or
- * higher. The lowest is lacks_defect_as_true, 0.55, because the naming bullet still says a defect
- * is the true side. A concept whose sentence is stated twice reads lower when only one is deleted.
- * Added after, each 0.00 on the skill and measured on a copy without its text:
- * lacks_scoping_strategy 0.91, lacks_goal_decomposition 0.85, lacks_captures_skill_pointer 0.84
- * (both mentions deleted); lacks_jint_file_convention 0.97 with its paragraph deleted;
- * lacks_should_prefix_convention 0.93 with the should_ bullet deleted. One skill, one writer.
+ * Measured on both documents: all 26 rules read 0.01 or lower. Each rule is a single wording over
+ * both files, so a concept dropped from one document reads like a concept dropped from the other.
+ * Measured on the docs page with the concept's text deleted: lacks_threshold_floor and
+ * lacks_feedback_issue 1.00, lacks_no_edit_to_pass 0.95, lacks_scoping_strategy 0.88. Four of the
+ * 26 were measured that way; the other 22 were not.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -53,10 +51,10 @@ const CONCEPTS: readonly Concept[] = [
     message: "Say to define the measured word inside the instruction.",
   },
   {
-    name: "lacks_no_element_kind",
-    says: "the instruction does not state the element kind, because the compiler prepends it",
-    cue: "says not to state the element kind in the instructions",
-    message: "Say not to state the element kind in the instructions.",
+    name: "lacks_no_kind_sentence",
+    says: "the engine adds no sentence naming the element kind to the question",
+    cue: "says the engine adds no sentence naming the element kind, so the question is the instructions and criteria as written",
+    message: "Say that the engine adds no sentence naming the element kind.",
   },
   {
     name: "lacks_true_side_name",
@@ -192,8 +190,8 @@ const CONCEPTS: readonly Concept[] = [
 const ruleFor = (concept: Concept): RuleSchema => ({
   name: concept.name,
   target: "files",
-  include: ["skills/writing-rules/SKILL.md"],
-  instructions: `Does this skill fail to say that ${concept.says}? The skill says it when a sentence of its body says it in any wording. Judge only the body under the title; the front matter is not judged.`,
+  include: ["skills/writing-rules/SKILL.md", "docs/writing-rules.md"],
+  instructions: `Does this document fail to say that ${concept.says}? The document says it when a sentence of its body says it in any wording. Judge only the body under the title; the front matter is not judged.`,
   criteria: {
     true: `No sentence of the body ${concept.cue}, or the body says the opposite.`,
     false: `A sentence of the body ${concept.cue}, in any wording.`,

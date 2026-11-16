@@ -15,7 +15,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { readdir, open, stat } from "node:fs/promises";
+import { readdir, open, stat, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { classifiedState } from "../rules/classify.ts";
 import { SetupError, type Unit } from "../types.ts";
@@ -618,9 +618,8 @@ function fileExtension(name: string): string {
   return lastDotIndex === -1 ? "" : name.slice(lastDotIndex).toLowerCase();
 }
 
-/** The file's head text, or null when the head carries a null byte (binary). */
 async function sniffHead(absolutePath: string): Promise<string | null> {
-  const fileHandle = await open(absolutePath, "r");
+  const fileHandle = await openReadable(absolutePath);
   try {
     const sniffBuffer = Buffer.alloc(SNIFF_BYTES);
     const { bytesRead } = await fileHandle.read(sniffBuffer, 0, SNIFF_BYTES, 0);
@@ -640,9 +639,21 @@ async function readTextFile(absolutePath: string): Promise<string> {
   try {
     return await Bun.file(absolutePath).text();
   } catch (thrown) {
-    const detail = thrown instanceof Error ? thrown.message : String(thrown);
-    throw new SetupError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, {
-      cause: thrown,
-    });
+    throw unreadableFile(absolutePath, thrown);
   }
+}
+
+async function openReadable(absolutePath: string): Promise<FileHandle> {
+  try {
+    return await open(absolutePath, "r");
+  } catch (thrown) {
+    throw unreadableFile(absolutePath, thrown);
+  }
+}
+
+function unreadableFile(absolutePath: string, thrown: unknown): SetupError {
+  const detail = thrown instanceof Error ? thrown.message : String(thrown);
+  return new SetupError("ENTRYPOINT_UNREADABLE", `cannot read file: ${absolutePath}: ${detail}`, {
+    cause: thrown,
+  });
 }

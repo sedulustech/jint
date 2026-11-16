@@ -2,27 +2,6 @@
 
 import type { RuleSchema, NoulRuleSchema } from "@jint/contract";
 
-export const is_naming_convention_consistent: NoulRuleSchema = {
-  name: "is_naming_convention_consistent",
-  instructions: "Do identifiers of the same kind in this file follow a single casing convention?",
-  criteria: {
-    true: "Identifiers of the same kind follow one casing convention.",
-    false:
-      "Two different casing forms appear for the same kind within the file (getUserData beside fetch_user_data for two functions, OrderItem beside order_item for two types), forcing a reader to learn two shapes for one kind. Different kinds may use different conventions, and word choice or name quality are not casing failures.",
-  },
-  // A file, not an element: casing consistency is a comparison, and one element rarely holds
-  // two identifiers of the same kind to compare.
-  target: "files",
-  handle: {
-    warn: { less_than: 0.75 },
-    error: {
-      less_than: 0.65,
-      message:
-        "Find the identifiers of one kind that use different casings and keep one casing. The finding does not name them: read the whole file.",
-    },
-  },
-};
-
 export const has_filename_mismatch: NoulRuleSchema = {
   name: "has_filename_mismatch",
   instructions:
@@ -65,8 +44,4 @@ export const is_greppable: NoulRuleSchema = {
 };
 
 /** Every rule of this domain, in run order. */
-export const rules: readonly RuleSchema[] = [
-  is_naming_convention_consistent,
-  is_greppable,
-  has_filename_mismatch,
-];
+export const rules: readonly RuleSchema[] = [is_greppable, has_filename_mismatch];

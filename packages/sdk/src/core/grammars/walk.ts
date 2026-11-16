@@ -65,6 +65,8 @@ export type { DocstringOwner } from "../types.ts";
 
 /** An inventory element; slicing the source by its span bytes yields its content exactly. */
 export interface InventoryElement {
+  /** The element's identity: one uuidv4 minted when the walk creates it, carried unchanged after. */
+  readonly id: string;
   /** Stable positional label: "d0", "d1", "c0", "i0". */
   readonly label: string;
   readonly span: Span;
@@ -606,6 +608,7 @@ function materialize(
   commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
 
   const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
+    id: crypto.randomUUID(),
     label: labels.get(d)!,
     span: spanOf(d.node),
     content: d.node.text,
@@ -620,6 +623,7 @@ function materialize(
     parent: parentLabelOf(d, enclosures, labels),
   }));
   const walkComments: InventoryElement[] = commentElements.map((c) => ({
+    id: crypto.randomUUID(),
     label: labels.get(c)!,
     span: spanOf(c.node),
     content: c.node.text,
@@ -641,6 +645,7 @@ function materialize(
   ).map((run, index) => {
     const merged = runCandidate(run, source);
     return {
+      id: crypto.randomUUID(),
       label: "i" + String(index),
       span: spanOf(merged.node),
       content: merged.node.text,

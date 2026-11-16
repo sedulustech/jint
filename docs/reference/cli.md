@@ -205,6 +205,16 @@ _`<name>`_
 jint capture doc.md --rule is_short
 ```
 
+#### `--walk-workers`
+
+the threads that parse files
+
+_`<n>`_
+
+```sh
+jint capture doc.md --walk-workers 4
+```
+
 #### `--queries`
 
 extraction queries that replace the grammar's

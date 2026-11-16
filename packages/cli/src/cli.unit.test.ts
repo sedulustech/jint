@@ -25,13 +25,13 @@ import {
 import { emit } from "./output.ts";
 
 describe("cli: in-process unit tests", () => {
-  test("config disable: is_naming_convention_consistent not called", async () => {
+  test("config disable: has_filename_mismatch not called", async () => {
     const config = { ...allRulesConfig(), input: "tests/fixtures/sample-file.ts" };
     const asked: string[] = [];
     const fakeJudge = async (state: any, _questions: any) => {
       Object.keys(_questions ?? {}).forEach((k) => asked.push(k));
       return {
-        is_naming_convention_consistent: 0.9,
+        has_filename_mismatch: 0.9,
         is_name_purposeful: 0.9,
         is_greppable: 0.9,
         is_comment_narration: 0.1,
@@ -43,13 +43,13 @@ describe("cli: in-process unit tests", () => {
 
     const stream = lint({
       config,
-      disable: ["is_naming_convention_consistent"],
+      disable: ["has_filename_mismatch"],
       classifier: fakeJudge as any,
     });
     for await (const _ of stream) {
       // drained
     }
-    expect(asked).not.toContain("is_naming_convention_consistent");
+    expect(asked).not.toContain("has_filename_mismatch");
   });
 
   test("exclude propagation: path excluded not called", async () => {
@@ -58,7 +58,7 @@ describe("cli: in-process unit tests", () => {
     const fakeJudge = async (state: any, _questions: any) => {
       asked.push(state.path);
       return {
-        is_naming_convention_consistent: 0.9,
+        has_filename_mismatch: 0.9,
         is_name_purposeful: 0.9,
         is_greppable: 0.9,
         is_comment_narration: 0.1,
