@@ -2,7 +2,8 @@
   "configPath": "fixtures/sources/elements",
   "cwd": "packages/app",
   "argv": ["bun", "fixtures:gen"],
-  "ts": "1970-01-01T00:00:00.000Z",
+  "createdAt": "1970-01-01T00:00:00.000Z",
+  "updatedAt": "1970-01-01T00:00:00.000Z",
   "handles": {
     "is_comment_narration": {
       "warn": {

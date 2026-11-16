@@ -17,7 +17,7 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
-import { newestRunFirst, runIdStartMs } from "../core/provider/run-id.ts";
+import { runIdStartMs } from "../core/provider/run-id.ts";
 import { findUi } from "../core/ui-registry.ts";
 import {
   listClassifications,
@@ -598,10 +598,15 @@ async function caseDirsWithRequests(namespaceDir: string): Promise<string[]> {
   return caseDirs;
 }
 
-/** A run's start when its manifest has none: the start its id carries, else when its dir was made. */
-function startOf(runId: string, dirMade: Date): string {
-  const startMs = runIdStartMs(runId.split("/")[0]!);
-  return (startMs === null ? dirMade : new Date(startMs)).toISOString();
+/**
+ * A run's start: its manifest's createdAt, or, while the run is still recording and has no
+ * manifest, the start its id carries.
+ */
+function startOf(runId: string, createdAt: string | undefined): string {
+  if (createdAt !== undefined) return createdAt;
+  const startMs = runIdStartMs(runId.split("/").at(-1)!);
+  if (startMs === null) throw new Error(`run ${runId} has no createdAt and its id is not a UUIDv7`);
+  return new Date(startMs).toISOString();
 }
 
 async function readRunSummary(runId: string, runDir: string): Promise<RunSummary> {
@@ -628,7 +633,7 @@ async function readRunSummary(runId: string, runDir: string): Promise<RunSummary
   };
   return {
     id: runId,
-    createdAt: manifest.createdAt ?? startOf(runId, dirStats.birthtime),
+    createdAt: startOf(runId, manifest.createdAt),
     updatedAt: manifest.updatedAt ?? dirStats.mtime.toISOString(),
     requests: dirFiles.filter(
       (name) => name.endsWith(JSON_SUFFIX) && name !== REPORT_FILE && name !== MANIFEST_FILE,
@@ -650,7 +655,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
     const dirNames = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
     const candidates = await collectRunCandidates(runsRoot, dirNames);
     const runs = await Promise.all(candidates.map(({ id, dir }) => readRunSummary(id, dir)));
-    runs.sort(newestRunFirst);
+    runs.sort((a, b) => b.id.localeCompare(a.id));
     return { runs };
   } catch (err) {
     // Missing/unreadable root: absence is data, not an error. The runs list contract is

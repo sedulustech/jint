@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { newRunId, newestRunFirst, runIdStartMs } from "./run-id.ts";
+import { newRunId, runIdStartMs } from "./run-id.ts";
 
 describe("run ids", () => {
   test("a new id is a UUIDv7 that carries its start", () => {
@@ -10,16 +10,13 @@ describe("run ids", () => {
     expect(newRunId(start)).not.toBe(id);
   });
 
-  test("a run named by its start in Unix milliseconds keeps that start", () => {
-    expect(runIdStartMs("1794856633973")).toBe(1794856633973);
-    expect(runIdStartMs("1700000000001-seed")).toBe(1700000000001);
-    expect(runIdStartMs("seed")).toBeNull();
+  test("an id that is not a UUIDv7 carries no start", () => {
+    expect(runIdStartMs("1794856633973")).toBeNull();
+    expect(runIdStartMs("generated")).toBeNull();
   });
 
-  test("a store with both kinds lists the newest start first", () => {
-    const older = { id: "1794856633973" };
-    const newer = { id: newRunId(1794856633974) };
-    const oldest = { id: newRunId(1700000000000) };
-    expect([older, oldest, newer].sort(newestRunFirst)).toEqual([newer, older, oldest]);
+  test("ids sort by start as plain strings", () => {
+    const ids = [1794856633974, 1700000000000, 1794856633973].map((ms) => newRunId(ms));
+    expect([...ids].sort().reverse()).toEqual([ids[0]!, ids[2]!, ids[1]!]);
   });
 });

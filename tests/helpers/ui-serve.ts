@@ -17,10 +17,14 @@ export interface Served {
   stop: () => void;
 }
 
+/** Run ids for seeded stores: UUIDv7s that start at 1700000000001 and 1700000000002. */
+export const SEED_RUN_ID = "018bcfe5-6801-7000-8000-000000000001";
+export const LATER_RUN_ID = "018bcfe5-6802-7000-8000-000000000002";
+
 /** A scratch store holding one run, and a dist directory holding an index.html. */
 export function seedStore(): { seed: ServeSeed; dir: string } {
   const dir = scratchDir("ui-serve");
-  const run = join(dir, "runs", "100");
+  const run = join(dir, "runs", SEED_RUN_ID);
   mkdirSync(run, { recursive: true });
   writeFileSync(join(run, "manifest.json"), JSON.stringify({ configPath: "/c.json" }));
   writeFileSync(join(run, "1700000000001-files.json"), "{}");

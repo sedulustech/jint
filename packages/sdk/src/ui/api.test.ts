@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { serveApiRequest, requestsRoot } from "./api.ts";
 
+const STARTED = "2023-11-14T22:13:20.001Z";
+/** A run still recording: no manifest yet, so its start comes from its UUIDv7 id. */
+const RECORDING = "018bcfe5-6801-7000-8000-000000000001";
+
 const get = async (path: string, root: string): Promise<Response> =>
   (await serveApiRequest(new Request("http://x" + path), { root })) as Response;
 
@@ -36,39 +40,49 @@ describe("listRuns error surface", () => {
         mkdirSync(join(root, id));
         writeFileSync(
           join(root, id, "manifest.json"),
-          JSON.stringify({ configPath: `/cfg/${id}.json`, cwd: `/src/tree-${id}` }),
+          JSON.stringify({
+            configPath: `/cfg/${id}.json`,
+            cwd: `/src/tree-${id}`,
+            createdAt: STARTED,
+          }),
         );
         writeFileSync(join(root, id, "1700000000001-files.json"), "{}"); // a run has requests
       }
       // config-less run: VISIBLE, marked as default rules - never silently dropped
       mkdirSync(join(root, "500"));
-      writeFileSync(join(root, "500", "manifest.json"), "{}");
+      writeFileSync(join(root, "500", "manifest.json"), JSON.stringify({ createdAt: STARTED }));
       writeFileSync(join(root, "500", "1700000000001-files.json"), "{}");
       // migrated pre-store run: legacy manifest, no cwd/config - must NOT read as default rules
       mkdirSync(join(root, "600"));
       writeFileSync(
         join(root, "600", "manifest.json"),
-        JSON.stringify({ configPath: null, ts: "600", legacy: true, argv: [] }),
+        JSON.stringify({ configPath: null, createdAt: STARTED, legacy: true, argv: [] }),
       );
       writeFileSync(join(root, "600", "1700000000001-files.json"), "{}");
-      // manifest-less dir still lists (guarded) as unknown-config, never throws
-      mkdirSync(join(root, "400"));
-      writeFileSync(join(root, "400", "1700000000001-files-cap.json"), "{}");
+      mkdirSync(join(root, RECORDING));
+      writeFileSync(join(root, RECORDING, "1700000000001-files-cap.json"), "{}");
       writeFileSync(join(root, "stray.json"), "{}");
       const res = await get("/api/runs", root);
       const body = (await res.json()) as {
-        runs: { id: string; configPath: string | null; cwd?: string; legacy?: boolean }[];
+        runs: {
+          id: string;
+          createdAt: string;
+          configPath: string | null;
+          cwd?: string;
+          legacy?: boolean;
+        }[];
       };
-      expect(body.runs.map((r) => r.id)).toEqual(["600", "500", "400", "300", "200", "100"]);
+      expect(body.runs.map((r) => r.id)).toEqual(["600", "500", "300", "200", "100", RECORDING]);
       expect(body.runs[0]!.legacy).toBe(true);
       expect(body.runs[0]!.configPath).toBeNull();
       expect(body.runs[1]!.legacy).toBe(false);
       expect(body.runs[1]!.configPath).toBeNull();
-      // manifest-less: lists guarded as unknown-config, never throws, never fakes legacy
-      expect(body.runs[2]!.configPath).toBeNull();
-      expect(body.runs[2]!.legacy).toBe(false);
-      expect(body.runs[3]!.configPath).toBe("/cfg/300.json");
-      expect(body.runs[3]!.cwd).toBe("/src/tree-300");
+      expect(body.runs[2]!.configPath).toBe("/cfg/300.json");
+      expect(body.runs[2]!.cwd).toBe("/src/tree-300");
+      // manifest-less: lists as unknown-config, never fakes legacy, starts when its id says
+      expect(body.runs[5]!.configPath).toBeNull();
+      expect(body.runs[5]!.legacy).toBe(false);
+      expect(body.runs[5]!.createdAt).toBe(STARTED);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

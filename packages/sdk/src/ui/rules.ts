@@ -8,7 +8,6 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isChoiceHandler, isScoreHandler, type HandlerData } from "@jint/contract";
 import { loadConfig } from "../config/load.ts";
-import { newestRunFirst } from "../core/provider/run-id.ts";
 import { collectRunCandidates, readStoredReport } from "./api.ts";
 
 export type RuleKind = "noul" | "choice" | "score";
@@ -185,7 +184,7 @@ async function newestRuns(runsRoot: string): Promise<ScannedRun[]> {
     runsRoot,
     entries.filter((e) => e.isDirectory()).map((e) => e.name),
   );
-  candidates.sort(newestRunFirst);
+  candidates.sort((a, b) => b.id.localeCompare(a.id));
   return candidates.slice(0, SCAN);
 }
 

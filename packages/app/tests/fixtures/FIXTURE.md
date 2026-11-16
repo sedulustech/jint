@@ -1,7 +1,7 @@
 # Test fixtures
 
 Checked-in, deterministic fixtures for the component tests (src/*.test-browser.tsx).
-`generated/` is produced by `bun run fixtures:gen` - do not hand-edit it. `run-a/` and `run-b/` are
+`generated/` is produced by `bun run fixtures:gen` - do not hand-edit it. `run-a/` and the manifest-less run are
 hand-maintained: edit the files directly.
 
 ## Layout
@@ -29,8 +29,8 @@ hand-maintained: edit the files directly.
     (low.ts 0.08 under fires_when:"false"), silent-band capture renders no verdict (greedy.ts
     0.80 inside [0.75, 0.85]), score value 3 renders error. Findings agree with the projection
     where both exist (borderline.ts warn).
-- `run-b/` - 3 captures, deliberately NO `manifest.json`: the legacy-skipped state (hidden
-  by the picker, counted in the header note).
+- `018bcfe5-6801-7000-8000-00000000000b/` - 3 captures, deliberately NO `manifest.json`: a run still recording. Its id is a
+  UUIDv7, so its start is read from the id.
 
 ## Generated case fixtures (fixture-pipeline)
 
@@ -53,7 +53,7 @@ uuids.
 bun run fixtures:gen   # from packages/app: scripts/build-fixture.ts - generated/<case> runs
 ```
 
-`run-a/` and `run-b/` have no builder: they mix the recorded forms (legacy, wire, decisions) on
+`run-a/` and the manifest-less run have no builder: they mix the recorded forms (legacy, wire, decisions) on
 purpose, and a script would erase the hand-made cases. When a fixture changes, re-pin the constants
 at the top of `src/rule-filter.test-browser.tsx` (TOTAL / RULE_COUNTS / BORDERLINE_COUNT) to
 whatever the fixture contains.

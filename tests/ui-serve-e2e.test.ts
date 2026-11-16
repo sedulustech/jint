@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { rmScratchTree } from "./helpers/dir.ts";
-import { seedStore, startServe, type Served } from "./helpers/ui-serve.ts";
+import { SEED_RUN_ID, seedStore, startServe, type Served } from "./helpers/ui-serve.ts";
 
 // The real `jint ui serve` process, over a seeded store, asked through HTTP: its port, its bind and
 // its host guard are what a user meets.
@@ -77,7 +77,7 @@ test("it serves the store's runs and the dist index.html as the page fallback", 
     const runs = (await (await fetch(new URL("/api/runs", server.url))).json()) as {
       runs: { id: string }[];
     };
-    expect(runs.runs.map((run) => run.id)).toEqual(["100"]);
+    expect(runs.runs.map((run) => run.id)).toEqual([SEED_RUN_ID]);
     const page = await fetch(new URL("/some/page", server.url));
     expect(page.status).toBe(200);
     expect(await page.text()).toContain("jint ui");

@@ -37,7 +37,10 @@ function seedRun(
   const run = join(dir, "runs", ...id.split("/"));
   mkdirSync(run, { recursive: true });
   const { manifest, report } = extras as { manifest?: object; report?: object };
-  writeFileSync(join(run, "manifest.json"), JSON.stringify({ configPath: "/c.json", ...manifest }));
+  writeFileSync(
+    join(run, "manifest.json"),
+    JSON.stringify({ configPath: "/c.json", createdAt: "2023-11-14T22:13:20.001Z", ...manifest }),
+  );
   if (report !== undefined) writeFileSync(join(run, "report.json"), JSON.stringify(report));
   for (const [name, { body, mtimeMs }] of Object.entries(files)) {
     writeFileSync(join(run, name), JSON.stringify(body));

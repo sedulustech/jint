@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { CLI_SRC, mockDecisionsWire, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
+import { SEED_RUN_ID } from "./helpers/ui-serve.ts";
 
 // A run prints the address of its own run when a UI server is up for the store it wrote to: the
 // real `jint ui serve` held in the background, real runs against a mock endpoint. The address is
@@ -16,7 +17,7 @@ function setup() {
   const dir = scratchDir("run-url");
   scratch.push(dir);
   const store = join(dir, "runs");
-  const seeded = join(store, "1700000000001-seed");
+  const seeded = join(store, SEED_RUN_ID);
   mkdirSync(seeded, { recursive: true });
   writeFileSync(join(seeded, "1700000000001-files.json"), "{}");
   const dist = join(dir, "dist");

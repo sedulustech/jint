@@ -1,7 +1,6 @@
 /**
- * A run's id: a UUIDv7 (RFC 9562), so it is unique across machines and still sorts by when the run
- * started. Runs recorded before it are named by the Unix milliseconds they started at; both forms
- * carry their start, so a store that holds both still lists newest first.
+ * A run's id: a UUIDv7 (RFC 9562), so it is unique across machines, and its lowercase hex sorts by
+ * when the run started.
  */
 
 /**
@@ -23,15 +22,10 @@ export function newRunId(startMs: number): string {
   ].join("-");
 }
 
-/** The Unix milliseconds a run started at, read from its id; null for an id that carries none. */
+/** The Unix milliseconds a run started at, read from its UUIDv7 id; null for any other id. */
 export function runIdStartMs(id: string): number | null {
-  const uuidV7 = id.match(/^([0-9a-f]{8})-([0-9a-f]{4})-7[0-9a-f]{3}-/i);
-  if (uuidV7 !== null) return parseInt(uuidV7[1]! + uuidV7[2]!, 16);
-  const unixMs = id.match(/^(\d{13})(?!\d)/);
-  return unixMs === null ? null : Number(unixMs[1]);
-}
-
-/** Sort order for run ids: the newest start first, then the id, so equal starts stay stable. */
-export function newestRunFirst(a: { id: string }, b: { id: string }): number {
-  return (runIdStartMs(b.id) ?? 0) - (runIdStartMs(a.id) ?? 0) || b.id.localeCompare(a.id);
+  const uuidV7 = id.match(
+    /^([0-9a-f]{8})-([0-9a-f]{4})-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+  return uuidV7 === null ? null : parseInt(uuidV7[1]! + uuidV7[2]!, 16);
 }

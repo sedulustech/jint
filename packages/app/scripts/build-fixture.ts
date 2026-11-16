@@ -328,7 +328,7 @@ function hoistCaptures(outDir: string): void {
       writeFileSync(join(outDir, name), raw);
       continue;
     }
-    json.ts = SENTINEL_TS;
+    if (base !== "manifest.json") json.ts = SENTINEL_TS;
     json.durationMs = 0;
     writeFileSync(join(outDir, name), JSON.stringify(json, null, 2) + "\n");
   }

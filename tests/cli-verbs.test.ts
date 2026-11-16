@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { capture } from "../packages/sdk/src/index.ts";
 import { runCli, CLI_SRC as CLI } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
+import { LATER_RUN_ID, SEED_RUN_ID } from "./helpers/ui-serve.ts";
 
 // The verb surface e2e: the spawned binary's capture and serve, and the flagship verb-resolution
 // contract (a missing or unknown first positional is a loud usage error naming the fix). capture is
@@ -144,7 +145,7 @@ describe("cli verbs e2e — capture through the spawned binary", () => {
 describe("cli verbs e2e — serve: the store's UI, held", () => {
   // a seeded store (one request-bearing run dir) and a scratch UI dist: serve needs both
   const store = scratchDir("jint-serve-store");
-  const seeded = join(store, "1700000000001-seed");
+  const seeded = join(store, SEED_RUN_ID);
   mkdirSync(seeded, { recursive: true });
   writeFileSync(join(seeded, "1700000000001-files.json"), "{}");
   const dist = scratchDir("jint-serve-dist");
@@ -164,18 +165,18 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
   });
 
   test("show lists the newest runs first, as many as --last asks", async () => {
-    mkdirSync(join(store, "1700000000002-seed"), { recursive: true });
-    writeFileSync(join(store, "1700000000002-seed", "1700000000002-files.json"), "{}");
+    mkdirSync(join(store, LATER_RUN_ID), { recursive: true });
+    writeFileSync(join(store, LATER_RUN_ID, "1700000000002-files.json"), "{}");
     const r = await runCli(["ui", "show", "--last", "1"], { env: SERVE_ENV, timeout: 60_000 });
     expect(r.code).toBe(0);
     expect(r.stdout.trim().split("\n")).toHaveLength(1);
-    expect(r.stdout).toStartWith("1700000000002-seed  ");
+    expect(r.stdout).toStartWith(`${LATER_RUN_ID}  `);
     // no server holds this store: the run still lists, and stderr says how to open it
     expect(r.stderr).toContain("jint ui serve opens it");
     const json = await runCli(["ui", "show", "--json"], { env: SERVE_ENV, timeout: 60_000 });
     expect(json.code).toBe(0);
     const runs = JSON.parse(json.stdout) as { id: string }[];
-    expect(runs.map((run) => run.id)).toEqual(["1700000000002-seed", "1700000000001-seed"]);
+    expect(runs.map((run) => run.id)).toEqual([LATER_RUN_ID, SEED_RUN_ID]);
   });
 
   test("show: an empty store or a --last below 1 is exit 2", async () => {
@@ -241,7 +242,7 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
       const api = (await (await fetch(new URL("/api/runs", url))).json()) as {
         runs: { id: string }[];
       };
-      expect(api.runs.map((run) => run.id)).toContain("1700000000001-seed");
+      expect(api.runs.map((run) => run.id)).toContain(SEED_RUN_ID);
       proc.kill("SIGINT");
       expect(await proc.exited).toBe(0);
     } finally {
