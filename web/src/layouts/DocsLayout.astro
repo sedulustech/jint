@@ -9,24 +9,32 @@ import FigureZoom from "../components/FigureZoom.astro";
 import InstallPromptLine from "../components/InstallPromptLine.astro";
 import MenuToggle from "../components/MenuToggle.astro";
 
-interface Props {
-  doc: Doc;
-}
+/**
+ * A doc page, or another page in the docs' frame (the download page): that one brings its own title
+ * and description and gets the sidebar with no page marked, and no pager.
+ */
+type Props = { doc: Doc } | { doc?: undefined; title: string; description: string; noindex?: boolean };
 
-const { doc } = Astro.props;
-const current = doc.id;
+const props = Astro.props;
+const doc = props.doc;
+const current = doc?.id;
 const groups = await docGroups();
 // The sidebar's order as one ring: the last page's next is the first, the first page's previous the last.
 const ring = groups.flatMap((group) => group.docs);
 const at = ring.findIndex((entry) => entry.id === current);
-const previous = ring.length > 1 ? ring[(at - 1 + ring.length) % ring.length] : undefined;
-const next = ring.length > 1 ? ring[(at + 1) % ring.length] : undefined;
-const name = doc.data.title;
-const title = `${name} - jint docs`;
-const description = doc.data.description;
+const previous =
+  doc !== undefined && ring.length > 1 ? ring[(at - 1 + ring.length) % ring.length] : undefined;
+const next = doc !== undefined && ring.length > 1 ? ring[(at + 1) % ring.length] : undefined;
 const site = Astro.site ?? new URL("https://jint.sh");
-const pageUrl = new URL(`/docs/${doc.id}/`, site).href;
-const jsonLd = [
+const title = doc === undefined ? props.title : `${doc.data.title} - jint docs`;
+const description = doc === undefined ? props.description : doc.data.description;
+const noindex = doc === undefined && props.noindex === true;
+const jsonLd = doc === undefined ? [] : docJsonLd(doc, site);
+
+function docJsonLd(doc: Doc, site: URL): object[] {
+  const name = doc.data.title;
+  const pageUrl = new URL(`/docs/${doc.id}/`, site).href;
+  return [
   {
     "@context": "https://schema.org",
     "@type": "TechArticle",
@@ -45,10 +53,18 @@ const jsonLd = [
       { "@type": "ListItem", position: 3, name: name, item: pageUrl },
     ],
   },
-];
+  ];
+}
 ---
 
-<Layout {title} {description} {jsonLd} type="article" markdown={`/docs/${doc.id}.md`}>
+<Layout
+  {title}
+  {description}
+  {jsonLd}
+  {noindex}
+  type={doc === undefined ? "website" : "article"}
+  markdown={doc === undefined ? undefined : `/docs/${doc.id}.md`}
+>
   <div class="page">
     <header>
       <HeaderLogo />

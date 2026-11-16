@@ -1,7 +1,5 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import HeaderLogo from "../components/HeaderLogo.astro";
-import HeaderTools from "../components/HeaderTools.astro";
+import DocsLayout from "../layouts/DocsLayout.astro";
 import PrimaryButton from "../components/PrimaryButton.astro";
 
 // The binaries mirror (functions/dl) serves the beta channel under /dl/download/beta/.
@@ -17,73 +15,31 @@ const PLATFORMS = [
 const BETA = "/dl/download/beta";
 ---
 
-<Layout
+<DocsLayout
   noindex
   title="Download jint - binaries for Linux and macOS"
   description="Download jint for Linux x64, Linux arm64, macOS Apple silicon or macOS Intel, with checksums."
 >
-  <div class="page">
-    <header>
-      <HeaderLogo />
-      <HeaderTools />
-    </header>
-    <main>
-      <h1>download</h1>
-      <p>Download the beta version.</p>
-      <ul class="platforms">
-        {
-          PLATFORMS.map(({ label, file }) => (
-            <li>
-              <PrimaryButton href={`${BETA}/${file}`}>
-                <span class="row">
-                  <span>{label}</span>
-                  <span class="file">{file}</span>
-                </span>
-              </PrimaryButton>
-            </li>
-          ))
-        }
-      </ul>
-      <p><a href="/docs/install/">install docs</a></p>
-    </main>
-  </div>
-</Layout>
+  <h1>Download</h1>
+  <p>Download the beta version.</p>
+  <ul class="platforms">
+    {
+      PLATFORMS.map(({ label, file }) => (
+        <li>
+          <PrimaryButton href={`${BETA}/${file}`}>
+            <span class="row">
+              <span>{label}</span>
+              <span class="file">{file}</span>
+            </span>
+          </PrimaryButton>
+        </li>
+      ))
+    }
+  </ul>
+  <p><a href="/docs/install/">install docs</a></p>
+</DocsLayout>
 
 <style>
-  .page {
-    max-width: 40rem;
-    margin-inline: auto;
-    padding-block: var(--s3) var(--s6);
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-bottom: var(--s3);
-    border-bottom: 1px solid var(--rule);
-  }
-
-  main {
-    padding-top: var(--s4);
-    font-size: 0.9rem;
-    line-height: 1.7;
-  }
-
-  h1 {
-    margin: 0 0 var(--s3);
-    font-size: 1.5rem;
-    line-height: 1.3;
-  }
-
-  h1::first-letter {
-    text-transform: uppercase;
-  }
-
-  p {
-    margin-block: 0 var(--s2);
-  }
-
   .platforms {
     display: grid;
     gap: var(--s1);
@@ -102,15 +58,5 @@ const BETA = "/dl/download/beta";
 
   .file {
     color: var(--muted);
-  }
-
-  pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    margin: 0 0 var(--s2);
-    padding: var(--s2);
-    border: 1px solid var(--rule);
-    background: var(--code-bg);
-    font-size: 0.8rem;
   }
 </style>
