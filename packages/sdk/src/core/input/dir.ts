@@ -547,9 +547,9 @@ export function denylistMatch(
 /**
  * THE one file/pattern matcher (walk-union collapse): dirOnly semantics live here, consumed by the
  * walker's scopes AND scope.ts's per-rule scoping - one semantics, two callers, no second
- * derivation to drift (review 396888e finding 2 was exactly that drift). A non-dirOnly pattern
- * tests the path itself; a dirOnly pattern (trailing slash - "tests/") names a directory, so it
- * matches a file when ANY ancestor directory of the path satisfies the pattern's regex.
+ * derivation to drift. A non-dirOnly pattern tests the path itself; a dirOnly pattern (trailing
+ * slash - "tests/") names a directory, so it matches a file when ANY ancestor directory of the path
+ * satisfies the pattern's regex.
  */
 export function patternMatchesFile(rule: IgnoreRule, path: string): boolean {
   if (!rule.dirOnly) return rule.re.test(path);

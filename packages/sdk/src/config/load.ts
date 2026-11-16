@@ -59,7 +59,7 @@ const TARGET_SCHEMA = Type.Union(
   },
 );
 
-// Per-rule scoping (issue 008): glob lists over the walk's paths; exclude always wins. Contents
+// Per-rule scoping: glob lists over the walk's paths; exclude always wins. Contents
 // validated eagerly so the error names the exact field.
 const INCLUDE_SCHEMA = Type.Array(Type.String(), {
   description: "Globs of the files this rule reads. It replaces the run include for this rule.",

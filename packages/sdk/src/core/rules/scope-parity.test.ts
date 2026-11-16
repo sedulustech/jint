@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { validateConfig } from "@jint/sdk";
 import { validateCustomRule } from "@jint/sdk";
 
-// Cross-tier parity for per-rule scoping (issue 008): the same bad scope shapes must be rejected
+// Cross-tier parity for per-rule scoping: the same bad scope shapes must be rejected
 // by BOTH tiers - the JSON loader (CONFIG_INVALID) and the TS-rule loader (RULE_INVALID) - with
 // the same field-naming messages. Mirrors the handler-parity test.
 
@@ -42,7 +42,7 @@ const CHECKER_SCOPES: readonly Record<string, unknown>[] = [
 const SCHEMA_SCOPES: readonly Record<string, unknown>[] = [{ exclude: [42] }];
 
 describe("scope validation parity (JSON tier <-> custom tier)", () => {
-  // Review 396888e finding 5: the rejection SET alone could stay green if the JSON tier started
+  // The rejection SET alone could stay green if the JSON tier started
   // rejecting a shape via the schema union for an unrelated reason — pin the message content too.
   test.each(CHECKER_SCOPES.map((s) => [JSON.stringify(s), s] as const))(
     "both tiers reject %s naming the field",

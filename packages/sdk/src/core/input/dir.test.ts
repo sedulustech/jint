@@ -87,7 +87,7 @@ describe("walkDir", () => {
   test("walk-union: a dirOnly include pattern (trailing slash) admits the subtree - the ONE matcher's ancestor semantics", async () => {
     // the collapsed dirOnly matcher (patternMatchesFile) serves the walker's scopes too:
     // "sub/" names a directory, so sub/more.ts is admitted through any ancestor match - exactly
-    // what rule scopes have always done (review 396888e finding 2's drift, now one matcher)
+    // the same semantics rule scopes use
     const stats = inputStats();
     const paths: string[] = [];
     for await (const unit of walkDir(

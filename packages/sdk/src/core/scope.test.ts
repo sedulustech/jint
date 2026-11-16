@@ -78,8 +78,8 @@ describe("compileRuleScope / ruleInScope — the scoping matrix", () => {
     expect(ruleInScope(scoped, "tests/a.ts")).toBe(false);
   });
 
-  // Review 396888e finding 2: reusing compilePattern without dirOnly made "tests/" match NOTHING
-  // in a rule scope while the global exclude pruned the whole tree. Same pattern, same meaning,
+  // compilePattern without dirOnly would make "tests/" match NOTHING in a rule scope while the
+  // global exclude prunes the whole tree. Same pattern, same meaning,
   // every context — dirOnly matches when any ANCESTOR directory satisfies the pattern.
   test("dirOnly (trailing-slash) patterns scope out the whole subtree, like the global exclude", () => {
     expect(matches({ exclude: ["tests/"] }, "tests/a.ts")).toBe(false);
@@ -131,7 +131,7 @@ describe("compileRuleScope / ruleInScope — the scoping matrix", () => {
     }
   });
 
-  // The documented trap (review 396888e finding 6): a file input's path is matched AS GIVEN, and
+  // The documented trap: a file input's path is matched AS GIVEN, and
   // scope patterns are root-relative (no leading slash, like the global exclude), so an absolute
   // input path can never satisfy a relative glob and the rule silently applies. Pinned so a
   // change to that decision is deliberate, not accidental.

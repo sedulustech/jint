@@ -604,7 +604,7 @@ describe("lint", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("per-rule scoping (issue 008): scoped-out elements cost zero calls and are noted", async () => {
+  test("per-rule scoping: scoped-out elements cost zero calls and are noted", async () => {
     const scopedRule: Rule = {
       name: "is_scope_probe",
       instructions: "q",
@@ -633,7 +633,7 @@ describe("lint", () => {
     expect(report.notes).toHaveLength(1);
     expect(report.notes[0]).toContain("scope excluded");
     expect(report.notes[0]).toContain("rule 'is_scope_probe' scope excluded 2 element(s)");
-    // the signal survives the machine boundary too (review 396888e finding 1): --json carries it
+    // the signal survives the machine boundary too: --json carries it
     expect(JSON.parse(renderJson(report)).notes).toEqual(report.notes);
   });
 
@@ -928,7 +928,7 @@ describe("lint", () => {
           classifier: loggingClassifier({ probe_py_loose: 0.95 }, { calls: [] }),
         }),
       );
-      // the module docstring fires the loose-comments rule (it used to route to 'comments')
+      // the module docstring fires the loose-comments rule
       expect(report.findings).toHaveLength(1);
       expect(report.findings[0]!.rule).toBe("probe_py_loose");
     } finally {

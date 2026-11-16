@@ -1,6 +1,6 @@
 /**
- * Per-rule include/exclude scoping (issue 008): a rule can be scoped to a subset of the walk's
- * paths instead of firing on every element. Semantics, in order:
+ * Per-rule include/exclude scoping: a rule can be scoped to a subset of the walk's paths instead of
+ * firing on every element. Semantics, in order:
  *
  * - Include filters FIRST (absent = the rule applies to all paths);
  * - Exclude subtracts LAST (always wins over include, even the same pattern in both).
@@ -10,11 +10,10 @@
  * double-star-prefixed otherwise) INCLUDING dirOnly: a trailing-slash pattern ("tests/") names a
  * directory, so it matches a file path when any ancestor directory of that path matches - exactly
  * what the global exclude's tree-pruning produces, so "tests/" scopes out the whole subtree in
- * every context (review 396888e finding 2: reusing the regex without the semantics made "tests/"
- * match nothing in rule scopes while pruning everything in the global exclude). Negated globs
- * ("!pattern") are NOT supported in scope lists: the global exclude ignores them, and silently
- * ignoring a negation inside a scoping list reads as a bug, so a `!`-leading pattern is rejected at
- * load, naming the field.
+ * every context (the regex without these semantics would make "tests/" match nothing in rule scopes
+ * while pruning everything in the global exclude). Negated globs ("!pattern") are NOT supported in
+ * scope lists: the global exclude ignores them, and silently ignoring a negation inside a scoping
+ * list reads as a bug, so a `!`-leading pattern is rejected at load, naming the field.
  *
  * Scoping filters at element selection, before rule resolution: a scoped-out element costs zero
  * provider calls. Scoping matches the element's FILE path as the walk yields it (relative for dir
@@ -37,8 +36,7 @@ import type { Rule, UnitKind } from "./types.ts";
 /**
  * Whether a rule judges the WHOLE unit in one call (its target routes the unit itself, not
  * inventory elements) versus element-by-element. Shared by the classify funnel's quick path and the
- * scope-note accounting so the two cannot drift (a review finding: the predicate was once written
- * in two places).
+ * scope-note accounting so the two cannot drift.
  */
 export function judgesWholeUnit(rule: Pick<Rule, "target">, unitKind: UnitKind): boolean {
   const targets = Array.isArray(rule.target) ? rule.target : [rule.target];

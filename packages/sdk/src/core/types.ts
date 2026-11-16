@@ -161,7 +161,7 @@ interface RuleBase {
    * is custom-tier (code policy). This is what the run manifest snapshots.
    */
   readonly handleData?: import("@jint/contract").HandlerData;
-  /** Per-rule scoping (issue 008): glob list; absent = the rule applies to all paths. */
+  /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */
   readonly exclude?: readonly string[];
@@ -238,8 +238,8 @@ export interface Finding {
   /** The reading was too close to call and the rule's undecided tier fired. */
   readonly undecided?: true;
   /**
-   * Additive (custom tier): a policy callback's remediation instruction to the caller
-   * (schema-validated at the callback boundary). Absent for threshold-derived findings.
+   * Custom tier: a policy callback's remediation instruction to the caller (schema-validated at the
+   * callback boundary). Absent for threshold-derived findings.
    */
   readonly message?: string;
   /**
@@ -248,8 +248,8 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The rule author's message attached at the fired handle tier; absent = a bare finding. The
-   * criteria legend echo is gone: rubric prose never reaches findings.
+   * The rule author's message attached at the fired handle tier; absent = a bare finding. Rubric
+   * prose never reaches findings.
    */
   readonly note?: string;
 }

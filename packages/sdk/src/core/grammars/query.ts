@@ -991,9 +991,9 @@ const SHARED_TARGETS: ReadonlySet<string> = new Set(RULE_TARGETS);
  * REPLACES its embedded extraction, so the emitted set for an id is the shadow's once merged. Two
  * distinguished failures: grammar not registered (named with the loaded ids) vs capture not emitted
  * (named with that grammar's ACTUAL emitted set - shadow-derived when a shadow exists). A bare name
- * that is neither a shared target nor an address is a typo and fails loudly too. Config load stays
- * grammar-blind (no registry is built there); the loudness point in the user's experience is
- * identical: CONFIG_INVALID, nothing measured.
+ * that is neither a shared target nor an address is a typo and fails loudly too. Config load is
+ * grammar-blind (no registry is built there), so an address error surfaces here as CONFIG_INVALID,
+ * before anything is measured, the same way a config error does.
  */
 export function assertCaptureAddress(target: string, registry: GrammarRegistry): void {
   const match = target.match(QUALIFIED_ADDRESS);

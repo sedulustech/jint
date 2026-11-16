@@ -265,7 +265,7 @@ describe("runCustomRules — impossible state fails loud", () => {
   });
 });
 
-// Review 396888e finding 3: scoping is a cross-tier feature — the custom tier must be TESTED, not
+// Scoping is a cross-tier feature — the custom tier must be TESTED, not
 // just compiled. Zero-cost filtering on BOTH selection paths, and the note the JSON tier emits.
 describe("per-rule scoping on the custom tier", () => {
   test("zero-cost: a scoped-out element costs zero provider calls (grammar path)", async () => {

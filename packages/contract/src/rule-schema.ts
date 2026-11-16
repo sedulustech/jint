@@ -22,7 +22,7 @@ export interface NoulRuleSchema {
   readonly criteria: { readonly true: string; readonly false: string };
   readonly target: RuleTarget | readonly RuleTarget[];
   readonly handle: NoulHandlerData;
-  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  /** Per-rule scope: glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
   /**
@@ -46,7 +46,7 @@ export interface ScoreRuleSchema {
   readonly criteria: readonly string[];
   readonly target: RuleTarget | readonly RuleTarget[];
   readonly handle: ScoreHandlerData;
-  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  /** Per-rule scope: glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
   /**
@@ -71,7 +71,7 @@ export interface ChoiceRuleSchema {
   readonly criteria: Readonly<Record<string, string>>;
   readonly target: RuleTarget | readonly RuleTarget[];
   readonly handle: ChoiceHandlerData;
-  /** Per-rule scope (issue 008): glob lists over the walk's paths; unset = all in-scope paths. */
+  /** Per-rule scope: glob lists over the walk's paths; unset = all in-scope paths. */
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
   /**

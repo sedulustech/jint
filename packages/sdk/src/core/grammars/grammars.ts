@@ -422,12 +422,12 @@ async function readCustomGrammar(
 /**
  * The grammar-dir scan, returned as a REGISTRY VALUE: the custom grammars under the dir merged over
  * the embedded base. THE SEAM IS ONE GRAMMAR PER DIR: each SUBDIRECTORY is one grammar, its id the
- * DIRECTORY NAME (nextjs-route semantics); a stray file at the root is a coverage note (stale
- * artifact of the flat layout - artifacts are flat INSIDE a grammar dir, never at the root).
- * Missing dir scans as zero grammars (the embedded base alone). A missing artifact, a malformed
- * extensions.json, an empty or uncompilable .scm, or a wasm whose export disagrees with the dir
- * name throws CONFIG_INVALID - loud, at setup, before any file is measured. The caller owns the
- * value's lifetime: it lives and dies with the run or call that asked for it.
+ * DIRECTORY NAME (nextjs-route semantics); a stray file at the root is a coverage note: artifacts
+ * are flat INSIDE a grammar dir, never at the root. Missing dir scans as zero grammars (the
+ * embedded base alone). A missing artifact, a malformed extensions.json, an empty or uncompilable
+ * .scm, or a wasm whose export disagrees with the dir name throws CONFIG_INVALID - loud, at setup,
+ * before any file is measured. The caller owns the value's lifetime: it lives and dies with the run
+ * or call that asked for it.
  */
 export async function loadCustomGrammars(
   dir: string = grammarsDir(),

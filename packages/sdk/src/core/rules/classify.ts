@@ -263,7 +263,6 @@ export interface ClassifyResult {
   readonly inventory?: Inventory;
   /** Elements skipped as oversized: never judged; every skip named in-band, not counted. */
   readonly oversized: readonly OversizedElement[];
-  /** Per-rule scoping (issue 008): scoped-out element counts, never silent. */
   readonly notes: string[];
 }
 
@@ -355,7 +354,7 @@ export function matchesTarget(target: string, element: TargetableElement): boole
   }
 }
 
-/** Per-rule scoping (issue 008): a scoped-out rule/element pair costs zero classifier calls. */
+/** Per-rule scoping: a scoped-out rule/element pair costs zero classifier calls. */
 /** One rule's targets, list or shorthand, as a list. */
 export const targetsOf = (rule: {
   readonly target: RuleTarget | readonly RuleTarget[];
@@ -521,11 +520,10 @@ function wholeUnitRules(
 }
 
 /**
- * Per-rule scoping (issue 008): scoped-out pairs cost zero calls, but they are SIGNAL. One
- * aggregated note per unit (review 396888e finding 4: per-unit-per-rule notes inherit the rules x
- * files fan-out and drown the stream) lists each scoped rule and what it skipped. The path is
- * constant within a unit, so every scoped rule is either in scope for the whole unit or out for all
- * of it.
+ * Per-rule scoping: scoped-out pairs cost zero calls, but they are SIGNAL. One aggregated note per
+ * unit (per-unit-per-rule notes would inherit the rules x files fan-out and drown the stream) lists
+ * each scoped rule and what it skipped. The path is constant within a unit, so every scoped rule is
+ * either in scope for the whole unit or out for all of it.
  */
 function scopeNotesFor(
   rules: readonly Rule[],

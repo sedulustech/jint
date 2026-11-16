@@ -245,8 +245,8 @@ function selectScopedElements(
 /**
  * THE CAPTURE-ADDRESS GATE, over the run's registry and before any file walks: a shadow grammar
  * REPLACES its embedded extraction, so the emitted set for an id is the shadow's once merged.
- * Config load stays grammar-blind (no registry is built there); the loudness point in the user's
- * experience is identical: CONFIG_INVALID, nothing measured.
+ * Config load is grammar-blind (no registry is built there), so an address error surfaces here as
+ * CONFIG_INVALID, before anything is measured, the same way a config error does.
  */
 function assertTargetsAddressable(config: ResolvedConfig, registry: GrammarRegistry): void {
   for (const rule of config.rules) {
