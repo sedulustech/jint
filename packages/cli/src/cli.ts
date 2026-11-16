@@ -25,6 +25,7 @@ import {
   captureStreamFor,
   checkRunKnobs,
   collectReport,
+  recentRuns,
   runsBase,
   selectRules,
   validateRuleSelection,
@@ -158,10 +159,20 @@ export const FLAGS = {
     example: "--grammar ./grammars/ini",
     verbs: ["capture"],
   },
+  "--last": {
+    type: "string",
+    arg: "<n>",
+    blurb: "how many of the newest runs to list",
+    example: "--last 10",
+    verbExample: { ui: "jint ui show --last 10" },
+    verbs: ["ui"],
+  },
   "--json": {
     type: "boolean",
     blurb: "print the report as JSON",
+    verbBlurb: { ui: "print the runs as JSON" },
     example: "--json",
+    verbExample: { ui: "jint ui show --json" },
   },
   "--dry-run": {
     type: "boolean",
@@ -315,7 +326,7 @@ export const VERBS = {
   ui: {
     example: "jint ui serve",
     blurb: "serve the run UI, opened on the newest run",
-    flags: [],
+    flags: ["last", "json"],
   },
   capture: {
     example: "jint capture doc.md",
@@ -403,6 +414,9 @@ export const GLOBAL_FLAG_NAMES: readonly string[] = [...GLOBAL_FLAGS].map((key) 
  * it.
  */
 export function flagExample(verb: Verb, flagName: string): string {
+  const own = (FLAGS as Record<string, { verbExample?: Record<string, string> }>)[flagName]!
+    .verbExample?.[verb];
+  if (own !== undefined) return own;
   const stem = VERBS[verb].example.replace(/ -$/, "");
   return stem.includes(flagName)
     ? stem
@@ -1139,9 +1153,8 @@ function printDryRun(run: RunContext): void {
   else printRulesStdout(run.effective, customCount);
 }
 
-/** The verbs that do not take the run pipeline's prepared context: each owns its whole exit. */
 function otherVerb(cliArgs: CliArgs, verb: { name: string; rest: readonly string[] }) {
-  if (verb.name === "ui") return uiVerb(verb.rest);
+  if (verb.name === "ui") return uiVerb(cliArgs, verb.rest);
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
   if (verb.name === "reclassify") return reclassifyVerb(cliArgs, verb.rest);
   if (verb.name === "skills") return skillsVerb(verb.rest);
@@ -1352,13 +1365,22 @@ function skillsVerb(rest: readonly string[]): number {
 }
 
 /**
- * Serve: the run store's UI, standalone - no classification, no config, no arguments. The app opens
- * the store's NEWEST run first (the fix loop: measure with `jint run`, then look with `jint ui
- * serve`). Any positional is a usage error; an empty store fails loud, naming the store.
+ * The run store's UI, standalone - no classification, no config. `serve` serves it, opened on the
+ * store's NEWEST run (the fix loop: measure with `jint run`, then look with `jint ui serve`).
+ * `show` lists the newest runs with the url of each one's view, so a run's address never has to be
+ * put together by hand. Any other positional is a usage error; an empty store fails loud, naming
+ * the store.
  */
-async function uiVerb(rest: readonly string[]): Promise<number> {
+async function uiVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
+  if (rest.length === 1 && rest[0] === "show") return showRuns(cliArgs);
   if (rest.length !== 1 || rest[0] !== "serve") {
-    usageError("jint ui takes: serve  - it opens the store's newest run: jint ui serve");
+    usageError(
+      "jint ui takes: serve or show  - serve opens the store's newest run: jint ui serve; show lists the newest runs: jint ui show --last 5",
+    );
+    return EXIT.unusable;
+  }
+  if (cliArgs.json === true || cliArgs.last !== undefined) {
+    usageError("--last and --json are show flags  - jint ui show --last 5 --json");
     return EXIT.unusable;
   }
   if (!storeHasRuns()) {
@@ -1368,6 +1390,42 @@ async function uiVerb(rest: readonly string[]): Promise<number> {
     return EXIT.unusable;
   }
   return serveUiHold(viewerUiFailure);
+}
+
+/**
+ * Show: the store's newest runs, newest first, one per line (or a JSON array under --json) with the
+ * url of each run's view while `jint ui serve` holds the store. Without a server the runs still
+ * list, and stderr says how to open them.
+ */
+async function showRuns(cliArgs: CliArgs): Promise<number> {
+  const last = cliArgs.last === undefined ? 5 : numericFlag(cliArgs.last, "--last");
+  if (last === undefined) return EXIT.unusable;
+  if (!Number.isInteger(last) || last < 1) {
+    usageError(
+      `--last must be a whole number of 1 or more, got '${cliArgs.last}' - see jint --help`,
+    );
+    return EXIT.unusable;
+  }
+  const runs = await recentRuns(last);
+  if (runs.length === 0) {
+    usageError(`no runs in the store (${runsBase()}) - jint run records one`);
+    return EXIT.unusable;
+  }
+  if (cliArgs.json === true) {
+    process.stdout.write(JSON.stringify(runs, null, 2) + "\n");
+  } else {
+    for (const run of runs) {
+      const config = run.configPath === null ? "default rules" : run.configPath;
+      const rules = `${run.ruleCount} rule${run.ruleCount === 1 ? "" : "s"}`;
+      process.stdout.write(`${run.id}  ${run.mtime}  ${rules}  ${config}  ${run.url ?? "-"}\n`);
+    }
+  }
+  if (runs.every((run) => run.url === undefined)) {
+    emit({
+      message: "no UI serves this store - jint ui serve opens it, and then show prints each url",
+    });
+  }
+  return EXIT.ok;
 }
 
 /**

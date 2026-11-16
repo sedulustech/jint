@@ -167,6 +167,24 @@ serve the run UI, opened on the newest run
 jint ui serve
 ```
 
+#### `--last`
+
+how many of the newest runs to list
+
+_`<n>`_
+
+```sh
+jint ui show --last 10
+```
+
+#### `--json`
+
+print the runs as JSON
+
+```sh
+jint ui show --json
+```
+
 ### `capture`
 
 print what jint extracts from a file, without classifying

@@ -141,9 +141,10 @@ describe("VERBS — the verb table and one-level resolution", () => {
     expect(verbFlagProblem("capture", { disable: ["x"] })).toBe(
       "--disable does not apply to capture - see jint --help",
     );
-    expect(verbFlagProblem("ui", { json: true })).toBe(
-      "--json does not apply to ui - see jint --help",
+    expect(verbFlagProblem("ui", { disable: ["x"] })).toBe(
+      "--disable does not apply to ui - see jint --help",
     );
+    expect(verbFlagProblem("ui", { last: "3", json: true })).toBeNull();
     // globals pass everywhere; capture's own three plus the shared config scope pass; run takes
     // every unmarked flag
     expect(verbFlagProblem("ui", { debug: true })).toBeNull();

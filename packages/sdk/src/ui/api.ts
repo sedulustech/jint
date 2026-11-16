@@ -17,6 +17,7 @@ import {
 } from "@jint/contract";
 import { runsBase } from "../core/provider/debug.ts";
 import { runCost } from "../core/provider/prices.ts";
+import { findUi } from "../core/ui-registry.ts";
 import {
   listClassifications,
   recordClassification,
@@ -61,7 +62,7 @@ const collapseHome = (path: string): string => {
   return path === home ? "~" : path.startsWith(home + "/") ? "~" + path.slice(home.length) : path;
 };
 
-interface RunSummary {
+export interface RunSummary {
   id: string;
   mtime: string;
   requests: number;
@@ -646,6 +647,27 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
     if (code === MISSING_ERRNO || code === "ENOTDIR") return { runs: [] };
     throw new Error(`cannot list runs in ${runsRoot}`, { cause: err });
   }
+}
+
+/**
+ * A run as `jint ui show` lists it: its summary, and the address of its view while a UI serves the
+ * store.
+ */
+export interface RecentRun extends RunSummary {
+  url?: string;
+}
+
+/**
+ * The store's newest `last` runs, newest first; each carries its view's url when a UI serves the
+ * store.
+ */
+export async function recentRuns(last: number, options: ApiOptions = {}): Promise<RecentRun[]> {
+  const root = requestsRoot(options);
+  const { runs } = await listRuns(root);
+  const ui = await findUi(root);
+  const newest = runs.slice(0, last);
+  if (ui === null) return newest;
+  return newest.map((run) => ({ ...run, url: new URL(`runs/${run.id}`, ui).href }));
 }
 
 /** One report classification as the run view joins it: a value read, or a refusal with none. */

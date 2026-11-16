@@ -163,6 +163,34 @@ describe("cli verbs e2e — serve: the store's UI, held", () => {
     expect(r.stdout).toBe("");
   });
 
+  test("show lists the newest runs first, as many as --last asks", async () => {
+    mkdirSync(join(store, "1700000000002-seed"), { recursive: true });
+    writeFileSync(join(store, "1700000000002-seed", "1700000000002-files.json"), "{}");
+    const r = await runCli(["ui", "show", "--last", "1"], { env: SERVE_ENV, timeout: 60_000 });
+    expect(r.code).toBe(0);
+    expect(r.stdout.trim().split("\n")).toHaveLength(1);
+    expect(r.stdout).toStartWith("1700000000002-seed  ");
+    // no server holds this store: the run still lists, and stderr says how to open it
+    expect(r.stderr).toContain("jint ui serve opens it");
+    const json = await runCli(["ui", "show", "--json"], { env: SERVE_ENV, timeout: 60_000 });
+    expect(json.code).toBe(0);
+    const runs = JSON.parse(json.stdout) as { id: string }[];
+    expect(runs.map((run) => run.id)).toEqual(["1700000000002-seed", "1700000000001-seed"]);
+  });
+
+  test("show: an empty store or a --last below 1 is exit 2", async () => {
+    const empty = scratchDir("jint-show-empty");
+    const none = await runCli(["ui", "show"], {
+      env: { ...SERVE_ENV, JINT_RUNS_DIR: empty },
+      timeout: 60_000,
+    });
+    expect(none.code).toBe(2);
+    expect(none.stderr).toContain(`no runs in the store (${empty})`);
+    const zero = await runCli(["ui", "show", "--last", "0"], { env: SERVE_ENV, timeout: 60_000 });
+    expect(zero.code).toBe(2);
+    expect(zero.stderr).toContain("--last must be a whole number of 1 or more");
+  });
+
   test("any argument is a usage error: serve takes none", async () => {
     const r = await runCli(["ui", "serve", "1700000000001"], { env: SERVE_ENV, timeout: 60_000 });
     expect(r.code).toBe(2);

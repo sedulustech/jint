@@ -514,6 +514,22 @@
           "example": "jint ui serve"
         },
         {
+          "id": "flag-ui-last",
+          "level": 4,
+          "name": "--last",
+          "pills": ["`<n>`"],
+          "body": "how many of the newest runs to list",
+          "example": "jint ui show --last 10"
+        },
+        {
+          "id": "flag-ui-json",
+          "level": 4,
+          "name": "--json",
+          "pills": [],
+          "body": "print the runs as JSON",
+          "example": "jint ui show --json"
+        },
+        {
           "id": "verb-capture",
           "level": 3,
           "name": "capture",

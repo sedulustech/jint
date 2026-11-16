@@ -64,20 +64,22 @@ export function renderSchemaJson(): string {
   return JSON.stringify(schema, null, 2) + "\n";
 }
 
-// The run UI and a classification's address in it: the verb and its description come from the CLI, the
-// params from the app router - if the router drops one, generation fails instead of the skill
-// teaching a dead link.
+// The run UI and a classification's address in it. The commands are the CLI's own examples and the
+// address params are the app router's: if the router drops one, generation fails instead of the
+// skill teaching a dead link.
 export function renderRunAddress(): string {
-  const params = { rule: "<rule>", input: "<input>" };
-  const accepted = validateRunSearch(params);
-  for (const key of Object.keys(params)) {
-    if (!(key in accepted)) throw new Error(`the run UI no longer accepts the '${key}' param`);
+  const routeParams = { rule: "<rule>", input: "<input>" };
+  const acceptedParams = validateRunSearch(routeParams);
+  for (const param of Object.keys(routeParams)) {
+    if (!(param in acceptedParams))
+      throw new Error(`the run UI no longer accepts the '${param}' param`);
   }
-  const query = Object.keys(params)
-    .map((key) => `${key}=<${key}>`)
+  const addressQuery = Object.keys(routeParams)
+    .map((param) => `${param}=<${param}>`)
     .join("&");
-  const serve = `\`${VERBS.ui.example}\`: ${VERBS.ui.blurb.split(" - ")[0]}; it prints its URL.`;
-  return `${serve} While it is up, a run prints its own page: \`report.run.url\` in \`--json\`, and a \`ui ->\` line on stderr. A classification's address adds \`?${query}\` to that page, with the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`.`;
+  const serveSentence = `\`${VERBS.ui.example}\`: ${VERBS.ui.blurb.split(" - ")[0]}; it prints its URL.`;
+  const showSentence = `\`${flagExample("ui", "--last")}\` lists the newest runs with each one's page.`;
+  return `${serveSentence} While it is up, a run prints its own page: \`report.run.url\` in \`--json\`, and a \`ui ->\` line on stderr. A classification's address adds \`?${addressQuery}\` to that page, with the classification's \`input\` from \`--json\`. URL-encode \`input\`: it contains \`#\`. ${showSentence}`;
 }
 
 interface Row {

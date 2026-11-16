@@ -40,6 +40,8 @@ export type { ClassificationRecord } from "./ui/classifications.ts";
 export {
   serveApiRequest,
   requestsRoot,
+  recentRuns,
+  type RecentRun,
   type ApiOptions,
   type ApiCell,
   type RequestFile,
