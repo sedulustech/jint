@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { foldCriteria, normalize, unfoldCriteria } from "./protocol.ts";
+import { foldCriteria, normalize, normalizeQuestion, unfoldCriteria } from "./protocol.ts";
 
 describe("foldCriteria / unfoldCriteria", () => {
   const cases: [string, Record<string, string>][] = [
@@ -45,5 +45,40 @@ describe("normalize", () => {
       content: "a  \n\n  b  ",
     });
     expect(normalize({ path: "a.ts" })).toEqual({ path: "a.ts" });
+  });
+});
+
+describe("normalize: element source", () => {
+  test("the final line breaks of an element's source go, the rest stays", () => {
+    expect(normalize({ source: "function a() {}  \n\n" }).source).toBe("function a() {}  ");
+  });
+});
+
+describe("normalizeQuestion", () => {
+  test("the spaces around the instructions and each criterion go", () => {
+    expect(
+      normalizeQuestion({
+        type: "noul",
+        instructions: "Is it? ",
+        criteria: { true: "It is. ", false: " It is not.\n" },
+      }),
+    ).toEqual({
+      type: "noul",
+      instructions: "Is it?",
+      criteria: { true: "It is.", false: "It is not." },
+    });
+  });
+
+  test("spaces inside a text stay, and a list of criteria is trimmed item by item", () => {
+    expect(
+      normalizeQuestion({ type: "score", instructions: "A  b", criteria: [" low ", "high "] }),
+    ).toEqual({ type: "score", instructions: "A  b", criteria: ["low", "high"] });
+  });
+
+  test("a question without criteria keeps none", () => {
+    expect(normalizeQuestion({ type: "noul", instructions: "Is it? " })).toEqual({
+      type: "noul",
+      instructions: "Is it?",
+    });
   });
 });
