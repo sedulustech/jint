@@ -309,7 +309,7 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
     expect(code).toBe(2);
   });
 
-  test("internal voice: the bug bucket says so, names the remedy, exits 3", () => {
+  test("internal voice: the bug bucket says so, names the remedy, exits 2", () => {
     let code = 0;
     const line = capture(() => {
       code = exitForThrown(new InternalError("score 9 is outside the criteria scale 0..2"));
@@ -317,10 +317,10 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
     expect(line).toBe(
       "jint: internal: score 9 is outside the criteria scale 0..2 - rerun with --debug; if it persists, report it [INTERNAL]\n",
     );
-    expect(code).toBe(3);
+    expect(code).toBe(2);
   });
 
-  test("an unknown-shaped throw wraps into InternalError (exit 3, internal voice)", () => {
+  test("an unknown-shaped throw wraps into InternalError (exit 2, internal voice)", () => {
     let code = 0;
     const line = capture(() => {
       code = exitForThrown(new TypeError("cannot read properties of undefined"));
@@ -328,10 +328,10 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
     expect(line).toContain(
       "jint: internal: cannot read properties of undefined - rerun with --debug",
     );
-    expect(code).toBe(3);
+    expect(code).toBe(2);
   });
 
-  test("an escaped ClassifyError exits 4 (the run happened but produced nothing usable)", () => {
+  test("an escaped ClassifyError exits 3 (the run could not finish)", () => {
     let code = 0;
     const line = capture(() => {
       code = exitForThrown(
@@ -339,7 +339,7 @@ describe("cli: the stderr emitter and thrown-error shapes", () => {
       );
     });
     expect(line).toBe("jint: timed out [PROVIDER_TIMEOUT]\n");
-    expect(code).toBe(4);
+    expect(code).toBe(3);
   });
 
   test("a detail-less SetupError renders message + trailing code, exit 2", () => {

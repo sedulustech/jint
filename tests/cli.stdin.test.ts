@@ -269,7 +269,7 @@ describe("cli: piped stdin str unit", async () => {
 
   test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
     // is_greppable alone: one file-stage classification, mock 0.8 is clean under its high-good
-    // handle (warn 0.75 / error 0.6); the old grammar race would add a WALK_FAILED and exit 4
+    // handle (warn 0.75 / error 0.6); a WALK_FAILED would exit 3
     const r = await runWithStdin(SNIPPET, ["run", "str", "-", "--json", "--rule", "is_greppable"]);
     const report = JSON.parse(r.stdout);
     expect(report.classifications.length).toBeGreaterThan(0); // it classified
@@ -287,9 +287,9 @@ describe("cli: piped stdin str unit", async () => {
   });
 
   test("str - with a files-target config rule measures deterministically (20/20 spawns)", async () => {
-    // regression pin: a files-target config rule used to route the str unit through grammar
-    // mapping and WALK_FAILED it (exit 4) — the rule's target conflated with the input kind.
-    // The outcome also raced per run; 20 identical spawns must now all measure the piped text.
+    // a files-target config rule must not route the str unit through grammar mapping (that is
+    // WALK_FAILED, exit 3): the rule's target is not the input kind. 20 identical spawns must all
+    // measure the piped text.
     const configPath = await writeProbeConfig({
       rules: {
         exclude: [],

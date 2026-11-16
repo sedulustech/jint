@@ -68,12 +68,12 @@ describe("run scope: named files and a path list are scope-checked, --unscoped m
     expect(notes[0]).toContain("the unscoped option measures it anyway");
   });
 
-  test("a run whose rule include matches no input fails loud: exit 4 and one SCOPE_EMPTY line on stderr", async () => {
+  test("a run whose rule include matches no input fails loud: exit 2 and one SCOPE_EMPTY line on stderr", async () => {
     const provider = startMockDecisions({ predicate: 0.5 });
     const dir = project([rule("is_short_probe", ["skills/*/SKILL.md"])]);
     const r = await run(dir, provider.baseUrl, ["src/a.ts"]);
     provider.stop();
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(2);
     expect(r.stderr).toContain(
       "error SCOPE_EMPTY: no input matched any rule's scope (rule include skills/*/SKILL.md; 1 input checked)",
     );

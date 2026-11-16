@@ -213,7 +213,7 @@ describe("cli: custom rules end-to-end", () => {
   test("a mid-run contract violation streams as RULE_FAILED: per-unit, run continues", async () => {
     const dir = setup("badspec", BAD_SPEC_CONFIG);
     const r = await runIn(dir);
-    const report = expectContract(r, { exit: 4, stdout: "json" });
+    const report = expectContract(r, { exit: 3, stdout: "json" });
     // comments resolves the frame alone, and its failing call streams its own RULE_FAILED
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]?.code).toBe("RULE_FAILED");
