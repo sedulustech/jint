@@ -48,6 +48,7 @@ import {
   startUi,
   type CapturedElement,
   type ClassificationEdit,
+  type Finding,
   type InputKind,
   type LintReport,
   type ResolvedConfig,
@@ -498,7 +499,7 @@ Scope - named files and a path list are scope-checked: the config's rules scope
 --unscoped measures them as given; a rule's own include/exclude still applies.
 
 Element-scoped runs - address one element directly:
-  jint run src/a.ts@L58          the element whose span contains line 58 (one call)
+  jint run src/a.ts@L58          the innermost element a rule measures at line 58 (one call)
   jint run src/a.ts@L58-L70      every element FULLY ENCLOSED in [s,e] (comma list: each item
                                  independent; a range enclosing none is an error naming the
                                  file's element spans)
@@ -987,18 +988,37 @@ function emitReport(
   }
 }
 
-/** Classify the input and write the report: the part of a run that talks to the classifier. */
+/**
+ * The element-scoped echo: WHICH element each selector captured, printed BEFORE any classification
+ * - a line that drifted after edits selects a different unit silently, and nothing in a bare score
+ * contradicts the wrong assumption. The SDK resolves the fact (selectedElements) under the run's
+ * effective rules; the CLI owns the rendering. --json keeps stdout a single document: the same fact
+ * rides the report as `selected`.
+ */
+async function echoSelection(run: RunContext): Promise<SelectedElement[]> {
+  const { elementScope } = run.input;
+  if (elementScope === undefined) return [];
+  const selected = await selectedElements({ ...elementScope, rules: run.effective });
+  if (run.cliArgs.json !== true) printSelection(selected);
+  return selected;
+}
+
+/**
+ * The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays pure
+ * finding data). Failure of the run itself already reported - never double-report.
+ */
+async function echoContent(run: RunContext, findings: readonly Finding[]): Promise<void> {
+  const { elementScope } = run.input;
+  if (elementScope === undefined) return;
+  const echo = await selectionEcho({ ...elementScope, rules: run.effective }, findings);
+  for (const header of echo.headers) emit({ message: header });
+  if (echo.body !== "") process.stderr.write(echo.body);
+}
+
 async function runLint(run: RunContext): Promise<number> {
   const { cliArgs, resolvedConfig, input } = run;
   const { elementScope, pathsContent } = input;
-  // The element-scoped echo: WHICH element each selector captured, printed BEFORE any
-  // classification - a line that drifted after edits selects a different unit silently, and
-  // nothing in a bare score contradicts the wrong assumption. The SDK resolves the fact
-  // (selectedElements); the CLI owns the rendering. --json keeps stdout a single document:
-  // the same fact rides the report as `selected`.
-  const selected: SelectedElement[] =
-    elementScope !== undefined ? await selectedElements(elementScope) : [];
-  if (elementScope !== undefined && cliArgs.json !== true) printSelection(selected);
+  const selected = await echoSelection(run);
   const lintReport = await collectReport(
     lint({
       config: resolvedConfig,
@@ -1024,13 +1044,7 @@ async function runLint(run: RunContext): Promise<number> {
     }),
   );
   emitReport(run, lintReport, selected);
-  // The element-scoped content echo: resolution map + edge sections, stderr only (stdout stays
-  // pure finding data). Failure of the run itself already reported — never double-report.
-  if (elementScope !== undefined) {
-    const echo = await selectionEcho(elementScope, lintReport.findings);
-    for (const header of echo.headers) emit({ message: header });
-    if (echo.body !== "") process.stderr.write(echo.body);
-  }
+  await echoContent(run, lintReport.findings);
   const exit = computeExit(lintReport);
   const notice = recordNotice();
   if (notice !== "") emit({ message: notice });

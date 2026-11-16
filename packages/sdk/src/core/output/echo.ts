@@ -2,7 +2,7 @@
 import { fileUnit } from "../input/file.ts";
 import { elementWireId, selectElement, selectElements } from "../rules/classify.ts";
 import type { InventoryElement } from "../grammars/walk.ts";
-import type { Finding, Span, Unit } from "../types.ts";
+import type { Finding, Rule, Span, Unit } from "../types.ts";
 
 const NL = String.fromCharCode(10);
 
@@ -10,6 +10,11 @@ export interface EchoSelection {
   readonly path: string;
   readonly anchor?: number;
   readonly ranges?: readonly { readonly start: number; readonly end: number }[];
+  /**
+   * The run's scoped rules: an anchor resolves exactly as the run does (innermost measured
+   * element).
+   */
+  readonly rules?: readonly Rule[];
 }
 /** The verdicts an element received: rule: level score; [] when none. */
 function verdicts(findings: readonly Finding[], span: Span): string[] {
@@ -72,7 +77,11 @@ function pickElements(
 ): { label: string; elements: InventoryElement[] }[] {
   const items: { label: string; elements: InventoryElement[] }[] = [];
   if (selection.anchor !== undefined) {
-    const element = selectElement(inventory, { line: selection.anchor });
+    const element = selectElement(
+      inventory,
+      { line: selection.anchor },
+      selection.rules === undefined ? undefined : { rules: selection.rules, path: selection.path },
+    );
     items.push({ label: "@" + selection.anchor, elements: element === undefined ? [] : [element] });
   }
   for (const range of selection.ranges ?? []) {

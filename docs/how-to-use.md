@@ -42,7 +42,7 @@ Useful for a pre-commit hook.
 ## One element
 
 ```bash
-jint run src/a.ts@L58                # element whose span contains line 58: one classifier call
+jint run src/a.ts@L58                # innermost measured element at line 58: one classifier call
 jint run src/a.ts@L40-80             # every element fully enclosed in the range
 jint run src/a.ts@L40-80 --rule is_function_srp
 ```
