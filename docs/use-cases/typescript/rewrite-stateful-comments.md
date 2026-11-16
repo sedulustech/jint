@@ -7,7 +7,7 @@ sidebar:
 
 # Stateful comments
 
-[`is_comment_stateful`](../../../jint.config.ts) finds a stateful comment: one that says now, currently or no longer, or narrates the history of a change, so it is wrong once the code moves on.
+[`is_comment_stateful`](../../../jint.config.ts) finds a stateful comment: one that narrates this repository's history - what the code used to do, a rename, a review, an issue or a date - so it is wrong once the code moves on. Past tense about what the program does when it runs, or about the outside world it depends on, is not history, and neither is a `@deprecated` tag.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";
@@ -18,18 +18,17 @@ const is_comment_stateful: RuleSchema = {
   target: "comments",
   include: ["**/*.ts", "**/*.tsx"],
   instructions:
-    "Does any comment in this unit depend on when it is read? Judge only the comments, not the code.",
+    "Does any comment in this unit narrate this repository's history instead of describing the code as it is? Judge only the comments, not the code.",
   criteria: {
-    true: "At least one comment is stateful: it says now, currently, recently, no longer, used to, previously or we just, or it narrates history (a rename, a removed feature, a past bug, a review or a date, the old X) instead of what the code is. Read a year later, or by someone who never saw the change, it would be wrong or meaningless.",
+    true: "At least one comment narrates this repository's history: what this code used to do, what replaced it, a rename, a removed feature, a past bug, a review, an issue or pull request, or a date - how the code got here rather than what it is. Read by someone who never saw the change, it would be wrong or meaningless.",
     false:
-      "Every comment is stateless: it says what the code does or why, in terms that hold at any time and need no memory of how the code got here.",
+      "Every comment describes the code as it is. Past tense about the program's run (a request that failed, a file no worker could walk, a value the user entered), about the outside world the code depends on (an API that changed its format, a browser bug the code works around), and would or could about what would happen otherwise, are not history. A JSDoc `@deprecated` tag is TypeScript's standard deprecation notice and is not history, whatever history it tells: its reason and replacement are part of the notice. The same narration outside that tag is history.",
   },
   handle: {
-    warn: { greater_than: 0.5 },
+    warn: { greater_than: 0.6 },
     error: {
       greater_than: 0.8,
-      message:
-        "Rewrite this comment so it reads the same at any time: no now, currently or no longer, no history of the change.",
+      message: "Rewrite this comment to describe the code as it is, without its history.",
     },
   },
 };
