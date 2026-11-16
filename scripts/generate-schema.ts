@@ -7,9 +7,10 @@
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
  *
- * Run after any config-schema, rule-domain, or skill change: bun run schema (wired into bun run
- * validate). Outputs are checked in so editors resolve "$schema" without running jint and docs stay
- * browsable, and CI diffs them against this output to catch drift - generated means never stale.
+ * Run after any config-schema, rule-domain, or skill change: bun run schema:generate (wired into
+ * bun run validate). Outputs are checked in so editors resolve "$schema" without running jint and
+ * docs stay browsable, and CI diffs them against this output to catch drift - generated means never
+ * stale.
  *
  * Structure: pure render functions (strings in, strings out) plus GENERATED_OUTPUTS; a thin
  * writeGeneratedOutputs() edge is the only code that touches the filesystem. Consumers of the
@@ -38,7 +39,7 @@ import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
 
 const GENERATION_NOTE =
-  "GENERATED FILE — do not edit. Regenerate with: bun run schema (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
+  "GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (scripts/generate-schema.ts, from src/config/load.ts CONFIG_SCHEMA).";
 
 export const GENERATED_OUTPUTS = [
   "jint.schema.json",
@@ -240,7 +241,7 @@ export function renderGrammarSources(): string {
     return `| \`${id}\` | ${link} | ${source.version} | \`${sha}\` |`;
   });
   return [
-    "<!-- GENERATED FILE — do not edit. Regenerate with: bun run schema (embedded/sources.json is the input). -->",
+    "<!-- GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (embedded/sources.json is the input). -->",
     "",
     "# Embedded grammar sources",
     "",

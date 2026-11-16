@@ -4,7 +4,7 @@ import type { RefEntry, RefPages } from "../../../scripts/generate-schema";
 import ReferenceEntry from "./ReferenceEntry.astro";
 import { inline } from "../lib/inline";
 
-// A reference page: its sections and their entries, from the data `bun run schema` writes.
+// A reference page: its sections and their entries, from the data `bun run schema:generate` writes.
 interface Props {
   page: keyof RefPages;
 }

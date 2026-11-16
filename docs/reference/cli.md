@@ -9,7 +9,7 @@ sidebar:
 
 Every verb and flag of the jint command, generated from the CLI.
 
-<!-- generated:reference — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:reference — do not edit. Regenerate with `bun run schema:generate`. -->
 
 ## Verbs
 

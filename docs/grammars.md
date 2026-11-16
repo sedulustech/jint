@@ -23,7 +23,7 @@ grammar. See [Bring your own grammar](byog.md).
 
 ## Embedded grammars
 
-<!-- generated:grammars — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:grammars — do not edit. Regenerate with `bun run schema:generate`. -->
 
 | grammar      | extensions                          |
 | ------------ | ----------------------------------- |

@@ -36,7 +36,7 @@
     nav.setAttribute("data-collapsible", "");
     button.setAttribute("data-ready", "");
     button.addEventListener("click", () => setOpen(!nav.hasAttribute("data-open")));
-    addEventListener("keydown", (event) => {
+    document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") setOpen(false);
     });
     desktop.addEventListener("change", () => setOpen(false));

@@ -9,7 +9,7 @@ sidebar:
 
 Every config key and rule field, generated from the schema.
 
-<!-- generated:reference — do not edit. Regenerate with `bun run schema`. -->
+<!-- generated:reference — do not edit. Regenerate with `bun run schema:generate`. -->
 
 ## Run settings
 

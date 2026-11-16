@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — do not edit. Regenerate with: bun run schema (embedded/sources.json is the input). -->
+<!-- GENERATED FILE — do not edit. Regenerate with: bun run schema:generate (embedded/sources.json is the input). -->
 
 # Embedded grammar sources
 
