@@ -25,11 +25,11 @@ const is_comment_stateful: RuleSchema = {
       "Every comment describes the code as it is. Past tense about the program's run (a request that failed, a file no worker could walk, a value the user entered), about the outside world the code depends on (an API that changed its format, a browser bug the code works around), and would or could about what would happen otherwise, are not history. A JSDoc `@deprecated` tag is TypeScript's standard deprecation notice and is not history, whatever history it tells: its reason and replacement are part of the notice. The same narration outside that tag is history.",
   },
   handle: {
-    warn: { greater_than: 0.6 },
-    error: {
-      greater_than: 0.8,
+    warn: {
+      greater_than: 0.6,
       message: "Rewrite this comment to describe the code as it is, without its history.",
     },
+    error: { greater_than: 0.8, message: "Remove this comment." },
   },
 };
 ```
