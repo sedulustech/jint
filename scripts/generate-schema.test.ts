@@ -9,7 +9,7 @@ import {
   resolveVerb,
   verbFlagProblem,
 } from "../packages/cli/src/cli.ts";
-import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { RULE_TARGETS } from "../packages/contract/src/handlers.ts";
 import {
   referencePages,
   renderReferenceMarkdown,
@@ -26,8 +26,8 @@ describe("renderTargetsTable", () => {
   const rows = doc.split("\n").filter((line) => line.startsWith("| `"));
 
   test("one row per target in the vocabulary, no more, no fewer", () => {
-    expect(rows).toHaveLength(ruleTargets.length);
-    for (const target of ruleTargets) {
+    expect(rows).toHaveLength(RULE_TARGETS.length);
+    for (const target of RULE_TARGETS) {
       expect(rows.some((row) => row.startsWith("| `" + target + "`"))).toBe(true);
     }
   });
@@ -123,7 +123,10 @@ describe("the reference pages", () => {
 // sits under the verb that takes it, every verb, noun and flag shows exactly one example the parser
 // accepts, and each description is one short phrase.
 describe("the CLI reference: nesting, examples and short descriptions", () => {
-  const entries = referencePages().cli.flatMap((section) => section.entries);
+  // the exit-code table is no verb or flag: it has no example, and its rows read as sentences
+  const entries = referencePages()
+    .cli.filter((section) => section.title !== "Exit codes")
+    .flatMap((section) => section.entries);
 
   test("a flag is nested under its verb, and only the global flags stand alone", () => {
     let verb: string | undefined;

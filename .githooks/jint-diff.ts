@@ -43,9 +43,9 @@ type Finding = {
 };
 // One run over the staged paths, piped as a path list: each is scope-checked by the repo's config,
 // so tests and prose it leaves out are skipped, not judged. A path no grammar claims is a note, not
-// a failure. Exit 0 clean, 1 error findings, 4 nothing measured: all carry a
-// report. 2 and 3 do not. Exit 4 with classification errors in the report is a dead or refusing
-// endpoint, not an empty scope, so it blocks.
+// a failure. Exit 0 clean, 1 error findings: the verdict. Exit 3 is a run that could not finish
+// (a dead or refusing endpoint): the report is partial, so the commit blocks. Exit 2 is a run
+// that did nothing useful: with a report whose only error is SCOPE_EMPTY it passes, else it blocks.
 const result = run(
   ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],
   [...changed.keys()].join("\n"),
@@ -55,16 +55,21 @@ const where = text(result.stderr)
   .split("\n")
   .find((line) => line.includes("ui ->"));
 if (where !== undefined) process.stderr.write(where + "\n");
-if (![0, 1, 4].includes(result.exitCode)) {
+// exit 2 may carry a report (SCOPE_EMPTY), so it is read below; with no report it blocks there
+const reportBytes = text(result.stdout);
+if (![0, 1, 2, 3].includes(result.exitCode) || (result.exitCode === 2 && reportBytes === "")) {
   process.stderr.write(text(result.stderr));
   process.stderr.write(`jint: the run failed (exit ${result.exitCode}); blocking the commit\n`);
   process.exit(1);
 }
-const report = JSON.parse(text(result.stdout)) as {
+const report = JSON.parse(reportBytes) as {
   findings: Finding[];
   errors: { input: string; code: string; message: string }[];
 };
-if (report.errors.length > 0) {
+// a run whose only errors are SCOPE_EMPTY found no staged file in any rule's scope: nothing to check
+if (report.errors.length > 0 && report.errors.every((e) => e.code === "SCOPE_EMPTY"))
+  process.exit(0);
+if (report.errors.length > 0 || result.exitCode === 2) {
   for (const e of report.errors) process.stderr.write(`jint: ${e.input}: ${e.code} ${e.message}\n`);
   process.stderr.write("jint: classification failed; blocking the commit\n");
   process.exit(1);

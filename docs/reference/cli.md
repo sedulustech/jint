@@ -313,4 +313,28 @@ print structured debug logs
 jint --debug
 ```
 
+## Exit codes
+
+Every exit path of the CLI uses one of these codes. Warnings alone never fail a run.
+
+### `0`
+
+Ran. No error findings; warnings alone exit 0.
+
+### `1`
+
+Ran. Error findings. The lint verdict, and the only code a hook should act on.
+
+### `2`
+
+Nothing useful ran: bad command, bad config, or nothing matched the rules' scope.
+
+### `3`
+
+Ran but could not finish: a provider, network or auth failure. Results are partial; a retry may help.
+
+### `130`
+
+Interrupted (SIGINT).
+
 <!-- /generated:reference -->

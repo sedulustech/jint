@@ -23,7 +23,8 @@ endpoints`).
   the element it captured: check it is the one you mean.
 - A changeset: `git diff --name-only | jint run paths -`.
 - Anchors are pre-edit. After any edit, grep the declaration again and re-run.
-- Exit 1 is an error finding, 2 a setup problem, 4 an input that was not fully measured.
+- Exit 0 is a run with no error findings, 1 an error finding, 2 nothing useful ran (usage, config or
+  scope), 3 a run a provider, network or auth failure left partial, 130 an interrupt.
 - A reading marked `cached` (`"cached": true` in `--json`, `(cached)` on a finding line) came
   from the answer cache: nothing was asked for it in this run. `--no-cache` asks again.
 - Every run costs spend. Run one file to find findings, then one element to verify a fix.

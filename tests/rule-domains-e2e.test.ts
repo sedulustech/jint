@@ -98,7 +98,7 @@ describe("rule domains: what a run needs", () => {
       cwd: dir,
       env: mockDecisionsWire("http://127.0.0.1:9"),
     });
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(2);
     expect(r.stderr).toContain("rule 'is_comment_narration' targets comments: no such element");
     expect(r.stderr).toContain("nothing was measured");
   });

@@ -8,7 +8,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { ruleTargets } from "@jint/contract";
+import { RULE_TARGETS } from "@jint/contract";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import {} from "../core/grammars/grammars.ts";
@@ -45,12 +45,12 @@ const CAPTURE_ADDRESS_SCHEMA = Type.String({
 
 const TARGET_SCHEMA = Type.Union(
   [
-    // derived from THE runtime face (contract ruleTargets) - a new target joins the schema by
+    // derived from THE runtime face (contract RULE_TARGETS) - a new target joins the schema by
     // joining the union there; a literal copy here would be the drift this pass kills
-    ...ruleTargets.map((target) => Type.Literal(target)),
+    ...RULE_TARGETS.map((target) => Type.Literal(target)),
     CAPTURE_ADDRESS_SCHEMA,
     Type.Array(
-      Type.Union([...ruleTargets.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
+      Type.Union([...RULE_TARGETS.map((target) => Type.Literal(target)), CAPTURE_ADDRESS_SCHEMA]),
     ),
   ],
   {

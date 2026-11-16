@@ -65,8 +65,8 @@ describe("cli: dir walk ignores", () => {
     }
   }, 30000);
 
-  // The field trial's silent-empty papercut, regressed at the CLI: a config include that filters
-  // EVERY file must be LOUD on stderr (the accounting names the scope), never a bare exit 0.
+  // A config include that filters EVERY file is LOUD on stderr (the accounting names the scope),
+  // never a bare exit 0.
   test.concurrent("capture <dir> with an include that matches nothing: loud, naming the scope", async () => {
     const tmpRoot = scratchDir("jint-capture-empty");
     try {
@@ -95,7 +95,7 @@ describe("cli: dir walk ignores", () => {
     // No reachable provider: transport errors abort before classifications exist, but the report still
     // lists the units it attempted. Ignored files must not even be attempted.
     const r = await run(["run", "tests/fixtures/sample-dir", "--json"]);
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
     const attempted: string[] = [
       ...(report.classifications ?? []).map((m: any) => m.input),
@@ -126,7 +126,7 @@ describe("cli: dir walk ignores", () => {
         ["run", join(tmpRoot, "tests"), "--json", "--config", join(tmpRoot, "jint.config.json")],
         { env: NO_SERVICE },
       );
-      expect(r.code).toBe(4);
+      expect(r.code).toBe(2);
       const report = JSON.parse(r.stdout);
       const attempted = [
         ...(report.classifications ?? []).map((m: any) => m.input),
@@ -145,11 +145,10 @@ describe("cli: dir walk ignores", () => {
         rules: { exclude: ["**/fixtures/**"], use: ["is_greppable"] },
       }),
     );
-    // No key: the run reaches input resolution and the units (PROVIDER_AUTH, exit 4) — NOT
-    // CONFIG_INVALID (exit 2), which is what a rules-only config produced before input
-    // became optional.
+    // No key: the run reaches input resolution and the units (PROVIDER_AUTH, exit 3), not
+    // CONFIG_INVALID (exit 2): input is optional in a rules-only config.
     const r = await run(["run", "tests/fixtures/sample-dir", "--json", "--config", configPath]);
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
     expect(report.errors.some((e: any) => e.code === "PROVIDER_UNAVAILABLE")).toBe(true);
   });

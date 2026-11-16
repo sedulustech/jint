@@ -190,7 +190,7 @@ derived or loudly pinned.
   the union carries ONE generic AutonomousElement (kind = capture name) - no per-capture types
   mint per grammar anymore. The wire projection is SHARED_PROJECTION (shared.ts) + the generic
   autonomous shape.
-- RULE TARGETS: contract `ruleTargets` is THE authority; the config schema's target enum is
+- RULE TARGETS: contract `RULE_TARGETS` is THE authority; the config schema's target enum is
   DERIVED from it (no literal copy); matchesTarget's evaluator throws InternalError on an
   unvalidated name (validation is the loud gate - a silent always-false return was the drift),
   and an exhaustive test resolves every target on its element shape.

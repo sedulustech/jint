@@ -61,6 +61,9 @@ import {
 import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { catalog, provideVirtualModules } from "./baseline.ts";
+import { EXIT } from "./exit.ts";
+
+export { EXIT_CODES } from "./exit.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
   captureJsonChunks,
@@ -570,8 +573,8 @@ export function recordNotice(): string {
 /**
  * Input resolution precedence: command noun > stdin > config.input > error. A positional path's
  * kind is inferred by shape (exists-as-dir -> dir, else file); piped stdin is DECLARED by a noun,
- * never guessed. Usage errors print and return the usage outcome; the caller maps it to exit 2. See
- * runCli for the TTY/fall-through contract this preserves.
+ * never guessed. Usage errors print and return the usage outcome; the caller maps it to the
+ * unusable exit. See runCli for the TTY/fall-through contract this preserves.
  */
 type ResolvedInput = {
   stdinStr: { content: string } | undefined;
@@ -822,17 +825,17 @@ function dispatch(cliArgv: string[]): Dispatch {
   const parsedCliArgs = parseCliArgs(cliArgv);
   if (parsedCliArgs.outcome === "usage-error") {
     usageError(parsedCliArgs.usageMessage);
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
   const cliArgs = parsedCliArgs.cliArgs;
 
   if (cliArgs.help === true) {
     process.stdout.write(HELP);
-    return { exit: 0 };
+    return { exit: EXIT.ok };
   }
   if (cliArgs.version === true) {
     process.stdout.write(`${version}\n`);
-    return { exit: 0 };
+    return { exit: EXIT.ok };
   }
   // The dash-leading rule runs on the FIRST positional before the verb check, so a mistyped
   // flag (jint --frobnicate a.ts) reports the token, not a verb complaint; a bare '-' names the
@@ -844,7 +847,7 @@ function dispatch(cliArgv: string[]): Dispatch {
     !existsSync(firstPositional)
   ) {
     usageError(dashPositionalError(firstPositional));
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
   // Verb resolution, exactly one level: the FIRST positional IS the command. No implicit verb -
   // a missing or unknown first positional is a usage error naming the `jint run` form.
@@ -856,7 +859,7 @@ function dispatch(cliArgv: string[]): Dispatch {
         ? "a verb is required  - use: jint run (input from the discovered config), jint ui serve, jint capture <path>, jint reclassify <run-id> <input> --rule <name>, jint skills export <path> - see jint --help"
         : `'${operands}' is not a verb  - use: jint run ${operands} (verbs: run, ui, capture, reclassify, skills, docs - see jint --help)`,
     );
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
   if (cliArgs.debug === true) setLogLevel("debug");
   // The flat flag set parses whole, for every verb; a flag the verb does not take is a LOUD usage
@@ -864,7 +867,7 @@ function dispatch(cliArgv: string[]): Dispatch {
   const scopeProblem = verbFlagProblem(verb.name, cliArgs);
   if (scopeProblem !== null) {
     usageError(scopeProblem);
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
   return { cliArgs, verb };
 }
@@ -1044,48 +1047,31 @@ async function prepareRun(
   cliArgs: CliArgs,
   operands: Parameters<typeof resolveCliInput>[0],
 ): Promise<RunContext | { readonly exit: number }> {
-  // An unknown grammar is a usage error before any input is touched: the run would stream
-  // WALK_FAILED for the unit and still exit clean. Same code and detail as the SDK's
-  // unknown-language throws, so a flag-named language and an SDK-resolved one render alike.
+  // An unknown grammar is a usage error before any input is touched. It carries the same code and
+  // detail as the SDK's unknown-language throws, so both render alike.
   if (cliArgs.language !== undefined && !knownLanguages().includes(cliArgs.language)) {
-    return {
-      exit: exitForThrown(
-        new SetupError("MISSING_GRAMMAR", `unknown language '${cliArgs.language}'`, {
-          detail: { kind: "unknown-language", valid: knownLanguages() },
-        }),
-      ),
-    };
+    throw new SetupError("MISSING_GRAMMAR", `unknown language '${cliArgs.language}'`, {
+      detail: { kind: "unknown-language", valid: knownLanguages() },
+    });
   }
 
   // config discovery: TS preferred, JSON fallback; --config overrides discovery - run and
   // capture share this path (capture measures the population run will classify)
-  let resolvedConfig: ResolvedConfig;
-  let configPath: string | null;
-  try {
-    ({ resolvedConfig, configPath } = await loadCliConfig(cliArgs));
-  } catch (thrown) {
-    // Config-load errors are config-origin: no flag label applies.
-    return { exit: exitForThrown(thrown) };
-  }
+  // A config-load error is config-origin: no flag label applies, so it propagates unlabeled.
+  const { resolvedConfig, configPath } = await loadCliConfig(cliArgs);
 
   // Input resolution precedence: command noun > stdin > config.input > error. A positional
   // path's kind is inferred by shape (exists-as-dir -> dir, else file — inference is exactly
   // that); piped stdin is DECLARED by a noun (jint run str - for source, jint run paths - for a path
   // list), never guessed. Undeclared stdin is never read, so config.input flows whatever stdin
-  // is. A TTY is never read; a TTY with the
-  // payload '-' dies here, not blocking on the terminal, and a TTY with no noun and no config
-  // input dies in lint()'s empty-input backstop.
-  let input: Awaited<ReturnType<typeof resolveCliInput>>;
-  try {
-    input = await resolveCliInput(operands);
-  } catch (thrown) {
-    return { exit: exitForThrown(thrown) };
-  }
-  if (input.outcome === "usage") return { exit: 2 };
+  // is. A TTY is never read: a TTY with the payload '-' dies here instead of blocking on the
+  // terminal.
+  const input = await resolveCliInput(operands);
+  if (input.outcome === "usage") return { exit: EXIT.unusable };
   const unscopedError = cliArgs.unscoped === true ? unscopedProblem(input, resolvedConfig) : null;
   if (unscopedError !== null) {
     usageError(unscopedError);
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
 
   // Run knobs: flags override the config; all funnel into the SDK options (thin-client rule).
@@ -1095,7 +1081,7 @@ async function prepareRun(
   const knobProblem = checkRunKnobs({ concurrency, timeout, walkWorkers });
   if (knobProblem !== null) {
     usageError(knobProblem + " - see jint --help");
-    return { exit: 2 };
+    return { exit: EXIT.unusable };
   }
 
   // Pre-flight: setup failures surface BEFORE the rubric pre-print - the block names what WILL
@@ -1139,23 +1125,19 @@ function printDryRun(run: RunContext): void {
   else printRulesStdout(run.effective, customCount);
 }
 
-export async function runCli(cliArgv: string[]): Promise<number> {
-  provideVirtualModules();
-  const dispatched = dispatch(cliArgv);
-  if ("exit" in dispatched) return dispatched.exit;
-  const { cliArgs, verb } = dispatched;
+/** The verbs that do not take the run pipeline's prepared context: each owns its whole exit. */
+function otherVerb(cliArgs: CliArgs, verb: { name: string; rest: readonly string[] }) {
   if (verb.name === "ui") return uiVerb(verb.rest);
   if (verb.name === "capture") return captureVerb(cliArgs, verb.rest);
   if (verb.name === "reclassify") return reclassifyVerb(cliArgs, verb.rest);
   if (verb.name === "skills") return skillsVerb(verb.rest);
   if (verb.name === "docs") return docsVerb(verb.rest);
-  const run = await prepareRun(cliArgs, verb.rest);
-  if ("exit" in run) return run.exit;
-  if (cliArgs["dry-run"] === true) {
-    printDryRun(run);
-    return 0;
-  }
-  const { resolvedConfig, input, effective } = run;
+  return undefined;
+}
+
+/** Print the rubric header, then classify and report: the part of `run` after setup succeeded. */
+async function measureRun(run: RunContext): Promise<number> {
+  const { cliArgs, resolvedConfig, input, effective } = run;
   try {
     // The rubric lands in the consumer's context BEFORE the findings it interprets:
     // full prose, stderr, never on stdout. Findings carry rule names; this block is the only
@@ -1178,9 +1160,30 @@ export async function runCli(cliArgv: string[]): Promise<number> {
   }
 }
 
+export async function runCli(cliArgv: string[]): Promise<number> {
+  provideVirtualModules();
+  const dispatched = dispatch(cliArgv);
+  if ("exit" in dispatched) return dispatched.exit;
+  const { cliArgs, verb } = dispatched;
+  const other = otherVerb(cliArgs, verb);
+  if (other !== undefined) return other;
+  let run: Awaited<ReturnType<typeof prepareRun>>;
+  try {
+    run = await prepareRun(cliArgs, verb.rest);
+  } catch (thrown) {
+    return exitForThrown(thrown);
+  }
+  if ("exit" in run) return run.exit;
+  if (cliArgs["dry-run"] === true) {
+    printDryRun(run);
+    return EXIT.ok;
+  }
+  return measureRun(run);
+}
+
 /**
  * The serve verb's tail: serve the run UI in-process, print the url, hold until SIGINT (close
- * server, exit 0 — Ctrl+C is just the viewer leaving). The app opens newest-run-first, so no route
+ * server, exit ok — Ctrl+C is just the viewer leaving). The app opens newest-run-first, so no route
  * string couples the CLI to the UI router. A broken UI setup maps to 2 (usage/config: the
  * invocation itself is broken). JINT_UI_NO_HOLD=1 gates the hold so tests and scripted invocations
  * exercise the verb without pinning a process.
@@ -1195,7 +1198,7 @@ async function serveUiHold(onUiFailure: (thrown: unknown) => number): Promise<nu
   emit({ message: `ui -> ${ui.url}` });
   if (process.env.JINT_UI_NO_HOLD === "1") {
     ui.close();
-    return 0;
+    return EXIT.ok;
   }
   // The hold OWNS SIGINT — ownership-transferring: the import.meta.main handler exits 130
   // promptly DURING a run, but once the UI is up Ctrl+C means "close the server, leave
@@ -1207,7 +1210,7 @@ async function serveUiHold(onUiFailure: (thrown: unknown) => number): Promise<nu
       resolveHold();
     });
   });
-  return 0;
+  return EXIT.ok;
 }
 
 /**
@@ -1216,7 +1219,7 @@ async function serveUiHold(onUiFailure: (thrown: unknown) => number): Promise<nu
  */
 const viewerUiFailure = (thrown: unknown): number => {
   usageError(thrown instanceof Error ? thrown.message : String(thrown));
-  return 2;
+  return EXIT.unusable;
 };
 
 /**
@@ -1259,7 +1262,7 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
     usageError(
       "jint reclassify takes: <run-id> <input> --rule <name> [-]  - e.g. jint reclassify 1794012105018 src/a.ts --rule is_small -",
     );
-    return 2;
+    return EXIT.unusable;
   }
   let edit: ClassificationEdit = {};
   if (fromStdin) {
@@ -1268,12 +1271,12 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
       body = JSON.parse(await Bun.stdin.text());
     } catch {
       usageError('the edit on stdin is not JSON  - e.g. {"instructions": "..."}');
-      return 2;
+      return EXIT.unusable;
     }
     const parsed = parseEdit(body);
     if (typeof parsed === "string") {
       usageError(`the edit on stdin: ${parsed}`);
-      return 2;
+      return EXIT.unusable;
     }
     edit = parsed;
   }
@@ -1284,11 +1287,11 @@ async function reclassifyVerb(cliArgs: CliArgs, rest: readonly string[]): Promis
         ? `${JSON.stringify(filed)}\n`
         : `#${filed.n} ${readingText(filed.answer)}  ${filed.rule} @ ${filed.input}  (run ${runId})\n`,
     );
-    return 0;
+    return EXIT.ok;
   } catch (thrown) {
     if (thrown instanceof AddressError && thrown.status < 500) {
       usageError(thrown.message);
-      return 2;
+      return EXIT.unusable;
     }
     return exitForThrown(thrown);
   }
@@ -1302,36 +1305,36 @@ function docsVerb(rest: readonly string[]): number {
   const [name, ...extra] = rest;
   if (extra.length > 0) {
     usageError("jint docs takes at most one name  - e.g. jint docs config");
-    return 2;
+    return EXIT.unusable;
   }
   if (name === undefined) {
     const docs = listDocs();
     const width = Math.max(...docs.map((doc) => doc.name.length));
     for (const doc of docs) process.stdout.write(`${doc.name.padEnd(width)}  ${doc.description}\n`);
-    return 0;
+    return EXIT.ok;
   }
   const body = readDoc(name);
   if (body === null) {
     usageError(`no doc named ${name}  - jint docs lists them`);
-    return 2;
+    return EXIT.unusable;
   }
   process.stdout.write(body.endsWith("\n") ? body : `${body}\n`);
-  return 0;
+  return EXIT.ok;
 }
 
 function skillsVerb(rest: readonly string[]): number {
   const [action, path, ...extra] = rest;
   if (action !== "export" || path === undefined || extra.length > 0) {
     usageError("jint skills takes: export <path>  - e.g. jint skills export .claude/skills");
-    return 2;
+    return EXIT.unusable;
   }
   try {
     for (const file of exportSkills(path)) process.stdout.write(`${join(path, file)}\n`);
   } catch (error) {
     usageError(`cannot write the skills to ${path}: ${(error as Error).message}`);
-    return 2;
+    return EXIT.unusable;
   }
-  return 0;
+  return EXIT.ok;
 }
 
 /**
@@ -1342,13 +1345,13 @@ function skillsVerb(rest: readonly string[]): number {
 async function uiVerb(rest: readonly string[]): Promise<number> {
   if (rest.length !== 1 || rest[0] !== "serve") {
     usageError("jint ui takes: serve  - it opens the store's newest run: jint ui serve");
-    return 2;
+    return EXIT.unusable;
   }
   if (!storeHasRuns()) {
     usageError(
       `no runs in the store (${runsBase()}) - jint run records one, then jint ui serve opens it`,
     );
-    return 2;
+    return EXIT.unusable;
   }
   return serveUiHold(viewerUiFailure);
 }
@@ -1371,23 +1374,23 @@ async function uiVerb(rest: readonly string[]): Promise<number> {
 async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<number> {
   if (rest.length > 1) {
     usageError("jint capture takes one target path  - a directory covers its whole tree");
-    return 2;
+    return EXIT.unusable;
   }
   if (rest[0] === "-") {
     usageError("capture takes files and dirs  - piped stdin is run's str noun: jint run str -");
-    return 2;
+    return EXIT.unusable;
   }
   if ((cliArgs.rule?.length ?? 0) > 1) {
     usageError(
       "jint capture previews one rule at a time  - pass one --rule name (repeat the command for another rule)",
     );
-    return 2;
+    return EXIT.unusable;
   }
   const walkWorkers = numericFlag(cliArgs["walk-workers"], "--walk-workers");
   const knobProblem = checkRunKnobs({ walkWorkers });
   if (knobProblem !== null) {
     usageError(knobProblem + " - see jint --help");
-    return 2;
+    return EXIT.unusable;
   }
   let resolvedConfig: ResolvedConfig;
   let configPath: string | null;
@@ -1401,7 +1404,7 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
     usageError(
       "jint capture expects a target path  - use: jint capture <path> [--queries <file.scm>] [--grammar <dir>], or set input in the config",
     );
-    return 2;
+    return EXIT.unusable;
   }
   try {
     // a dir's unclaimable files: one onSkip event each, folded here into ONE stderr note (the
@@ -1444,7 +1447,7 @@ async function captureVerb(cliArgs: CliArgs, rest: readonly string[]): Promise<n
       emit({ message: "not parsed (no grammar): " + skipped.join(", "), kind: "note" });
     }
     for (const note of notes) emit({ message: note, kind: "note" });
-    return 0;
+    return EXIT.ok;
   } catch (thrown) {
     return exitForThrown(thrown, ruleOriginLabel(cliArgs, resolvedConfig));
   }
@@ -1627,16 +1630,17 @@ export function parseCliArgs(cliArgv: string[]): CliArgsParse {
 }
 
 /**
- * Exit invariant: findings only — error-severity findings -> 1; zero classifications -> 4. Per-unit
- * ClassifyErrors are signalled (streamed, printed on stderr) but never fail the run: a unit the
- * linter could not classify is reported, not treated as a lint violation.
+ * Exit invariant: error-severity findings -> 1, the verdict. A run-level SCOPE_EMPTY or a run that
+ * classified nothing -> 2 (nothing useful ran). Per-unit ClassifyErrors (provider, network, auth,
+ * timeout) are streamed and printed on stderr, and any of them -> 3: a unit the linter could not
+ * classify means the run is partial, and CI must never pass a half-classified input.
  */
 export function computeExit(lintReport: LintReport): number {
-  if (lintReport.findings.some((finding) => finding.severity === "error")) return 1;
-  // A failed unit means the judgment never existed — the run classified PARTIALLY at best. CI must
-  // never pass a half-classified input, so any streamed ClassifyError fails the run (exit 4).
-  if (lintReport.errors.length > 0 || lintReport.classifications.length === 0) return 4;
-  return 0;
+  if (lintReport.findings.some((finding) => finding.severity === "error")) return EXIT.findings;
+  if (lintReport.errors.some((error) => error.code === "SCOPE_EMPTY")) return EXIT.unusable;
+  if (lintReport.errors.length > 0) return EXIT.incomplete;
+  if (lintReport.classifications.length === 0) return EXIT.unusable;
+  return EXIT.ok;
 }
 
 /** The list size ceiling for one declared stdin read (jint run paths -). */
@@ -1674,8 +1678,8 @@ async function readStdinList(): Promise<string> {
 }
 
 /**
- * Boundary mapping, exactly once and TYPE-driven: SetupError -> 2, InternalError -> 3, an escaped
- * ClassifyError -> 4 (the run happened but produced nothing usable). An unknown-shaped throw wraps
+ * Boundary mapping, exactly once and TYPE-driven: SetupError and InternalError -> 2 (nothing useful
+ * ran), an escaped ClassifyError -> 3 (the run could not finish). An unknown-shaped throw wraps
  * into InternalError - the bug bucket. Detail renders through the emitter (message leads, code
  * trails); the structured debug log keeps the raw message. Exported for the emitter-shape tests.
  */
@@ -1688,20 +1692,19 @@ export function exitForThrown(thrown: unknown, origin?: string): number {
       : new InternalError(thrown instanceof Error ? thrown.message : String(thrown), {
           cause: thrown,
         });
-  log("error", error.message, { errorCode: error.code });
+  log("error", error.message, { errorCode: error.code, cause: error.cause });
   emit({ message: thrownLine(error, origin), code: error.code, kind: "error" });
-  if (error instanceof SetupError) return 2;
-  if (error instanceof InternalError) return 3;
-  return 4;
+  if (error instanceof SetupError || error instanceof InternalError) return EXIT.unusable;
+  return EXIT.incomplete;
 }
 
 if (import.meta.main) {
   // EPIPE (from `| head`) exits cleanly, no stack trace; SIGINT exits non-zero, promptly.
   process.stdout.on("error", (writeError: NodeJS.ErrnoException) => {
-    if (writeError.code === "EPIPE") process.exit(0);
+    if (writeError.code === "EPIPE") process.exit(EXIT.ok);
     throw writeError;
   });
-  process.on("SIGINT", () => process.exit(130));
+  process.on("SIGINT", () => process.exit(EXIT.interrupted));
   process.exitCode = await runCli(process.argv.slice(2));
   // a walk worker stuck in a wasm loop ignores terminate and keeps the process alive
   if (abandonedWalkWorkers() > 0) process.exit(process.exitCode);

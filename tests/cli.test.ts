@@ -115,7 +115,7 @@ describe("cli: contract basics", () => {
       ],
       NO_SERVICE,
     );
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(3);
     const attempted: string[] = [
       ...(JSON.parse(r.stdout).classifications ?? []).map((m: any) => m.input),
       ...(JSON.parse(r.stdout).errors ?? []).map((e: any) => e.input),
@@ -187,7 +187,7 @@ describe("cli: contract basics", () => {
       ],
       NO_SERVICE,
     );
-    expect(r.code).toBe(4); // reached classification: it was a path, not a flag
+    expect(r.code).toBe(3); // reached classification: it was a path, not a flag
     expect(JSON.parse(r.stdout).errors[0]!.input).toBe("tests/fixtures/dash-path/--weird.ts");
   });
 
@@ -297,7 +297,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         stdin: "tests/fixtures/sample-file.ts\n",
       },
     );
-    expect(proc.code).toBe(4);
+    expect(proc.code).toBe(3);
     const report = JSON.parse(proc.stdout);
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
@@ -311,7 +311,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         stdin: "tests/fixtures/sample-file.ts\nno/such/file.ts\n",
       },
     );
-    expect(proc.code).toBe(4);
+    expect(proc.code).toBe(3);
     const report = JSON.parse(proc.stdout);
     expect(
       report.notes.some(
@@ -330,7 +330,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         stdin: { file: list },
       },
     );
-    expect(proc.code).toBe(4);
+    expect(proc.code).toBe(3);
     const report = JSON.parse(proc.stdout);
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.errors[0]!.input.startsWith("tests/fixtures/sample-file.ts")).toBe(true);
@@ -363,7 +363,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     }
   });
 
-  test.concurrent("a path list whose entries ALL miss the walk: exit 4 (ran, measured nothing), notes in-band", async () => {
+  test.concurrent("a path list whose entries ALL miss the walk: exit 2 (nothing measured), notes in-band", async () => {
     const proc = await runCli(
       ["run", "paths", "-", "--json", "--rule", "is_greppable", "--unscoped"],
       {
@@ -371,7 +371,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
         stdin: "no/such/a.ts\nno/such/b.ts\n",
       },
     );
-    expect(proc.code).toBe(4);
+    expect(proc.code).toBe(2);
     const report = JSON.parse(proc.stdout);
     expect(report.classifications).toEqual([]);
     for (const p of ["no/such/a.ts", "no/such/b.ts"]) {
@@ -453,9 +453,9 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     });
   });
 
-  test.concurrent("all units fail: exit 4 with the failures named on stderr", async () => {
+  test.concurrent("all units fail: exit 3 with the failures named on stderr", async () => {
     const proc = await runCli(["run", "str", "-"], { env: NO_SERVICE, stdin: "x" });
-    expect(proc.code).toBe(4); // every unit failed -> the run failed (never exit 0)
+    expect(proc.code).toBe(3); // every unit failed -> the run failed (never exit 0)
     expect(proc.stderr).toMatch(/error PROVIDER_\w+ str:stdin:/);
     expect(proc.stderr).toContain("jint: 0 problems (0 errors, 0 warnings)");
   });
@@ -497,12 +497,12 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       ],
       NO_SERVICE,
     );
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
     expect(report.errors[0]!.code).toBe("PROVIDER_UNAVAILABLE");
   });
 
-  test.concurrent("dir positional respects .gitignore, errors in-band, exit 4", async () => {
+  test.concurrent("dir positional respects .gitignore, errors in-band, exit 3", async () => {
     const ownConfig = "/tmp/jint-gitignore-contract.json";
     require("node:fs").writeFileSync(
       ownConfig,
@@ -512,7 +512,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       ["run", "tests/fixtures/sample-dir", "--json", "--debug", "--config", ownConfig],
       NO_SERVICE,
     );
-    expect(r.code).toBe(4);
+    expect(r.code).toBe(3);
     const report = JSON.parse(r.stdout);
     expect(report.errors.length).toBeGreaterThan(0);
   }, 30000);
@@ -522,7 +522,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
       env: NO_SERVICE,
       stdin: { file: "tests/fixtures/sample.diff" },
     });
-    expect(proc.code).toBe(4); // ran as ONE str unit; transport failure in-band
+    expect(proc.code).toBe(3); // ran as ONE str unit; transport failure in-band
     const report = JSON.parse(proc.stdout);
     expect(report.errors[0]!.input).toBe("str:stdin");
   });

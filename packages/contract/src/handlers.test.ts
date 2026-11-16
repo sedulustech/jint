@@ -5,7 +5,7 @@ import {
   handleSeverity,
   handleTier,
   readChoice,
-  ruleTargets,
+  RULE_TARGETS,
   type ChoiceHandlerData,
   type HandlerData,
   type NoulHandlerData,
@@ -221,7 +221,7 @@ test("HandlerData accepts both forms structurally", () => {
   expect(both).toHaveLength(2);
 });
 
-describe("ruleTargets - the runtime face of the RuleTarget union", () => {
+describe("RULE_TARGETS - the runtime face of the RuleTarget union", () => {
   // The compile-time half of the pin: Record<RuleTarget, true> requires a key per union member,
   // so a new member without an entry here fails `tsc` (missing key), and an entry that is not a
   // member fails it too (the array element type). The runtime half below ties this record to the
@@ -238,13 +238,15 @@ describe("ruleTargets - the runtime face of the RuleTarget union", () => {
     "loose-comments": true,
     imports: true,
   };
-  // Same pin in assignment form: ruleTargets' element type must stay exactly RuleTarget.
-  const _all: readonly RuleTarget[] = ruleTargets;
+  // Same pin in assignment form: RULE_TARGETS' element type must stay exactly RuleTarget.
+  const _all: readonly RuleTarget[] = RULE_TARGETS;
 
   test("every union member is registered exactly once; no extras, no duplicates", () => {
-    expect([...(ruleTargets as readonly string[])].sort()).toEqual(Object.keys(_exhaustive).sort());
-    expect(new Set(ruleTargets).size).toBe(ruleTargets.length);
-    for (const target of ruleTargets) expect(_exhaustive[target]).toBe(true);
-    expect(_all).toBe(ruleTargets);
+    expect([...(RULE_TARGETS as readonly string[])].sort()).toEqual(
+      Object.keys(_exhaustive).sort(),
+    );
+    expect(new Set(RULE_TARGETS).size).toBe(RULE_TARGETS.length);
+    for (const target of RULE_TARGETS) expect(_exhaustive[target]).toBe(true);
+    expect(_all).toBe(RULE_TARGETS);
   });
 });
