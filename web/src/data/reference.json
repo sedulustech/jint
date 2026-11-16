@@ -639,6 +639,47 @@
           "example": "jint --debug"
         }
       ]
+    },
+    {
+      "title": "Exit codes",
+      "intro": "Every exit path of the CLI uses one of these codes. Warnings alone never fail a run.",
+      "entries": [
+        {
+          "id": "exit-0",
+          "level": 3,
+          "name": "0",
+          "pills": [],
+          "body": "Ran. No error findings; warnings alone exit 0."
+        },
+        {
+          "id": "exit-1",
+          "level": 3,
+          "name": "1",
+          "pills": [],
+          "body": "Ran. Error findings. The lint verdict, and the only code a hook should act on."
+        },
+        {
+          "id": "exit-2",
+          "level": 3,
+          "name": "2",
+          "pills": [],
+          "body": "Nothing useful ran: bad command, bad config, or nothing matched the rules' scope."
+        },
+        {
+          "id": "exit-3",
+          "level": 3,
+          "name": "3",
+          "pills": [],
+          "body": "Ran but could not finish: a provider, network or auth failure. Results are partial; a retry may help."
+        },
+        {
+          "id": "exit-130",
+          "level": 3,
+          "name": "130",
+          "pills": [],
+          "body": "Interrupted (SIGINT)."
+        }
+      ]
     }
   ]
 }

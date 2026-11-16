@@ -24,6 +24,7 @@ import { dirname, join, resolve } from "node:path";
 import { CONFIG_SCHEMA, ENV_VARS } from "@jint/sdk";
 import { validateRunSearch } from "../packages/app/src/router.tsx";
 import {
+  EXIT_CODES,
   FLAGS,
   GLOBAL_FLAG_NAMES,
   NOUNS,
@@ -32,7 +33,7 @@ import {
   flagExample,
   flagsOfVerb,
 } from "../packages/cli/src/cli.ts";
-import { ruleTargets } from "../packages/contract/src/handlers.ts";
+import { RULE_TARGETS } from "../packages/contract/src/handlers.ts";
 import { EMBEDDED } from "../packages/sdk/src/core/grammars/grammars.ts";
 import { directiveVocabulary, type DirectiveRow } from "../packages/sdk/src/core/grammars/query.ts";
 
@@ -180,12 +181,12 @@ export function renderTargetsTable(): string {
   // Guard: the doc must have exactly one row per real target, no more, no fewer. A new target
   // without a row (or a row for a target that does not exist) fails generation loudly.
   const rowTargets = rows.map((r) => r.target).sort();
-  const realTargets = [...ruleTargets].sort();
+  const realTargets = [...RULE_TARGETS].sort();
   if (JSON.stringify(rowTargets) !== JSON.stringify(realTargets)) {
     throw new Error(
       "targets doc drifted from the vocabulary: rows " +
         JSON.stringify(rowTargets) +
-        " vs ruleTargets " +
+        " vs RULE_TARGETS " +
         JSON.stringify(realTargets),
     );
   }
@@ -488,7 +489,7 @@ export function envSections(): RefSection[] {
  */
 export function cliSections(): RefSection[] {
   type FlagSpec = { arg?: string; aliases?: readonly string[] };
-  const flag = (
+  const flagEntry = (
     verb: keyof typeof VERBS,
     name: string,
     id: string,
@@ -508,7 +509,7 @@ export function cliSections(): RefSection[] {
       example,
     };
   };
-  const verbs = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name): RefEntry[] => [
+  const verbEntries = (Object.keys(VERBS) as (keyof typeof VERBS)[]).flatMap((name): RefEntry[] => [
     {
       id: `verb-${name}`,
       level: 3,
@@ -530,7 +531,7 @@ export function cliSections(): RefSection[] {
         )
       : []),
     ...flagsOfVerb(name).map((flagName) =>
-      flag(name, flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
+      flagEntry(name, flagName, `flag-${name}-${flagName.replace(/^-+/, "")}`, 4),
     ),
   ]);
   return [
@@ -538,12 +539,25 @@ export function cliSections(): RefSection[] {
       title: "Verbs",
       intro:
         "The first operand is the verb. There is no default verb. The nouns and flags of a verb are indented under it.",
-      entries: verbs,
+      entries: verbEntries,
     },
     {
       title: "Flags for every verb",
       entries: GLOBAL_FLAG_NAMES.map((name) =>
-        flag("run", name, `flag-${name.replace(/^-+/, "")}`, 3, `jint ${name}`),
+        flagEntry("run", name, `flag-${name.replace(/^-+/, "")}`, 3, `jint ${name}`),
+      ),
+    },
+    {
+      title: "Exit codes",
+      intro: "Every exit path of the CLI uses one of these codes. Warnings alone never fail a run.",
+      entries: EXIT_CODES.map(
+        ({ code, meaning }): RefEntry => ({
+          id: `exit-${code}`,
+          level: 3,
+          name: String(code),
+          pills: [],
+          body: meaning,
+        }),
       ),
     },
   ];

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXIT, EXIT_ROWS } from "./exit.ts";
+import { EXIT, EXIT_CODES } from "./exit.ts";
 
 /**
  * STRUCTURAL GUARD - exit codes live in one table (exit.ts). A bare numeric code in the CLI source
@@ -49,12 +49,11 @@ describe("exit-code table guard", () => {
   });
 
   test("the table documents every code once", () => {
-    expect(EXIT_ROWS.map((row) => row.code).sort()).toEqual(Object.values(EXIT).sort());
+    expect(EXIT_CODES.map((row) => row.code).sort()).toEqual(Object.values(EXIT).sort());
   });
 
   test("the CLI reference lists every row of the table", () => {
     const page = readFileSync(join(SRC, "..", "..", "..", "docs", "reference", "cli.md"), "utf8");
-    const lines = page.split("\n").map((line) => line.replace(/\s+/g, " "));
-    for (const row of EXIT_ROWS) expect(lines).toContain(`| ${row.code} | ${row.meaning} |`);
+    for (const row of EXIT_CODES) expect(page).toContain(`### \`${row.code}\`\n\n${row.meaning}\n`);
   });
 });

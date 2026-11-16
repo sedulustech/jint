@@ -8,7 +8,7 @@ export const EXIT = {
 
 export type ExitCode = (typeof EXIT)[keyof typeof EXIT];
 
-export const EXIT_ROWS: readonly { readonly code: ExitCode; readonly meaning: string }[] = [
+export const EXIT_CODES: readonly { readonly code: ExitCode; readonly meaning: string }[] = [
   { code: EXIT.ok, meaning: "Ran. No error findings; warnings alone exit 0." },
   {
     code: EXIT.findings,

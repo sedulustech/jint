@@ -61,6 +61,8 @@ import { Type as TypeBoxType } from "@sinclair/typebox";
 import { Value as TypeBoxValue } from "@sinclair/typebox/value";
 import { catalog, provideVirtualModules } from "./baseline.ts";
 import { EXIT } from "./exit.ts";
+
+export { EXIT_CODES } from "./exit.ts";
 import { log, setLogLevel } from "./logger.ts";
 import {
   captureJson,
