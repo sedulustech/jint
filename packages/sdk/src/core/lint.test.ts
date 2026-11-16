@@ -2077,3 +2077,57 @@ describe("lint - walk workers", () => {
     expect(await run(3)).toBe(inProcess);
   });
 });
+
+describe("element-scoped run: a line anchor resolves to the innermost measured element", () => {
+  const SRC = [
+    "export class Box {", // 1
+    "  // grow the box", // 2
+    "  grow(n: number): number {", // 3
+    "    return n + 1;", // 4
+    "  }", // 5
+    "}", // 6
+    "", // 7
+    "// double it", // 8
+    "export function twice(x: number): number {", // 9
+    "  return x * 2;", // 10
+    "}", // 11
+  ].join("\n");
+
+  /** The one source the run measured, or null when it made no element call. */
+  async function measuredSource(rule: Rule, anchor: number): Promise<string | null> {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-innermost-anchor.ts";
+    await Bun.write(file, SRC);
+    const log: CallLog = { calls: [] };
+    await drain(
+      lint({
+        config: { ...baseConfig, rules: [rule] },
+        input: file,
+        element: { path: file, anchor },
+        classifier: loggingClassifier({}, log),
+      }),
+    );
+    const calls = log.calls.filter((c) => isElementCall(c.state));
+    return calls.length === 0 ? null : (calls[0]!.state as { source: string }).source;
+  }
+
+  test("a line inside a method selects the method, not its class", async () => {
+    const source = await measuredSource(probeDefinitions, 4);
+    expect(source).toContain("grow(n: number)");
+    expect(source).not.toContain("export class Box");
+  });
+
+  test("the class header line selects the class", async () => {
+    expect(await measuredSource(probeDefinitions, 1)).toContain("export class Box");
+  });
+
+  test("a comment line above a function selects the function under a comments rule", async () => {
+    expect(await measuredSource(probeComments, 8)).toContain("export function twice");
+  });
+
+  test("a nested element no rule measures falls back to the measurable container", async () => {
+    // probe_classes measures classes only: a method line still resolves to the class
+    const classesOnly = baseConfig.rules.find((r) => r.name === "probe_classes")!;
+    expect(await measuredSource(classesOnly, 4)).toContain("export class Box");
+  });
+});

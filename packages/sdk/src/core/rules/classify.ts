@@ -562,19 +562,62 @@ function scopeNotesFor(
   return [`${path}: scope excluded - ${noteParts.join("; ")}`];
 }
 
+const spanLines = (e: InventoryElement): number => e.span.end.line - e.span.start.line;
+
 /**
- * The element a selector names: the one element whose span covers the line (start.line <= L <=
- * end.line; top-level spans are disjoint, so containment is unique). Undefined = nothing matches:
- * the caller reports in-band, never silence. (Element ids are run-scoped internals, never a
- * selector — the only public query is the line.)
+ * The definition a comment line belongs to when the comment sits ABOVE it (outside its span): the
+ * nearest following element whose attached run carries the comment's text.
+ */
+function ownerOfComment(
+  inventory: readonly InventoryElement[],
+  comment: InventoryElement,
+): InventoryElement | undefined {
+  const text = comment.content.trim();
+  return inventory
+    .filter(
+      (e) =>
+        e.capture !== "comment" &&
+        e.span.start.line > comment.span.end.line &&
+        (e.attachedComment ?? []).join("\n").includes(text),
+    )
+    .sort((x, y) => x.span.start.line - y.span.start.line)[0];
+}
+
+/**
+ * The element a line selector names: always ONE WHOLE element, never a fragment. Candidates are the
+ * elements containing the line (start.line <= L <= end.line) plus, for a comment line, the
+ * definition the comment sits above; a comment element itself is never the pick when a definition
+ * is - the unit of the comments target is the definition with its comments. The inventory nests
+ * (methods in classes), so the pick is the INNERMOST (smallest span) candidate.
+ *
+ * With `rules` (the run's scoped rules), only candidates some rule measures count, and an oversized
+ * element is not measurable: a method inside an over-size class is still reachable. When no
+ * candidate is measurable the outermost containing element is returned, so the caller's skip note
+ * explains the miss - never silence. Undefined = nothing contains the line: the caller reports
+ * in-band. (Element ids are run-scoped internals, never a selector - the only public query is the
+ * line.)
  */
 export function selectElement(
   inventory: readonly InventoryElement[],
   selector: { readonly line: number },
+  rules?: { readonly rules: readonly Rule[]; readonly path?: string },
 ): InventoryElement | undefined {
-  return inventory.find(
+  const containing = inventory.filter(
     (e) => e.span.start.line <= selector.line && selector.line <= e.span.end.line,
   );
+  if (containing.length === 0) return undefined;
+  const candidates = containing.filter((e) => e.capture !== "comment");
+  for (const comment of containing.filter((e) => e.capture === "comment")) {
+    const owner = ownerOfComment(inventory, comment);
+    if (owner !== undefined && !candidates.includes(owner)) candidates.push(owner);
+  }
+  const innermost = (list: readonly InventoryElement[]): InventoryElement | undefined =>
+    [...list].sort((x, y) => spanLines(x) - spanLines(y))[0];
+  if (rules === undefined) return innermost(candidates) ?? innermost(containing);
+  const measurable = candidates.filter(
+    (e) => e.oversized !== true && rulesForElement(rules.rules, e, rules.path).length > 0,
+  );
+  return innermost(measurable) ?? containing[0];
 }
 
 /**

@@ -195,9 +195,10 @@ function scopeSkipNote(path: string, element: InventoryElement, rules: readonly 
 
 /**
  * Element-scope narrowing: the single file's inventory collapses to the selected element, so
- * element jobs fan out to ONE classifier call. A selector that names nothing (a line outside every
- * span) is a caller error — fail setup, naming what the file does contain. Elements no scoped rule
- * targets come back as `skipped` for the caller to name, never silence.
+ * element jobs fan out to ONE classifier call. A line anchor picks the innermost element a scoped
+ * rule measures (see selectElement). A selector that names nothing (a line outside every span) is a
+ * caller error — fail setup, naming what the file does contain. Elements no scoped rule targets
+ * come back as `skipped` for the caller to name, never silence.
  */
 function selectScopedElements(
   w: WalkedUnit,
@@ -209,8 +210,13 @@ function selectScopedElements(
   const coverage = w.inventory.map((e) => `L${e.span.start.line}-L${e.span.end.line}`).join(", ");
   let selected: InventoryElement[];
   if (element.anchor !== undefined) {
-    // ANCHOR: the unique CONTAINING element - containment, not enclosure (never a degenerate range).
-    const anchor = selectElement(w.inventory, { line: element.anchor });
+    // ANCHOR: the innermost CONTAINING element a scoped rule measures - containment, not enclosure
+    // (never a degenerate range); a comment line resolves to the definition it documents.
+    const anchor = selectElement(
+      w.inventory,
+      { line: element.anchor },
+      { rules: scopedRules, path: element.path },
+    );
     if (anchor === undefined)
       throw new SetupError(
         "ELEMENT_NOT_FOUND",
