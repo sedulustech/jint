@@ -1,8 +1,7 @@
 # Test fixtures
 
 Checked-in, deterministic fixtures for the component tests (src/*.test-browser.tsx).
-`generated/` is produced by `bun run fixtures:gen` - do not hand-edit it. `run-a/` and the manifest-less run are
-hand-maintained: edit the files directly.
+Every fixture is hand-maintained: edit the files directly.
 
 ## Layout
 
@@ -32,33 +31,14 @@ hand-maintained: edit the files directly.
 - `018bcfe5-6801-7000-8000-00000000000b/` - 3 captures, deliberately NO `manifest.json`: a run still recording. Its id is a
   UUIDv7, so its start is read from the id.
 
-## Generated case fixtures (fixture-pipeline)
+## Editing
 
-New edge cases ship as GENERATED runs: the generator runs the real engine pipeline
-(walk -> classify -> the Decisions adapter and recorder -> engine report/manifest writers) against a checked-in source dir:
+`run-a/` and the manifest-less run mix the recorded forms (legacy, wire, decisions) on purpose.
+When a fixture changes, re-pin the constants at the top of `src/rule-filter.test-browser.tsx`
+(TOTAL / RULE_COUNTS / BORDERLINE_COUNT) to whatever the fixture contains. The engine's own
+output is checked end to end by tests/element-capture-e2e.test.ts at the repository root.
 
-- `sources/elements/` — real TS input (complex.ts + helpers.ts, nested functions).
-- `generated/elements/` — the run it produced: captures + report.json + manifest.json. Served
-  by the API as the nested run id `generated/elements`.
-
-Regenerate deliberately: `bun run fixtures:gen`. The only stub is the transport (a Decisions reply with fixed
-per-rule answers, like the engine's own lint tests); the captures are the real Decisions exchange. Regeneration is byte-identical: the builder seals the
-engine's per-run entropy (uuid minting, timestamps, run-id filename stamps) behind sentinels —
-tests/fixture-determinism.test.ts proves it. Tests still assert shapes and relationships, never
-uuids.
-
-## Regenerate
-
-```bash
-bun run fixtures:gen   # from packages/app: scripts/build-fixture.ts - generated/<case> runs
-```
-
-`run-a/` and the manifest-less run have no builder: they mix the recorded forms (legacy, wire, decisions) on
-purpose, and a script would erase the hand-made cases. When a fixture changes, re-pin the constants
-at the top of `src/rule-filter.test-browser.tsx` (TOTAL / RULE_COUNTS / BORDERLINE_COUNT) to
-whatever the fixture contains.
-
-## Pinned expectations (kept in sync with the generator)
+## Pinned expectations
 
 | filter                | rows |
 | --------------------- | ---- |

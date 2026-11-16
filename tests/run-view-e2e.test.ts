@@ -272,7 +272,7 @@ describe("the run read model, served by the real `ui serve`", () => {
     expect((await serveGet(bare, "api/runs/100"))[0]!.body.cells).toEqual([]);
   });
 
-  test("a nested run id lists, serves its cells against the element request, and serves its report", async () => {
+  test("a run lists, serves its cells against the element request, and serves its report", async () => {
     const file = "1700000000001-elements-fn.ts.json";
     const seed = seedRun(
       {
@@ -297,16 +297,15 @@ describe("the run read model, served by the real `ui serve`", () => {
           errors: [],
         },
       },
-      "generated/elements",
     );
     const [list, run, report] = await serveGet(
       seed,
       "api/runs",
-      "api/runs/generated/elements",
-      "api/runs/generated/elements/report",
+      "api/runs/100",
+      "api/runs/100/report",
     );
-    expect(list!.body.runs.map((r: { id: string }) => r.id)).toContain("generated/elements");
-    expect(run!.body.id).toBe("generated/elements");
+    expect(list!.body.runs.map((r: { id: string }) => r.id)).toContain("100");
+    expect(run!.body.id).toBe("100");
     const cell = run!.body.cells.find((c: any) => c.rule === "r_a");
     expect(cell.element.kind).toBe("function");
     expect(cell.requestFile).toBe(file);

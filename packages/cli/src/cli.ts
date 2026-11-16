@@ -1249,9 +1249,8 @@ const viewerUiFailure = (thrown: unknown): number => {
 };
 
 /**
- * The store has at least one run: a directory under runsBase() (run dirs are timestamp-named;
- * namespace dirs wrap case runs one level down). A missing base is the same answer - nothing to
- * serve.
+ * The store has at least one run: a directory under runsBase(), named by its UUIDv7. A missing base
+ * is the same answer - nothing to serve.
  */
 function storeHasRuns(): boolean {
   try {

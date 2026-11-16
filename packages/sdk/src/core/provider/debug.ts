@@ -188,10 +188,6 @@ export function recordRunManifest(manifest: {
   configPath: string | null;
   cwd: string;
   argv: readonly string[];
-  /** When the run started; the recorder's own start unless given (a fixture seals it). */
-  createdAt?: string;
-  /** When the run's record last changed; the manifest write unless given. */
-  updatedAt?: string;
   /**
    * Per-rule declarative handle snapshot (rule -> NoulHandlerData | ScoreHandlerData), so any
    * consumer can recompute severity exactly. custom-tier rules are absent (code policy, not data).

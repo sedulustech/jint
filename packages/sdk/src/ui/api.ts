@@ -35,7 +35,6 @@ import {
 import { normalizeRequestFile, type RequestFile } from "./request-file.ts";
 import { listRules, type RulesResponse } from "./rules.ts";
 import type { QuestionSchema } from "../core/types.ts";
-import type { Dirent } from "node:fs";
 
 export type { RequestFile } from "./request-file.ts";
 
@@ -247,8 +246,6 @@ async function serveOriginal(
 
 /** The read routes of one run: the list, its report, one recorded request, or the run itself. */
 async function serveRun(runsRoot: string, routeTail: string[]): Promise<Response> {
-  // Run ids may be nested (fixture-pipeline layout): the id is resolved segment by segment,
-  // so flat and nested runs route identically.
   if (routeTail.length === 0) return jsonResponse(await listRuns(runsRoot));
   const lastSegment = routeTail[routeTail.length - 1]!;
   // a missing report is a first-class absence, never an error
@@ -517,48 +514,38 @@ function safeJoin(base: string, name: string): string | null {
   return full;
 }
 
-/**
- * Resolve a nested run id one safe segment at a time, so traversal in any segment fails the whole
- * id instead of escaping the root. Null when any segment escapes.
- */
-function resolveRunDir(root: string, segments: string[]): string | null {
-  let dir: string | null = root;
-  for (const segment of segments) {
-    dir = safeJoin(dir, segment);
-    if (dir === null) return null;
-  }
-  return dir;
+function resolveRunDir(root: string, idSegments: string[]): string | null {
+  const isOneSegment = idSegments.length === 1;
+  return isOneSegment ? safeJoin(root, idSegments[0]!) : null;
 }
 
 function isRequestFile(name: string): boolean {
   return /^\d{13}-/.test(name) && name.endsWith(JSON_SUFFIX);
 }
 
-/** Case namespaces must list alongside flat runs, under their nested id. */
-export async function collectRunCandidates(
+async function filesInRunDir(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch (err) {
+    if (isMissingFileError(err)) return [];
+    throw new Error(`cannot list run directory ${dir}`, { cause: err });
+  }
+}
+
+export async function collectRunDirsWithRequests(
   runsRoot: string,
   dirEntries: string[],
 ): Promise<{ id: string; dir: string }[]> {
-  const candidates: { id: string; dir: string }[] = [];
+  const runDirs: { id: string; dir: string }[] = [];
   await Promise.all(
     dirEntries.map(async (entryName) => {
       const dir = join(runsRoot, entryName);
-      const files = await readdir(dir).catch((err: unknown) => {
-        if (isMissingFileError(err)) return [] as string[];
-        throw err;
-      });
-      if (files.some(isRequestFile)) {
-        candidates.push({ id: entryName, dir });
-        return;
-      }
-      for (const caseName of await caseDirsWithRequests(dir))
-        candidates.push({ id: `${entryName}/${caseName}`, dir: join(dir, caseName) });
+      if ((await filesInRunDir(dir)).some(isRequestFile)) runDirs.push({ id: entryName, dir });
     }),
   );
-  return candidates;
+  return runDirs;
 }
 
-/** Case dirs one level under a namespace dir, holding at least one recorded request. */
 async function runDirExists(runDir: string): Promise<boolean> {
   try {
     await stat(runDir);
@@ -569,42 +556,13 @@ async function runDirExists(runDir: string): Promise<boolean> {
   }
 }
 
-async function readdirIfPresent<T extends string | Dirent>(
-  dir: string,
-  read: () => Promise<T[]>,
-): Promise<T[]> {
-  try {
-    return await read();
-  } catch (err) {
-    if (isMissingFileError(err)) return [];
-    throw new Error(`cannot list ${dir}`, { cause: err });
-  }
-}
-
-async function caseDirsWithRequests(namespaceDir: string): Promise<string[]> {
-  const subEntries = await readdirIfPresent(namespaceDir, () =>
-    readdir(namespaceDir, { withFileTypes: true }),
-  );
-  const subdirNames = subEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-  const caseDirs: string[] = [];
-  await Promise.all(
-    subdirNames.map(async (subdirName) => {
-      const subdirFiles = await readdirIfPresent(namespaceDir, () =>
-        readdir(join(namespaceDir, subdirName)),
-      );
-      if (subdirFiles.some(isRequestFile)) caseDirs.push(subdirName);
-    }),
-  );
-  return caseDirs;
-}
-
 /**
  * A run's start: its manifest's createdAt, or, while the run is still recording and has no
  * manifest, the start its id carries.
  */
 function startOf(runId: string, createdAt: string | undefined): string {
   if (createdAt !== undefined) return createdAt;
-  const startMs = runIdStartMs(runId.split("/").at(-1)!);
+  const startMs = runIdStartMs(runId);
   if (startMs === null) throw new Error(`run ${runId} has no createdAt and its id is not a UUIDv7`);
   return new Date(startMs).toISOString();
 }
@@ -653,7 +611,7 @@ async function listRuns(runsRoot: string): Promise<{ runs: RunSummary[] }> {
   try {
     const entries = await readdir(runsRoot, { withFileTypes: true });
     const dirNames = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-    const candidates = await collectRunCandidates(runsRoot, dirNames);
+    const candidates = await collectRunDirsWithRequests(runsRoot, dirNames);
     const runs = await Promise.all(candidates.map(({ id, dir }) => readRunSummary(id, dir)));
     runs.sort((a, b) => b.id.localeCompare(a.id));
     return { runs };
