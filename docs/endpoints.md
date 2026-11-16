@@ -21,7 +21,7 @@ jint run src
 jint asks `https://api.openai.com/v1/decisions`. A run with no url set always goes there.
 
 OpenAI's Decisions API is the default because it is deterministic: the same input gives the same
-reading. A threshold needs that, because a reading that moves between runs puts a file on both
+value. A threshold needs that, because a value that moves between runs puts a file on both
 sides of it.
 
 ## Another endpoint

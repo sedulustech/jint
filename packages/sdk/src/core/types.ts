@@ -1,10 +1,10 @@
 /**
  * The core nouns, strictly separated — each declaration below carries its own contract: the
- * classifying mechanism, the raw reading it always produces (never actionable by itself), the
- * reading that cleared its policy (the only actionable output), the streamed per-unit failure to
- * produce a reading (carried as a value, never thrown past the pipeline), the thrown
- * setup/infrastructure failure (optionally carrying structured detail the consumer renders into
- * prose), and the bug/escape-hatch bucket: the error that says "this is jint's fault, not the
+ * classifying mechanism, the raw classification it always produces (never actionable by itself),
+ * the classification that cleared its policy (the only actionable output), the streamed per-unit
+ * failure to produce a classification (carried as a value, never thrown past the pipeline), the
+ * thrown setup/infrastructure failure (optionally carrying structured detail the consumer renders
+ * into prose), and the bug/escape-hatch bucket: the error that says "this is jint's fault, not the
  * invocation's".
  */
 
@@ -16,17 +16,17 @@ export type { Severity } from "@jint/contract";
 import type { Classification, RuleTarget, Severity } from "@jint/contract";
 export type { RuleTarget };
 /**
- * Readings stay raw probabilities — whether one fires is the policy's decision, never baked into
- * the value.
+ * Values stay raw probabilities — whether one fires is the policy's decision, never baked into the
+ * value.
  */
 export interface HandleOutcome {
   readonly severity: Severity;
   /** The rule author's message attached at the fired tier; the finding's note. Absent = bare. */
   readonly message?: string;
-  /** The reading was too close to call and the rule's undecided tier fired. */
+  /** The value was too close to call and the rule's undecided tier fired. */
   readonly undecided?: true;
 }
-/** Null is a deliberate silent verdict: the reading happened, nothing surfaces. */
+/** Null is a deliberate silent verdict: the classification happened, nothing surfaces. */
 export type HandleResult = HandleOutcome | null;
 /** Input kinds; "dir" exists only at inference time — dirs resolve to file units before classifying. */
 export type InputKind = "file" | "dir";
@@ -122,7 +122,7 @@ export class InternalError extends Error {
  * catches it into the stream; it never escapes the pipeline boundary.
  */
 export class ClassifyError extends Error {
-  /** The rule whose reading failed, when the error concerns one rule's answer. */
+  /** The rule whose classification failed, when the error concerns one rule's answer. */
   readonly rule?: string;
   constructor(
     readonly code: ClassifyErrorCode,
@@ -140,7 +140,7 @@ export class ClassifyError extends Error {
 /** The rule target vocabulary is defined beside the wire vocabulary it annotates, re-exported here. */
 
 /**
- * The judgment primitive: a calibrated yes/no reading, an ordered rubric score, or a choice between
+ * The judgment primitive: a calibrated yes/no value, an ordered rubric score, or a choice between
  * named options.
  */
 export type RuleKind = "noul" | "score" | "choice";
@@ -174,14 +174,13 @@ export interface NoulRule extends RuleBase {
   /**
    * The yes/no question the model answers, specific to the rule's claim. REQUIRED: a generic
    * fallback question would silently recalibrate every classification. Changing a rule's
-   * instructions is a recalibration event: readings move.
+   * instructions is a recalibration event: values move.
    */
   readonly instructions: string;
   /**
    * The calibrated question, criteria-as-rule: what makes the unit a yes and what makes it a no —
    * boundary cases belong on the no side. Passes straight through to the question; editing either
-   * side is a recalibration event, since thresholds are anchored to readings taken under this
-   * text.
+   * side is a recalibration event, since thresholds are anchored to values taken under this text.
    */
   readonly criteria: { readonly true: string; readonly false: string };
 }
@@ -217,8 +216,8 @@ export type Rule = NoulRule | ScoreRule | ChoiceRule;
  * A classification that mattered: it cleared the rule's policy and carries the returned severity.
  * value is the JUDGED value on the defect pole (inverted when the rule fires on no), so value and
  * severity always agree under the rule's own thresholds. message is the custom-tier callback's
- * remediation instruction (revision of the no-message contract: severity says whether, message says
- * how — rendered beneath the finding line) — absent for threshold-derived findings.
+ * remediation instruction, rendered beneath the finding line: severity says whether, message says
+ * how. It is absent for threshold-derived findings.
  */
 export interface Finding {
   readonly rule: string;
@@ -231,13 +230,13 @@ export interface Finding {
   readonly confidence?: number;
   /** The selected option's label, choice rules only; value is that option's probability. */
   readonly choice?: string;
-  /** The answer cache served this reading: nothing was asked for it in this run. */
+  /** Served by the answer cache instead of a request to the classifier. */
   readonly cached?: true;
-  /** The reading was too close to call and the rule's undecided tier fired. */
+  /** The value is too close to call; the rule's undecided tier sets the severity. */
   readonly undecided?: true;
   /**
-   * Additive (custom tier): a policy callback's remediation instruction to the caller
-   * (schema-validated at the callback boundary). Absent for threshold-derived findings.
+   * A policy callback's remediation instruction to the caller (schema-validated at the callback
+   * boundary). Absent for threshold-derived findings.
    */
   readonly message?: string;
   /**
@@ -246,8 +245,8 @@ export interface Finding {
    */
   readonly location?: { readonly input: string; readonly span: Span };
   /**
-   * The rule author's message attached at the fired handle tier; absent = a bare finding. The
-   * criteria legend echo is gone: rubric prose never reaches findings.
+   * The rule author's message attached at the fired handle tier; absent = a bare finding. Rubric
+   * prose never reaches findings.
    */
   readonly note?: string;
 }
@@ -285,7 +284,7 @@ export interface FileState {
  * along for jint's own use and reaches the model only for a rule that asks (includePath). Never
  * batch elements into an array state - one state x many questions makes the provider answer every
  * question from the file's average (probes: noul pinned 0.61-0.66 across 21 elements whose isolated
- * readings spread 0.60-0.92).
+ * values spread 0.60-0.92).
  */
 export interface ElementState {
   readonly path: string;

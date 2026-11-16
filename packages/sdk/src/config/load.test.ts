@@ -133,7 +133,7 @@ describe("validateConfig / catalogConfig", () => {
   });
 
   test("noul handlers compile to the function form; thresholds sit on the declared defect pole", () => {
-    // greater_than: the reading itself is the defect probability
+    // greater_than: the value itself is the defect probability
     const firesTrue = validateConfig(
       {
         input: "x",
@@ -179,7 +179,7 @@ describe("validateConfig / catalogConfig", () => {
     expect(f({ value: 0.55 })).toEqual({ severity: "warn" });
     expect(f({ value: 0.4 })).toEqual({ severity: "error" });
 
-    // silent_band: defect-pole readings inside [lo, hi] stay silent
+    // silent_band: defect-pole values inside [lo, hi] stay silent
     const banded = validateConfig(
       {
         input: "x",
@@ -399,7 +399,7 @@ describe("validateConfig / catalogConfig", () => {
     expect(handle({ value: 1 })).toEqual({ severity: "warn" });
     expect(handle({ value: 0 })).toBeNull();
     // Off-rubric scores are impossible states (the provider bounds the score to the criteria count);
-    // they fail loud rather than silently dropping the reading.
+    // they fail loud rather than silently dropping the value.
     expect(() => handle({ value: 7 })).toThrow(/outside the criteria scale/);
     expect(() => handle({ value: Number.NaN })).toThrow(/outside the criteria scale/);
   });

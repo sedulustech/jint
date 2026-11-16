@@ -8,7 +8,7 @@
  * Measured on the four real descriptions and on real descriptions with one planted defect each: the
  * real ones read 0.27 or lower on every rule except has_description_procedure, where two read 0.64
  * and 0.72 (a list of what the skill covers); the planted defects read 0.79 or higher, and 1.00 on
- * the procedure rule. Each rule has one error tier: the readings left no case for a warning.
+ * the procedure rule. Each rule has one error tier: the values left no case for a warning.
  */
 
 import type { RuleSchema } from "jint:sdk";
@@ -23,7 +23,7 @@ interface Dimension {
   defect: string;
   sound: string;
   message: string;
-  /** The reading above which the rule fires, inside the gap between the real and planted readings. */
+  /** The value above which the rule fires, inside the gap between the real and planted values. */
   above: number;
 }
 

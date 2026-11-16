@@ -177,7 +177,7 @@
                         ]
                       },
                       "handle": {
-                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
+                        "description": "How a value becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -299,12 +299,12 @@
                                 }
                               },
                               "undecided": {
-                                "description": "The tier of a reading with no clear winner among the options.",
+                                "description": "The tier of a value with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
-                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
+                                    "description": "The gap between the two likeliest options under which the value is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
@@ -325,7 +325,7 @@
                                     ]
                                   },
                                   "message": {
-                                    "description": "The note on the finding of an undecided reading.",
+                                    "description": "The note on the finding of an undecided value.",
                                     "type": "string"
                                   }
                                 }
@@ -337,7 +337,7 @@
                             "type": "object",
                             "properties": {
                               "warn": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -345,7 +345,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -360,7 +360,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -372,7 +372,7 @@
                                 ]
                               },
                               "error": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -380,7 +380,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -395,7 +395,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -407,7 +407,7 @@
                                 ]
                               },
                               "silent_band": {
-                                "description": "A [low, high] range of readings that raises no finding.",
+                                "description": "A [low, high] range of values that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
@@ -577,7 +577,7 @@
                         ]
                       },
                       "handle": {
-                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
+                        "description": "How a value becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -699,12 +699,12 @@
                                 }
                               },
                               "undecided": {
-                                "description": "The tier of a reading with no clear winner among the options.",
+                                "description": "The tier of a value with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
-                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
+                                    "description": "The gap between the two likeliest options under which the value is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
@@ -725,7 +725,7 @@
                                     ]
                                   },
                                   "message": {
-                                    "description": "The note on the finding of an undecided reading.",
+                                    "description": "The note on the finding of an undecided value.",
                                     "type": "string"
                                   }
                                 }
@@ -737,7 +737,7 @@
                             "type": "object",
                             "properties": {
                               "warn": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -745,7 +745,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -760,7 +760,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -772,7 +772,7 @@
                                 ]
                               },
                               "error": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -780,7 +780,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -795,7 +795,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -807,7 +807,7 @@
                                 ]
                               },
                               "silent_band": {
-                                "description": "A [low, high] range of readings that raises no finding.",
+                                "description": "A [low, high] range of values that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
@@ -979,7 +979,7 @@
                         ]
                       },
                       "handle": {
-                        "description": "How a reading becomes a finding. The shape follows the kind of the rule.",
+                        "description": "How a value becomes a finding. The shape follows the kind of the rule.",
                         "anyOf": [
                           {
                             "description": "Score handler (score rules only): one level per criteria entry, indexed by score 0..N. Direction is expressed by the map itself (high-bad: [pass, pass, warn, error]; high-good: [error, warn, pass, pass]). The length MUST equal the criteria count and at least one level must be non-pass. An optional per-tier message (author feedback) becomes the finding's note when the tier fires; absent = a bare finding.",
@@ -1101,12 +1101,12 @@
                                 }
                               },
                               "undecided": {
-                                "description": "The tier of a reading with no clear winner among the options.",
+                                "description": "The tier of a value with no clear winner among the options.",
                                 "type": "object",
                                 "required": ["margin", "level"],
                                 "properties": {
                                   "margin": {
-                                    "description": "The gap between the two likeliest options under which the reading is undecided.",
+                                    "description": "The gap between the two likeliest options under which the value is undecided.",
                                     "type": "number"
                                   },
                                   "level": {
@@ -1127,7 +1127,7 @@
                                     ]
                                   },
                                   "message": {
-                                    "description": "The note on the finding of an undecided reading.",
+                                    "description": "The note on the finding of an undecided value.",
                                     "type": "string"
                                   }
                                 }
@@ -1139,7 +1139,7 @@
                             "type": "object",
                             "properties": {
                               "warn": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -1147,7 +1147,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1162,7 +1162,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1174,7 +1174,7 @@
                                 ]
                               },
                               "error": {
-                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high readings, less_than on low ones. Within (0, 1).",
+                                "description": "One threshold comparison: exactly one operator. The operator IS the defect direction - greater_than fires on high values, less_than on low ones. Within (0, 1).",
                                 "anyOf": [
                                   {
                                     "description": "Fires when the raw value is strictly greater.",
@@ -1182,7 +1182,7 @@
                                     "required": ["greater_than"],
                                     "properties": {
                                       "greater_than": {
-                                        "description": "The threshold. A reading above it fires.",
+                                        "description": "The threshold. A value above it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1197,7 +1197,7 @@
                                     "required": ["less_than"],
                                     "properties": {
                                       "less_than": {
-                                        "description": "The threshold. A reading below it fires.",
+                                        "description": "The threshold. A value below it fires.",
                                         "type": "number"
                                       },
                                       "message": {
@@ -1209,7 +1209,7 @@
                                 ]
                               },
                               "silent_band": {
-                                "description": "A [low, high] range of readings that raises no finding.",
+                                "description": "A [low, high] range of values that raises no finding.",
                                 "type": "array",
                                 "items": [
                                   {
