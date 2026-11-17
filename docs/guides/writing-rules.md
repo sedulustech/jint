@@ -37,12 +37,13 @@ and the model picks its own criteria.
 
 ![Function names judged under an undefined and a defined question](../figures/define.svg)
 
-## What a value means
+## What the values mean
 
-A value is the model's probability that the answer is yes, the same number a language model uses
-to choose its next word. 0.9 is a strong lean to yes and 0.1 a strong lean to no. 0.5 means the
-model could not choose, so a value of 0.45 against 0.55 is not a ranking. Never set a threshold
-below 0.5: a rule that fires there fires on answers that lean no.
+The values the classification model returns is a probability for each answer to be true, plus the model's confidence on the answer
+it is providing. 0.5 means the model could not decide based on the evidence we provided it.
+Either the evidence is not enough or the questions are not clear, as we stated previously.
+Having ambiguous rules generally means that you're not separating the features enough. You should split the rule in two or improve
+the evidence being presented to the classifier.
 
 ![Calibrated values with the warn and error thresholds](../figures/value.svg)
 
