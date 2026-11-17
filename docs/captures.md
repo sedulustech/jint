@@ -11,6 +11,14 @@ A grammar's `queries.scm` turns a parsed file into elements. Each pattern gives 
 capture, and the capture decides what the element is. A rule names a [target](targets.md), and the
 target resolves to the elements of one or more captures.
 
+![A TypeScript file, the queries.scm patterns that match it, and the elements they produce](figures/captures.svg)
+
+Each pattern matches a shape in the parsed file and names the matched node with a capture.
+A `#set!` line adds a fact about that capture. Here, pattern A makes the comment that opens the file
+belong to the file. Pattern B C makes each comment an element and joins comment lines with nothing
+between them, so lines 6 and 7 are one element. A comment directly above a definition, like line 4,
+becomes that definition's documentation.
+
 ## Check what a file yields
 
 `jint capture` runs the extraction only. It makes no classifier calls, so it costs nothing.
