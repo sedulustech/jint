@@ -34,6 +34,11 @@ export interface CustomElement {
     readonly startByte: number;
     readonly endByte: number;
   };
+  /**
+   * A definition's source text up to its body, else its first line: what names it and what it
+   * takes.
+   */
+  readonly signature?: string;
   /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside this element's body (target grammar: "comments"). */

@@ -23,12 +23,12 @@
 (declaration (pointer_declarator (function_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
 (declaration (pointer_declarator (function_declarator))) @function ; @priority
-(function_definition declarator: (function_declarator declarator: (identifier) @name)) @function
-(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function
-(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name))) @function
-(function_definition declarator: (function_declarator)) @function
-(function_definition declarator: (pointer_declarator declarator: (function_declarator))) @function
-(function_definition) @function
+(function_definition declarator: (function_declarator declarator: (identifier) @name) body: (_)? @body) @function
+(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name)) body: (_)? @body) @function
+(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name)) body: (_)? @body) @function
+(function_definition declarator: (function_declarator) body: (_)? @body) @function
+(function_definition declarator: (pointer_declarator declarator: (function_declarator)) body: (_)? @body) @function
+(function_definition body: (_)? @body) @function
 
 ; --- types -------------------------------------------------------------------------------------
 (struct_specifier name: (type_identifier) @name body: (field_declaration_list)) @type

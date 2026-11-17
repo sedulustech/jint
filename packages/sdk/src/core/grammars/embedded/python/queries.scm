@@ -34,17 +34,17 @@
 ; anchored as DIRECT children of the class body; decorated ones are captured through their
 ; decorated_definition wrapper (earlier than the bare @function wrapper pattern - priority), so
 ; the method's own decorators travel with it.
-(class_definition name: (identifier) @name) @class ; @priority
-(class_definition body: (block (function_definition name: (identifier) @name) @method)) ; @priority
+(class_definition name: (identifier) @name body: (_)? @body) @class ; @priority
+(class_definition body: (block (function_definition name: (identifier) @name body: (_)? @body) @method)) ; @priority
 (class_definition
-  body: (block (decorated_definition (function_definition name: (identifier) @name)) @method)) ; @priority
-(function_definition name: (identifier) @name) @function ; @priority
+  body: (block (decorated_definition (function_definition name: (identifier) @name body: (_)? @body)) @method)) ; @priority
+(function_definition name: (identifier) @name body: (_)? @body) @function ; @priority
 
 ; ABSORB: decorated definitions (decorator prefixes travel with the element)
 ; @priority: a decorated_definition is a function, a method, OR a class - the earlier context
 ; pattern takes decorated methods; the remaining two never share a node
-(decorated_definition (function_definition name: (identifier) @name)) @function ; @priority
-(decorated_definition (class_definition name: (identifier) @name)) @class ; @priority
+(decorated_definition (function_definition name: (identifier) @name body: (_)? @body)) @function ; @priority
+(decorated_definition (class_definition name: (identifier) @name body: (_)? @body)) @class ; @priority
 
 ; --- imports ----------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default

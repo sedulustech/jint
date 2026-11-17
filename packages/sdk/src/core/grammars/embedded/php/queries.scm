@@ -13,8 +13,8 @@
 ;   keeps it one import element; splitting is a WAITING.
 
 ; --- functions ---------------------------------------------------------------------------------
-(function_definition name: (name) @name) @function
-(method_declaration name: (name) @name) @method
+(function_definition name: (name) @name body: (_)? @body) @function
+(method_declaration name: (name) @name body: (_)? @body) @method
 
 ; Closures are functions (nameless functions are still functions - precedent: ts arrows, verilog
 ; always, test composites). ASSIGNED closures keep ONE element with the function capture: the
@@ -25,17 +25,17 @@
 ; local binding in a body) - no special case.
 (assignment_expression
   left: (variable_name (name) @name)
-  right: (arrow_function)) @function ; @priority
+  right: (arrow_function body: (_)? @body)) @function ; @priority
 (assignment_expression
   left: (variable_name (name) @name)
-  right: (anonymous_function)) @function ; @priority
-(anonymous_function) @function
-(arrow_function) @function
+  right: (anonymous_function body: (_)? @body)) @function ; @priority
+(anonymous_function body: (_)? @body) @function
+(arrow_function body: (_)? @body) @function
 
 ; --- types --------------------------------------------------------------------------------------
 ; @class is the named-class capture; interfaces, traits and enums stay @type. anonymous_class is
 ; deliberately NOT judged (an expression, not a unit) - the trial's verdict stands.
-(class_declaration name: (name) @name) @class
+(class_declaration name: (name) @name body: (_)? @body) @class
 (interface_declaration name: (name) @name) @type
 (trait_declaration name: (name) @name) @type
 (enum_declaration name: (name) @name) @type

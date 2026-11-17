@@ -19,6 +19,8 @@ belong to the file. Pattern B C makes each comment an element and joins comment 
 between them, so lines 6 and 7 are one element. A comment directly above a definition, like line 4,
 becomes that definition's documentation.
 
+A pattern can also mark parts of the element it matches. The inner `@name` capture marks the name, and the inner `@body` capture marks where the body starts. The text of a definition before its `@body` node is its `signature`, which a custom rule can read. Write the field as `body: (_)? @body` so that a definition without a body, such as a prototype, still matches. A definition whose pattern marks no body has its first line as its signature.
+
 ## Check what a file yields
 
 `jint capture` runs the extraction only. It makes no classifier calls, so it costs nothing.

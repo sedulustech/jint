@@ -84,6 +84,11 @@ export interface InventoryElement {
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
   /**
+   * A definition's text up to its body (the node its pattern marks @body), else its first line: the
+   * part that names it and says what it takes. Absent on comments and imports.
+   */
+  readonly signature?: string;
+  /**
    * The comment run attached to this definition: leading comments ending strictly above its first
    * row, within the grammar's attach.gap (default: the directly preceding row). The run travels
    * OUTSIDE the span; comment-target rules judge the run through this field, so a definition whose
@@ -603,6 +608,19 @@ function mergedComments(
   ].sort((a, b) => a.element.node.startIndex - b.element.node.startIndex);
 }
 
+/**
+ * A definition's signature: its text up to the @body node its pattern marks, else its first line (a
+ * binding, a prototype, a definition whose grammar marks no body).
+ */
+function signatureOf(definition: Candidate, source: string): string {
+  const { startIndex, endIndex } = definition.node;
+  const body = definition.bodyIndex;
+  if (body !== undefined && body > startIndex && body <= endIndex) {
+    return source.slice(startIndex, body).trimEnd();
+  }
+  return definition.node.text.split("\n", 1)[0]!.trimEnd();
+}
+
 function materialize(
   candidates: readonly Candidate[],
   grammarId: string,
@@ -669,6 +687,7 @@ function materialize(
     capture: d.capture as WireCapture,
     grammar: grammarId,
     name: d.name,
+    signature: signatureOf(d, source),
     attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
     docstrings: docstringTexts.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,

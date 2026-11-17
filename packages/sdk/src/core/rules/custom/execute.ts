@@ -73,6 +73,7 @@ export function tsElementsOf(
         startByte: e.span.startByte,
         endByte: e.span.endByte,
       },
+      signature: e.signature,
       attachedComment: e.attachedComment,
       internalCommentCount: e.internalCommentCount,
       docstringCount: e.docstringCount,

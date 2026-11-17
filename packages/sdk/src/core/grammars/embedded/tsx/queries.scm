@@ -67,26 +67,26 @@
   arguments: (arguments [(arrow_function) (function_expression)])
   (#any-of? @name "describe" "it" "test")) @function
 ; --- declarations: functions -----------------------------------------------------------------
-(function_declaration name: (identifier) @name) @function
-(generator_function_declaration name: (identifier) @name) @function
+(function_declaration name: (identifier) @name body: (_)? @body) @function
+(generator_function_declaration name: (identifier) @name body: (_)? @body) @function
 ; methods: the member-function shape (class bodies are show-through @class interiors, so the
 ; method surfaces as its own element; object-literal methods are the same node - same capture)
-(method_definition name: (property_identifier) @name) @method
+(method_definition name: (property_identifier) @name body: (_)? @body) @method
 
 ; Callable initializers keep the function capture (old refineCallableInitializers); any other
 ; lexical/variable declaration is a binding. Earlier patterns win (see header).
-((lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function (#set! "capture.function.naming" "first")) ; @priority
-(lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
-(variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function))) @function ; @priority
-(variable_declaration (variable_declarator name: (identifier) @name value: (function_expression))) @function ; @priority
+((lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function body: (_)? @body))) @function (#set! "capture.function.naming" "first")) ; @priority
+(lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression body: (_)? @body))) @function ; @priority
+(variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function body: (_)? @body))) @function ; @priority
+(variable_declaration (variable_declarator name: (identifier) @name value: (function_expression body: (_)? @body))) @function ; @priority
 ((lexical_declaration (variable_declarator name: (identifier) @name)) @binding (#set! "capture.binding.naming" "first")) ; @priority
 (variable_declaration (variable_declarator name: (identifier) @name)) @binding ; @priority
 
 ; --- declarations: types ---------------------------------------------------------------------
 ; @class is the named-class capture: class-like units judged as classes. Interfaces, aliases and
 ; enums stay @type - every non-class, non-method type shape does.
-(class_declaration name: (type_identifier) @name) @class
-(abstract_class_declaration name: (type_identifier) @name) @class
+(class_declaration name: (type_identifier) @name body: (_)? @body) @class
+(abstract_class_declaration name: (type_identifier) @name body: (_)? @body) @class
 (interface_declaration name: (type_identifier) @name) @type
 (type_alias_declaration name: (type_identifier) @name) @type
 (enum_declaration name: (identifier) @name) @type
@@ -117,17 +117,17 @@
 ; The wrapper is the element: the span carries the "export" prefix, the inner declaration's
 ; bare pattern match is suppressed by same-capture nesting (see query.ts). Absorb = capture
 ; the wrapper; no walker unwrap step exists.
-(export_statement declaration: (function_declaration name: (identifier) @name)) @function ; @priority
-(export_statement declaration: (generator_function_declaration name: (identifier) @name)) @function ; @priority
-(export_statement declaration: (class_declaration name: (type_identifier) @name)) @class ; @priority
-(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name)) @class ; @priority
+(export_statement declaration: (function_declaration name: (identifier) @name body: (_)? @body)) @function ; @priority
+(export_statement declaration: (generator_function_declaration name: (identifier) @name body: (_)? @body)) @function ; @priority
+(export_statement declaration: (class_declaration name: (type_identifier) @name body: (_)? @body)) @class ; @priority
+(export_statement declaration: (abstract_class_declaration name: (type_identifier) @name body: (_)? @body)) @class ; @priority
 (export_statement declaration: (interface_declaration name: (type_identifier) @name)) @type ; @priority
 (export_statement declaration: (type_alias_declaration name: (type_identifier) @name)) @type ; @priority
 (export_statement declaration: (enum_declaration name: (identifier) @name)) @type ; @priority
-(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function ; @priority
-(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function ; @priority
-(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function)))) @function ; @priority
-(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression)))) @function ; @priority
+(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function body: (_)? @body)))) @function ; @priority
+(export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name value: (function_expression body: (_)? @body)))) @function ; @priority
+(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (arrow_function body: (_)? @body)))) @function ; @priority
+(export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name value: (function_expression body: (_)? @body)))) @function ; @priority
 (export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority
 (export_statement declaration: (variable_declaration (variable_declarator name: (identifier) @name))) @binding ; @priority
 

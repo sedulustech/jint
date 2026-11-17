@@ -11,7 +11,7 @@
 ;   forms share one node type, so both are captured the same way.
 
 ; --- declarations ----------------------------------------------------------------------------
-(function_definition name: (word) @name) @function
+(function_definition name: (word) @name body: (_)? @body) @function
 
 ; top-level variables are the script's settings: `VAR=value`, and the declaration forms
 ; (`export`, `readonly`, `declare`, `local`) when they bind a name. The function bodies' own
