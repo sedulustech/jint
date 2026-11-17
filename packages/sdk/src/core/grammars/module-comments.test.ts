@@ -63,3 +63,15 @@ test("a comment directly above a file's first definition documents that definiti
   expect(inventory.comments[0]?.docstringOf).toEqual({ kind: "function", name: "add" });
   expect(inventory.definitions[0]?.attachedComment).toEqual(["/** adds */"]);
 });
+
+test("a header above a blank row stays the module's when the first definition has its own doc", async () => {
+  const inventory = await decompose(
+    "// h1\n// h2\n\n/** adds */\nexport function add() {}\n",
+    "typescript",
+  );
+  expect(inventory.comments.map((c) => c.docstringOf)).toEqual([
+    { kind: "module", name: "" },
+    { kind: "function", name: "add" },
+  ]);
+  expect(inventory.definitions[0]?.attachedComment).toEqual(["/** adds */"]);
+});

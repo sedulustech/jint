@@ -391,6 +391,10 @@ function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readon
         pending.length = 0;
         continue;
       }
+      // a blank row between two comments ends the run: only the comments directly above attach
+      const previous = pending.at(-1);
+      if (previous !== undefined && startRow - effectiveEndRow(previous.node) > 1)
+        pending.length = 0;
       pending.push(candidate);
       continue;
     }
