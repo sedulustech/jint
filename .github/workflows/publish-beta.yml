@@ -61,6 +61,9 @@ jobs:
     uses: ./.github/workflows/build-binaries.yml
     with:
       beta: true
+      # the Apple team is moving to an organization account and notarization is refused
+      # until it completes; set back to true then, and drop the download page's banner
+      notarize: false
     secrets: inherit
 
   publish:

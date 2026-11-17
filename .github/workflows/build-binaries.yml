@@ -11,6 +11,11 @@ on:
       beta:
         type: boolean
         default: false
+      # false ships the darwin binaries signed but not notarized: Gatekeeper blocks a
+      # browser download of them until the user allows it
+      notarize:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -99,6 +104,7 @@ jobs:
             codesign --verify --strict --verbose=2 "$f"
           done
       - name: Notarize
+        if: ${{ inputs.notarize }}
         env:
           API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
           API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -111,6 +117,7 @@ jobs:
             xcrun notarytool submit "$f.zip" --key "$KEY" --key-id "$API_KEY_ID" --issuer "$ISSUER_ID" --wait
           done
       - name: Verify Gatekeeper acceptance
+        if: ${{ inputs.notarize }}
         run: |
           for f in out/jint-darwin-arm64 out/jint-darwin-x64; do
             codesign --verify --strict --verbose=2 "$f"
