@@ -47,6 +47,8 @@ Both `c` and `cpp` claim `.h`. Registration order decides, and `cpp` serves it.
 
 `css` captures comments only, because the code captures have no honest reading of css. `json`, `toml` and `yaml` are the same: data has no functions or types, so these grammars exist to route their files to `files` rules.
 
+Every grammar joins consecutive comment lines into one comment, so a multi-line `//` or `#` comment is judged whole. A blank line, code between two comments, or a comment at the end of a code line starts a new one. The comment that opens a file belongs to the file, not to a definition, and a `loose-comments` rule judges it. A comment directly above the first definition still documents that definition. [directives.md](directives.md) lists the `merge` and `docstring.owner` directives that set this.
+
 Each wasm is the file attached to an upstream release of `tree-sitter` or `tree-sitter-grammars`. [SOURCES.md](https://github.com/sedulustech/jint/blob/main/packages/sdk/src/core/grammars/embedded/SOURCES.md) lists the release and the sha256 of every one.
 
 ## Walk

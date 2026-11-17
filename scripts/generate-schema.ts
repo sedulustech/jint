@@ -167,7 +167,7 @@ export function renderTargetsTable(): string {
       namespace: CAPTURE_NAMESPACE,
       singular: "comment (element)",
       resolves:
-        "elements captured as standalone comments, with no definition they belong to: runs of comments and inline comments outside any definition",
+        "elements captured as standalone comments, with no definition they belong to: the file header, runs of comments, and inline comments outside any definition",
       frame: "the comment's own text under its path",
       scope: "yes",
     },
