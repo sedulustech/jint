@@ -13,12 +13,6 @@ jint is in beta. Install the current build with the [install script](../install.
 curl -fsSL https://raw.githubusercontent.com/sedulustech/jint/feat/decisions-model/install.sh | bash
 ```
 
-The script picks the archive for your platform, checks it against the published checksums and puts
-`jint` in `~/.local/bin`. Add that directory to your `PATH` if it is not there.
-
-Or have your coding agent install and set it up:
-[Copy installation prompt](/install-prompt.txt#copy) · [show](/install-prompt.txt)
-
 ## Download a binary
 
 Take the archive for your platform and `checksums.txt` from the [download page](/download/). Check the

@@ -27,20 +27,6 @@ export function icon(path: string): SVGSVGElement {
   return svg;
 }
 
-/** The install prompt's icon for a script-built button: filled, unlike the stroked icons. */
-export function promptIcon(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", PROMPT_ICON.viewBox);
-  svg.setAttribute("aria-hidden", "true");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", PROMPT_ICON.path);
-  path.setAttribute("fill", "currentColor");
-  path.setAttribute("stroke", "none");
-  path.setAttribute("fill-rule", "evenodd");
-  svg.append(path);
-  return svg;
-}
-
 /**
  * On click, copy text() to the clipboard and show(true) for a moment, then show(false). Without
  * clipboard access (older app views, an insecure origin) the write fails, and onFail gets the error
