@@ -28,7 +28,9 @@ import { compileNoulHandler } from "../handle.ts";
 import {
   validateDecision,
   validateStateSpec,
+  type ClassifyContext,
   type CustomElement,
+  type CustomFile,
   type CustomRule,
 } from "./schema.ts";
 import type { InventoryElement } from "../../grammars/walk.ts";
@@ -86,7 +88,10 @@ export function tsElementsOf(
 export type ResolvedCustomTarget =
   | { targets: readonly CustomElement[]; scopedOut: number }
   | { error: ClassifyError };
-export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
+/** Every rule's resolution, plus the file of each path a target sits in (the classify ctx.file). */
+export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget> & {
+  readonly files: ReadonlyMap<string, CustomFile>;
+};
 
 /**
  * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
@@ -96,15 +101,43 @@ export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget>;
 export function resolveAllCustomTargets(
   customRules: readonly CustomRule[],
   inventoryByPath: ReadonlyMap<string, readonly InventoryElement[]>,
+  sourceByPath: ReadonlyMap<string, string> = new Map(),
 ): ResolvedCustomTargets {
   const elementsByPath = new Map<string, readonly CustomElement[]>();
   for (const [path, inventory] of inventoryByPath) {
     elementsByPath.set(path, tsElementsOf(inventory, path));
   }
   const allElements = [...elementsByPath.values()].flat();
-  const out: ResolvedCustomTargets = new Map();
-  for (const rule of customRules) out.set(rule, resolveTargets(rule, allElements));
-  return out;
+  const rules = new Map<CustomRule, ResolvedCustomTarget>();
+  for (const rule of customRules) rules.set(rule, resolveTargets(rule, allElements));
+  // only a file a target sits in gets one: the run drops the text of every other file
+  const files = new Map<string, CustomFile>();
+  for (const resolved of rules.values()) {
+    if (!("targets" in resolved)) continue;
+    for (const { path } of resolved.targets) {
+      if (!files.has(path)) {
+        files.set(
+          path,
+          customFileOf(path, sourceByPath.get(path) ?? "", elementsByPath.get(path)!),
+        );
+      }
+    }
+  }
+  return Object.assign(rules, { files });
+}
+
+function customFileOf(
+  path: string,
+  source: string,
+  elements: readonly CustomElement[],
+): CustomFile {
+  return {
+    path,
+    source,
+    definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
+    comments: elements.filter((e) => e.capture === "comment"),
+    imports: elements.filter((e) => e.capture === "import"),
+  };
 }
 
 /** Resolves one rule's REQUEST into its slice over the full walk inventory. */
@@ -213,7 +246,7 @@ function classificationEvent(
 function stateFor(
   rule: CustomRule,
   element: CustomElement,
-  ctx: { readonly targets: readonly CustomElement[] },
+  ctx: ClassifyContext,
 ): ReturnType<typeof validateStateSpec> {
   const input = inputOf(element);
   try {
@@ -240,7 +273,7 @@ function oversizedPart(state: object, limits: StateLimits): string | undefined {
 async function measure(
   rule: CustomRule,
   element: CustomElement,
-  ctx: { readonly targets: readonly CustomElement[] },
+  ctx: ClassifyContext,
   classifier: Classifier,
   limits: StateLimits,
 ): Promise<Measured> {
@@ -348,17 +381,26 @@ function resolutionEvents(rule: CustomRule, resolved: ResolvedCustomTarget): Lin
 async function runRule(
   rule: CustomRule,
   targets: readonly CustomElement[],
+  files: ReadonlyMap<string, CustomFile>,
   classifier: Classifier,
   isAborted: () => boolean,
   limits: StateLimits,
 ): Promise<{ events: LintEvent[]; fatal: boolean }> {
   const ctx = { targets };
+  const fileOf = (element: CustomElement): CustomFile =>
+    files.get(element.path) ?? customFileOf(element.path, "", [element]);
   const events: LintEvent[] = [];
   const measured: { element: CustomElement; value: number }[] = [];
   let fatal = false;
   for (const element of targets) {
     if (isAborted() || fatal) break;
-    const result = await measure(rule, element, ctx, classifier, limits);
+    const result = await measure(
+      rule,
+      element,
+      { targets, file: fileOf(element) },
+      classifier,
+      limits,
+    );
     events.push(...result.events);
     fatal = result.fatal === true;
     if (result.value !== undefined) measured.push({ element, value: result.value });
@@ -394,7 +436,14 @@ export async function runCustomRules(
     }
     events.push(...resolutionEvents(rule, resolvedRule));
     if ("error" in resolvedRule) continue;
-    const ran = await runRule(rule, resolvedRule.targets, classifier, isAborted, limits);
+    const ran = await runRule(
+      rule,
+      resolvedRule.targets,
+      resolved.files,
+      classifier,
+      isAborted,
+      limits,
+    );
     events.push(...ran.events);
     fatal = ran.fatal;
   }

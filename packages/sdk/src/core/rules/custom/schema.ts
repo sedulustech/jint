@@ -59,6 +59,23 @@ export interface RuleContext {
 }
 
 /**
+ * The file an element sits in, as the walk saw it: its text and every element in it, in walk order.
+ * The element being judged is one of them, the same object.
+ */
+export interface CustomFile {
+  readonly path: string;
+  readonly source: string;
+  readonly definitions: readonly CustomElement[];
+  readonly comments: readonly CustomElement[];
+  readonly imports: readonly CustomElement[];
+}
+
+/** Classify's environment: the rule's context plus the file of the element being judged. */
+export interface ClassifyContext extends RuleContext {
+  readonly file: CustomFile;
+}
+
+/**
  * One compiled judgment. jint schema-validates the spec, applies per-part size backstops,
  * serializes it, and calls the provider — the rule NEVER sees the classifier. Composition is free;
  * observability (the wire dumps) is the guarantee.
@@ -104,7 +121,7 @@ export interface CustomRule {
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
   /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: RuleContext) => StateSchema;
+  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
   /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */

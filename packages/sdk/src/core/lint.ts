@@ -470,7 +470,11 @@ async function* walkUnits(
   }
   let customResolved: ResolvedCustomTargets | undefined;
   if (customRules.length > 0) {
-    customResolved = resolveAllCustomTargets(customRules, elementsByPathOf(units, walked));
+    customResolved = resolveAllCustomTargets(
+      customRules,
+      elementsByPathOf(units, walked),
+      sourceByPathOf(units, walked),
+    );
     if (!rules.some((r) => targetsFiles(r.target))) {
       retainTargetedContent(units, walked, customResolved);
     }
@@ -695,6 +699,17 @@ function elementsByPathOf(
   for (let i = 0; i < units.length; i++) {
     const w = walked.get(i);
     if (w !== undefined) byPath.set(units[i]!.state.path, w.inventory);
+  }
+  return byPath;
+}
+
+function sourceByPathOf(
+  units: readonly Unit[],
+  walked: ReadonlyMap<number, WalkedUnit>,
+): Map<string, string> {
+  const byPath = new Map<string, string>();
+  for (let i = 0; i < units.length; i++) {
+    if (walked.has(i)) byPath.set(units[i]!.state.path, units[i]!.state.content);
   }
   return byPath;
 }

@@ -46,6 +46,20 @@ declare module "jint:sdk" {
     readonly targets: readonly CustomElement[];
   }
 
+  /** The file an element sits in, as the walk saw it: its text and every element in it. */
+  export interface CustomFile {
+    readonly path: string;
+    readonly source: string;
+    readonly definitions: readonly CustomElement[];
+    readonly comments: readonly CustomElement[];
+    readonly imports: readonly CustomElement[];
+  }
+
+  /** Classify's environment: the rule's context plus the file of the element being judged. */
+  export interface ClassifyContext extends RuleContext {
+    readonly file: CustomFile;
+  }
+
   /** One compiled judgment: question, criteria, and the freely composed state the provider judges. */
   export interface StateSchema {
     readonly instructions: string;
@@ -86,7 +100,7 @@ declare module "jint:sdk" {
       | "imports"
       | readonly string[]
       | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
-    readonly classify: (self: CustomElement, ctx: RuleContext) => StateSchema;
+    readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
     /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
     readonly include?: readonly string[];
     /** Per-rule scoping: glob list; ALWAYS wins over include. */
