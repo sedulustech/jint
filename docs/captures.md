@@ -52,10 +52,8 @@ conditionals of a Python script, which no shipped capture covers:
   (#set! "capture.statement_group.merge" "adjacent")) ; @priority
 ```
 
-The first line, `; extends`, adds the file to the grammar's own `queries.scm`. Without it, the file
-replaces the grammar's queries whole. Your patterns come first, and the earlier pattern wins when two
-match one node, so a pattern of yours can also override a capture of the grammar's. A directive you
-set replaces the same directive in the grammar's file.
+`; extends` puts your patterns before the grammar's; without it, your file replaces them. The
+earlier pattern wins a node, and your directives replace the grammar's.
 
 `; @priority` says the pattern order is deliberate. A pattern needs it when another pattern in your
 file shares its root node type.
