@@ -473,27 +473,41 @@ function parentLabelOf(
 // a blank row between: the text between the two nodes carries two newlines (row-only gaps
 // misread on grammars whose include nodes absorb neighboring newlines into their spans)
 /**
- * The candidates of another capture (comments aside, when the mode lets them ride inside a run), by
- * start, each with the furthest end seen so far: "does one start before this member and end after
- * the previous member?" is then one lookup.
+ * The starts and the ends of the candidates of another capture (comments aside, when the mode lets
+ * them ride inside a run), each sorted. Nodes nest, so a candidate stands between two members
+ * exactly when it starts or ends in the gap; one that encloses both does neither, so two comments
+ * inside one function still form a run.
  */
+interface Interlopers {
+  readonly starts: readonly number[];
+  readonly ends: readonly number[];
+}
+
 function interlopersOf(
   candidates: readonly Candidate[],
   capture: string,
   mode: MergeMode,
-): { starts: number[]; furthestEnds: number[] } {
-  const others = candidates
-    .filter((o) => o.capture !== capture && !(mode === "adjacent" && o.capture === "comment"))
-    .sort((a, b) => a.node.startIndex - b.node.startIndex);
-  const starts: number[] = [];
-  const furthestEnds: number[] = [];
-  let furthest = -Infinity;
-  for (const other of others) {
-    furthest = Math.max(furthest, other.node.endIndex);
-    starts.push(other.node.startIndex);
-    furthestEnds.push(furthest);
+): Interlopers {
+  const others = candidates.filter(
+    (o) => o.capture !== capture && !(mode === "adjacent" && o.capture === "comment"),
+  );
+  return {
+    starts: others.map((o) => o.node.startIndex).sort((a, b) => a - b),
+    ends: others.map((o) => o.node.endIndex).sort((a, b) => a - b),
+  };
+}
+
+/** The count of sorted values below the bound (strictly below, or at most it when inclusive). */
+function countBelow(sorted: readonly number[], bound: number, inclusive: boolean): number {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    const value = sorted[middle]!;
+    if (value < bound || (inclusive && value === bound)) low = middle + 1;
+    else high = middle;
   }
-  return { starts, furthestEnds };
+  return low;
 }
 
 /** Only whitespace precedes the node on its first row. */
@@ -505,7 +519,7 @@ function startsItsRow(candidate: Candidate, source: string): boolean {
 function runSplits(
   previous: Candidate | undefined,
   candidate: Candidate,
-  interlopers: { starts: number[]; furthestEnds: number[] },
+  interlopers: Interlopers,
   source: string,
   mode: MergeMode,
 ): boolean {
@@ -515,14 +529,13 @@ function runSplits(
     if ((between.match(/\n/g) ?? []).length > 1 || between.trim() !== "") return true;
     if (!startsItsRow(previous, source) || !startsItsRow(candidate, source)) return true;
   }
-  let low = 0;
-  let high = interlopers.starts.length;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if (interlopers.starts[middle]! < candidate.node.startIndex) low = middle + 1;
-    else high = middle;
-  }
-  return low > 0 && interlopers.furthestEnds[low - 1]! > previous.node.endIndex;
+  const gapStart = previous.node.endIndex;
+  const gapEnd = candidate.node.startIndex;
+  const { starts, ends } = interlopers;
+  // a start in [gapStart, gapEnd), or an end in (gapStart, gapEnd]
+  const startsInGap = countBelow(starts, gapEnd, false) - countBelow(starts, gapStart, false);
+  const endsInGap = countBelow(ends, gapEnd, true) - countBelow(ends, gapStart, true);
+  return startsInGap > 0 || endsInGap > 0;
 }
 
 function mergeRuns(

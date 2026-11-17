@@ -46,3 +46,16 @@ describe("comment runs: consecutive comment rows are one element in every gramma
     });
   }
 });
+
+test("comment rows inside a definition form a run; the definition around them does not split it", async () => {
+  const inventory = await decompose(
+    "function f() {\n  const a = 1;\n  // one\n  // two\n  return a;\n}\n// after\n",
+    "typescript",
+  );
+  expect(inventory.comments.map((c) => c.content)).toEqual(["// one\n  // two", "// after"]);
+});
+
+test("a block's end between two comment rows splits them", async () => {
+  const inventory = await decompose("if (x) {\n  // inside\n}\n// outside\n", "typescript");
+  expect(inventory.comments.map((c) => c.content)).toEqual(["// inside", "// outside"]);
+});
