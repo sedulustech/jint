@@ -2,12 +2,12 @@
 title: "Keep use cases short"
 description: "A rule that reviews this site's own docs: a use case says what the rule does in one sentence and shows the rule."
 sidebar:
-  label: Keep use cases short
+  label: Docs formatting
 ---
 
 # Keep use cases short
 
-[`has_extra_content`](../../../web/rules/docs.ts) flags a use-case or example page that says more than one sentence before the rule.
+[`has_extra_content`](../../../web/rules/docs.ts) errors on a use-case or example page that has more than one sentence before the rule.
 
 ```ts
 import type { RuleSchema } from "jint:sdk";
@@ -26,8 +26,7 @@ const has_extra_content: RuleSchema = {
     warn: { greater_than: 0.5 },
     error: {
       greater_than: 0.7,
-      message:
-        "Say what the rule does in one sentence, then show the rule. Move the rest to Calibration.",
+      message: "Say only what the rule does in one sentence, and the rule codeblock, nothing else.",
     },
   },
 };
