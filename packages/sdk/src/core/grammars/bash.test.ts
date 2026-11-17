@@ -49,12 +49,12 @@ describe("decompose — bash", () => {
     ]);
   });
 
-  test("source and dot lines are one merged import; the shebang and comments are comments", async () => {
+  test("source and dot lines are one merged import; the shebang and the comment under it are one comment run", async () => {
     const inv = await decompose(SCRIPT, "bash");
     expect(inv.imports).toHaveLength(1);
     expect(inv.imports[0]!.content).toContain("./lib/common.sh");
     expect(inv.imports[0]!.content).toContain("$HOME/.env");
-    expect(inv.comments.map((c) => c.content)).toEqual(["#!/usr/bin/env bash", "# deploy helper"]);
+    expect(inv.comments.map((c) => c.content)).toEqual(["#!/usr/bin/env bash\n# deploy helper"]);
   });
 
   test("the flow at file scope is statement groups: the set line, then one run from trap to the pipe", async () => {

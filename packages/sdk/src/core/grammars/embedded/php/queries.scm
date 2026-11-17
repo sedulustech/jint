@@ -48,4 +48,4 @@
 (namespace_use_declaration) @import
 
 ; --- comments --------------------------------------------------------------------------------------
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

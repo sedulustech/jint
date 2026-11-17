@@ -109,7 +109,7 @@
 (export_statement source: (_)) @import ; @priority
 
 ; --- comments ---------------------------------------------------------------------------------
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))
 
 ; --- export wrappers: ABSORB ------------------------------------------------------------------
 ; The wrapper is the element: the span carries the "export" prefix, the inner declaration's

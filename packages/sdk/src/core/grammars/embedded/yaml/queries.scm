@@ -7,4 +7,4 @@
 ; - block mapping pair (key: value) and document: the units of a YAML file; they need their own
 ;   captures.
 
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

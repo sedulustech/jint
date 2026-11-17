@@ -8,4 +8,4 @@
 ; WAITING (recorded, not stretched):
 ; - pair (key: value): the unit of an object; needs its own capture, like css's declaration.
 
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

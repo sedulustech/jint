@@ -53,4 +53,4 @@
 ((preproc_include) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments ------------------------------------------------------------------------------------
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

@@ -462,7 +462,9 @@ function parentLabelOf(
 // a run become one element whose content is its span slice, so "slice the span, get the content"
 // holds by construction. Another capture's candidate between two members always ends the run - a
 // scattered member (a typescript re-export after code, a C #include mid-file) never drags
-// intervening source into a merged span. `contiguous` also ends it at a blank row; `adjacent`
+// intervening source into a merged span. `contiguous` also ends it at a blank row, at any other
+// source between two members, and at a member that does not start its row (a trailing comment
+// never joins the comment on the next row); `adjacent`
 // lets blank rows and comments ride inside (a script's statements read as one unit across them);
 // `none` keeps every member its own element.
 //
@@ -492,6 +494,12 @@ function interlopersOf(
   return { starts, furthestEnds };
 }
 
+/** Only whitespace precedes the node on its first row. */
+function startsItsRow(candidate: Candidate, source: string): boolean {
+  const rowStart = source.lastIndexOf("\n", candidate.node.startIndex - 1) + 1;
+  return source.slice(rowStart, candidate.node.startIndex).trim() === "";
+}
+
 function runSplits(
   previous: Candidate | undefined,
   candidate: Candidate,
@@ -500,11 +508,11 @@ function runSplits(
   mode: MergeMode,
 ): boolean {
   if (previous === undefined || mode === "none") return true;
-  if (
-    mode === "contiguous" &&
-    (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length > 1
-  )
-    return true;
+  if (mode === "contiguous") {
+    const between = source.slice(previous.node.endIndex, candidate.node.startIndex);
+    if ((between.match(/\n/g) ?? []).length > 1 || between.trim() !== "") return true;
+    if (!startsItsRow(previous, source) || !startsItsRow(candidate, source)) return true;
+  }
   let low = 0;
   let high = interlopers.starts.length;
   while (low < high) {
@@ -551,6 +559,29 @@ function runCandidate(run: readonly Candidate[], source: string): Candidate {
       type: first.node.type,
     },
   };
+}
+
+/**
+ * The comment elements, sorted: with a declared comment merge, each run of comment nodes becomes
+ * one element (docstrings never merge - they are string nodes, not comments). `first` is the run's
+ * first node: containment and ownership were computed per node, so a run reads them through it.
+ */
+function mergedComments(
+  texts: readonly Candidate[],
+  candidates: readonly Candidate[],
+  source: string,
+  mode: MergeMode | undefined,
+): { element: Candidate; first: Candidate }[] {
+  const comments = texts.filter((c) => c.capture === "comment");
+  const others = texts.filter((c) => c.capture !== "comment");
+  const runs =
+    mode === undefined || mode === "none"
+      ? comments.map((c) => [c])
+      : mergeRuns(comments, candidates, source, mode);
+  return [
+    ...runs.map((run) => ({ element: runCandidate(run, source), first: run[0]! })),
+    ...others.map((c) => ({ element: c, first: c })),
+  ].sort((a, b) => a.element.node.startIndex - b.element.node.startIndex);
 }
 
 function materialize(
@@ -600,12 +631,15 @@ function materialize(
   const commentTexts = [...comments, ...docstringsOf(candidates)].filter(
     (c) => !isEmptyComment(c.node.text),
   );
-  const commentElements = [...new Set(commentTexts)].sort(
-    (a, b) => a.node.startIndex - b.node.startIndex,
+  const commentElements = mergedComments(
+    [...new Set(commentTexts)],
+    candidates,
+    source,
+    merges.get("comment"),
   );
   const labels = new Map<Candidate, string>();
   definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
-  commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
+  commentElements.forEach(({ first }, i) => labels.set(first, "c" + String(i)));
 
   const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
     id: crypto.randomUUID(),
@@ -622,18 +656,18 @@ function materialize(
     docstringCount: docstringCounts.get(d) ?? 0,
     parent: parentLabelOf(d, enclosures, labels),
   }));
-  const walkComments: InventoryElement[] = commentElements.map((c) => ({
+  const walkComments: InventoryElement[] = commentElements.map(({ element, first }) => ({
     id: crypto.randomUUID(),
-    label: labels.get(c)!,
-    span: spanOf(c.node),
-    content: c.node.text,
-    nodeType: c.node.type,
+    label: labels.get(first)!,
+    span: spanOf(element.node),
+    content: element.node.text,
+    nodeType: element.node.type,
     capture: "comment" as const,
     grammar: grammarId,
     internalCommentCount: 0,
     docstringCount: 0,
-    parent: parentLabelOf(c, enclosures, labels),
-    docstringOf: ownerOf(c, enclosures, orderedDefinitions, claimants),
+    parent: parentLabelOf(first, enclosures, labels),
+    docstringOf: ownerOf(first, enclosures, orderedDefinitions, claimants),
   }));
 
   // imports always merge: `contiguous` unless the grammar declares otherwise

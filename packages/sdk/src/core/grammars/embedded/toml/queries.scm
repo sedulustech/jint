@@ -6,4 +6,4 @@
 ; WAITING (recorded, not stretched):
 ; - table ([section]) and pair (key = value): the units of a TOML file; they need their own captures.
 
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

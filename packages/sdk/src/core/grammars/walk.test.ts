@@ -289,13 +289,10 @@ const later = 1;
 `);
     expect(inv.definitions[0]!.attachedComment).toEqual(["// first line", "// second line"]);
     expect(inv.definitions[1]!.attachedComment).toBeUndefined();
-    // the three-dimension model: attachment is extra structure, never a replacement for presence
-    // - every comment text stays in the bucket, in document order
+    // every comment text stays in the bucket, in document order; consecutive lines are one run
     expect(inv.comments.map((c) => c.content)).toEqual([
-      "// first line",
-      "// second line",
-      "// detached",
-      "// by a blank line",
+      "// first line\n// second line",
+      "// detached\n// by a blank line",
     ]);
   });
 

@@ -293,10 +293,11 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * largest same-capture wrapper tail in BYTES that still reads as prefix-absorb), `selfNesting`
  * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
  * the grammar-wide form), `merge` (same-capture candidates in a run become ONE element:
- * `contiguous` - a blank line or another element ends the run; `adjacent` - only another element
- * ends it, so blank lines and comments ride inside; `none` - every candidate is its own element),
- * `naming` (a node one pattern matches several times, each match with another name: `strict` fails
- * the load, `first` keeps the first name in the source).
+ * `contiguous` - a blank line, any other source, another element, or a member that does not start
+ * its row ends the run; `adjacent` - only another element ends it, so blank lines and comments ride
+ * inside; `none` - every candidate is its own element), `naming` (a node one pattern matches
+ * several times, each match with another name: `strict` fails the load, `first` keeps the first
+ * name in the source).
  */
 const CAPTURE_DIRECTIVE =
   /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge|naming)/;
@@ -329,7 +330,7 @@ const CAPTURE_KNOBS: Readonly<
   merge: {
     shape: MERGE_MODES,
     summary:
-      "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`.",
+      "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row, at other source between two nodes, at another element, or at a node that does not start its row (so a trailing comment stays alone); `adjacent` ends it only at another element; `none` joins nothing. Default `none`; `import` defaults to `contiguous`. The embedded grammars set `comment` to `contiguous`.",
   },
   naming: {
     shape: NAMING_MODES,

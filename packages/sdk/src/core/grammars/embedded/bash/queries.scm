@@ -26,7 +26,7 @@
 
 ; --- comments ---------------------------------------------------------------------------------
 ; the shebang is a comment node too; it stays one element.
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))
 
 ; --- top-level statements: the statement group -----------------------------------------------
 ; STATEMENT GROUP (this grammar's own capture): commands and control flow at file scope that no

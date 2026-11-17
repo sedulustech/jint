@@ -18,4 +18,4 @@
 ; legal per this grammar (css field trial), so the zero-elements safety net cannot be relied on
 ; for css.
 
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))

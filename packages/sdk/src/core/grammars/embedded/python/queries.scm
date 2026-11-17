@@ -55,7 +55,7 @@
 ((future_import_statement) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments and docstrings -------------------------------------------------------------------
-(comment) @comment
+((comment) @comment (#set! "capture.comment.merge" "contiguous"))
 
 ; The docstring of a definition: the FIRST statement of its body wrapping a string.
 ; @priority: the docstring capture coexists with the definition capture (different nodes)
