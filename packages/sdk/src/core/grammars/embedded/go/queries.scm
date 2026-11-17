@@ -46,4 +46,6 @@
 (import_declaration) @import
 
 ; --- comments ---------------------------------------------------------------------------------
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((source_file . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

@@ -168,8 +168,8 @@ demands action.
   lint, output) plus its public barrel. Same process as its caller: "SDK" says call-into-me, never a separate runtime.
 - **comments** — the rule target for DOCUMENTATION: the pair frame — a definition judged together
   with the comments it owns (its attached run, its internal notes, its docstrings, and its code).
-  A module-level docstring has no definition frame either: it is loose commentary, like any other
-  unowned run. An owned
+  A module docstring or file header (docstringOf module) has no definition frame: it is loose
+  commentary, like any other unowned run. An owned
   comment element never matches separately, so a narration rule fires exactly once per documented
   definition. The name is shared with @comment in the singular/plural
   split: the capture names ONE comment element, the target plural addresses the documentation

@@ -349,6 +349,8 @@ function ownerOf(
       name: claimant.name ?? "",
     };
   }
+  // a file header the grammar declares: unless a definition directly below claimed it above
+  if (candidate.properties?.["docstring.owner"] === "module") return { kind: "module", name: "" };
   const innermost = innermostContaining(enclosures, candidate);
   if (innermost === undefined)
     return isDocstring(candidate) ? { kind: "module", name: "" } : undefined;

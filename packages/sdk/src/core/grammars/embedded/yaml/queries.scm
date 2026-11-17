@@ -7,4 +7,6 @@
 ; - block mapping pair (key: value) and document: the units of a YAML file; they need their own
 ;   captures.
 
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((stream . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

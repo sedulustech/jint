@@ -26,7 +26,9 @@
 
 ; --- comments ---------------------------------------------------------------------------------
 ; the shebang is a comment node too; it stays one element.
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((program . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority
 
 ; --- top-level statements: the statement group -----------------------------------------------
 ; STATEMENT GROUP (this grammar's own capture): commands and control flow at file scope that no

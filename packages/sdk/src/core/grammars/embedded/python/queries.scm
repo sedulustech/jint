@@ -55,7 +55,9 @@
 ((future_import_statement) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments and docstrings -------------------------------------------------------------------
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((module . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority
 
 ; The docstring of a definition: the FIRST statement of its body wrapping a string.
 ; @priority: the docstring capture coexists with the definition capture (different nodes)

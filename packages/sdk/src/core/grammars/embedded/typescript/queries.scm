@@ -109,7 +109,9 @@
 (export_statement source: (_)) @import ; @priority
 
 ; --- comments ---------------------------------------------------------------------------------
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((program . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority
 
 ; --- export wrappers: ABSORB ------------------------------------------------------------------
 ; The wrapper is the element: the span carries the "export" prefix, the inner declaration's

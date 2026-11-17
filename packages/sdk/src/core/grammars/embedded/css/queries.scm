@@ -18,4 +18,6 @@
 ; legal per this grammar (css field trial), so the zero-elements safety net cannot be relied on
 ; for css.
 
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((stylesheet . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

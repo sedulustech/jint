@@ -6,4 +6,6 @@
 ; WAITING (recorded, not stretched):
 ; - table ([section]) and pair (key = value): the units of a TOML file; they need their own captures.
 
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((document . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

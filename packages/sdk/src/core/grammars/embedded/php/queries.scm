@@ -48,4 +48,6 @@
 (namespace_use_declaration) @import
 
 ; --- comments --------------------------------------------------------------------------------------
-((comment) @comment (#set! "capture.comment.merge" "contiguous"))
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((program . (php_tag) . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

@@ -274,9 +274,9 @@ const DIRECTIVES = {
   },
   "docstring.owner": {
     kind: "enum",
-    values: ["next", "enclosing"],
+    values: ["next", "enclosing", "module"],
     summary:
-      "Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it. Default `enclosing`.",
+      "Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it, `module` is the file itself (a header comment; a definition directly below still claims it). Default `enclosing`.",
   },
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
