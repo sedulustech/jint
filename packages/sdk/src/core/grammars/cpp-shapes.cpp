@@ -91,3 +91,4 @@ class Tail {
   /** A doc comment above a method. */
   void documented() {}
 };
+int (*fp)(int);
