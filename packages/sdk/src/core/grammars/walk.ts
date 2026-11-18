@@ -286,9 +286,20 @@ function enclosuresOf(
   return enclosures;
 }
 
-/** The candidates no definition contains: where comment attachment runs, in document order. */
-function topLevelOf(candidates: readonly Candidate[], enclosures: Enclosures): Candidate[] {
-  return candidates.filter((c) => !enclosures.get(c)!.some((d) => d !== c));
+/**
+ * The candidates grouped by the innermost definition containing them (the file for top-level ones),
+ * each group in document order. Comment attachment runs once per scope, so a method claims the doc
+ * comment directly above it the way a top-level function does.
+ */
+function scopesOf(candidates: readonly Candidate[], enclosures: Enclosures): Candidate[][] {
+  const scopes = new Map<Candidate | undefined, Candidate[]>();
+  for (const candidate of candidates) {
+    const scope = innermostContaining(enclosures, candidate);
+    const members = scopes.get(scope);
+    if (members === undefined) scopes.set(scope, [candidate]);
+    else members.push(candidate);
+  }
+  return [...scopes.values()];
 }
 
 /** The innermost definition fully containing this candidate (never the candidate itself). */
@@ -385,11 +396,11 @@ function internalCommentCounts(
   return internalCounts;
 }
 
-function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
+function claimCommentRuns(scope: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
   const pending: Candidate[] = [];
   let lastClaimantRow = -1;
-  for (const candidate of topLevel) {
+  for (const candidate of scope) {
     const startRow = candidate.node.startPosition.row;
     if (candidate.capture === "comment") {
       if (startRow <= lastClaimantRow) {
@@ -647,9 +658,13 @@ function materialize(
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
   const enclosures = enclosuresOf(definitions, [...candidates, ...definitions]);
-  const topLevel = topLevelOf(candidates, enclosures);
-
-  const attachedRuns = claimCommentRuns(topLevel);
+  const attachedRuns = new Map<Candidate, readonly Candidate[]>();
+  // only definitions claim: a docstring or other non-definition capture inside a body is not a claimant
+  const claimable = candidates.filter(
+    (c) => c.capture === "comment" || c.capture === "import" || definitionCaptures.has(c.capture),
+  );
+  for (const scope of scopesOf(claimable, enclosures))
+    for (const [definition, run] of claimCommentRuns(scope)) attachedRuns.set(definition, run);
   const claimants = claimantsOf(attachedRuns);
   const internalCounts = internalCommentCounts(enclosures, comments);
   const { counts: docstringCounts, texts: docstringTexts } = docstringOwnership(

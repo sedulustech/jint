@@ -1,0 +1,26 @@
+# File header: the first comment run documents the file.
+# A second header line joins the same run.
+
+# a comment above a table
+[package]
+name = "shapes" # trailing comment after a pair
+# a comment inside a table
+version = "1"
+note = "# not a comment: inside a string"
+
+[[bin]] # trailing comment after a table header
+name = "a"
+
+[dependencies]
+dep = { version = "1" } # trailing comment after an inline table
+list = [
+  1, # trailing comment inside an array
+  # a lone comment inside an array
+  2,
+]
+
+# a run split by a blank row
+
+# is a second element
+last = true
+# a comment at the end of the file

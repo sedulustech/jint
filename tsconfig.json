@@ -40,5 +40,14 @@
   // the one program: every package's source, typechecked together (cli emits through its own
   // config, which extends this one)
   "include": ["packages/*/src", "packages/app/server.ts", "packages/app/vite.config.ts"],
-  "exclude": ["tmp", "probes", "node_modules", "dist", "packages/*/dist"]
+  // the grammar shape corpora are synthetic ts/tsx that is not meant to compile
+  "exclude": [
+    "tmp",
+    "probes",
+    "node_modules",
+    "dist",
+    "packages/*/dist",
+    "packages/sdk/src/core/grammars/*-shapes.ts",
+    "packages/sdk/src/core/grammars/*-shapes.tsx"
+  ]
 }

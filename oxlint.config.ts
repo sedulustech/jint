@@ -40,7 +40,15 @@ export default defineConfig({
 
     "typescript/unbound-method": "off",
   },
-  ignorePatterns: ["**/node_modules", "**/tmp", "**/probes", "**/*.d.ts", "**/fixtures/**"],
+  ignorePatterns: [
+    "**/node_modules",
+    "**/tmp",
+    "**/probes",
+    "**/*.d.ts",
+    "**/fixtures/**",
+    // synthetic grammar shape corpora, not source (see oxfmt.config.ts)
+    "packages/sdk/src/core/grammars/*-shapes.{ts,tsx}",
+  ],
   overrides: [
     {
       // src/logger.ts is the single console.* choke point (structured stderr
