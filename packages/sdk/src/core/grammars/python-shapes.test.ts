@@ -131,10 +131,6 @@ const INVENTORY: readonly Row[] = [
     end: [105, 12],
     name: "LastMember",
     parent: "Decorated_72",
-    diverges: {
-      why: "a class nested in a class is a class element wherever it sits; the one that ends the outer class is read as the outer's own tail (absorbTail) and hidden, while Nested above surfaces",
-      actual: "absent",
-    },
   },
   // def test_* is a test_case, opaque: its helper is not a unit
   { kind: "test_case", start: [108, 0], end: [110, 12], name: "test_plain" },
@@ -172,6 +168,48 @@ const INVENTORY: readonly Row[] = [
     owner: ["method", "documented"],
   },
   { kind: "method", start: [156, 4], end: [157, 12], name: "documented", parent: "Tail_154" },
+  // a nested class that ends its parent still surfaces: last, decorated, only member, deep
+  { kind: "comment", start: [160, 0], end: [160, 91], owner: ["class", "EndsWithClass"] },
+  {
+    id: "EndsWithClass_161",
+    kind: "class",
+    start: [161, 0],
+    end: [167, 12],
+    name: "EndsWithClass",
+  },
+  { kind: "method", start: [162, 4], end: [163, 12], name: "method", parent: "EndsWithClass_161" },
+  {
+    kind: "class",
+    start: [165, 4],
+    end: [167, 12],
+    name: "DecoratedLast",
+    parent: "EndsWithClass_161",
+  },
+  { kind: "function", start: [170, 0], end: [174, 12], name: "ends_with_local_class" },
+  {
+    id: "DecoratedOuter_177",
+    kind: "class",
+    start: [177, 0],
+    end: [180, 12],
+    name: "DecoratedOuter",
+  },
+  {
+    kind: "class",
+    start: [179, 4],
+    end: [180, 12],
+    name: "OnlyMember",
+    parent: "DecoratedOuter_177",
+  },
+  { id: "Deep_183", kind: "class", start: [183, 0], end: [186, 16], name: "Deep" },
+  {
+    id: "Middle_184",
+    kind: "class",
+    start: [184, 4],
+    end: [186, 16],
+    name: "Middle",
+    parent: "Deep_183",
+  },
+  { kind: "class", start: [185, 8], end: [186, 16], name: "Innermost", parent: "Middle_184" },
 ];
 
 const ABSENCES: readonly Absence[] = [
@@ -186,6 +224,11 @@ const ABSENCES: readonly Absence[] = [
   { line: 109, why: "a helper inside a test case is its body", kinds: ["function"] },
   { line: 150, why: "top-level control flow has no capture in python" },
   { line: 151, why: "a call inside it has no capture either" },
+  {
+    line: 173,
+    why: "a class inside a function is hidden by the function's opacity",
+    kinds: ["class"],
+  },
 ];
 
 shapesSuite("python", FIXTURE, INVENTORY, ABSENCES, await captureShapes(FIXTURE));
