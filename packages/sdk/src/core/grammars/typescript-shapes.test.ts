@@ -19,19 +19,8 @@ const INVENTORY: readonly Row[] = [
   { kind: "comment", start: [1, 0], end: [2, 43], owner: "module" },
   // contiguous imports merge into one run; the blank row at line 8 ends it
   { kind: "import", start: [4, 0], end: [7, 29] },
-  {
-    kind: "import",
-    start: [9, 0],
-    end: [12, 24],
-    diverges: {
-      why: "an import-equals is ONE import, and adjacent import rows merge into one run (9-12); the engine yields the statement, its require clause again, and a run starting at line 10",
-      actual: [
-        { start: [9, 0], end: [9, 26] },
-        { start: [9, 7], end: [9, 25] },
-        { start: [10, 0], end: [12, 24] },
-      ],
-    },
-  },
+  // an import-equals is ONE import and joins the adjacent run (lines 9-12)
+  { kind: "import", start: [9, 0], end: [12, 24] },
   // a doc comment directly above a definition documents it
   { kind: "comment", start: [15, 0], end: [15, 54], owner: ["function", "add"] },
   { id: "add_16", kind: "function", start: [16, 0], end: [18, 1], name: "add" },

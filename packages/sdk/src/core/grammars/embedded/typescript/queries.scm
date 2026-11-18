@@ -96,7 +96,6 @@
 ; since the scattered-merge fix; declared here because the per-file merge measured
 ; diverging (merged span slices included non-import source between scattered imports)
 ((import_statement) @import (#set! "capture.import.merge" "contiguous"))
-((import_require_clause) @import (#set! "capture.import.merge" "contiguous"))
 (import_alias) @import
 
 ; A RE-EXPORT is an import-lane item: `export * from './a'` / `export { b } from './b'` pulls
