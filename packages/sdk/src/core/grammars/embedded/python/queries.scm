@@ -15,21 +15,21 @@
 ; Claims the node before the method and function patterns below, so a test is a test_case wherever
 ; it sits (module level or a class body) and every other function is untouched. A decorated test
 ; (parametrize, fixture-marked) is claimed through its wrapper so the decorators travel with it.
-; Opaque: helper functions nested inside a test are its body.
+; Leaf: helper functions nested inside a test are its body.
 ((function_definition name: (identifier) @name) @test_case
   (#match? @name "^test(_|[A-Z])")
   (#set! "capture.test_case.definition" "true")
-  (#set! "capture.test_case.opaque" "true"))
+  (#set! "capture.test_case.leaf" "true"))
 ((decorated_definition (function_definition name: (identifier) @name)) @test_case
   (#match? @name "^test(_|[A-Z])")
   (#set! "capture.test_case.definition" "true")
-  (#set! "capture.test_case.opaque" "true"))
+  (#set! "capture.test_case.leaf" "true"))
 
 ; --- declarations ----------------------------------------------------------------------------
 ; methods: the FIRST STRUCTURAL-CONTEXT capture - @method is captured positionally (a
 ; function_definition sitting in a class body), not nominally (the node type alone is shared with
 ; free functions). Pattern order makes the context capture win over the bare @function pattern
-; for the same node; a function nested INSIDE a method is suppressed by the method's opaque
+; for the same node; a function nested INSIDE a method is suppressed by the method's leaf
 ; interior (same-capture collapse), so only class-body methods surface. Undecorated methods are
 ; anchored as DIRECT children of the class body; decorated ones are captured through their
 ; decorated_definition wrapper (earlier than the bare @function wrapper pattern - priority), so

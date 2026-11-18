@@ -72,7 +72,7 @@ To use it in a run, save it as `queries.scm` in `$JINT_GRAMMAR_DIR/python/` next
 such as `[".py"]` to signal jint what file extensions should this capture target.
 Now, a rule can use the new custom capture as `python:statement_group`. See [BYOG](byog.md).
 
-Other default directives set the element behavior: `opaque`, `merge` and `selfNesting`. See
+Other default directives set the element behavior: `leaf`, `merge` and `selfNesting`. See
 [directives](directives.md).
 
 Then run `jint capture` on files with the construct and files without it.

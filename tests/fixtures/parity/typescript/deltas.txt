@@ -21,7 +21,7 @@ REF type - L1.7-L3.1
 REF type - L6.7-L6.39
 
 # test_suite / test_case split: describe() is a test_suite and it()/test() a test_case, same spans as
-# the reference walker's describe/it functions (a describe holding tests stays visible, not opaque).
+# the reference walker's describe/it functions (a describe holding tests stays visible, not a leaf).
 
 # class/method noun split (Oct 15, owner decision): classes are @class, methods @method -
 # same spans, renamed captures; the reference walker keeps the old nouns.

@@ -93,10 +93,14 @@ const ABSENCES: readonly Absence[] = [
   { line: 52, why: "a property is member data: the field capture is WAITING" },
   {
     line: 60,
-    why: "a local assignment in a body is hidden by the method's opacity",
+    why: "a local assignment in a body is hidden because the method is a leaf",
     kinds: ["binding"],
   },
-  { line: 61, why: "an arrow in a body is hidden by the method's opacity", kinds: ["function"] },
+  {
+    line: 61,
+    why: "an arrow in a body is hidden because the method is a leaf",
+    kinds: ["function"],
+  },
   { line: 66, why: "echo is a statement with no capture" },
   { line: 67, why: "control flow has no capture" },
 ];

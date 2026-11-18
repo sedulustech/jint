@@ -94,7 +94,7 @@ const INVENTORY: readonly Row[] = [
     end: [96, 27],
     name: "inNs",
     diverges: {
-      why: "a namespace is a container declaration, not executable statements: its functions surface on their own (cpp namespace precedent); the engine reads it as an expression_statement and makes one opaque statement_group",
+      why: "a namespace is a container declaration, not executable statements: its functions surface on their own (cpp namespace precedent); the engine reads it as an expression_statement and makes one leaf statement_group",
       actual: { kind: "statement_group", start: [95, 0], end: [97, 1], name: undefined },
     },
   },
@@ -159,7 +159,7 @@ const ABSENCES: readonly Absence[] = [
   { line: 32, why: "an ambient function signature has no body" },
   {
     line: 36,
-    why: "a class inside a function body is hidden by the function's opacity",
+    why: "a class inside a function body is hidden because the function is a leaf",
     kinds: ["class"],
   },
   { line: 50, why: "a destructuring declarator has no single name: no binding" },
@@ -182,7 +182,7 @@ const ABSENCES: readonly Absence[] = [
   { line: 78, why: "a method overload signature is not a definition" },
   {
     line: 82,
-    why: "a function inside a method is hidden by the method's opacity",
+    why: "a function inside a method is hidden because the method is a leaf",
     kinds: ["function"],
   },
   { line: 102, why: "a binding inside a test case is its body, not a unit", kinds: ["binding"] },

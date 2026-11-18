@@ -18,7 +18,7 @@
  *     bare-pattern match dies under the wrapper match); different-capture overlap is legal
  *     (a method inside its class).
  *   - per-capture descent defaults: a @type element's interior surfaces (a method is an element of
- *     its own); a @function or @binding interior is OPAQUE to DIFFERENT captures - a local binding
+ *     its own); a @function or @binding interior is a LEAF to DIFFERENT captures - a local binding
  *     inside a function body is implementation - while a SAME-capture nest surfaces as a child of
  *     its own unless it is absorb-shaped (nested function declarations; the it/beforeEach calls
  *     inside a describe composite). This is the query shape of the old composite-descent limit,
@@ -65,10 +65,10 @@ export function scmCapturePolicy(scm: string): ReadonlyMap<string, Partial<Suppr
     const match = directive.name.match(CAPTURE_DIRECTIVE);
     if (match === null) continue;
     const [capture, knob] = [match[1]!, match[2]!];
-    if (knob !== "opaque" && knob !== "absorbTail") continue;
+    if (knob !== "leaf" && knob !== "absorbTail") continue;
     const prior = declared.get(capture) ?? {};
-    const shape: { absorbTail?: number; opaque?: boolean } = { ...prior };
-    if (knob === "opaque") shape.opaque = directive.value === "true";
+    const shape: { absorbTail?: number; leaf?: boolean } = { ...prior };
+    if (knob === "leaf") shape.leaf = directive.value === "true";
     else shape.absorbTail = Number(directive.value);
     declared.set(capture, shape);
   }
@@ -292,7 +292,7 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * principle (the directive vocabulary's own): prefix = capture (the grouper), suffix = knob, value
  * = setting; the node type never appears.
  *
- * Knobs: `definition` (is the capture an ELEMENT - an autonomous capture MUST declare it), `opaque`
+ * Knobs: `definition` (is the capture an ELEMENT - an autonomous capture MUST declare it), `leaf`
  * (a different-capture candidate strictly inside is implementation and dies), `absorbTail` (the
  * largest same-capture wrapper tail in BYTES that still reads as prefix-absorb), `selfNesting`
  * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
@@ -304,7 +304,7 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * name in the source).
  */
 const CAPTURE_DIRECTIVE =
-  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge|naming)/;
+  /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|leaf|selfNesting|absorbTail|merge|naming)/;
 const MERGE_MODES = ["contiguous", "adjacent", "none"] as const;
 export type MergeMode = (typeof MERGE_MODES)[number];
 const NAMING_MODES = ["strict", "first"] as const;
@@ -316,7 +316,7 @@ const CAPTURE_KNOBS: Readonly<
     summary:
       "Makes the capture an element a rule can target. Default true for function, method, class, type and binding; false for comment, import and docstring. A capture of your own must set this.",
   },
-  opaque: {
+  leaf: {
     shape: "boolean",
     summary:
       "Hides every other capture inside this one, so they produce no elements. Default true for function, method and binding; false for the rest.",
@@ -926,7 +926,7 @@ export interface SuppressionOptions {
 }
 
 function shapeOf(options: SuppressionOptions, capture: string): SuppressionShape {
-  return options.shapes.get(capture) ?? { absorbTail: 0, opaque: false };
+  return options.shapes.get(capture) ?? { absorbTail: 0, leaf: false };
 }
 
 function nestsOf(options: SuppressionOptions, capture: string): boolean {
@@ -948,7 +948,7 @@ function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions):
     // its payload; a larger tail is a unit of its own and surfaces as a child
     return inner.node.endIndex >= outer.node.endIndex - shapeOf(options, outer.capture).absorbTail;
   }
-  return shapeOf(options, outer.capture).opaque;
+  return shapeOf(options, outer.capture).leaf;
 }
 
 export function spanOf(node: QueryNode): Span {

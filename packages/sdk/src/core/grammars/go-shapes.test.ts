@@ -77,7 +77,7 @@ const INVENTORY: readonly Row[] = [
   { kind: "function", start: [57, 0], end: [57, 29], name: "variadic" },
   { kind: "function", start: [58, 0], end: [58, 43], name: "multi" },
   { kind: "function", start: [59, 0], end: [64, 1], name: "main" },
-  // func TestXxx(t *testing.T) is a test_case, opaque: t.Run closures are its body
+  // func TestXxx(t *testing.T) is a test_case, a leaf: t.Run closures are its body
   { kind: "test_case", start: [66, 0], end: [66, 29], name: "TestAdd" },
   // TestMain takes *testing.M, so it is no test
   { kind: "function", start: [67, 0], end: [67, 30], name: "TestMain" },

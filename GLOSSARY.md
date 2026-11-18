@@ -86,7 +86,7 @@ demands action.
   `typescript:statement_group`): executable statements at program level that no definition owns
   (a script's setup calls, a CLI's main loop), one element per run of adjacent statements. Only
   another element ends the run - blank lines and comments ride inside (capture merge
-  "adjacent"); opaque, so a loop's bindings are its implementation. A test construct stays a
+  "adjacent"); a leaf, so a loop's bindings are its implementation. A test construct stays a
   function.
 - **false positive rate**
   — findings a human reviewer would reject as wrong or not actionable,
@@ -111,6 +111,7 @@ demands action.
 - **instructions** — the question stating the claim being judged; kind-stated (says what the
   element is). Criteria pins the boundary; editing either is a recalibration event.
 - **inventory** — the elements one file yields.
+- **leaf** — a capture whose element has no child elements: every other capture inside it is hidden, while its whole text is still judged. Set by `capture.<name>.leaf`; true by default for function, method and binding.
 - **classification** — one reading of a rule at one element or input, by the classifier; always produced (a value, or refused), never actionable by itself. The run's own is the **original**; a user or agent who edits the question or code and classifies again files **#1**, **#2**, … under the same run, and none of them changes the run.
 - **node** — a tree-sitter syntax node.
 - **noul** — the number the model returns per question: a calibrated probability in [0, 1] that
