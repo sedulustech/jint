@@ -84,6 +84,11 @@ export interface InventoryElement {
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
   /**
+   * A definition's text up to its body (the node its pattern marks @body), else its first line: the
+   * part that names it and says what it takes. Absent on comments and imports.
+   */
+  readonly signature?: string;
+  /**
    * The comment run attached to this definition: leading comments ending strictly above its first
    * row, within the grammar's attach.gap (default: the directly preceding row). The run travels
    * OUTSIDE the span; comment-target rules judge the run through this field, so a definition whose
@@ -281,9 +286,20 @@ function enclosuresOf(
   return enclosures;
 }
 
-/** The candidates no definition contains: where comment attachment runs, in document order. */
-function topLevelOf(candidates: readonly Candidate[], enclosures: Enclosures): Candidate[] {
-  return candidates.filter((c) => !enclosures.get(c)!.some((d) => d !== c));
+/**
+ * The candidates grouped by the innermost definition containing them (the file for top-level ones),
+ * each group in document order. Comment attachment runs once per scope, so a method claims the doc
+ * comment directly above it the way a top-level function does.
+ */
+function scopesOf(candidates: readonly Candidate[], enclosures: Enclosures): Candidate[][] {
+  const scopes = new Map<Candidate | undefined, Candidate[]>();
+  for (const candidate of candidates) {
+    const scope = innermostContaining(enclosures, candidate);
+    const members = scopes.get(scope);
+    if (members === undefined) scopes.set(scope, [candidate]);
+    else members.push(candidate);
+  }
+  return [...scopes.values()];
 }
 
 /** The innermost definition fully containing this candidate (never the candidate itself). */
@@ -349,6 +365,8 @@ function ownerOf(
       name: claimant.name ?? "",
     };
   }
+  // a file header the grammar declares: unless a definition directly below claimed it above
+  if (candidate.properties?.["docstring.owner"] === "module") return { kind: "module", name: "" };
   const innermost = innermostContaining(enclosures, candidate);
   if (innermost === undefined)
     return isDocstring(candidate) ? { kind: "module", name: "" } : undefined;
@@ -378,17 +396,21 @@ function internalCommentCounts(
   return internalCounts;
 }
 
-function claimCommentRuns(topLevel: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
+function claimCommentRuns(scope: readonly Candidate[]): Map<Candidate, readonly Candidate[]> {
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
   const pending: Candidate[] = [];
   let lastClaimantRow = -1;
-  for (const candidate of topLevel) {
+  for (const candidate of scope) {
     const startRow = candidate.node.startPosition.row;
     if (candidate.capture === "comment") {
       if (startRow <= lastClaimantRow) {
         pending.length = 0;
         continue;
       }
+      // a blank row between two comments ends the run: only the comments directly above attach
+      const previous = pending.at(-1);
+      if (previous !== undefined && startRow - effectiveEndRow(previous.node) > 1)
+        pending.length = 0;
       pending.push(candidate);
       continue;
     }
@@ -462,57 +484,78 @@ function parentLabelOf(
 // a run become one element whose content is its span slice, so "slice the span, get the content"
 // holds by construction. Another capture's candidate between two members always ends the run - a
 // scattered member (a typescript re-export after code, a C #include mid-file) never drags
-// intervening source into a merged span. `contiguous` also ends it at a blank row; `adjacent`
+// intervening source into a merged span. `contiguous` also ends it at a blank row, at any other
+// source between two members, and at a member that does not start its row (a trailing comment
+// never joins the comment on the next row); `adjacent`
 // lets blank rows and comments ride inside (a script's statements read as one unit across them);
 // `none` keeps every member its own element.
 //
 // a blank row between: the text between the two nodes carries two newlines (row-only gaps
 // misread on grammars whose include nodes absorb neighboring newlines into their spans)
 /**
- * The candidates of another capture (comments aside, when the mode lets them ride inside a run), by
- * start, each with the furthest end seen so far: "does one start before this member and end after
- * the previous member?" is then one lookup.
+ * The starts and the ends of the candidates of another capture (comments aside, when the mode lets
+ * them ride inside a run), each sorted. Nodes nest, so a candidate stands between two members
+ * exactly when it starts or ends in the gap; one that encloses both does neither, so two comments
+ * inside one function still form a run.
  */
+interface Interlopers {
+  readonly starts: readonly number[];
+  readonly ends: readonly number[];
+}
+
 function interlopersOf(
   candidates: readonly Candidate[],
   capture: string,
   mode: MergeMode,
-): { starts: number[]; furthestEnds: number[] } {
-  const others = candidates
-    .filter((o) => o.capture !== capture && !(mode === "adjacent" && o.capture === "comment"))
-    .sort((a, b) => a.node.startIndex - b.node.startIndex);
-  const starts: number[] = [];
-  const furthestEnds: number[] = [];
-  let furthest = -Infinity;
-  for (const other of others) {
-    furthest = Math.max(furthest, other.node.endIndex);
-    starts.push(other.node.startIndex);
-    furthestEnds.push(furthest);
+): Interlopers {
+  const others = candidates.filter(
+    (o) => o.capture !== capture && !(mode === "adjacent" && o.capture === "comment"),
+  );
+  return {
+    starts: others.map((o) => o.node.startIndex).sort((a, b) => a - b),
+    ends: others.map((o) => o.node.endIndex).sort((a, b) => a - b),
+  };
+}
+
+/** The count of sorted values below the bound (strictly below, or at most it when inclusive). */
+function countBelow(sorted: readonly number[], bound: number, inclusive: boolean): number {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    const value = sorted[middle]!;
+    if (value < bound || (inclusive && value === bound)) low = middle + 1;
+    else high = middle;
   }
-  return { starts, furthestEnds };
+  return low;
+}
+
+/** Only whitespace precedes the node on its first row. */
+function startsItsRow(candidate: Candidate, source: string): boolean {
+  const rowStart = source.lastIndexOf("\n", candidate.node.startIndex - 1) + 1;
+  return source.slice(rowStart, candidate.node.startIndex).trim() === "";
 }
 
 function runSplits(
   previous: Candidate | undefined,
   candidate: Candidate,
-  interlopers: { starts: number[]; furthestEnds: number[] },
+  interlopers: Interlopers,
   source: string,
   mode: MergeMode,
 ): boolean {
   if (previous === undefined || mode === "none") return true;
-  if (
-    mode === "contiguous" &&
-    (source.slice(previous.node.endIndex, candidate.node.startIndex).match(/\n/g) ?? []).length > 1
-  )
-    return true;
-  let low = 0;
-  let high = interlopers.starts.length;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if (interlopers.starts[middle]! < candidate.node.startIndex) low = middle + 1;
-    else high = middle;
+  if (mode === "contiguous") {
+    const between = source.slice(previous.node.endIndex, candidate.node.startIndex);
+    if ((between.match(/\n/g) ?? []).length > 1 || between.trim() !== "") return true;
+    if (!startsItsRow(previous, source) || !startsItsRow(candidate, source)) return true;
   }
-  return low > 0 && interlopers.furthestEnds[low - 1]! > previous.node.endIndex;
+  const gapStart = previous.node.endIndex;
+  const gapEnd = candidate.node.startIndex;
+  const { starts, ends } = interlopers;
+  // a start in [gapStart, gapEnd), or an end in (gapStart, gapEnd]
+  const startsInGap = countBelow(starts, gapEnd, false) - countBelow(starts, gapStart, false);
+  const endsInGap = countBelow(ends, gapEnd, true) - countBelow(ends, gapStart, true);
+  return startsInGap > 0 || endsInGap > 0;
 }
 
 function mergeRuns(
@@ -553,6 +596,42 @@ function runCandidate(run: readonly Candidate[], source: string): Candidate {
   };
 }
 
+/**
+ * The comment elements, sorted: with a declared comment merge, each run of comment nodes becomes
+ * one element (docstrings never merge - they are string nodes, not comments). `first` is the run's
+ * first node: containment and ownership were computed per node, so a run reads them through it.
+ */
+function mergedComments(
+  texts: readonly Candidate[],
+  candidates: readonly Candidate[],
+  source: string,
+  mode: MergeMode | undefined,
+): { element: Candidate; first: Candidate }[] {
+  const comments = texts.filter((c) => c.capture === "comment");
+  const others = texts.filter((c) => c.capture !== "comment");
+  const runs =
+    mode === undefined || mode === "none"
+      ? comments.map((c) => [c])
+      : mergeRuns(comments, candidates, source, mode);
+  return [
+    ...runs.map((run) => ({ element: runCandidate(run, source), first: run[0]! })),
+    ...others.map((c) => ({ element: c, first: c })),
+  ].sort((a, b) => a.element.node.startIndex - b.element.node.startIndex);
+}
+
+/**
+ * A definition's signature: its text up to the @body node its pattern marks, else its first line (a
+ * binding, a prototype, a definition whose grammar marks no body).
+ */
+function signatureOf(definition: Candidate, source: string): string {
+  const { startIndex, endIndex } = definition.node;
+  const body = definition.bodyIndex;
+  if (body !== undefined && body > startIndex && body <= endIndex) {
+    return source.slice(startIndex, body).trimEnd();
+  }
+  return definition.node.text.split("\n", 1)[0]!.trimEnd();
+}
+
 function materialize(
   candidates: readonly Candidate[],
   grammarId: string,
@@ -579,9 +658,13 @@ function materialize(
   const imports = candidates.filter((c) => c.capture === "import");
   const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
   const enclosures = enclosuresOf(definitions, [...candidates, ...definitions]);
-  const topLevel = topLevelOf(candidates, enclosures);
-
-  const attachedRuns = claimCommentRuns(topLevel);
+  const attachedRuns = new Map<Candidate, readonly Candidate[]>();
+  // only definitions claim: a docstring or other non-definition capture inside a body is not a claimant
+  const claimable = candidates.filter(
+    (c) => c.capture === "comment" || c.capture === "import" || definitionCaptures.has(c.capture),
+  );
+  for (const scope of scopesOf(claimable, enclosures))
+    for (const [definition, run] of claimCommentRuns(scope)) attachedRuns.set(definition, run);
   const claimants = claimantsOf(attachedRuns);
   const internalCounts = internalCommentCounts(enclosures, comments);
   const { counts: docstringCounts, texts: docstringTexts } = docstringOwnership(
@@ -600,12 +683,15 @@ function materialize(
   const commentTexts = [...comments, ...docstringsOf(candidates)].filter(
     (c) => !isEmptyComment(c.node.text),
   );
-  const commentElements = [...new Set(commentTexts)].sort(
-    (a, b) => a.node.startIndex - b.node.startIndex,
+  const commentElements = mergedComments(
+    [...new Set(commentTexts)],
+    candidates,
+    source,
+    merges.get("comment"),
   );
   const labels = new Map<Candidate, string>();
   definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
-  commentElements.forEach((c, i) => labels.set(c, "c" + String(i)));
+  commentElements.forEach(({ first }, i) => labels.set(first, "c" + String(i)));
 
   const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
     id: crypto.randomUUID(),
@@ -616,24 +702,25 @@ function materialize(
     capture: d.capture as WireCapture,
     grammar: grammarId,
     name: d.name,
+    signature: signatureOf(d, source),
     attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
     docstrings: docstringTexts.get(d),
     internalCommentCount: internalCounts.get(d) ?? 0,
     docstringCount: docstringCounts.get(d) ?? 0,
     parent: parentLabelOf(d, enclosures, labels),
   }));
-  const walkComments: InventoryElement[] = commentElements.map((c) => ({
+  const walkComments: InventoryElement[] = commentElements.map(({ element, first }) => ({
     id: crypto.randomUUID(),
-    label: labels.get(c)!,
-    span: spanOf(c.node),
-    content: c.node.text,
-    nodeType: c.node.type,
+    label: labels.get(first)!,
+    span: spanOf(element.node),
+    content: element.node.text,
+    nodeType: element.node.type,
     capture: "comment" as const,
     grammar: grammarId,
     internalCommentCount: 0,
     docstringCount: 0,
-    parent: parentLabelOf(c, enclosures, labels),
-    docstringOf: ownerOf(c, enclosures, orderedDefinitions, claimants),
+    parent: parentLabelOf(first, enclosures, labels),
+    docstringOf: ownerOf(first, enclosures, orderedDefinitions, claimants),
   }));
 
   // imports always merge: `contiguous` unless the grammar declares otherwise

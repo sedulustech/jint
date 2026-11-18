@@ -34,6 +34,11 @@ export interface CustomElement {
     readonly startByte: number;
     readonly endByte: number;
   };
+  /**
+   * A definition's source text up to its body, else its first line: what names it and what it
+   * takes.
+   */
+  readonly signature?: string;
   /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
   readonly attachedComment?: readonly string[];
   /** Non-empty comments inside this element's body (target grammar: "comments"). */
@@ -56,6 +61,23 @@ export interface RuleContext {
    * results.
    */
   readonly targets: readonly CustomElement[];
+}
+
+/**
+ * The file an element sits in, as the walk saw it: its text and every element in it, in walk order.
+ * The element being judged is one of them, the same object.
+ */
+export interface CustomFile {
+  readonly path: string;
+  readonly source: string;
+  readonly definitions: readonly CustomElement[];
+  readonly comments: readonly CustomElement[];
+  readonly imports: readonly CustomElement[];
+}
+
+/** Classify's environment: the rule's context plus the file of the element being judged. */
+export interface ClassifyContext extends RuleContext {
+  readonly file: CustomFile;
 }
 
 /**
@@ -104,7 +126,7 @@ export interface CustomRule {
     | readonly string[]
     | ((elements: readonly CustomElement[]) => readonly CustomElement[]);
   /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: RuleContext) => StateSchema;
+  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
   /** Per-rule scoping: glob list; absent = the rule applies to all paths. */
   readonly include?: readonly string[];
   /** Per-rule scoping: glob list; ALWAYS wins over include. */

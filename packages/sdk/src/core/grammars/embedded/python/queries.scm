@@ -34,17 +34,17 @@
 ; anchored as DIRECT children of the class body; decorated ones are captured through their
 ; decorated_definition wrapper (earlier than the bare @function wrapper pattern - priority), so
 ; the method's own decorators travel with it.
-(class_definition name: (identifier) @name) @class ; @priority
-(class_definition body: (block (function_definition name: (identifier) @name) @method)) ; @priority
+(class_definition name: (identifier) @name body: (_)? @body) @class ; @priority
+(class_definition body: (block (function_definition name: (identifier) @name body: (_)? @body) @method)) ; @priority
 (class_definition
-  body: (block (decorated_definition (function_definition name: (identifier) @name)) @method)) ; @priority
-(function_definition name: (identifier) @name) @function ; @priority
+  body: (block (decorated_definition (function_definition name: (identifier) @name body: (_)? @body)) @method)) ; @priority
+(function_definition name: (identifier) @name body: (_)? @body) @function ; @priority
 
 ; ABSORB: decorated definitions (decorator prefixes travel with the element)
 ; @priority: a decorated_definition is a function, a method, OR a class - the earlier context
 ; pattern takes decorated methods; the remaining two never share a node
-(decorated_definition (function_definition name: (identifier) @name)) @function ; @priority
-(decorated_definition (class_definition name: (identifier) @name)) @class ; @priority
+(decorated_definition (function_definition name: (identifier) @name body: (_)? @body)) @function ; @priority
+(decorated_definition (class_definition name: (identifier) @name body: (_)? @body)) @class ; @priority
 
 ; --- imports ----------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
@@ -55,7 +55,9 @@
 ((future_import_statement) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments and docstrings -------------------------------------------------------------------
-(comment) @comment
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((module . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority
 
 ; The docstring of a definition: the FIRST statement of its body wrapping a string.
 ; @priority: the docstring capture coexists with the definition capture (different nodes)
@@ -63,4 +65,4 @@
 (class_definition body: (block . (expression_statement (string) @docstring))) ; @priority
 
 ; The module docstring: the file's first statement wrapping a string.
-(module . (expression_statement (string) @docstring)) ; @priority
+(module . (comment)* . (expression_statement (string) @docstring)) ; @priority

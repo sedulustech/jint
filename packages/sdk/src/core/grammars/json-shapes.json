@@ -1,0 +1,24 @@
+// File header: the first comment run documents the file.
+// A second header line joins the same run.
+
+/* A block comment above the root. */
+{
+  // a line comment inside an object
+  "name": "shapes", // trailing comment after a pair
+  /* a block comment before a pair */
+  "list": [
+    1, // trailing comment after an element
+    /** a doc-style block comment */
+    2
+  ],
+  "nested": {
+    "a": null /* a comment after a value */,
+    "b": true
+  },
+
+  // a run split by a blank row
+
+  // is a second element
+  "last": 1.5
+}
+// a comment after the root

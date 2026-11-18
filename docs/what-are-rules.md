@@ -52,7 +52,8 @@ wins. A rule about React components, for example, should only read `**/*.tsx` fi
 A declarative rule asks the same question of every element. When the question needs more context,
 write `classify(self, ctx)`. It runs once for each captured element and returns the instructions,
 the criteria and a `state`: anything you want the classifier to see, such as the element's source,
-its parent or its siblings.
+its parent or its siblings. `ctx.file` is the file the element sits in: its `path`, its `source`,
+and its `definitions`, `comments` and `imports`.
 
 A rule with a `classify` function, a function `target` or a function `handle` is a custom rule. It
 works only in `jint.config.ts`, and declarative rules beside it compile as usual.

@@ -11,7 +11,7 @@
 ;   forms share one node type, so both are captured the same way.
 
 ; --- declarations ----------------------------------------------------------------------------
-(function_definition name: (word) @name) @function
+(function_definition name: (word) @name body: (_)? @body) @function
 
 ; top-level variables are the script's settings: `VAR=value`, and the declaration forms
 ; (`export`, `readonly`, `declare`, `local`) when they bind a name. The function bodies' own
@@ -26,7 +26,9 @@
 
 ; --- comments ---------------------------------------------------------------------------------
 ; the shebang is a comment node too; it stays one element.
-(comment) @comment
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((program . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority
 
 ; --- top-level statements: the statement group -----------------------------------------------
 ; STATEMENT GROUP (this grammar's own capture): commands and control flow at file scope that no

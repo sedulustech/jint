@@ -268,10 +268,10 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     );
     expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner" "next")', "g")).not.toThrow();
     expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner" "sideways")', "g")).toThrow(
-      /docstring\.owner wants one of: next, enclosing \(got "sideways"\)/,
+      /docstring\.owner wants one of: next, enclosing, module \(got "sideways"\)/,
     );
     expect(() => assertScmDirectives('(a) @a (#set! "docstring.owner")', "g")).toThrow(
-      /docstring\.owner wants one of: next, enclosing \(got no value\)/,
+      /docstring\.owner wants one of: next, enclosing, module \(got no value\)/,
     );
     expect(() => assertScmDirectives('(a) @a (#set! "capture.a.merge" "file")', "g")).toThrow(
       /capture\.a\.merge" wants one of: contiguous, adjacent, none \(got "file"\)/,

@@ -8,4 +8,6 @@
 ; WAITING (recorded, not stretched):
 ; - pair (key: value): the unit of an object; needs its own capture, like css's declaration.
 
-(comment) @comment
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((document . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

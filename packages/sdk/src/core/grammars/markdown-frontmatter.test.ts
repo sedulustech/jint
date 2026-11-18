@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { capture } from "../../index.ts";
+import { captureShapes, shapesSuite, type Absence, type Row } from "./shapes-suite.ts";
 
 const FIXTURE = new URL("./markdown-frontmatter.md", import.meta.url).pathname;
 
@@ -19,3 +20,26 @@ describe("markdown frontmatter", () => {
     expect(kinds).toContain("paragraph");
   });
 });
+
+// markdown-shapes.md cannot hold the frontmatter capture (the block must open the file, which would
+// shift every span there), so this fixture pins that capture's row in the same inventory form the
+// completeness guard (shapes-coverage.test.ts) reads.
+const INVENTORY: readonly Row[] = [
+  // the fenced block is one element, closing fence included, ending where the next row starts
+  { kind: "frontmatter", start: [1, 0], end: [5, 0] },
+  { id: "install", kind: "section", start: [6, 0], end: [9, 0], name: "Install" },
+  { kind: "paragraph", start: [8, 0], end: [9, 0], parent: "install" },
+];
+
+const ABSENCES: readonly Absence[] = [
+  { line: 2, why: "a key inside the fence is part of the one frontmatter element" },
+  { line: 4, why: "the closing fence is part of the one frontmatter element" },
+];
+
+shapesSuite(
+  "markdown frontmatter",
+  "markdown-frontmatter.md",
+  INVENTORY,
+  ABSENCES,
+  await captureShapes("markdown-frontmatter.md"),
+);

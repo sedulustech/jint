@@ -22,22 +22,23 @@
 ((declaration (function_declarator declarator: (identifier) @name)) @function (#set! "capture.function.naming" "first")) ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
-(function_definition declarator: (function_declarator declarator: (field_identifier) @name)) @method ; @priority
+(function_definition declarator: (function_declarator declarator: (field_identifier) @name) body: (_)? @body) @method ; @priority
 ; out-of-line method definitions: the qualified declarator (K::f) is the member signal, as the
 ; field_identifier is for the in-class shapes - same capture, the qualifier is in the render name
 (function_definition
-  declarator: (function_declarator declarator: (qualified_identifier) @name)) @method ; @priority
-(function_definition declarator: (function_declarator declarator: (identifier) @name)) @function ; @priority
-(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
-(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name))) @function ; @priority
-(function_definition declarator: (function_declarator)) @function ; @priority
-(function_definition) @function ; @priority
+  declarator: (function_declarator declarator: (qualified_identifier) @name)
+  body: (_)? @body) @method ; @priority
+(function_definition declarator: (function_declarator declarator: (identifier) @name) body: (_)? @body) @function ; @priority
+(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name)) body: (_)? @body) @function ; @priority
+(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name)) body: (_)? @body) @function ; @priority
+(function_definition declarator: (function_declarator) body: (_)? @body) @function ; @priority
+(function_definition body: (_)? @body) @function ; @priority
 
 ; --- types --------------------------------------------------------------------------------------
 ; @class: the class capture (templates absorbed through their payload capture the same capture).
 ; structs, unions, enums and typedefs stay @type - every non-class type shape does.
-(class_specifier name: (type_identifier) @name body: (field_declaration_list)) @class
-(class_specifier body: (field_declaration_list)) @class
+(class_specifier name: (type_identifier) @name body: (_)? @body) @class
+(class_specifier body: (_)? @body) @class
 (struct_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
 (struct_specifier body: (field_declaration_list)) @type
 (union_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
@@ -45,9 +46,9 @@
 ((type_definition declarator: (type_identifier) @name) @type (#set! "capture.type.naming" "first"))
 (type_definition declarator: (pointer_declarator declarator: (type_identifier) @name)) @type
 (type_definition) @type
-(template_declaration (class_specifier)) @class ; @priority
+(template_declaration (class_specifier body: (_)? @body)) @class ; @priority
 (template_declaration (struct_specifier)) @type ; @priority
-(template_declaration (function_definition declarator: (function_declarator declarator: (identifier) @name))) @function ; @priority
+(template_declaration (function_definition declarator: (function_declarator declarator: (identifier) @name) body: (_)? @body)) @function ; @priority
 (template_declaration (function_definition)) @function ; @priority
 
 ; method prototypes live on field_declaration nodes inside class bodies - the priority split is
@@ -69,4 +70,6 @@
 ((preproc_include) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments --------------------------------------------------------------------------------------
-(comment) @comment
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((translation_unit . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

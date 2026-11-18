@@ -109,6 +109,10 @@ export function scmSelfNestingCaptures(scm: string): ReadonlySet<string> {
 
 /** Renders a definition's name; present only when a pattern binds it. */
 const NAME_CAPTURE = "name";
+/** Marks where a definition's body starts: its signature is the text before that node. */
+const BODY_CAPTURE = "body";
+/** Captures that point at a part of an element, never an element of their own. */
+const ROLE_CAPTURES: readonly string[] = [NAME_CAPTURE, BODY_CAPTURE];
 
 /** One top-level pattern of a .scm: its root node type, the captures it binds, and where it sits. */
 export interface ScmPattern {
@@ -274,9 +278,9 @@ const DIRECTIVES = {
   },
   "docstring.owner": {
     kind: "enum",
-    values: ["next", "enclosing"],
+    values: ["next", "enclosing", "module"],
     summary:
-      "Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it. Default `enclosing`.",
+      "Which definition a docstring documents: `next` is the one after it, `enclosing` is the one around it, `module` is the file itself (a header comment; a definition directly below still claims it). Default `enclosing`.",
   },
 } as const;
 type DirectiveName = keyof typeof DIRECTIVES;
@@ -293,10 +297,11 @@ type DirectiveName = keyof typeof DIRECTIVES;
  * largest same-capture wrapper tail in BYTES that still reads as prefix-absorb), `selfNesting`
  * (same-capture candidates nest legitimately; the bare file-wide `selfNesting` directive remains
  * the grammar-wide form), `merge` (same-capture candidates in a run become ONE element:
- * `contiguous` - a blank line or another element ends the run; `adjacent` - only another element
- * ends it, so blank lines and comments ride inside; `none` - every candidate is its own element),
- * `naming` (a node one pattern matches several times, each match with another name: `strict` fails
- * the load, `first` keeps the first name in the source).
+ * `contiguous` - a blank line, any other source, another element, or a member that does not start
+ * its row ends the run; `adjacent` - only another element ends it, so blank lines and comments ride
+ * inside; `none` - every candidate is its own element), `naming` (a node one pattern matches
+ * several times, each match with another name: `strict` fails the load, `first` keeps the first
+ * name in the source).
  */
 const CAPTURE_DIRECTIVE =
   /capture\.([A-Za-z_][A-Za-z0-9_-]*)\.(definition|opaque|selfNesting|absorbTail|merge|naming)/;
@@ -329,7 +334,7 @@ const CAPTURE_KNOBS: Readonly<
   merge: {
     shape: MERGE_MODES,
     summary:
-      "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row or another element, `adjacent` ends it only at another element, `none` joins nothing. Default `none`; `import` defaults to `contiguous`.",
+      "Joins a run of same-capture nodes into one element. `contiguous` ends the run at a blank row, at other source between two nodes, at another element, or at a node that does not start its row (so a trailing comment stays alone); `adjacent` ends it only at another element; `none` joins nothing. Default `none`; `import` defaults to `contiguous`. The embedded grammars set `comment` to `contiguous`.",
   },
   naming: {
     shape: NAMING_MODES,
@@ -368,7 +373,7 @@ export function directiveVocabulary(): readonly DirectiveRow[] {
 export function scmEmittedNames(scm: string): ReadonlySet<string> {
   const code = scmCode(scm);
   const named = new Set([...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!));
-  named.delete(NAME_CAPTURE);
+  for (const role of ROLE_CAPTURES) named.delete(role);
   for (const reserved of RESERVED_CAPTURES) named.delete(reserved);
   return named;
 }
@@ -584,7 +589,8 @@ export function parseScmPatterns(scm: string): ScmPattern[] {
     const rootType = (code.slice(1).split(/[\s:()]/)[0] ?? "").trim();
     const captures = [...code.matchAll(CAPTURE_TOKEN)].map((m) => m[1]!);
     const capture =
-      captures.find((n) => n !== NAME_CAPTURE && !RESERVED_CAPTURES.includes(n as never)) ?? null;
+      captures.find((n) => !ROLE_CAPTURES.includes(n) && !RESERVED_CAPTURES.includes(n as never)) ??
+      null;
     return {
       pattern: index,
       rootType,
@@ -717,7 +723,7 @@ export async function compileQuery(
   const declared = scmCaptureDeclarations(scm);
   const undeclared = query.captureNames.filter(
     (name) =>
-      name !== NAME_CAPTURE &&
+      !ROLE_CAPTURES.includes(name) &&
       !RESERVED_CAPTURES.includes(name as never) &&
       !isSharedCapture(name) &&
       !declared.definitions.has(name) &&
@@ -778,6 +784,8 @@ export interface Candidate {
   readonly name?: string;
   /** Where the name node starts: the first of several names on one node is the earliest. */
   readonly nameIndex?: number;
+  /** Where the @body node starts, when the pattern marks one: the signature ends there. */
+  readonly bodyIndex?: number;
   /** The pattern's #set! values as tree-sitter parsed them, keyed by directive name. */
   readonly properties?: Readonly<Record<string, string | null>>;
 }
@@ -826,6 +834,7 @@ function candidateOf(match: QueryMatch, addressable: ReadonlySet<string>): Candi
     },
     name,
     nameIndex: nameCaptures[0]?.node.startIndex,
+    bodyIndex: match.captures.find((c) => c.name === BODY_CAPTURE)?.node.startIndex,
     properties,
   };
 }
@@ -975,7 +984,7 @@ export function emittedCaptures(registry: GrammarRegistry, grammarId: string): r
   return [...named]
     .filter(
       (c) =>
-        c !== NAME_CAPTURE &&
+        !ROLE_CAPTURES.includes(c) &&
         !RESERVED_CAPTURES.includes(c as never) &&
         (isSharedCapture(c) || declared.definitions.has(c)),
     )

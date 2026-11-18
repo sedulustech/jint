@@ -23,12 +23,12 @@
 (declaration (pointer_declarator (function_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
 (declaration (pointer_declarator (function_declarator))) @function ; @priority
-(function_definition declarator: (function_declarator declarator: (identifier) @name)) @function
-(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function
-(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name))) @function
-(function_definition declarator: (function_declarator)) @function
-(function_definition declarator: (pointer_declarator declarator: (function_declarator))) @function
-(function_definition) @function
+(function_definition declarator: (function_declarator declarator: (identifier) @name) body: (_)? @body) @function
+(function_definition declarator: (function_declarator declarator: (pointer_declarator declarator: (identifier) @name)) body: (_)? @body) @function
+(function_definition declarator: (pointer_declarator declarator: (function_declarator declarator: (identifier) @name)) body: (_)? @body) @function
+(function_definition declarator: (function_declarator) body: (_)? @body) @function
+(function_definition declarator: (pointer_declarator declarator: (function_declarator)) body: (_)? @body) @function
+(function_definition body: (_)? @body) @function
 
 ; --- types -------------------------------------------------------------------------------------
 (struct_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
@@ -53,4 +53,6 @@
 ((preproc_include) @import (#set! "capture.import.merge" "contiguous"))
 
 ; --- comments ------------------------------------------------------------------------------------
-(comment) @comment
+; The file header: the comment run that opens the file documents the file, not the definition below.
+((translation_unit . (comment) @comment) (#set! "docstring.owner" "module")) ; @priority
+((comment) @comment (#set! "capture.comment.merge" "contiguous")) ; @priority

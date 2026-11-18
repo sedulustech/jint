@@ -1,0 +1,33 @@
+/* File header: the first comment run documents the file. */
+/* A second header line joins the same run. */
+
+@charset "utf-8";
+@import url("base.css");
+@import "theme.css" screen;
+
+/** A doc-style comment above a rule. */
+.card {
+  color: red; /* trailing comment after a declaration */
+  /* a comment inside a rule */
+  margin: 0 /* a comment inside a value */ auto;
+}
+
+/* a run split by a blank row */
+
+/* is a second element */
+@media (min-width: 40em) {
+  /* a comment inside an at-rule */
+  .card { padding: 1em; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0); }
+  to { transform: rotate(1turn); }
+}
+:root { --gap: 4px; }
+a:hover > b ~ c { color: blue; } /* trailing comment after a rule */
+/*
+ * A multi-line block comment
+ * is one element.
+ */
+@font-face { font-family: x; }

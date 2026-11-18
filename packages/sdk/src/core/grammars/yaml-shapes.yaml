@@ -1,0 +1,24 @@
+# File header: the first comment run documents the file.
+# A second header line joins the same run.
+
+# a comment above a key
+name: shapes # trailing comment after a value
+list:
+  # a comment inside a sequence
+  - a # trailing comment after an item
+  - b
+map:
+  key: "# not a comment: inside a string"
+  # a comment inside a mapping
+  other: 1
+text: |
+  # not a comment: inside a block scalar
+  second line
+
+# a run split by a blank row
+
+# is a second element
+---
+# a comment after a document marker
+second: 2
+# a comment at the end of the file

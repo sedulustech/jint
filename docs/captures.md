@@ -11,6 +11,16 @@ A grammar's `queries.scm` turns a parsed file into elements. Each pattern gives 
 capture, and the capture decides what the element is. A rule names a [target](targets.md), and the
 target resolves to the elements of one or more captures.
 
+![A TypeScript file, the queries.scm patterns that match it, and the elements they produce](figures/captures.svg)
+
+Each pattern matches a shape in the parsed file and names the matched node with a capture.
+A `#set!` line adds a fact about that capture. Here, pattern A makes the comment that opens the file
+belong to the file. Pattern B C makes each comment an element and joins comment lines with nothing
+between them, so lines 6 and 7 are one element. A comment directly above a definition, like line 4,
+becomes that definition's documentation.
+
+A pattern can also mark parts of the element it matches. The inner `@name` capture marks the name, and the inner `@body` capture marks where the body starts. The text of a definition before its `@body` node is its `signature`, which a custom rule can read. Write the field as `body: (_)? @body` so that a definition without a body, such as a prototype, still matches. A definition whose pattern marks no body has its first line as its signature.
+
 ## Check what a file yields
 
 `jint capture` runs the extraction only. It makes no classifier calls, so it costs nothing.
@@ -44,10 +54,8 @@ conditionals of a Python script, which no shipped capture covers:
   (#set! "capture.statement_group.merge" "adjacent")) ; @priority
 ```
 
-The first line, `; extends`, adds the file to the grammar's own `queries.scm`. Without it, the file
-replaces the grammar's queries whole. Your patterns come first, and the earlier pattern wins when two
-match one node, so a pattern of yours can also override a capture of the grammar's. A directive you
-set replaces the same directive in the grammar's file.
+`; extends` puts your patterns before the grammar's; without it, your file replaces them. The
+earlier pattern wins a node, and your directives replace the grammar's.
 
 `; @priority` says the pattern order is deliberate. A pattern needs it when another pattern in your
 file shares its root node type.

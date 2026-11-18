@@ -259,7 +259,12 @@ describe("runCustomRules — impossible state fails loud", () => {
     const inventory = await oneFile(SOURCE);
     const rule = ruleOf({});
     await expect(
-      runCustomRules([rule], new Map(), fakeClassifier(0.9), () => false),
+      runCustomRules(
+        [rule],
+        resolveAllCustomTargets([], new Map()),
+        fakeClassifier(0.9),
+        () => false,
+      ),
     ).rejects.toThrow(/no resolution entry/);
     void inventory;
   });
@@ -549,5 +554,52 @@ describe("runCustomRules — policy", () => {
     const error = phase.events.find((e) => e.type === "error");
     expect(error?.type === "error" && error.error.code).toBe("RULE_FAILED");
     expect(error?.type === "error" && error.error.message).toContain("one decision per result");
+  });
+});
+
+describe("ctx.file", () => {
+  test("classify sees the judged element's file: its text, and every element as the same objects", async () => {
+    const inventory = await oneFile(SOURCE);
+    const rule = ruleOf({
+      target: "functions",
+      classify: (self, ctx) =>
+        spec({
+          same: ctx.file.definitions.includes(self),
+          path: ctx.file.path,
+          source: ctx.file.source,
+          definitions: ctx.file.definitions.map((d) => d.label),
+          comments: ctx.file.comments.length,
+        }),
+    });
+    const calls: Call[] = [];
+    const resolved = resolveAllCustomTargets(
+      [rule],
+      inventory,
+      new Map([["src/fixture.ts", SOURCE]]),
+    );
+    await runCustomRules([rule], resolved, fakeClassifier(0.1, calls), () => false);
+    expect(calls[0]!.state).toMatchObject({
+      same: true,
+      path: "src/fixture.ts",
+      source: SOURCE,
+      comments: 2,
+    });
+  });
+
+  test("a file no target sits in gets no entry, so its text is not kept", async () => {
+    const inventory = new Map([
+      ...(await oneFile(SOURCE, "src/a.ts")),
+      ...(await oneFile("const x = 1;\n", "src/b.ts")),
+    ]);
+    const rule = ruleOf({ target: "functions" });
+    const resolved = resolveAllCustomTargets(
+      [rule],
+      inventory,
+      new Map([
+        ["src/a.ts", SOURCE],
+        ["src/b.ts", "const x = 1;\n"],
+      ]),
+    );
+    expect([...resolved.files.keys()]).toEqual(["src/a.ts"]);
   });
 });

@@ -1302,6 +1302,44 @@ describe("lint", () => {
       rmSync(file, { force: true });
     }
   });
+  test("a TS custom rule's classify reads the judged element's file through ctx.file", async () => {
+    mkdirSync("tmp", { recursive: true });
+    const file = "tmp/lint-ts-ctx-file-test.ts";
+    const text =
+      "// Parses the config file.\n\nexport function load() {}\nexport function save() {}\n";
+    await Bun.write(file, text);
+    try {
+      const headerRule = {
+        name: "custom_header",
+        target: "loose-comments",
+        classify: (
+          self: { source: string },
+          ctx: { file: { source: string; definitions: readonly { source: string }[] } },
+        ) => ({
+          instructions: "i",
+          criteria: { true: "t", false: "f" },
+          state: {
+            header: self.source,
+            file: ctx.file.source,
+            outline: ctx.file.definitions.map((d) => d.source),
+          },
+        }),
+        handle: { warn: { greater_than: 0.9 } },
+      };
+      const log: CallLog = { calls: [] };
+      await collectReport(
+        lint({
+          config: { ...baseConfig, input: file, rules: [], customRules: [headerRule as never] },
+          classifier: loggingClassifier({ custom_header: 0.1 }, log),
+        }),
+      );
+      expect(log.calls).toHaveLength(1);
+      expect(JSON.stringify(log.calls[0]!.state)).toContain(JSON.stringify(text).slice(1, -1));
+      expect(JSON.stringify(log.calls[0]!.state)).toContain("export function save() {}");
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
   test("custom rule set (selection = the rule list itself)", async () => {
     const only: Rule[] = [probeDefinitions];
     const config = { ...baseConfig, input: "", rules: only };
