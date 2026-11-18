@@ -42,10 +42,6 @@ const INVENTORY: readonly Row[] = [
     start: [34, 0],
     end: [34, 16],
     name: "Alias",
-    diverges: {
-      why: "an alias declaration holds one spec, so it takes its name like a single-spec type; the alias is a type_alias node, not a type_spec, so the named pattern misses it",
-      actual: { name: undefined },
-    },
   },
   // a grouped type block is one nameless element
   { kind: "type", start: [35, 0], end: [38, 1] },
