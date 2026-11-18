@@ -941,6 +941,9 @@ function hides(outer: Candidate, inner: Candidate, options: SuppressionOptions):
   if (!contains(outer, inner)) return false;
   if (outer.capture === inner.capture) {
     if (nestsOf(options, outer.capture)) return false;
+    // a same-capture candidate that starts inside the outer's body is a member, not the outer
+    // itself: a wrapper (decorator, export) starts before the body it wraps
+    if (outer.bodyIndex !== undefined && inner.node.startIndex >= outer.bodyIndex) return false;
     // prefix-absorb shape: the wrapper carries at most the capture's tail tolerance (';') past
     // its payload; a larger tail is a unit of its own and surfaces as a child
     return inner.node.endIndex >= outer.node.endIndex - shapeOf(options, outer.capture).absorbTail;

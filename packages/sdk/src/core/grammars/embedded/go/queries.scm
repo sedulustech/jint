@@ -31,6 +31,7 @@
 ; single-spec block; the bare pattern is the nameless fallback and MUST come after it (pattern
 ; order is priority).
 (type_declaration . (type_spec name: (type_identifier) @name) .) @type
+(type_declaration . (type_alias name: (type_identifier) @name) .) @type
 (type_declaration) @type
 
 ; package-level const/var blocks are go's bindings (a consts-only package file must still yield

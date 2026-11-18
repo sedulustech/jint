@@ -34,10 +34,6 @@ const INVENTORY: readonly Row[] = [
     end: [22, 11],
     name: "Widget",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   {
     kind: "method",
@@ -45,30 +41,20 @@ const INVENTORY: readonly Row[] = [
     end: [23, 26],
     name: "Widget",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   {
     kind: "method",
     start: [24, 2],
     end: [24, 12],
+    name: "~Widget",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   {
     kind: "method",
     start: [25, 2],
     end: [25, 22],
+    name: "~Widget",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   // an in-class prototype is a method, definition or not
   { kind: "method", start: [26, 2], end: [26, 21], name: "proto", parent: "Widget_20" },
@@ -95,21 +81,14 @@ const INVENTORY: readonly Row[] = [
     kind: "method",
     start: [33, 2],
     end: [33, 36],
+    name: "operator+",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   {
     kind: "method",
     start: [34, 2],
     end: [34, 46],
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   {
     kind: "method",
@@ -117,10 +96,6 @@ const INVENTORY: readonly Row[] = [
     end: [35, 44],
     name: "tmember",
     parent: "Widget_20",
-    diverges: {
-      why: "a constructor, destructor, operator or member template is a member function (queries.scm: the member-function shapes are @method); its declarator is an identifier, destructor_name or operator_name rather than a field_identifier, so the free-function pattern claims it",
-      actual: { kind: "function" },
-    },
   },
   // a friend declaration declares a free function, not a member
   { kind: "function", start: [36, 9], end: [36, 19], name: "fr", parent: "Widget_20" },
@@ -146,20 +121,12 @@ const INVENTORY: readonly Row[] = [
     start: [51, 0],
     end: [51, 41],
     name: "Box",
-    diverges: {
-      why: "a template class is named by its class (the template is captured through its payload for the span only); the payload pattern carries no @name, so it renders nameless",
-      actual: { name: undefined },
-    },
   },
   {
     kind: "type",
     start: [52, 0],
     end: [52, 35],
     name: "TS",
-    diverges: {
-      why: "a template struct is named by its struct; the payload pattern carries no @name, so it renders nameless",
-      actual: { name: undefined },
-    },
   },
   { kind: "function", start: [53, 0], end: [53, 51], name: "identity" },
   {
@@ -167,22 +134,9 @@ const INVENTORY: readonly Row[] = [
     start: [54, 0],
     end: [54, 37],
     name: "tproto",
-    diverges: {
-      why: "a template function prototype IS the function and absorbs its template header, as the definition above does; only definitions are wrapped, so the span starts at the inner declaration",
-      actual: { start: [54, 22] },
-    },
   },
   { kind: "class", start: [55, 0], end: [55, 30] },
   { kind: "class", start: [56, 0], end: [56, 32], name: "Derived" },
-  // a forward declaration is no unit
-  {
-    kind: "class",
-    start: [57, 0],
-    end: [57, 9],
-    name: "Fwd",
-    unwanted:
-      "a forward declaration is no unit (struct, union and enum need a body for exactly this reason); the class pattern's body is optional, so `class Fwd;` captures",
-  },
   { kind: "type", start: [59, 0], end: [59, 23], name: "Point" },
   { kind: "type", start: [60, 0], end: [60, 21], name: "Bits" },
   { kind: "type", start: [61, 0], end: [61, 18], name: "Color" },
@@ -207,10 +161,6 @@ const INVENTORY: readonly Row[] = [
     start: [82, 0],
     end: [82, 18],
     name: "pg",
-    diverges: {
-      why: "a pointer variable is state: a binding named pg; the state patterns match only a bare identifier declarator, so every pointer global yields nothing",
-      actual: "absent",
-    },
   },
   { kind: "binding", start: [83, 0], end: [83, 26], name: "first" },
   // a blank row splits comment runs into two elements
@@ -227,9 +177,12 @@ const INVENTORY: readonly Row[] = [
     owner: ["method", "documented"],
   },
   { kind: "method", start: [92, 2], end: [92, 22], name: "documented", parent: "Tail_90" },
+  // a function-pointer variable is state, not a prototype
+  { kind: "binding", start: [94, 0], end: [94, 15], name: "fp" },
 ];
 
 const ABSENCES: readonly Absence[] = [
+  { line: 57, why: "a forward declaration is no unit: a class needs a body", kinds: ["class"] },
   { line: 37, why: "a data member is neither state nor a type (the field capture is WAITING)" },
   { line: 38, why: "a using-alias is a type alias, not a binding: WAITING" },
   {

@@ -155,3 +155,32 @@ class Tail:
     # a comment above a method
     def documented(self):
         pass
+
+
+# a nested class that ends its parent is still a class element: last, decorated, only, deep
+class EndsWithClass:
+    def method(self):
+        pass
+
+    @decorator
+    class DecoratedLast:
+        pass
+
+
+def ends_with_local_class():
+    x = 1
+
+    class LocalLast:
+        pass
+
+
+@decorator
+class DecoratedOuter:
+    class OnlyMember:
+        pass
+
+
+class Deep:
+    class Middle:
+        class Innermost:
+            pass

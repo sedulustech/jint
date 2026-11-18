@@ -38,7 +38,7 @@ describe("decompose — cpp", () => {
       "cpp",
     );
     expect(inv.definitions.map((d) => [d.capture, d.name, d.nodeType])).toEqual([
-      ["class", undefined, "template_declaration"],
+      ["class", "Box", "template_declaration"],
       ["function", "pick", "template_declaration"],
     ]);
     expect(inv.definitions[0]!.content.endsWith("};")).toBe(true);

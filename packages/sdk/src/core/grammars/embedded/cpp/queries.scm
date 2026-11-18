@@ -19,6 +19,21 @@
 ; field_identifier-annotated function_definitions. Free functions keep @function.
 (declaration (function_declarator declarator: (field_identifier) @name)) @method ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (field_identifier) @name))) @method ; @priority
+; members declared in a class body are methods whatever their declarator: a constructor (identifier),
+; a destructor (destructor_name), an operator (operator_name) or a member template. The structural
+; context - a direct child of the class body - is the signal, as for python methods; these come
+; before the free-function patterns because pattern order is priority.
+(field_declaration_list (declaration declarator: (function_declarator declarator: [(identifier) (destructor_name) (operator_name)] @name)) @method) ; @priority
+(field_declaration_list (declaration (function_declarator)) @method) ; @priority
+(field_declaration_list (function_definition declarator: (function_declarator declarator: [(field_identifier) (identifier) (destructor_name) (operator_name)] @name) body: (_)? @body) @method) ; @priority
+(field_declaration_list (function_definition body: (_)? @body) @method) ; @priority
+(field_declaration_list (template_declaration (function_definition declarator: (function_declarator declarator: [(field_identifier) (identifier) (destructor_name) (operator_name)] @name) body: (_)? @body)) @method) ; @priority
+(field_declaration_list (template_declaration (function_definition body: (_)? @body)) @method) ; @priority
+; a template prototype IS the function and absorbs its template header, as the definition does
+(template_declaration (declaration (function_declarator declarator: (identifier) @name))) @function ; @priority
+; a function-pointer VARIABLE (`int (*fp)(int);`) is state: its declarator is a function_declarator over
+; a parenthesized pointer, so it must outrank the nameless prototype fallback below.
+(declaration (function_declarator declarator: (parenthesized_declarator (pointer_declarator declarator: (identifier) @name)))) @binding ; @priority
 ((declaration (function_declarator declarator: (identifier) @name)) @function (#set! "capture.function.naming" "first")) ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (function_declarator)) @function ; @priority
@@ -37,8 +52,9 @@
 ; --- types --------------------------------------------------------------------------------------
 ; @class: the class capture (templates absorbed through their payload capture the same capture).
 ; structs, unions, enums and typedefs stay @type - every non-class type shape does.
-(class_specifier name: (type_identifier) @name body: (_)? @body) @class
-(class_specifier body: (_)? @body) @class
+; a class needs a body: `class Fwd;` is a forward declaration, no unit (struct, union and enum agree)
+(class_specifier name: (type_identifier) @name body: (field_declaration_list) @body) @class
+(class_specifier body: (field_declaration_list) @body) @class
 (struct_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
 (struct_specifier body: (field_declaration_list)) @type
 (union_specifier name: (type_identifier) @name body: (field_declaration_list)) @type
@@ -46,8 +62,10 @@
 ((type_definition declarator: (type_identifier) @name) @type (#set! "capture.type.naming" "first"))
 (type_definition declarator: (pointer_declarator declarator: (type_identifier) @name)) @type
 (type_definition) @type
-(template_declaration (class_specifier body: (_)? @body)) @class ; @priority
-(template_declaration (struct_specifier)) @type ; @priority
+(template_declaration (class_specifier name: (type_identifier) @name body: (field_declaration_list) @body)) @class ; @priority
+(template_declaration (class_specifier body: (field_declaration_list) @body)) @class ; @priority
+(template_declaration (struct_specifier name: (type_identifier) @name body: (field_declaration_list))) @type ; @priority
+(template_declaration (struct_specifier body: (field_declaration_list))) @type ; @priority
 (template_declaration (function_definition declarator: (function_declarator declarator: (identifier) @name) body: (_)? @body)) @function ; @priority
 (template_declaration (function_definition)) @function ; @priority
 
@@ -60,8 +78,18 @@
 
 ; one element carries one name: a node one pattern matches once per declarator (int i, j;) keeps its first name
 ; --- state ---------------------------------------------------------------------------------------
-(declaration (init_declarator declarator: (identifier) @name)) @binding ; @priority
-((declaration declarator: (identifier) @name) @binding (#set! "capture.binding.naming" "first")) ; @priority
+; One pattern for every declarator shape, so `naming first` keeps the first name in source whatever
+; mix the declaration holds (`int a, b = 1;`): a bare identifier, an initialized one, and either
+; behind a pointer or an array declarator.
+((declaration
+  declarator: [
+    (identifier) @name
+    (init_declarator declarator: (identifier) @name)
+    (pointer_declarator declarator: (identifier) @name)
+    (init_declarator declarator: (pointer_declarator declarator: (identifier) @name))
+    (array_declarator declarator: (identifier) @name)
+    (init_declarator declarator: (array_declarator declarator: (identifier) @name))
+  ]) @binding (#set! "capture.binding.naming" "first")) ; @priority
 
 ; --- imports --------------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default

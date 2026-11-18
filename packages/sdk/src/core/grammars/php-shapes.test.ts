@@ -23,10 +23,6 @@ const INVENTORY: readonly Row[] = [
     start: [3, 0],
     end: [4, 36],
     owner: "module",
-    diverges: {
-      why: "the comment run that opens the file belongs to the file (docs/grammars.md), with or without a shebang line before the php tag; the owner pattern anchors the php tag as the first child, and a shebang line is a text node before it, so the header has no owner",
-      actual: { owner: undefined },
-    },
   },
   // every use form (plain, group, function, const) merges into one contiguous run
   { kind: "import", start: [8, 0], end: [11, 20] },
