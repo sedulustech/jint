@@ -7,13 +7,16 @@ sidebar:
 
 # Captures
 
-A grammar's `queries.scm` turns a parsed file into elements. Each pattern gives a syntax node a
-capture, and the capture decides what the element is. A rule names a [target](targets.md), and the
-target resolves to the elements of one or more captures.
+jint uses Treesitter to turn a parsed file into elements, using a `queries.scm` file per language to capture the
+elements that are needed for classification.
+
+In Tree-sitter `.scm` query files, a capture labels a matched syntax node so editors or tools
+can style, inspect, or transform it.
+
+A rule names a [target](targets.md), and the target resolves to the elements of one or more captures.
 
 ![A TypeScript file, the queries.scm patterns that match it, and the elements they produce](figures/captures.svg)
 
-Each pattern matches a shape in the parsed file and names the matched node with a capture.
 A `#set!` line adds a fact about that capture. Here, pattern A makes the comment that opens the file
 belong to the file. Pattern B C makes each comment an element and joins comment lines with nothing
 between them, so lines 6 and 7 are one element. A comment directly above a definition, like line 4,
@@ -44,7 +47,7 @@ Run it before you calibrate a rule. A rule cannot find a defect in code that no 
 ## Add a capture
 
 One pattern and one directive make a new element. This one captures the top-level loops and
-conditionals of a Python script, which no shipped capture covers:
+conditionals of a Python script, so we can classify them.
 
 ```scheme
 ; extends
@@ -54,8 +57,7 @@ conditionals of a Python script, which no shipped capture covers:
   (#set! "capture.statement_group.merge" "adjacent")) ; @priority
 ```
 
-`; extends` puts your patterns before the grammar's; without it, your file replaces them. The
-earlier pattern wins a node, and your directives replace the grammar's.
+By using the `; extends` statement, your patterns precede the default grammar's captures.
 
 `; @priority` says the pattern order is deliberate. A pattern needs it when another pattern in your
 file shares its root node type.
@@ -66,11 +68,11 @@ To try it, run:
 jint capture main.py --queries extra.scm
 ```
 
-To use it in a run, save it as `queries.scm` in `$JINT_GRAMMAR_DIR/python/`, by default
-`~/.jint/grammars/python/`, next to an `extensions.json` such as `[".py"]`. The embedded grammar's
-parser is reused. A rule targets the new capture as `python:statement_group`. See [BYOG](byog.md).
+To use it in a run, save it as `queries.scm` in `$JINT_GRAMMAR_DIR/python/` next to an `extensions.json`
+such as `[".py"]` to signal jint what file extensions should this capture target.
+Now, a rule can use the new custom capture as `python:statement_group`. See [BYOG](byog.md).
 
-Other directives shape the element: `opaque`, `merge` and `selfNesting`. See
+Other default directives set the element behavior: `opaque`, `merge` and `selfNesting`. See
 [directives](directives.md).
 
 Then run `jint capture` on files with the construct and files without it.
