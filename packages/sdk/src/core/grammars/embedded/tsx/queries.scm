@@ -14,9 +14,9 @@
 
 ; --- test_case / test_suite: the unit tests the function patterns below would flatten ----------
 ; A test_case is one test()/it() call carrying a title and a callback; a test_suite is a describe()
-; with a title and a callback, whatever it holds (an opaque describe would hide its tests). Each
+; with a title and a callback, whatever it holds (a leaf describe would hide its tests). Each
 ; claims the same call node the function pattern below would, and it is listed first, so the node
-; becomes the test element and every other function is untouched. test_case is opaque: the
+; becomes the test element and every other function is untouched. test_case is a leaf: the
 ; callbacks inside a test are its body, not units of their own.
 ((call_expression
   arguments: (arguments . (string) [(arrow_function) (function_expression)])) @test_suite
@@ -26,7 +26,7 @@
   arguments: (arguments . (string) [(arrow_function) (function_expression)])) @test_case
   (#match? @test_case "^(test|it)(\\.[A-Za-z]+)*\\(")
   (#set! "capture.test_case.definition" "true")
-  (#set! "capture.test_case.opaque" "true"))
+  (#set! "capture.test_case.leaf" "true"))
 
 ; --- call composites: test constructs (jest/vitest) — ABSORB by callee AND shape ----------
 ; The whole call is the element: the span carries the title line (a describe('title', ...) span
@@ -139,7 +139,7 @@
 ; STATEMENT GROUP (this grammar's own capture): executable statements at program level that no
 ; definition owns - a script's setup calls, its main loop - one element per run of adjacent
 ; statements; only another element ends the run (merge "adjacent": blank lines and comments ride
-; inside). Opaque: a loop's bindings are its implementation, not elements of their own.
+; inside). Leaf: a loop's bindings are its implementation, not elements of their own.
 ; A test construct (describe(...), test.each(...)(...)) stays the @function above - its statement
 ; is a wrapper, so the text predicate keeps it out of the group.
 (program
@@ -147,11 +147,11 @@
   (#not-match? @statement_group "^(describe|it|test|beforeEach|afterEach|beforeAll|afterAll)\\b")
   (#set! "capture.statement_group.definition" "true")
   (#set! "capture.statement_group.merge" "adjacent")
-  (#set! "capture.statement_group.opaque" "true"))
+  (#set! "capture.statement_group.leaf" "true"))
 (program
   [(if_statement) (for_statement) (for_in_statement) (while_statement) (do_statement)
    (switch_statement) (try_statement) (throw_statement) (labeled_statement) (statement_block)]
   @statement_group
   (#set! "capture.statement_group.definition" "true")
   (#set! "capture.statement_group.merge" "adjacent")
-  (#set! "capture.statement_group.opaque" "true"))
+  (#set! "capture.statement_group.leaf" "true"))

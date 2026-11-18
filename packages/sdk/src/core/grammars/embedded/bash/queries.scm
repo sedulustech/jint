@@ -15,7 +15,7 @@
 
 ; top-level variables are the script's settings: `VAR=value`, and the declaration forms
 ; (`export`, `readonly`, `declare`, `local`) when they bind a name. The function bodies' own
-; assignments are implementation: the function is opaque (the shared default), so they drop.
+; assignments are implementation: the function is a leaf (the shared default), so they drop.
 (program (variable_assignment name: (variable_name) @name) @binding) ; @priority
 (program (declaration_command (variable_assignment name: (variable_name) @name)) @binding) ; @priority
 
@@ -34,7 +34,7 @@
 ; STATEMENT GROUP (this grammar's own capture): commands and control flow at file scope that no
 ; definition owns - the dispatch, the main call, a script's setup - one element per run of
 ; adjacent statements; only another element ends the run (merge "adjacent": blank lines and
-; comments ride inside). Opaque: a loop's variables are its implementation.
+; comments ride inside). Leaf: a loop's variables are its implementation.
 ; Source lines are imports and bare assignments are bindings, so the group takes neither: a
 ; `source`/`.` command keeps the @import above (its pattern comes first).
 (program
@@ -43,4 +43,4 @@
    (while_statement) (case_statement) (test_command)] @statement_group
   (#set! "capture.statement_group.definition" "true")
   (#set! "capture.statement_group.merge" "adjacent")
-  (#set! "capture.statement_group.opaque" "true")) ; @priority
+  (#set! "capture.statement_group.leaf" "true")) ; @priority

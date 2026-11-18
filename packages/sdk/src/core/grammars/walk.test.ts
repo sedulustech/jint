@@ -218,7 +218,7 @@ test("not a suite");
 `);
     // every one of these carries a matching callee NAME; none carries a function-valued
     // argument, so none is a function - the shape test is what makes the capture honest.
-    // (The object literal's toString is a method_definition inside a binding: opaque interior.)
+    // (The object literal's toString is a method_definition inside a binding: a leaf's interior.)
     // The calls are top-level code; the test-family ones stay out of the group too (KNOWN LIMIT:
     // the group's text predicate cannot see the callback either)
     expect(summary(inv)).toEqual([
@@ -238,7 +238,7 @@ class Klass {
     expect(summary(inv)).toEqual(["d0 class Klass L2-L4", "d1 method method L3-L3 in d0"]);
   });
 
-  test("statement groups: a run spans blank lines and comments; a declaration ends it; opaque inside", async () => {
+  test("statement groups: a run spans blank lines and comments; a declaration ends it; a leaf inside", async () => {
     const inv = await decomposeTS(`
 const kv = new Map();
 console.log("ready");

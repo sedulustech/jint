@@ -73,7 +73,7 @@ describe("resolveCandidates", () => {
   test("absorb tolerance: a trailing ';' wrapper still collapses", () => {
     // type's SHARED DEFAULT shape (absorbTail 2, shared.ts) resolved as a grammar's facts would
     const kept = resolveCandidates([candidate(1, "type", 0, 10), candidate(0, "type", 0, 12)], {
-      shapes: new Map([["type", { absorbTail: 2, opaque: false }]]),
+      shapes: new Map([["type", { absorbTail: 2, leaf: false }]]),
       selfNestingCaptures: new Set(),
       firstNameCaptures: new Set(),
     });
@@ -224,7 +224,7 @@ describe("scm directive reading (the shared .scm discipline)", () => {
     expect(() =>
       assertScmDirectives("(x) @chunk " + D("capture.chunk.absorbTail", "true"), "g"),
     ).toThrow(/wants a whole number/);
-    expect(() => assertScmDirectives("(x) @chunk " + D("capture.chunk.opaque", "2"), "g")).toThrow(
+    expect(() => assertScmDirectives("(x) @chunk " + D("capture.chunk.leaf", "2"), "g")).toThrow(
       /wants true or false/,
     );
     expect(() =>

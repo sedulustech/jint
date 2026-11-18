@@ -150,7 +150,7 @@ const INVENTORY: readonly Row[] = [
   { kind: "function", start: [70, 0], end: [70, 30], name: "ifn" },
   { kind: "function", start: [71, 0], end: [71, 33], name: "cfn" },
   { kind: "function", start: [72, 0], end: [72, 36], name: "trailing" },
-  // a lambda initializer is a binding here; the lambda is hidden by the binding's opacity
+  // a lambda initializer is a binding here; the lambda is hidden because the binding is a leaf
   { kind: "binding", start: [73, 0], end: [73, 35], name: "lam" },
   { kind: "function", start: [74, 0], end: [77, 1], name: "main" },
   { kind: "binding", start: [79, 0], end: [79, 10], name: "g" },
@@ -193,7 +193,7 @@ const ABSENCES: readonly Absence[] = [
   { line: 66, why: "a using-directive is no import" },
   {
     line: 75,
-    why: "a lambda inside a function body is hidden by the function's opacity",
+    why: "a lambda inside a function body is hidden because the function is a leaf",
     kinds: ["function"],
   },
 ];

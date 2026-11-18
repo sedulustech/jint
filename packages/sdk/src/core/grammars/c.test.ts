@@ -31,7 +31,7 @@ describe("decompose — c", () => {
     ]);
   });
 
-  test("local declarations stay inside their function (opaque interior)", async () => {
+  test("local declarations stay inside their function (the function is a leaf)", async () => {
     const inv = await decompose("void f(void) { int local = 1; }\n", "c");
     expect(inv.definitions).toHaveLength(1);
   });

@@ -34,7 +34,7 @@ element, and a capture of your own must set it:
   arguments: (arguments . (string) [(arrow_function) (function_expression)])) @test_case
   (#match? @test_case "^(test|it)(\\.[a-z]+)*\\(")
   (#set! "capture.test_case.definition" "true")
-  (#set! "capture.test_case.opaque" "true"))
+  (#set! "capture.test_case.leaf" "true"))
 ```
 
 - Bind only the captures you mean to be elements. A helper capture such as `@_callee` fails at load.
@@ -42,7 +42,7 @@ element, and a capture of your own must set it:
   `(#match? @test_case "...")`.
 - The first line, `; extends`, adds your patterns to the grammar's own. Without it, the file
   replaces the grammar's queries whole.
-- Directives are `capture.<name>.definition`, `opaque`, `selfNesting`, `absorbTail` and `merge`.
+- Directives are `capture.<name>.definition`, `leaf`, `selfNesting`, `absorbTail` and `merge`.
   Set each name once per file. `jint docs directives` lists them.
 
 ## 3. Try it before you install it
@@ -57,9 +57,9 @@ element, and a capture of your own must set it:
 - **When two patterns match one node, the earlier one wins.** To carve a construct out of an existing
   capture, such as test calls that the TypeScript grammar captures as functions, put your pattern
   on the same node. Every other function stays a function.
-- **A capture inside an opaque capture is hidden.** `function`, `method` and `binding` are opaque by
+- **A capture inside a leaf capture is hidden.** `function`, `method` and `binding` are leaves by
   default.
-- **Do not set `capture.function.opaque` to `false` to expose your capture.** A directive applies to
+- **Do not set `capture.function.leaf` to `false` to expose your capture.** A directive applies to
   its capture name for the whole file. In one measured case it added hundreds of binding elements
   to ordinary source files that hold no tests. Make your capture claim the node instead.
 - A directive you set replaces the same directive in the grammar's own file.

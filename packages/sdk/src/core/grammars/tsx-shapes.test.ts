@@ -51,13 +51,13 @@ const INVENTORY: readonly Row[] = [
 const ABSENCES: readonly Absence[] = [
   {
     line: 17,
-    why: "a function expression inside a call initializer is hidden by the binding's opacity",
+    why: "a function expression inside a call initializer is hidden because the binding is a leaf",
     kinds: ["function"],
   },
   { line: 27, why: "a class field is not a binding or a method" },
   {
     line: 30,
-    why: "an arrow in a JSX attribute inside a method is hidden by the method's opacity",
+    why: "an arrow in a JSX attribute inside a method is hidden because the method is a leaf",
     kinds: ["function"],
   },
   { line: 40, why: "a call inside a test case is its body" },

@@ -1,7 +1,7 @@
 /**
  * Php closures as @function: assigned closures keep ONE element with the function capture (the
  * wrapper assignment wins on the outer node - the ts callable-initializer precedent); bare closures
- * capture as functions; a closure inside a method is suppressed by the opacity policy.
+ * capture as functions; a closure inside a method is suppressed by the leaf policy.
  */
 import { describe, expect, test } from "bun:test";
 import { decompose } from "./walk.ts";
@@ -34,7 +34,7 @@ describe("php closures", () => {
     expect(fns).toHaveLength(2);
   });
 
-  test("a closure inside a method is suppressed - the method interior is opaque", async () => {
+  test("a closure inside a method is suppressed - the method is a leaf", async () => {
     const inv = await decompose(
       `${OPEN}class C {\n  public function m(): array {\n    return array_map(fn($v) => $v + 1, [1, 2]);\n  }\n}\n`,
       "php",

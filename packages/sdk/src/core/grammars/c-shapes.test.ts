@@ -45,7 +45,7 @@ const INVENTORY: readonly Row[] = [
   // a /// run is one comment element, documenting the struct below
   { kind: "comment", start: [27, 0], end: [28, 18], owner: ["type", "Point"] },
   { kind: "type", start: [29, 0], end: [32, 1], name: "Point" },
-  // a variable of an anonymous struct type is a binding; its struct is hidden by the binding's opacity
+  // a variable of an anonymous struct type is a binding; its struct is hidden because the binding is a leaf
   { kind: "binding", start: [34, 0], end: [34, 27], name: "anon_var" },
   // a typedef over a struct body is a type, and the struct it wraps surfaces as a child type
   { id: "Anon_35", kind: "type", start: [35, 0], end: [35, 31], name: "Anon" },

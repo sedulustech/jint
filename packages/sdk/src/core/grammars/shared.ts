@@ -55,19 +55,19 @@ export function sharedDefinitionDefault(capture: string): boolean {
 /** One capture's suppression shape, resolved per grammar by the suppression pass. */
 export interface SuppressionShape {
   readonly absorbTail: number;
-  readonly opaque: boolean;
+  readonly leaf: boolean;
 }
 
 export const SHARED_POLICY_DEFAULTS: Readonly<Record<string, SuppressionShape>> = {
-  function: { absorbTail: 0, opaque: true },
-  method: { absorbTail: 0, opaque: true },
-  class: { absorbTail: 2, opaque: false },
-  type: { absorbTail: 2, opaque: false },
-  binding: { absorbTail: 2, opaque: true },
+  function: { absorbTail: 0, leaf: true },
+  method: { absorbTail: 0, leaf: true },
+  class: { absorbTail: 2, leaf: false },
+  type: { absorbTail: 2, leaf: false },
+  binding: { absorbTail: 2, leaf: true },
 };
 
 /** An autonomous capture's conservative default (undeclared): hide nothing, absorb nothing. */
-export const AUTONOMOUS_POLICY_DEFAULT: SuppressionShape = { absorbTail: 0, opaque: false };
+export const AUTONOMOUS_POLICY_DEFAULT: SuppressionShape = { absorbTail: 0, leaf: false };
 
 export function sharedPolicyDefault(capture: string): SuppressionShape {
   return SHARED_POLICY_DEFAULTS[capture] ?? AUTONOMOUS_POLICY_DEFAULT;

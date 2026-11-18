@@ -5,20 +5,20 @@
 ; the flat shape.
 ;
 ; WAITING (recorded, not stretched):
-; - short_var_declaration (x := 1) inside functions: opaque interiors drop them (see query.ts);
+; - short_var_declaration (x := 1) inside functions: a leaf's interior drops them (see query.ts);
 ;   package-level := does not exist, so nothing honest is lost.
 ; - go's doc convention is the attached leading comment run (the generic attachment covers it);
 ;   the package-per-dir convention is a DIRECTORY fact, not a file-level capture.
 
 ; --- test_case: a go test is a top-level `func TestXxx(t *testing.T)` ----------------------------
 ; Claims the function node before the function pattern below, so a test is a test_case and every
-; other function is untouched. Subtests (t.Run closures) are the test's own body, so it is opaque.
+; other function is untouched. Subtests (t.Run closures) are the test's own body, so it is a leaf.
 ; The text predicate holds the whole signature, so `func Testify(x int)` and `func TestMain(m
 ; *testing.M)` are not tests.
 ((function_declaration name: (identifier) @name) @test_case
   (#match? @test_case "^func Test[A-Z0-9_][A-Za-z0-9_]*\\(\\w+ \\*testing\\.T\\)")
   (#set! "capture.test_case.definition" "true")
-  (#set! "capture.test_case.opaque" "true"))
+  (#set! "capture.test_case.leaf" "true"))
 
 ; --- declarations ----------------------------------------------------------------------------
 (function_declaration name: (identifier) @name body: (_)? @body) @function

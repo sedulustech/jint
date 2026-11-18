@@ -141,7 +141,7 @@ Deltas, all documented policy:
   wrapper span too — identical extents); the class is captured WHOLE (`span = captured node`),
   where the reference bounded a composite's span to its declaration header. The size backstop
   replaces header bounding as the token-budget guard.
-- DESCENT: a `@function`/`@binding` interior is opaque (the reference only surfaced what composite
+- DESCENT: a `@function`/`@binding` interior is a leaf (the reference only surfaced what composite
   descent reached); a `@type` interior surfaces (methods), as before.
 - CALL COMPOSITES (Oct 15, retired WAITING — owner decision: test call-composites become
   @function elements): `describe`/`it`/`test`/hooks capture via callee-predicated patterns (the

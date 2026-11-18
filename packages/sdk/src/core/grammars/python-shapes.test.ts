@@ -132,7 +132,7 @@ const INVENTORY: readonly Row[] = [
     name: "LastMember",
     parent: "Decorated_72",
   },
-  // def test_* is a test_case, opaque: its helper is not a unit
+  // def test_* is a test_case, a leaf: its helper is not a unit
   { kind: "test_case", start: [108, 0], end: [110, 12], name: "test_plain" },
   { kind: "test_case", start: [113, 0], end: [114, 8], name: "test_async" },
   { kind: "test_case", start: [117, 0], end: [118, 8], name: "testCamel" },
@@ -218,7 +218,7 @@ const ABSENCES: readonly Absence[] = [
   { line: 53, why: "a string that is not the first statement is not a docstring" },
   {
     line: 83,
-    why: "a function inside a method is hidden by the method's opacity",
+    why: "a function inside a method is hidden because the method is a leaf",
     kinds: ["function"],
   },
   { line: 109, why: "a helper inside a test case is its body", kinds: ["function"] },
@@ -226,7 +226,7 @@ const ABSENCES: readonly Absence[] = [
   { line: 151, why: "a call inside it has no capture either" },
   {
     line: 173,
-    why: "a class inside a function is hidden by the function's opacity",
+    why: "a class inside a function is hidden because the function is a leaf",
     kinds: ["class"],
   },
 ];

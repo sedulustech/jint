@@ -21,7 +21,7 @@
 ; wrapper assignment is captured first (pattern order is priority on the outer node - the ts
 ; callable-initializer precedent); the bare patterns follow for unassigned closures (arguments,
 ; returns). A closure nested in another function is a SAME-capture child: it surfaces as its own
-; element unless absorb-shaped. The opacity policy hides only DIFFERENT-capture interiors (a
+; element unless absorb-shaped. The leaf policy hides only DIFFERENT-capture interiors (a
 ; local binding in a body) - no special case.
 (assignment_expression
   left: (variable_name (name) @name)
