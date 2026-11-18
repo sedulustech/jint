@@ -34,10 +34,7 @@ const INVENTORY: readonly Row[] = [
     kind: "binding",
     start: [20, 0],
     end: [20, 18],
-    diverges: {
-      why: "a function-pointer VARIABLE is a binding (queries.scm WAITING ledger: a binding with a pointer_declarator); its declarator is a function_declarator, so the prototype pattern claims it as a nameless function",
-      actual: { kind: "function" },
-    },
+    name: "fnptr",
   },
   { kind: "function", start: [21, 0], end: [21, 16], name: "noargs" },
   { kind: "function", start: [22, 0], end: [22, 35], name: "variadic" },
@@ -69,20 +66,12 @@ const INVENTORY: readonly Row[] = [
     start: [49, 0],
     end: [49, 22],
     name: "msg",
-    diverges: {
-      why: "a pointer variable is state: a binding named msg; the state patterns match only a bare identifier declarator, so every pointer global yields nothing",
-      actual: "absent",
-    },
   },
   {
     kind: "binding",
     start: [50, 0],
     end: [50, 30],
     name: "counter",
-    diverges: {
-      why: "a declaration naming several variables keeps the FIRST in source (naming: first, queries.scm); the initialized declarator matches its own pattern and wins, so the name is other",
-      actual: { name: "other" },
-    },
   },
   { kind: "binding", start: [51, 0], end: [51, 26], name: "first" },
   { kind: "binding", start: [52, 0], end: [52, 15], name: "ext" },
@@ -91,20 +80,12 @@ const INVENTORY: readonly Row[] = [
     start: [53, 0],
     end: [53, 25],
     name: "table",
-    diverges: {
-      why: "an initialized array global is a binding named table; the state patterns need a bare identifier declarator, so an array declarator yields nothing",
-      actual: "absent",
-    },
   },
   {
     kind: "binding",
     start: [54, 0],
     end: [54, 13],
     name: "zeros",
-    diverges: {
-      why: "an uninitialized array global is a binding named zeros; an array declarator yields nothing",
-      actual: "absent",
-    },
   },
   // a blank row splits comment runs into two elements
   { kind: "comment", start: [56, 0], end: [56, 32] },

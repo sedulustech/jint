@@ -18,6 +18,9 @@
 ; @priority declaration-prototype over declaration-state: the function_declarator root split is
 ; the trial's wanted discriminator - a declaration is a function unit when its declarator is a
 ; function_declarator, state otherwise.
+; a function-pointer VARIABLE (`int (*fp)(int);`) is state: its declarator is a function_declarator over a
+; parenthesized pointer, so it must outrank the nameless prototype fallback below.
+(declaration (function_declarator declarator: (parenthesized_declarator (pointer_declarator declarator: (identifier) @name)))) @binding ; @priority
 ((declaration (function_declarator declarator: (identifier) @name)) @function (#set! "capture.function.naming" "first")) ; @priority
 (declaration (function_declarator declarator: (pointer_declarator declarator: (identifier) @name))) @function ; @priority
 (declaration (pointer_declarator (function_declarator declarator: (identifier) @name))) @function ; @priority
@@ -43,8 +46,18 @@
 
 ; one element carries one name: a node one pattern matches once per declarator (int i, j;) keeps its first name
 ; --- state (LAST: a declaration is state only when no function pattern took it) ------------------
-(declaration (init_declarator declarator: (identifier) @name)) @binding ; @priority
-((declaration declarator: (identifier) @name) @binding (#set! "capture.binding.naming" "first")) ; @priority
+; One pattern for every declarator shape, so `naming first` keeps the first name in source whatever
+; mix the declaration holds (`int a, b = 1;`): a bare identifier, an initialized one, and either
+; behind a pointer or an array declarator.
+((declaration
+  declarator: [
+    (identifier) @name
+    (init_declarator declarator: (identifier) @name)
+    (pointer_declarator declarator: (identifier) @name)
+    (init_declarator declarator: (pointer_declarator declarator: (identifier) @name))
+    (array_declarator declarator: (identifier) @name)
+    (init_declarator declarator: (array_declarator declarator: (identifier) @name))
+  ]) @binding (#set! "capture.binding.naming" "first")) ; @priority
 
 ; --- imports ------------------------------------------------------------------------------------
 ; capture.import.merge contiguous: adjacent imports merge per CONTIGUOUS RUN - the engine default
