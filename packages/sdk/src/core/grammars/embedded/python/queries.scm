@@ -65,4 +65,4 @@
 (class_definition body: (block . (expression_statement (string) @docstring))) ; @priority
 
 ; The module docstring: the file's first statement wrapping a string.
-(module . (expression_statement (string) @docstring)) ; @priority
+(module . (comment)* . (expression_statement (string) @docstring)) ; @priority

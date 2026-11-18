@@ -18,16 +18,8 @@ const FIXTURE = "python-shapes.py";
 const INVENTORY: readonly Row[] = [
   // the shebang is a comment node: it joins the header run into ONE element owned by the module
   { kind: "comment", start: [1, 0], end: [3, 42], owner: "module" },
-  {
-    kind: "comment",
-    start: [5, 0],
-    end: [5, 43],
-    owner: "module",
-    diverges: {
-      why: "the module docstring is the first STATEMENT, and the header comment above it does not change that; the anchored pattern counts the comment as a sibling, so a docstring after a shebang or header comment is never captured",
-      actual: "absent",
-    },
-  },
+  // the module docstring is the first STATEMENT: a header comment above it does not hide it
+  { kind: "comment", start: [5, 0], end: [5, 43], owner: "module" },
   // every import form merges into one contiguous run
   { kind: "import", start: [7, 0], end: [12, 12] },
   // a comment run directly above a definition documents it
