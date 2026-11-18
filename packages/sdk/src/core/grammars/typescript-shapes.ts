@@ -149,3 +149,4 @@ export default function () {}
 // a run split by a blank line
 // is a second element
 export default class {}
+export default () => {};

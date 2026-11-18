@@ -119,6 +119,11 @@
 (export_statement declaration: (function_declaration name: (identifier) @name body: (_)? @body)) @function ; @priority
 (export_statement declaration: (generator_function_declaration name: (identifier) @name body: (_)? @body)) @function ; @priority
 (export_statement declaration: (class_declaration name: (type_identifier) @name body: (_)? @body)) @class ; @priority
+; a default export may be anonymous: `export default function () {}`, `export default class {}` and
+; `export default () => {}` hold the unit as the export's value, with no name to bind
+(export_statement value: (function_expression body: (_)? @body)) @function ; @priority
+(export_statement value: (arrow_function body: (_)? @body)) @function ; @priority
+(export_statement value: (class body: (_)? @body)) @class ; @priority
 (export_statement declaration: (abstract_class_declaration name: (type_identifier) @name body: (_)? @body)) @class ; @priority
 (export_statement declaration: (interface_declaration name: (type_identifier) @name)) @type ; @priority
 (export_statement declaration: (type_alias_declaration name: (type_identifier) @name)) @type ; @priority

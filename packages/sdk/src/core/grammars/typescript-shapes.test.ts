@@ -143,26 +143,13 @@ const INVENTORY: readonly Row[] = [
   // a blank row between comment and definition: loose, owned by nothing
   { kind: "comment", start: [139, 0], end: [139, 70] },
   { kind: "function", start: [141, 0], end: [141, 24], name: "afterGroup" },
-  {
-    kind: "function",
-    start: [143, 0],
-    end: [143, 29],
-    diverges: {
-      why: "a default-exported anonymous function is a function (nameless functions still are, like arrows); only function_declaration and variable initializers are matched, so it yields nothing",
-      actual: "absent",
-    },
-  },
+  // a default export may be anonymous: the unit is the export's value, with no name
+  { kind: "function", start: [143, 0], end: [143, 29] },
   { kind: "comment", start: [145, 0], end: [147, 24] },
-  { kind: "comment", start: [149, 0], end: [150, 22] },
-  {
-    kind: "class",
-    start: [151, 0],
-    end: [151, 23],
-    diverges: {
-      why: "a default-exported anonymous class is a class unit; the class patterns require a name, so it yields nothing",
-      actual: "absent",
-    },
-  },
+  // a comment directly above an anonymous default class documents it
+  { kind: "comment", start: [149, 0], end: [150, 22], owner: ["class", ""] },
+  { kind: "class", start: [151, 0], end: [151, 23] },
+  { kind: "function", start: [152, 0], end: [152, 24] },
 ];
 
 const ABSENCES: readonly Absence[] = [
