@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { SetupError } from "../types.ts";
-import { DEFAULT_URL, assertEndpointKey, resolveEndpoint, urlIdentity } from "./endpoint.ts";
+import {
+  DEFAULT_URL,
+  assertEndpointKey,
+  protocolOf,
+  resolveEndpoint,
+  urlIdentity,
+} from "./endpoint.ts";
+import { GEMINI_URL } from "./gemini.ts";
 
 const JINT = "https://jint.test/v1/decisions";
 
@@ -44,7 +51,35 @@ describe("resolveEndpoint: the key you export picks the destination", () => {
   test("neither key: no usable key, naming both variables", () => {
     const r = resolveEndpoint({}, {});
     expect(r).toMatchObject({ url: DEFAULT_URL, apiKey: undefined, notes: [] });
-    expect(r.unusable).toBe("no API key set - export JINT_API_KEY or OPENAI_API_KEY");
+    expect(r.unusable).toBe(
+      "no API key set - export JINT_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY",
+    );
+  });
+
+  test("only GEMINI_API_KEY: Google's url, that key, the Gemini wire", () => {
+    const r = resolveEndpoint({}, { GEMINI_API_KEY: "g" });
+    expect(r).toMatchObject({ url: GEMINI_URL, apiKey: "g", protocol: "gemini" });
+  });
+
+  test("OpenAI and Gemini keys: the default picks OpenAI, a url at Google's host picks Gemini", () => {
+    const both = { OPENAI_API_KEY: "o", GEMINI_API_KEY: "g" };
+    expect(resolveEndpoint({}, both)).toMatchObject({ url: DEFAULT_URL, apiKey: "o" });
+    const google = resolveEndpoint({}, { ...both, JINT_API_URL: GEMINI_URL });
+    expect(google).toMatchObject({ url: GEMINI_URL, apiKey: "g", protocol: "gemini" });
+  });
+
+  test("JINT_API_KEY still wins at Google's host", () => {
+    const r = resolveEndpoint(
+      {},
+      { JINT_API_KEY: "j", GEMINI_API_KEY: "g", JINT_API_URL: GEMINI_URL },
+    );
+    expect(r.apiKey).toBe("j");
+  });
+
+  test("the wire is named by the url's end, except at Google's host", () => {
+    expect(protocolOf("https://x.test/v1/systemone")).toBe("systemone");
+    expect(protocolOf("https://x.test/v1/decisions")).toBe("decisions");
+    expect(protocolOf(GEMINI_URL)).toBe("gemini");
   });
 
   test("an empty variable is unset", () => {
@@ -167,6 +202,7 @@ describe("assertEndpointKey", () => {
     const saved = { ...process.env };
     delete process.env.JINT_API_KEY;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
     try {
       let thrown: unknown;
       try {
@@ -176,7 +212,7 @@ describe("assertEndpointKey", () => {
       }
       expect(thrown).toBeInstanceOf(SetupError);
       expect((thrown as SetupError).message).toBe(
-        "no API key set - export JINT_API_KEY or OPENAI_API_KEY",
+        "no API key set - export JINT_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY",
       );
       expect(() => assertEndpointKey({ apiKey: "k" })).not.toThrow();
     } finally {

@@ -26,6 +26,7 @@ describe("createClassifier", () => {
   test("a missing key fails loud PROVIDER_AUTH at first call, naming the key variables, not at import", async () => {
     const saved = { ...process.env };
     delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
     delete process.env.JINT_API_KEY;
     try {
       const classifier = createClassifier(); // construction must not throw
@@ -35,7 +36,9 @@ describe("createClassifier", () => {
       } catch (e) {
         expect(e).toBeInstanceOf(ClassifyError);
         expect((e as ClassifyError).code).toBe("PROVIDER_AUTH");
-        expect((e as ClassifyError).message).toContain("JINT_API_KEY or OPENAI_API_KEY");
+        expect((e as ClassifyError).message).toContain(
+          "JINT_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY",
+        );
       }
     } finally {
       process.env = saved;

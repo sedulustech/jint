@@ -78,6 +78,7 @@ export const hasLiveKey = (): boolean => resolveEndpoint({}, process.env).apiKey
 export const NO_KEY_WIRE = {
   JINT_API_KEY: "",
   OPENAI_API_KEY: "",
+  GEMINI_API_KEY: "",
 };
 
 export async function runCli(args: string[], opts: RunCliOptions = {}): Promise<RunCliResult> {

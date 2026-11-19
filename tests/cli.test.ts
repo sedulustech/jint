@@ -263,7 +263,10 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
     const r = await run(["run", "tests/fixtures/sample-file.ts", "--json"], NO_KEY);
     expectContract(r, {
       exit: 2,
-      stderr: ["CONFIG_INVALID", "no API key set - export JINT_API_KEY or OPENAI_API_KEY"],
+      stderr: [
+        "CONFIG_INVALID",
+        "no API key set - export JINT_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY",
+      ],
       stdout: "empty",
     });
     expect(r.stderr).not.toContain("failed to classify");

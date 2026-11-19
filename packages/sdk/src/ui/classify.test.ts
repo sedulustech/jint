@@ -204,7 +204,7 @@ describe("classifications under a run", () => {
   });
 
   test("without an API key the UI reclassify is the setup error naming the key, before any network call", async () => {
-    const saved = ["OPENAI_API_KEY", "JINT_API_KEY", "JINT_API_URL"].map(
+    const saved = ["OPENAI_API_KEY", "GEMINI_API_KEY", "JINT_API_KEY", "JINT_API_URL"].map(
       (name) => [name, process.env[name]] as const,
     );
     for (const [name] of saved) delete process.env[name];
@@ -220,7 +220,7 @@ describe("classifications under a run", () => {
       expect(res?.status).toBe(502);
       // the same setup error the CLI's reclassify and run give, not the classifier's startup error
       expect(await res?.json()).toEqual({
-        error: "no API key set - export JINT_API_KEY or OPENAI_API_KEY",
+        error: "no API key set - export JINT_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY",
       });
       expect(fetched).toBe(0);
       expect((await list()).classifications).toHaveLength(before);

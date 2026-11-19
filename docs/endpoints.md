@@ -36,6 +36,13 @@ Set `JINT_API_URL`. Its last segment names the wire:
 jint treats a url that ends in neither as `/decisions`. The run then fails at setup and names the
 url it expected.
 
+## Gemini
+
+Google's Gemini Decisions API is the one wire named by its host, not by its end: its url ends in
+`/decisions` like OpenAI's. Export `GEMINI_API_KEY`. jint asks `gemini-decision-1` at
+`https://generativelanguage.googleapis.com/v1beta/decisions` and sends that key nowhere else. When
+`OPENAI_API_KEY` is set too, it wins; set `JINT_API_URL` to Google's url to ask Gemini instead.
+
 A prefix before `/v1/systemone` is fine. The url names the wire by its end, not by its host.
 
 ## Other System One servers

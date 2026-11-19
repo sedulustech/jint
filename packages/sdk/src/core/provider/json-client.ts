@@ -137,8 +137,10 @@ export interface PostOptions {
   baseUrl: string;
   /** The route under it, with its leading slash. */
   path: string;
-  /** Sent as a bearer token when set. */
+  /** Sent as a bearer token when set, or in `keyHeader` when that is named. */
   apiKey?: string;
+  /** The header that carries the key as it is, for a server that takes no bearer token. */
+  keyHeader?: string;
   body: unknown;
   signal?: AbortSignal;
   /** The most one attempt may take, answer body included. */
@@ -160,7 +162,9 @@ const requestInit = (options: PostOptions): RequestInit => {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-  if (options.apiKey !== undefined) headers.Authorization = `Bearer ${options.apiKey}`;
+  if (options.apiKey !== undefined && options.keyHeader !== undefined)
+    headers[options.keyHeader] = options.apiKey;
+  else if (options.apiKey !== undefined) headers.Authorization = `Bearer ${options.apiKey}`;
   return { method: "POST", headers, body: encode(options.body) };
 };
 

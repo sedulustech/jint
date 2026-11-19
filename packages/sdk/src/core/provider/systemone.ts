@@ -86,7 +86,7 @@ const SHAPES = {
   },
 } as const;
 
-function compile(questions: Record<string, QuestionSpec>): Questions {
+export function compile(questions: Record<string, QuestionSpec>): Questions {
   const out: Record<string, unknown> = {};
   for (const [name, q] of Object.entries(questions)) {
     if (q.type === "score") {
@@ -129,7 +129,7 @@ const confidenceOf = (a: { confidence?: number }): { confidence?: number } =>
     ? { confidence: a.confidence }
     : {};
 
-function read(
+export function read(
   name: string,
   spec: QuestionSpec,
   answer: unknown,
@@ -166,27 +166,32 @@ function read(
   return { value: (answer as Static<typeof NOUL_ANSWER>).noul };
 }
 
-export function mapSystemOneError(e: unknown, input: string): ClassifyError {
-  if (e instanceof ClassifyError) return e;
-  if (e instanceof HttpError) return statusError(e.status, e.message, input, e);
-  if (e instanceof ConnectionError) {
-    return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unreachable: ${e.message}`, {
-      cause: e,
-    });
-  }
-  if (e instanceof RequestError) {
+export function classifyErrorCausedBy(cause: unknown, input: string): ClassifyError {
+  if (cause instanceof ClassifyError) return cause;
+  if (cause instanceof HttpError) return statusError(cause.status, cause.message, input, cause);
+  if (cause instanceof ConnectionError) {
     return new ClassifyError(
-      "PROVIDER_REQUEST_INVALID",
+      "PROVIDER_UNAVAILABLE",
       input,
-      `provider call refused: ${e.message}`,
+      `provider unreachable: ${cause.message}`,
       {
-        cause: e,
+        cause,
       },
     );
   }
-  const detail = e instanceof Error ? e.message : String(e);
+  if (cause instanceof RequestError) {
+    return new ClassifyError(
+      "PROVIDER_REQUEST_INVALID",
+      input,
+      `provider call refused: ${cause.message}`,
+      {
+        cause,
+      },
+    );
+  }
+  const detail = cause instanceof Error ? cause.message : String(cause);
   return new ClassifyError("INTERNAL", input, `unexpected provider transport error: ${detail}`, {
-    cause: e,
+    cause,
   });
 }
 
@@ -254,8 +259,8 @@ export function systemOneAdapter(
             cached_input_tokens: 0,
           },
         };
-      } catch (e) {
-        throw mapSystemOneError(e, ask.state.path);
+      } catch (cause) {
+        throw classifyErrorCausedBy(cause, ask.state.path);
       }
     },
   };
