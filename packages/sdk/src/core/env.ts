@@ -18,6 +18,12 @@ export const ENV_VARS: readonly EnvVar[] = [
     meaning: "The key for `api.openai.com`. jint sends it nowhere else.",
   },
   {
+    name: "GEMINI_API_KEY",
+    default: "none",
+    meaning:
+      "The key for Google's Gemini Decisions API. jint sends it nowhere else; `OPENAI_API_KEY` wins when both are set and `JINT_API_URL` names neither.",
+  },
+  {
     name: "JINT_API_URL",
     default: "OpenAI's Decisions API",
     meaning:
@@ -30,7 +36,7 @@ export const ENV_VARS: readonly EnvVar[] = [
   },
   {
     name: "JINT_API_MODEL",
-    default: "`gpt-6-luna` on `/decisions`",
+    default: "`gpt-6-luna` on `/decisions`, `gemini-decision-1` on Google's host",
     meaning: "The model to ask. A `/v1/systemone` server needs it, except TypeSafe's own host.",
   },
   {

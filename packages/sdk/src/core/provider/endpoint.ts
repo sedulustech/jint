@@ -1,8 +1,9 @@
 /**
  * Where jint asks its questions: one endpoint and the key that opens it. The url's last segment
  * names the wire: `/decisions` is the OpenAI Decisions API (the default, gpt-6-luna) and
- * `/systemone` is the System One shape that TypeSafe and Lemonade serve. The key you export picks
- * the destination, and a key only ever goes to the host it is paired with: a run never sends one
+ * `/systemone` is the System One shape that TypeSafe and Lemonade serve. Google's host is the one
+ * exception: its `/v1beta/decisions` is the Gemini Decisions API. The key you export picks the
+ * destination, and a key only ever goes to the host it is paired with: a run never sends one
  * service's key to another service's url.
  *
  * Selection, an empty variable is unset. A config file names neither: a key does not belong in a
@@ -17,6 +18,7 @@
  */
 
 import { SetupError } from "../types.ts";
+import { GEMINI_URL } from "./gemini.ts";
 
 export const DEFAULT_URL = "https://api.openai.com/v1/decisions";
 
@@ -27,16 +29,26 @@ export const DEFAULT_URL = "https://api.openai.com/v1/decisions";
 const DESTINATIONS: readonly { keyVar: string; url?: string }[] = [
   { keyVar: "JINT_API_KEY" },
   { keyVar: "OPENAI_API_KEY", url: DEFAULT_URL },
+  { keyVar: "GEMINI_API_KEY", url: GEMINI_URL },
 ];
 
 const URL_VAR = "JINT_API_URL";
 const MODEL_VAR = "JINT_API_MODEL";
 
 /** The wire an endpoint speaks, from the last segment of its url. */
-export type Protocol = "decisions" | "systemone";
+export type Protocol = "decisions" | "systemone" | "gemini";
 
-export const protocolOf = (url: string): Protocol =>
-  url.replace(/\/+$/, "").endsWith("/systemone") ? "systemone" : "decisions";
+const GEMINI_HOST = new URL(GEMINI_URL).hostname;
+
+export function protocolOf(url: string): Protocol {
+  if (url.replace(/\/+$/, "").endsWith("/systemone")) return "systemone";
+  try {
+    if (new URL(url).hostname === GEMINI_HOST) return "gemini";
+  } catch {
+    // an unparseable url is left to the default wire, whose setup names it
+  }
+  return "decisions";
+}
 
 /** Whether the url names this machine, the only place a key may be left out. */
 const isLocal = (url: string): boolean => {
@@ -103,7 +115,23 @@ export function urlIdentity(url: string): string {
   }
 }
 
-const keyVars = DESTINATIONS.map((d) => d.keyVar).join(" or ");
+const names = DESTINATIONS.map((d) => d.keyVar);
+const keyVars = `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`;
+
+/**
+ * The first set key, unless it is tied to another url and a later set key is tied to the named one:
+ * with OPENAI_API_KEY and GEMINI_API_KEY both set, JINT_API_URL at Google's host takes the Gemini
+ * key. JINT_API_KEY is tied to no url, so it always wins when set.
+ */
+function pickDestination(
+  set: readonly (typeof DESTINATIONS)[number][],
+  urlOverride: string | undefined,
+): (typeof DESTINATIONS)[number] | undefined {
+  const first = set[0];
+  if (first?.url === undefined || urlOverride === undefined || first.url === urlOverride)
+    return first;
+  return set.find((d) => d.url === urlOverride) ?? first;
+}
 
 const notes = (url: string, keyVar?: string): string[] => [
   ...(url !== DEFAULT_URL ? [`url overridden, host ${urlHost(url)}`] : []),
@@ -120,7 +148,10 @@ function resolveKey(choice: EndpointChoice, env: Env): Resolved {
     const url = urlOverride ?? DEFAULT_URL;
     return { url, apiKey: configKey, notes: notes(url) };
   }
-  const chosen = DESTINATIONS.find((d) => fromEnv(env, d.keyVar) !== undefined);
+  const chosen = pickDestination(
+    DESTINATIONS.filter((d) => fromEnv(env, d.keyVar) !== undefined),
+    urlOverride,
+  );
   if (chosen === undefined) {
     const url = urlOverride ?? DEFAULT_URL;
     const unusable = `no API key set - export ${keyVars}`;

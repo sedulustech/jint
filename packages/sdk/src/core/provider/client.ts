@@ -22,6 +22,7 @@ import {
   type Endpoint,
   type EndpointChoice,
 } from "./endpoint.ts";
+import { GEMINI_MODEL, geminiAdapter } from "./gemini.ts";
 import { normalize, normalizeQuestion } from "./protocol.ts";
 import { systemOneAdapter } from "./systemone.ts";
 import { limitsFor } from "./transport.ts";
@@ -76,7 +77,9 @@ function makeClassifier(
   const send = config?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   const recorded = recording
     ? recordRequests(config, {
-        model: endpoint.model ?? (systemOne ? "server default" : MODEL),
+        model:
+          endpoint.model ??
+          (systemOne ? "server default" : endpoint.protocol === "gemini" ? GEMINI_MODEL : MODEL),
         host: urlHost(endpoint.url),
       }).fetch!
     : send;
@@ -93,7 +96,9 @@ function makeClassifier(
         };
   const adapter = systemOne
     ? systemOneAdapter(endpoint, { fetch: recorded, log, limits })
-    : decisionsAdapter(endpoint, { fetch: recorded, log, cache, limits });
+    : endpoint.protocol === "gemini"
+      ? geminiAdapter(endpoint, { fetch: recorded, log, limits })
+      : decisionsAdapter(endpoint, { fetch: recorded, log, cache, limits });
   return async (state, questions) => {
     const { id: _id, ...rest } = state;
     const judged = normalize(rest);

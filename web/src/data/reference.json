@@ -295,6 +295,13 @@
           "body": "The key for `api.openai.com`. jint sends it nowhere else."
         },
         {
+          "id": "gemini-api-key",
+          "level": 3,
+          "name": "GEMINI_API_KEY",
+          "pills": [],
+          "body": "The key for Google's Gemini Decisions API. jint sends it nowhere else; `OPENAI_API_KEY` wins when both are set and `JINT_API_URL` names neither."
+        },
+        {
           "id": "jint-api-url",
           "level": 3,
           "name": "JINT_API_URL",
@@ -312,7 +319,9 @@
           "id": "jint-api-model",
           "level": 3,
           "name": "JINT_API_MODEL",
-          "pills": [["default", "`gpt-6-luna` on `/decisions`"]],
+          "pills": [
+            ["default", "`gpt-6-luna` on `/decisions`, `gemini-decision-1` on Google's host"]
+          ],
           "body": "The model to ask. A `/v1/systemone` server needs it, except TypeSafe's own host."
         },
         {
