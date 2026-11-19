@@ -15,6 +15,7 @@
   ],
   "type": "module",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "test": "bun test --parallel",
     "schema:generate": "bun scripts/generate-schema.ts",
     "build": "bun run schema:generate && tsc -p packages/cli && chmod +x packages/cli/dist/cli.js",
