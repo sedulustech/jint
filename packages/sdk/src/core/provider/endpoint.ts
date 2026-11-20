@@ -1,6 +1,6 @@
 /**
  * Where jint asks its questions: one endpoint and the key that opens it. The url's last segment
- * names the wire: `/decisions` is the OpenAI Decisions API (the default, gpt-6-luna) and
+ * names the protocol: `/decisions` is the OpenAI Decisions API (the default, gpt-6-luna) and
  * `/systemone` is the System One shape that TypeSafe and Lemonade serve. Google's host is the one
  * exception: its `/v1beta/decisions` is the Gemini Decisions API. The key you export picks the
  * destination, and a key only ever goes to the host it is paired with: a run never sends one
@@ -35,7 +35,7 @@ const DESTINATIONS: readonly { keyVar: string; url?: string }[] = [
 const URL_VAR = "JINT_API_URL";
 const MODEL_VAR = "JINT_API_MODEL";
 
-/** The wire an endpoint speaks, from the last segment of its url. */
+/** The protocol an endpoint speaks, from the last segment of its url. */
 export type Protocol = "decisions" | "systemone" | "gemini";
 
 const GEMINI_HOST = new URL(GEMINI_URL).hostname;
@@ -45,7 +45,7 @@ export function protocolOf(url: string): Protocol {
   try {
     if (new URL(url).hostname === GEMINI_HOST) return "gemini";
   } catch {
-    // an unparseable url is left to the default wire, whose setup names it
+    // an unparseable url is left to the default protocol, whose setup names it
   }
   return "decisions";
 }
@@ -63,15 +63,15 @@ const isLocal = (url: string): boolean => {
 export interface EndpointChoice {
   url?: string;
   apiKey?: string;
-  /** The model to ask; absent asks the default of the wire (gpt-6-luna) or of the server. */
+  /** The model to ask; absent asks the default of the protocol (gpt-6-luna) or of the server. */
   model?: string;
 }
 
 export interface Endpoint {
   url: string;
-  /** The wire the url speaks. */
+  /** The protocol the url speaks. */
   protocol: Protocol;
-  /** The model the caller or $JINT_API_MODEL named; undefined leaves the choice to the wire. */
+  /** The model the caller or $JINT_API_MODEL named; undefined leaves the choice to the protocol. */
   model: string | undefined;
   /** Undefined when no key may go to the url; `unusable` then says why. */
   apiKey: string | undefined;
@@ -175,7 +175,7 @@ function resolveKey(choice: EndpointChoice, env: Env): Resolved {
   return { url, apiKey: fromEnv(env, chosen.keyVar), notes: notes(url, chosen.keyVar) };
 }
 
-/** The endpoint a run asks: its url and wire, the model if named, and the key that may go there. */
+/** The endpoint a run asks: its url and protocol, the model if named, and the key that may go there. */
 export function resolveEndpoint(choice: EndpointChoice = {}, env: Env = process.env): Endpoint {
   const resolved = resolveKey(choice, env);
   const protocol = protocolOf(resolved.url);

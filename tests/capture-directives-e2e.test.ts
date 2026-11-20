@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -73,7 +73,7 @@ writeFileSync(
 writeFileSync(join(DIR, "jint.config.json"), CONFIG);
 
 const provider = startMockDecisions();
-const WIRE = mockDecisionsWire(provider.baseUrl);
+const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
 
 afterAll(() => {
   provider.stop();
@@ -84,7 +84,7 @@ describe("the open path: a new autonomous capture declared entirely in a .scm", 
   test("a BYOG grammar mints @block and a rule measures it - zero engine edits", async () => {
     const proc = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: DIR,
-      env: { ...WIRE, JINT_GRAMMAR_DIR: join(DIR, "grammars") },
+      env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: join(DIR, "grammars") },
     });
     expect(proc.code, proc.stderr).toBe(0);
     const report = JSON.parse(proc.stdout);

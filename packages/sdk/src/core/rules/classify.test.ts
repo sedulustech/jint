@@ -13,7 +13,7 @@ import {
 } from "../types.ts";
 import { classifiedState, matchesTarget, selectElement, selectElements } from "./classify.ts";
 import {
-  elementWireId,
+  spanLabel,
   compileRuleQuestions,
   compileElementQuestions,
   classifyUnit,
@@ -64,12 +64,12 @@ const fileUnit: Unit = {
   state: {
     path: "src/a.ts",
     content: "export const x = 1;\n",
-    id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
+    id: spanLabel({ start: { line: 1 }, end: { line: 2 } }),
   },
 };
 const sensors: readonly Rule[] = [noulFile, scoreFn];
 
-const FILE_ID = elementWireId({ start: { line: 1 }, end: { line: 2 } });
+const FILE_ID = spanLabel({ start: { line: 1 }, end: { line: 2 } });
 
 function classifierWith(values: Record<string, number>, calls: Unit[] = []): Classifier {
   return async (state, questions) => {
@@ -118,10 +118,10 @@ describe("compileRuleQuestions", () => {
     });
   });
 
-  test("elementWireId: LOC interval from the span", () => {
-    expect(elementWireId({ start: { line: 1 }, end: { line: 2 } })).toBe("L1-L2");
-    expect(elementWireId({ start: { line: 1 }, end: { line: 3 } })).toBe("L1-L3");
-    expect(elementWireId({ start: { line: 7 }, end: { line: 7 } })).toBe("L7");
+  test("spanLabel: LOC interval from the span", () => {
+    expect(spanLabel({ start: { line: 1 }, end: { line: 2 } })).toBe("L1-L2");
+    expect(spanLabel({ start: { line: 1 }, end: { line: 3 } })).toBe("L1-L3");
+    expect(spanLabel({ start: { line: 7 }, end: { line: 7 } })).toBe("L7");
   });
 });
 
@@ -477,7 +477,7 @@ describe("classifyFile — imports routing", () => {
     const classified = events.filter((e) => !(e.event instanceof ClassifyError));
     expect(classified.length).toBeGreaterThanOrEqual(1);
     const first = classified[0]!;
-    // the element's identity is a classify-time uuid, not the positional wire id
+    // the element's identity is a classify-time uuid, not the positional span label
     expect((first.event as Classification).input).toMatch(/^src\/app\.ts#[0-9a-f-]{36}$/);
     expect(first.element?.span.start.line).toBe(1);
     expect(first.element?.span.end.line).toBe(2);

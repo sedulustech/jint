@@ -219,8 +219,8 @@ test("not a suite");
     // every one of these carries a matching callee NAME; none carries a function-valued
     // argument, so none is a function - the shape test is what makes the capture honest.
     // (The object literal's toString is a method_definition inside a binding: a leaf's interior.)
-    // The calls are top-level code; the test-family ones stay out of the group too (KNOWN LIMIT:
-    // the group's text predicate cannot see the callback either)
+    // The calls are top-level code. The group's text predicate reads the callee name, not the
+    // arguments, so it keeps every test-family call out of the group.
     expect(summary(inv)).toEqual([
       "d0 binding obj L2-L2",
       "d1 statement_group - L3-L4",
@@ -488,7 +488,7 @@ function after() {}
     expect(inv.definitions[0]!.oversized).toBe(true);
   });
 
-  test("the wire projection keeps the contract union", async () => {
+  test("the element projection keeps the contract union", async () => {
     const inv = await decomposeTS("function f() {}\nconst x = 1;\n// note\nimport a from './a';\n");
     const all = [...inv.definitions, ...inv.comments, ...inv.imports];
     const kinds = all.map((e) => projectElement(e).kind);

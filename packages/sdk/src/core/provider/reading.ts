@@ -5,7 +5,7 @@
  */
 
 import { ClassifyError, type Ask } from "../types.ts";
-import { wireName } from "./protocol.ts";
+import { questionKey } from "./protocol.ts";
 import type { QuestionSpec } from "./protocol.ts";
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
@@ -92,27 +92,39 @@ export function fromDecisions(q: QuestionSpec, a: DecisionsAnswer): unknown {
 
 export function readAnswers(
   ask: Ask,
-  find: (wire: string) => DecisionsAnswer | undefined,
+  find: (key: string) => DecisionsAnswer | undefined,
 ): Record<string, ClassifiedAnswer | Refusal> {
-  const input = ask.state.path;
   const out: Record<string, ClassifiedAnswer | Refusal> = {};
   Object.entries(ask.questions).forEach(([name, spec], i) => {
-    const a = find(wireName(i));
-    const answer = a === undefined ? undefined : readAnswer(spec, a);
-    const outOfRange =
-      spec.type === "noul" && answer !== undefined && "value" in answer
-        ? !(answer.value >= 0 && answer.value <= 1)
-        : false;
-    if (answer === undefined || outOfRange) {
-      throw new ClassifyError(
-        "PROVIDER_RESPONSE_INVALID",
-        input,
-        `provider answer '${name}' failed shape validation: expected ${spec.type}, got ${JSON.stringify(a)}`,
-      );
-    }
-    out[name] = answer;
+    out[name] = validAnswer(ask.state.path, name, spec, find(questionKey(i)));
   });
   return out;
+}
+
+/** The reading of answer `a` to question `name`, or the error that names what is wrong with it. */
+function validAnswer(
+  input: string,
+  name: string,
+  spec: QuestionSpec,
+  a: DecisionsAnswer | undefined,
+): ClassifiedAnswer | Refusal {
+  const answer = a === undefined ? undefined : readAnswer(spec, a);
+  const fault =
+    a === undefined
+      ? "no answer"
+      : answer === undefined
+        ? "no options"
+        : spec.type === "noul" && "value" in answer && !(answer.value >= 0 && answer.value <= 1)
+          ? `value ${answer.value} outside [0, 1]`
+          : undefined;
+  if (fault !== undefined || answer === undefined) {
+    throw new ClassifyError(
+      "PROVIDER_RESPONSE_INVALID",
+      input,
+      `provider answer '${name}' failed shape validation (${fault}): expected ${spec.type}, got ${JSON.stringify(a)}`,
+    );
+  }
+  return answer;
 }
 
 /** The token counts the model's own provider reports, as a gateway relays them. */

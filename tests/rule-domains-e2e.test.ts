@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -69,7 +69,7 @@ describe("rule domains: what a run needs", () => {
     try {
       const r = await runCli(["run", "a.ts", "--json"], {
         cwd: dir,
-        env: mockDecisionsWire(provider.baseUrl),
+        env: mockDecisionsEnv(provider.baseUrl),
       });
       expect([0, 1]).toContain(r.code);
       expect(JSON.parse(r.stdout).classifications.length).toBeGreaterThan(0);
@@ -93,10 +93,10 @@ describe("rule domains: what a run needs", () => {
       "a.ts": "function alpha() {}\n",
       "jint.config.json": JSON.stringify({ rules: { use: ["is_comment_narration"] } }),
     });
-    // nothing is measured, so no call is made: the wire is a throwaway key at a dead address
+    // nothing is measured, so no call is made: the endpoint is a throwaway key at a dead address
     const r = await runCli(["run", "a.ts"], {
       cwd: dir,
-      env: mockDecisionsWire("http://127.0.0.1:9"),
+      env: mockDecisionsEnv("http://127.0.0.1:9"),
     });
     expect(r.code).toBe(2);
     expect(r.stderr).toContain("rule 'is_comment_narration' targets comments: no such element");

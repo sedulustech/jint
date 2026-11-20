@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { decompose, type Capture, type WireCapture } from "./walk.ts";
+import { decompose, type Capture, type ElementCapture } from "./walk.ts";
 
 const PARITY_DIR = join(
   import.meta.dir,
@@ -28,9 +28,9 @@ const PINNED: Readonly<
     string,
     {
       ext: string;
-      definitions: Partial<Record<WireCapture, number>>;
-      comments: Partial<Record<WireCapture, number>>;
-      imports: Partial<Record<WireCapture, number>>;
+      definitions: Partial<Record<ElementCapture, number>>;
+      comments: Partial<Record<ElementCapture, number>>;
+      imports: Partial<Record<ElementCapture, number>>;
     }
   >
 > = {

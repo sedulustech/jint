@@ -488,9 +488,9 @@ export async function reclassify(
   } as ClassifyRequest;
   const edited = applyEdit(original, edit);
   if (typeof edited === "string") throw new AddressError(edited, 400);
-  const { answer, wire } = await classifyEdited(edited, options);
+  const { answer, sent } = await classifyEdited(edited, options);
   const runDir = resolveRunDir(requestsRoot(options), runId.split("/"))!;
-  return recordClassification(runDir, { ...edited, ...address, answer, wire, by: options.by });
+  return recordClassification(runDir, { ...edited, ...address, answer, sent, by: options.by });
 }
 
 const jsonResponse = (body: unknown, status = 200) =>

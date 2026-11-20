@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CLI_SRC, mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { CLI_SRC, mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 import { SEED_RUN_ID } from "./helpers/ui-serve.ts";
@@ -73,7 +73,7 @@ async function holdServe(s: Setup) {
 
 const run = (s: Setup, baseUrl: string, store: string = s.store) =>
   runCli(["run", "--config", s.config, "--json"], {
-    env: { ...mockDecisionsWire(baseUrl), JINT_CACHE_DIR: s.cache, JINT_RUNS_DIR: store },
+    env: { ...mockDecisionsEnv(baseUrl), JINT_CACHE_DIR: s.cache, JINT_RUNS_DIR: store },
   });
 
 describe("a run names its own run in the running UI server", () => {

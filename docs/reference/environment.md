@@ -23,7 +23,7 @@ The key for Google's Gemini Decisions API. jint sends it nowhere else; `OPENAI_A
 
 ### `JINT_API_URL`
 
-The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md).
+The endpoint. Its last segment names the protocol. See [models and endpoints](../endpoints.md).
 
 _default OpenAI's Decisions API_
 

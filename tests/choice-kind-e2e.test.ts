@@ -1,14 +1,14 @@
 import { describe, expect, jest, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // every test spawns the CLI: the per-test timeout matches the spawn ceiling
 jest.setTimeout(60_000);
 
-// A choice rule end to end: the wire carries the provider's choice primitive with the option labels, the
+// A choice rule end to end: the request body carries the provider's choice primitive with the option labels, the
 // classification names the selected option, and the selected option's tier decides the finding.
 const CHOICE_RULE = {
   name: "is_comment_justified",
@@ -46,7 +46,7 @@ async function runAgainst(
   try {
     const { config, source } = writeFixture(rule);
     const r = await runCli(["run", source, "--config", config, "--json"], {
-      env: mockDecisionsWire(provider.baseUrl),
+      env: mockDecisionsEnv(provider.baseUrl),
     });
     return {
       r,
@@ -71,7 +71,7 @@ describe("choice rules", () => {
     expect(report.findings[0]).not.toHaveProperty("confidence");
   });
 
-  test.concurrent("the wire carries a choice question with the option labels", async () => {
+  test.concurrent("the request body carries a choice question with the option labels", async () => {
     const { questions } = await runAgainst("justified");
     // the request carries only the rule's question, named by position
     expect(questions[0]).toHaveLength(1);

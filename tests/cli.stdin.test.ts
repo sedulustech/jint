@@ -1,5 +1,5 @@
 import { describe, test, jest, expect, afterAll } from "bun:test";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -17,10 +17,10 @@ const SNIPPET = [
   "}",
 ].join("\n");
 
-/** The shared mock of the vendor wire; requests[] pins the exact request bytes per test. */
+/** The shared mock of the Decisions API; requests[] pins the exact request bytes per test. */
 const provider = startMockDecisions();
 
-const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
+const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
 
 async function runWithStdin(
   stdin: string,
@@ -63,7 +63,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   test("an EMPTY list is LIST_EMPTY, exit 2 — distinguishable from an unreadable one", async () => {
     const proc = await runCli(["run", "paths", "-"], {
       stdin: "",
-      env: mockDecisionsWire("http://127.0.0.1:1"),
+      env: mockDecisionsEnv("http://127.0.0.1:1"),
     });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_EMPTY");
@@ -73,7 +73,7 @@ describe("cli: the declared path-list read (jint paths -) fails loud, with named
   test("an entry that would need interpreting is LIST_ENTRY_INVALID, exit 2", async () => {
     const proc = await runCli(["run", "paths", "-"], {
       stdin: "src/\n",
-      env: mockDecisionsWire("http://127.0.0.1:1"),
+      env: mockDecisionsEnv("http://127.0.0.1:1"),
     });
     expect(proc.code).toBe(2);
     expect(proc.stderr).toContain("LIST_ENTRY_INVALID");
@@ -114,14 +114,14 @@ describe("cli: piped stdin str unit", async () => {
     expect(report.classifications.every((m: { input: string }) => m.input === "str:stdin")).toBe(
       true,
     );
-    // no grammar ever requested: every wire call carries the whole snippet as state.content,
+    // no grammar ever requested: every request body carries the whole snippet as state.content,
     // never an element state ({path, source})
     const seen = provider.requests.slice(before);
     expect(seen.length).toBeGreaterThan(0);
-    for (const wire of seen) {
-      expect(wire.state.content).toBe(SNIPPET);
-      expect(wire.state.source).toBeUndefined();
-      expect(wire.state.path).toBeUndefined(); // no rule here includes the path
+    for (const body of seen) {
+      expect(body.state.content).toBe(SNIPPET);
+      expect(body.state.source).toBeUndefined();
+      expect(body.state.path).toBeUndefined(); // no rule here includes the path
     }
   });
 
@@ -244,7 +244,7 @@ describe("cli: piped stdin str unit", async () => {
     });
   });
 
-  test("the wire carries the real stdin content and the question, and no path", async () => {
+  test("the request body carries the real stdin content and the question, and no path", async () => {
     const before = provider.requests.length;
     const r = await runWithStdin(SNIPPET, [
       "run",
@@ -259,12 +259,12 @@ describe("cli: piped stdin str unit", async () => {
     expect(r.code).toBeLessThan(2);
     const seen = provider.requests.slice(before);
     expect(seen.length).toBeGreaterThan(0);
-    const wire = seen[seen.length - 1]!;
-    const state = wire.state;
+    const body = seen[seen.length - 1]!;
+    const state = body.state;
     expect(state.content).toBe(SNIPPET); // the state is the content, never the arg string
     expect(state.path).toBeUndefined(); // is_greppable does not include the path
-    expect(wire.questions).toHaveLength(1);
-    expect(wire.questions[0]).toMatchObject({ type: "predicate", name: "q0" });
+    expect(body.questions).toHaveLength(1);
+    expect(body.questions[0]).toMatchObject({ type: "predicate", name: "q0" });
   });
 
   test("no --language: the str unit classifies whole, zero errors, clean exit", async () => {
@@ -310,7 +310,7 @@ describe("cli: piped stdin str unit", async () => {
       Array.from({ length: 20 }, () =>
         runWithStdin(MSG, ["run", "str", "-", "--config", configPath, "--json"]),
       ),
-    ); // concurrent: 20 identical spawns must ALL measure; order on the wire is irrelevant
+    ); // concurrent: 20 identical spawns must ALL measure; order of the requests is irrelevant
     for (const r of runs) {
       expect(r.code).toBeLessThan(2);
       const report = JSON.parse(r.stdout);
@@ -322,10 +322,10 @@ describe("cli: piped stdin str unit", async () => {
     // one whole-unit call per spawn, each carrying the exact piped text as the state
     const seen = provider.requests.slice(before);
     expect(seen).toHaveLength(20);
-    for (const wire of seen) {
-      expect(wire.state.content).toBe("- **noul** - the number the model returns per question");
-      expect(wire.state.path).toBeUndefined(); // the rule does not include the path
-      expect(String(wire.questions[0]!.instructions)).toContain("document the noul value");
+    for (const body of seen) {
+      expect(body.state.content).toBe("- **noul** - the number the model returns per question");
+      expect(body.state.path).toBeUndefined(); // the rule does not include the path
+      expect(String(body.questions[0]!.instructions)).toContain("document the noul value");
     }
   });
 

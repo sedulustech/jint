@@ -1,8 +1,8 @@
 /**
- * The adapter for the System One wire (`POST /v1/systemone`), asked through the small client in
- * json-client.ts; only the vendor's types are imported from its package. The same wire is served by
- * TypeSafe's API and by Lemonade (FastFlowLM d3 and llama.cpp decision models), so one adapter
- * reaches every server that speaks it.
+ * The adapter for the System One protocol (`POST /v1/systemone`), asked through the small client in
+ * json-client.ts; only the vendor's types are imported from its package. The same protocol is
+ * served by TypeSafe's API and by Lemonade (FastFlowLM d3 and llama.cpp decision models), so one
+ * adapter reaches every server that speaks it.
  *
  * A reply, a refusal or a failure all leave as an Asked or a ClassifyError; no vendor error type
  * escapes. A question the server answered with `truncated: true` was cut before it was read, so it

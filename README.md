@@ -59,7 +59,7 @@ Skills for agents live in skills/: following-rule-results (run jint, fix finding
 ## How to use
 
 jint asks its questions of one endpoint. By default that is OpenAI's Decisions API with the model
-`gpt-6-luna`. To use another endpoint, set its url: the last segment names the wire, `/decisions`
+`gpt-6-luna`. To use another endpoint, set its url: the last segment names the protocol, `/decisions`
 for the OpenAI Decisions API or `/v1/systemone` for TypeSafe and Lemonade.
 
 ```bash

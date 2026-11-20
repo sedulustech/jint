@@ -6,7 +6,8 @@
  */
 import { link, mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ClassifyRequest, Wire } from "./classify.ts";
+import { withSentBody } from "./request-file.ts";
+import type { ClassifyRequest, SentExchange } from "./classify.ts";
 
 const CLASSIFICATIONS_DIR = "classifications";
 const SEQ_WIDTH = 4;
@@ -20,7 +21,7 @@ export interface ClassificationRecord extends ClassifyRequest {
   rule: string;
   input: string;
   answer: unknown;
-  wire?: Wire;
+  sent?: SentExchange;
   /**
    * The actor that filed it: the user in the UI, or the agent. Absent on classifications filed
    * before it existed, which the UI filed. The original has no record: its actor is the rule.
@@ -67,9 +68,10 @@ async function filedIn(runDir: string): Promise<Map<string, Filed>> {
 
 async function readRecord(path: string): Promise<ClassificationRecord | undefined> {
   try {
-    return JSON.parse(await readFile(path, "utf8")) as ClassificationRecord;
-  } catch {
-    return undefined;
+    return withSentBody(JSON.parse(await readFile(path, "utf8"))) as ClassificationRecord;
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw new Error(`jint: the classification record ${path} is unreadable`, { cause });
   }
 }
 

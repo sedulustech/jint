@@ -8,8 +8,8 @@ import { serveApiRequest } from "./api.ts";
 /**
  * Response compression, standard Accept-Encoding negotiation: br preferred, then gzip, else
  * identity. Applies to compressible types (JSON API responses and text assets); the run-summary
- * fetch is ~0.9 MB raw and drops ~10x on the wire. Shared by every server surface (the app's prod
- * server, the SDK's startUi) — one compression treatment, no drift.
+ * fetch is ~0.9 MB raw and drops ~10x during transfer. Shared by every server surface (the app's
+ * prod server, the SDK's startUi) — one compression treatment, no drift.
  */
 export async function compress(res: Response, req: Request): Promise<Response> {
   const type = res.headers.get("content-type") ?? "";

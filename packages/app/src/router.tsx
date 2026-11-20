@@ -21,7 +21,7 @@ export type RunSearch = {
 
 // the router's default search parser JSON.parses each value, so ?rule=123
 // arrives as the number 123 - coerce back to the
-// string wire format or the validator would silently drop valid state
+// string url encoding or the validator would silently drop valid state
 const asString = (v: unknown): string | undefined => {
   if (typeof v === "string" && v.length > 0) return v;
   if (typeof v === "number" && Number.isFinite(v)) return String(v);

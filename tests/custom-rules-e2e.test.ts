@@ -1,12 +1,12 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // custom-rule end-to-end: an INLINE callback rule in a TS config (jint.config.ts), loaded through
-// the jint:sdk virtual module, classified over the mock provider wire. Contract claims only (report shape, spans, dumps,
+// the jint:sdk virtual module, classified over the mock provider. Contract claims only (report shape, spans, dumps,
 // fatal-vs-streamed error boundaries) — see src/core/rules/custom/*.test.ts for the unit level.
 
 const DIR = scratchDir("jint-custom-e2e");
@@ -100,7 +100,7 @@ function setup(name: string, configSource: string): string {
 }
 
 const provider = startMockDecisions();
-const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
+const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
 afterAll(() => {
   provider.stop();
   rmScratchTree(DIR);
@@ -170,7 +170,7 @@ describe("cli: custom rules end-to-end", () => {
     );
   });
 
-  test("wire dumps cover TS-rule calls exactly like JSON-tier calls", async () => {
+  test("recorded requests cover TS-rule calls exactly like JSON-tier calls", async () => {
     const dir = setup("dumps", GOOD_CONFIG);
     const dumps = DIR + "/dump-captures";
     const r = await runIn(dir, { JINT_RUNS_DIR: dumps });
@@ -188,7 +188,7 @@ describe("cli: custom rules end-to-end", () => {
     for (const file of files) expect(file).toMatch(/-files-state\.json$/);
     const captures = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
     const stateOf = (c: any) => c.request.input[0].content[0].data;
-    // The composed state reached the wire verbatim (the frame sees the resolved count of 1).
+    // The composed state reached the request body verbatim (the frame sees the resolved count of 1).
     for (const capture of captures) {
       expect(stateOf(capture).targets).toBe(1);
       expect(stateOf(capture).composed).toEqual({ free: true });

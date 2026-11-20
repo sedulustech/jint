@@ -5,8 +5,8 @@ import {
   runCli,
   runShell,
   CLI_SRC as CLI,
-  mockDecisionsWire,
-  NO_KEY_WIRE,
+  mockDecisionsEnv,
+  NO_KEY_ENV,
   hasLiveKey,
 } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
@@ -32,9 +32,9 @@ async function run(args: string[], env: Record<string, string | undefined> = {})
   return runCli(args, { env, timeout: 60_000 });
 }
 
-const NO_KEY = NO_KEY_WIRE; // an empty key counts as absent
+const NO_KEY = NO_KEY_ENV; // an empty key counts as absent
 // a key with no reachable provider: the run walks and classifies, transport failures stay in-band
-const NO_SERVICE = mockDecisionsWire("http://127.0.0.1:1");
+const NO_SERVICE = mockDecisionsEnv("http://127.0.0.1:1");
 
 afterEach(() => {
   delete process.env.NO_COLOR;
@@ -536,7 +536,7 @@ describe("cli: run semantics (no API key -> fail fast, exit 2)", () => {
 // keyless — a mock here is what makes a regression visible in every run.
 describe("cli: mocked provider twins (structural claims, always on)", () => {
   const provider = startMockDecisions();
-  const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
+  const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
   // Async spawn: the mock provider server lives in THIS process — a synchronous spawn would block its
   // event loop and the child would hang waiting for answers.
   async function runMock(args: string[], env: Record<string, string> = {}) {

@@ -16,11 +16,11 @@ Every fixture is hand-maintained: edit the files directly.
   - one multi-question capture (two rules on one element, elements tier / `state.source`).
   - one refused reading (`will_error_lose_cause` at src/refused.ts: the answer is `{type:"refusal"}`,
     the report classification is `refused: true` - no value, no verdict).
-  - one recording with a `wire` request (`borderline.ts`, the translated Decisions body); every
-    other legacy capture predates wire capture and has none (the request view's fallback).
+  - one recording with a sent request body under the old field name `wire` (`borderline.ts`, the translated Decisions body); every
+    other legacy capture predates request-body capture and has none (the request view's fallback).
   - one recording in the decisions form (`decisions.ts`, `is_name_purposeful` at 0.35): the real
     POST /v1/decisions bodies (a `questions` array, an `answers` array, `questionIds`), no
-    legacy shape and no `wire`; it has no report classification, so it is a request and no cell.
+    legacy shape and no sent body; it has no report classification, so it is a request and no cell.
   - one capture with NO questions (rules `()` - stays visible unfiltered, exercises the
     empty-rules path).
   - severity states via the manifest handle snapshot: high-p-under-fires_when:"false" renders
@@ -33,7 +33,7 @@ Every fixture is hand-maintained: edit the files directly.
 
 ## Editing
 
-`run-a/` and the manifest-less run mix the recorded forms (legacy, wire, decisions) on purpose.
+`run-a/` and the manifest-less run mix the recorded forms (legacy, legacy with `wire`, decisions) on purpose.
 When a fixture changes, re-pin the constants at the top of `src/rule-filter.test-browser.tsx`
 (TOTAL / RULE_COUNTS / BORDERLINE_COUNT) to whatever the fixture contains. The engine's own
 output is checked end to end by tests/element-capture-e2e.test.ts at the repository root.

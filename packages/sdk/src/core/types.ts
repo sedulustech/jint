@@ -9,7 +9,7 @@
  */
 
 /**
- * One verdict word list for the whole toolchain: defined beside the wire vocabulary it annotates,
+ * One verdict word list for the whole toolchain: defined beside the report schema it annotates,
  * re-exported here — never redefined locally.
  */
 export type { Severity } from "@jint/contract";
@@ -139,7 +139,7 @@ export class ClassifyError extends Error {
   }
 }
 
-/** The rule target vocabulary is defined beside the wire vocabulary it annotates, re-exported here. */
+/** The rule target vocabulary is defined beside the report schema it annotates, re-exported here. */
 
 /**
  * The judgment primitive: a calibrated yes/no value, an ordered rubric score, or a choice between
@@ -258,7 +258,7 @@ export type Span = import("@jint/contract").Span;
 export type Element = import("@jint/contract").Element;
 /**
  * An element's capture name: THE OPEN NAMESPACE - a shared capture (the lingua franca) or a
- * grammar-declared autonomous one (its kind on the wire). Cannot derive from Element["kind"]
+ * grammar-declared autonomous one (its kind in the report). Cannot derive from Element["kind"]
  * anymore: the union's open string member swallows every literal under Exclude. "file" is not a
  * capture (files-target rules judge whole units, never walk elements).
  */
@@ -275,7 +275,7 @@ export type DocstringOwner = import("@jint/contract").DocstringOwner;
 export interface FileState {
   readonly path: string;
   readonly content: string;
-  /** Wire id for a whole file: its full LOC interval (the same wire-id form elements use). */
+  /** Span label for a whole file: its full LOC interval (the same form elements use). */
   readonly id: string;
   /** False: `path` stays out of the request. Absent: the state goes out as it is. Never sent. */
   readonly includePath?: boolean;

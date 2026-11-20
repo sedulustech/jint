@@ -6,10 +6,10 @@ under `src/`; shared fixtures live in `tests/fixtures/`. Run: `bun test --parall
 ## Testing doctrine
 
 **Mocked tests assert CONTRACT and run everywhere.** A contract is what the CLI owes its callers:
-exit codes, stderr messages, and the stdout document shape — plus the wire shape
+exit codes, stderr messages, and the stdout document shape — plus the request body shape
 on the Decisions boundary (state content, compiled instructions and criteria). Every mocked test runs
 against `tests/helpers/mock-provider.ts` (`startMockDecisions()`), which serves canned Decisions API answers
-on port 0; point a spawned CLI at it with `mockDecisionsWire(baseUrl)` (tests/helpers/cli.ts), which sets its url and a throwaway key in the env. Assertions go through
+on port 0; point a spawned CLI at it with `mockDecisionsEnv(baseUrl)` (tests/helpers/cli.ts), which sets its url and a throwaway key in the env. Assertions go through
 `tests/helpers/contract.ts` (`expectContract(r, { exit, stderr, stdout })`), which names all three
 surfaces on failure. The mocked suite must be fully green with **no** `JINT_API_KEY` or `OPENAI_API_KEY`.
 

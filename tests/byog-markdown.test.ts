@@ -1,7 +1,7 @@
 import { describe, test, expect, afterAll } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { expectContract } from "./helpers/contract.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
@@ -9,7 +9,7 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 // BYOG end-to-end: a USER grammar dir walks a real file through the seam (docs/byog.md) to
 // elements to a qualified-capture-address rule. The registration mechanics are unit-tested
 // (packages/sdk/src/core/grammars/grammars.test.ts); this file proves the seam OBSERVABLY, over the
-// mock provider wire, by the house e2e pattern (custom-rules-e2e.test.ts).
+// mock provider, by the house e2e pattern (custom-rules-e2e.test.ts).
 //
 // THE SHADOW PATH (no wasm committed): tests/fixtures/grammars/markdown/ is named for the embedded
 // id "markdown" and holds queries.scm + extensions.json WITHOUT a wasm - so it shadows the embedded
@@ -37,7 +37,7 @@ const FIXTURE = [
 ].join("\n");
 
 const provider = startMockDecisions();
-const WIRE = mockDecisionsWire(provider.baseUrl);
+const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
 afterAll(() => {
   provider.stop();
   rmScratchTree(DIR);
@@ -77,7 +77,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     const dir = setup("shadow", [noulRule("probe_shadow_section", "markdown:section")]);
     const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
-      env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
+      env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
     const report = expectContract(r, { exit: 0, stdout: "json" });
     // The shadow .scm assigns @section to {paragraph}: the three measured elements are the three
@@ -89,7 +89,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     for (const m of report.classifications) {
       expect(m.element.kind).toBe("section");
     }
-    // The wire state carries the shadow's element content without its final line break: the prose runs, not the
+    // The state in the request body carries the shadow's element content without its final line break: the prose runs, not the
     // headings or their bodies - the strongest single proof the shadow .scm, not the embedded one,
     // materialized extraction.
     const sources = provider.requests
@@ -109,7 +109,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     try {
       const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
         cwd: dir,
-        env: { ...WIRE, JINT_GRAMMAR_DIR: empty },
+        env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: empty },
       });
       const report = expectContract(r, { exit: 0, stdout: "json" });
       // The embedded .scm resolves the heading sections - a DIFFERENT extraction of the same bytes,
@@ -124,7 +124,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     const dir = setup("not-emitted", [noulRule("probe_missing", "markdown:paragraph")]);
     const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
-      env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
+      env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
     // markdown:paragraph is emitted by the EMBEDDED .scm but not by the shadow. Address validation
     // runs at LINT STARTUP, AFTER the grammar dir is scanned (loadUserGrammars), so it checks the
@@ -143,7 +143,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
     const dir = setup("bad-capture", [noulRule("probe_bad", "markdown:function")]);
     const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
       cwd: dir,
-      env: { ...WIRE, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
+      env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: GRAMMARS_DIR },
     });
     // Setup, before any file is measured: CONFIG_INVALID names the address AND the emitted set -
     // the SHADOW's (validation runs at lint startup, after loadUserGrammars). A shadow cannot
@@ -173,7 +173,7 @@ describe("byog: the user-grammar seam end-to-end", () => {
       writeFileSync(join(root, "grammars", "verilog", "extensions.json"), JSON.stringify([".v"]));
       const r = await runCli(["run", "--config", "jint.config.json", "--json"], {
         cwd: dir,
-        env: { ...WIRE, JINT_GRAMMAR_DIR: join(root, "grammars") },
+        env: { ...MOCK_ENV, JINT_GRAMMAR_DIR: join(root, "grammars") },
       });
       expectContract(r, {
         exit: 2,

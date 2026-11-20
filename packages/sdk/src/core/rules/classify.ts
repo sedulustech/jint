@@ -34,7 +34,7 @@ import {
   type RuleTarget,
 } from "../types.ts";
 
-/** Which rule and block (block wire id or unit id) a question id belongs to. */
+/** Which rule and block (block span label or unit id) a question id belongs to. */
 export interface QuestionAttribution {
   readonly rule: string;
   readonly blockId: string | null;
@@ -49,7 +49,7 @@ export interface QuestionBatch {
   readonly attribution: Map<string, QuestionAttribution>;
 }
 
-export function questionKey(ruleName: string, blockId: string): string {
+export function questionId(ruleName: string, blockId: string): string {
   return `${ruleName} in ${blockId}`;
 }
 
@@ -69,9 +69,9 @@ export function compileRuleQuestions(rules: readonly Rule[], unitId: string): Qu
   const questions: Record<string, QuestionSchema> = {};
   const attribution = new Map<string, QuestionAttribution>();
   for (const rule of rules) {
-    const questionId = questionKey(rule.name, unitId);
-    questions[questionId] = questionSpec(rule, rule.instructions);
-    attribution.set(questionId, { rule: rule.name, blockId: unitId });
+    const id = questionId(rule.name, unitId);
+    questions[id] = questionSpec(rule, rule.instructions);
+    attribution.set(id, { rule: rule.name, blockId: unitId });
   }
   return { questions, attribution };
 }
@@ -92,12 +92,12 @@ export function compileElementQuestions(
 }
 
 /**
- * The wire id for a judged span of a file: the LOC interval, 1-based — "L19" for a single line,
+ * The span label for a judged span of a file: the LOC interval, 1-based — "L19" for a single line,
  * "L19-L28" for a range. Top-level spans are disjoint, so ids are unique within a file and point
  * straight at the source. Unit ids only — element identity is a classify-time uuidv4, never a
  * positional span.
  */
-export function elementWireId(span: {
+export function spanLabel(span: {
   readonly start: { readonly line: number };
   readonly end: { readonly line: number };
 }): string {
@@ -134,7 +134,7 @@ export function classifiedState(
     return {
       path: of.path,
       content: of.content,
-      id: elementWireId({ start: { line: 1 }, end: { line: lines } }),
+      id: spanLabel({ start: { line: 1 }, end: { line: lines } }),
       ...flag,
     };
   }
@@ -212,7 +212,7 @@ export async function* classifyUnit(
   }
   const answers = reply.answers;
   for (const rule of rules) {
-    yield outcomeFor(rule.name, unit.state.path, answers[questionKey(rule.name, unitId)]);
+    yield outcomeFor(rule.name, unit.state.path, answers[questionId(rule.name, unitId)]);
   }
 }
 
@@ -492,9 +492,9 @@ function emitWholeUnitClassifications(
     events.push({ event: unitReply.error });
     return;
   }
-  for (const questionId of questionIds) {
-    const rule = questionId.slice(0, questionId.indexOf(" in "));
-    events.push({ event: outcomeFor(rule, input, unitReply.answers[questionId]), element });
+  for (const id of questionIds) {
+    const rule = id.slice(0, id.indexOf(" in "));
+    events.push({ event: outcomeFor(rule, input, unitReply.answers[id]), element });
   }
 }
 
@@ -780,7 +780,7 @@ async function classifyWholeUnit(
     events,
     fileElement(fileId, state.content),
     unitReply,
-    wholeRules.map((rule) => questionKey(rule.name, fileId)),
+    wholeRules.map((rule) => questionId(rule.name, fileId)),
     state.path,
   );
   return events.some(

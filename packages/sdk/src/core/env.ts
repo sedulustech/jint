@@ -27,7 +27,7 @@ export const ENV_VARS: readonly EnvVar[] = [
     name: "JINT_API_URL",
     default: "OpenAI's Decisions API",
     meaning:
-      "The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md).",
+      "The endpoint. Its last segment names the protocol. See [models and endpoints](../endpoints.md).",
   },
   {
     name: "JINT_API_KEY",

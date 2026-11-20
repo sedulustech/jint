@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -48,7 +48,7 @@ test("a path list measures a grammar-less page for the rule that includes it", a
       {
         cwd: dir,
         stdin: "page.astro\n",
-        env: mockDecisionsWire(provider.baseUrl),
+        env: mockDecisionsEnv(provider.baseUrl),
       },
     );
     if (run.stdout === "") throw new Error(run.stderr);

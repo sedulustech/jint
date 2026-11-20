@@ -1,7 +1,7 @@
 import { describe, test, jest, expect } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire, hasLiveKey } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv, hasLiveKey } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -10,7 +10,7 @@ import { startMockDecisions } from "./helpers/mock-provider.ts";
 jest.setTimeout(60_000);
 
 // a key with no reachable provider: the run walks, transport failures stay in-band
-const NO_SERVICE = mockDecisionsWire("http://127.0.0.1:1");
+const NO_SERVICE = mockDecisionsEnv("http://127.0.0.1:1");
 
 // Async spawn: tests run concurrently (test.concurrent) and a synchronous wait would serialize
 // every CLI process behind the transport-failure retry chain each NO_SERVICE walk pays.
@@ -170,7 +170,7 @@ describe("cli: dir walk ignores", () => {
       const proc = await runCli(
         ["run", "tests/fixtures/sample-dir", "--json", "--config", ownConfig],
         {
-          env: mockDecisionsWire(provider.baseUrl),
+          env: mockDecisionsEnv(provider.baseUrl),
         },
       );
       const report = JSON.parse(proc.stdout);

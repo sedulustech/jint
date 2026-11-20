@@ -3,7 +3,7 @@ import { selectedElements, selectionEcho } from "./echo.ts";
 
 const FIXTURE = "tests/fixtures/sample-file.ts";
 
-describe("selectedElements (the element-scoped run's wire-shaped selection)", () => {
+describe("selectedElements (the element-scoped run's selection as the report carries it)", () => {
   test("an anchor resolves the element its line falls in: id, kind, name, span, content", async () => {
     const picked = await selectedElements({ path: FIXTURE, anchor: 3 });
     expect(picked.length).toBe(1);

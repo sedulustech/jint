@@ -26,11 +26,8 @@ export interface ClassifyOptions {
   classifier?: Classifier;
 }
 
-/**
- * The exchange of one classification, as it went over the wire (absent when the classifier was
- * injected).
- */
-export interface Wire {
+/** The exchange of one classification, as it was sent (absent when the classifier was injected). */
+export interface SentExchange {
   request: unknown;
   response: unknown;
 }
@@ -141,8 +138,8 @@ export function viewAnswer(question: QuestionSchema, answer: ClassifiedAnswer | 
 export async function classifyEdited(
   request: ClassifyRequest,
   options: ClassifyOptions = {},
-): Promise<{ answer: unknown; wire?: Wire }> {
-  let wire: Wire | undefined;
+): Promise<{ answer: unknown; sent?: SentExchange }> {
+  let sent: SentExchange | undefined;
   if (options.classifier === undefined) assertEndpointKey();
   const classifier =
     options.classifier ??
@@ -150,7 +147,7 @@ export async function classifyEdited(
       record: false,
       fetch: async (input, init) => {
         const response = await fetch(input, init);
-        wire = {
+        sent = {
           request: parseJson(String(init?.body ?? "")),
           response: parseJson(await response.clone().text()),
         };
@@ -169,7 +166,7 @@ export async function classifyEdited(
   const answer = answers[QUESTION_NAME];
   return {
     answer: answer === undefined ? { type: "refusal" } : viewAnswer(request.question, answer),
-    wire,
+    sent,
   };
 }
 

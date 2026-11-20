@@ -314,7 +314,7 @@ function useRunList(runId: string | null): {
   error: Error | null;
 } {
   // Poll while a run is in flight: new runs appear mid-run without reopening the picker. The
-  // summary fetch is compressed ~10x on the wire, so a short interval is cheap; it stops when the
+  // summary fetch is compressed ~10x during transfer, so a short interval is cheap; it stops when the
   // tab is hidden (react-query default) and errors keep the last good list.
   const runs = useQuery({
     queryKey: ["runs"],

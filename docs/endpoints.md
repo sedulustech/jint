@@ -8,7 +8,7 @@ sidebar:
 # Models and endpoints
 
 jint sends its questions to one endpoint. The default is OpenAI's Decisions API with the model
-`gpt-6-luna`. To use anything else, set the endpoint's url. jint reads the wire from the end of the
+`gpt-6-luna`. To use anything else, set the endpoint's url. jint reads the protocol from the end of the
 url. You do not choose a client or a provider.
 
 ## The default
@@ -26,7 +26,7 @@ sides of it.
 
 ## Another endpoint
 
-Set `JINT_API_URL`. Its last segment names the wire:
+Set `JINT_API_URL`. Its last segment names the protocol:
 
 | The url ends in | The server speaks        | Servers                                |
 | --------------- | ------------------------ | -------------------------------------- |
@@ -38,12 +38,12 @@ url it expected.
 
 ## Gemini
 
-Google's Gemini Decisions API is the one wire named by its host, not by its end: its url ends in
+Google's Gemini Decisions API is the one protocol named by its host, not by its end: its url ends in
 `/decisions` like OpenAI's. Export `GEMINI_API_KEY`. jint asks `gemini-decision-1` at
 `https://generativelanguage.googleapis.com/v1beta/decisions` and sends that key nowhere else. When
 `OPENAI_API_KEY` is set too, it wins; set `JINT_API_URL` to Google's url to ask Gemini instead.
 
-A prefix before `/v1/systemone` is fine. The url names the wire by its end, not by its host.
+A prefix before `/v1/systemone` is fine. The url names the protocol by its end, not by its host.
 
 ## Other System One servers
 
@@ -62,7 +62,7 @@ export JINT_API_MODEL=typesafe/jev-1.13
 ```
 
 A host other than TypeSafe's needs `JINT_API_MODEL`. A server that wraps its reply, or serves the
-wire at a path that does not end in `/v1/systemone`, is not supported.
+protocol at a path that does not end in `/v1/systemone`, is not supported.
 
 ## A local model
 

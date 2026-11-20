@@ -210,7 +210,7 @@ function detailClose(): HTMLElement {
   return b;
 }
 
-// RAW comparison: urls under test are already in the router's wire encoding
+// RAW comparison: urls under test are already in the router's url encoding
 async function expectUrl(url: string, tag = "?") {
   await waitFor(() => {
     if (window.location.pathname + window.location.search !== url)
@@ -244,7 +244,7 @@ test("classification walk: a row click opens the classification, back/forward an
       throw new Error("url is " + q);
   });
   if (!window.location.search.includes("input=src%2Flow.ts"))
-    throw new Error("wire form lost the encoded input: " + window.location.search);
+    throw new Error("url encoding lost the encoded input: " + window.location.search);
   const opened = window.location.pathname + window.location.search;
 
   // back: the classification closes; forward: the same entry returns, nothing collapsed

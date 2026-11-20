@@ -133,14 +133,18 @@ demands action.
   correct form.
 - **undecided** — a classification too close to call: its top tier's probability leads the runner-up
   tier's by less than the rule's `margin`. The rule maps it to a tier and message like any other.
-- **refused** — a classification with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. Wire name: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
+- **refused** — a classification with no value: the model was asked and gave no answer, so the question did not apply to the state as it was judged. Not a severity and not an error: no handle reads it, no finding follows. In the response body: `refusal`. Distinct from undecided (an answer too close to call) and from a skip (jint chose not to ask).
 - **verb** — the CLI command word: the FIRST positional IS the command (run, serve, capture)
   and the rest are its operands; there is no implicit verb, so a missing or unknown first
   positional is a usage error. After run, every operand is a target, so a file named capture
   runs as `jint run capture`.
 - **provider** — the service at the endpoint that answers jint's questions. The url selects it, its
-  last segment names the wire (`/decisions` or `/v1/systemone`), and a key goes only to the url it
+  last segment names the protocol (`/decisions` or `/v1/systemone`), and a key goes only to the url it
   is paired with.
+- **protocol** — the request and response format a provider's API defines, with its path, auth
+  header and error meanings. The endpoint's url selects it.
+- **question key** — the name a question goes under in a request body (`q0`, `q1`): its position in
+  the request. Distinct from the question's id, which the run records beside the request.
 - **question** — one classified judgment request sent to the model about one state: the claim to judge plus the state it judges.
 - **rule** — the classifying mechanism: name, criteria, target, classify, handle. Rules fire;
   findings result.

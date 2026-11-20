@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from "bun:test";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -29,7 +29,7 @@ async function recordedRun() {
   const provider = startMockDecisions({ choice: "contradicted" });
   try {
     const run = await runCli(["run", source, "--config", config, "--json"], {
-      env: { ...mockDecisionsWire(provider.baseUrl), JINT_RUNS_DIR: store },
+      env: { ...mockDecisionsEnv(provider.baseUrl), JINT_RUNS_DIR: store },
     });
     const report = JSON.parse(run.stdout);
     return {
@@ -47,7 +47,7 @@ describe("jint reclassify", () => {
     const { store, runId, input } = await recordedRun();
     const provider = startMockDecisions({ choice: "justified" });
     try {
-      const env = { ...mockDecisionsWire(provider.baseUrl), JINT_RUNS_DIR: store };
+      const env = { ...mockDecisionsEnv(provider.baseUrl), JINT_RUNS_DIR: store };
       const edit = JSON.stringify({ instructions: "Which option fits best?" });
       const r = await runCli(["reclassify", runId, input, "--rule", RULE.name, "--json", "-"], {
         env,
@@ -78,7 +78,7 @@ describe("jint reclassify", () => {
 
   test("usage errors exit 2 and file nothing", async () => {
     const { store, runId, input } = await recordedRun();
-    const env = { ...mockDecisionsWire("http://127.0.0.1:9"), JINT_RUNS_DIR: store };
+    const env = { ...mockDecisionsEnv("http://127.0.0.1:9"), JINT_RUNS_DIR: store };
     const noRule = await runCli(["reclassify", runId, input], { env });
     expect(noRule.code).toBe(2);
     expect(noRule.stderr).toContain("jint reclassify takes");

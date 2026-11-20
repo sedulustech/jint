@@ -169,7 +169,8 @@ const SILENCE: Record<string, number> = {
 
 /**
  * Same fixed per-rule answers for every call, keyed by the asked question id (element questions are
- * "<rule> in <sha8 wire id>", everything else plain "<rule>") — how the real classifier answers.
+ * "<rule> in <sha8 span label>", everything else plain "<rule>") — how the real classifier
+ * answers.
  */
 function sensorOf(key: string): string {
   const sep = key.indexOf(" in ");
@@ -723,7 +724,7 @@ describe("lint", () => {
     expect(classifications).toHaveLength(6);
     // functions level 1 (warn) fires on BOTH elements - no aggregation, no candidacy
     expect(findings).toHaveLength(2);
-    // element identity is a classify-time uuid, not the positional wire id
+    // element identity is a classify-time uuid, not the positional span label
     expect(findings.map((s) => s.finding.input.replace(/#.*$/, ""))).toEqual([FILE, FILE]);
     for (const s of findings) expect(s.finding.input).toMatch(/#[0-9a-f-]{36}$/);
     for (const s of findings) {
@@ -1018,11 +1019,11 @@ describe("lint", () => {
     // probe_functions (functions-target) survives; probe_loose_comments resolves NOTHING here -
     // sample-file.ts's one comment is owned by addSeconds, so it is comments, not loose
     expect(log.calls).toHaveLength(2);
-    const questionKeys = log.calls
+    const questionIds = log.calls
       .map((c) => c.questions.join(","))
       .sort((a, b) => a.localeCompare(b));
     // bare rule-name keys, one element per call
-    expect(questionKeys).toEqual(["probe_functions", "probe_functions"]);
+    expect(questionIds).toEqual(["probe_functions", "probe_functions"]);
     // 2 function elements
     expect(events.filter((e) => e.type === "classification")).toHaveLength(2);
   });

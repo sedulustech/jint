@@ -88,7 +88,7 @@ export const CLASSIFICATION_SCHEMA = Type.Union([
 ]);
 
 // The severity vocabulary has one home: the contract's Severity type. The schema spells the
-// same union for the wire; the identity pin below makes any drift a typecheck failure.
+// same union for the report; the identity pin below makes any drift a typecheck failure.
 const SEVERITY_SCHEMA = Type.Union([Type.Literal("error"), Type.Literal("warn")]);
 
 export const FINDING_SCHEMA = Type.Object({
@@ -207,21 +207,21 @@ export const REPORT_SCHEMA = Type.Object({
 export type Report = Static<typeof REPORT_SCHEMA>;
 
 const _pinClassification: readonly Classification[] = [] as Static<typeof CLASSIFICATION_SCHEMA>[];
-const _pinClassificationWire: readonly Static<typeof CLASSIFICATION_SCHEMA>[] =
+const _pinClassificationSchema: readonly Static<typeof CLASSIFICATION_SCHEMA>[] =
   [] as Classification[];
 const _pinFinding: readonly Finding[] = [] as Static<typeof FINDING_SCHEMA>[];
-const _pinFindingWire: readonly Static<typeof FINDING_SCHEMA>[] = [] as Finding[];
+const _pinFindingSchema: readonly Static<typeof FINDING_SCHEMA>[] = [] as Finding[];
 const _pinError: readonly ClassifyErrorInfo[] = [] as Static<typeof CLASSIFY_ERROR_SCHEMA>[];
-const _pinErrorWire: readonly Static<typeof CLASSIFY_ERROR_SCHEMA>[] = [] as ClassifyErrorInfo[];
+const _pinErrorSchema: readonly Static<typeof CLASSIFY_ERROR_SCHEMA>[] = [] as ClassifyErrorInfo[];
 const _pinReport: ContractReport = {} as Static<typeof REPORT_SCHEMA>;
 // Report itself pins one direction only — its contract arrays are readonly while Type.Array is
 // mutable — but every element type above is pinned both ways, which is where the fields live.
 void [
   _pinClassification,
-  _pinClassificationWire,
+  _pinClassificationSchema,
   _pinFinding,
-  _pinFindingWire,
+  _pinFindingSchema,
   _pinError,
-  _pinErrorWire,
+  _pinErrorSchema,
   _pinReport,
 ];

@@ -1,10 +1,11 @@
 /**
  * Shared mock of the Decisions API (startMockDecisions). Point the CLI at it via
- * mockDecisionsWire(baseUrl) (tests/helpers/cli.ts) and every classification is answered locally —
+ * mockDecisionsEnv(baseUrl) (tests/helpers/cli.ts) and every classification is answered locally —
  * the suite runs fully keyless.
  *
- * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, wire shapes) and run
- * everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see tests/README.md.
+ * Testing doctrine: mocked tests assert CONTRACT (exit codes, messages, request and response
+ * bodies) and run everywhere. Live tests assert MODEL BEHAVIOR (calibration) and run opt-in — see
+ * tests/README.md.
  */
 
 export interface MockDecisionsRequest {
@@ -14,7 +15,10 @@ export interface MockDecisionsRequest {
   state: Record<string, unknown>;
   /** The request's headers, lowercased. */
   headers: Record<string, string>;
-  /** The questions asked, in order (named q0, q1 ... on the wire; the instructions tell them apart). */
+  /**
+   * The questions asked, in order (keyed q0, q1 ... in the request body; the instructions tell them
+   * apart).
+   */
   questions: Record<string, any>[];
 }
 

@@ -78,8 +78,10 @@ const decisions = {
 };
 
 describe("normalizeRequestFile", () => {
-  test("a legacy file passes through untouched", () => {
-    expect(normalizeRequestFile(legacy)).toBe(legacy as never);
+  test("a legacy file passes through, its old `wire` field read as `sent`", () => {
+    const { wire, ...rest } = legacy;
+    expect(normalizeRequestFile(legacy)).toEqual({ ...rest, sent: wire } as never);
+    expect(normalizeRequestFile(rest)).toBe(rest as never);
   });
 
   test("a decisions file becomes the view model: questions and answers keyed by question id", () => {
@@ -116,8 +118,8 @@ describe("normalizeRequestFile", () => {
 
   test("the request toggle's body is the record's own request", () => {
     const file = normalizeRequestFile(decisions);
-    expect(file.wire?.body).toBe(decisions.request as never);
-    expect(file.wire?.response).toBe(decisions.response as never);
+    expect(file.sent?.body).toBe(decisions.request as never);
+    expect(file.sent?.response).toBe(decisions.response as never);
     expect([file.id, file.durationMs, file.status]).toEqual(["L1", 7, 200]);
   });
 
@@ -193,7 +195,7 @@ describe("normalizeRequestFile", () => {
       output_tokens: 1,
       cached_input_tokens: 4,
     });
-    expect(file.wire?.body).toBe(native.request as never);
+    expect(file.sent?.body).toBe(native.request as never);
     expect([file.id, file.durationMs, file.status]).toEqual(["L1", 9, 200]);
   });
 });

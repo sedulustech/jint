@@ -3,14 +3,14 @@
  * leaves this module:
  *
  * - Legacy: a System One-shaped `request` ({state, questions: {id: {type, instructions, criteria}}})
- *   and `response` ({answers: {id: ...}}), with the bytes sent to the network beside them in
- *   `wire`.
+ *   and `response` ({answers: {id: ...}}), with the request body as sent beside them in `sent`
+ *   (`wire` in runs recorded before the rename).
  * - Decisions: the real exchange, `request` and `response` being the bodies of POST /v1/decisions (a
  *   `questions` ARRAY, an `answers` ARRAY matched by name), plus `questionIds` naming each question
  *   by position.
  * - Decision-model: the real exchange with the AI gateway's native endpoint: `request` holds
- *   `stateParts` (text parts) and `questions` keyed by wire name, `response.answers` is keyed the
- *   same, with `questionIds` naming each question by position.
+ *   `stateParts` (text parts) and `questions` keyed by question key, `response.answers` is keyed
+ *   the same, with `questionIds` naming each question by position.
  *
  * The forms tell apart by the request: `stateParts` marks decision-model, a `questions` ARRAY the
  * decisions form, anything else legacy.
@@ -61,19 +61,20 @@ export interface RequestFile {
   /** The state's id, recorded beside the request; older records carry it in request.state. */
   id?: string;
   /**
-   * The file the call judged, recorded beside the request: the wire body carries a path only for a
-   * rule that includes it, and the run view joins requests to readings by path.
+   * The file the call judged, recorded beside the request: the request body carries a path only for
+   * a rule that includes it, and the run view joins requests to readings by path.
    */
   path?: string;
-  /** Wire duration recorded by the sdk recorder; absent on records written before it existed. */
+  /** Latency recorded by the sdk recorder; absent on records written before it existed. */
   durationMs?: number;
   status?: number;
   /**
    * The call as it reached the network (url redacted, no headers); absent on records written before
-   * wire capture. For a call made through a provider's own client it is the record's own request
-   * and response. `request` stays the System One-shaped view the run view reads.
+   * request bodies were captured. For a call made through a provider's own client it is the
+   * record's own request and response. `request` stays the System One-shaped view the run view
+   * reads.
    */
-  wire?: { url?: string; body?: unknown; status?: number; response?: unknown };
+  sent?: { url?: string; body?: unknown; status?: number; response?: unknown };
   request?: {
     state?: Record<string, unknown>;
     questions?: Record<
@@ -159,11 +160,12 @@ function questionOf(q: DecisionsQuestion): QuestionSpec {
 }
 
 /**
- * The view model's yes/no question for a predicate's wire text: its Yes/No meaning is folded into
- * its instructions on the wire (both forms), and the view shows the two apart.
+ * The view model's yes/no question for a predicate's text in the request body: its Yes/No meaning
+ * is folded into its instructions in the request body (both forms), and the view shows the two
+ * apart.
  */
-function noulOf(wireText: string | undefined): QuestionSpec {
-  const { instructions, criteria } = unfoldCriteria(wireText ?? "");
+function noulOf(text: string | undefined): QuestionSpec {
+  const { instructions, criteria } = unfoldCriteria(text ?? "");
   return criteria === undefined
     ? { type: "noul", instructions }
     : { type: "noul", instructions, criteria };
@@ -190,9 +192,9 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
   const received = isObj(response.answers) ? response.answers : {};
   const questions: Record<string, QuestionSpec> = {};
   const answers: Record<string, unknown> = {};
-  Object.entries(isObj(request.questions) ? request.questions : {}).forEach(([wire, q], i) => {
+  Object.entries(isObj(request.questions) ? request.questions : {}).forEach(([key, q], i) => {
     const asked = q as NativeQuestion;
-    const key = ids[i] ?? wire;
+    const id = ids[i] ?? key;
     const question: QuestionSpec =
       asked.type === "score"
         ? { type: "score", instructions: asked.instructions, criteria: asked.criteria }
@@ -205,13 +207,13 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
               ),
             }
           : noulOf(asked.instructions);
-    questions[key] = question;
-    const answer = received[wire] as NonNullable<NativeReply["answers"]>[string] | undefined;
+    questions[id] = question;
+    const answer = received[key] as NonNullable<NativeReply["answers"]>[string] | undefined;
     if (answer === undefined) return;
-    answers[key] =
+    answers[id] =
       answer.type === "refusal"
         ? { type: "refusal" }
-        : fromDecisions(question, asDecisions(wire, answer));
+        : fromDecisions(question, asDecisions(key, answer));
   });
   const usage = isObj(response.usage) ? response.usage : undefined;
   const provider = upstreamUsage((response as NativeReply).providerMetadata);
@@ -222,7 +224,7 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
     path: raw.path as string | undefined,
     durationMs: raw.durationMs as number | undefined,
     status: raw.status as number | undefined,
-    wire: {
+    sent: {
       url: raw.url as string | undefined,
       body: raw.request,
       status: raw.status as number | undefined,
@@ -248,13 +250,20 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
   };
 }
 
-/** One recorded file of any form to the view model; anything unrecognized passes as legacy. */
+/** A run file's request body as sent, under `sent`: the key `wire` is an alias that reads the same. */
+export function withSentBody<T>(raw: T): T {
+  if (!isObj(raw) || !("wire" in raw) || "sent" in raw) return raw;
+  const { wire, ...rest } = raw;
+  return { ...rest, sent: wire } as T;
+}
+
+/** A file in neither the decision-model nor the decisions form is read as legacy. */
 export function normalizeRequestFile(raw: unknown): RequestFile {
   if (isObj(raw) && isObj(raw.request) && Array.isArray(raw.request.stateParts)) {
     return normalizeNative(raw, raw.request);
   }
   if (!isObj(raw) || !isObj(raw.request) || !Array.isArray(raw.request.questions)) {
-    return raw as RequestFile;
+    return withSentBody(raw) as RequestFile;
   }
   const request = raw.request;
   const response = isObj(raw.response) ? raw.response : {};
@@ -282,7 +291,7 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
     path: raw.path as string | undefined,
     durationMs: raw.durationMs as number | undefined,
     status: raw.status as number | undefined,
-    wire: {
+    sent: {
       url: raw.url as string | undefined,
       body: raw.request,
       status: raw.status as number | undefined,

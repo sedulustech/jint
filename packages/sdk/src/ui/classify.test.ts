@@ -19,14 +19,14 @@ const body = {
 };
 
 describe("a classification of an unedited recording", () => {
-  test("goes out as the same wire body the recording was", async () => {
+  test("goes out as the same request body the recording was", async () => {
     // a recorded element request: the path leads, one predicate whose text folds the criteria
-    // (the classifier keeps the id off the wire, so the bodies are built without it)
-    const wire = (state: Parameters<Classifier>[0], name: string, question: unknown) => {
+    // (the classifier keeps the id out of the request body, so the bodies are built without it)
+    const bodyOf = (state: Parameters<Classifier>[0], name: string, question: unknown) => {
       const { id: _id, ...sent } = state;
       return decisionsParams(MODEL, { state: sent, questions: { [name]: question } } as never);
     };
-    const recorded = wire(
+    const recorded = bodyOf(
       classifiedState({ path: "a.ts", source: "function f() {}", id: "e1" }, true),
       "r",
       body.question,
@@ -43,7 +43,7 @@ describe("a classification of an unedited recording", () => {
       question: body.question,
     } as never as Parameters<typeof classifyEdited>[0];
     await classifyEdited(shown, { classifier });
-    const tried = wire(asked!, "edited", shown.question);
+    const tried = bodyOf(asked!, "edited", shown.question);
     expect(JSON.stringify(tried)).toBe(JSON.stringify(recorded));
   });
 });

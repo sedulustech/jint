@@ -6,8 +6,8 @@ import { scratchDir } from "./helpers/dir.ts";
 
 jest.setTimeout(60_000);
 
-// A run against a server that speaks the System One wire (what Lemonade and TypeSafe serve): the
-// url's last segment picks the wire, a server on this machine needs no key, and the model is named
+// A run against a server that speaks the System One protocol (what Lemonade and TypeSafe serve): the
+// url's last segment picks the protocol, a server on this machine needs no key, and the model is named
 // by JINT_API_MODEL. The server is a real HTTP one, so the vendor client's own transport runs.
 const RULE = {
   name: "is_comment_justified",

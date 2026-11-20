@@ -32,7 +32,7 @@ export interface RunDetail {
   results: RequestItem[];
   /** Per-rule handle snapshot from manifest.json; empty when manifest.json is absent. */
   handles: Record<string, HandlerData>;
-  /** Each rule's question kind (noul, score, choice), from its questions' wire type. */
+  /** Each rule's question kind (noul, score, choice), from its questions' type. */
   kinds?: Record<string, string>;
   /**
    * Report.json was a fragment (torn write): canonical rules + severities fell back to per-request
@@ -103,7 +103,7 @@ export interface RequestItem {
   severities: Record<string, "error" | "warn" | null>;
 }
 
-// The request-file wire shape is SDK-owned (the run-store API lives in @jint/sdk); one name, no drift.
+// The request-file schema is SDK-owned (the run-store API lives in @jint/sdk); one name, no drift.
 export type { RequestFile } from "@jint/sdk/ui/api";
 
 // jint report shapes come from the contract package - one definition, shared with the engine.

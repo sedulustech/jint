@@ -58,8 +58,8 @@ import {
 export { grammarExtensions, knownLanguages, languageOf, unclaimedExtension, EMBEDDED };
 export type { GrammarRegistry } from "./grammars.ts";
 export { isEmptyComment };
-/** The wire captures: a docstring projects into the comment kind (it IS a comment element). */
-export type WireCapture = Exclude<Capture, "docstring">;
+/** The element captures: a docstring projects into the comment kind (it IS a comment element). */
+export type ElementCapture = Exclude<Capture, "docstring">;
 export type { Capture };
 export type { DocstringOwner } from "../types.ts";
 
@@ -78,7 +78,7 @@ export interface InventoryElement {
    * classifier route on it; the frozen vocabulary lives in query.ts. @docstring candidates carry
    * the comment capture (a docstring IS a comment element; docstringOf says whose).
    */
-  readonly capture: WireCapture;
+  readonly capture: ElementCapture;
   /** The grammar that extracted this element (the capture address resolves against it). */
   readonly grammar: string;
   /** The declared name, when a pattern bound @name (render-only; never an id). */
@@ -632,18 +632,12 @@ function signatureOf(definition: Candidate, source: string): string {
   return definition.node.text.split("\n", 1)[0]!.trimEnd();
 }
 
-function materialize(
+function definitionCandidates(
   candidates: readonly Candidate[],
-  grammarId: string,
   source: string,
   definitionCaptures: ReadonlySet<string>,
   merges: ReadonlyMap<string, MergeMode>,
-): {
-  definitions: InventoryElement[];
-  comments: InventoryElement[];
-  imports: InventoryElement[];
-} {
-  // a merging definition capture contributes one candidate per run
+): Candidate[] {
   const definitions: Candidate[] = [];
   for (const capture of definitionCaptures) {
     const members = candidates.filter((c) => c.capture === capture);
@@ -653,63 +647,93 @@ function materialize(
       for (const run of mergeRuns(members, candidates, source, mode))
         definitions.push(runCandidate(run, source));
   }
-  definitions.sort((a, b) => a.node.startIndex - b.node.startIndex);
-  const comments = candidates.filter((c) => c.capture === "comment");
-  const imports = candidates.filter((c) => c.capture === "import");
-  const orderedDefinitions = [...definitions].sort((a, b) => a.node.startIndex - b.node.startIndex);
+  return definitions.sort((a, b) => a.node.startIndex - b.node.startIndex);
+}
+
+/** Which comments and docstrings belong to which definition, and how each definition encloses. */
+interface CommentStructure {
+  enclosures: Enclosures;
+  attachedRuns: Map<Candidate, readonly Candidate[]>;
+  claimants: Map<Candidate, Candidate>;
+  internalCounts: Map<Candidate, number>;
+  docstringCounts: Map<Candidate, number>;
+  docstringTexts: Map<Candidate, readonly string[]>;
+}
+
+function commentStructure(
+  candidates: readonly Candidate[],
+  definitions: readonly Candidate[],
+  definitionCaptures: ReadonlySet<string>,
+): CommentStructure {
   const enclosures = enclosuresOf(definitions, [...candidates, ...definitions]);
   const attachedRuns = new Map<Candidate, readonly Candidate[]>();
-  // only definitions claim: a docstring or other non-definition capture inside a body is not a claimant
   const claimable = candidates.filter(
     (c) => c.capture === "comment" || c.capture === "import" || definitionCaptures.has(c.capture),
   );
   for (const scope of scopesOf(claimable, enclosures))
     for (const [definition, run] of claimCommentRuns(scope)) attachedRuns.set(definition, run);
-  const claimants = claimantsOf(attachedRuns);
-  const internalCounts = internalCommentCounts(enclosures, comments);
-  const { counts: docstringCounts, texts: docstringTexts } = docstringOwnership(
-    candidates,
+  const comments = candidates.filter((c) => c.capture === "comment");
+  const { counts, texts } = docstringOwnership(candidates, enclosures, definitions);
+  return {
     enclosures,
-    orderedDefinitions,
-  );
+    attachedRuns,
+    claimants: claimantsOf(attachedRuns),
+    internalCounts: internalCommentCounts(enclosures, comments),
+    docstringCounts: counts,
+    docstringTexts: texts,
+  };
+}
 
-  // Comments bucket (design: the three-dimension comment model): EVERY non-empty comment text
-  // lands in the bucket - standalone, attached to a definition, internal to one, or a docstring
-  // - so a comment is always judged as a comment. Attachment is extra structure on top
-  // (the attached run and internal counts live on the definition, ownership on the comment),
-  // never a replacement for presence. Only unowned ones address rules through the element
-  // itself (loose comments). A module docstring has no definition frame, so its element speaks
-  // for it in the comments group.
-  const commentTexts = [...comments, ...docstringsOf(candidates)].filter(
-    (c) => !isEmptyComment(c.node.text),
-  );
-  const commentElements = mergedComments(
-    [...new Set(commentTexts)],
-    candidates,
-    source,
-    merges.get("comment"),
-  );
-  const labels = new Map<Candidate, string>();
-  definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
-  commentElements.forEach(({ first }, i) => labels.set(first, "c" + String(i)));
+/**
+ * Every non-empty comment and docstring is a comment element, whether standalone, attached to a
+ * definition, internal to one, or a docstring. Attachment adds structure to a definition; it never
+ * removes the comment element.
+ */
+function commentCandidates(
+  candidates: readonly Candidate[],
+  source: string,
+  merges: ReadonlyMap<string, MergeMode>,
+): { element: Candidate; first: Candidate }[] {
+  const texts = [
+    ...candidates.filter((c) => c.capture === "comment"),
+    ...docstringsOf(candidates),
+  ].filter((c) => !isEmptyComment(c.node.text));
+  return mergedComments([...new Set(texts)], candidates, source, merges.get("comment"));
+}
 
-  const walkDefinitions: InventoryElement[] = definitions.map((d) => ({
+function definitionElement(
+  d: Candidate,
+  grammarId: string,
+  source: string,
+  structure: CommentStructure,
+  labels: ReadonlyMap<Candidate, string>,
+): InventoryElement {
+  return {
     id: crypto.randomUUID(),
     label: labels.get(d)!,
     span: spanOf(d.node),
     content: d.node.text,
     nodeType: d.node.type,
-    capture: d.capture as WireCapture,
+    capture: d.capture as ElementCapture,
     grammar: grammarId,
     name: d.name,
     signature: signatureOf(d, source),
-    attachedComment: attachedRuns.get(d)?.map((c) => c.node.text),
-    docstrings: docstringTexts.get(d),
-    internalCommentCount: internalCounts.get(d) ?? 0,
-    docstringCount: docstringCounts.get(d) ?? 0,
-    parent: parentLabelOf(d, enclosures, labels),
-  }));
-  const walkComments: InventoryElement[] = commentElements.map(({ element, first }) => ({
+    attachedComment: structure.attachedRuns.get(d)?.map((c) => c.node.text),
+    docstrings: structure.docstringTexts.get(d),
+    internalCommentCount: structure.internalCounts.get(d) ?? 0,
+    docstringCount: structure.docstringCounts.get(d) ?? 0,
+    parent: parentLabelOf(d, structure.enclosures, labels),
+  };
+}
+
+function commentElement(
+  { element, first }: { element: Candidate; first: Candidate },
+  grammarId: string,
+  definitions: readonly Candidate[],
+  structure: CommentStructure,
+  labels: ReadonlyMap<Candidate, string>,
+): InventoryElement {
+  return {
     id: crypto.randomUUID(),
     label: labels.get(first)!,
     span: spanOf(element.node),
@@ -719,17 +743,21 @@ function materialize(
     grammar: grammarId,
     internalCommentCount: 0,
     docstringCount: 0,
-    parent: parentLabelOf(first, enclosures, labels),
-    docstringOf: ownerOf(first, enclosures, orderedDefinitions, claimants),
-  }));
+    parent: parentLabelOf(first, structure.enclosures, labels),
+    docstringOf: ownerOf(first, structure.enclosures, definitions, structure.claimants),
+  };
+}
 
-  // imports always merge: `contiguous` unless the grammar declares otherwise
-  const walkImports: InventoryElement[] = mergeRuns(
-    imports,
-    candidates,
-    source,
-    merges.get("import") ?? "contiguous",
-  ).map((run, index) => {
+/** The import elements: imports merge `contiguous` unless the grammar declares another mode. */
+function importElements(
+  candidates: readonly Candidate[],
+  grammarId: string,
+  source: string,
+  merges: ReadonlyMap<string, MergeMode>,
+): InventoryElement[] {
+  const imports = candidates.filter((c) => c.capture === "import");
+  const runs = mergeRuns(imports, candidates, source, merges.get("import") ?? "contiguous");
+  return runs.map((run, index) => {
     const merged = runCandidate(run, source);
     return {
       id: crypto.randomUUID(),
@@ -743,8 +771,30 @@ function materialize(
       docstringCount: 0,
     };
   });
+}
 
-  return { definitions: walkDefinitions, comments: walkComments, imports: walkImports };
+function materialize(
+  candidates: readonly Candidate[],
+  grammarId: string,
+  source: string,
+  definitionCaptures: ReadonlySet<string>,
+  merges: ReadonlyMap<string, MergeMode>,
+): {
+  definitions: InventoryElement[];
+  comments: InventoryElement[];
+  imports: InventoryElement[];
+} {
+  const definitions = definitionCandidates(candidates, source, definitionCaptures, merges);
+  const structure = commentStructure(candidates, definitions, definitionCaptures);
+  const comments = commentCandidates(candidates, source, merges);
+  const labels = new Map<Candidate, string>();
+  definitions.forEach((d, i) => labels.set(d, "d" + String(i)));
+  comments.forEach(({ first }, i) => labels.set(first, "c" + String(i)));
+  return {
+    definitions: definitions.map((d) => definitionElement(d, grammarId, source, structure, labels)),
+    comments: comments.map((c) => commentElement(c, grammarId, definitions, structure, labels)),
+    imports: importElements(candidates, grammarId, source, merges),
+  };
 }
 
 export async function decompose(
@@ -799,7 +849,7 @@ export async function decompose(
   }
 }
 
-/** What every wire element shares; the wire form never carries the walked source. */
+/** What every reported element shares; the report never carries the walked source. */
 interface ProjectionBase {
   readonly span: Span;
   readonly label: string;

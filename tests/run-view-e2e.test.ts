@@ -312,7 +312,7 @@ describe("the run read model, served by the real `ui serve`", () => {
     expect(report!.status).toBe(200);
   });
 
-  test("a request whose wire state carries no path still joins its reading through the recorded path", async () => {
+  test("a request whose request body carries no path still joins its reading through the recorded path", async () => {
     const file = "1700000000001-elements-fn.ts.json";
     const seed = seedRun(
       {
