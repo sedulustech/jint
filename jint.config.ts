@@ -171,6 +171,29 @@ const has_generated_prose: RuleSchema = {
   },
 };
 
+// Names the thing, not the road it travels: a transport metaphor such as "the wire" stood for a
+// protocol, a request body, a question key, a span label and a latency at once - two names for one
+// concept or one name for many is the drift GLOSSARY.md forbids.
+export const is_named_by_transport: RuleSchema = {
+  name: "is_named_by_transport",
+  kind: "noul",
+  target: "files",
+  instructions:
+    "This unit is a source file. Does any identifier or comment in it name a piece of data, a format or a measure by the channel it travels through, instead of saying what it is?",
+  criteria: {
+    true: "At least one identifier or comment names something by its transport: a metaphor for the network or the path data takes, which could stand for several different things - a format, the bytes sent, a key inside them, the time a call took, an encoding - and leaves the reader to guess which. For example, 'the wire', 'on the wire', 'wire id' or 'down the pipe', used where the code means one specific thing such as a protocol, a request body or a span label.",
+    false:
+      "Every identifier and comment names the thing itself - for example a protocol, a request body, a response body, a latency, a url encoding or a report schema - or speaks of transport only where transport is the subject, such as a retry after a dropped connection or bytes compressed during transfer.",
+  },
+  handle: {
+    warn: {
+      greater_than: 0.5,
+      message:
+        "Name what the thing is, not how it travels: the protocol, the request or response body, the key, the latency, the encoding. If the word is new, check GLOSSARY.md first.",
+    },
+  },
+};
+
 export default defineConfig({
   rules: {
     // The measured surface: source and styles. Prose, locks, tests, fixtures are not code with
@@ -198,6 +221,7 @@ export default defineConfig({
       is_doc_stateful,
       is_headword_consistent,
       has_extra_description,
+      is_named_by_transport,
       // the site's rules, each scoped to the files it reads where the site declares them
       ...(site.rules.use as RuleSchema[]),
       // rules that live next to what they measure, in *.jint.ts files, each scoped by its own include
