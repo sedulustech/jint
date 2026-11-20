@@ -44,19 +44,33 @@ afterEach(() => {
   for (const p of pools.splice(0)) p.close();
 });
 
+/**
+ * The sdk walk test parses every file of the package twice, so its time grows with the package.
+ * Alone it takes about 10ms a file. Under `bun test --parallel` every core runs a test file, and it
+ * took up to 55ms a file. The limit is a budget per file, so it follows the file count.
+ */
+const SDK_FILES = sourceFiles(SDK_SRC);
+const WALK_BUDGET_MS_PER_FILE = 100;
+
 describe("walk pool output", () => {
-  test("every file of the sdk package walks to the same value in a worker as in-process", async () => {
-    const units = sourceFiles(SDK_SRC).map(unitOf);
-    expect(units.length).toBeGreaterThan(100);
-    const workers = pool(EMBEDDED, { size: 3 });
-    const pooled = await Promise.all(units.map((u) => workers.walk(u, {})));
-    for (const [i, unit] of units.entries()) {
-      const local = await walkUnit(unit, {});
-      // strict: an undefined-valued key and a missing key differ
-      expect(Bun.deepEquals(sansIds(pooled[i]!), sansIds(local), true), unit.state.path).toBe(true);
-    }
-    expect(workers.abandonedCount).toBe(0);
-  });
+  test(
+    "every file of the sdk package walks to the same value in a worker as in-process",
+    async () => {
+      const units = SDK_FILES.map(unitOf);
+      expect(units.length).toBeGreaterThan(100);
+      const workers = pool(EMBEDDED, { size: 3 });
+      const pooled = await Promise.all(units.map((u) => workers.walk(u, {})));
+      for (const [i, unit] of units.entries()) {
+        const local = await walkUnit(unit, {});
+        // strict: an undefined-valued key and a missing key differ
+        expect(Bun.deepEquals(sansIds(pooled[i]!), sansIds(local), true), unit.state.path).toBe(
+          true,
+        );
+      }
+      expect(workers.abandonedCount).toBe(0);
+    },
+    SDK_FILES.length * WALK_BUDGET_MS_PER_FILE,
+  );
 
   test("a custom grammar and its queries reach the workers through the registry value", async () => {
     const root = mkdtempSync(join(tmpdir(), "jint-pool-grammar-"));
