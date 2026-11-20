@@ -1,5 +1,5 @@
 import { describe, test, expect, afterAll } from "bun:test";
-import { runCli, mockDecisionsWire } from "./helpers/cli.ts";
+import { runCli, mockDecisionsEnv } from "./helpers/cli.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 const FIXTURE = "tests/fixtures/sample-file.ts";
@@ -9,7 +9,7 @@ const FIXTURE = "tests/fixtures/sample-file.ts";
 // mock provider: call count, the judged source, and the finding-string round trip.
 describe("cli: element-scoped runs (mocked provider)", () => {
   const provider = startMockDecisions();
-  const MOCK_ENV = mockDecisionsWire(provider.baseUrl);
+  const MOCK_ENV = mockDecisionsEnv(provider.baseUrl);
 
   async function runMock(args: string[], env: Record<string, string> = {}) {
     // scopes-open config: the fixture lives under tests/, which the repo config excludes -

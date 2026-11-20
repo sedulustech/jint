@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, jest, test } from "bun:test";
 import { join } from "node:path";
-import { mockDecisionsWire, RUNS_DIR } from "./helpers/cli.ts";
+import { mockDecisionsEnv, RUNS_DIR } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -49,7 +49,7 @@ function spawnBin(root: string, config: string, baseUrl: string, workers: number
       stderr: "pipe",
       env: {
         ...process.env,
-        ...mockDecisionsWire(baseUrl),
+        ...mockDecisionsEnv(baseUrl),
         JINT_RUNS_DIR: RUNS_DIR,
         JINT_CACHE_DIR: join(root, "cache", String(workers)),
         JINT_WALK_WORKERS: String(workers),

@@ -21,7 +21,7 @@ export interface CustomElement {
   readonly id: string;
   /** Positional name within its file ("d0", "c2", "i0"): display only, never an identity. */
   readonly label: string;
-  /** The owning file: identity and wire naming derive from it. */
+  /** The owning file: identity and question naming derive from it. */
   readonly path: string;
   // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
   readonly capture: import("../../types.ts").ElementCapture;
@@ -83,7 +83,7 @@ export interface ClassifyContext extends RuleContext {
 /**
  * One compiled judgment. jint schema-validates the spec, applies per-part size backstops,
  * serializes it, and calls the provider — the rule NEVER sees the classifier. Composition is free;
- * observability (the wire dumps) is the guarantee.
+ * observability (the recorded requests) is the guarantee.
  */
 export interface StateSchema {
   readonly instructions: string;

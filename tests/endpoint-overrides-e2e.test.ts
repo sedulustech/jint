@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
 // The env overrides reach a real run: visible in the report's notes and the manifest (host only),
@@ -51,7 +51,7 @@ test("the run asks POST /v1/decisions; the recording is the real exchange, witho
     ["run", "packages/cli/src/logger.ts", "--rule", "is_greppable", "--json"],
     {
       env: {
-        ...mockDecisionsWire(provider.baseUrl),
+        ...mockDecisionsEnv(provider.baseUrl),
         JINT_API_KEY: key,
         JINT_RUNS_DIR: runs,
       },
@@ -72,7 +72,7 @@ test("the run asks POST /v1/decisions; the recording is the real exchange, witho
   const sent = provider.requests.map((r) => JSON.stringify(r.body)).sort();
   expect(files.map((f) => JSON.stringify(f.request)).sort()).toEqual(sent);
   for (const file of files) {
-    expect(file.wire).toBeUndefined();
+    expect(file.sent).toBeUndefined();
     expect(file.response.answers[0]).toMatchObject({ type: "predicate", name: "q0" });
     expect(sent.join()).not.toContain(file.id);
   }
@@ -126,7 +126,7 @@ test("with no JINT_RUNS_DIR the run is recorded under the home directory's store
   const proc = await runCli(
     ["run", "packages/cli/src/logger.ts", "--rule", "is_greppable", "--json"],
     {
-      env: { ...mockDecisionsWire(provider.baseUrl), JINT_RUNS_DIR: undefined, HOME: home },
+      env: { ...mockDecisionsEnv(provider.baseUrl), JINT_RUNS_DIR: undefined, HOME: home },
     },
   );
   provider.stop();

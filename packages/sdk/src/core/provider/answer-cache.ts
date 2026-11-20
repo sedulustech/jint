@@ -1,6 +1,6 @@
 /**
  * The answer cache: one stored answer per question, on disk, keyed by the request that question
- * would be sent alone (see questionKey in decisions.ts). A hit skips the network for that question;
+ * would be sent alone (see cacheKey in decisions.ts). A hit skips the network for that question;
  * the questions of one element that miss go out together in one request.
  *
  * It holds the endpoint's own answer for the question, unread: a hit goes through the same reading

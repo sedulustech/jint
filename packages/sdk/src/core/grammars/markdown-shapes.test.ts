@@ -24,7 +24,7 @@ interface Row {
 }
 
 // The whole inventory, document order. Line/column pairs are 1-based line, 0-based column - the
-// span's own wire shape. parent references labels (d1 = "Top section", d4 = "Nested section",
+// span's own shape in the report. parent references labels (d1 = "Top section", d4 = "Nested section",
 // d20 = "Sibling section") so nesting is pinned too.
 const INVENTORY: readonly Row[] = [
   // the headingless preamble: its PARAGRAPH captures, its section never does (queries.scm: the

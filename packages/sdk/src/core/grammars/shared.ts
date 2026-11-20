@@ -74,7 +74,7 @@ export function sharedPolicyDefault(capture: string): SuppressionShape {
 }
 
 /**
- * The shared kinds' wire shapes (tier-1): how each lingua-franca capture projects to the contract
+ * The shared kinds' report shapes (tier-1): how each lingua-franca capture projects to the contract
  * Element. Autonomous captures never appear here - walk.ts projects them through the generic
  * element shape (kind = capture name) - so this table stays CLOSED over the shared names; the
  * structural guard fails if a capture-keyed behavior container appears anywhere else.

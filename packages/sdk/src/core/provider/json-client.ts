@@ -1,8 +1,8 @@
 /**
- * A small JSON-over-HTTP client for the System One wire: one POST, retried the way the vendor's own
- * client retried it. It is endpoint-agnostic (a base url and a path), so another server that takes
- * the same kind of call can reuse it. It speaks through the injected fetch, which is where the
- * recorder sits, and sends the body uncompressed so a recording stays readable.
+ * A small JSON-over-HTTP client for the System One protocol: one POST, retried the way the vendor's
+ * own client retried it. It is endpoint-agnostic (a base url and a path), so another server that
+ * takes the same kind of call can reuse it. It speaks through the injected fetch, which is where
+ * the recorder sits, and sends the body uncompressed so a recording stays readable.
  *
  * Failures leave as one of three classes: an HttpError (the server answered with a status), a
  * ConnectionError (no answer in time, or no answer at all) or a RequestError (the call never went

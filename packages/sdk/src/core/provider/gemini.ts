@@ -13,7 +13,7 @@ import { Value } from "@sinclair/typebox/value";
 import { ClassifyError, SetupError, type Adapter, type Ask } from "../types.ts";
 import { type Endpoint } from "./endpoint.ts";
 import { postJson } from "./json-client.ts";
-import { stateData, wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
+import { stateData, questionKey, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { classifyErrorCausedBy, compile, read } from "./systemone.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES } from "./transport.ts";
 import type { ClassifiedAnswer, Refusal } from "@jint/contract";
@@ -39,16 +39,16 @@ function baseUrl({ url }: Endpoint): string {
 }
 
 /**
- * System One's questions under their wire names (Gemini takes only `[A-Za-z0-9_-]` ids, and a
+ * System One's questions under their question keys (Gemini takes only `[A-Za-z0-9_-]` ids, and a
  * rule's question name has spaces), with a noul's criteria under Gemini's names.
  */
 function geminiQuestions(questions: Record<string, QuestionSpec>): Record<string, unknown> {
   const compiled = compile(questions) as Record<string, { type: string; criteria?: unknown }>;
   return Object.fromEntries(
     Object.values(compiled).map((q, i) => {
-      if (q.type !== "noul" || q.criteria === undefined) return [wireName(i), q];
+      if (q.type !== "noul" || q.criteria === undefined) return [questionKey(i), q];
       const { true: yes, false: no } = q.criteria as { true?: string; false?: string };
-      return [wireName(i), { ...q, criteria: { true_description: yes, false_description: no } }];
+      return [questionKey(i), { ...q, criteria: { true_description: yes, false_description: no } }];
     }),
   );
 }
@@ -69,9 +69,8 @@ export function geminiAdapter(
   const limits = transport.limits ?? { timeoutMs: ATTEMPT_TIMEOUT_MS, maxRetries: MAX_RETRIES };
   return {
     async ask(ask: Ask, options) {
-      let reply: unknown;
       try {
-        reply = await postJson({
+        const reply = await postJson({
           fetch: transport.fetch,
           baseUrl: base,
           path: PATH,
@@ -87,25 +86,25 @@ export function geminiAdapter(
           maxRetries: limits.maxRetries,
           log: (line) => transport.log(`provider backoff: ${line}`),
         });
+        if (!Value.Check(REPLY, reply)) {
+          throw new ClassifyError(
+            "PROVIDER_RESPONSE_INVALID",
+            ask.state.path,
+            `provider reply failed shape validation: expected { answers, usage }, got ${JSON.stringify(reply)?.slice(0, 200)}`,
+          );
+        }
+        const answers: Record<string, ClassifiedAnswer | Refusal> = {};
+        Object.entries(ask.questions).forEach(([name, spec], i) => {
+          answers[name] = read(name, spec, reply.answers[questionKey(i)], ask.state.path);
+        });
+        return {
+          model,
+          answers,
+          usage: { ...EMPTY_USAGE, input_tokens: reply.usage?.total_input_tokens ?? 0 },
+        };
       } catch (cause) {
         throw classifyErrorCausedBy(cause, ask.state.path);
       }
-      if (!Value.Check(REPLY, reply)) {
-        throw new ClassifyError(
-          "PROVIDER_RESPONSE_INVALID",
-          ask.state.path,
-          `provider reply failed shape validation: expected { answers, usage }, got ${JSON.stringify(reply)?.slice(0, 200)}`,
-        );
-      }
-      const answers: Record<string, ClassifiedAnswer | Refusal> = {};
-      Object.entries(ask.questions).forEach(([name, spec], i) => {
-        answers[name] = read(name, spec, reply.answers[wireName(i)], ask.state.path);
-      });
-      return {
-        model,
-        answers,
-        usage: { ...EMPTY_USAGE, input_tokens: reply.usage?.total_input_tokens ?? 0 },
-      };
     },
   };
 }

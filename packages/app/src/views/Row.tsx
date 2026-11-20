@@ -5,7 +5,7 @@ import type { RequestItem } from "../types";
 
 const SEV_CELL = { error: { label: "error" }, warn: { label: "warn" } } as const;
 
-/** One request wire duration: 985ms / 2.1s; em dash when unknown. */
+/** One request's latency: 985ms / 2.1s; em dash when unknown. */
 export const requestDuration = (ms: number | null): string =>
   ms === null
     ? "—"

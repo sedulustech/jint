@@ -7,7 +7,7 @@
  *   queries.scm census) and docs/directives.md (the loader's directive vocabulary): the prose
  *   around the markers is hand-written
  *
- * Run after any config-schema, rule-domain, or skill change: bun run schema:generate (wired into
+ * Run after any config-schema, rule-domain, or skill change: bun run schema:generate (connected to
  * bun run validate). Outputs are checked in so editors resolve "$schema" without running jint and
  * docs stay browsable, and CI diffs them against this output to catch drift - generated means never
  * stale.

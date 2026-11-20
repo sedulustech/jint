@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { elementWireId } from "../rules/classify.ts";
+import { spanLabel } from "../rules/classify.ts";
 import {
   ClassifyError,
   type ClassifiedAnswer,
@@ -11,7 +11,7 @@ import { createClassifier } from "./client.ts";
 const state: UnitState = {
   path: "src/a.ts",
   content: "export const x = 1;\n",
-  id: elementWireId({ start: { line: 1 }, end: { line: 2 } }),
+  id: spanLabel({ start: { line: 1 }, end: { line: 2 } }),
   includePath: true,
 };
 const questions: Record<string, QuestionSchema> = {

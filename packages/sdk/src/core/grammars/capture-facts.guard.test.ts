@@ -10,7 +10,7 @@ import { join } from "node:path";
  * hope does not prevent that; this tripwire does, and its message names the fix.
  *
  * The ONE allowed home for capture-keyed behavior is the tier-1 contract file (shared.ts - the
- * shared lingua franca's defaults and wire shapes; promoting a word INTO the shared tier keeps a
+ * shared lingua franca's defaults and report shapes; promoting a word INTO the shared tier keeps a
  * ceremony). Everything else - definitions, suppression shapes, nesting, projection - is a #set!
  * capture.<name>.<knob> directive in the OWNING grammar's .scm.
  *
@@ -37,14 +37,14 @@ const ROOTS = [
 const CAPTURE_NAMES =
   "function|method|class|type|binding|comment|import|docstring|section|paragraph|list_item|list";
 /**
- * The unquoted-key wire EXCLUDES `type` (and would exclude any equally generic key): `type:` is a
- * legitimate key in node-descriptor code (query.ts's `type: elementNode.type`), so it fires only
- * through the typed/quoted wires, whose container shapes disambiguate - a real capture table also
- * carries `function:`/`method:`/... and one of those fires.
+ * The unquoted-key detector EXCLUDES `type` (and would exclude any equally generic key): `type:` is
+ * a legitimate key in node-descriptor code (query.ts's `type: elementNode.type`), so it fires only
+ * through the typed/quoted detectors, whose container shapes disambiguate - a real capture table
+ * also carries `function:`/`method:`/... and one of those fires.
  */
 const UNQUOTED_KEY_NAMES = CAPTURE_NAMES.replace("|type", "");
 
-/** A wire that must fire ANYWHERE (except shared.ts): a typed or literal capture-keyed table. */
+/** A detector that must fire ANYWHERE (except shared.ts): a typed or literal capture-keyed table. */
 const CONSERVATIVE: readonly { readonly name: string; readonly rx: RegExp }[] = [
   { name: "typed capture table", rx: /Record<Capture\b|ReadonlySet<Capture>|Set<Capture>/ },
   {
@@ -65,9 +65,9 @@ const CONSERVATIVE: readonly { readonly name: string; readonly rx: RegExp }[] = 
 ];
 
 /**
- * A wire for the ENGINE's grammar sources only: capture-keyed object literals (unquoted keys - the
- * shape a dead PROJECTION dodged the first guard with). Too generic for the whole repo (`type:` is
- * a common innocent key outside the engine); inside grammars/ it is not.
+ * A detector for the ENGINE's grammar sources only: capture-keyed object literals (unquoted keys -
+ * the shape a dead PROJECTION dodged the first guard with). Too generic for the whole repo (`type:`
+ * is a common innocent key outside the engine); inside grammars/ it is not.
  */
 const AGGRESSIVE: readonly { readonly name: string; readonly rx: RegExp }[] = [
   {
@@ -78,7 +78,7 @@ const AGGRESSIVE: readonly { readonly name: string; readonly rx: RegExp }[] = [
 
 export interface Offender {
   readonly file: string;
-  readonly wire: string;
+  readonly detector: string;
 }
 
 /** Scan every source file under ROOTS (minus .test.ts and the tier-1 path). */
@@ -97,9 +97,9 @@ async function collectOffenders(): Promise<Offender[]> {
         await walk(p);
       } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") && p !== TIER1) {
         const text = await readFile(p, "utf8");
-        const wires = p.startsWith(GRAMMARS) ? [...CONSERVATIVE, ...AGGRESSIVE] : CONSERVATIVE;
-        for (const wire of wires)
-          if (wire.rx.test(text)) offenders.push({ file: p, wire: wire.name });
+        const detectors = p.startsWith(GRAMMARS) ? [...CONSERVATIVE, ...AGGRESSIVE] : CONSERVATIVE;
+        for (const detector of detectors)
+          if (detector.rx.test(text)) offenders.push({ file: p, detector: detector.name });
       }
     }
   }
@@ -116,47 +116,47 @@ describe("capture-facts guard — capture behavior is a .scm directive, never an
     expect(await collectOffenders(), FIX).toEqual([]);
   });
 
-  // RED-VERIFIED NEGATIVES: each planted shape must fire its named wire. If one of these fails
+  // RED-VERIFIED NEGATIVES: each planted shape must fire its named detector. If one of these fails
   // green, the guard is bypassable and the positive test above is a false promise.
   const PLANTS: readonly {
     readonly shape: string;
-    readonly wire: string;
+    readonly detector: string;
     readonly code: string;
   }[] = [
     {
       shape: "typed table",
-      wire: "typed capture table",
+      detector: "typed capture table",
       code: "const X: Record<Capture, number> = null as never;\n",
     },
     {
       shape: "Set literal",
-      wire: "quoted capture-literal container",
+      detector: "quoted capture-literal container",
       code: 'const X = new Set(["function", "type"]);\n',
     },
     {
       shape: "Map literal",
-      wire: "quoted capture-literal Map",
+      detector: "quoted capture-literal Map",
       code: 'const X = new Map([["function", 1]]);\n',
     },
     {
       shape: "switch arm",
-      wire: "capture-literal switch arm",
+      detector: "capture-literal switch arm",
       code: 'switch (c) { case "function": break; }\n',
     },
     {
       shape: "unquoted key",
-      wire: "capture-keyed object literal",
+      detector: "capture-keyed object literal",
       code: "const X = { function: 1 };\n",
     },
   ];
   for (const plant of PLANTS) {
-    test(`planted ${plant.shape} fires the guard (${plant.wire})`, async () => {
+    test(`planted ${plant.shape} fires the guard (${plant.detector})`, async () => {
       const probe = join(GRAMMARS, `planted-${plant.shape.replace(" ", "-")}.guard-probe.ts`);
       try {
         await writeFile(probe, plant.code);
         const offenders = await collectOffenders();
         expect(
-          offenders.some((o) => o.file === probe && o.wire === plant.wire),
+          offenders.some((o) => o.file === probe && o.detector === plant.detector),
           FIX,
         ).toBe(true);
       } finally {

@@ -58,7 +58,7 @@ export function renderJson(report: LintReport): string {
                 },
         ),
         // Literal ternary branches, NOT conditional spreads: the annotation makes this a typed
-        // return position, so excess-property checking fires — a field the wire shape does not
+        // return position, so excess-property checking fires — a field the report schema does not
         // declare is a COMPILE error here, not a silently dropped key. (undefined properties
         // drop under JSON.stringify, so the bytes match those of a conditional spread.)
         findings: report.findings.map(

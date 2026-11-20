@@ -1196,7 +1196,8 @@ export interface LintReport {
   run?: RunPointer;
   /**
    * The element-scoped selection's resolved units (path@L runs): WHICH element each selector
-   * captured, wire-shaped. Absent on unscoped runs - a walk judges many units, none "selected".
+   * captured, as the report carries it. Absent on unscoped runs - a walk judges many units, none
+   * "selected".
    */
   selected?: SelectedElement[];
 }

@@ -20,7 +20,7 @@ export interface Row {
   /** Names a row so another row can nest under it. */
   readonly id?: string;
   readonly kind: CapturedElement["kind"];
-  /** 1-based line, 0-based column: the span's own wire shape. */
+  /** 1-based line, 0-based column: the span's own shape in the report. */
   readonly start: readonly [number, number];
   readonly end: readonly [number, number];
   readonly name?: string;

@@ -1,7 +1,7 @@
 /**
  * The jint machine report payload shapes, as plain interfaces for consumers (the engine's TypeBox
  * schemas remain the validation truth; a type-level identity check in the engine pins the two
- * together, so this file cannot drift from the wire format).
+ * together, so this file cannot drift from the report schema).
  */
 
 import type { Severity } from "./handlers.ts";

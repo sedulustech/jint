@@ -52,7 +52,7 @@ const over = (fetch: Fetch, endpoint = GOOGLE) =>
   geminiAdapter(endpoint, { fetch, log: () => {}, limits: { timeoutMs: 5_000, maxRetries: 0 } });
 
 describe("gemini adapter", () => {
-  test("the request: Google's path, the key in x-goog-api-key, the state as text, questions by wire name, noul criteria renamed", async () => {
+  test("the request: Google's path, the key in x-goog-api-key, the state as text, questions by question key, noul criteria renamed", async () => {
     const server = fake(REPLY);
     await over(server.fetch).ask(ASK);
     const [call] = server.sent;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { ClassifyError, type Ask, type UnitState } from "../types.ts";
 import { hashOf, type AnswerStore } from "./answer-cache.ts";
 import { createClassifier } from "./client.ts";
-import { decisionsAdapter, decisionsParams, MODEL, questionKey } from "./decisions.ts";
+import { decisionsAdapter, decisionsParams, MODEL, cacheKey } from "./decisions.ts";
 import { urlIdentity, type Endpoint } from "./endpoint.ts";
 import type { Fetch } from "./protocol.ts";
 
@@ -24,7 +24,7 @@ const adapterOver = (
 ) => decisionsAdapter(provider, { fetch, log, limits });
 
 const STATE = { path: "a.ts", content: "x", includePath: true };
-/** What goes over the wire for STATE: the flag stays behind. */
+/** What the request body carries for STATE: the flag stays behind. */
 const SENT = { path: "a.ts", content: "x" };
 /** A reply that makes the client retry at once instead of after its backoff. */
 const QUICK = { "retry-after-ms": "1" };
@@ -480,7 +480,7 @@ describe("decisionsParams: the path", () => {
   });
 });
 
-describe("questionKey", () => {
+describe("cacheKey", () => {
   const api = urlIdentity("https://api.test/v1/decisions");
   const q = (instructions: string) => ({
     type: "noul" as const,
@@ -490,38 +490,32 @@ describe("questionKey", () => {
   const state = { path: "a.ts", source: "function a() {}", includePath: true };
 
   test("a question has one key wherever it sits among the others, and under any name", () => {
-    const alone = questionKey(api, MODEL, state, "x", q("Is it short?"));
-    expect(questionKey(api, MODEL, state, "another name", q("Is it short?"))).toBe(alone);
+    const alone = cacheKey(api, MODEL, state, "x", q("Is it short?"));
+    expect(cacheKey(api, MODEL, state, "another name", q("Is it short?"))).toBe(alone);
   });
 
   test("a path the model is not handed does not move the key: the same code is one question wherever it sits", () => {
     const withoutPath = { path: "a.ts", source: "function a() {}", includePath: false };
-    expect(questionKey(api, MODEL, withoutPath, "x", q("Is it short?"))).toBe(
-      questionKey(api, MODEL, { ...withoutPath, path: "elsewhere/b.ts" }, "x", q("Is it short?")),
+    expect(cacheKey(api, MODEL, withoutPath, "x", q("Is it short?"))).toBe(
+      cacheKey(api, MODEL, { ...withoutPath, path: "elsewhere/b.ts" }, "x", q("Is it short?")),
     );
   });
 
   test("anything the model reads moves the key: the question, the code, the path, the endpoint", () => {
-    const base = questionKey(api, MODEL, state, "x", q("Is it short?"));
+    const base = cacheKey(api, MODEL, state, "x", q("Is it short?"));
     const moved = [
-      questionKey(api, MODEL, state, "x", q("Is it brief?")),
-      questionKey(api, MODEL, { ...state, source: "function b() {}" }, "x", q("Is it short?")),
-      questionKey(api, MODEL, { ...state, path: "b.ts" }, "x", q("Is it short?")),
-      questionKey(
+      cacheKey(api, MODEL, state, "x", q("Is it brief?")),
+      cacheKey(api, MODEL, { ...state, source: "function b() {}" }, "x", q("Is it short?")),
+      cacheKey(api, MODEL, { ...state, path: "b.ts" }, "x", q("Is it short?")),
+      cacheKey(
         urlIdentity("https://other.test/v1/decisions"),
         MODEL,
         state,
         "x",
         q("Is it short?"),
       ),
-      questionKey(
-        urlIdentity("https://api.test/v2/decisions"),
-        MODEL,
-        state,
-        "x",
-        q("Is it short?"),
-      ),
-      questionKey(api, MODEL, state, "x", {
+      cacheKey(urlIdentity("https://api.test/v2/decisions"), MODEL, state, "x", q("Is it short?")),
+      cacheKey(api, MODEL, state, "x", {
         ...q("Is it short?"),
         criteria: { true: "yes", false: "no" },
       }),
@@ -530,20 +524,42 @@ describe("questionKey", () => {
   });
 
   test("the key hashes the bytes that were sent, and nothing outside the body shapes the call", async () => {
-    const wire = fake({ answers: [{ type: "predicate", name: "q0", probability: 0.3 }] });
+    const provider = fake({ answers: [{ type: "predicate", name: "q0", probability: 0.3 }] });
     const stored: string[] = [];
     const store: AnswerStore = { get: () => undefined, put: (key) => void stored.push(key) };
     await decisionsAdapter(PROVIDER, {
-      fetch: wire.fetch,
+      fetch: provider.fetch,
       log: () => {},
       cache: { store, endpoint: urlIdentity(URL_) },
     }).ask(ask({ r: q("Is it short?") }, state));
 
     // the stored key is the hash of the exact request body the endpoint received
-    expect(stored).toEqual([hashOf(`${urlIdentity(URL_)}\n${wire.sent[0]!.raw}`)]);
+    expect(stored).toEqual([hashOf(`${urlIdentity(URL_)}\n${provider.sent[0]!.raw}`)]);
     // a header or option that could shape the answer would not be in that hash: the call carries
     // the client's own headers and the key, nothing of jint's
-    const names = Object.keys(wire.sent[0]!.headers).filter((h) => !h.startsWith("x-stainless-"));
+    const names = Object.keys(provider.sent[0]!.headers).filter(
+      (h) => !h.startsWith("x-stainless-"),
+    );
     expect(names.sort()).toEqual(["accept", "authorization", "content-type", "user-agent"]);
+  });
+
+  test("a stored entry that throws when read is logged with its error and asked again", async () => {
+    const provider = fake({ answers: [{ type: "predicate", name: "q0", probability: 0.3 }] });
+    const broken = {
+      at: "2026-01-01T00:00:00Z",
+      model: MODEL,
+      answer: { type: "predicate", probabilities: "x" },
+    };
+    const store: AnswerStore = { get: () => broken as never, put: () => {} };
+    const lines: string[] = [];
+    const answers = await decisionsAdapter(PROVIDER, {
+      fetch: provider.fetch,
+      log: (line) => void lines.push(line),
+      cache: { store, endpoint: urlIdentity(URL_) },
+    }).ask(ask({ r: q("Is it short?") }, state));
+    expect(provider.sent).toHaveLength(1);
+    expect(answers.answers.r).toEqual({ value: 0.3 });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^answer cache: entry \w+ does not read, asking again: .+/);
   });
 });

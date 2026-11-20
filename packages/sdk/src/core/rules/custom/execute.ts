@@ -5,7 +5,7 @@
  *
  * Mid-run contract: a throwing handler fails that unit only — non-fatal, streamed, the run
  * continues; a returned Promise from a sync-only handler is the same contract violation. State is
- * composed freely by the rule (observability is the guarantee — wire dumps capture the exact
+ * composed freely by the rule (observability is the guarantee — recorded requests hold the exact
  * bytes).
  */
 

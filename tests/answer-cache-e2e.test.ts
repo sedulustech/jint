@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { serveApiRequest } from "../packages/sdk/src/ui/api.ts";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -41,7 +41,7 @@ type Project = ReturnType<typeof project>;
 const run = (p: Project, baseUrl: string, args: string[] = [], env: Record<string, string> = {}) =>
   runCli(["run", "--config", p.config, "--json", ...args], {
     env: {
-      ...mockDecisionsWire(baseUrl),
+      ...mockDecisionsEnv(baseUrl),
       JINT_CACHE_DIR: p.cache,
       JINT_RUNS_DIR: p.runs,
       ...env,
@@ -214,7 +214,7 @@ describe("answer cache", () => {
     const lines = () =>
       runCli(["run", "--config", p.config], {
         env: {
-          ...mockDecisionsWire(provider.baseUrl),
+          ...mockDecisionsEnv(provider.baseUrl),
           JINT_CACHE_DIR: p.cache,
           JINT_RUNS_DIR: p.runs,
         },

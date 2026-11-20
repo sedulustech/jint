@@ -13,22 +13,24 @@
  * its own rule loses the reading.
  */
 
+import { inspect } from "node:util";
 import OpenAI from "openai";
 import { ClassifyError, SetupError, type Adapter, type Ask } from "../types.ts";
 import { hashOf, type AnswerStore, type StoredAnswer } from "./answer-cache.ts";
 import { type Endpoint } from "./endpoint.ts";
-import { foldCriteria, stateData, wireName, type Fetch, type QuestionSpec } from "./protocol.ts";
+import { foldCriteria, stateData, questionKey, type Fetch, type QuestionSpec } from "./protocol.ts";
 import { NONE, readAnswer, readAnswers, fromDecisions, type DecisionsAnswer } from "./reading.ts";
 import { ATTEMPT_TIMEOUT_MS, MAX_RETRIES, statusError } from "./transport.ts";
+import type { ClassifiedAnswer, Refusal } from "@jint/contract";
 
 export { fromDecisions, readAnswer, type DecisionsAnswer };
-import type { DecisionCreateParams } from "openai/resources/decisions";
+import type { Decision, DecisionCreateParams } from "openai/resources/decisions";
 
 export const MODEL = "gpt-6-luna";
 
 type Question = DecisionCreateParams["questions"][number];
 
-/** The Decisions question for one question, under a wire-safe name. */
+/** The Decisions question for one question, under its question key. */
 export function toDecisions(name: string, q: QuestionSpec): Question {
   const instructions =
     typeof q.instructions === "string" ? q.instructions : JSON.stringify(q.instructions);
@@ -83,7 +85,7 @@ function withoutOpenAIEnv<T>(build: () => T): T {
   }
 }
 
-export function mapDecisionsError(e: unknown, input: string): ClassifyError {
+export function decisionsErrorCausedBy(e: unknown, input: string): ClassifyError {
   if (e instanceof ClassifyError) return e;
   if (e instanceof OpenAI.APIConnectionError) {
     return new ClassifyError("PROVIDER_UNAVAILABLE", input, `provider unreachable: ${e.message}`, {
@@ -104,12 +106,12 @@ export function decisionsParams(model: string, ask: Ask): DecisionCreateParams {
     model,
     input: [{ role: "user", content: [{ type: "input_json", data }] }],
     questions: Object.keys(ask.questions).map((name, i) =>
-      toDecisions(wireName(i), ask.questions[name]!),
+      toDecisions(questionKey(i), ask.questions[name]!),
     ),
   };
 }
 
-export function questionKey(
+export function cacheKey(
   endpoint: string,
   model: string,
   state: Ask["state"],
@@ -133,6 +135,148 @@ export interface AnswerCaching {
 
 const withoutName = ({ name: _name, ...answer }: DecisionsAnswer) => answer;
 
+/** Each question's cache key and stored answer by position, and the names no stored answer covers. */
+type Lookup = {
+  names: string[];
+  keys: string[];
+  held: (StoredAnswer | undefined)[];
+  missing: string[];
+};
+
+/** The ask narrowed to the questions `names`. */
+const only = (ask: Ask, names: string[]): Ask => ({
+  state: ask.state,
+  questions: Object.fromEntries(names.map((n) => [n, ask.questions[n]!])),
+});
+
+/**
+ * The stored answer for question `name` when it still reads, else undefined: a miss. An entry that
+ * throws when read is logged with the error and asked again.
+ */
+function storedAnswer(
+  store: AnswerStore,
+  key: string,
+  name: string,
+  q: QuestionSpec,
+  log: (line: string) => void,
+): StoredAnswer | undefined {
+  const entry = store.get(key);
+  if (entry === undefined) return undefined;
+  try {
+    return readAnswer(q, { ...entry.answer, name }) === undefined ? undefined : entry;
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    log(`answer cache: entry ${key} does not read, asking again: ${detail}`);
+    return undefined;
+  }
+}
+
+const firstHeld = (lookup: Lookup) => lookup.held.find((e) => e !== undefined);
+
+function answersInAskOrder(
+  { names, held, missing }: Lookup,
+  reply: Decision | undefined,
+): (DecisionsAnswer | undefined)[] {
+  const fresh = new Map(reply?.answers.map((a) => [a.name, a]));
+  return names.map((n, i): DecisionsAnswer | undefined =>
+    held[i] !== undefined
+      ? { ...held[i]!.answer, name: questionKey(i) }
+      : fresh.get(questionKey(missing.indexOf(n))),
+  );
+}
+
+function markCached(answers: Record<string, ClassifiedAnswer | Refusal>, { names, held }: Lookup) {
+  names.forEach((n, i) => {
+    if (held[i] !== undefined) answers[n] = { ...answers[n]!, cached: true };
+  });
+  return answers;
+}
+
+function storeFresh(
+  cache: AnswerCaching,
+  { names, keys, held }: Lookup,
+  raw: (DecisionsAnswer | undefined)[],
+  model: string,
+) {
+  const at = new Date().toISOString();
+  names.forEach((_, i) => {
+    if (held[i] === undefined)
+      cache.store.put(keys[i]!, { at, model, answer: withoutName(raw[i]!) });
+  });
+}
+
+/**
+ * Tells the cache's hit recorder which questions stored answers covered, as the exchange they stand
+ * for.
+ */
+function reportHits(cache: AnswerCaching, model: string, ask: Ask, lookup: Lookup) {
+  const { names, held } = lookup;
+  const hits = names.flatMap((n, i) => (held[i] === undefined ? [] : [n]));
+  if (hits.length === 0) return;
+  cache.hit?.(hits, {
+    request: decisionsParams(model, only(ask, hits)),
+    response: {
+      model: firstHeld(lookup)!.model,
+      answers: names.flatMap((n, i) =>
+        held[i] === undefined ? [] : [{ ...held[i]!.answer, name: questionKey(hits.indexOf(n)) }],
+      ),
+    },
+  });
+}
+
+const usageOf = (reply: Decision | undefined) => ({
+  input_tokens: reply?.usage?.input_tokens ?? 0,
+  output_tokens: reply?.usage?.output_tokens ?? 0,
+  cached_input_tokens: reply?.usage?.input_tokens_details?.cached_tokens ?? 0,
+});
+
+/** The official client, pointed at the endpoint, its requests through `fetch`, its logs to `log`. */
+function decisionsClient(
+  apiKey: string,
+  baseURL: string,
+  limits: { timeoutMs: number; maxRetries: number },
+  transport: { fetch: Fetch; log: (line: string) => void },
+): OpenAI {
+  return withoutOpenAIEnv(
+    () =>
+      new OpenAI({
+        apiKey,
+        baseURL,
+        organization: null,
+        project: null,
+        webhookSecret: null,
+        adminAPIKey: null,
+        maxRetries: limits.maxRetries,
+        timeout: limits.timeoutMs,
+        fetch: (input, init) =>
+          transport.fetch(
+            typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+            init,
+          ),
+        logLevel: "info",
+        logger: clientLogger(transport.log),
+      }),
+  );
+}
+
+/** A log line's arguments in full: a string as it is, an error or object with its detail. */
+const logged = (args: unknown[]) =>
+  args.map((a) => (typeof a === "string" ? a : inspect(a, { depth: 4 }))).join(" ");
+
+/** The client's logger: retries, warnings and errors go to `log`; debug output is dropped. */
+function clientLogger(log: (line: string) => void) {
+  return {
+    debug: () => {},
+    // "<request> 429 Too Many Requests in 12ms - retrying, 2 attempts remaining"
+    info: (message: string, ...args: unknown[]) => {
+      if (message.includes("retrying,")) log(`provider backoff: ${message} ${logged(args)}`);
+    },
+    warn: (message: string, ...args: unknown[]) => log(`provider warn: ${message} ${logged(args)}`),
+    error: (message: string, ...args: unknown[]) =>
+      log(`provider error: ${message} ${logged(args)}`),
+  };
+}
+
 /**
  * The adapter for the Decisions endpoint. `fetch` is the client's transport (the recorder sits
  * there); the client retries and times out per attempt. A reply, a refusal, or a failure all leave
@@ -152,124 +296,57 @@ export function decisionsAdapter(
   const apiKey = endpoint.apiKey;
   if (apiKey === undefined)
     throw new SetupError("CONFIG_INVALID", endpoint.unusable ?? "no API key");
-  const limits = transport.limits ?? { timeoutMs: ATTEMPT_TIMEOUT_MS, maxRetries: MAX_RETRIES };
-  const client = withoutOpenAIEnv(
-    () =>
-      new OpenAI({
-        apiKey,
-        baseURL,
-        organization: null,
-        project: null,
-        webhookSecret: null,
-        adminAPIKey: null,
-        maxRetries: limits.maxRetries,
-        timeout: limits.timeoutMs,
-        fetch: (input, init) =>
-          transport.fetch(
-            typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
-            init,
-          ),
-        logLevel: "info",
-        logger: {
-          debug: () => {},
-          // "<request> 429 Too Many Requests in 12ms - retrying, 2 attempts remaining"
-          info: (message, ...args) => {
-            if (message.includes("retrying,"))
-              transport.log(`provider backoff: ${message} ${args.join(" ")}`);
-          },
-          warn: (message, ...args) => transport.log(`provider warn: ${message} ${args.join(" ")}`),
-          error: (message, ...args) =>
-            transport.log(`provider error: ${message} ${args.join(" ")}`),
-        },
-      }),
-  );
+  const limits = transport.limits ?? {
+    timeoutMs: ATTEMPT_TIMEOUT_MS,
+    maxRetries: MAX_RETRIES,
+  };
+  const client = decisionsClient(apiKey, baseURL, limits, transport);
   const cache = transport.cache;
-  /** The stored answer for question `name` when it still reads, else undefined: a miss. */
-  const stored = (key: string, name: string, q: QuestionSpec): StoredAnswer | undefined => {
-    const entry = cache?.store.get(key);
-    if (entry === undefined) return undefined;
-    try {
-      return readAnswer(q, { ...entry.answer, name }) === undefined ? undefined : entry;
-    } catch {
-      return undefined;
-    }
+  const lookUp = (ask: Ask): Lookup => {
+    const names = Object.keys(ask.questions);
+    const keys = cache
+      ? names.map((n) => cacheKey(cache.endpoint, model, ask.state, n, ask.questions[n]!))
+      : [];
+    const held = names.map((n, i) =>
+      cache
+        ? storedAnswer(cache.store, keys[i]!, questionKey(i), ask.questions[n]!, transport.log)
+        : undefined,
+    );
+    const missing = names.flatMap((n, i) => (held[i] === undefined ? [n] : []));
+    return { names, keys, held, missing };
+  };
+  /** The endpoint's reply for the questions no stored answer covers; an ask of none still goes out. */
+  const askMissing = (ask: Ask, lookup: Lookup, signal?: AbortSignal) => {
+    const { names, missing } = lookup;
+    if (names.length > 0 && missing.length === 0) return Promise.resolve(undefined);
+    const scope = cache?.scope ?? ((_names, body) => body());
+    return scope(missing, () =>
+      client.decisions.create(decisionsParams(model, only(ask, missing)), {
+        signal,
+      }),
+    );
   };
   return {
     async ask(ask, options) {
       try {
-        const names = Object.keys(ask.questions);
-        const keys = cache
-          ? names.map((n) => questionKey(cache.endpoint, model, ask.state, n, ask.questions[n]!))
-          : [];
-        const held = names.map((n, i) =>
-          cache ? stored(keys[i]!, wireName(i), ask.questions[n]!) : undefined,
+        const lookup = lookUp(ask);
+        const reply = await askMissing(ask, lookup, options?.signal);
+        const raw = answersInAskOrder(lookup, reply);
+        const answers = markCached(
+          readAnswers(ask, (key) => raw[Number(key.slice(1))]),
+          lookup,
         );
-        const missing = names.flatMap((n, i) => (held[i] === undefined ? [n] : []));
-        const askMissing: Ask = {
-          state: ask.state,
-          questions: Object.fromEntries(missing.map((n) => [n, ask.questions[n]!])),
-        };
-        // nothing is sent when stored answers cover every question (an ask of none still goes out)
-        const reply =
-          names.length > 0 && missing.length === 0
-            ? undefined
-            : await (cache?.scope ?? ((_names, body) => body()))(missing, () =>
-                client.decisions.create(decisionsParams(model, askMissing), {
-                  signal: options?.signal,
-                }),
-              );
-        const fresh = new Map(reply?.answers.map((a) => [a.name, a]));
-        // every question's answer at its position in this ask, whether stored or just asked
-        const raw = names.map((n, i): DecisionsAnswer | undefined =>
-          held[i] !== undefined
-            ? { ...held[i]!.answer, name: wireName(i) }
-            : fresh.get(wireName(missing.indexOf(n))),
-        );
-        const answers = readAnswers(ask, (wire) => raw[Number(wire.slice(1))]);
-        // an answer the cache held was not asked for in this run: it says so
-        names.forEach((n, i) => {
-          if (held[i] !== undefined) answers[n] = { ...answers[n]!, cached: true };
-        });
         if (cache !== undefined) {
-          const now = new Date().toISOString();
-          names.forEach((_, i) => {
-            if (held[i] === undefined)
-              cache.store.put(keys[i]!, {
-                at: now,
-                model: reply?.model ?? model,
-                answer: withoutName(raw[i]!),
-              });
-          });
-          const hits = names.flatMap((n, i) => (held[i] === undefined ? [] : [n]));
-          if (hits.length > 0) {
-            const askHits: Ask = {
-              state: ask.state,
-              questions: Object.fromEntries(hits.map((n) => [n, ask.questions[n]!])),
-            };
-            cache.hit?.(hits, {
-              request: decisionsParams(model, askHits),
-              response: {
-                model: held.find((e) => e !== undefined)!.model,
-                answers: names.flatMap((n, i) =>
-                  held[i] === undefined
-                    ? []
-                    : [{ ...held[i]!.answer, name: wireName(hits.indexOf(n)) }],
-                ),
-              },
-            });
-          }
+          storeFresh(cache, lookup, raw, reply?.model ?? model);
+          reportHits(cache, model, ask, lookup);
         }
         return {
-          model: reply?.model ?? held.find((e) => e !== undefined)?.model ?? model,
+          model: reply?.model ?? firstHeld(lookup)?.model ?? model,
           answers,
-          usage: {
-            input_tokens: reply?.usage?.input_tokens ?? 0,
-            output_tokens: reply?.usage?.output_tokens ?? 0,
-            cached_input_tokens: reply?.usage?.input_tokens_details?.cached_tokens ?? 0,
-          },
+          usage: usageOf(reply),
         };
-      } catch (e) {
-        throw mapDecisionsError(e, ask.state.path);
+      } catch (cause) {
+        throw decisionsErrorCausedBy(cause, ask.state.path);
       }
     },
   };

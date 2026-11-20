@@ -56,7 +56,7 @@ describe("resolveEndpoint: the key you export picks the destination", () => {
     );
   });
 
-  test("only GEMINI_API_KEY: Google's url, that key, the Gemini wire", () => {
+  test("only GEMINI_API_KEY: Google's url, that key, the Gemini protocol", () => {
     const r = resolveEndpoint({}, { GEMINI_API_KEY: "g" });
     expect(r).toMatchObject({ url: GEMINI_URL, apiKey: "g", protocol: "gemini" });
   });
@@ -76,7 +76,7 @@ describe("resolveEndpoint: the key you export picks the destination", () => {
     expect(r.apiKey).toBe("j");
   });
 
-  test("the wire is named by the url's end, except at Google's host", () => {
+  test("the protocol is named by the url's end, except at Google's host", () => {
     expect(protocolOf("https://x.test/v1/systemone")).toBe("systemone");
     expect(protocolOf("https://x.test/v1/decisions")).toBe("decisions");
     expect(protocolOf(GEMINI_URL)).toBe("gemini");
@@ -125,7 +125,7 @@ describe("resolveEndpoint: a caller of the SDK overrides the run", () => {
   });
 });
 
-describe("resolveEndpoint: the url picks the wire", () => {
+describe("resolveEndpoint: the url picks the protocol", () => {
   test("no url: OpenAI's Decisions endpoint, whatever the model setting", () => {
     expect(resolveEndpoint({}, { OPENAI_API_KEY: "k" })).toMatchObject({
       protocol: "decisions",
@@ -133,7 +133,7 @@ describe("resolveEndpoint: the url picks the wire", () => {
       model: undefined,
     });
   });
-  test("a url ending in /systemone is the System One wire, a /decisions one is Decisions", () => {
+  test("a url ending in /systemone is the System One protocol, a /decisions one is Decisions", () => {
     const env = { JINT_API_KEY: "k" };
     const at = (url: string) => resolveEndpoint({ url }, env).protocol;
     expect(at("https://api.example.test/v1/systemone")).toBe("systemone");

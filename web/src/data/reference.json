@@ -306,7 +306,7 @@
           "level": 3,
           "name": "JINT_API_URL",
           "pills": [["default", "OpenAI's Decisions API"]],
-          "body": "The endpoint. Its last segment names the wire. See [models and endpoints](../endpoints.md)."
+          "body": "The endpoint. Its last segment names the protocol. See [models and endpoints](../endpoints.md)."
         },
         {
           "id": "jint-api-key",

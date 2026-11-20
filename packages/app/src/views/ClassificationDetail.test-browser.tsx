@@ -6,9 +6,9 @@ import { ClassificationDetail } from "./ClassificationDetail";
 
 afterEach(cleanup);
 
-// run-a: borderline.ts carries a wire request (the translated body); high.ts predates wire capture
-const WITH_WIRE = "1700000000001-files-borderline.ts.json";
-const WITHOUT_WIRE = "1700000000002-files-high.ts.json";
+// run-a: borderline.ts carries a sent request body (the translated body); high.ts predates request-body capture
+const WITH_SENT = "1700000000001-files-borderline.ts.json";
+const WITHOUT_SENT = "1700000000002-files-high.ts.json";
 // a decisions-form recording: the real exchange, served as the same view model
 const DECISIONS_FORM = "1700000000017-files-decisions.ts.json";
 
@@ -46,7 +46,7 @@ const ready = () =>
   );
 
 test("the classification view defaults to the code and toggles to the raw request and back", async () => {
-  open(WITH_WIRE, "src/borderline.ts");
+  open(WITH_SENT, "src/borderline.ts");
   await ready();
   expect(q('[data-testid="classification-view-code"]')!.getAttribute("aria-pressed")).toBe("true");
   expect(q('[data-testid="classification-request"]')).toBeNull();
@@ -79,7 +79,7 @@ test("the classification view defaults to the code and toggles to the raw reques
 });
 
 test("the copy button copies what the active view renders", async () => {
-  open(WITH_WIRE, "src/borderline.ts");
+  open(WITH_SENT, "src/borderline.ts");
   await ready();
   await page.getByRole("button", { name: "copy code" }).click();
   await waitFor(() => expect(copied).toHaveLength(1));
@@ -92,7 +92,7 @@ test("the copy button copies what the active view renders", async () => {
 });
 
 test("the request reads parsed by default: input expanded, strings across real lines", async () => {
-  open(WITH_WIRE, "src/borderline.ts");
+  open(WITH_SENT, "src/borderline.ts");
   await ready();
   await page.getByTestId("classification-view-request").click();
   expect(q('[data-testid="classification-request-parsed"]')!.getAttribute("aria-pressed")).toBe(
@@ -123,7 +123,7 @@ test("the request reads parsed by default: input expanded, strings across real l
 });
 
 test("raw shows the escaped string; the copy button gives the exact body in both forms", async () => {
-  open(WITH_WIRE, "src/borderline.ts");
+  open(WITH_SENT, "src/borderline.ts");
   await ready();
   await page.getByTestId("classification-view-request").click();
   await page.getByRole("button", { name: "copy request" }).click();
@@ -141,11 +141,11 @@ test("raw shows the escaped string; the copy button gives the exact body in both
   expect(typeof JSON.parse(copied[1]!).input).toBe("string");
 });
 
-test("a recording without a wire shows jint's request shape and says so", async () => {
-  open(WITHOUT_WIRE, "src/high.ts");
+test("a recording without a sent body shows jint's request shape and says so", async () => {
+  open(WITHOUT_SENT, "src/high.ts");
   await ready();
   await page.getByTestId("classification-view-request").click();
-  expect(q('[data-testid="classification-request"]')!.getAttribute("data-wire")).toBe("false");
+  expect(q('[data-testid="classification-request"]')!.getAttribute("data-sent")).toBe("false");
   expect(q('[data-testid="classification-request-note"]')).not.toBeNull();
   // parsed (default): the recorded shape reads across lines; raw: the pretty JSON; same copy
   expect(q('[data-testid="classification-request-parsed-panel"]')!.textContent).toContain(
@@ -170,7 +170,7 @@ test("a decisions-form recording shows its state, and its real request body", as
   );
   await page.getByTestId("classification-view-request").click();
   await page.getByTestId("classification-request-raw").click();
-  expect(q('[data-testid="classification-request"]')!.getAttribute("data-wire")).toBe("true");
+  expect(q('[data-testid="classification-request"]')!.getAttribute("data-sent")).toBe("true");
   expect(q('[data-testid="classification-request-note"]')).toBeNull();
   const body = JSON.parse(q('[data-testid="classification-request"] pre')!.textContent!);
   expect(body.input[0].content[0].type).toBe("input_json");

@@ -66,7 +66,7 @@ function childEnv(extra?: Record<string, string | undefined>): Record<string, st
  * The env for a run answered by a Decisions mock at `baseUrl` (startMockDecisions, or a dead
  * address): its url and a throwaway key, through the same env overrides a user has.
  */
-export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
+export const mockDecisionsEnv = (baseUrl: string): Record<string, string> => ({
   JINT_API_URL: `${baseUrl}/v1/decisions`,
   JINT_API_KEY: "test",
 });
@@ -75,7 +75,7 @@ export const mockDecisionsWire = (baseUrl: string): Record<string, string> => ({
 export const hasLiveKey = (): boolean => resolveEndpoint({}, process.env).apiKey !== undefined;
 
 /** The env for a run with no key. */
-export const NO_KEY_WIRE = {
+export const NO_KEY_ENV = {
   JINT_API_KEY: "",
   OPENAI_API_KEY: "",
   GEMINI_API_KEY: "",

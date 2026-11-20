@@ -1,7 +1,7 @@
 /**
  * What the adapter and the run view share: the question shape the rules write, the fetch the
- * adapter runs on, and the wire name of a question. Where and with which key is data (endpoint.ts),
- * never a branch here.
+ * adapter runs on, and the question key of a question. Where and with which key is data
+ * (endpoint.ts), never a branch here.
  */
 
 import type { Usage } from "../types.ts";
@@ -9,7 +9,7 @@ import type { Usage } from "../types.ts";
 export type { Usage };
 
 /**
- * The state as the judge reads it, on either wire. A rule that does not include the path
+ * The state as the judge reads it, in either protocol. A rule that does not include the path
  * (includePath false) is asked without it, so the same code is the same request wherever the file
  * sits. A state that says nothing goes out as it is: a callback rule builds its own state and owns
  * what is in it. The flag itself never travels.
@@ -60,8 +60,8 @@ export type QuestionSpec = {
 };
 
 /**
- * A noul's question text on the wire: the Decisions API's predicate has no criteria field, so what
- * a yes and a no mean is folded into its instructions.
+ * A noul's question text in the request body: the Decisions API's predicate has no criteria field,
+ * so what a yes and a no mean is folded into its instructions.
  */
 export function foldCriteria(
   instructions: string,
@@ -96,4 +96,4 @@ export function unfoldCriteria(text: string): {
   return { instructions: text.slice(0, at), criteria };
 }
 
-export const wireName = (i: number): string => `q${i}`;
+export const questionKey = (i: number): string => `q${i}`;

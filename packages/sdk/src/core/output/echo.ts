@@ -1,6 +1,6 @@
 /** The content echo for element-scoped queries - stderr only; stdout stays finding data. */
 import { fileUnit } from "../input/file.ts";
-import { elementWireId, selectElement, selectElements } from "../rules/classify.ts";
+import { spanLabel, selectElement, selectElements } from "../rules/classify.ts";
 import type { InventoryElement } from "../grammars/walk.ts";
 import type { Finding, Rule, Span, Unit } from "../types.ts";
 
@@ -56,9 +56,12 @@ export interface EchoRender {
   readonly body: string;
 }
 
-/** One resolved element of an element-scoped selection, wire-shaped: what the run judged. */
+/**
+ * One resolved element of an element-scoped selection, as the report carries it: what the run
+ * judged.
+ */
 export interface SelectedElement {
-  /** The wire id (L38, L58-L59) findings and selectors paste back. */
+  /** The span label (L38, L58-L59) findings and selectors paste back. */
   readonly id: string;
   readonly path: string;
   /** The jint capture the element is (definition, comment, ...). */
@@ -94,9 +97,9 @@ function pickElements(
 }
 
 /**
- * The wire-shaped selection: one walk of the file, every element the selector picks, in selector
- * order. The run's consumer prints WHICH element was captured before trusting any score against it
- * - the SDK exposes the fact, the client owns the rendering.
+ * The selection as the report carries it: one walk of the file, every element the selector picks,
+ * in selector order. The run's consumer prints WHICH element was captured before trusting any score
+ * against it - the SDK exposes the fact, the client owns the rendering.
  */
 export async function selectedElements(selection: EchoSelection): Promise<SelectedElement[]> {
   const unit: Unit = await fileUnit(selection.path);
@@ -105,7 +108,7 @@ export async function selectedElements(selection: EchoSelection): Promise<Select
   if (inventory.length === 0) return [];
   const picked: InventoryElement[] = pickElements(selection, inventory).flatMap((i) => i.elements);
   return picked.map((e) => ({
-    id: elementWireId(e.span),
+    id: spanLabel(e.span),
     path: selection.path,
     kind: e.capture,
     name: e.name,
@@ -116,8 +119,8 @@ export async function selectedElements(selection: EchoSelection): Promise<Select
 }
 
 /**
- * The full echo block. One walk of the selected file; spans render as wire ids (L38, L58-L59), the
- * notation findings and selectors use.
+ * The full echo block. One walk of the selected file; spans render as span labels (L38, L58-L59),
+ * the notation findings and selectors use.
  */
 export async function selectionEcho(
   selection: EchoSelection,
@@ -130,7 +133,7 @@ export async function selectionEcho(
   const items = pickElements(selection, inventory).map((item) => ({
     label: item.label,
     elements: item.elements,
-    spans: item.elements.map((e) => elementWireId(e.span)),
+    spans: item.elements.map((e) => spanLabel(e.span)),
   }));
   const headers = items.map((item) => {
     const noun = item.spans.length === 1 ? "element" : "elements";
@@ -138,7 +141,7 @@ export async function selectionEcho(
   });
   const picked = new Map<string, InventoryElement>();
   for (const item of items)
-    for (const element of item.elements) picked.set(elementWireId(element.span), element);
+    for (const element of item.elements) picked.set(spanLabel(element.span), element);
   const blocks: string[] = [];
   for (const [id, element] of picked) {
     const v = verdicts(findings, element.span);

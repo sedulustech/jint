@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 import { startServe } from "./helpers/ui-serve.ts";
@@ -47,7 +47,7 @@ test("an element cell resolves to the request recorded for that element", async 
   try {
     const run = await runCli(["run", "--config", config, "--json"], {
       env: {
-        ...mockDecisionsWire(provider.baseUrl),
+        ...mockDecisionsEnv(provider.baseUrl),
         JINT_CACHE_DIR: join(dir, "cache"),
         JINT_RUNS_DIR: store,
       },

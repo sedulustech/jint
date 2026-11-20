@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { mockDecisionsWire, runCli } from "./helpers/cli.ts";
+import { mockDecisionsEnv, runCli } from "./helpers/cli.ts";
 import { rmScratchTree, scratchDir } from "./helpers/dir.ts";
 import { startMockDecisions } from "./helpers/mock-provider.ts";
 
@@ -39,7 +39,7 @@ async function run(dir: string, baseUrl: string, args: string[], stdin?: string)
     cwd: dir,
     stdin,
     env: {
-      ...mockDecisionsWire(baseUrl),
+      ...mockDecisionsEnv(baseUrl),
       JINT_CACHE_DIR: join(dir, "cache"),
       JINT_RUNS_DIR: join(dir, "runs"),
     },

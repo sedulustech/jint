@@ -1,8 +1,6 @@
 /**
  * Request-mode column spec - the ONE source of truth for the request-log grid. The header
- * (RequestTable) and the row cells (Row) both consume this; widths live here so the two can never
- * drift again (they drifted once: the rule column drop left the row at w-10 while the header went
- * w-16).
+ * (RequestTable) and the row cells (Row) both consume this, so they share each column's width.
  *
  * `path` has no width: it is the flex-1 tail that absorbs the remaining space.
  */
@@ -12,7 +10,7 @@ export const REQUEST_COLUMNS = [
   { key: "maxProb" as const, label: "max-p", width: "w-20" },
   // question count = rules judged in this request; sorts with rule (data, not signal)
   { key: "rule" as const, label: "rule count", width: "w-24" },
-  // wire duration of the classifier call (recorded durationMs; mtime heuristic on old runs)
+  // latency of the classifier call: its recorded durationMs, else estimated from file times
   { key: "duration" as const, label: "duration", width: "w-20" },
 ];
 
