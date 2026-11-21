@@ -1,0 +1,46 @@
+---
+/**
+ * The year at the bottom left of every page, and the company that makes jint at the bottom right,
+ * linked to its site. A centered page pins the two to its bottom corners; a document ends with them,
+ * under a rule like the one under its header.
+ */
+import { COMPANY_URL } from "../lib/consts";
+
+interface Props {
+  placement: "corner" | "page-end";
+}
+
+const { placement } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class:list={["company", placement]}>
+  <span>© {year}</span>
+  <a href={COMPANY_URL}>Sedulus</a>
+</footer>
+
+<style>
+  .company {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  a:hover {
+    color: var(--fg);
+  }
+
+  .corner {
+    position: fixed;
+    bottom: max(var(--s2), env(safe-area-inset-bottom, 0px));
+    left: max(var(--s2), env(safe-area-inset-left, 0px));
+    right: max(var(--s2), env(safe-area-inset-right, 0px));
+  }
+
+  .page-end {
+    margin-top: var(--s6);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--rule);
+  }
+</style>

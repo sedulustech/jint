@@ -3,6 +3,7 @@ import Layout from "./Layout.astro";
 import { docGroups, labelOf, type Doc } from "../lib/docs";
 import HeaderLogo from "../components/HeaderLogo.astro";
 import HeaderTools from "../components/HeaderTools.astro";
+import CompanyFooter from "../components/CompanyFooter.astro";
 import PrimaryButton from "../components/PrimaryButton.astro";
 import CopyCode from "../components/CopyCode.astro";
 import FigureZoom from "../components/FigureZoom.astro";
@@ -118,6 +119,7 @@ function docJsonLd(doc: Doc, site: URL): object[] {
       <CopyCode />
       <FigureZoom />
     </div>
+    <CompanyFooter placement="page-end" />
   </div>
 </Layout>
 
