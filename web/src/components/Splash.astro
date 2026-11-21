@@ -1,10 +1,12 @@
 ---
 /**
- * The centered page: the logo, an optional line over or under it, and the links. The landing page and the
- * 404 share it so they stay identical; pass the links in the "links" slot.
+ * The centered page: the logo, an optional line over or under it, the links, and the company in the
+ * bottom-right corner. The landing page and the 404 share it so they stay identical; pass the links
+ * in the "links" slot.
  */
 import HeaderTools from "./HeaderTools.astro";
 import Logo from "./Logo.astro";
+import CompanyFooter from "./CompanyFooter.astro";
 ---
 
 <div class="corner"><HeaderTools /></div>
@@ -16,6 +18,7 @@ import Logo from "./Logo.astro";
     <slot name="links" />
   </nav>
 </main>
+<CompanyFooter placement="corner" />
 
 <style>
   .corner {

@@ -1,6 +1,9 @@
 /** The branch the docs and binaries ship from (the decisions model, ahead of main). */
 export const BRANCH = "feat/decisions-model";
 
+/** The company that makes jint, for the footer link. */
+export const COMPANY_URL = "https://sedulus.tech";
+
 const REPO = "https://github.com/sedulustech/jint";
 
 /** The repository page on the shipping branch, for the header link. */
