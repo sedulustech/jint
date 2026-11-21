@@ -10,12 +10,7 @@ const css = ["web/src/**/*.css", "src/**/*.css"];
 // Where each page's title and description are written: a static page's own .astro file, and a
 // doc's front matter. The layouts and the docs route only hold placeholders that a page fills in.
 const pages = ["web/src/pages/*.astro", "src/pages/*.astro", "docs/**/*.md"];
-const unindexed = [
-  "web/src/pages/404.astro",
-  "src/pages/404.astro",
-  "docs/designs/**",
-  "../docs/designs/**",
-];
+const unindexed = ["web/src/pages/404.astro", "src/pages/404.astro", "docs/designs/**"];
 const useCases = ["docs/use-cases/**/*.md", "docs/examples/**/*.md"];
 
 export default {
