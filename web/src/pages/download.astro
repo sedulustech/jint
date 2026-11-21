@@ -22,7 +22,6 @@ const BETA = "/dl/download/beta";
 >
   <h1>Download</h1>
   <p>Download the beta version.</p>
-  <p class="notice" role="note">The macOS binaries are signed but not notarized.</p>
   <ul class="platforms">
     {
       PLATFORMS.map(({ label, file }) => (
@@ -55,13 +54,6 @@ const BETA = "/dl/download/beta";
     justify-content: space-between;
     gap: var(--s1);
     width: 100%;
-  }
-
-  .notice {
-    margin: 0 0 var(--s2);
-    padding: var(--s1) var(--s2);
-    border: 1px solid var(--sev-warn);
-    background: color-mix(in srgb, var(--sev-warn) 12%, transparent);
   }
 
   .file {
