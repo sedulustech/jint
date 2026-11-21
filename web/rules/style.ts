@@ -10,7 +10,7 @@ export const has_off_palette_color: RuleSchema = {
   name: "has_off_palette_color",
   target: "files",
   instructions:
-    "Does a style rule in this file set a color from a literal value (a hex code, rgb(), hsl(), or a color name) instead of from one of the palette tokens var(--bg), var(--fg), var(--muted), var(--rule), var(--code-bg), var(--sev-warn) and var(--sev-error)? The block that declares the palette tokens themselves is not a style rule.",
+    "Does a style rule in this file set a color from a literal value (a hex code, rgb(), hsl(), or a color name) instead of from one of the palette tokens var(--bg), var(--fg), var(--muted), var(--rule), var(--code-bg), var(--sev-warn) and var(--sev-error)? The block that declares the palette tokens themselves is not a style rule, and neither is a theme-color meta tag: it is an HTML attribute, which cannot use a token.",
   criteria: {
     true: "A style rule sets color, background, border, fill, stroke or a shadow from a literal color value such as #333, rgb(0 0 0 / 0.5) or red. The keywords currentColor and transparent are not literal colors.",
     false:
