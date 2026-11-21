@@ -7,23 +7,19 @@ import { rules as style } from "./rules/style.ts";
 // path from the repo root (the root config imports this file) and from web/ (a run started here).
 const astro = ["web/src/**/*.astro", "src/**/*.astro"];
 const css = ["web/src/**/*.css", "src/**/*.css"];
-const pages = ["web/src/pages/**/*.astro", "src/pages/**/*.astro"];
-// the home page is a splash and the 404 page is not indexed: the page-copy rules skip both
-const skipped = [
-  "web/src/pages/index.astro",
-  "web/src/pages/404.astro",
-  "src/pages/index.astro",
-  "src/pages/404.astro",
-];
+// Where each page's title and description are written: a static page's own .astro file, and a
+// doc's front matter. The layouts and the docs route only hold placeholders that a page fills in.
+const pages = ["web/src/pages/*.astro", "src/pages/*.astro", "docs/**/*.md"];
+const unindexed = ["web/src/pages/404.astro", "src/pages/404.astro", "docs/designs/**"];
 const useCases = ["docs/use-cases/**/*.md", "docs/examples/**/*.md"];
 
 export default {
   rules: {
     use: [
-      // Open Graph: the page's title, description and social image, in the pages that set them
-      ...opengraph.map((rule) => ({ ...rule, include: astro, exclude: skipped })),
+      // Open Graph: the page's title, description and social image, where each page writes them
+      ...opengraph.map((rule) => ({ ...rule, include: pages, exclude: unindexed })),
       // SEO: the title a searcher sees, in the pages that set one
-      { ...has_title_without_context, include: pages, exclude: skipped },
+      { ...has_title_without_context, include: pages, exclude: unindexed },
       // style: the site's colors against its palette, in .astro <style> blocks and .css files
       ...style.map((rule) => ({ ...rule, include: [...astro, ...css] })),
       // docs: what a page says against what its front matter promises

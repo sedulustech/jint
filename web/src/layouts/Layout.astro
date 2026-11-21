@@ -1,9 +1,12 @@
 ---
 interface Props {
-  title?: string;
-  description?: string;
+  /** every page names itself: the layout has no default title or description */
+  title: string;
+  description: string;
   /** social-card image path; defaults to the sitewide card */
   image?: string;
+  /** what the social image shows, including any text printed on it */
+  imageAlt?: string;
   /** og:type: "website" for pages, "article" for docs */
   type?: "website" | "article";
   /** keep the page out of search indexes (the 404 page) */
@@ -15,9 +18,10 @@ interface Props {
 }
 
 const {
-  title = "jint",
-  description = "jint turns your team's conventions into lint rules written in plain English, and enforces them in your CI or locally.",
+  title,
+  description,
   image = "/og.png",
+  imageAlt = "The jint logo: nested white square brackets around a white rectangle, on black.",
   type = "website",
   noindex = false,
   jsonLd = [],
@@ -51,10 +55,12 @@ const imageUrl = new URL(image, site).href;
     <meta property="og:image" content={imageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={imageUrl} />
+    <meta name="twitter:image:alt" content={imageAlt} />
     {jsonLd.length > 0 && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
     <title>{title}</title>
     <script is:inline>
