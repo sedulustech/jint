@@ -419,6 +419,7 @@ describe("through createClassifier", () => {
       [
         "durationMs",
         "id",
+        "kind",
         "path",
         "questionIds",
         "request",

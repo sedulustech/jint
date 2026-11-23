@@ -93,3 +93,50 @@ describe("listRuns error surface", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("a composed state's address", () => {
+  test("two rules that each compose a state for one element open their own request", async () => {
+    const root = mkdtempSync(join(tmpdir(), "jint-ui-"));
+    try {
+      const dir = join(root, "700");
+      mkdirSync(dir);
+      const input = "a.md#e-1";
+      const request = (rule: string, noul: number) => ({
+        ts: STARTED,
+        path: "a.md",
+        id: "e-1",
+        kind: "elements",
+        status: 200,
+        questionIds: [rule],
+        request: {
+          model: "m",
+          input: [{ role: "user", content: [{ type: "input_json", data: { verb: "ui" } }] }],
+          questions: [{ type: "predicate", name: "q0", instructions: rule }],
+        },
+        response: { answers: [{ type: "predicate", name: "q0", probability: noul }] },
+      });
+      writeFileSync(join(dir, "1-elements-a.md.json"), JSON.stringify(request("first", 0.2)));
+      writeFileSync(join(dir, "2-elements-a.md.json"), JSON.stringify(request("second", 0.9)));
+      const run = (await (await get("/api/runs/700", root)).json()) as {
+        results: { element: boolean; elementId: string }[];
+      };
+      expect(run.results.map((r) => [r.element, r.elementId])).toEqual([
+        [true, "e-1"],
+        [true, "e-1"],
+      ]);
+      for (const [rule, noul] of [
+        ["first", 0.2],
+        ["second", 0.9],
+      ] as const) {
+        const address = new URLSearchParams({ rule, input });
+        const res = await get(`/api/runs/700/original?${address}`, root);
+        const body = (await res.json()) as {
+          classification: { answer: { noul: number } } | null;
+        };
+        expect(body.classification?.answer.noul).toBe(noul);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

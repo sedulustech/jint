@@ -65,6 +65,8 @@ export interface RequestFile {
    * a rule that includes it, and the run view joins requests to readings by path.
    */
   path?: string;
+  /** Whether the call judged elements or files; absent on records written before it was recorded. */
+  kind?: "elements" | "files";
   /** Latency recorded by the sdk recorder; absent on records written before it existed. */
   durationMs?: number;
   status?: number;
@@ -218,18 +220,7 @@ function normalizeNative(raw: Obj, request: Obj): RequestFile {
   const usage = isObj(response.usage) ? response.usage : undefined;
   const provider = upstreamUsage((response as NativeReply).providerMetadata);
   return {
-    ts: raw.ts as string | undefined,
-    url: raw.url as string | undefined,
-    id: raw.id as string | undefined,
-    path: raw.path as string | undefined,
-    durationMs: raw.durationMs as number | undefined,
-    status: raw.status as number | undefined,
-    sent: {
-      url: raw.url as string | undefined,
-      body: raw.request,
-      status: raw.status as number | undefined,
-      response: raw.response,
-    },
+    ...recordedFacts(raw),
     request: {
       state: nativeState(request.stateParts),
       questions: questions as NonNullable<RequestFile["request"]>["questions"],
@@ -262,19 +253,37 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
   if (isObj(raw) && isObj(raw.request) && Array.isArray(raw.request.stateParts)) {
     return normalizeNative(raw, raw.request);
   }
-  if (!isObj(raw) || !isObj(raw.request) || !Array.isArray(raw.request.questions)) {
-    return withSentBody(raw) as RequestFile;
+  if (isObj(raw) && isObj(raw.request) && Array.isArray(raw.request.questions)) {
+    return normalizeDecisions(raw, raw.request);
   }
-  const request = raw.request;
-  const response = isObj(raw.response) ? raw.response : {};
-  const asked = request.questions as DecisionsQuestion[];
-  const ids = Array.isArray(raw.questionIds) ? (raw.questionIds as string[]) : [];
-  const keyOf = (q: DecisionsQuestion, i: number): string => ids[i] ?? q.name ?? `q${i}`;
-  const received = (Array.isArray(response.answers) ? response.answers : []) as DecisionsAnswer[];
+  return withSentBody(raw) as RequestFile;
+}
+
+function recordedFacts(raw: Record<string, unknown>): Omit<RequestFile, "request" | "response"> {
+  const url = raw.url as string | undefined;
+  const status = raw.status as number | undefined;
+  return {
+    ts: raw.ts as string | undefined,
+    url,
+    id: raw.id as string | undefined,
+    path: raw.path as string | undefined,
+    kind: raw.kind as RequestFile["kind"],
+    durationMs: raw.durationMs as number | undefined,
+    status,
+    sent: { url, body: raw.request, status, response: raw.response },
+  };
+}
+
+/** The questions a decisions request asked and the answers it got, both keyed by question id. */
+function decisionsReadings(
+  asked: DecisionsQuestion[],
+  received: DecisionsAnswer[],
+  ids: string[],
+): { questions: Record<string, QuestionSpec>; answers: Record<string, unknown> } {
   const questions: Record<string, QuestionSpec> = {};
   const answers: Record<string, unknown> = {};
   asked.forEach((q, i) => {
-    const key = keyOf(q, i);
+    const key = ids[i] ?? q.name ?? `q${i}`;
     const question = questionOf(q);
     questions[key] = question;
     const answer = received.find((a) => a.name === q.name);
@@ -282,21 +291,31 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
     answers[key] =
       answer.type === "refusal" ? { type: "refusal" } : fromDecisions(question, answer);
   });
-  const usage = isObj(response.usage) ? response.usage : undefined;
-  const details = isObj(usage?.input_tokens_details) ? usage.input_tokens_details : undefined;
+  return { questions, answers };
+}
+
+function decisionsUsage(usage: unknown): NonNullable<RequestFile["response"]>["usage"] {
+  if (!isObj(usage)) return undefined;
+  const details = isObj(usage.input_tokens_details) ? usage.input_tokens_details : undefined;
   return {
-    ts: raw.ts as string | undefined,
-    url: raw.url as string | undefined,
-    id: raw.id as string | undefined,
-    path: raw.path as string | undefined,
-    durationMs: raw.durationMs as number | undefined,
-    status: raw.status as number | undefined,
-    sent: {
-      url: raw.url as string | undefined,
-      body: raw.request,
-      status: raw.status as number | undefined,
-      response: raw.response,
-    },
+    input_tokens: Number(usage.input_tokens ?? 0),
+    output_tokens: Number(usage.output_tokens ?? 0),
+    cached_input_tokens: Number(details?.cached_tokens ?? 0),
+  };
+}
+
+function normalizeDecisions(
+  raw: Record<string, unknown>,
+  request: Record<string, unknown>,
+): RequestFile {
+  const response = isObj(raw.response) ? raw.response : {};
+  const { questions, answers } = decisionsReadings(
+    request.questions as DecisionsQuestion[],
+    (Array.isArray(response.answers) ? response.answers : []) as DecisionsAnswer[],
+    Array.isArray(raw.questionIds) ? (raw.questionIds as string[]) : [],
+  );
+  return {
+    ...recordedFacts(raw),
     request: {
       state: stateOf(request.input),
       questions: questions as NonNullable<RequestFile["request"]>["questions"],
@@ -305,14 +324,7 @@ export function normalizeRequestFile(raw: unknown): RequestFile {
     response: {
       model: response.model as string | undefined,
       answers: answers as NonNullable<RequestFile["response"]>["answers"],
-      usage:
-        usage === undefined
-          ? undefined
-          : {
-              input_tokens: Number(usage.input_tokens ?? 0),
-              output_tokens: Number(usage.output_tokens ?? 0),
-              cached_input_tokens: Number(details?.cached_tokens ?? 0),
-            },
+      usage: decisionsUsage(response.usage),
     },
   };
 }

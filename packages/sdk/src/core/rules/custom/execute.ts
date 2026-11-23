@@ -10,6 +10,7 @@
  */
 
 import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../grammars/walk.ts";
+import { inCall } from "../../provider/debug.ts";
 import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
 import { ruleInScope } from "../../scope.ts";
 import {
@@ -290,34 +291,44 @@ async function measure(
     const note = `custom rule "${rule.name}": state part "${part}" for ${input} exceeds ${limits.partLimit} tokens - skipped`;
     return { events: [{ type: "note", note }] };
   }
-  try {
-    const answers = await classifier(stateSpec.state as unknown as AnyState, {
+  return answered(rule, element, stateSpec, classifier).catch((thrown: unknown) => {
+    const error = toClassifyError(input, thrown);
+    return { events: [{ type: "error", error }], fatal: error.code === "PROVIDER_AUTH" };
+  });
+}
+
+/** The rule's one question asked of the state it composed, and the reading that came back. */
+async function answered(
+  rule: CustomRule,
+  element: CustomElement,
+  stateSpec: ReturnType<typeof validateStateSpec>,
+  classifier: Classifier,
+): Promise<Measured> {
+  // the state is the rule's own: the element says where its answer is recorded
+  const answers = await inCall(element, [rule.name], () =>
+    classifier(stateSpec.state as unknown as AnyState, {
       [rule.name]: {
         type: "noul",
         instructions: stateSpec.instructions,
         criteria: stateSpec.criteria,
       },
-    });
-    const noul = answers[rule.name];
-    if (isRefusal(noul)) {
-      return { events: [classificationEvent(rule, element, { refused: true })] };
-    }
-    if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
-      const error = new ClassifyError(
-        "PROVIDER_RESPONSE_INVALID",
-        input,
-        "answer for '" + rule.name + "' is missing or not a finite number",
-      );
-      return { events: [{ type: "error", error }] };
-    }
-    return {
-      events: [classificationEvent(rule, element, { value: noul.value })],
-      value: noul.value,
-    };
-  } catch (thrown) {
-    const error = toClassifyError(input, thrown);
-    return { events: [{ type: "error", error }], fatal: error.code === "PROVIDER_AUTH" };
+    }),
+  );
+  const noul = answers[rule.name];
+  if (isRefusal(noul)) {
+    return { events: [classificationEvent(rule, element, { refused: true })] };
   }
+  if (noul === undefined || typeof noul.value !== "number" || !Number.isFinite(noul.value)) {
+    throw new ClassifyError(
+      "PROVIDER_RESPONSE_INVALID",
+      inputOf(element),
+      "answer for '" + rule.name + "' is missing or not a finite number",
+    );
+  }
+  return {
+    events: [classificationEvent(rule, element, { value: noul.value })],
+    value: noul.value,
+  };
 }
 
 /** The rule's policy over its readings, once: data or a function, bound to each target's span. */
