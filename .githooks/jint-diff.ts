@@ -1,11 +1,9 @@
-// jint over a commit's changes: measure the staged files with the repo's own config, then keep only
-// the findings whose element overlaps a line the commit changed. Unchanged elements answer from the
-// answer cache, so the cost is the changed elements. A finding on the whole file (a file-level rule)
-// overlaps every change, so it is reported whenever the file is in the commit. Blocks on error-tier
-// findings in changed code and on a broken run; reports warnings and never blocks on them.
+// jint over a commit: measure the staged files with the repo's own config and report every finding in
+// them, changed lines or not, because a change to one part of a file can affect the rest of it.
+// Unchanged elements answer from the answer cache, so the cost is the changed elements. Blocks on
+// error-tier findings and on a broken run; reports warnings and never blocks on them.
 //
-// Limit: the diff lines are the staged version; jint reads the working tree, so a file with
-// unstaged edits on top of the staged ones can misplace a span.
+// Limit: jint reads the working tree, so a file with unstaged edits is measured with them.
 
 const run = (cmd: string[], input?: string, env?: Record<string, string>) =>
   Bun.spawnSync(cmd, {
@@ -14,24 +12,13 @@ const run = (cmd: string[], input?: string, env?: Record<string, string>) =>
   });
 const text = (b: Uint8Array) => new TextDecoder().decode(b);
 
-const diff = text(run(["git", "diff", "--cached", "-U0", "--diff-filter=ACM"]).stdout);
-const changed = new Map<string, [number, number][]>();
-let file: string | undefined;
-for (const line of diff.split("\n")) {
-  const header = line.match(/^\+\+\+ b\/(.+)$/);
-  if (header) {
-    file = header[1];
-    changed.set(file!, []);
-    continue;
-  }
-  const hunk = line.match(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/);
-  if (hunk && file !== undefined) {
-    const start = Number(hunk[1]);
-    const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
-    if (count > 0) changed.get(file)!.push([start, start + count - 1]);
-  }
-}
-if (changed.size === 0) process.exit(0);
+// a renamed file is measured at its new path, so renames are read as additions
+const staged = text(
+  run(["git", "diff", "--cached", "--name-only", "--no-renames", "--diff-filter=ACM", "-z"]).stdout,
+)
+  .split("\0")
+  .filter((path) => path !== "");
+if (staged.length === 0) process.exit(0);
 
 type Finding = {
   rule: string;
@@ -48,7 +35,7 @@ type Finding = {
 // that did nothing useful: with a report whose only error is SCOPE_EMPTY it passes, else it blocks.
 const result = run(
   ["bun", "packages/cli/dist/cli.js", "run", "paths", "-", "--json"],
-  [...changed.keys()].join("\n"),
+  staged.join("\n"),
 );
 // the run lands in the default store with every other run: say where to read it
 const where = text(result.stderr)
@@ -74,24 +61,16 @@ if (report.errors.length > 0 || result.exitCode === 2) {
   process.stderr.write("jint: classification failed; blocking the commit\n");
   process.exit(1);
 }
-const touched = report.findings.filter((f) => {
-  const path = f.location.input.split("#")[0]!;
-  const ranges = changed.get(path);
-  if (ranges === undefined) return false;
-  const { start, end } = f.location.span;
-  return ranges.some(([from, to]) => start.line <= to && end.line >= from);
-});
-
-for (const f of touched) {
+for (const f of report.findings) {
   const path = f.location.input.split("#")[0]!;
   const { start, end } = f.location.span;
   process.stderr.write(
     `jint: ${f.severity} ${path}:${start.line}-${end.line} ${f.rule} ${f.value}${(f.note ?? f.message) ? " - " + (f.note ?? f.message) : ""}\n`,
   );
 }
-const errors = touched.filter((f) => f.severity === "error").length;
+const errors = report.findings.filter((f) => f.severity === "error").length;
+const total = report.findings.length;
 process.stderr.write(
-  `jint: ${touched.length} finding${touched.length === 1 ? "" : "s"} in the changed code (${errors} error${errors === 1 ? "" : "s"}), ` +
-    `${report.findings.length - touched.length} elsewhere in the staged files not shown\n`,
+  `jint: ${total} finding${total === 1 ? "" : "s"} in the staged files (${errors} error${errors === 1 ? "" : "s"})\n`,
 );
 if (errors > 0) process.exit(1);
