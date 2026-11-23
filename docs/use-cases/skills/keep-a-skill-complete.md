@@ -2,7 +2,7 @@
 title: "Keep a skill complete"
 description: "A rule that reads a skill file and flags it when it no longer says one thing it has to say, so an edit cannot drop it unnoticed."
 sidebar:
-  label: Skills
+  label: Skill maintainability
 ---
 
 # Keep a skill complete
