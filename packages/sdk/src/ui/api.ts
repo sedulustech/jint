@@ -275,9 +275,12 @@ function failureResponse(err: unknown): Response {
       { error: "not found", detail: err instanceof Error ? err.message : String(err) },
       HTTP_NOT_FOUND,
     );
-  const message = err instanceof Error ? err.message : String(err);
-  const cause = err instanceof Error && err.cause !== undefined ? String(err.cause) : undefined;
-  return jsonResponse({ error: message, cause }, 500);
+  return errorResponse(err, 500);
+}
+
+function errorResponse(err: unknown, status: number): Response {
+  const cause = err instanceof Error && err.cause !== undefined ? errorChain(err.cause) : undefined;
+  return jsonResponse({ error: errorMessage(err), cause }, status);
 }
 
 /** Serve one recorded request file of a run; the file name may never leave the run dir. */
@@ -331,12 +334,6 @@ function errorMessage(err: unknown): string {
 
 // --- helpers ---------------------------------------------------------------
 
-/**
- * The classifications of one address under a run. POST classifies an edit, which spends the
- * caller's API key, so it answers only a same-origin JSON request: a JSON content type forces a
- * CORS preflight and the Origin check refuses a foreign page that reaches the loopback port
- * anyway.
- */
 async function serveClassifications(
   httpRequest: Request,
   runsRoot: string,
@@ -345,35 +342,71 @@ async function serveClassifications(
 ): Promise<Response> {
   const runDir = resolveRunDir(runsRoot, idSegments);
   if (runDir === null) return badRequest(INVALID_RUN_ID);
-  if ((await stat(runDir).catch(() => null)) === null) return notFound("no such run");
-  if (httpRequest.method === "GET") {
-    const query = new URL(httpRequest.url).searchParams;
-    const rule = query.get("rule");
-    const input = query.get("input");
-    if (rule === null || input === null) return badRequest("rule and input are required");
-    return jsonResponse({ classifications: await listClassifications(runDir, rule, input) });
-  }
+  if (!(await runDirExists(runDir))) return notFound("no such run");
+  if (httpRequest.method === "GET") return listedClassifications(httpRequest, runDir);
   if (httpRequest.method !== "POST") return notFound("no such api route");
+  return (
+    refusedPost(httpRequest) ??
+    filedClassification(await postedEdit(httpRequest), idSegments.join("/"), apiOptions)
+  );
+}
+
+async function listedClassifications(httpRequest: Request, runDir: string): Promise<Response> {
+  const query = new URL(httpRequest.url).searchParams;
+  const [rule, input] = [query.get("rule"), query.get("input")];
+  if (rule === null || input === null) return badRequest("rule and input are required");
+  return jsonResponse({ classifications: await listClassifications(runDir, rule, input) });
+}
+
+/**
+ * Classifying an edit spends the caller's API key, so only a same-origin JSON request may: a JSON
+ * content type forces a CORS preflight, and the Origin check refuses a foreign page that reaches
+ * the loopback port anyway.
+ */
+function refusedPost(httpRequest: Request): Response | null {
   const origin = httpRequest.headers.get("origin");
   if (origin !== null && new URL(origin).host !== httpRequest.headers.get("host"))
     return jsonResponse({ error: "cross-origin request refused" }, 403);
   if (!httpRequest.headers.get("content-type")?.startsWith("application/json"))
     return badRequest("content-type must be application/json");
-  const body = await httpRequest.json().catch(() => null);
+  return null;
+}
+
+interface PostedEdit {
+  rule: string;
+  input: string;
+  edit: Exclude<ReturnType<typeof parseEdit>, string>;
+}
+
+async function postedEdit(httpRequest: Request): Promise<PostedEdit | string> {
+  let body: unknown;
+  try {
+    body = await httpRequest.json();
+  } catch (err) {
+    return `the body is not JSON: ${errorChain(err)}`;
+  }
   const { rule, input, ...rest } = (body ?? {}) as Record<string, unknown>;
   if (typeof rule !== "string" || typeof input !== "string")
-    return badRequest("rule and input must be strings");
+    return "rule and input must be strings";
   const edit = parseEdit(rest);
-  if (typeof edit === "string") return badRequest(edit);
+  return typeof edit === "string" ? edit : { rule, input, edit };
+}
+
+async function filedClassification(
+  posted: PostedEdit | string,
+  runId: string,
+  apiOptions: ApiOptions,
+): Promise<Response> {
+  if (typeof posted === "string") return badRequest(posted);
+  const { rule, input, edit } = posted;
   try {
-    const classification = await reclassify(idSegments.join("/"), { rule, input }, edit, {
+    const classification = await reclassify(runId, { rule, input }, edit, {
       ...apiOptions,
       by: "user",
     });
     return jsonResponse({ classification });
   } catch (err) {
-    if (err instanceof AddressError) return jsonResponse({ error: err.message }, err.status);
-    return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 502);
+    return errorResponse(err, err instanceof AddressError ? err.status : 502);
   }
 }
 
