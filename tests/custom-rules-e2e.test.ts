@@ -184,8 +184,9 @@ describe("cli: custom rules end-to-end", () => {
     // Exact contract: this fixture run makes exactly ONE classifier call - the comments pair
     // frame (alpha alone; the owned comment element never matches separately).
     expect(files).toHaveLength(1);
-    // The TS state is a free composition (no "source" key), so the recorder kinds it "files-state".
-    for (const file of files) expect(file).toMatch(/-files-state\.json$/);
+    // The TS state is a free composition (no "source" key), so the record carries the judged
+    // element's address, not one read from the state.
+    for (const file of files) expect(file).toMatch(/-elements-fixture\.ts\.json$/);
     const captures = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
     const stateOf = (c: any) => c.request.input[0].content[0].data;
     // The composed state reached the request body verbatim (the frame sees the resolved count of 1).

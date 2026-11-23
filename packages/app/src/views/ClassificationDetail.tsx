@@ -330,7 +330,7 @@ function ContextViews(props: {
   editingCode: boolean;
   onEditingCode: (editing: boolean) => void;
 }) {
-  const [view, setView] = useState<"code" | "request">("code");
+  const [view, setView] = useState<"code" | "request">(props.code === null ? "request" : "code");
   const [form, setForm] = useState<"parsed" | "raw">("parsed");
   const panelId = useId();
   return (

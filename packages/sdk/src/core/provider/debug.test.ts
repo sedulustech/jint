@@ -88,6 +88,18 @@ describe("recordRequests", () => {
     expect(list.some((f) => f.endsWith("-files-b.ts.json"))).toBe(true);
   });
 
+  test("a call inside a judged element's call is recorded at that element, whatever its state holds", async () => {
+    const config = recordRequests({ fetch: passthrough() });
+    const element = { id: "e-1", path: "src/a.ts", source: "x" };
+    const composed = { verb: "ui", path: "not the file", id: "not the element" };
+    await inCall(element, ["r"], () => inCall(composed, ["r"], () => recordOnce(config, composed)));
+
+    const list = listRequests(DIR);
+    expect(list[0]).toMatch(/-elements-a\.ts\.json$/);
+    const request = JSON.parse(readFileSync(`${DIR}/${list[0]}`, "utf8"));
+    expect([request.path, request.id]).toEqual(["src/a.ts", "e-1"]);
+  });
+
   test("two runs that start in the same millisecond get different run dirs", async () => {
     const clock = spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     try {
@@ -220,6 +232,7 @@ describe("recordRequests", () => {
       [
         "durationMs",
         "id",
+        "kind",
         "path",
         "questionIds",
         "request",

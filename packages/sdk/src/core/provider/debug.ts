@@ -93,18 +93,22 @@ export interface CallContext {
 
 const callSlot = new AsyncLocalStorage<CallContext>();
 
-/** Runs `body` as the call of `state`: the exchanges it makes are recorded as that call's. */
+/**
+ * Runs `body` as the call of `state`: the exchanges it makes are recorded as that call's. A call
+ * that is already running keeps its address: a custom rule composes its own state, so only the
+ * element it judges can say where the answer belongs.
+ */
 export function inCall<T>(
   state: { id: string; path: string; source?: string },
   questionIds: string[],
   body: () => Promise<T>,
 ): Promise<T> {
-  const call: CallContext = {
+  const address = callSlot.getStore() ?? {
     id: state.id,
-    questionIds,
     path: state.path,
-    kind: state.source === undefined ? "files" : "elements",
+    kind: state.source === undefined ? ("files" as const) : ("elements" as const),
   };
+  const call: CallContext = { ...address, questionIds };
   return callSlot.run(call, body);
 }
 
@@ -136,11 +140,6 @@ function tokensOf(response: unknown): { input: number; output: number; cached: n
     output: usage?.output_tokens ?? 0,
     cached: usage?.input_tokens_details?.cached_tokens ?? 0,
   };
-}
-
-/** One line from a thrown value of unknown shape (a non-Error carries only its own text). */
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** This run's recording summary; null before the recorder starts. */
@@ -209,7 +208,7 @@ export function recordRunManifest(manifest: {
   } catch (err) {
     // Recording never breaks the run it observes: the dropped manifest IS the warning.
     process.emitWarning(
-      `jint: could not record the run manifest in ${runSummary.dir}: ${errorMessage(err)}`,
+      new Error(`jint: could not record the run manifest in ${runSummary.dir}`, { cause: err }),
     );
   }
 }
@@ -221,7 +220,7 @@ export function recordRunReport(json: string): void {
     writeFileSync(`${runSummary.dir}/report.json`, json);
   } catch (err) {
     process.emitWarning(
-      `jint: could not record the run report in ${runSummary.dir}: ${errorMessage(err)}`,
+      new Error(`jint: could not record the run report in ${runSummary.dir}`, { cause: err }),
     );
   }
 }
@@ -261,6 +260,7 @@ export function recordCacheHit(
       url: redactUrl(url),
       id: call?.id,
       path: call?.path,
+      kind: call?.kind,
       durationMs: 0,
       questionIds: call?.questionIds,
       status: 200,
@@ -272,9 +272,49 @@ export function recordCacheHit(
     runSummary.cached += (exchange.response as { answers: unknown[] }).answers.length;
   } catch (err) {
     process.emitWarning(
-      `jint: could not record a cached answer in ${runSummary.dir}: ${errorMessage(err)}`,
+      new Error(`jint: could not record a cached answer in ${runSummary.dir}`, { cause: err }),
     );
   }
+}
+
+interface Exchange {
+  input: string;
+  init?: RequestInit;
+  response: Response;
+  startedAt: number;
+}
+
+async function recordExchange(dir: string, exchange: Exchange): Promise<void> {
+  const { input, init, response, startedAt } = exchange;
+  const call = callSlot.getStore();
+  const requestText = await new Request(input, init ?? {}).text();
+  const responseText = await response.clone().text();
+  const body = asJson(typeof init?.body === "string" ? init.body : requestText);
+  const record = {
+    ts: new Date().toISOString(),
+    url: redactUrl(input),
+    id: call?.id,
+    path: call?.path,
+    kind: call?.kind,
+    durationMs: Date.now() - startedAt,
+    questionIds: call?.questionIds,
+    status: response.status,
+    request: body,
+    response: asJson(responseText),
+  };
+  countReply(record.response);
+  const state = (body as { state?: Record<string, unknown> } | null)?.state ?? {};
+  writeRecordFile(dir, call, state, record);
+  runSummary!.count += 1;
+}
+
+function countReply(reply: unknown): void {
+  const replied = (reply as { model?: unknown } | null)?.model;
+  if (typeof replied === "string") runModel = replied;
+  const counted = tokensOf(reply);
+  usageTotals.input += counted.input;
+  usageTotals.output += counted.output;
+  usageTotals.cached += counted.cached;
 }
 
 /**
@@ -302,44 +342,11 @@ export function recordRequests(
     init,
   ) => {
     const startedAt = Date.now();
-    const call = callSlot.getStore();
     const response = await baseFetch(input, init);
-    try {
-      const requestInit = init ?? {};
-      const requestText = await new Request(input, requestInit).text();
-      const responseText = await response.clone().text();
-      const common = {
-        ts: new Date().toISOString(),
-        url: redactUrl(input),
-        id: call?.id,
-        path: call?.path,
-        durationMs: Date.now() - startedAt,
-      };
-      const body = asJson(
-        requestInit.body !== undefined && typeof requestInit.body === "string"
-          ? requestInit.body
-          : requestText,
-      );
-      const record = {
-        ...common,
-        questionIds: call?.questionIds,
-        status: response.status,
-        request: body,
-        response: asJson(responseText),
-      };
-      const replied = (record.response as { model?: unknown } | null)?.model;
-      if (typeof replied === "string") runModel = replied;
-      const counted = tokensOf(record.response);
-      usageTotals.input += counted.input;
-      usageTotals.output += counted.output;
-      usageTotals.cached += counted.cached;
-      const state = (body as { state?: Record<string, unknown> } | null)?.state ?? {};
-      writeRecordFile(dir, call, state, record);
-      runSummary!.count += 1;
-    } catch (err) {
-      // Recording never breaks the call it observes.
-      process.emitWarning(`jint: could not record a request in ${dir}: ${errorMessage(err)}`);
-    }
+    // Recording never breaks the call it observes.
+    await recordExchange(dir, { input, init, response, startedAt }).catch((cause: unknown) => {
+      process.emitWarning(new Error(`jint: could not record a request in ${dir}`, { cause }));
+    });
     return response;
   };
   return { ...config, fetch: recordingFetch };

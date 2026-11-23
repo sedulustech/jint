@@ -948,7 +948,10 @@ async function readRequestRow(
       file,
       seq: 0,
       ts: requestFile.ts ?? "",
-      element: typeof requestFile.request?.state?.source === "string",
+      // a run recorded before the kind was: its state's shape tells
+      element:
+        requestFile.kind === "elements" ||
+        (requestFile.kind === undefined && typeof requestFile.request?.state?.source === "string"),
       path: statePath,
       elementId,
       rules: ruleNames,
