@@ -1,4 +1,5 @@
 import { assertCaptureAddress } from "../../grammars/query.ts";
+import { nameOrKey } from "../../grammars/walk.ts";
 import { matchesTarget } from "../classify.ts";
 import type { GrammarRegistry } from "../../grammars/grammars.ts";
 import type { CustomElement, ElementSelection } from "./schema.ts";
@@ -19,7 +20,7 @@ export function selectionOf(
     return within.filter((element) => matchesTarget(target, element));
   };
   const getElement = (target: string, name?: string): CustomElement => {
-    const found = getElements(target).filter((e) => name === undefined || e.name === name);
+    const found = getElements(target).filter((e) => name === undefined || nameOrKey(e) === name);
     if (found.length === 1) return found[0]!;
     const wanted = name === undefined ? target : `${target} named "${name}"`;
     throw new Error(`${place} has ${found.length === 0 ? "no" : found.length} ${wanted}`);

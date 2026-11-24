@@ -26,7 +26,9 @@ const INVENTORY: readonly Row[] = [
   { id: "list", kind: "pair", start: [6, 0], end: [9, 5], name: "list" },
   // a comment inside a sequence is a plain comment
   { kind: "comment", start: [7, 2], end: [7, 31], parent: "list" },
+  { kind: "sequence_item", start: [8, 2], end: [8, 5], parent: "list" },
   { kind: "comment", start: [8, 6], end: [8, 38], parent: "list" },
+  { kind: "sequence_item", start: [9, 2], end: [9, 5], parent: "list" },
   { id: "map", kind: "pair", start: [10, 0], end: [13, 10], name: "map" },
   { kind: "pair", start: [11, 2], end: [11, 41], name: "key", parent: "map" },
   { kind: "comment", start: [12, 2], end: [12, 30], parent: "map" },

@@ -328,11 +328,18 @@
           "body": "The declared name, or the heading's text. Absent when the capture has none."
         },
         {
+          "id": "element-key",
+          "level": 3,
+          "name": "key",
+          "pills": ["string"],
+          "body": "The key of a pair, which has one in place of a name."
+        },
+        {
           "id": "element-value",
           "level": 3,
           "name": "value",
           "pills": ["string"],
-          "body": "What the element holds under its name, such as the value of a key."
+          "body": "What the element holds under its name or key."
         },
         {
           "id": "element-source",

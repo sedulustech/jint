@@ -14,7 +14,7 @@ describe("injection", () => {
     const elements = await elementsOf(source);
     const host = elements.find((e) => e.capture === "frontmatter")!;
     const pairs = elements.filter((e) => e.capture === "pair");
-    expect(pairs.map((p) => [p.name, p.grammar])).toEqual([
+    expect(pairs.map((p) => [p.key, p.grammar])).toEqual([
       ["title", "yaml"],
       ["tags", "yaml"],
       ["sidebar", "yaml"],
@@ -31,7 +31,7 @@ describe("injection", () => {
 
   test("a value leaves out its quotes, and a key with none has no value", async () => {
     const pairs = await pairsOf("---\na: \"x 'y'\"\nb: 'z'\n\"c\": w\nd:\ne: f: g\n---\n\n# H\n");
-    expect(pairs.slice(0, 4).map((p) => [p.name, p.value])).toEqual([
+    expect(pairs.slice(0, 4).map((p) => [p.key, p.value])).toEqual([
       ["a", "x 'y'"],
       ["b", "z"],
       ["c", "w"],
@@ -65,6 +65,6 @@ describe("injection", () => {
 
 test("a yaml file's pairs own no comment", async () => {
   const elements = await elementsOf("# file\n\n# above\na:\n  # in\n  b: c\n", "yaml");
-  expect(elements.filter((e) => e.capture === "pair").map((p) => p.name)).toEqual(["a", "b"]);
+  expect(elements.filter((e) => e.capture === "pair").map((p) => p.key)).toEqual(["a", "b"]);
   expect(elements.filter((e) => e.internalCommentCount > 0 || e.attachedComment)).toEqual([]);
 });

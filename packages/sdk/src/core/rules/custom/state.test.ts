@@ -147,6 +147,44 @@ describe("a rule's state function", () => {
     expect(states as unknown).toEqual([{ top: "a", inside: ["b"] }]);
   });
 
+  test("each entry of a list holds its own pairs, found by their key", async () => {
+    const { states, errors } = await statesOf(
+      {
+        target: "files",
+        state: (file) => ({
+          steps: file
+            .getElement("yaml:pair", "steps")
+            .getElements("yaml:sequence_item")
+            .map((step) =>
+              step.getElements("yaml:pair").map(({ key, name, value }) => [key, name, value]),
+            ),
+          second: file
+            .getElement("yaml:pair", "steps")
+            .getElements("yaml:sequence_item")[1]!
+            .getElement("yaml:pair", "run").value,
+        }),
+      },
+      'steps:\n  - "name": Test\n    run: bun test\n  - name: Build\n    run: bun build\n',
+      "yaml",
+    );
+    expect(errors).toEqual([]);
+    expect(states as unknown).toEqual([
+      {
+        steps: [
+          [
+            ["name", null, "Test"],
+            ["run", null, "bun test"],
+          ],
+          [
+            ["name", null, "Build"],
+            ["run", null, "bun build"],
+          ],
+        ],
+        second: "bun build",
+      },
+    ]);
+  });
+
   test("comments selects the comments, and not the definitions that own one", async () => {
     const { states } = await statesOf(
       {

@@ -51,6 +51,7 @@ import {
   scmCaptureOmits,
   scmCommentlessCaptures,
   scmInjections,
+  scmKeyOmits,
   scmNameOmits,
   scmValueOmits,
   scmCapturePolicy,
@@ -100,7 +101,9 @@ export interface InventoryElement {
   readonly grammar: string;
   /** The declared name, when a pattern bound @name (render-only; never an id). */
   readonly name?: string;
-  /** What the definition holds under its name, when a pattern binds @value. */
+  /** The key, when a pattern binds @key: it has one in place of a name. */
+  readonly key?: string;
+  /** What the definition holds under its name or key, when a pattern binds @value. */
   readonly value?: string;
   /**
    * A definition's text up to its body (the node its pattern marks @body), else its first line: the
@@ -733,10 +736,14 @@ function commentCandidates(
   return mergedComments([...new Set(texts)], candidates, source, merges.get("comment"));
 }
 
-/** What a grammar leaves out of its elements: nodes from a capture's text, a pattern from its names. */
+/**
+ * What a grammar leaves out of its elements: nodes from a capture's text, a pattern from its names,
+ * keys and values.
+ */
 interface Omissions {
   readonly texts: ReadonlyMap<string, OmittedStretches>;
   readonly names: ReadonlyMap<string, RegExp>;
+  readonly keys: ReadonlyMap<string, RegExp>;
   readonly values: ReadonlyMap<string, RegExp>;
 }
 
@@ -752,7 +759,12 @@ function omissionsOf(scm: string, collected: ReadonlyMap<string, readonly Stretc
     const stretches = [...(collected.get(omitted) ?? [])].sort((a, b) => a.start - b.start);
     texts.set(capture, { stretches, starts: stretches.map((s) => s.start) });
   }
-  return { texts, names: scmNameOmits(scm), values: scmValueOmits(scm) };
+  return {
+    texts,
+    names: scmNameOmits(scm),
+    keys: scmKeyOmits(scm),
+    values: scmValueOmits(scm),
+  };
 }
 
 function contentOf(d: Candidate, omitted: OmittedStretches | undefined, source: string): string {
@@ -789,6 +801,7 @@ function definitionElement(
     capture: d.capture as ElementCapture,
     grammar: grammarId,
     name: without(d.name, omissions.names.get(d.capture)),
+    key: without(d.key, omissions.keys.get(d.capture)),
     value: without(d.value, omissions.values.get(d.capture)),
     signature: signatureOf(d, source),
     attachedComment: structure.attachedRuns.get(d)?.map((c) => c.node.text),
@@ -1044,6 +1057,11 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
+export const nameOrKey = ({
+  name,
+  key,
+}: Pick<InventoryElement, "name" | "key">): string | undefined => name ?? key;
+
 /** The report's element. The parent is its label, whatever form the caller's element holds it in. */
 export function projectElement(
   element: Omit<InventoryElement, "parent" | "content" | "nodeType">,
@@ -1052,8 +1070,9 @@ export function projectElement(
   const base: ProjectionBase = { span: element.span, label: element.label, parent };
   const project = SHARED_PROJECTION[element.capture];
   if (project !== undefined) return project(element, base);
-  if (element.name === undefined) return { kind: element.capture, ...base };
-  return { kind: element.capture, ...base, name: element.name };
+  const name = nameOrKey(element);
+  if (name === undefined) return { kind: element.capture, ...base };
+  return { kind: element.capture, ...base, name };
 }
 
 export function fileElement(id: string, content: string): Element {

@@ -47,7 +47,8 @@ export const FILE_FIELDS: Fields<
 
 export const ELEMENT_FIELDS: Fields<CustomElement> = {
   name: ["string", "The declared name, or the heading's text. Absent when the capture has none."],
-  value: ["string", "What the element holds under its name, such as the value of a key."],
+  key: ["string", "The key of a pair, which has one in place of a name."],
+  value: ["string", "What the element holds under its name or key."],
   source: ["string", "The element's text, less what its grammar omits from the capture."],
   parent: ["element | null", "The element this one sits inside."],
   file: ["file", "The file the element is in. A file's own is itself."],

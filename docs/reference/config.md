@@ -283,9 +283,15 @@ The declared name, or the heading's text. Absent when the capture has none.
 
 _string_
 
+### `key`
+
+The key of a pair, which has one in place of a name.
+
+_string_
+
 ### `value`
 
-What the element holds under its name, such as the value of a key.
+What the element holds under its name or key.
 
 _string_
 

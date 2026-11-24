@@ -15,7 +15,7 @@ const GRAMMARS = new URL("./embedded/", import.meta.url).pathname;
 const HERE = new URL("./", import.meta.url).pathname;
 
 // role and marker captures name parts of an element or order patterns; they are never elements
-const ROLE_CAPTURES: ReadonlySet<string> = new Set(["name", "value", "body", "priority"]);
+const ROLE_CAPTURES: ReadonlySet<string> = new Set(["name", "key", "value", "body", "priority"]);
 
 // a docstring is projected as a comment element (shared.ts SHARED_PROJECTION)
 const KIND_OF: Readonly<Record<string, string>> = { docstring: "comment" };

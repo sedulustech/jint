@@ -14,6 +14,8 @@ import {
   fileElement,
   MAX_ELEMENT_TOKENS,
   projectElement,
+  nameOrKey,
+  type InventoryElement,
 } from "../../grammars/walk.ts";
 import { inCall } from "../../provider/debug.ts";
 import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
@@ -40,7 +42,6 @@ import {
 } from "./schema.ts";
 import { selectionOf } from "./selection.ts";
 import type { GrammarRegistry } from "../../grammars/grammars.ts";
-import type { InventoryElement } from "../../grammars/walk.ts";
 
 /**
  * The element around this one. A dangling parent label is an inventory inconsistency: it throws,
@@ -58,8 +59,10 @@ function parentOf(
   );
 }
 
-const placeName = ({ capture, name }: InventoryElement): string =>
-  name === undefined ? `the ${capture}` : `the ${capture} "${name}"`;
+function placeName(element: InventoryElement): string {
+  const name = nameOrKey(element);
+  return name === undefined ? `the ${element.capture}` : `the ${element.capture} "${name}"`;
+}
 
 interface WalkedFile {
   readonly file: CustomFile;
