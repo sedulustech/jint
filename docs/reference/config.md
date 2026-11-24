@@ -253,13 +253,13 @@ Functions, so they work only in `jint.config.ts`. A JSON config cannot compose a
 
 Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only.
 
-_(self, ctx) => object_
+_(target) => object_
 
 ### `classify`
 
 Composes the question too, when it changes from one element to the next. A rule has state or classify, never both.
 
-_(self, ctx) => { instructions, criteria, state }_
+_(target) => { instructions, criteria, state }_
 
 ### `target`
 
@@ -300,6 +300,12 @@ _string_
 The element this one sits inside.
 
 _element | null_
+
+### `file`
+
+The file the element is in. A file's own is itself.
+
+_file_
 
 ### `getElement`
 
@@ -387,13 +393,7 @@ _string_
 
 ## Context fields
 
-The `ctx` of `state` and `classify`.
-
-### `file`
-
-The file the element is in.
-
-_object_
+The `ctx` of `handle`.
 
 ### `targets`
 
@@ -403,7 +403,7 @@ _element[]_
 
 ## File fields
 
-The `ctx.file` of `state` and `classify`.
+The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.
 
 ### `path`
 

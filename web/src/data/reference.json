@@ -290,14 +290,14 @@
           "id": "function-state",
           "level": 3,
           "name": "state",
-          "pills": ["(self, ctx) => object"],
+          "pills": ["(target) => object"],
           "body": "Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only."
         },
         {
           "id": "function-classify",
           "level": 3,
           "name": "classify",
-          "pills": ["(self, ctx) => { instructions, criteria, state }"],
+          "pills": ["(target) => { instructions, criteria, state }"],
           "body": "Composes the question too, when it changes from one element to the next. A rule has state or classify, never both."
         },
         {
@@ -347,6 +347,13 @@
           "name": "parent",
           "pills": ["element | null"],
           "body": "The element this one sits inside."
+        },
+        {
+          "id": "element-file",
+          "level": 3,
+          "name": "file",
+          "pills": ["file"],
+          "body": "The file the element is in. A file's own is itself."
         },
         {
           "id": "element-getelement",
@@ -450,15 +457,8 @@
     },
     {
       "title": "Context fields",
-      "intro": "The `ctx` of `state` and `classify`.",
+      "intro": "The `ctx` of `handle`.",
       "entries": [
-        {
-          "id": "context-file",
-          "level": 3,
-          "name": "file",
-          "pills": ["object"],
-          "body": "The file the element is in."
-        },
         {
           "id": "context-targets",
           "level": 3,
@@ -470,7 +470,7 @@
     },
     {
       "title": "File fields",
-      "intro": "The `ctx.file` of `state` and `classify`.",
+      "intro": "The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.",
       "entries": [
         {
           "id": "file-path",

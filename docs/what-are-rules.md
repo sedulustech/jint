@@ -57,16 +57,16 @@ rule. It works only in `jint.config.ts`, and declarative rules beside it compile
 ### Compose the state
 
 The state is what the classifier reads. A declarative rule's state is the source of the element.
-When the answer needs something else, write `state(self, ctx)`. It runs once for each captured element
+When the answer needs something else, write `state(target)`. It runs once for each captured element
 and returns the parts of the state.
 
 The grammar decides what exists: each capture is an element. The rule decides which of them the
-classifier reads. `self` is the element being judged, and `ctx.file` is the file it sits in. The
+classifier reads. `target` is the element being judged, and `target.file` is the file it sits in. The
 [config reference](reference/config.md#element-fields) lists their fields.
 
 Both pick other elements by what a `target` takes. `getElement` gives the one that matches, by its name
 when you pass one, and throws when there is none or more than one. `getElements` gives all of them. When the `target`
-is `files`, `self` is the file.
+is `files`, it is the file.
 
 ```ts
 target: "files",
@@ -90,9 +90,9 @@ export default defineConfig({
           true: "The method works on what the class models.",
           false: "The method does a different job from the one the class models.",
         },
-        state: (self) => ({
-          method: self.source,
-          class: self.parent?.name,
+        state: (method) => ({
+          method: method.source,
+          class: method.parent?.name,
         }),
         handle: { warn: { less_than: 0.6 }, error: { less_than: 0.3 } },
       },
@@ -116,7 +116,7 @@ invoice and `def send_email` as a different job.
 A part that is empty for some elements is reported after the run. When `getElement` finds nothing, or your
 function throws, that element gets an error and the run goes on.
 
-When the question itself changes from one element to the next, write `classify(self, ctx)` instead.
+When the question itself changes from one element to the next, write `classify(target)` instead.
 It returns the instructions, the criteria and the state.
 
 ### Decide the severity

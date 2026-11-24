@@ -1,4 +1,4 @@
-import type { ClassifyContext, CustomElement, CustomFile, CustomRule } from "./schema.ts";
+import type { CustomElement, CustomFile, CustomRule, RuleContext } from "./schema.ts";
 
 type Fields<T> = Readonly<Record<keyof T, readonly [type: string, meaning: string]>>;
 
@@ -6,11 +6,11 @@ type Fields<T> = Readonly<Record<keyof T, readonly [type: string, meaning: strin
 export const FUNCTION_FIELDS: Fields<Pick<CustomRule, "state" | "classify" | "target" | "handle">> =
   {
     state: [
-      "(self, ctx) => object",
+      "(target) => object",
       "Composes what the model reads about one element. Each key is a part, and a part with no value is left out. It replaces the element's own source, and a function that throws fails that element only.",
     ],
     classify: [
-      "(self, ctx) => { instructions, criteria, state }",
+      "(target) => { instructions, criteria, state }",
       "Composes the question too, when it changes from one element to the next. A rule has state or classify, never both.",
     ],
     target: [
@@ -23,8 +23,7 @@ export const FUNCTION_FIELDS: Fields<Pick<CustomRule, "state" | "classify" | "ta
     ],
   };
 
-export const CONTEXT_FIELDS: Fields<ClassifyContext> = {
-  file: ["object", "The file the element is in."],
+export const CONTEXT_FIELDS: Fields<RuleContext> = {
   targets: ["element[]", "Every element the rule judges in this run."],
 };
 
@@ -51,6 +50,7 @@ export const ELEMENT_FIELDS: Fields<CustomElement> = {
   value: ["string", "What the element holds under its name, such as the value of a key."],
   source: ["string", "The element's text, less what its grammar omits from the capture."],
   parent: ["element | null", "The element this one sits inside."],
+  file: ["file", "The file the element is in. A file's own is itself."],
   getElement: [
     "(target, name?) => element",
     "The one element directly inside this one that a target takes. It throws when there is none, or more than one.",

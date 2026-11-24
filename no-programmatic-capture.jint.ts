@@ -29,9 +29,9 @@ export const no_programmatic_capture: CustomRule = {
     false:
       "The rule, or a helper it uses, extracts a piece of text from a larger one in code: a regular expression match, a slice or substring by offsets, a split into lines or fields, or a parser.",
   },
-  state: (rule, { file }) => ({
+  state: (rule) => ({
     rule: rule.source,
-    helpers: usedBy(rule, declarationsOf(file.getElements()))
+    helpers: usedBy(rule, declarationsOf(rule.file.getElements()))
       .map((e) => e.source)
       .join("\n\n"),
   }),

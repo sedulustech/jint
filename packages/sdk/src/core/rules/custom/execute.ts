@@ -33,10 +33,10 @@ import {
   targetNamesOf,
   validateDecision,
   validateStateSpec,
-  type ClassifyContext,
   type CustomElement,
   type CustomFile,
   type CustomRule,
+  type ElementSelection,
 } from "./schema.ts";
 import { selectionOf } from "./selection.ts";
 import type { GrammarRegistry } from "../../grammars/grammars.ts";
@@ -61,14 +61,77 @@ function parentOf(
 const placeName = ({ capture, name }: InventoryElement): string =>
   name === undefined ? `the ${capture}` : `the ${capture} "${name}"`;
 
+interface WalkedFile {
+  readonly file: CustomFile;
+  readonly judged: readonly CustomElement[];
+}
+
+function walkedFile(
+  path: string,
+  source: string,
+  inventory: readonly InventoryElement[],
+  registry?: GrammarRegistry,
+): WalkedFile {
+  const elements: CustomElement[] = [];
+  const judged: CustomElement[] = [];
+  const file = emptyFile(path, source, inventory, selectionOf(elements, "the file", registry));
+  elements.push(...elementsInFileOrder(inventory, file, registry));
+  judged.push(...judgeable(inventory, elements));
+  file.definitions.push(...judged.filter(isDefinition));
+  file.comments.push(...judged.filter((e) => e.capture === "comment"));
+  file.imports.push(...judged.filter((e) => e.capture === "import"));
+  return { file, judged };
+}
+
+const isDefinition = ({ capture }: CustomElement): boolean =>
+  capture !== "comment" && capture !== "import";
+
+/** A file before its elements: each element holds its file, so the file comes first. */
+function emptyFile(
+  path: string,
+  source: string,
+  inventory: readonly InventoryElement[],
+  selection: ElementSelection,
+) {
+  const { span, label } = fileElement(classifiedState({ path, content: source }).id, source);
+  const own = {
+    path,
+    source,
+    capture: "file",
+    grammar: inventory.find((e) => e.parent === undefined)?.grammar ?? "",
+    id: label,
+    label,
+    span,
+    parent: null,
+    internalCommentCount: inventory.filter((e) => e.capture === "comment").length,
+    docstringCount: inventory.filter((e) => e.docstringOf?.kind === "module").length,
+    definitions: new Array<CustomElement>(),
+    comments: new Array<CustomElement>(),
+    imports: new Array<CustomElement>(),
+    ...selection,
+  };
+  const file: typeof own & CustomFile = inFile(own, () => file);
+  return file;
+}
+
+/** Not enumerable: a file holds its elements, so an element in a state could not be JSON. */
+function inFile<T extends object>(
+  element: T,
+  fileOf: () => CustomFile,
+): T & { readonly file: CustomFile } {
+  Object.defineProperty(element, "file", { get: fileOf });
+  return element as T & { readonly file: CustomFile };
+}
+
 function elementsInFileOrder(
   inventory: readonly InventoryElement[],
-  path: string,
+  file: CustomFile,
   registry?: GrammarRegistry,
 ): CustomElement[] {
   const byLabel = new Map(inventory.map((e) => [e.label, e]));
   const cache = new Map<string, CustomElement>();
   const insideOf = new Map<string, CustomElement[]>();
+  const fileOf = (): CustomFile => file;
   const convert = (e: InventoryElement): CustomElement => {
     const cached = cache.get(e.label);
     if (cached) return cached;
@@ -76,13 +139,16 @@ function elementsInFileOrder(
     const { content, nodeType: _nodeType, oversized: _oversized, ...walked } = e;
     const inside: CustomElement[] = [];
     insideOf.set(e.label, inside);
-    const element: CustomElement = {
-      ...walked,
-      path,
-      source: content,
-      parent: enclosing === undefined ? null : convert(enclosing),
-      ...selectionOf(inside, placeName(e), registry),
-    };
+    const element: CustomElement = inFile(
+      {
+        ...walked,
+        path: file.path,
+        source: content,
+        parent: enclosing === undefined ? null : convert(enclosing),
+        ...selectionOf(inside, placeName(e), registry),
+      },
+      fileOf,
+    );
     cache.set(e.label, element);
     return element;
   };
@@ -99,8 +165,9 @@ function elementsInFileOrder(
 export function tsElementsOf(
   inventory: readonly InventoryElement[],
   path: string,
-): CustomElement[] {
-  return judgeable(inventory, elementsInFileOrder(inventory, path));
+  source: string,
+): readonly CustomElement[] {
+  return walkedFile(path, source, inventory).judged;
 }
 
 function judgeable(
@@ -114,10 +181,8 @@ function judgeable(
 export type ResolvedCustomTarget =
   | { targets: readonly CustomElement[]; scopedOut: number }
   | { error: ClassifyError };
-/** Every rule's resolution, plus the file of each path a target sits in (the classify ctx.file). */
-export type ResolvedCustomTargets = Map<CustomRule, ResolvedCustomTarget> & {
-  readonly files: ReadonlyMap<string, CustomFile>;
-};
+
+export type ResolvedCustomTargets = ReadonlyMap<CustomRule, ResolvedCustomTarget>;
 
 /**
  * Resolves every rule ONCE per run over the completed walk: capture strings filter the full
@@ -130,74 +195,30 @@ export function resolveAllCustomTargets(
   registry?: GrammarRegistry,
   judgesFiles = true,
 ): ResolvedCustomTargets {
-  const walked = new Map<string, WalkedFile>();
-  for (const [path, inventory] of inventoryByPath) {
-    const all = elementsInFileOrder(inventory, path, registry);
-    walked.set(path, { all, judged: judgeable(inventory, all) });
-  }
-  const allElements = [...walked.values()].flatMap((file) => file.judged);
-  const files = new Map<string, CustomFile>();
-  const fileAt = (path: string): CustomFile => {
-    const { judged, all } = walked.get(path)!;
-    const file =
-      files.get(path) ?? customFileOf(path, sourceByPath.get(path) ?? "", judged, all, registry);
-    files.set(path, file);
-    return file;
-  };
-  const judgedFiles = judgesFiles ? [...walked.keys()] : [];
-  const rules = new Map<CustomRule, ResolvedCustomTarget>();
-  for (const rule of customRules) {
-    const resolved = withFiles(rule, resolveTargets(rule, allElements), judgedFiles, fileAt);
-    rules.set(rule, resolved);
-    // only a file a target sits in gets one: the run drops the text of every other file
-    if ("targets" in resolved) for (const { path } of resolved.targets) fileAt(path);
-  }
-  return Object.assign(rules, { files });
-}
-
-interface WalkedFile {
-  readonly all: readonly CustomElement[];
-  readonly judged: readonly CustomElement[];
+  const walked = [...inventoryByPath].map(([path, inventory]) =>
+    walkedFile(path, sourceByPath.get(path) ?? "", inventory, registry),
+  );
+  const allElements = walked.flatMap(({ judged }) => judged);
+  const judgedFiles = judgesFiles ? walked.map(({ file }) => file) : [];
+  return new Map(
+    customRules.map((rule) => [
+      rule,
+      withFiles(rule, resolveTargets(rule, allElements), judgedFiles),
+    ]),
+  );
 }
 
 /** The targets of a rule that judges files, with each file in its scope before its elements. */
 function withFiles(
   rule: CustomRule,
   resolved: ResolvedCustomTarget,
-  paths: readonly string[],
-  fileAt: (path: string) => CustomFile,
+  files: readonly CustomFile[],
 ): ResolvedCustomTarget {
   if ("error" in resolved || !targetNamesOf(rule).includes("files")) return resolved;
-  const inScope = paths.filter((path) => ruleInScope(rule, path));
+  const inScope = files.filter(({ path }) => ruleInScope(rule, path));
   return {
-    targets: [...inScope.map(fileAt), ...resolved.targets],
-    scopedOut: resolved.scopedOut + paths.length - inScope.length,
-  };
-}
-
-function customFileOf(
-  path: string,
-  source: string,
-  elements: readonly CustomElement[],
-  all: readonly CustomElement[] = elements,
-  registry?: GrammarRegistry,
-): CustomFile {
-  const { span, label } = fileElement(classifiedState({ path, content: source }).id, source);
-  return {
-    path,
-    source,
-    capture: "file",
-    grammar: all[0]?.grammar ?? "",
-    id: label,
-    label,
-    span,
-    parent: null,
-    internalCommentCount: all.filter((e) => e.capture === "comment").length,
-    docstringCount: all.filter((e) => e.docstringOf?.kind === "module").length,
-    definitions: elements.filter((e) => e.capture !== "comment" && e.capture !== "import"),
-    comments: elements.filter((e) => e.capture === "comment"),
-    imports: elements.filter((e) => e.capture === "import"),
-    ...selectionOf(all, "the file", registry),
+    targets: [...inScope, ...resolved.targets],
+    scopedOut: resolved.scopedOut + files.length - inScope.length,
   };
 }
 
@@ -295,23 +316,19 @@ function classificationEvent(
   };
 }
 
-function questionOf(rule: CustomRule, element: CustomElement, ctx: ClassifyContext): unknown {
-  if (rule.classify !== undefined) return rule.classify(element, ctx);
+function questionOf(rule: CustomRule, element: CustomElement): unknown {
+  if (rule.classify !== undefined) return rule.classify(element);
   const { instructions, criteria } = rule;
-  const state = rule.state(element, ctx);
+  const state = rule.state(element);
   if (isPromise(state)) throw new Error("state returned a Promise — handlers are sync-only in v1");
   return { instructions, criteria, state };
 }
 
 /** The rule's state for one element, or the error that says why it has none. */
-function stateFor(
-  rule: CustomRule,
-  element: CustomElement,
-  ctx: ClassifyContext,
-): ReturnType<typeof validateStateSpec> {
+function stateFor(rule: CustomRule, element: CustomElement): ReturnType<typeof validateStateSpec> {
   const input = inputOf(element);
   try {
-    const spec = questionOf(rule, element, ctx);
+    const spec = questionOf(rule, element);
     if (isPromise(spec)) {
       throw new Error("classify returned a Promise — handlers are sync-only in v1");
     }
@@ -334,14 +351,13 @@ function oversizedPart(state: object, limits: StateLimits): string | undefined {
 async function measure(
   rule: CustomRule,
   element: CustomElement,
-  ctx: ClassifyContext,
   classifier: Classifier,
   limits: StateLimits,
 ): Promise<Measured> {
   const input = inputOf(element);
   let stateSpec: ReturnType<typeof validateStateSpec>;
   try {
-    stateSpec = stateFor(rule, element, ctx);
+    stateSpec = stateFor(rule, element);
   } catch (thrown) {
     return { events: [{ type: "error", error: thrown as ClassifyError }] };
   }
@@ -480,27 +496,18 @@ function emptyPartNotes(rule: CustomRule, states: readonly ComposedState[]): Lin
 async function runRule(
   rule: CustomRule,
   targets: readonly CustomElement[],
-  files: ReadonlyMap<string, CustomFile>,
   classifier: Classifier,
   isAborted: () => boolean,
   limits: StateLimits,
 ): Promise<{ events: LintEvent[]; fatal: boolean }> {
   const ctx = { targets };
-  const fileOf = (element: CustomElement): CustomFile =>
-    files.get(element.path) ?? customFileOf(element.path, "", [element]);
   const events: LintEvent[] = [];
   const measured: { element: CustomElement; value: number }[] = [];
   const states: ComposedState[] = [];
   let fatal = false;
   for (const element of targets) {
     if (isAborted() || fatal) break;
-    const result = await measure(
-      rule,
-      element,
-      { targets, file: fileOf(element) },
-      classifier,
-      limits,
-    );
+    const result = await measure(rule, element, classifier, limits);
     events.push(...result.events);
     fatal = result.fatal === true;
     if (result.state !== undefined) states.push({ element, state: result.state });
@@ -537,14 +544,7 @@ export async function runCustomRules(
     }
     events.push(...resolutionEvents(rule, resolvedRule));
     if ("error" in resolvedRule) continue;
-    const ran = await runRule(
-      rule,
-      resolvedRule.targets,
-      resolved.files,
-      classifier,
-      isAborted,
-      limits,
-    );
+    const ran = await runRule(rule, resolvedRule.targets, classifier, isAborted, limits);
     events.push(...ran.events);
     fatal = ran.fatal;
   }

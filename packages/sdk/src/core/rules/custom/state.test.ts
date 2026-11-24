@@ -87,7 +87,7 @@ describe("a rule's state function", () => {
     const { states } = await statesOf(
       {
         target: "functions",
-        state: (_, { file }) => ({
+        state: ({ file }) => ({
           order: file.getElements().map((e) => e.capture + " " + e.name),
         }),
       },
@@ -119,8 +119,8 @@ describe("a rule's state function", () => {
     const { states } = await statesOf(
       {
         target: "markdown:h1",
-        state: (h1, { file }) => ({
-          title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
+        state: (h1) => ({
+          title: h1.file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
           sections: h1.getElements("markdown:h2").map((h2) => h2.name),
         }),
       },
@@ -133,8 +133,8 @@ describe("a rule's state function", () => {
     const { states } = await statesOf(
       {
         target: "files",
-        state: (file, ctx) => ({
-          same: file === ctx.file,
+        state: (file) => ({
+          same: file === file.file,
           title: file.getElement("markdown:frontmatter").getElement("yaml:pair", "title").value,
           sections: file.getElements("markdown:h2").length,
         }),
@@ -268,6 +268,6 @@ describe("a rule's question, at load", () => {
   });
 
   test("neither is refused", () => {
-    expect(load(QUESTION)).toThrow("missing state(self, ctx) or classify(self, ctx)");
+    expect(load(QUESTION)).toThrow("missing state(target) or classify(target)");
   });
 });

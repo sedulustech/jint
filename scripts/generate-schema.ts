@@ -500,12 +500,13 @@ export function configSections(): RefSection[] {
     },
     {
       title: "Context fields",
-      intro: "The `ctx` of `state` and `classify`.",
+      intro: "The `ctx` of `handle`.",
       entries: customFieldEntries("context", CONTEXT_FIELDS),
     },
     {
       title: "File fields",
-      intro: "The `ctx.file` of `state` and `classify`.",
+      intro:
+        "The `file` of an element, and what a `files` target judges. It has the fields of an element, and these.",
       entries: customFieldEntries("file", FILE_FIELDS),
     },
   ];

@@ -137,6 +137,7 @@ interface Preview {
 /** One file's walked elements and their projections, held for a rule that must see every file. */
 interface HeldFile {
   readonly path: string;
+  readonly source: string;
   readonly elements: readonly InventoryElement[];
   readonly projected: readonly CapturedElement[];
 }
@@ -186,7 +187,7 @@ function* markedByCustomRule(
 ): Generator<readonly CapturedElement[]> {
   const resolved = resolveTargets(
     rule,
-    held.flatMap((file) => tsElementsOf(file.elements, file.path)),
+    held.flatMap((file) => tsElementsOf(file.elements, file.path, file.source)),
   );
   // a target function that threw: the preview cannot know the population, and the failure is
   // the rule's own - it surfaces loud, exactly as the run would stream it
@@ -273,7 +274,8 @@ async function* extractEach(
           inPopulation(jsonRule.rule as Rule, path, element, jsonRule.configAdmits),
       ),
     );
-    if (custom !== undefined) held.push({ path, elements: file.inventory, projected });
+    if (custom !== undefined)
+      held.push({ path, source: unit.state.content, elements: file.inventory, projected });
     else if (projected.length > 0) yield projected;
   }
   if (custom !== undefined) yield* markedByCustomRule(custom, held);

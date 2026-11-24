@@ -38,6 +38,8 @@ export interface CustomElement
   readonly source: string;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
+  /** The file the element sits in; a file's own is itself. */
+  readonly file: CustomFile;
 }
 
 /** The rule's environment, assembled by the engine after target resolution. */
@@ -57,11 +59,6 @@ export interface CustomFile extends CustomElement {
   readonly definitions: readonly CustomElement[];
   readonly comments: readonly CustomElement[];
   readonly imports: readonly CustomElement[];
-}
-
-/** Classify's environment: the rule's context plus the file of the element being judged. */
-export interface ClassifyContext extends RuleContext {
-  readonly file: CustomFile;
 }
 
 /**
@@ -89,10 +86,7 @@ export interface CustomDecision {
 }
 
 /** The part of a state a rule composes for one element; a part with no value is left out. */
-export type ComposeState = (
-  self: CustomElement,
-  ctx: ClassifyContext,
-) => Readonly<Record<string, unknown>>;
+export type ComposeState = (target: CustomElement) => Readonly<Record<string, unknown>>;
 
 /** A question that is the same for every element, and the state that differs. */
 export interface ComposedQuestion {
@@ -105,7 +99,7 @@ export interface ComposedQuestion {
 /** A question composed per element, its state included. */
 export interface ClassifiedQuestion {
   /** Per resolved target: the state spec for that element. Returns data, never calls the classifier. */
-  readonly classify: (self: CustomElement, ctx: ClassifyContext) => StateSchema;
+  readonly classify: (target: CustomElement) => StateSchema;
   readonly state?: undefined;
   readonly instructions?: undefined;
   readonly criteria?: undefined;
@@ -296,7 +290,7 @@ function checkQuestion(rule: Record<string, unknown>): string | null {
       ? null
       : `${extra} and classify - classify returns all of the question`;
   }
-  if (typeof rule.state !== "function") return "missing state(self, ctx) or classify(self, ctx)";
+  if (typeof rule.state !== "function") return "missing state(target) or classify(target)";
   return Value.Check(QUESTION_SCHEMA, rule)
     ? null
     : "state needs instructions and criteria { true, false } beside it";
