@@ -657,7 +657,7 @@ function elementJobsFor(
     if (scoped.length === 0) continue;
     const job: ElementJob = {
       id: element.id,
-      element: projectElement(element),
+      element: projectElement(element, element.parent),
       source: elementContent(element),
       rules: scoped,
     };

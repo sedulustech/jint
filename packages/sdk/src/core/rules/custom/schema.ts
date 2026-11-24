@@ -11,48 +11,20 @@ import { Value } from "@sinclair/typebox/value";
 import { checkRuleScope } from "../../scope.ts";
 import { SetupError, type RuleResult, type RuleTarget } from "../../types.ts";
 import { checkNoulHandler } from "../handle.ts";
+import type { InventoryElement } from "../../grammars/walk.ts";
 
-/** The element a rule sees: the walk inventory materialized for TS rules, parent chain included. */
-export interface CustomElement {
-  /**
-   * The element's identity: the uuidv4 the walk minted, the same in the classification and the
-   * finding.
-   */
-  readonly id: string;
-  /** Positional name within its file ("d0", "c2", "i0"): display only, never an identity. */
-  readonly label: string;
-  /** The owning file: identity and question naming derive from it. */
+/**
+ * The element a rule sees: what the walk found, in its file, linked to the elements around it.
+ * Every field of the walk's element reaches a rule unless it is left out here.
+ */
+export interface CustomElement extends Omit<
+  InventoryElement,
+  "content" | "nodeType" | "oversized" | "parent"
+> {
+  /** The file the element is in. */
   readonly path: string;
-  // Derived from contract's Element["kind"] minus "file" — one vocabulary, no hand-copied mirror.
-  readonly capture: import("../../types.ts").ElementCapture;
-  /** The grammar that extracted this element (the qualified capture address resolves against it). */
-  readonly grammar: string;
-  /** What the element is called: a definition's name, a heading's text. Absent when it has none. */
-  readonly name?: string;
   /** The element's text, less what its grammar omits from the capture. */
   readonly source: string;
-  readonly span: {
-    readonly start: { readonly line: number; readonly column: number };
-    readonly end: { readonly line: number; readonly column: number };
-    readonly startByte: number;
-    readonly endByte: number;
-  };
-  /**
-   * A definition's source text up to its body, else its first line: what names it and what it
-   * takes.
-   */
-  readonly signature?: string;
-  /** The comment node(s) consumed into this element's leading run (target grammar: "comments"). */
-  readonly attachedComment?: readonly string[];
-  /** Non-empty comments inside this element's body (target grammar: "comments"). */
-  readonly internalCommentCount?: number;
-  /** Docstrings this definition owns (the pair split): documentation the frame carries. */
-  readonly docstringCount?: number;
-  /**
-   * For a comment element a definition owns (a docstring): who it documents. Its presence is what
-   * makes the comment DOCUMENTATION (target grammar: "comments") rather than loose.
-   */
-  readonly docstringOf?: import("../../types.ts").DocstringOwner;
   /** The enclosing element, when this element sits inside one; null at the top level. */
   readonly parent: CustomElement | null;
   /** The elements directly inside this one, in file order. */

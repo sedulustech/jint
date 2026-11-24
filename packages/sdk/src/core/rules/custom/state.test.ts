@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decompose, type InventoryElement } from "../../grammars/walk.ts";
+import { decompose, projectElement, type InventoryElement } from "../../grammars/walk.ts";
 import { resolveAllCustomTargets, runCustomRules } from "./execute.ts";
 import { validateCustomRule, type CustomElement, type CustomRule } from "./schema.ts";
 import type { AnyState, Classifier } from "../../types.ts";
@@ -131,6 +131,51 @@ describe("a rule's state function", () => {
     expect(states).toHaveLength(1);
     expect(errors).toHaveLength(1);
   });
+});
+
+describe("an element reaches a rule and its report whole", () => {
+  const DOCUMENTS: readonly (readonly [language: string, source: string])[] = [
+    ["markdown", CLI],
+    [
+      "typescript",
+      'import a from "a";\n// leads f\nexport function f() {\n  // inside\n}\nclass A {\n  m() {}\n}\nconst b = 1;\ntype T = 1;\n',
+    ],
+    ["python", 'class A:\n    """doc"""\n\n    def m(self):\n        """what m does"""\n'],
+    ["c", "/// leads f\nint f(void) { return 1; }\n"],
+  ];
+
+  for (const [language, source] of DOCUMENTS) {
+    test(language, async () => {
+      const inventory = await inventoryOf(source, language);
+      const seen: CustomElement[] = [];
+      const rule: CustomRule = {
+        name: "is_rule",
+        target: (all) => all,
+        ...QUESTION,
+        state: (self) => {
+          seen.push(self);
+          return {};
+        },
+        handle: { warn: { greater_than: 0.5 } },
+      };
+      const resolved = resolveAllCustomTargets([rule], new Map([["f", inventory]]));
+      const { events } = await runCustomRules(
+        [rule],
+        resolved,
+        async () => ({ is_rule: { value: 0.1 } }),
+        () => false,
+      );
+      const reported = events.flatMap((e) =>
+        e.type === "classification" ? [e.classification.element] : [],
+      );
+      expect(reported).toEqual(inventory.map((e) => projectElement(e, e.parent)));
+      for (const [i, walked] of inventory.entries()) {
+        const { content, nodeType: _nodeType, parent, ...rest } = walked;
+        expect(seen[i]).toMatchObject(rest);
+        expect([seen[i]!.source, seen[i]!.parent?.label]).toEqual([content, parent]);
+      }
+    });
+  }
 });
 
 describe("a rule's question, at load", () => {

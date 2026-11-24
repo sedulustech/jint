@@ -9,7 +9,7 @@
  * bytes).
  */
 
-import { charsToTokens, MAX_ELEMENT_TOKENS } from "../../grammars/walk.ts";
+import { charsToTokens, MAX_ELEMENT_TOKENS, projectElement } from "../../grammars/walk.ts";
 import { inCall } from "../../provider/debug.ts";
 import { DEFAULT_CHARS_PER_TOKEN } from "../../provider/pacer.ts";
 import { ruleInScope } from "../../scope.ts";
@@ -17,7 +17,6 @@ import {
   ClassifyError,
   type AnyState,
   type Classifier,
-  type Element,
   type Finding,
   type LintEvent,
   type RuleResult,
@@ -57,25 +56,11 @@ function fileElementsOf(inventory: readonly InventoryElement[], path: string): C
           ", which does not exist",
       );
     }
+    const { content, nodeType: _nodeType, oversized: _oversized, ...walked } = e;
     const element: CustomElement = {
-      id: e.id,
-      label: e.label,
+      ...walked,
       path,
-      capture: e.capture,
-      grammar: e.grammar,
-      name: e.name,
-      source: e.content,
-      span: {
-        start: e.span.start,
-        end: e.span.end,
-        startByte: e.span.startByte,
-        endByte: e.span.endByte,
-      },
-      signature: e.signature,
-      attachedComment: e.attachedComment,
-      internalCommentCount: e.internalCommentCount,
-      docstringCount: e.docstringCount,
-      docstringOf: e.docstringOf,
+      source: content,
       parent: parent ? convert(parent) : null,
       children: [],
     };
@@ -252,15 +237,6 @@ interface Measured {
   readonly state?: object;
 }
 
-function elementOf(element: CustomElement): Element {
-  return {
-    kind: element.capture as Element["kind"],
-    span: element.span,
-    label: element.label,
-    parent: element.parent !== null ? element.parent.label : undefined,
-  };
-}
-
 function classificationEvent(
   rule: CustomRule,
   element: CustomElement,
@@ -272,7 +248,7 @@ function classificationEvent(
       rule: rule.name,
       input: inputOf(element),
       ...reading,
-      element: elementOf(element),
+      element: projectElement(element, element.parent?.label),
     },
   };
 }

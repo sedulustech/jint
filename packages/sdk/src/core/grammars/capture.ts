@@ -148,7 +148,12 @@ function capturedOf(
   matches: boolean,
 ): CapturedElement {
   const text = element.content.length > 200 ? element.content.slice(0, 200) + "…" : element.content;
-  const captured = { ...projectElement(element), input: path, grammar: language, text };
+  const captured = {
+    ...projectElement(element, element.parent),
+    input: path,
+    grammar: language,
+    text,
+  };
   return matches ? { ...captured, matches: true } : captured;
 }
 

@@ -924,12 +924,12 @@ interface ProjectionBase {
   readonly parent?: string;
 }
 
-export function projectElement(element: InventoryElement): Element {
-  const base: ProjectionBase = {
-    span: element.span,
-    label: element.label,
-    parent: element.parent,
-  };
+/** The report's element. The parent is its label, whatever form the caller's element holds it in. */
+export function projectElement(
+  element: Omit<InventoryElement, "parent" | "content" | "nodeType">,
+  parent: string | undefined,
+): Element {
+  const base: ProjectionBase = { span: element.span, label: element.label, parent };
   const project = SHARED_PROJECTION[element.capture];
   if (project !== undefined) return project(element, base);
   if (element.name === undefined) return { kind: element.capture, ...base };
